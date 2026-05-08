@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X } from "lucide-react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -70,8 +70,20 @@ function VideoPlayerModal({ file, onClose }: { file: VideoFile; onClose: () => v
 
 function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void }) {
   const [imgError, setImgError] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const isCorrupt = file.status === "corrupt";
+
+  const handleCheck = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setChecking(true);
+    try { await api.checkFile(file.id); } finally { setChecking(false); }
+  };
+
   return (
-    <Card className="overflow-hidden cursor-pointer hover:ring-1 hover:ring-primary transition-shadow" onClick={onClick}>
+    <Card
+      className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isCorrupt ? "ring-1 ring-destructive/60 hover:ring-destructive" : "hover:ring-primary"}`}
+      onClick={onClick}
+    >
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
           <img
@@ -92,9 +104,18 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
             {file.status}
           </Badge>
         </div>
+        {/* Check button — visible on hover */}
+        <button
+          onClick={handleCheck}
+          disabled={checking}
+          title="Check for corruption"
+          className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 rounded p-1"
+        >
+          <ShieldCheck className={`h-3.5 w-3.5 text-white ${checking ? "animate-pulse" : ""}`} />
+        </button>
       </div>
       <CardContent className="p-2.5 space-y-0.5">
-        <p className="text-xs font-medium truncate" title={file.filename}>
+        <p className={`text-xs font-medium truncate ${isCorrupt ? "text-destructive" : ""}`} title={file.filename}>
           {file.filename}
         </p>
         <p className="text-xs text-muted-foreground">

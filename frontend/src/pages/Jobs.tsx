@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Activity, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Square } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,25 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   cancelled: <XCircle className="h-4 w-4 text-muted-foreground" />,
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  scan: "Scan",
+  check: "Corruption check",
+  transcode: "Transcode",
+};
+
+function ProgressBar({ value }: { value: number }) {
+  return (
+    <div className="w-24 shrink-0">
+      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary rounded-full transition-all duration-300"
+          style={{ width: `${value}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }) {
   const canCancel = (job.status === "running" || job.status === "pending") && onCancel;
 
@@ -21,8 +40,8 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
     <div className="flex items-center gap-4 py-3 border-b last:border-0">
       <div className="shrink-0">{STATUS_ICON[job.status] ?? <Clock className="h-4 w-4" />}</div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium capitalize">{job.type}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">{TYPE_LABEL[job.type] ?? job.type}</span>
           <Badge variant="secondary" className="text-xs capitalize">{job.status}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -35,16 +54,7 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
         )}
       </div>
 
-      {job.status === "running" && (
-        <div className="w-24 shrink-0">
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all"
-              style={{ width: `${job.progress}%` }}
-            />
-          </div>
-        </div>
-      )}
+      {job.status === "running" && <ProgressBar value={job.progress} />}
 
       {canCancel && (
         <Button
@@ -68,37 +78,65 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
 export function Jobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
   const [clearing, setClearing] = useState(false);
+  const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
+  const esRef = useRef<EventSource | null>(null);
 
-  const load = () => {
+  const loadAll = () =>
     api.getJobs().then(setJobs).finally(() => setLoading(false));
+
+  // Merge live updates into the full job list without losing history entries
+  const applyLiveUpdate = (liveJobs: Job[]) => {
+    setJobs((prev) => {
+      const liveMap = new Map(liveJobs.map((j) => [j.id, j]));
+      const merged = prev.map((j) => liveMap.has(j.id) ? { ...j, ...liveMap.get(j.id) } : j);
+      // Add any brand-new jobs not yet in the list
+      for (const lj of liveJobs) {
+        if (!merged.find((j) => j.id === lj.id)) merged.unshift(lj);
+      }
+      return merged;
+    });
   };
 
   useEffect(() => {
-    load();
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
-  }, []);
+    loadAll();
 
-  const handleClearHistory = async () => {
-    setClearing(true);
-    try {
-      await api.clearJobHistory();
-      await load();
-    } finally {
-      setClearing(false);
-    }
-  };
+    const es = new EventSource(api.jobsStreamUrl());
+    esRef.current = es;
+
+    es.onmessage = (e) => {
+      const live: Job[] = JSON.parse(e.data);
+      applyLiveUpdate(live);
+      // When all active jobs settle, do a full refresh to get final DB state
+      if (live.length === 0) loadAll();
+    };
+
+    es.onerror = () => {
+      // SSE disconnected — fall back to a one-time refresh
+      loadAll();
+    };
+
+    return () => { es.close(); esRef.current = null; };
+  }, []);
 
   const handleCancel = async (id: number) => {
     setCancellingIds((s) => new Set(s).add(id));
     try {
       await api.cancelJob(id);
     } catch {
-      // ignore — job may have finished between click and request
+      // ignore
     } finally {
       setCancellingIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleClearHistory = async () => {
+    setClearing(true);
+    try {
+      await api.clearJobHistory();
+      await loadAll();
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -111,7 +149,7 @@ export function Jobs() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Monitor scan and transcode jobs.
+            Monitor scan and corruption-check jobs.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -123,12 +161,12 @@ export function Jobs() {
               disabled={clearing}
               className="text-muted-foreground hover:text-destructive text-xs"
             >
-              {clearing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
+              {clearing && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
               Clear history
             </Button>
           )}
           <button
-            onClick={load}
+            onClick={loadAll}
             className="text-muted-foreground hover:text-foreground transition-colors"
             title="Refresh"
           >
@@ -147,7 +185,7 @@ export function Jobs() {
             <Activity className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No jobs yet</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Scan and transcode jobs will appear here. Trigger a scan from the Libraries page.
+              Trigger a scan or corruption check from the Libraries page.
             </p>
           </CardContent>
         </Card>

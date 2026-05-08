@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.database import init_db
+from app.queue import start_worker
 from app.api.health import router as health_router
 from app.api.libraries import router as libraries_router
 from app.api.files import router as files_router
@@ -36,6 +37,7 @@ def _reap_orphaned_jobs():
 async def lifespan(app: FastAPI):
     init_db()
     _reap_orphaned_jobs()
+    await start_worker()
     yield
 
 

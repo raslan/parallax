@@ -8,13 +8,7 @@ from app.database import SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobLog, JobType
 from app.models.library import Library
-
-# job_id → True means "please stop"
-_cancel_flags: dict[int, bool] = {}
-
-
-def cancel_scan(job_id: int) -> None:
-    _cancel_flags[job_id] = True
+from app.services.common import arm_cancel, should_cancel, clear_cancel
 
 
 VIDEO_EXTENSIONS = {
@@ -134,15 +128,15 @@ def scan_library(library_id: int):
         _log(db, job.id, f"Found {len(video_paths)} video files")
 
         existing = {f.path: f for f in db.query(File).filter(File.library_id == library_id).all()}
-        _cancel_flags[job.id] = False
+        arm_cancel(job.id)
 
         for i, path in enumerate(video_paths):
-            if _cancel_flags.get(job.id):
+            if should_cancel(job.id):
                 job.status = JobStatus.CANCELLED
                 job.finished_at = _now()
                 db.commit()
                 _log(db, job.id, "Scan cancelled")
-                _cancel_flags.pop(job.id, None)
+                clear_cancel(job.id)
                 return
 
             file_obj = existing.get(path)
@@ -180,7 +174,7 @@ def scan_library(library_id: int):
             job.progress = (i + 1) / len(video_paths) * 100
             db.commit()
 
-        _cancel_flags.pop(job.id, None)
+        clear_cancel(job.id)
 
         # Remove DB records for files no longer on disk
         for path, file_obj in existing.items():

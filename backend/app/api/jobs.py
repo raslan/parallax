@@ -1,11 +1,61 @@
+import asyncio
+import json
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models.job import Job, JobStatus
 from app.schemas import JobRead
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+@router.get("/stream")
+async def stream_jobs():
+    """SSE stream that pushes active job state every 500ms until all jobs settle."""
+    async def generate():
+        db = SessionLocal()
+        try:
+            last_payload = None
+            idle_ticks = 0
+            while True:
+                db.expire_all()
+                active = db.query(Job).filter(Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING])).all()
+
+                payload = json.dumps([
+                    {
+                        "id": j.id,
+                        "type": j.type,
+                        "status": j.status,
+                        "progress": j.progress,
+                        "processed_files": j.processed_files,
+                        "total_files": j.total_files,
+                        "error": j.error,
+                        "library_id": j.library_id,
+                        "started_at": j.started_at.isoformat() if j.started_at else None,
+                    }
+                    for j in active
+                ])
+
+                if payload != last_payload:
+                    yield f"data: {payload}\n\n"
+                    last_payload = payload
+                    idle_ticks = 0
+                else:
+                    idle_ticks += 1
+
+                # Slow down polling when idle; keep fast when jobs are running
+                delay = 0.5 if active else min(2.0 + idle_ticks * 0.5, 10.0)
+                await asyncio.sleep(delay)
+        finally:
+            db.close()
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("", response_model=list[JobRead])
@@ -31,14 +81,13 @@ def cancel_job(job_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Job not found")
     if job.status not in (JobStatus.RUNNING, JobStatus.PENDING):
         raise HTTPException(400, "Job is not running")
-    from app.services.scanner import cancel_scan
-    cancel_scan(job_id)
+    from app.services.common import request_cancel
+    request_cancel(job_id)
     return {"message": "Cancellation requested"}
 
 
 @router.delete("/history", status_code=204)
 def clear_history(db: Session = Depends(get_db)):
-    """Delete all jobs that are no longer active (completed, failed, cancelled)."""
     from app.models.job import JobLog
     ended = [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]
     job_ids = [j.id for j in db.query(Job.id).filter(Job.status.in_(ended))]

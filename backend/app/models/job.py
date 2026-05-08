@@ -6,6 +6,7 @@ from app.database import Base
 
 class JobType:
     SCAN = "scan"
+    CHECK = "check"
     TRANSCODE = "transcode"
 
 
