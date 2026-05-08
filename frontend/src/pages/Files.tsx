@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck } from "lucide-react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,9 +68,17 @@ function VideoPlayerModal({ file, onClose }: { file: VideoFile; onClose: () => v
 
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
 
+const PRESETS = [
+  { value: "high", label: "H", title: "High quality (CRF 18)" },
+  { value: "medium", label: "M", title: "Medium quality (CRF 23)" },
+  { value: "low", label: "L", title: "Low quality (CRF 28)" },
+];
+
 function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void }) {
   const [imgError, setImgError] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [transcoding, setTranscoding] = useState(false);
+  const [presetOpen, setPresetOpen] = useState(false);
   const isCorrupt = file.status === "corrupt";
 
   const handleCheck = async (e: React.MouseEvent) => {
@@ -85,10 +93,28 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
     }
   };
 
+  const handleTranscode = async (e: React.MouseEvent, preset: string) => {
+    e.stopPropagation();
+    setPresetOpen(false);
+    setTranscoding(true);
+    try {
+      await api.transcodeFile(file.id, preset);
+    } catch {
+      // 409 = already running, silently ignore
+    } finally {
+      setTranscoding(false);
+    }
+  };
+
+  const togglePreset = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPresetOpen((v) => !v);
+  };
+
   return (
     <Card
       className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isCorrupt ? "ring-1 ring-destructive/60 hover:ring-destructive" : "hover:ring-primary"}`}
-      onClick={onClick}
+      onClick={() => { if (!presetOpen) onClick(); }}
     >
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
@@ -110,15 +136,45 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
             {file.status}
           </Badge>
         </div>
-        {/* Check button — visible on hover */}
-        <button
-          onClick={handleCheck}
-          disabled={checking}
-          title="Check for corruption"
-          className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 rounded p-1"
-        >
-          <ShieldCheck className={`h-3.5 w-3.5 text-white ${checking ? "animate-pulse" : ""}`} />
-        </button>
+
+        {/* Action buttons — visible on hover */}
+        <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={handleCheck}
+            disabled={checking}
+            title="Check for corruption"
+            className="bg-black/60 hover:bg-black/80 rounded p-1"
+          >
+            <ShieldCheck className={`h-3.5 w-3.5 text-white ${checking ? "animate-pulse" : ""}`} />
+          </button>
+          <button
+            onClick={togglePreset}
+            disabled={transcoding}
+            title="Transcode"
+            className={`bg-black/60 hover:bg-black/80 rounded p-1 ${presetOpen ? "bg-black/80" : ""}`}
+          >
+            <Wand2 className={`h-3.5 w-3.5 text-white ${transcoding ? "animate-pulse" : ""}`} />
+          </button>
+        </div>
+
+        {/* Preset picker overlay */}
+        {presetOpen && (
+          <div
+            className="absolute inset-0 bg-black/70 flex items-center justify-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {PRESETS.map((p) => (
+              <button
+                key={p.value}
+                title={p.title}
+                onClick={(e) => handleTranscode(e, p.value)}
+                className="bg-white/10 hover:bg-white/25 border border-white/20 rounded px-2 py-1 text-white text-xs font-semibold transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <CardContent className="p-2.5 space-y-0.5">
         <p className={`text-xs font-medium truncate ${isCorrupt ? "text-destructive" : ""}`} title={file.filename}>

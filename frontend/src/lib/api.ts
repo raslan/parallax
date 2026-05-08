@@ -106,6 +106,10 @@ export const api = {
   // Jobs
   getJobs: (limit = 50) => req<Job[]>(`/jobs?limit=${limit}`),
   checkFile: (id: number) => req<{ message: string }>(`/files/${id}/check`, { method: "POST" }),
+  transcodeFile: (id: number, preset: string) =>
+    req<{ message: string }>(`/files/${id}/transcode`, { method: "POST", body: JSON.stringify({ preset }) }),
+  transcodeLibrary: (id: number, preset: string) =>
+    req<{ message: string }>(`/libraries/${id}/transcode`, { method: "POST", body: JSON.stringify({ preset }) }),
   cancelJob: (id: number) => req<{ message: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
   jobsStreamUrl: () => `/api/jobs/stream`,
   clearJobHistory: () => req<void>("/jobs/history", { method: "DELETE" }),

@@ -149,7 +149,7 @@ export function Jobs() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Monitor scan and corruption-check jobs.
+            Monitor scan, corruption-check, and transcode jobs.
           </p>
         </div>
         <div className="flex items-center gap-2">

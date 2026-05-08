@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -100,13 +100,33 @@ function AddLibraryDialog({
   );
 }
 
+const PRESETS = [
+  { value: "high", label: "High", title: "CRF 18 — larger file, better quality" },
+  { value: "medium", label: "Medium", title: "CRF 23 — balanced" },
+  { value: "low", label: "Low", title: "CRF 28 — smaller file, lower quality" },
+];
+
 export function Libraries() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
+  const [transcodingIds, setTranscodingIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [transcodePresetFor, setTranscodePresetFor] = useState<number | null>(null);
+  const presetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (transcodePresetFor === null) return;
+    const handler = (e: MouseEvent) => {
+      if (presetRef.current && !presetRef.current.contains(e.target as Node)) {
+        setTranscodePresetFor(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [transcodePresetFor]);
 
   const load = () => {
     setLoading(true);
@@ -136,6 +156,18 @@ export function Libraries() {
       if (!e.message?.includes("409")) throw e;
     } finally {
       setCheckingIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleTranscode = async (id: number, preset: string) => {
+    setTranscodePresetFor(null);
+    setTranscodingIds((s) => new Set(s).add(id));
+    try {
+      await api.transcodeLibrary(id, preset);
+    } catch (e: any) {
+      if (!e.message?.includes("409")) throw e;
+    } finally {
+      setTranscodingIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
   };
 
@@ -189,15 +221,22 @@ export function Libraries() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {libraries.map((lib) => {
             const notIndexed = lib.file_count === 0;
+            const noCorrupt = lib.corrupt_count === 0;
             const checkTitle = notIndexed
               ? "Scan the library first to index files before checking for corruption"
               : "Check all indexed files for corruption";
+            const transcodeTitle = notIndexed
+              ? "Scan and check the library first"
+              : noCorrupt
+              ? "No corrupt files to transcode"
+              : "Transcode all corrupt files";
+            const transcodeDisabled = transcodingIds.has(lib.id) || notIndexed || noCorrupt;
             return (
             <Card key={lib.id} className={lib.corrupt_count > 0 ? "border-destructive/40" : ""}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base leading-tight">{lib.name}</CardTitle>
-                  <div className="flex gap-1 shrink-0">
+                  <div className="flex gap-1 shrink-0 items-center relative">
                     <Button
                       size="icon"
                       variant="ghost"
@@ -218,6 +257,32 @@ export function Libraries() {
                     >
                       <ShieldCheck className={`h-3.5 w-3.5 ${checkingIds.has(lib.id) ? "text-primary" : notIndexed ? "opacity-30" : ""}`} />
                     </Button>
+                    <div className="relative" ref={transcodePresetFor === lib.id ? presetRef : undefined}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        disabled={transcodeDisabled}
+                        title={transcodeTitle}
+                        onClick={() => setTranscodePresetFor((v) => v === lib.id ? null : lib.id)}
+                      >
+                        <Wand2 className={`h-3.5 w-3.5 ${transcodingIds.has(lib.id) ? "text-primary animate-pulse" : transcodeDisabled ? "opacity-30" : ""}`} />
+                      </Button>
+                      {transcodePresetFor === lib.id && (
+                        <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-1 flex flex-col gap-0.5 min-w-[110px]">
+                          {PRESETS.map((p) => (
+                            <button
+                              key={p.value}
+                              title={p.title}
+                              onClick={() => handleTranscode(lib.id, p.value)}
+                              className="text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <Button
                       size="icon"
                       variant="ghost"

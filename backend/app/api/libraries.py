@@ -10,6 +10,7 @@ from app.models.job import Job, JobStatus, JobType
 from app.schemas import LibraryCreate, LibraryRead, LibraryUpdate, StatsRead, BrowseResponse, FileRead
 from app.services.scanner import scan_library, thumbnail_path
 from app.services.corruption import check_library_corruption
+from app.services.transcoder import transcode_library_corrupt
 from app.queue import enqueue
 
 router = APIRouter(prefix="/libraries", tags=["libraries"])
@@ -150,6 +151,25 @@ async def trigger_check(library_id: int, db: Session = Depends(get_db)):
         raise HTTPException(422, "Scan the library first to index its files before checking for corruption")
     await enqueue(check_library_corruption, library_id)
     return {"message": "Corruption check queued"}
+
+
+@router.post("/{library_id}/transcode", status_code=202)
+async def trigger_transcode(library_id: int, body: dict, db: Session = Depends(get_db)):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    if _active_job_exists(db, library_id, JobType.TRANSCODE):
+        raise HTTPException(409, "A transcode job is already running for this library")
+    corrupt_count = db.query(func.count(File.id)).filter(
+        File.library_id == library_id, File.status == FileStatus.CORRUPT
+    ).scalar()
+    if corrupt_count == 0:
+        raise HTTPException(422, "No corrupt files to transcode in this library")
+    preset = body.get("preset", "medium")
+    if preset not in ("high", "medium", "low"):
+        raise HTTPException(422, "preset must be high, medium, or low")
+    await enqueue(transcode_library_corrupt, library_id, preset)
+    return {"message": "Transcode queued"}
 
 
 @router.get("/{library_id}/browse", response_model=BrowseResponse)

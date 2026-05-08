@@ -84,6 +84,27 @@ async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
     return {"message": "Check queued"}
 
 
+@router.post("/{file_id}/transcode", status_code=202)
+async def transcode_file_endpoint(file_id: int, body: dict, db: Session = Depends(get_db)):
+    from app.models.job import Job, JobStatus, JobType
+    f = db.get(File, file_id)
+    if not f:
+        raise HTTPException(404, "File not found")
+    already = db.query(Job).filter(
+        Job.type == JobType.TRANSCODE,
+        Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
+    ).first()
+    if already:
+        raise HTTPException(409, "A transcode job is already running")
+    preset = body.get("preset", "medium")
+    if preset not in ("high", "medium", "low"):
+        raise HTTPException(422, "preset must be high, medium, or low")
+    from app.services.transcoder import transcode_file
+    from app.queue import enqueue
+    await enqueue(transcode_file, file_id, preset)
+    return {"message": "Transcode queued"}
+
+
 @router.get("/{file_id}/stream")
 def stream_file(file_id: int, db: Session = Depends(get_db)):
     f = db.get(File, file_id)
