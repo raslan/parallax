@@ -1,0 +1,31 @@
+from datetime import datetime
+from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, func
+from sqlalchemy.orm import Mapped, mapped_column
+from app.database import Base
+
+
+class FileStatus:
+    UNKNOWN = "unknown"
+    SCANNING = "scanning"
+    CLEAN = "clean"
+    CORRUPT = "corrupt"
+    QUEUED = "queued"
+    TRANSCODING = "transcoding"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class File(Base):
+    __tablename__ = "files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    library_id: Mapped[int] = mapped_column(ForeignKey("libraries.id"), nullable=False)
+    path: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
+    filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    duration: Mapped[float] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default=FileStatus.UNKNOWN)
+    scan_error: Mapped[str] = mapped_column(String(2048), nullable=True)
+    scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    transcoded_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
