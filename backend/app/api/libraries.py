@@ -111,9 +111,17 @@ def update_library(library_id: int, body: LibraryUpdate, db: Session = Depends(g
 
 @router.delete("/{library_id}", status_code=204)
 def delete_library(library_id: int, db: Session = Depends(get_db)):
+    from app.services.common import request_cancel
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
+    # Signal any running jobs for this library to stop before we pull the rug
+    active_jobs = db.query(Job).filter(
+        Job.library_id == library_id,
+        Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
+    ).all()
+    for job in active_jobs:
+        request_cancel(job.id)
     db.query(File).filter(File.library_id == library_id).delete()
     db.delete(lib)
     db.commit()

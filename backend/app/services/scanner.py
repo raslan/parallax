@@ -123,12 +123,30 @@ def scan_library(library_id: int):
         _log(db, job.id, f"Scanning library: {library.path}")
         video_paths = _find_video_files(library.path)
 
+        # File walk is done — check cancellation and library existence before
+        # entering the slow per-file loop (library may have been deleted during walk)
+        db.expire_all()
+        if db.get(Library, library_id) is None:
+            job.status = JobStatus.CANCELLED
+            job.error = "Library was deleted"
+            job.finished_at = _now()
+            db.commit()
+            return
+
+        arm_cancel(job.id)
+        if should_cancel(job.id):
+            job.status = JobStatus.CANCELLED
+            job.finished_at = _now()
+            db.commit()
+            _log(db, job.id, "Scan cancelled")
+            clear_cancel(job.id)
+            return
+
         job.total_files = len(video_paths)
         db.commit()
         _log(db, job.id, f"Found {len(video_paths)} video files")
 
         existing = {f.path: f for f in db.query(File).filter(File.library_id == library_id).all()}
-        arm_cancel(job.id)
 
         for i, path in enumerate(video_paths):
             if should_cancel(job.id):

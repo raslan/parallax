@@ -41,12 +41,32 @@ def check_corruption(path: str, timeout: int = 300) -> tuple[bool, str]:
         return True, str(e)
 
 
-def _run_check_job(job: Job, files: list[File], db) -> None:
+def _run_check_job(job: Job, files: list[File], db, library_id: int | None = None) -> None:
     """Inner loop shared by library and single-file check jobs."""
     job.total_files = len(files)
     db.commit()
 
     arm_cancel(job.id)
+
+    # Check cancellation before entering the slow ffmpeg loop
+    if should_cancel(job.id):
+        job.status = JobStatus.CANCELLED
+        job.finished_at = _now()
+        db.commit()
+        _log(db, job.id, "Check cancelled")
+        clear_cancel(job.id)
+        return
+
+    # If this is a library job, verify the library wasn't deleted while queued
+    if library_id is not None:
+        db.expire_all()
+        if db.get(Library, library_id) is None:
+            job.status = JobStatus.CANCELLED
+            job.error = "Library was deleted"
+            job.finished_at = _now()
+            db.commit()
+            clear_cancel(job.id)
+            return
 
     for i, file_obj in enumerate(files):
         if should_cancel(job.id):
@@ -113,7 +133,7 @@ def check_library_corruption(library_id: int) -> None:
             db.commit()
             return
 
-        _run_check_job(job, files, db)
+        _run_check_job(job, files, db, library_id=library_id)
 
     except Exception as e:
         if job:
