@@ -1,0 +1,29 @@
+services:
+  transcoder:
+    build: .
+    ports:
+      - "${PORT:-7899}:7899"
+    volumes:
+      - ./data:/app/data
+      # Mount your media folders here, e.g.:
+      # - /mnt/media:/media
+      - /home/raslan/Downloads:/media
+    environment:
+      - DATA_DIR=/app/data
+    restart: unless-stopped
+
+    # ── NVIDIA (requires nvidia-container-toolkit on the host) ───────────────
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, video]
+
+    # ── Intel / AMD via VA-API ───────────────────────────────────────────────
+    # Comment out the nvidia section above and uncomment these:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - video
