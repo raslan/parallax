@@ -21,6 +21,8 @@ export interface Library {
   auto_transcode_corrupt: boolean;
   created_at: string;
   last_scanned_at: string | null;
+  file_count: number;
+  corrupt_count: number;
 }
 
 export interface VideoFile {

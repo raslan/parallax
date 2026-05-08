@@ -5,7 +5,8 @@ from sqlalchemy import func
 
 from app.database import get_db
 from app.models.library import Library
-from app.models.file import File
+from app.models.file import File, FileStatus
+from app.models.job import Job, JobStatus, JobType
 from app.schemas import LibraryCreate, LibraryRead, LibraryUpdate, StatsRead, BrowseResponse, FileRead
 from app.services.scanner import scan_library, thumbnail_path
 from app.services.corruption import check_library_corruption
@@ -14,9 +15,41 @@ from app.queue import enqueue
 router = APIRouter(prefix="/libraries", tags=["libraries"])
 
 
+def _active_job_exists(db: Session, library_id: int, job_type: str) -> bool:
+    return db.query(Job).filter(
+        Job.library_id == library_id,
+        Job.type == job_type,
+        Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
+    ).first() is not None
+
+
+def _with_counts(libs: list[Library], db: Session) -> list[LibraryRead]:
+    ids = [l.id for l in libs]
+    if not ids:
+        return []
+    counts = dict(
+        db.query(File.library_id, func.count(File.id))
+        .filter(File.library_id.in_(ids))
+        .group_by(File.library_id).all()
+    )
+    corrupt = dict(
+        db.query(File.library_id, func.count(File.id))
+        .filter(File.library_id.in_(ids), File.status == FileStatus.CORRUPT)
+        .group_by(File.library_id).all()
+    )
+    out = []
+    for lib in libs:
+        lr = LibraryRead.model_validate(lib)
+        lr.file_count = counts.get(lib.id, 0)
+        lr.corrupt_count = corrupt.get(lib.id, 0)
+        out.append(lr)
+    return out
+
+
 @router.get("", response_model=list[LibraryRead])
 def list_libraries(db: Session = Depends(get_db)):
-    return db.query(Library).order_by(Library.created_at).all()
+    libs = db.query(Library).order_by(Library.created_at).all()
+    return _with_counts(libs, db)
 
 
 @router.post("", response_model=LibraryRead, status_code=201)
@@ -91,6 +124,8 @@ async def trigger_scan(library_id: int, db: Session = Depends(get_db)):
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
+    if _active_job_exists(db, library_id, JobType.SCAN):
+        raise HTTPException(409, "A scan is already running for this library")
     await enqueue(scan_library, library_id)
     return {"message": "Scan queued"}
 
@@ -100,6 +135,11 @@ async def trigger_check(library_id: int, db: Session = Depends(get_db)):
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
+    if _active_job_exists(db, library_id, JobType.CHECK):
+        raise HTTPException(409, "A corruption check is already running for this library")
+    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
+    if file_count == 0:
+        raise HTTPException(422, "Scan the library first to index its files before checking for corruption")
     await enqueue(check_library_corruption, library_id)
     return {"message": "Corruption check queued"}
 

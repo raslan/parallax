@@ -121,6 +121,8 @@ export function Libraries() {
     setScanningIds((s) => new Set(s).add(id));
     try {
       await api.scanLibrary(id);
+    } catch (e: any) {
+      if (!e.message?.includes("409")) throw e; // ignore "already running"
     } finally {
       setScanningIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
@@ -130,6 +132,8 @@ export function Libraries() {
     setCheckingIds((s) => new Set(s).add(id));
     try {
       await api.checkLibrary(id);
+    } catch (e: any) {
+      if (!e.message?.includes("409")) throw e;
     } finally {
       setCheckingIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
@@ -183,8 +187,13 @@ export function Libraries() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {libraries.map((lib) => (
-            <Card key={lib.id}>
+          {libraries.map((lib) => {
+            const notIndexed = lib.file_count === 0;
+            const checkTitle = notIndexed
+              ? "Scan the library first to index files before checking for corruption"
+              : "Check all indexed files for corruption";
+            return (
+            <Card key={lib.id} className={lib.corrupt_count > 0 ? "border-destructive/40" : ""}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base leading-tight">{lib.name}</CardTitle>
@@ -195,7 +204,7 @@ export function Libraries() {
                       className="h-7 w-7"
                       onClick={() => handleScan(lib.id)}
                       disabled={scanningIds.has(lib.id)}
-                      title="Scan for new files"
+                      title="Scan for new / removed files"
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${scanningIds.has(lib.id) ? "animate-spin" : ""}`} />
                     </Button>
@@ -204,10 +213,10 @@ export function Libraries() {
                       variant="ghost"
                       className="h-7 w-7"
                       onClick={() => handleCheck(lib.id)}
-                      disabled={checkingIds.has(lib.id)}
-                      title="Check for corruption"
+                      disabled={checkingIds.has(lib.id) || notIndexed}
+                      title={checkTitle}
                     >
-                      <ShieldCheck className={`h-3.5 w-3.5 ${checkingIds.has(lib.id) ? "text-primary" : ""}`} />
+                      <ShieldCheck className={`h-3.5 w-3.5 ${checkingIds.has(lib.id) ? "text-primary" : notIndexed ? "opacity-30" : ""}`} />
                     </Button>
                     <Button
                       size="icon"
@@ -227,7 +236,15 @@ export function Libraries() {
                   <FolderOpen className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{lib.path}</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {lib.file_count > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {lib.file_count.toLocaleString()} files
+                      {lib.corrupt_count > 0 && (
+                        <span className="text-destructive ml-1">· {lib.corrupt_count} corrupt</span>
+                      )}
+                    </span>
+                  )}
                   {lib.scan_automatically && (
                     <Badge variant="secondary" className="text-xs">Auto-scan</Badge>
                   )}
@@ -236,11 +253,14 @@ export function Libraries() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Last scanned: {formatDate(lib.last_scanned_at)}
+                  {notIndexed
+                    ? "Not yet scanned — click the refresh icon to index files"
+                    : `Last scanned: ${formatDate(lib.last_scanned_at)}`}
                 </p>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

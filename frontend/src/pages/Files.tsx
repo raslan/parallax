@@ -76,7 +76,13 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
   const handleCheck = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setChecking(true);
-    try { await api.checkFile(file.id); } finally { setChecking(false); }
+    try {
+      await api.checkFile(file.id);
+    } catch {
+      // 409 = already running, silently ignore
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (

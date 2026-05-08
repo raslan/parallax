@@ -68,9 +68,16 @@ def get_thumbnail(file_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{file_id}/check", status_code=202)
 async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
+    from app.models.job import Job, JobStatus, JobType
     f = db.get(File, file_id)
     if not f:
         raise HTTPException(404, "File not found")
+    already = db.query(Job).filter(
+        Job.type == JobType.CHECK,
+        Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
+    ).first()
+    if already:
+        raise HTTPException(409, "A check job is already running")
     from app.services.corruption import check_file
     from app.queue import enqueue
     await enqueue(check_file, file_id)

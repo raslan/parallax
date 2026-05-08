@@ -18,6 +18,8 @@ class LibraryRead(BaseModel):
     auto_transcode_corrupt: bool
     created_at: datetime
     last_scanned_at: Optional[datetime] = None
+    file_count: int = 0
+    corrupt_count: int = 0
 
     model_config = {"from_attributes": True}
 

@@ -17,5 +17,6 @@ def clear_cancel(job_id: int) -> None:
 
 
 def arm_cancel(job_id: int) -> None:
-    """Set flag to False, signalling the job is running and cancellable."""
-    _cancel_flags[job_id] = False
+    """Mark job as cancellable — only if a cancel hasn't already been requested."""
+    if not _cancel_flags.get(job_id, False):
+        _cancel_flags[job_id] = False
