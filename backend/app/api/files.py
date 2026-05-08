@@ -66,6 +66,17 @@ def get_thumbnail(file_id: int, db: Session = Depends(get_db)):
     return FileResponse(thumb, media_type="image/jpeg")
 
 
+@router.post("/{file_id}/check", status_code=202)
+async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
+    f = db.get(File, file_id)
+    if not f:
+        raise HTTPException(404, "File not found")
+    from app.services.corruption import check_file
+    from app.queue import enqueue
+    await enqueue(check_file, file_id)
+    return {"message": "Check queued"}
+
+
 @router.get("/{file_id}/stream")
 def stream_file(file_id: int, db: Session = Depends(get_db)):
     f = db.get(File, file_id)

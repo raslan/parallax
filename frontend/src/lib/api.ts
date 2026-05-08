@@ -82,6 +82,7 @@ export const api = {
     req<Library>("/libraries", { method: "POST", body: JSON.stringify(body) }),
   deleteLibrary: (id: number) => req<void>(`/libraries/${id}`, { method: "DELETE" }),
   scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
+  checkLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
   browseLibrary: (id: number, path: string, status?: string) => {
     const q = new URLSearchParams({ path });
     if (status) q.set("status", status);
@@ -102,6 +103,8 @@ export const api = {
 
   // Jobs
   getJobs: (limit = 50) => req<Job[]>(`/jobs?limit=${limit}`),
+  checkFile: (id: number) => req<{ message: string }>(`/files/${id}/check`, { method: "POST" }),
   cancelJob: (id: number) => req<{ message: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
+  jobsStreamUrl: () => `/api/jobs/stream`,
   clearJobHistory: () => req<void>("/jobs/history", { method: "DELETE" }),
 };

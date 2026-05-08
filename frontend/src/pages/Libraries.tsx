@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen } from "lucide-react";
+import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -104,6 +104,7 @@ export function Libraries() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
+  const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -122,6 +123,15 @@ export function Libraries() {
       await api.scanLibrary(id);
     } finally {
       setScanningIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleCheck = async (id: number) => {
+    setCheckingIds((s) => new Set(s).add(id));
+    try {
+      await api.checkLibrary(id);
+    } finally {
+      setCheckingIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
   };
 
@@ -185,9 +195,19 @@ export function Libraries() {
                       className="h-7 w-7"
                       onClick={() => handleScan(lib.id)}
                       disabled={scanningIds.has(lib.id)}
-                      title="Scan library"
+                      title="Scan for new files"
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${scanningIds.has(lib.id) ? "animate-spin" : ""}`} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => handleCheck(lib.id)}
+                      disabled={checkingIds.has(lib.id)}
+                      title="Check for corruption"
+                    >
+                      <ShieldCheck className={`h-3.5 w-3.5 ${checkingIds.has(lib.id) ? "text-primary" : ""}`} />
                     </Button>
                     <Button
                       size="icon"

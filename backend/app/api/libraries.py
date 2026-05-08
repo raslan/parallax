@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -8,6 +8,8 @@ from app.models.library import Library
 from app.models.file import File
 from app.schemas import LibraryCreate, LibraryRead, LibraryUpdate, StatsRead, BrowseResponse, FileRead
 from app.services.scanner import scan_library, thumbnail_path
+from app.services.corruption import check_library_corruption
+from app.queue import enqueue
 
 router = APIRouter(prefix="/libraries", tags=["libraries"])
 
@@ -85,12 +87,21 @@ def delete_library(library_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{library_id}/scan", status_code=202)
-def trigger_scan(library_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def trigger_scan(library_id: int, db: Session = Depends(get_db)):
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
-    background_tasks.add_task(scan_library, library_id)
-    return {"message": "Scan started"}
+    await enqueue(scan_library, library_id)
+    return {"message": "Scan queued"}
+
+
+@router.post("/{library_id}/check", status_code=202)
+async def trigger_check(library_id: int, db: Session = Depends(get_db)):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    await enqueue(check_library_corruption, library_id)
+    return {"message": "Corruption check queued"}
 
 
 @router.get("/{library_id}/browse", response_model=BrowseResponse)
