@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.4.0] - 2026-05-09
+
+### Bug Fixes
+
+- Prevent duplicate jobs, cancel race condition, and enforce scan-before-check
+- Stop jobs when library is deleted, check cancel before slow loops
+- Cancellable corruption checks, skip _originals on scan, queue multiple transcodes
+- Exclude null muxer lines from corruption detection
+
+### Documentation
+
+- Update changelog for v0.3.0
+
+### Features
+
+- Phase 4 — transcode corrupt files with encoder detection and preset picker
+- Corruption detail display and richer job progress
+- Codec detection, constrained CRF, and job queue overhaul
+- Refract branding, violet theme, and dashboard redesign
+- Originals management — browse, restore, and delete backups
+- File sorting by name, size, duration, and bitrate
+
 ## [0.3.0] - 2026-05-08
 
 ### Documentation
