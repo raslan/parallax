@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle } from "lucide-react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
-import { formatSize, formatDuration } from "@/lib/format";
+import { PRESETS } from "@/lib/presets";
+import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 
 const STATUS_COLORS: Record<string, string> = {
   unknown: "secondary",
@@ -59,6 +60,8 @@ function VideoPlayerModal({ file, onClose }: { file: VideoFile; onClose: () => v
         <p className="text-white/50 text-xs text-center">
           {formatSize(file.size)}
           {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
+          {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
+          {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
           {" · "}{file.path}
         </p>
       </div>
@@ -68,11 +71,6 @@ function VideoPlayerModal({ file, onClose }: { file: VideoFile; onClose: () => v
 
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
 
-const PRESETS = [
-  { value: "high", label: "H", title: "High quality (CRF 18)" },
-  { value: "medium", label: "M", title: "Medium quality (CRF 23)" },
-  { value: "low", label: "L", title: "Low quality (CRF 28)" },
-];
 
 // ─── Error detail modal ───────────────────────────────────────────────────────
 
@@ -253,7 +251,7 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
                 onClick={(e) => handleTranscode(e, p.value)}
                 className="bg-white/10 hover:bg-white/25 border border-white/20 rounded px-2 py-1 text-white text-xs font-semibold transition-colors"
               >
-                {p.label}
+                {p.shortLabel}
               </button>
             ))}
           </div>
@@ -266,6 +264,8 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
         <p className="text-xs text-muted-foreground">
           {formatSize(file.size)}
           {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
+          {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
+          {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
         </p>
       </CardContent>
 
@@ -341,10 +341,14 @@ function Breadcrumb({
 function LibraryBrowser({
   library,
   statusFilter,
+  sortBy,
+  sortDir,
   onPlay,
 }: {
   library: Library;
   statusFilter: string | undefined;
+  sortBy: string;
+  sortDir: string;
   onPlay: (f: VideoFile) => void;
 }) {
   const [path, setPath] = useState("");
@@ -356,10 +360,10 @@ function LibraryBrowser({
 
   useEffect(() => {
     setLoading(true);
-    api.browseLibrary(library.id, path, statusFilter)
+    api.browseLibrary(library.id, path, statusFilter, sortBy, sortDir)
       .then(setBrowse)
       .finally(() => setLoading(false));
-  }, [library.id, path, statusFilter]);
+  }, [library.id, path, statusFilter, sortBy, sortDir]);
 
   const navigate = (subdir: string) => {
     setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
@@ -414,7 +418,7 @@ function LibraryBrowser({
 
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
-function FlatView({ statusFilter, onPlay }: { statusFilter: string | undefined; onPlay: (f: VideoFile) => void }) {
+function FlatView({ statusFilter, sortBy, sortDir, onPlay }: { statusFilter: string | undefined; sortBy: string; sortDir: string; onPlay: (f: VideoFile) => void }) {
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -422,12 +426,12 @@ function FlatView({ statusFilter, onPlay }: { statusFilter: string | undefined; 
 
   const load = useCallback(() => {
     setLoading(true);
-    api.getFiles({ status: statusFilter, page, page_size: PAGE_SIZE })
+    api.getFiles({ status: statusFilter, page, page_size: PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir })
       .then((res) => { setFiles(res.items); setTotal(res.total); })
       .finally(() => setLoading(false));
-  }, [statusFilter, page]);
+  }, [statusFilter, page, sortBy, sortDir]);
 
-  useEffect(() => { setPage(1); }, [statusFilter]);
+  useEffect(() => { setPage(1); }, [statusFilter, sortBy, sortDir]);
   useEffect(() => { load(); }, [load]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -466,10 +470,22 @@ function FlatView({ statusFilter, onPlay }: { statusFilter: string | undefined; 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const SORT_OPTIONS = [
+  { value: "filename",      label: "Name" },
+  { value: "size",          label: "Size" },
+  { value: "duration",      label: "Duration" },
+  { value: "video_bitrate", label: "Bitrate" },
+  { value: "created_at",    label: "Date added" },
+];
+
+const selectCls = "h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring";
+
 export function Files() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [selectedLibraryId, setSelectedLibraryId] = useState<number | "all">("all");
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>();
+  const [sortBy, setSortBy] = useState("filename");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
   useEffect(() => {
@@ -487,9 +503,9 @@ export function Files() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <select
-          className="h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          className={selectCls}
           value={selectedLibraryId}
           onChange={(e) => setSelectedLibraryId(e.target.value === "all" ? "all" : Number(e.target.value))}
         >
@@ -500,7 +516,7 @@ export function Files() {
         </select>
 
         <select
-          className="h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          className={selectCls}
           value={selectedStatus ?? ""}
           onChange={(e) => setSelectedStatus(e.target.value || undefined)}
         >
@@ -509,12 +525,33 @@ export function Files() {
             <option key={s} value={s} className="capitalize">{s}</option>
           ))}
         </select>
+
+        <div className="flex items-center gap-1 ml-auto">
+          <select
+            className={selectCls}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title={sortDir === "asc" ? "Ascending" : "Descending"}
+          >
+            {sortDir === "asc"
+              ? <ArrowUp className="h-3.5 w-3.5" />
+              : <ArrowDown className="h-3.5 w-3.5" />}
+          </button>
+        </div>
       </div>
 
       {selectedLibrary ? (
-        <LibraryBrowser library={selectedLibrary} statusFilter={selectedStatus} onPlay={setPlayingFile} />
+        <LibraryBrowser library={selectedLibrary} statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} onPlay={setPlayingFile} />
       ) : (
-        <FlatView statusFilter={selectedStatus} onPlay={setPlayingFile} />
+        <FlatView statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} onPlay={setPlayingFile} />
       )}
 
       {playingFile && (
