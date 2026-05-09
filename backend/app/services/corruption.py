@@ -52,7 +52,10 @@ def check_corruption(
         stderr = proc.stderr.read().strip()
         if not stderr:
             return False, ""
-        error_lines = [l for l in stderr.splitlines() if l.startswith("[")]
+        # Exclude [null @ ...] lines — those come from the null muxer sink,
+        # not from the actual decoders, and produce frequent false positives
+        # (e.g. non-monotonic dts warnings on otherwise valid files).
+        error_lines = [l for l in stderr.splitlines() if l.startswith("[") and not l.startswith("[null ")]
         return bool(error_lines), "\n".join(error_lines)
     except Exception as e:
         return True, str(e)
