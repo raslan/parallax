@@ -39,8 +39,10 @@ def update_max_concurrent(n: int) -> None:
     _executor = ThreadPoolExecutor(max_workers=n, thread_name_prefix="job-worker")
 
 
-async def enqueue(job_id: int, fn: Callable, *args: Any) -> None:
-    _pending.add(job_id)
+async def enqueue(job_id: int | None, fn: Callable, *args: Any) -> None:
+    """Enqueue a job. Pass job_id for cancellable jobs, None for fire-and-forget."""
+    if job_id is not None:
+        _pending.add(job_id)
     await _get_queue().put((job_id, fn, args))
 
 
@@ -70,9 +72,10 @@ async def start_worker() -> None:
         while True:
             job_id, fn, args = await q.get()
             try:
-                if job_id not in _pending:
-                    continue  # cancelled while waiting
-                _pending.discard(job_id)
+                if job_id is not None:
+                    if job_id not in _pending:
+                        continue  # cancelled while waiting
+                    _pending.discard(job_id)
                 asyncio.create_task(_run(fn, args))
             finally:
                 q.task_done()

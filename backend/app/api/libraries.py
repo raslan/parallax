@@ -128,7 +128,7 @@ async def trigger_scan(library_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Library not found")
     if active_job_exists(db, library_id, JobType.SCAN):
         raise HTTPException(409, "A scan is already running for this library")
-    await enqueue(scan_library, library_id)
+    await enqueue(None, scan_library, library_id)
     return {"message": "Scan queued"}
 
 
@@ -142,7 +142,7 @@ async def trigger_check(library_id: int, db: Session = Depends(get_db)):
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
         raise HTTPException(422, "Scan the library first to index its files before checking for corruption")
-    await enqueue(check_library_corruption, library_id)
+    await enqueue(None, check_library_corruption, library_id)
     return {"message": "Corruption check queued"}
 
 

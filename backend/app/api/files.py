@@ -93,7 +93,7 @@ async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
         raise HTTPException(409, "A check job is already running")
     from app.services.corruption import check_file
     from app.queue import enqueue
-    await enqueue(check_file, file_id)
+    await enqueue(None, check_file, file_id)
     return {"message": "Check queued"}
 
 
