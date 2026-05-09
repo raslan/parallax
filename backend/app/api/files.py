@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models.file import File
+from app.models.file import File, FileStatus
 from app.schemas import FilesResponse, FileRead
 from app.services.scanner import thumbnail_path
 
@@ -86,19 +86,16 @@ async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{file_id}/transcode", status_code=202)
 async def transcode_file_endpoint(file_id: int, body: dict, db: Session = Depends(get_db)):
-    from app.models.job import Job, JobStatus, JobType
     f = db.get(File, file_id)
     if not f:
         raise HTTPException(404, "File not found")
-    already = db.query(Job).filter(
-        Job.type == JobType.TRANSCODE,
-        Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
-    ).first()
-    if already:
-        raise HTTPException(409, "A transcode job is already running")
+    if f.status in (FileStatus.TRANSCODING, FileStatus.QUEUED):
+        raise HTTPException(409, "This file is already queued for transcoding")
     preset = body.get("preset", "medium")
     if preset not in ("high", "medium", "low"):
         raise HTTPException(422, "preset must be high, medium, or low")
+    f.status = FileStatus.QUEUED
+    db.commit()
     from app.services.transcoder import transcode_file
     from app.queue import enqueue
     await enqueue(transcode_file, file_id, preset)

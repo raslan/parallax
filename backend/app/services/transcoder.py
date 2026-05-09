@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -50,26 +51,31 @@ def _transcode_one(
     Returns True on success, False on failure or cancellation.
     """
     src = file_obj.path
-    tmp = src + ".transcoding"
+    base, ext = os.path.splitext(src)
+    tmp = base + ".transcoding" + (ext or ".mkv")
     duration = file_obj.duration or 0.0
 
     file_obj.status = FileStatus.TRANSCODING
     db.commit()
 
     proc = None
+    err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="transcode_")
     try:
         proc = subprocess.Popen(
             _build_cmd(src, tmp, crf),
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=err_fd,
             text=True,
         )
+        os.close(err_fd)
+        err_fd = -1
 
         for line in iter(proc.stdout.readline, ""):
             if should_cancel(job_id):
                 proc.kill()
                 proc.wait()
                 _cleanup_tmp(tmp)
+                _cleanup_tmp(err_path)
                 file_obj.status = FileStatus.CORRUPT
                 db.commit()
                 return False
@@ -86,10 +92,14 @@ def _transcode_one(
         proc.wait()
 
         if proc.returncode != 0:
+            stderr_text = _read_and_remove(err_path)
             _cleanup_tmp(tmp)
             file_obj.status = FileStatus.FAILED
+            file_obj.scan_error = stderr_text[-1024:] if stderr_text else f"ffmpeg exit {proc.returncode}"
             db.commit()
             return False
+
+        _cleanup_tmp(err_path)
 
         # Move original to _originals/ backup folder
         originals_dir = os.path.join(os.path.dirname(src), "_originals")
@@ -109,6 +119,11 @@ def _transcode_one(
         return True
 
     except Exception as e:
+        if err_fd != -1:
+            try:
+                os.close(err_fd)
+            except OSError:
+                pass
         if proc:
             try:
                 proc.kill()
@@ -116,6 +131,7 @@ def _transcode_one(
             except Exception:
                 pass
         _cleanup_tmp(tmp)
+        _cleanup_tmp(err_path)
         file_obj.status = FileStatus.FAILED
         file_obj.scan_error = str(e)
         db.commit()
@@ -128,6 +144,16 @@ def _cleanup_tmp(path: str) -> None:
             os.remove(path)
     except OSError:
         pass
+
+
+def _read_and_remove(path: str) -> str:
+    try:
+        with open(path) as f:
+            text = f.read()
+        os.remove(path)
+        return text
+    except OSError:
+        return ""
 
 
 def _run_transcode_job(

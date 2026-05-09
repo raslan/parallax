@@ -89,7 +89,8 @@ def thumbnail_path(file_id: int) -> str:
 
 def _find_video_files(library_path: str) -> list[str]:
     paths = []
-    for root, _, files in os.walk(library_path):
+    for root, dirs, files in os.walk(library_path):
+        dirs[:] = [d for d in dirs if d != "_originals"]
         for name in files:
             if os.path.splitext(name)[1].lower() in VIDEO_EXTENSIONS:
                 paths.append(os.path.join(root, name))

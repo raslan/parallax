@@ -1,11 +1,15 @@
 import subprocess
+import time
 from datetime import datetime, timezone
+from typing import Callable
 
 from app.database import SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobLog, JobType
 from app.models.library import Library
 from app.services.common import arm_cancel, should_cancel, clear_cancel
+
+_CANCELLED = "__cancelled__"
 
 
 def _now() -> datetime:
@@ -17,26 +21,39 @@ def _log(db, job_id: int, message: str, level: str = "info") -> None:
     db.commit()
 
 
-def check_corruption(path: str, timeout: int = 300) -> tuple[bool, str]:
+def check_corruption(
+    path: str,
+    timeout: int = 300,
+    cancel_check: Callable[[], bool] | None = None,
+) -> tuple[bool, str]:
     """
     Run ffmpeg -v error -f null - on path.
-    Returns (is_corrupt, error_text).
+    Returns (is_corrupt, error_text). error_text == _CANCELLED if cancelled.
     """
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["ffmpeg", "-v", "error", "-nostats", "-i", path, "-f", "null", "-"],
-            capture_output=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
         )
-        stderr = result.stderr.strip()
+        deadline = time.monotonic() + timeout
+        while proc.poll() is None:
+            if cancel_check and cancel_check():
+                proc.kill()
+                proc.wait()
+                return False, _CANCELLED
+            if time.monotonic() > deadline:
+                proc.kill()
+                proc.wait()
+                return True, "ffmpeg timed out"
+            time.sleep(0.5)
+
+        stderr = proc.stderr.read().strip()
         if not stderr:
             return False, ""
-        # Only lines starting with '[' are ffmpeg diagnostic messages
         error_lines = [l for l in stderr.splitlines() if l.startswith("[")]
         return bool(error_lines), "\n".join(error_lines)
-    except subprocess.TimeoutExpired:
-        return True, "ffmpeg timed out"
     except Exception as e:
         return True, str(e)
 
@@ -80,7 +97,19 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
         file_obj.status = FileStatus.SCANNING
         db.commit()
 
-        is_corrupt, errors = check_corruption(file_obj.path)
+        is_corrupt, errors = check_corruption(
+            file_obj.path, cancel_check=lambda: should_cancel(job.id)
+        )
+
+        if errors == _CANCELLED:
+            file_obj.status = FileStatus.UNKNOWN
+            db.commit()
+            job.status = JobStatus.CANCELLED
+            job.finished_at = _now()
+            db.commit()
+            _log(db, job.id, "Check cancelled")
+            clear_cancel(job.id)
+            return
 
         file_obj.status = FileStatus.CORRUPT if is_corrupt else FileStatus.CLEAN
         file_obj.scan_error = errors if is_corrupt else None
