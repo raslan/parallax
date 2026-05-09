@@ -13,6 +13,24 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface Original {
+  path: string;
+  filename: string;
+  library_id: number;
+  library_name: string;
+  original_size: number;
+  current_path: string | null;
+  current_size: number | null;
+  savings_bytes: number | null;
+}
+
+export interface OriginalsSummary {
+  entries: Original[];
+  total_original_bytes: number;
+  total_current_bytes: number;
+  total_savings_bytes: number;
+}
+
 export interface Library {
   id: number;
   name: string;
@@ -32,6 +50,8 @@ export interface VideoFile {
   filename: string;
   size: number;
   duration: number | null;
+  codec_name: string | null;
+  video_bitrate: number | null;
   status: string;
   scan_error: string | null;
   scanned_at: string | null;
@@ -92,19 +112,23 @@ export const api = {
   deleteLibrary: (id: number) => req<void>(`/libraries/${id}`, { method: "DELETE" }),
   scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
   checkLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
-  browseLibrary: (id: number, path: string, status?: string) => {
+  browseLibrary: (id: number, path: string, status?: string, sort_by?: string, sort_dir?: string) => {
     const q = new URLSearchParams({ path });
-    if (status) q.set("status", status);
+    if (status)   q.set("status",   status);
+    if (sort_by)  q.set("sort_by",  sort_by);
+    if (sort_dir) q.set("sort_dir", sort_dir);
     return req<BrowseResponse>(`/libraries/${id}/browse?${q}`);
   },
 
   // Files
-  getFiles: (params: { library_id?: number; status?: string; page?: number; page_size?: number }) => {
+  getFiles: (params: { library_id?: number; status?: string; page?: number; page_size?: number; sort_by?: string; sort_dir?: string }) => {
     const q = new URLSearchParams();
     if (params.library_id !== undefined) q.set("library_id", String(params.library_id));
-    if (params.status) q.set("status", params.status);
-    if (params.page) q.set("page", String(params.page));
+    if (params.status)    q.set("status",    params.status);
+    if (params.page)      q.set("page",      String(params.page));
     if (params.page_size) q.set("page_size", String(params.page_size));
+    if (params.sort_by)   q.set("sort_by",   params.sort_by);
+    if (params.sort_dir)  q.set("sort_dir",  params.sort_dir);
     return req<FilesResponse>(`/files?${q}`);
   },
   thumbnailUrl: (id: number) => `${BASE}/files/${id}/thumbnail`,
@@ -121,4 +145,21 @@ export const api = {
   getJobLogs: (id: number) => req<JobLog[]>(`/jobs/${id}/logs`),
   jobsStreamUrl: () => `/api/jobs/stream`,
   clearJobHistory: () => req<void>("/jobs/history", { method: "DELETE" }),
+
+  // Originals
+  getOriginals: (library_id?: number) => {
+    const q = library_id !== undefined ? `?library_id=${library_id}` : "";
+    return req<OriginalsSummary>(`/originals${q}`);
+  },
+  deleteOriginal: (path: string) =>
+    req<void>("/originals/file", { method: "DELETE", body: JSON.stringify({ path }) }),
+  restoreOriginal: (path: string) =>
+    req<{ message: string; path: string }>("/originals/restore", { method: "POST", body: JSON.stringify({ path }) }),
+  deleteLibraryOriginals: (library_id: number) =>
+    req<void>(`/originals/library/${library_id}`, { method: "DELETE" }),
+
+  // Settings
+  getSettings: () => req<{ max_concurrent_transcodes: number }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes: number }) =>
+    req<{ max_concurrent_transcodes: number }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 };
