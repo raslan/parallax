@@ -25,6 +25,8 @@ class File(Base):
     size: Mapped[int] = mapped_column(Integer, default=0)
     duration: Mapped[float] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default=FileStatus.UNKNOWN)
+    codec_name: Mapped[str] = mapped_column(String(64), nullable=True)
+    video_bitrate: Mapped[int] = mapped_column(Integer, nullable=True)
     scan_error: Mapped[str] = mapped_column(String(2048), nullable=True)
     scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     transcoded_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

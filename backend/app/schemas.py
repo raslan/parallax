@@ -1,6 +1,10 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel
+
+
+class TranscodeRequest(BaseModel):
+    preset: Literal["high", "medium", "low"] = "medium"
 
 
 class LibraryCreate(BaseModel):
@@ -37,6 +41,8 @@ class FileRead(BaseModel):
     filename: str
     size: int
     duration: Optional[float] = None
+    codec_name: Optional[str] = None
+    video_bitrate: Optional[int] = None
     status: str
     scan_error: Optional[str] = None
     scanned_at: Optional[datetime] = None

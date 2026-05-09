@@ -87,14 +87,33 @@ def get_job_logs(job_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{job_id}/cancel", status_code=202)
 def cancel_job(job_id: int, db: Session = Depends(get_db)):
+    from app.services.common import request_cancel, now
+    from app.models.file import File, FileStatus
+    from app.queue import cancel_pending
+
     job = db.get(Job, job_id)
     if not job:
         raise HTTPException(404, "Job not found")
     if job.status not in (JobStatus.RUNNING, JobStatus.PENDING):
-        raise HTTPException(400, "Job is not running")
-    from app.services.common import request_cancel
-    request_cancel(job_id)
-    return {"message": "Cancellation requested"}
+        raise HTTPException(400, "Job is not cancellable")
+
+    if job.status == JobStatus.PENDING:
+        cancel_pending(job_id)
+        job.status = JobStatus.CANCELLED
+        job.error = "Cancelled by user"
+        job.finished_at = now()
+        db.commit()
+        # Restore any files that were set to QUEUED for this job
+        if job.library_id:
+            db.query(File).filter(
+                File.library_id == job.library_id,
+                File.status == FileStatus.QUEUED,
+            ).update({"status": FileStatus.CORRUPT})
+            db.commit()
+    else:
+        request_cancel(job_id)
+
+    return {"message": "Cancelled"}
 
 
 @router.delete("/history", status_code=204)

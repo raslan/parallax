@@ -2,36 +2,45 @@ import os
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+import time
 from typing import Callable
 
 from app.database import SessionLocal
 from app.models.file import File, FileStatus
-from app.models.job import Job, JobStatus, JobLog, JobType
+from app.models.job import Job, JobStatus, JobType
 from app.models.library import Library
-from app.services.common import arm_cancel, should_cancel, clear_cancel
-from app.services.encoder import detect_encoder, PRESETS
+from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
+from app.services.encoder import encoder_for_codec, PRESETS
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+def _build_cmd(
+    input_path: str,
+    output_path: str,
+    crf: int,
+    source_codec: str | None = None,
+    source_bitrate: int | None = None,
+) -> list[str]:
+    encoder = encoder_for_codec(source_codec)
+    nvenc = encoder in ("h264_nvenc", "hevc_nvenc")
 
-
-def _log(db, job_id: int, message: str, level: str = "info") -> None:
-    db.add(JobLog(job_id=job_id, message=message, level=level))
-    db.commit()
-
-
-def _build_cmd(input_path: str, output_path: str, crf: int) -> list[str]:
-    encoder = detect_encoder()
-    if encoder == "h264_nvenc":
-        video_args = ["-c:v", "h264_nvenc", "-rc:v", "vbr", "-cq:v", str(crf), "-preset", "p5"]
+    if nvenc:
+        video_args = ["-c:v", encoder, "-rc:v", "vbr", "-cq:v", str(crf), "-preset", "p5"]
     else:
-        video_args = ["-c:v", "libx264", "-crf", str(crf), "-preset", "slow"]
+        video_args = ["-c:v", encoder, "-crf", str(crf), "-preset", "slow"]
+
+    # Constrain output bitrate to source so re-encoding efficient codecs to a
+    # lower-efficiency target (e.g. HEVC → H.264) doesn't blow up file size.
+    bitrate_args: list[str] = []
+    if source_bitrate and source_bitrate > 0:
+        maxrate = source_bitrate
+        bufsize = source_bitrate * 2
+        bitrate_args = ["-maxrate", str(maxrate), "-bufsize", str(bufsize)]
+
     return [
         "ffmpeg", "-y",
         "-i", input_path,
         *video_args,
+        *bitrate_args,
         "-c:a", "copy",
         "-progress", "pipe:1",
         "-nostats",
@@ -55,6 +64,7 @@ def _transcode_one(
     tmp = base + ".transcoding" + (ext or ".mkv")
     duration = file_obj.duration or 0.0
 
+    original_status = file_obj.status
     file_obj.status = FileStatus.TRANSCODING
     db.commit()
 
@@ -62,7 +72,7 @@ def _transcode_one(
     err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="transcode_")
     try:
         proc = subprocess.Popen(
-            _build_cmd(src, tmp, crf),
+            _build_cmd(src, tmp, crf, file_obj.codec_name, file_obj.video_bitrate),
             stdout=subprocess.PIPE,
             stderr=err_fd,
             text=True,
@@ -70,13 +80,14 @@ def _transcode_one(
         os.close(err_fd)
         err_fd = -1
 
+        last_commit = time.monotonic()
         for line in iter(proc.stdout.readline, ""):
             if should_cancel(job_id):
                 proc.kill()
                 proc.wait()
                 _cleanup_tmp(tmp)
                 _cleanup_tmp(err_path)
-                file_obj.status = FileStatus.CORRUPT
+                file_obj.status = original_status
                 db.commit()
                 return False
 
@@ -86,6 +97,10 @@ def _transcode_one(
                     ms = int(line.split("=")[1])
                     if ms > 0:
                         progress_cb(min(ms / 1_000_000 / duration, 0.99))
+                        t = time.monotonic()
+                        if t - last_commit >= 2.0:
+                            db.commit()
+                            last_commit = t
                 except (ValueError, IndexError):
                     pass
 
@@ -101,16 +116,13 @@ def _transcode_one(
 
         _cleanup_tmp(err_path)
 
-        # Move original to _originals/ backup folder
         originals_dir = os.path.join(os.path.dirname(src), "_originals")
         os.makedirs(originals_dir, exist_ok=True)
         shutil.move(src, os.path.join(originals_dir, file_obj.filename))
-
-        # Put transcoded file at the original path
         shutil.move(tmp, src)
 
         file_obj.status = FileStatus.DONE
-        file_obj.transcoded_at = _now()
+        file_obj.transcoded_at = now()
         try:
             file_obj.size = os.path.getsize(src)
         except OSError:
@@ -163,16 +175,17 @@ def _run_transcode_job(
     db,
     library_id: int | None = None,
 ) -> None:
-    job.total_files = len(files)
+    total = len(files)
+    job.total_files = total
     db.commit()
 
     arm_cancel(job.id)
 
     if should_cancel(job.id):
         job.status = JobStatus.CANCELLED
-        job.finished_at = _now()
+        job.finished_at = now()
         db.commit()
-        _log(db, job.id, "Transcode cancelled")
+        log(db, job.id, "Transcode cancelled")
         clear_cancel(job.id)
         return
 
@@ -181,7 +194,7 @@ def _run_transcode_job(
         if db.get(Library, library_id) is None:
             job.status = JobStatus.CANCELLED
             job.error = "Library was deleted"
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
             clear_cancel(job.id)
             return
@@ -192,27 +205,23 @@ def _run_transcode_job(
     for i, file_obj in enumerate(files):
         if should_cancel(job.id):
             job.status = JobStatus.CANCELLED
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
-            _log(db, job.id, "Transcode cancelled")
+            log(db, job.id, "Transcode cancelled")
             clear_cancel(job.id)
             return
 
-        total = len(files)
-
-        def make_cb(idx, tot):
-            def cb(frac):
+        def make_cb(idx: int, tot: int) -> Callable[[float], None]:
+            def cb(frac: float) -> None:
                 job.progress = (idx + frac) / tot * 100
-                db.commit()
             return cb
 
         ok = _transcode_one(file_obj, crf, job.id, db, progress_cb=make_cb(i, total))
 
         if ok:
             succeeded += 1
-        else:
-            if not should_cancel(job.id):
-                failed += 1
+        elif not should_cancel(job.id):
+            failed += 1
 
         job.processed_files = i + 1
         job.progress = (i + 1) / total * 100
@@ -220,13 +229,13 @@ def _run_transcode_job(
 
     clear_cancel(job.id)
     job.status = JobStatus.COMPLETED
-    job.finished_at = _now()
+    job.finished_at = now()
     job.progress = 100.0
     db.commit()
-    _log(db, job.id, f"Transcode complete — {succeeded} succeeded, {failed} failed")
+    log(db, job.id, f"Transcode complete — {succeeded} succeeded, {failed} failed")
 
 
-def transcode_file(file_id: int, preset: str = "medium") -> None:
+def transcode_file(file_id: int, preset: str = "medium", job_id: int | None = None) -> None:
     """Background job: transcode a single file."""
     db = SessionLocal()
     job = None
@@ -236,31 +245,43 @@ def transcode_file(file_id: int, preset: str = "medium") -> None:
             return
 
         crf = PRESETS.get(preset, PRESETS["medium"])
-        job = Job(
-            type=JobType.TRANSCODE,
-            status=JobStatus.RUNNING,
-            library_id=file_obj.library_id,
-            settings=preset,
-            started_at=_now(),
-        )
-        db.add(job)
-        db.commit()
-        db.refresh(job)
-        _log(db, job.id, f"Transcoding: {file_obj.filename} ({preset})")
 
+        if job_id is not None:
+            job = db.get(Job, job_id)
+            if not job or job.status == JobStatus.CANCELLED:
+                if file_obj.status == FileStatus.QUEUED:
+                    file_obj.status = FileStatus.CORRUPT
+                    db.commit()
+                return
+            job.status = JobStatus.RUNNING
+            job.started_at = now()
+            db.commit()
+        else:
+            job = Job(
+                type=JobType.TRANSCODE,
+                status=JobStatus.RUNNING,
+                library_id=file_obj.library_id,
+                settings=preset,
+                started_at=now(),
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+
+        log(db, job.id, f"Transcoding: {file_obj.filename} ({preset})")
         _run_transcode_job(job, [file_obj], crf, db)
 
     except Exception as e:
         if job:
             job.status = JobStatus.FAILED
             job.error = str(e)
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
     finally:
         db.close()
 
 
-def transcode_library_corrupt(library_id: int, preset: str = "medium") -> None:
+def transcode_library_corrupt(library_id: int, preset: str = "medium", job_id: int | None = None) -> None:
     """Background job: transcode all corrupt files in a library."""
     db = SessionLocal()
     job = None
@@ -270,17 +291,27 @@ def transcode_library_corrupt(library_id: int, preset: str = "medium") -> None:
             return
 
         crf = PRESETS.get(preset, PRESETS["medium"])
-        job = Job(
-            type=JobType.TRANSCODE,
-            status=JobStatus.RUNNING,
-            library_id=library_id,
-            settings=preset,
-            started_at=_now(),
-        )
-        db.add(job)
-        db.commit()
-        db.refresh(job)
-        _log(db, job.id, f"Transcoding corrupt files in library: {library.path} ({preset})")
+
+        if job_id is not None:
+            job = db.get(Job, job_id)
+            if not job or job.status == JobStatus.CANCELLED:
+                return
+            job.status = JobStatus.RUNNING
+            job.started_at = now()
+            db.commit()
+        else:
+            job = Job(
+                type=JobType.TRANSCODE,
+                status=JobStatus.RUNNING,
+                library_id=library_id,
+                settings=preset,
+                started_at=now(),
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+
+        log(db, job.id, f"Transcoding corrupt files in library: {library.path} ({preset})")
 
         files = (
             db.query(File)
@@ -290,9 +321,9 @@ def transcode_library_corrupt(library_id: int, preset: str = "medium") -> None:
 
         if not files:
             job.status = JobStatus.COMPLETED
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
-            _log(db, job.id, "No corrupt files to transcode")
+            log(db, job.id, "No corrupt files to transcode")
             return
 
         _run_transcode_job(job, files, crf, db, library_id=library_id)
@@ -301,7 +332,7 @@ def transcode_library_corrupt(library_id: int, preset: str = "medium") -> None:
         if job:
             job.status = JobStatus.FAILED
             job.error = str(e)
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
     finally:
         db.close()

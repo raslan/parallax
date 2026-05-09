@@ -121,7 +121,7 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
           ) : (
             <div className="divide-y divide-border">
               {logs.map((l, i) => (
-                <div key={i} className={`px-3 py-1.5 ${l.level === "warning" ? "text-amber-400" : l.level === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                <div key={`${l.timestamp}-${i}`} className={`px-3 py-1.5 ${l.level === "warning" ? "text-amber-400" : l.level === "error" ? "text-destructive" : "text-muted-foreground"}`}>
                   {l.message}
                 </div>
               ))}

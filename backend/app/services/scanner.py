@@ -29,8 +29,8 @@ def probe_file(path: str) -> dict:
             [
                 "ffprobe", "-v", "error",
                 "-select_streams", "v:0",
-                "-show_entries", "stream=codec_type,duration",
-                "-show_entries", "format=size,duration",
+                "-show_entries", "stream=codec_name,codec_type,duration,bit_rate",
+                "-show_entries", "format=size,duration,bit_rate",
                 "-of", "json",
                 path,
             ],
@@ -179,10 +179,22 @@ def scan_library(library_id: int):
             data = probe_file(path)
             if data:
                 fmt = data.get("format", {})
+                streams = data.get("streams", [])
                 if fmt.get("duration"):
                     file_obj.duration = float(fmt["duration"])
                 if fmt.get("size"):
                     file_obj.size = int(fmt["size"])
+                if streams:
+                    s = streams[0]
+                    if s.get("codec_name"):
+                        file_obj.codec_name = s["codec_name"]
+                    # Prefer stream bitrate; fall back to format bitrate
+                    br = s.get("bit_rate") or fmt.get("bit_rate")
+                    if br:
+                        try:
+                            file_obj.video_bitrate = int(br)
+                        except (ValueError, TypeError):
+                            pass
 
             file_obj.scanned_at = _now()
             db.commit()

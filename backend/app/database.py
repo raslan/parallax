@@ -28,7 +28,7 @@ def get_db():
 
 
 def init_db():
-    from app.models import library, file, job, schedule  # noqa: F401
+    from app.models import library, file, job, schedule, settings  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
     # Lightweight migrations for columns added after initial creation
@@ -36,6 +36,8 @@ def init_db():
         for sql in [
             "ALTER TABLE libraries ADD COLUMN last_scanned_at DATETIME",
             "ALTER TABLE jobs ADD COLUMN current_file TEXT",
+            "ALTER TABLE files ADD COLUMN codec_name TEXT",
+            "ALTER TABLE files ADD COLUMN video_bitrate INTEGER",
         ]:
             try:
                 conn.execute(text(sql))

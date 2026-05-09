@@ -1,24 +1,14 @@
 import subprocess
 import time
-from datetime import datetime, timezone
 from typing import Callable
 
 from app.database import SessionLocal
 from app.models.file import File, FileStatus
-from app.models.job import Job, JobStatus, JobLog, JobType
+from app.models.job import Job, JobStatus, JobType
 from app.models.library import Library
-from app.services.common import arm_cancel, should_cancel, clear_cancel
+from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
 
 _CANCELLED = "__cancelled__"
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _log(db, job_id: int, message: str, level: str = "info") -> None:
-    db.add(JobLog(job_id=job_id, message=message, level=level))
-    db.commit()
 
 
 def check_corruption(
@@ -71,9 +61,9 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
     # Check cancellation before entering the slow ffmpeg loop
     if should_cancel(job.id):
         job.status = JobStatus.CANCELLED
-        job.finished_at = _now()
+        job.finished_at = now()
         db.commit()
-        _log(db, job.id, "Check cancelled")
+        log(db, job.id, "Check cancelled")
         clear_cancel(job.id)
         return
 
@@ -83,7 +73,7 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
         if db.get(Library, library_id) is None:
             job.status = JobStatus.CANCELLED
             job.error = "Library was deleted"
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
             clear_cancel(job.id)
             return
@@ -91,9 +81,9 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
     for i, file_obj in enumerate(files):
         if should_cancel(job.id):
             job.status = JobStatus.CANCELLED
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
-            _log(db, job.id, "Check cancelled")
+            log(db, job.id, "Check cancelled")
             clear_cancel(job.id)
             return
 
@@ -110,19 +100,19 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
             db.commit()
             job.status = JobStatus.CANCELLED
             job.current_file = None
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
-            _log(db, job.id, "Check cancelled")
+            log(db, job.id, "Check cancelled")
             clear_cancel(job.id)
             return
 
         file_obj.status = FileStatus.CORRUPT if is_corrupt else FileStatus.CLEAN
         file_obj.scan_error = errors if is_corrupt else None
-        file_obj.scanned_at = _now()
+        file_obj.scanned_at = now()
 
         if is_corrupt:
             error_count = len([l for l in errors.splitlines() if l.startswith("[")])
-            _log(db, job.id, f"Corrupt: {file_obj.filename} ({error_count} error line(s))", level="warning")
+            log(db, job.id, f"Corrupt: {file_obj.filename} ({error_count} error line(s))", level="warning")
 
         job.processed_files = i + 1
         job.progress = (i + 1) / len(files) * 100
@@ -131,11 +121,11 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
     clear_cancel(job.id)
     job.status = JobStatus.COMPLETED
     job.current_file = None
-    job.finished_at = _now()
+    job.finished_at = now()
     job.progress = 100.0
     db.commit()
     corrupt_count = sum(1 for f in files if f.status == FileStatus.CORRUPT)
-    _log(db, job.id, f"Check complete — {corrupt_count} corrupt file(s) found out of {len(files)}")
+    log(db, job.id, f"Check complete — {corrupt_count} corrupt file(s) found out of {len(files)}")
 
 
 def check_library_corruption(library_id: int) -> None:
@@ -151,12 +141,12 @@ def check_library_corruption(library_id: int) -> None:
             type=JobType.CHECK,
             status=JobStatus.RUNNING,
             library_id=library_id,
-            started_at=_now(),
+            started_at=now(),
         )
         db.add(job)
         db.commit()
         db.refresh(job)
-        _log(db, job.id, f"Checking library: {library.path}")
+        log(db, job.id, f"Checking library: {library.path}")
 
         files = (
             db.query(File)
@@ -169,7 +159,7 @@ def check_library_corruption(library_id: int) -> None:
 
         if not files:
             job.status = JobStatus.COMPLETED
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
             return
 
@@ -179,7 +169,7 @@ def check_library_corruption(library_id: int) -> None:
         if job:
             job.status = JobStatus.FAILED
             job.error = str(e)
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
     finally:
         db.close()
@@ -198,7 +188,7 @@ def check_file(file_id: int) -> None:
             type=JobType.CHECK,
             status=JobStatus.RUNNING,
             library_id=file_obj.library_id,
-            started_at=_now(),
+            started_at=now(),
         )
         db.add(job)
         db.commit()
@@ -210,7 +200,7 @@ def check_file(file_id: int) -> None:
         if job:
             job.status = JobStatus.FAILED
             job.error = str(e)
-            job.finished_at = _now()
+            job.finished_at = now()
             db.commit()
     finally:
         db.close()

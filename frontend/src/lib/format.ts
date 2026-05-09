@@ -14,6 +14,13 @@ export function formatDuration(seconds: number | null): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+export function formatBitrate(bps: number | null): string {
+  if (!bps) return "";
+  if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} Mbps`;
+  if (bps >= 1_000) return `${Math.round(bps / 1_000)} kbps`;
+  return `${bps} bps`;
+}
+
 export function formatDate(iso: string | null): string {
   if (!iso) return "Never";
   return new Date(iso + (iso.endsWith("Z") ? "" : "Z")).toLocaleString();

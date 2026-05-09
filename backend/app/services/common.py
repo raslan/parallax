@@ -1,4 +1,17 @@
-"""Shared state for background job workers."""
+"""Shared state and utilities for background job workers."""
+
+from datetime import datetime, timezone
+
+
+def now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def log(db, job_id: int, message: str, level: str = "info") -> None:
+    from app.models.job import JobLog
+    db.add(JobLog(job_id=job_id, message=message, level=level))
+    db.commit()
+
 
 # job_id → True means "please stop at next checkpoint"
 _cancel_flags: dict[int, bool] = {}

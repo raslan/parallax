@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { api, Library } from "@/lib/api";
+import { PRESETS } from "@/lib/presets";
 import { formatDate } from "@/lib/format";
 
 function AddLibraryDialog({
@@ -99,12 +100,6 @@ function AddLibraryDialog({
     </Dialog>
   );
 }
-
-const PRESETS = [
-  { value: "high", label: "High", title: "CRF 18 — larger file, better quality" },
-  { value: "medium", label: "Medium", title: "CRF 23 — balanced" },
-  { value: "low", label: "Low", title: "CRF 28 — smaller file, lower quality" },
-];
 
 export function Libraries() {
   const [libraries, setLibraries] = useState<Library[]>([]);
