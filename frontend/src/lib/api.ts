@@ -55,10 +55,17 @@ export interface Job {
   progress: number;
   total_files: number;
   processed_files: number;
+  current_file: string | null;
   error: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+}
+
+export interface JobLog {
+  message: string;
+  level: string;
+  timestamp: string;
 }
 
 export interface BrowseResponse {
@@ -111,6 +118,7 @@ export const api = {
   transcodeLibrary: (id: number, preset: string) =>
     req<{ message: string }>(`/libraries/${id}/transcode`, { method: "POST", body: JSON.stringify({ preset }) }),
   cancelJob: (id: number) => req<{ message: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
+  getJobLogs: (id: number) => req<JobLog[]>(`/jobs/${id}/logs`),
   jobsStreamUrl: () => `/api/jobs/stream`,
   clearJobHistory: () => req<void>("/jobs/history", { method: "DELETE" }),
 };

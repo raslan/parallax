@@ -94,6 +94,7 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
             clear_cancel(job.id)
             return
 
+        job.current_file = file_obj.filename
         file_obj.status = FileStatus.SCANNING
         db.commit()
 
@@ -105,6 +106,7 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
             file_obj.status = FileStatus.UNKNOWN
             db.commit()
             job.status = JobStatus.CANCELLED
+            job.current_file = None
             job.finished_at = _now()
             db.commit()
             _log(db, job.id, "Check cancelled")
@@ -115,16 +117,22 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
         file_obj.scan_error = errors if is_corrupt else None
         file_obj.scanned_at = _now()
 
+        if is_corrupt:
+            error_count = len([l for l in errors.splitlines() if l.startswith("[")])
+            _log(db, job.id, f"Corrupt: {file_obj.filename} ({error_count} error line(s))", level="warning")
+
         job.processed_files = i + 1
         job.progress = (i + 1) / len(files) * 100
         db.commit()
 
     clear_cancel(job.id)
     job.status = JobStatus.COMPLETED
+    job.current_file = None
     job.finished_at = _now()
     job.progress = 100.0
     db.commit()
-    _log(db, job.id, f"Check complete — {sum(1 for f in files if f.status == FileStatus.CORRUPT)} corrupt file(s) found")
+    corrupt_count = sum(1 for f in files if f.status == FileStatus.CORRUPT)
+    _log(db, job.id, f"Check complete — {corrupt_count} corrupt file(s) found out of {len(files)}")
 
 
 def check_library_corruption(library_id: int) -> None:

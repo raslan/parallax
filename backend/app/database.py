@@ -35,6 +35,7 @@ def init_db():
     with engine.begin() as conn:
         for sql in [
             "ALTER TABLE libraries ADD COLUMN last_scanned_at DATETIME",
+            "ALTER TABLE jobs ADD COLUMN current_file TEXT",
         ]:
             try:
                 conn.execute(text(sql))

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2 } from "lucide-react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,11 +74,85 @@ const PRESETS = [
   { value: "low", label: "L", title: "Low quality (CRF 28)" },
 ];
 
+// ─── Error detail modal ───────────────────────────────────────────────────────
+
+const VIDEO_CODECS = ["h264", "hevc", "h265", "mpeg4", "mpeg2", "vp8", "vp9", "av1", "vc1"];
+const AUDIO_CODECS = ["aac", "mp3", "ac3", "opus", "vorbis", "flac", "dts", "eac3", "truehd"];
+
+function parseErrorLines(errorText: string) {
+  const lines = errorText.split("\n").filter((l) => l.startsWith("["));
+  const cats: Record<string, number> = {};
+  for (const line of lines) {
+    const m = line.match(/^\[([^\s@\]]+)/);
+    const codec = m ? m[1].toLowerCase() : "";
+    let cat = "Container / other";
+    if (VIDEO_CODECS.some((c) => codec.includes(c))) cat = "Video decode errors";
+    else if (AUDIO_CODECS.some((c) => codec.includes(c))) cat = "Audio decode errors";
+    cats[cat] = (cats[cat] ?? 0) + 1;
+  }
+  return { lines, summary: Object.entries(cats) };
+}
+
+function CorruptionDetailModal({ file, onClose }: { file: VideoFile; onClose: () => void }) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  const { lines, summary } = parseErrorLines(file.scan_error ?? "");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/70" />
+      <div
+        className="relative z-10 w-full max-w-2xl mx-4 bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[80vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 p-4 border-b border-border">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+              <h2 className="font-semibold text-sm">Corruption details</h2>
+            </div>
+            <p className="text-xs text-muted-foreground truncate" title={file.path}>{file.filename}</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground shrink-0">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {summary.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1">
+            {summary.map(([cat, count]) => (
+              <div key={cat} className="flex items-center gap-1.5 rounded-md bg-destructive/10 border border-destructive/20 px-2.5 py-1">
+                <span className="text-destructive text-xs font-medium">{count}</span>
+                <span className="text-xs text-muted-foreground">{cat}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="overflow-auto flex-1 p-4">
+          {lines.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No detailed error output available.</p>
+          ) : (
+            <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-all leading-relaxed">
+              {lines.join("\n")}
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void }) {
   const [imgError, setImgError] = useState(false);
   const [checking, setChecking] = useState(false);
   const [transcoding, setTranscoding] = useState(false);
   const [presetOpen, setPresetOpen] = useState(false);
+  const [errorOpen, setErrorOpen] = useState(false);
   const isCorrupt = file.status === "corrupt";
 
   const handleCheck = async (e: React.MouseEvent) => {
@@ -139,6 +213,15 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
 
         {/* Action buttons — visible on hover */}
         <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isCorrupt && file.scan_error && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setPresetOpen(false); setErrorOpen(true); }}
+              title="View corruption details"
+              className="bg-black/60 hover:bg-black/80 rounded p-1"
+            >
+              <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+            </button>
+          )}
           <button
             onClick={handleCheck}
             disabled={checking}
@@ -185,6 +268,10 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
           {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
         </p>
       </CardContent>
+
+      {errorOpen && (
+        <CorruptionDetailModal file={file} onClose={() => setErrorOpen(false)} />
+      )}
     </Card>
   );
 }

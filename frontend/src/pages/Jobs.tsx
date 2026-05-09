@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from "react";
-import { Activity, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Square } from "lucide-react";
+import { Activity, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Square, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api, Job } from "@/lib/api";
+import { api, Job, JobLog } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
@@ -35,42 +35,100 @@ function ProgressBar({ value }: { value: number }) {
 
 function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }) {
   const canCancel = (job.status === "running" || job.status === "pending") && onCancel;
+  const isFinished = job.status === "completed" || job.status === "failed" || job.status === "cancelled";
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logs, setLogs] = useState<JobLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  const toggleLogs = async () => {
+    if (!logsOpen && logs.length === 0) {
+      setLogsLoading(true);
+      try {
+        const data = await api.getJobLogs(job.id);
+        setLogs(data);
+      } catch {
+        // ignore
+      } finally {
+        setLogsLoading(false);
+      }
+    }
+    setLogsOpen((v) => !v);
+  };
 
   return (
-    <div className="flex items-center gap-4 py-3 border-b last:border-0">
-      <div className="shrink-0">{STATUS_ICON[job.status] ?? <Clock className="h-4 w-4" />}</div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium">{TYPE_LABEL[job.type] ?? job.type}</span>
-          <Badge variant="secondary" className="text-xs capitalize">{job.status}</Badge>
+    <div className="border-b last:border-0">
+      <div className="flex items-center gap-4 py-3">
+        <div className="shrink-0">{STATUS_ICON[job.status] ?? <Clock className="h-4 w-4" />}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium">{TYPE_LABEL[job.type] ?? job.type}</span>
+            <Badge variant="secondary" className="text-xs capitalize">{job.status}</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {job.status === "running"
+              ? `${job.processed_files} / ${job.total_files} files · ${Math.round(job.progress)}%`
+              : `${job.processed_files} / ${job.total_files} files`}
+          </p>
+          {job.status === "running" && job.current_file && (
+            <p className="text-xs text-muted-foreground truncate" title={job.current_file}>
+              {job.type === "check" ? "Checking" : "Transcoding"}: {job.current_file}
+            </p>
+          )}
+          {job.error && (
+            <p className="text-xs text-destructive truncate" title={job.error}>{job.error}</p>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground">
-          {job.status === "running"
-            ? `${job.processed_files} / ${job.total_files} files · ${Math.round(job.progress)}%`
-            : `${job.processed_files} / ${job.total_files} files`}
-        </p>
-        {job.error && (
-          <p className="text-xs text-destructive truncate" title={job.error}>{job.error}</p>
+
+        {job.status === "running" && <ProgressBar value={job.progress} />}
+
+        {canCancel && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+            title="Stop this job"
+            onClick={() => onCancel(job.id)}
+          >
+            <Square className="h-3.5 w-3.5" />
+          </Button>
         )}
+
+        {isFinished && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0 text-muted-foreground"
+            title="Show log"
+            onClick={toggleLogs}
+          >
+            {logsOpen
+              ? <ChevronDown className="h-3.5 w-3.5" />
+              : <ChevronRight className="h-3.5 w-3.5" />}
+          </Button>
+        )}
+
+        <div className="text-xs text-muted-foreground shrink-0 text-right min-w-[100px]">
+          {formatDate(job.created_at)}
+        </div>
       </div>
 
-      {job.status === "running" && <ProgressBar value={job.progress} />}
-
-      {canCancel && (
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-          title="Stop this job"
-          onClick={() => onCancel(job.id)}
-        >
-          <Square className="h-3.5 w-3.5" />
-        </Button>
+      {logsOpen && (
+        <div className="ml-8 mb-3 rounded-md bg-muted/50 border border-border text-xs font-mono overflow-auto max-h-48">
+          {logsLoading ? (
+            <div className="p-3 text-muted-foreground">Loading…</div>
+          ) : logs.length === 0 ? (
+            <div className="p-3 text-muted-foreground">No log entries.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {logs.map((l, i) => (
+                <div key={i} className={`px-3 py-1.5 ${l.level === "warning" ? "text-amber-400" : l.level === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                  {l.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
-
-      <div className="text-xs text-muted-foreground shrink-0 text-right min-w-[100px]">
-        {formatDate(job.created_at)}
-      </div>
     </div>
   );
 }

@@ -31,6 +31,7 @@ async def stream_jobs():
                         "progress": j.progress,
                         "processed_files": j.processed_files,
                         "total_files": j.total_files,
+                        "current_file": j.current_file,
                         "error": j.error,
                         "library_id": j.library_id,
                         "started_at": j.started_at.isoformat() if j.started_at else None,
@@ -72,6 +73,16 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(404, "Job not found")
     return job
+
+
+@router.get("/{job_id}/logs")
+def get_job_logs(job_id: int, db: Session = Depends(get_db)):
+    from app.models.job import JobLog
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    logs = db.query(JobLog).filter(JobLog.job_id == job_id).order_by(JobLog.timestamp).all()
+    return [{"message": l.message, "level": l.level, "timestamp": l.timestamp.isoformat()} for l in logs]
 
 
 @router.post("/{job_id}/cancel", status_code=202)

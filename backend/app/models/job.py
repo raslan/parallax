@@ -29,6 +29,7 @@ class Job(Base):
     total_files: Mapped[int] = mapped_column(Integer, default=0)
     processed_files: Mapped[int] = mapped_column(Integer, default=0)
     settings: Mapped[str] = mapped_column(Text, nullable=True)
+    current_file: Mapped[str] = mapped_column(Text, nullable=True)
     error: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

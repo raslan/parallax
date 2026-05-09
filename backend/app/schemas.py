@@ -62,6 +62,7 @@ class JobRead(BaseModel):
     progress: float
     total_files: int
     processed_files: int
+    current_file: Optional[str] = None
     error: Optional[str] = None
     created_at: datetime
     started_at: Optional[datetime] = None
