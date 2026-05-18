@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Scissors, Loader2, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -112,12 +112,12 @@ export function Cleanup() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useState(() => {
+  useEffect(() => {
     api.getLibraries().then((libs) => {
       setLibraries(libs);
       if (libs.length > 0) setSelectedId(libs[0].id);
     });
-  });
+  }, []);
 
   const anyFilterEnabled = durationEnabled || fpsEnabled || dateEnabled || heightEnabled;
 
