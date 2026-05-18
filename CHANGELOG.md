@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.5.0] - 2026-05-18
+
+### Features
+
+- Video playback modal on Cleanup and Duplicates pages
+- Grid/list view toggle on Files page (grid default) and Cleanup page (list default)
+- Shared VideoPlayerModal component across all library screens
+- One-click corrupt button per library for demo/testing
+- Cleanup page: file width, height, fps, date filter columns
+
+### Bug Fixes
+
+- Fix checkbox click capture in Cleanup grid card (z-index vs play overlay)
+
+---
+
 ## [0.4.0] - 2026-05-09
 
 ### Bug Fixes
