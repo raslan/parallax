@@ -41,24 +41,21 @@ function ProgressBar({ value }: { value: number }) {
 function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }) {
   const canCancel = (job.status === "running" || job.status === "pending") && onCancel;
   const isFinished = job.status === "completed" || job.status === "failed" || job.status === "cancelled";
-  const [logsOpen, setLogsOpen] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(job.status === "failed");
   const [logs, setLogs] = useState<JobLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
-  const toggleLogs = async () => {
-    if (!logsOpen && logs.length === 0) {
+  useEffect(() => {
+    if (logsOpen && logs.length === 0) {
       setLogsLoading(true);
-      try {
-        const data = await api.getJobLogs(job.id);
-        setLogs(data);
-      } catch {
-        // ignore
-      } finally {
-        setLogsLoading(false);
-      }
+      api.getJobLogs(job.id)
+        .then(setLogs)
+        .catch(() => {})
+        .finally(() => setLogsLoading(false));
     }
-    setLogsOpen((v) => !v);
-  };
+  }, [logsOpen, job.id]);
+
+  const toggleLogs = () => setLogsOpen((v) => !v);
 
   return (
     <div className="border-b last:border-0">

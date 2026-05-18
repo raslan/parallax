@@ -222,13 +222,18 @@ def _run_transcode_job(
             succeeded += 1
         elif not should_cancel(job.id):
             failed += 1
+            log(db, job.id,
+                f"Failed: {file_obj.filename} — {file_obj.scan_error or 'ffmpeg non-zero exit'}",
+                level="error")
 
         job.processed_files = i + 1
         job.progress = (i + 1) / total * 100
         db.commit()
 
     clear_cancel(job.id)
-    job.status = JobStatus.COMPLETED
+    if failed > 0:
+        job.error = f"{failed} of {total} file{'s' if total != 1 else ''} failed to transcode"
+    job.status = JobStatus.FAILED if (failed > 0 and succeeded == 0) else JobStatus.COMPLETED
     job.finished_at = now()
     job.progress = 100.0
     db.commit()
