@@ -414,6 +414,10 @@ def delete_cleanup_files(
         if os.path.exists(f.path):
             originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
             os.makedirs(originals_dir, exist_ok=True)
-            shutil.move(f.path, os.path.join(originals_dir, f.filename))
+            dest = os.path.join(originals_dir, f.filename)
+            if os.path.exists(dest):
+                base, ext = os.path.splitext(f.filename)
+                dest = os.path.join(originals_dir, f"{base}_{f.id}{ext}")
+            shutil.move(f.path, dest)
         db.delete(f)
     db.commit()
