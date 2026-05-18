@@ -141,6 +141,7 @@ export function Duplicates() {
 
   const handleScan = async () => {
     if (!selectedId) return;
+    stopPolling();
     setScanning(true);
     setGroups(null);
     setKeepIds({});
@@ -159,7 +160,11 @@ export function Duplicates() {
         setKeepIds(init);
         stopPolling();
         setScanning(false);
-      } catch {
+      } catch (e: any) {
+        if (!e?.message?.startsWith("404")) {
+          stopPolling();
+          setScanning(false);
+        }
         // 404 means scan not done yet — keep polling
       }
     }, 2000);
