@@ -103,6 +103,24 @@ export interface Stats {
   scanning: boolean;
 }
 
+export interface DuplicateFile {
+  id: number;
+  library_id: number;
+  path: string;
+  filename: string;
+  size: number;
+  duration: number | null;
+  codec_name: string | null;
+  video_bitrate: number | null;
+  status: string;
+  has_thumbnail: boolean;
+}
+
+export interface DuplicateGroup {
+  files: DuplicateFile[];
+  keep_id: number;
+}
+
 export const api = {
   // Libraries
   getLibraries: () => req<Library[]>("/libraries"),
@@ -112,6 +130,7 @@ export const api = {
   deleteLibrary: (id: number) => req<void>(`/libraries/${id}`, { method: "DELETE" }),
   scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
   checkLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
+  corruptLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/corrupt`, { method: "POST" }),
   browseLibrary: (id: number, path: string, status?: string, sort_by?: string, sort_dir?: string) => {
     const q = new URLSearchParams({ path });
     if (status)   q.set("status",   status);
@@ -145,6 +164,12 @@ export const api = {
   getJobLogs: (id: number) => req<JobLog[]>(`/jobs/${id}/logs`),
   jobsStreamUrl: () => `/api/jobs/stream`,
   clearJobHistory: () => req<void>("/jobs/history", { method: "DELETE" }),
+
+  // Duplicates
+  findDuplicates: (id: number) => req<{ message: string }>(`/libraries/${id}/find-duplicates`, { method: "POST" }),
+  getDuplicates: (id: number) => req<DuplicateGroup[]>(`/libraries/${id}/duplicates`),
+  deleteDuplicates: (id: number, file_ids: number[]) =>
+    req<void>(`/libraries/${id}/duplicates`, { method: "DELETE", body: JSON.stringify({ file_ids }) }),
 
   // Originals
   getOriginals: (library_id?: number) => {
