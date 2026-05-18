@@ -6,6 +6,7 @@ import { Files } from "@/pages/Files";
 import { Jobs } from "@/pages/Jobs";
 import { Settings } from "@/pages/Settings";
 import { Originals } from "@/pages/Originals";
+import { Duplicates } from "@/pages/Duplicates";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/files" element={<Files />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/originals" element={<Originals />} />
+          <Route path="/duplicates" element={<Duplicates />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
