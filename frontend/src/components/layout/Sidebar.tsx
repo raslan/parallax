@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Library, Film, Activity, Settings, Archive, Copy } from "lucide-react";
+import { LayoutDashboard, Library, Film, Activity, Settings, Archive, Copy, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/jobs", icon: Activity, label: "Jobs" },
   { to: "/originals", icon: Archive, label: "Originals" },
   { to: "/duplicates", icon: Copy, label: "Duplicates" },
+  { to: "/cleanup", icon: Scissors, label: "Cleanup" },
 ];
 
 function PrismLogo({ className }: { className?: string }) {

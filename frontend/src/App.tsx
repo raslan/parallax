@@ -7,6 +7,7 @@ import { Jobs } from "@/pages/Jobs";
 import { Settings } from "@/pages/Settings";
 import { Originals } from "@/pages/Originals";
 import { Duplicates } from "@/pages/Duplicates";
+import { Cleanup } from "@/pages/Cleanup";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/originals" element={<Originals />} />
           <Route path="/duplicates" element={<Duplicates />} />
+          <Route path="/cleanup" element={<Cleanup />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
