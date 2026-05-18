@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api, Original, OriginalsSummary } from "@/lib/api";
 import { formatSize } from "@/lib/format";
+import { SectionHeader } from "@/components/SectionHeader";
 
 // ── Savings badge ─────────────────────────────────────────────────────────────
 
@@ -138,11 +139,11 @@ function LibraryGroup({
 
                   {/* Size comparison */}
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 tabular-nums">
-                    <span>{formatSize(entry.original_size)}</span>
+                    <span className="font-mono">{formatSize(entry.original_size)}</span>
                     {entry.current_size !== null && (
                       <>
                         <ArrowRight className="h-3 w-3" />
-                        <span>{formatSize(entry.current_size)}</span>
+                        <span className="font-mono">{formatSize(entry.current_size)}</span>
                       </>
                     )}
                   </div>
@@ -245,8 +246,8 @@ export function Originals() {
             },
           ].map(({ label, value, accent }) => (
             <div key={label} className="px-7 py-5">
-              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">{label}</p>
-              <p className={`text-2xl font-bold tabular-nums tracking-tight ${accent ? "text-primary" : ""}`}>{value}</p>
+              <SectionHeader className="mb-2">{label}</SectionHeader>
+              <p className={`text-2xl font-bold font-mono tabular-nums tracking-tight ${accent ? "text-primary" : ""}`}>{value}</p>
             </div>
           ))}
         </div>

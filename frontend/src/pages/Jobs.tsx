@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, Job, JobLog } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { SectionHeader } from "@/components/SectionHeader";
+import { StatusDot } from "@/components/StatusDot";
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   pending: <Clock className="h-4 w-4 text-muted-foreground" />,
@@ -23,10 +25,13 @@ const TYPE_LABEL: Record<string, string> = {
 function ProgressBar({ value }: { value: number }) {
   return (
     <div className="w-24 shrink-0">
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--px-bg-elevated)" }}>
         <div
-          className="h-full bg-primary rounded-full transition-all duration-300"
-          style={{ width: `${value}%` }}
+          className="h-full rounded-full transition-all duration-300"
+          style={{
+            width: `${value}%`,
+            background: "linear-gradient(90deg, var(--px-accent), var(--px-accent-secondary))",
+          }}
         />
       </div>
     </div>
@@ -64,11 +69,20 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
             <span className="text-sm font-medium">{TYPE_LABEL[job.type] ?? job.type}</span>
             <Badge variant="secondary" className="text-xs capitalize">{job.status}</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {job.status === "running"
-              ? `${job.processed_files} / ${job.total_files} files · ${Math.round(job.progress)}%`
-              : `${job.processed_files} / ${job.total_files} files`}
-          </p>
+          <div className="flex items-center gap-2">
+            {job.status === "running" ? (
+              <>
+                <StatusDot status="running" />
+                <p className="text-xs text-muted-foreground">
+                  {`${job.processed_files} / ${job.total_files} files · ${Math.round(job.progress)}%`}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {`${job.processed_files} / ${job.total_files} files`}
+              </p>
+            )}
+          </div>
           {job.status === "running" && job.current_file && (
             <p className="text-xs text-muted-foreground truncate" title={job.current_file}>
               {job.type === "check" ? "Checking" : "Transcoding"}: {job.current_file}
@@ -205,6 +219,7 @@ export function Jobs() {
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
+          <SectionHeader className="mb-1.5">Active &amp; recent jobs</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Monitor scan, corruption-check, and transcode jobs.
