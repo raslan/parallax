@@ -267,7 +267,7 @@ export function Jobs() {
           {running.length > 0 && (
             <Card>
               <CardContent className="pt-4 pb-0">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Active</p>
+                <SectionHeader className="mb-2">Active</SectionHeader>
                 {running.map((j) => (
                   <JobRow
                     key={j.id}
@@ -281,7 +281,7 @@ export function Jobs() {
           {history.length > 0 && (
             <Card>
               <CardContent className="pt-4 pb-0">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">History</p>
+                <SectionHeader className="mb-2">History</SectionHeader>
                 {history.map((j) => <JobRow key={j.id} job={j} />)}
               </CardContent>
             </Card>

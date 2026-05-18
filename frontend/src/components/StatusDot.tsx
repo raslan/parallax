@@ -18,14 +18,14 @@ export function StatusDot({ status }: { status: DotStatus }) {
         {isPulsing && (
           <span
             className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-            style={{ background: isError ? "#f87171" : "var(--px-accent)" }}
+            style={{ background: isError ? "hsl(var(--destructive))" : "var(--px-accent)" }}
           />
         )}
         <span
           className="relative inline-flex h-2 w-2 rounded-full"
           style={{
             background: isError
-              ? "#f87171"
+              ? "hsl(var(--destructive))"
               : status === "idle"
               ? "var(--px-text-muted)"
               : "var(--px-accent)",
@@ -36,7 +36,7 @@ export function StatusDot({ status }: { status: DotStatus }) {
         className="text-[10px] font-mono font-bold uppercase tracking-[0.1em]"
         style={{
           color: isError
-            ? "#f87171"
+            ? "hsl(var(--destructive))"
             : status === "idle"
             ? "var(--px-text-muted)"
             : "var(--px-accent)",

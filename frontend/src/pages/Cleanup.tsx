@@ -6,7 +6,6 @@ import { api, CleanupParams, Library, VideoFile } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
-import { StatPanel } from "@/components/StatPanel";
 
 function LibrarySelector({
   libraries,
