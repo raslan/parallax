@@ -1,8 +1,8 @@
-# Refract — CLAUDE.md
+# Parallax — CLAUDE.md
 
 ## What this project is
 
-**Refract** is a self-hosted video transcoding manager. Its primary purpose is to scan media libraries for corrupt video files and repair them by re-encoding with ffmpeg, preserving originals as backups. It runs as a single Docker container and is managed through a browser UI.
+**Parallax** is a self-hosted video transcoding manager. Its primary purpose is to scan media libraries for corrupt video files and repair them by re-encoding with ffmpeg, preserving originals as backups. It runs as a single Docker container and is managed through a browser UI.
 
 Key capabilities:
 - Library management: watch folders, periodic scan scheduling
@@ -24,11 +24,18 @@ The app is served at port **7899**. The React SPA is built into `frontend/dist/`
 
 ## Design system
 
-- **Name**: Refract
-- **Theme**: dark-only, near-black background (`#09090b`), violet accent (`#8b5cf6`)
+- **Name**: Parallax
+- **Theme**: dark-only, near-black background (`#09090b`)
+- **Themes**: three built-in themes selectable via Settings → Appearance:
+  - `violet` — **Deep Space** (default): violet accent (`#8b5cf6`)
+  - `cyan` — **Modern HUD**: cyan accent
+  - `amber` — **Mission Control**: amber accent
+- **CSS custom properties**: `--px-accent`, `--px-bg-base`, and related `--px-*` tokens drive all theme colours
+- **Design language components**: `SectionHeader`, `StatPanel`, `StatusDot`
+- **Logo**: P lettermark SVG with star accent
 - **Border radius**: `0.4rem` (tight/sharp)
 - **Icon set**: lucide-react
-- No light mode. No other accent colours.
+- No light mode.
 
 ## Running locally
 

@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.6.0] - 2026-05-19
+
+### Features
+
+- Rebrand from Refract to Parallax
+- Three-theme system: violet (Deep Space, default), cyan (Modern HUD), amber (Mission Control)
+- Theme picker in Settings → Appearance section
+- Design language components: SectionHeader, StatPanel, StatusDot
+- P lettermark SVG logo with star accent
+- Mission control visual identity across all pages
+
+---
+
 ## [0.5.0] - 2026-05-18
 
 ### Features
