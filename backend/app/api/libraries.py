@@ -312,3 +312,108 @@ def delete_duplicates_endpoint(
             shutil.move(f.path, os.path.join(originals_dir, f.filename))
         db.delete(f)
     db.commit()
+
+
+@router.get("/{library_id}/cleanup", response_model=list[FileRead])
+def get_cleanup_files(
+    library_id: int,
+    duration_op: str | None = Query(None),
+    duration_secs: float | None = Query(None),
+    fps_op: str | None = Query(None),
+    fps_val: float | None = Query(None),
+    date_op: str | None = Query(None),
+    date_ts: float | None = Query(None),
+    height_op: str | None = Query(None),
+    height_val: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+
+    filters_present = any([
+        duration_op and duration_secs is not None,
+        fps_op and fps_val is not None,
+        date_op and date_ts is not None,
+        height_op and height_val is not None,
+    ])
+    if not filters_present:
+        raise HTTPException(422, "At least one filter must be specified")
+
+    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
+    if file_count == 0:
+        raise HTTPException(422, "Scan the library first to index files before using cleanup")
+
+    q = db.query(File).filter(File.library_id == library_id)
+
+    if duration_op and duration_secs is not None:
+        if duration_op == "lt":
+            q = q.filter(File.duration.isnot(None), File.duration < duration_secs)
+        else:
+            q = q.filter(File.duration.isnot(None), File.duration > duration_secs)
+
+    if fps_op and fps_val is not None:
+        if fps_op == "lt":
+            q = q.filter(File.file_fps.isnot(None), File.file_fps < fps_val)
+        else:
+            q = q.filter(File.file_fps.isnot(None), File.file_fps > fps_val)
+
+    if date_op and date_ts is not None:
+        if date_op == "before":
+            q = q.filter(File.file_date.isnot(None), File.file_date < date_ts)
+        else:
+            q = q.filter(File.file_date.isnot(None), File.file_date > date_ts)
+
+    if height_op and height_val is not None:
+        if height_op == "lt":
+            q = q.filter(File.file_height.isnot(None), File.file_height < height_val)
+        else:
+            q = q.filter(File.file_height.isnot(None), File.file_height > height_val)
+
+    files = q.order_by(File.filename).all()
+
+    return [
+        FileRead(
+            id=f.id,
+            library_id=f.library_id,
+            path=f.path,
+            filename=f.filename,
+            size=f.size,
+            duration=f.duration,
+            codec_name=f.codec_name,
+            video_bitrate=f.video_bitrate,
+            status=f.status,
+            scan_error=f.scan_error,
+            scanned_at=f.scanned_at,
+            transcoded_at=f.transcoded_at,
+            created_at=f.created_at,
+            has_thumbnail=os.path.exists(thumbnail_path(f.id)),
+            file_width=f.file_width,
+            file_height=f.file_height,
+            file_fps=f.file_fps,
+            file_date=f.file_date,
+        )
+        for f in files
+        if os.path.exists(f.path)
+    ]
+
+
+@router.delete("/{library_id}/cleanup", status_code=204)
+def delete_cleanup_files(
+    library_id: int,
+    body: DeleteDuplicatesRequest,
+    db: Session = Depends(get_db),
+):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    for file_id in body.file_ids:
+        f = db.get(File, file_id)
+        if not f or f.library_id != library_id:
+            continue
+        if os.path.exists(f.path):
+            originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
+            os.makedirs(originals_dir, exist_ok=True)
+            shutil.move(f.path, os.path.join(originals_dir, f.filename))
+        db.delete(f)
+    db.commit()
