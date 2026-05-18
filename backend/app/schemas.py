@@ -90,3 +90,27 @@ class StatsRead(BaseModel):
     transcoded_files: int
     total_size_bytes: int
     scanning: bool
+
+
+class DuplicateFileRead(BaseModel):
+    id: int
+    library_id: int
+    path: str
+    filename: str
+    size: int
+    duration: Optional[float] = None
+    codec_name: Optional[str] = None
+    video_bitrate: Optional[int] = None
+    status: str
+    has_thumbnail: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class DuplicateGroupRead(BaseModel):
+    files: list[DuplicateFileRead]
+    keep_id: int
+
+
+class DeleteDuplicatesRequest(BaseModel):
+    file_ids: list[int]
