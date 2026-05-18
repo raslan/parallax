@@ -196,11 +196,10 @@ def scan_library(library_id: int):
                         except (ValueError, TypeError):
                             pass
 
-                    # width / height
-                    file_obj.file_width  = s.get("width")
+                    file_obj.file_width = s.get("width")
                     file_obj.file_height = s.get("height")
 
-                    # fps — r_frame_rate is a fraction like "30000/1001"
+                    # ffprobe returns r_frame_rate as a fraction string e.g. "30000/1001"
                     raw_fps = s.get("r_frame_rate", "")
                     if "/" in raw_fps:
                         num, den = raw_fps.split("/")
@@ -208,10 +207,7 @@ def scan_library(library_id: int):
                     else:
                         file_obj.file_fps = float(raw_fps) if raw_fps else None
 
-            # file_date: embedded creation_time preferred, mtime fallback
-            creation_time_str = None
-            if data:
-                creation_time_str = data.get("format", {}).get("tags", {}).get("creation_time")
+            creation_time_str = data.get("format", {}).get("tags", {}).get("creation_time") if data else None
             if creation_time_str:
                 try:
                     dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))
