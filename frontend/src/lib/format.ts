@@ -25,3 +25,10 @@ export function formatDate(iso: string | null): string {
   if (!iso) return "Never";
   return new Date(iso + (iso.endsWith("Z") ? "" : "Z")).toLocaleString();
 }
+
+export function formatUnixDate(ts: number | null): string {
+  if (ts === null || ts === undefined) return "—";
+  return new Date(ts * 1000).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+  });
+}

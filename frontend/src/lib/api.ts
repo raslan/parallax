@@ -58,6 +58,10 @@ export interface VideoFile {
   transcoded_at: string | null;
   created_at: string;
   has_thumbnail: boolean;
+  file_width: number | null;
+  file_height: number | null;
+  file_fps: number | null;
+  file_date: number | null;
 }
 
 export interface FilesResponse {
@@ -121,6 +125,30 @@ export interface DuplicateGroup {
   keep_id: number;
 }
 
+export interface CleanupParams {
+  duration_op?: "lt" | "gt";
+  duration_secs?: number;
+  fps_op?: "lt" | "gt";
+  fps_val?: number;
+  date_op?: "before" | "after";
+  date_ts?: number;
+  height_op?: "lt" | "gt";
+  height_val?: number;
+}
+
+function buildCleanupQuery(params: CleanupParams): string {
+  const q = new URLSearchParams();
+  if (params.duration_op)                q.set("duration_op",   params.duration_op);
+  if (params.duration_secs !== undefined) q.set("duration_secs", String(params.duration_secs));
+  if (params.fps_op)                     q.set("fps_op",        params.fps_op);
+  if (params.fps_val !== undefined)      q.set("fps_val",       String(params.fps_val));
+  if (params.date_op)                    q.set("date_op",       params.date_op);
+  if (params.date_ts !== undefined)      q.set("date_ts",       String(params.date_ts));
+  if (params.height_op)                  q.set("height_op",     params.height_op);
+  if (params.height_val !== undefined)   q.set("height_val",    String(params.height_val));
+  return q.toString();
+}
+
 export const api = {
   // Libraries
   getLibraries: () => req<Library[]>("/libraries"),
@@ -170,6 +198,12 @@ export const api = {
   getDuplicates: (id: number) => req<DuplicateGroup[]>(`/libraries/${id}/duplicates`),
   deleteDuplicates: (id: number, file_ids: number[]) =>
     req<void>(`/libraries/${id}/duplicates`, { method: "DELETE", body: JSON.stringify({ file_ids }) }),
+
+  // Cleanup
+  getCleanupFiles: (id: number, params: CleanupParams) =>
+    req<VideoFile[]>(`/libraries/${id}/cleanup?${buildCleanupQuery(params)}`),
+  deleteCleanupFiles: (id: number, file_ids: number[]) =>
+    req<void>(`/libraries/${id}/cleanup`, { method: "DELETE", body: JSON.stringify({ file_ids }) }),
 
   // Originals
   getOriginals: (library_id?: number) => {
