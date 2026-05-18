@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --destructive:            0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --radius:                 0.4rem;
+}
+
 @layer base {
   /* ── Violet / Deep Space (default) ─────────────────────────── */
   :root,
@@ -20,12 +26,9 @@
     --muted-foreground:    258 22% 46%;
     --accent:              258 45% 12%;
     --accent-foreground:   263 60% 93%;
-    --destructive:         0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
     --border:              258 40% 14%;
     --input:               258 45% 12%;
     --ring:                263 87% 76%;
-    --radius:              0.4rem;
     --sidebar:             258 70% 4%;
     --sidebar-foreground:  263 60% 93%;
     --sidebar-border:      258 45% 10%;
@@ -57,12 +60,9 @@
     --muted-foreground:    210 27% 40%;
     --accent:              210 65% 11%;
     --accent-foreground:   188 80% 94%;
-    --destructive:         0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
     --border:              210 55% 12%;
     --input:               210 65% 11%;
     --ring:                188 83% 53%;
-    --radius:              0.4rem;
     --sidebar:             210 80% 4%;
     --sidebar-foreground:  188 80% 94%;
     --sidebar-border:      210 60% 10%;
@@ -93,12 +93,9 @@
     --muted-foreground:    0 0% 53%;
     --accent:              240 38% 12%;
     --accent-foreground:   38 90% 94%;
-    --destructive:         0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
     --border:              240 35% 14%;
     --input:               240 38% 12%;
     --ring:                38 92% 50%;
-    --radius:              0.4rem;
     --sidebar:             240 55% 4%;
     --sidebar-foreground:  38 90% 94%;
     --sidebar-border:      240 40% 11%;
