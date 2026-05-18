@@ -1,15 +1,24 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Loader2, Check } from "lucide-react";
+import { Settings as SettingsIcon, Loader2, Check, Palette } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useTheme } from "@/components/ThemeProvider";
+
+const THEMES = [
+  { id: "violet" as const, label: "Deep Space",      accent: "#a78bfa" },
+  { id: "cyan"   as const, label: "Modern HUD",      accent: "#22d3ee" },
+  { id: "amber"  as const, label: "Mission Control", accent: "#f59e0b" },
+];
 
 export function Settings() {
+  const { theme, setTheme } = useTheme();
+
   const [maxConcurrent, setMaxConcurrent] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [loading, setLoading]             = useState(true);
+  const [saving, setSaving]               = useState(false);
+  const [saved, setSaved]                 = useState(false);
+  const [dirty, setDirty]                 = useState(false);
 
   useEffect(() => {
     api.getSettings()
@@ -39,10 +48,43 @@ export function Settings() {
     <div className="p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Configure transcoder behaviour.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Configure Parallax behaviour.</p>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Palette className="h-4 w-4" />
+            Appearance
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-4">
+            Choose a colour theme. Takes effect immediately.
+          </p>
+          <div className="flex gap-3">
+            {THEMES.map((t) => {
+              const isActive = theme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-[0.4rem] border transition-colors ${
+                    isActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <div
+                    className="h-8 w-8 rounded-full"
+                    style={{ background: t.accent }}
+                  />
+                  <span className="text-xs font-medium whitespace-nowrap">{t.label}</span>
+                  {isActive && <Check className="h-3 w-3 text-primary" />}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-3">
@@ -97,7 +139,7 @@ export function Settings() {
 
               <Button onClick={handleSave} disabled={saving || !dirty} size="sm">
                 {saving && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
-                {saved && <Check className="h-3.5 w-3.5 mr-2 text-green-400" />}
+                {saved  && <Check   className="h-3.5 w-3.5 mr-2 text-green-400" />}
                 {saved ? "Saved" : "Save"}
               </Button>
             </>
