@@ -7,6 +7,7 @@ import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { PRESETS } from "@/lib/presets";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
+import { SectionHeader } from "@/components/SectionHeader";
 
 const STATUS_COLORS: Record<string, string> = {
   unknown: "secondary",
@@ -274,13 +275,13 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
         </Badge>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
-        {file.codec_name ? file.codec_name.toUpperCase() : "—"}
+        <span className="font-mono">{file.codec_name ? file.codec_name.toUpperCase() : "—"}</span>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
-        {formatDuration(file.duration)}
+        <span className="font-mono">{formatDuration(file.duration)}</span>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
-        {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
+        <span className="font-mono">{file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}</span>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
         {formatSize(file.size)}
@@ -449,9 +450,7 @@ function LibraryBrowser({
             <>
               {browse.dirs.length > 0 && (
                 <div className="border-t pt-4">
-                  <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wider font-medium">
-                    Files in this folder
-                  </p>
+                  <SectionHeader>Files in this folder</SectionHeader>
                 </div>
               )}
               {viewMode === "grid" ? (

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { api, DuplicateGroup, DuplicateFile, Library } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
+import { SectionHeader } from "@/components/SectionHeader";
 
 function LibrarySelector({
   libraries,
@@ -85,8 +86,8 @@ function FilePanel({
         {file.path}
       </p>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
-        <span>{formatSize(file.size)}</span>
-        {file.duration != null && <span>{formatDuration(file.duration)}</span>}
+        <span className="font-mono">{formatSize(file.size)}</span>
+        {file.duration != null && <span className="font-mono">{formatDuration(file.duration)}</span>}
         {file.video_bitrate != null && <span>{formatBitrate(file.video_bitrate)}</span>}
         {file.codec_name && (
           <Badge variant="secondary" className="text-xs px-1 py-0">{file.codec_name}</Badge>
@@ -248,7 +249,7 @@ export function Duplicates() {
       {groups !== null && groups.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-sm">
-            <span className="font-semibold tabular-nums">{groups.length}</span> duplicate group{groups.length !== 1 ? "s" : ""} found
+            <span className="font-semibold tabular-nums font-mono">{groups.length}</span> duplicate group{groups.length !== 1 ? "s" : ""} found
             {recoverable > 0 && (
               <span className="text-muted-foreground ml-2">· {formatSize(recoverable)} recoverable</span>
             )}

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { api, Library } from "@/lib/api";
 import { PRESETS } from "@/lib/presets";
 import { formatDate } from "@/lib/format";
+import { SectionHeader } from "@/components/SectionHeader";
 
 function AddLibraryDialog({
   open,
@@ -322,9 +323,9 @@ export function Libraries() {
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {lib.file_count > 0 && (
                     <span className="text-xs text-muted-foreground">
-                      {lib.file_count.toLocaleString()} files
+                      <span className="font-mono">{lib.file_count.toLocaleString()}</span> files
                       {lib.corrupt_count > 0 && (
-                        <span className="text-destructive ml-1">· {lib.corrupt_count} corrupt</span>
+                        <span className="text-destructive ml-1">· <span className="font-mono">{lib.corrupt_count}</span> corrupt</span>
                       )}
                     </span>
                   )}

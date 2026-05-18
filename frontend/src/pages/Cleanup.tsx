@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { api, CleanupParams, Library, VideoFile } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
+import { SectionHeader } from "@/components/SectionHeader";
+import { StatPanel } from "@/components/StatPanel";
 
 function LibrarySelector({
   libraries,
@@ -132,9 +134,10 @@ function CleanupCard({
       <CardContent className="p-2.5 space-y-0.5">
         <p className="text-xs font-medium truncate" title={file.filename}>{file.filename}</p>
         <p className="text-xs text-muted-foreground">
-          {file.file_width && file.file_height ? `${file.file_width}×${file.file_height} · ` : ""}
-          {formatDuration(file.duration)}
-          {" · "}{formatSize(file.size)}
+          {file.file_width && file.file_height ? <span className="font-mono">{file.file_width}×{file.file_height}</span> : null}
+          {file.file_width && file.file_height ? " · " : ""}
+          <span className="font-mono">{formatDuration(file.duration)}</span>
+          {" · "}<span className="font-mono">{formatSize(file.size)}</span>
         </p>
       </CardContent>
     </Card>
@@ -393,7 +396,7 @@ export function Cleanup() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums">{results.length}</span> file{results.length !== 1 ? "s" : ""} match
+              <span className="font-semibold text-foreground tabular-nums font-mono">{results.length}</span> file{results.length !== 1 ? "s" : ""} match
             </p>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -490,19 +493,19 @@ export function Cleanup() {
                         <p className="truncate font-medium" title={f.filename}>{f.filename}</p>
                         <p className="truncate text-xs text-muted-foreground" title={f.path}>{f.path}</p>
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
                         {f.file_width && f.file_height ? `${f.file_width}×${f.file_height}` : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
                         {f.file_fps != null ? f.file_fps.toFixed(2) : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
                         {formatDuration(f.duration)}
                       </td>
-                      <td className="px-3 py-2 text-right text-muted-foreground">
+                      <td className="px-3 py-2 text-right text-muted-foreground font-mono">
                         {formatUnixDate(f.file_date)}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
                         {formatSize(f.size)}
                       </td>
                     </tr>
