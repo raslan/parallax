@@ -38,6 +38,10 @@ def init_db():
             "ALTER TABLE jobs ADD COLUMN current_file TEXT",
             "ALTER TABLE files ADD COLUMN codec_name TEXT",
             "ALTER TABLE files ADD COLUMN video_bitrate INTEGER",
+            "ALTER TABLE files ADD COLUMN file_width INTEGER",
+            "ALTER TABLE files ADD COLUMN file_height INTEGER",
+            "ALTER TABLE files ADD COLUMN file_fps REAL",
+            "ALTER TABLE files ADD COLUMN file_date REAL",
         ]:
             try:
                 conn.execute(text(sql))

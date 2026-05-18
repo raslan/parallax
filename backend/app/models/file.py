@@ -31,3 +31,7 @@ class File(Base):
     scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     transcoded_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    file_width:  Mapped[int]   = mapped_column(Integer, nullable=True)
+    file_height: Mapped[int]   = mapped_column(Integer, nullable=True)
+    file_fps:    Mapped[float] = mapped_column(Float,   nullable=True)
+    file_date:   Mapped[float] = mapped_column(Float,   nullable=True)
