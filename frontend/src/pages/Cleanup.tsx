@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Scissors, Loader2, Trash2, Search } from "lucide-react";
+import { Scissors, Loader2, Trash2, Search, Play, LayoutGrid, List, ImageOff, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, CleanupParams, Library, VideoFile } from "@/lib/api";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 
 function LibrarySelector({
@@ -83,6 +84,63 @@ function NumInput({
   );
 }
 
+function CleanupCard({
+  file,
+  isSelected,
+  onToggle,
+  onPlay,
+}: {
+  file: VideoFile;
+  isSelected: boolean;
+  onToggle: () => void;
+  onPlay: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <Card
+      className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isSelected ? "ring-1 ring-primary" : "hover:ring-primary/60"}`}
+      onClick={onToggle}
+    >
+      <div className="aspect-video bg-muted relative flex items-center justify-center">
+        {file.has_thumbnail && !imgError ? (
+          <img
+            src={`/api/files/${file.id}/thumbnail`}
+            alt={file.filename}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <ImageOff className="h-8 w-8 text-muted-foreground/40" />
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          title="Toggle selection"
+          className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100 bg-primary border-primary" : "opacity-0 group-hover:opacity-100 bg-black/50 border-white/70"}`}
+        >
+          {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onPlay(); }}
+          title="Play video"
+          className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto"
+        >
+          <Play className="h-8 w-8 text-white fill-white" />
+        </button>
+      </div>
+      <CardContent className="p-2.5 space-y-0.5">
+        <p className="text-xs font-medium truncate" title={file.filename}>{file.filename}</p>
+        <p className="text-xs text-muted-foreground">
+          {file.file_width && file.file_height ? `${file.file_width}×${file.file_height} · ` : ""}
+          {formatDuration(file.duration)}
+          {" · "}{formatSize(file.size)}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function Cleanup() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -111,6 +169,8 @@ export function Cleanup() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   useEffect(() => {
     api.getLibraries().then((libs) => {
@@ -345,6 +405,22 @@ export function Cleanup() {
                 />
                 Select all
               </label>
+              <div className="flex items-center rounded-md border border-input overflow-hidden">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`h-8 w-8 flex items-center justify-center transition-colors ${viewMode === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                  title="List view"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`h-8 w-8 flex items-center justify-center transition-colors ${viewMode === "grid" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+              </div>
               <Button
                 variant="destructive"
                 size="sm"
@@ -359,72 +435,99 @@ export function Cleanup() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
-                <tr>
-                  <th className="w-8 px-3 py-2"></th>
-                  <th className="w-10 px-2 py-2"></th>
-                  <th className="px-3 py-2 text-left">Filename</th>
-                  <th className="px-3 py-2 text-right">Resolution</th>
-                  <th className="px-3 py-2 text-right">FPS</th>
-                  <th className="px-3 py-2 text-right">Duration</th>
-                  <th className="px-3 py-2 text-right">File date</th>
-                  <th className="px-3 py-2 text-right">Size</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {results.map((f) => (
-                  <tr
-                    key={f.id}
-                    className={`hover:bg-muted/20 cursor-pointer transition-colors ${selected.has(f.id) ? "bg-primary/5" : ""}`}
-                    onClick={() => toggleOne(f.id)}
-                  >
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        className="accent-primary h-4 w-4"
-                        checked={selected.has(f.id)}
-                        onChange={() => toggleOne(f.id)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td className="px-2 py-1">
-                      {f.has_thumbnail ? (
-                        <img
-                          src={`/api/files/${f.id}/thumbnail`}
-                          alt={f.filename}
-                          className="h-8 w-14 object-cover rounded"
-                        />
-                      ) : (
-                        <div className="h-8 w-14 bg-muted rounded" />
-                      )}
-                    </td>
-                    <td className="px-3 py-2 max-w-xs">
-                      <p className="truncate font-medium" title={f.filename}>{f.filename}</p>
-                      <p className="truncate text-xs text-muted-foreground" title={f.path}>{f.path}</p>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {f.file_width && f.file_height ? `${f.file_width}×${f.file_height}` : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {f.file_fps != null ? f.file_fps.toFixed(2) : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {formatDuration(f.duration)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground">
-                      {formatUnixDate(f.file_date)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {formatSize(f.size)}
-                    </td>
+          {viewMode === "list" ? (
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
+                  <tr>
+                    <th className="w-8 px-3 py-2"></th>
+                    <th className="w-10 px-2 py-2"></th>
+                    <th className="px-3 py-2 text-left">Filename</th>
+                    <th className="px-3 py-2 text-right">Resolution</th>
+                    <th className="px-3 py-2 text-right">FPS</th>
+                    <th className="px-3 py-2 text-right">Duration</th>
+                    <th className="px-3 py-2 text-right">File date</th>
+                    <th className="px-3 py-2 text-right">Size</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {results.map((f) => (
+                    <tr
+                      key={f.id}
+                      className={`hover:bg-muted/20 cursor-pointer transition-colors ${selected.has(f.id) ? "bg-primary/5" : ""}`}
+                      onClick={() => toggleOne(f.id)}
+                    >
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          className="accent-primary h-4 w-4"
+                          checked={selected.has(f.id)}
+                          onChange={() => toggleOne(f.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                      <td className="px-2 py-1">
+                        <button
+                          className="relative group/thumb h-8 w-14 shrink-0"
+                          onClick={(e) => { e.stopPropagation(); setPlayingFile(f); }}
+                          title="Play video"
+                        >
+                          {f.has_thumbnail ? (
+                            <img
+                              src={`/api/files/${f.id}/thumbnail`}
+                              alt={f.filename}
+                              className="h-8 w-14 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="h-8 w-14 bg-muted rounded" />
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                            <Play className="h-3.5 w-3.5 text-white fill-white" />
+                          </div>
+                        </button>
+                      </td>
+                      <td className="px-3 py-2 max-w-xs">
+                        <p className="truncate font-medium" title={f.filename}>{f.filename}</p>
+                        <p className="truncate text-xs text-muted-foreground" title={f.path}>{f.path}</p>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {f.file_width && f.file_height ? `${f.file_width}×${f.file_height}` : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {f.file_fps != null ? f.file_fps.toFixed(2) : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {formatDuration(f.duration)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-muted-foreground">
+                        {formatUnixDate(f.file_date)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {formatSize(f.size)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              {results.map((f) => (
+                <CleanupCard
+                  key={f.id}
+                  file={f}
+                  isSelected={selected.has(f.id)}
+                  onToggle={() => toggleOne(f.id)}
+                  onPlay={() => setPlayingFile(f)}
+                />
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {playingFile && (
+        <VideoPlayerModal file={playingFile} onClose={() => setPlayingFile(null)} />
       )}
     </div>
   );

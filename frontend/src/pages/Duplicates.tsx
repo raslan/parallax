@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, Loader2, Trash2, ShieldCheck } from "lucide-react";
+import { Copy, Loader2, Trash2, ShieldCheck, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { api, DuplicateGroup, Library } from "@/lib/api";
+import { api, DuplicateGroup, DuplicateFile, Library } from "@/lib/api";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 
 function LibrarySelector({
@@ -34,10 +35,12 @@ function FilePanel({
   file,
   isKeep,
   onClick,
+  onPlay,
 }: {
-  file: DuplicateGroup["files"][0];
+  file: DuplicateFile;
   isKeep: boolean;
   onClick: () => void;
+  onPlay: (f: DuplicateFile) => void;
 }) {
   return (
     <div
@@ -48,7 +51,7 @@ function FilePanel({
           : "border-border hover:border-muted-foreground/40"
       }`}
     >
-      <div className="aspect-video w-full rounded overflow-hidden bg-muted flex items-center justify-center">
+      <div className="relative aspect-video w-full rounded overflow-hidden bg-muted flex items-center justify-center group/thumb">
         {file.has_thumbnail ? (
           <img
             src={`/api/files/${file.id}/thumbnail`}
@@ -58,6 +61,13 @@ function FilePanel({
         ) : (
           <Copy className="h-6 w-6 text-muted-foreground" />
         )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onPlay(file); }}
+          title="Play video"
+          className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+        >
+          <Play className="h-6 w-6 text-white fill-white" />
+        </button>
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -90,10 +100,12 @@ function GroupCard({
   group,
   keepId,
   onFlip,
+  onPlay,
 }: {
   group: DuplicateGroup;
   keepId: number;
   onFlip: (fileId: number) => void;
+  onPlay: (f: DuplicateFile) => void;
 }) {
   return (
     <Card>
@@ -110,6 +122,7 @@ function GroupCard({
               file={f}
               isKeep={f.id === keepId}
               onClick={() => { if (f.id !== keepId) onFlip(f.id); }}
+              onPlay={onPlay}
             />
           ))}
         </div>
@@ -125,6 +138,7 @@ export function Duplicates() {
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
   const [keepIds, setKeepIds] = useState<Record<number, number>>({});
   const [deleting, setDeleting] = useState(false);
+  const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -280,6 +294,7 @@ export function Duplicates() {
               group={group}
               keepId={keepIds[i] ?? group.keep_id}
               onFlip={(fileId) => handleFlip(i, fileId)}
+              onPlay={setPlayingFile}
             />
           ))}
         </div>
@@ -295,6 +310,10 @@ export function Duplicates() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {playingFile && (
+        <VideoPlayerModal file={playingFile} onClose={() => setPlayingFile(null)} />
       )}
     </div>
   );

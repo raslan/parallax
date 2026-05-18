@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { PRESETS } from "@/lib/presets";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 
@@ -20,54 +21,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const ALL_STATUSES = ["unknown", "scanning", "clean", "corrupt", "queued", "transcoding", "done", "failed"];
 const PAGE_SIZE = 48;
-
-// ─── Video player modal ───────────────────────────────────────────────────────
-
-function VideoPlayerModal({ file, onClose }: { file: VideoFile; onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" onClick={onClose}>
-      <div className="fixed inset-0 bg-black/80" />
-      <div
-        className="relative z-10 w-full max-w-5xl px-4 flex flex-col gap-3"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <p className="text-white text-sm font-medium truncate pr-4" title={file.path}>
-            {file.filename}
-          </p>
-          <button
-            onClick={onClose}
-            className="text-white/70 hover:text-white transition-colors shrink-0"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <video
-          ref={videoRef}
-          src={api.streamUrl(file.id)}
-          controls
-          autoPlay
-          className="w-full rounded-lg bg-black max-h-[80vh]"
-        />
-        <p className="text-white/50 text-xs text-center">
-          {formatSize(file.size)}
-          {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
-          {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
-          {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
-          {" · "}{file.path}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
 
@@ -276,6 +229,100 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
   );
 }
 
+// ─── List row ────────────────────────────────────────────────────────────────
+
+function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
+  const [imgError, setImgError] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const isCorrupt = file.status === "corrupt";
+
+  const handleCheck = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setChecking(true);
+    try { await api.checkFile(file.id); } catch { /* 409 = already running */ } finally { setChecking(false); }
+  };
+
+  return (
+    <tr
+      className={`hover:bg-muted/20 cursor-pointer transition-colors border-b border-border last:border-0 ${isCorrupt ? "text-destructive" : ""}`}
+      onClick={onPlay}
+    >
+      <td className="px-2 py-1.5">
+        <div className="relative h-8 w-14 shrink-0">
+          {file.has_thumbnail && !imgError ? (
+            <img
+              src={api.thumbnailUrl(file.id)}
+              alt={file.filename}
+              className="h-8 w-14 object-cover rounded"
+              onError={() => setImgError(true)}
+              loading="lazy"
+            />
+          ) : (
+            <div className="h-8 w-14 bg-muted rounded flex items-center justify-center">
+              <ImageOff className="h-3.5 w-3.5 text-muted-foreground/40" />
+            </div>
+          )}
+        </div>
+      </td>
+      <td className="px-3 py-2 max-w-xs">
+        <p className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`} title={file.filename}>{file.filename}</p>
+        <p className="truncate text-xs text-muted-foreground" title={file.path}>{file.path}</p>
+      </td>
+      <td className="px-3 py-2">
+        <Badge variant={(STATUS_COLORS[file.status] ?? "secondary") as any} className="text-xs capitalize">
+          {file.status}
+        </Badge>
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
+        {file.codec_name ? file.codec_name.toUpperCase() : "—"}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
+        {formatDuration(file.duration)}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
+        {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
+        {formatSize(file.size)}
+      </td>
+      <td className="px-3 py-2 text-right">
+        <button
+          onClick={handleCheck}
+          disabled={checking}
+          title="Check for corruption"
+          className="opacity-0 group-hover/row:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+        >
+          <ShieldCheck className={`h-3.5 w-3.5 ${checking ? "animate-pulse" : ""}`} />
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function FileListTable({ files, onPlay }: { files: VideoFile[]; onPlay: (f: VideoFile) => void }) {
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
+          <tr>
+            <th className="w-16 px-2 py-2"></th>
+            <th className="px-3 py-2 text-left">Filename</th>
+            <th className="px-3 py-2 text-left">Status</th>
+            <th className="px-3 py-2 text-right">Codec</th>
+            <th className="px-3 py-2 text-right">Duration</th>
+            <th className="px-3 py-2 text-right">Bitrate</th>
+            <th className="px-3 py-2 text-right">Size</th>
+            <th className="w-10 px-3 py-2"></th>
+          </tr>
+        </thead>
+        <tbody className="group/rows">
+          {files.map((f) => <FileListRow key={f.id} file={f} onPlay={() => onPlay(f)} />)}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ─── Directory card ───────────────────────────────────────────────────────────
 
 function DirCard({ name, onClick }: { name: string; onClick: () => void }) {
@@ -343,12 +390,14 @@ function LibraryBrowser({
   statusFilter,
   sortBy,
   sortDir,
+  viewMode,
   onPlay,
 }: {
   library: Library;
   statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
+  viewMode: "grid" | "list";
   onPlay: (f: VideoFile) => void;
 }) {
   const [path, setPath] = useState("");
@@ -405,9 +454,13 @@ function LibraryBrowser({
                   </p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                {browse.files.map((f) => <ThumbnailCard key={f.id} file={f} onClick={() => onPlay(f)} />)}
-              </div>
+              {viewMode === "grid" ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {browse.files.map((f) => <ThumbnailCard key={f.id} file={f} onClick={() => onPlay(f)} />)}
+                </div>
+              ) : (
+                <FileListTable files={browse.files} onPlay={onPlay} />
+              )}
             </>
           )}
         </>
@@ -418,7 +471,7 @@ function LibraryBrowser({
 
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
-function FlatView({ statusFilter, sortBy, sortDir, onPlay }: { statusFilter: string | undefined; sortBy: string; sortDir: string; onPlay: (f: VideoFile) => void }) {
+function FlatView({ statusFilter, sortBy, sortDir, viewMode, onPlay }: { statusFilter: string | undefined; sortBy: string; sortDir: string; viewMode: "grid" | "list"; onPlay: (f: VideoFile) => void }) {
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -450,9 +503,13 @@ function FlatView({ statusFilter, sortBy, sortDir, onPlay }: { statusFilter: str
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {files.map((f) => <ThumbnailCard key={f.id} file={f} onClick={() => onPlay(f)} />)}
-      </div>
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {files.map((f) => <ThumbnailCard key={f.id} file={f} onClick={() => onPlay(f)} />)}
+        </div>
+      ) : (
+        <FileListTable files={files} onPlay={onPlay} />
+      )}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
           <Button size="icon" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
@@ -486,6 +543,7 @@ export function Files() {
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState("filename");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
   useEffect(() => {
@@ -545,13 +603,29 @@ export function Files() {
               ? <ArrowUp className="h-3.5 w-3.5" />
               : <ArrowDown className="h-3.5 w-3.5" />}
           </button>
+          <div className="flex items-center rounded-md border border-input overflow-hidden">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`h-8 w-8 flex items-center justify-center transition-colors ${viewMode === "grid" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+              title="Grid view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`h-8 w-8 flex items-center justify-center transition-colors ${viewMode === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+              title="List view"
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
       {selectedLibrary ? (
-        <LibraryBrowser library={selectedLibrary} statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} onPlay={setPlayingFile} />
+        <LibraryBrowser library={selectedLibrary} statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} viewMode={viewMode} onPlay={setPlayingFile} />
       ) : (
-        <FlatView statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} onPlay={setPlayingFile} />
+        <FlatView statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} viewMode={viewMode} onPlay={setPlayingFile} />
       )}
 
       {playingFile && (
