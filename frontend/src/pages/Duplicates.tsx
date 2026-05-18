@@ -88,7 +88,7 @@ function FilePanel({
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
         <span className="font-mono">{formatSize(file.size)}</span>
         {file.duration != null && <span className="font-mono">{formatDuration(file.duration)}</span>}
-        {file.video_bitrate != null && <span>{formatBitrate(file.video_bitrate)}</span>}
+        {file.video_bitrate != null && <span className="font-mono">{formatBitrate(file.video_bitrate)}</span>}
         {file.codec_name && (
           <Badge variant="secondary" className="text-xs px-1 py-0">{file.codec_name}</Badge>
         )}
