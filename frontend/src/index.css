@@ -3,31 +3,114 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 240 6% 4%;
-    --foreground: 0 0% 93%;
-    --card: 240 5% 6%;
-    --card-foreground: 0 0% 93%;
-    --popover: 240 5% 7%;
-    --popover-foreground: 0 0% 93%;
-    --primary: 263 90% 65%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 13%;
-    --secondary-foreground: 0 0% 80%;
-    --muted: 240 5% 10%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 13%;
-    --accent-foreground: 0 0% 93%;
-    --destructive: 0 72% 51%;
+  /* ── Violet / Deep Space (default) ─────────────────────────── */
+  :root,
+  [data-theme="violet"] {
+    --background:          258 62% 5%;
+    --foreground:          263 60% 93%;
+    --card:                258 52% 8%;
+    --card-foreground:     263 60% 93%;
+    --popover:             258 52% 8%;
+    --popover-foreground:  263 60% 93%;
+    --primary:             263 87% 76%;
+    --primary-foreground:  0 0% 100%;
+    --secondary:           258 45% 12%;
+    --secondary-foreground: 263 40% 80%;
+    --muted:               258 45% 10%;
+    --muted-foreground:    258 22% 46%;
+    --accent:              258 45% 12%;
+    --accent-foreground:   263 60% 93%;
+    --destructive:         0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 15%;
-    --input: 240 5% 12%;
-    --ring: 263 90% 65%;
-    --radius: 0.4rem;
-    --sidebar: 240 6% 3%;
-    --sidebar-foreground: 0 0% 93%;
-    --sidebar-border: 240 5% 10%;
-    --sidebar-accent: 240 5% 11%;
+    --border:              258 40% 14%;
+    --input:               258 45% 12%;
+    --ring:                263 87% 76%;
+    --radius:              0.4rem;
+    --sidebar:             258 70% 4%;
+    --sidebar-foreground:  263 60% 93%;
+    --sidebar-border:      258 45% 10%;
+    --sidebar-accent:      258 45% 11%;
+
+    /* Parallax design language tokens */
+    --px-accent:           #a78bfa;
+    --px-accent-secondary: #7c3aed;
+    --px-accent-dim:       rgba(167, 139, 250, 0.12);
+    --px-accent-border:    rgba(167, 139, 250, 0.25);
+    --px-bg-surface:       #0e0a1e;
+    --px-bg-elevated:      #1a1430;
+    --px-text-muted:       #554d7a;
+  }
+
+  /* ── Cyan / Modern HUD ──────────────────────────────────────── */
+  [data-theme="cyan"] {
+    --background:          210 78% 5%;
+    --foreground:          188 80% 94%;
+    --card:                210 73% 8%;
+    --card-foreground:     188 80% 94%;
+    --popover:             210 73% 8%;
+    --popover-foreground:  188 80% 94%;
+    --primary:             188 83% 53%;
+    --primary-foreground:  210 78% 5%;
+    --secondary:           210 65% 11%;
+    --secondary-foreground: 188 40% 80%;
+    --muted:               210 65% 11%;
+    --muted-foreground:    210 27% 40%;
+    --accent:              210 65% 11%;
+    --accent-foreground:   188 80% 94%;
+    --destructive:         0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border:              210 55% 12%;
+    --input:               210 65% 11%;
+    --ring:                188 83% 53%;
+    --radius:              0.4rem;
+    --sidebar:             210 80% 4%;
+    --sidebar-foreground:  188 80% 94%;
+    --sidebar-border:      210 60% 10%;
+    --sidebar-accent:      210 65% 9%;
+
+    --px-accent:           #22d3ee;
+    --px-accent-secondary: #0891b2;
+    --px-accent-dim:       rgba(34, 211, 238, 0.12);
+    --px-accent-border:    rgba(34, 211, 238, 0.25);
+    --px-bg-surface:       #071220;
+    --px-bg-elevated:      #0d1f2d;
+    --px-text-muted:       #4a6a80;
+  }
+
+  /* ── Amber / Mission Control ────────────────────────────────── */
+  [data-theme="amber"] {
+    --background:          240 50% 5%;
+    --foreground:          38 90% 94%;
+    --card:                240 44% 8%;
+    --card-foreground:     38 90% 94%;
+    --popover:             240 44% 8%;
+    --popover-foreground:  38 90% 94%;
+    --primary:             38 92% 50%;
+    --primary-foreground:  240 50% 5%;
+    --secondary:           240 38% 12%;
+    --secondary-foreground: 38 50% 80%;
+    --muted:               240 38% 12%;
+    --muted-foreground:    0 0% 53%;
+    --accent:              240 38% 12%;
+    --accent-foreground:   38 90% 94%;
+    --destructive:         0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border:              240 35% 14%;
+    --input:               240 38% 12%;
+    --ring:                38 92% 50%;
+    --radius:              0.4rem;
+    --sidebar:             240 55% 4%;
+    --sidebar-foreground:  38 90% 94%;
+    --sidebar-border:      240 40% 11%;
+    --sidebar-accent:      240 38% 10%;
+
+    --px-accent:           #f59e0b;
+    --px-accent-secondary: #d97706;
+    --px-accent-dim:       rgba(245, 158, 11, 0.12);
+    --px-accent-border:    rgba(245, 158, 11, 0.25);
+    --px-bg-surface:       #0d0d18;
+    --px-bg-elevated:      #1a1a28;
+    --px-text-muted:       #888888;
   }
 }
 
