@@ -39,12 +39,13 @@ def _extract_phash(path: str) -> "imagehash.ImageHash | None":
         result = subprocess.run(
             ["ffmpeg", "-y", "-i", path, "-frames:v", "1", "-q:v", "2", tmp_path],
             capture_output=True,
+            timeout=30,
         )
-        if result.returncode != 0 or not os.path.exists(tmp_path):
+        if result.returncode != 0:
             return None
         with Image.open(tmp_path) as img:
             return imagehash.phash(img)
-    except Exception as exc:
+    except (Exception, subprocess.TimeoutExpired) as exc:
         logger.warning("pHash extraction failed for %s: %s", path, exc)
         return None
     finally:
@@ -112,7 +113,6 @@ def find_duplicates(library_id: int) -> list[DuplicateGroup]:
     _results.pop(library_id, None)
     db = SessionLocal()
     try:
-        # Stage 1: sizes that appear more than once
         dup_sizes = (
             db.query(File.size)
             .filter(File.library_id == library_id)
@@ -130,27 +130,24 @@ def find_duplicates(library_id: int) -> list[DuplicateGroup]:
             .filter(File.library_id == library_id, File.size.in_(size_values))
             .all()
         )
-
-        by_size: dict[int, list[File]] = {}
-        for f in candidates:
-            by_size.setdefault(f.size, []).append(f)
-
-        confirmed: list[DuplicateGroup] = []
-
-        for size_group in by_size.values():
-            # Stage 2: fuzzy duration clustering
-            for dur_group in _cluster_by_duration(size_group):
-                # Stage 3: perceptual hash
-                for phash_group in _cluster_by_phash(dur_group):
-                    confirmed.append(DuplicateGroup(
-                        files=phash_group,
-                        keep_id=_pick_keep(phash_group),
-                    ))
-
-        _results[library_id] = confirmed
-        return confirmed
     finally:
         db.close()
+
+    by_size: dict[int, list[File]] = {}
+    for f in candidates:
+        by_size.setdefault(f.size, []).append(f)
+
+    confirmed: list[DuplicateGroup] = []
+    for size_group in by_size.values():
+        for dur_group in _cluster_by_duration(size_group):
+            for phash_group in _cluster_by_phash(dur_group):
+                confirmed.append(DuplicateGroup(
+                    files=phash_group,
+                    keep_id=_pick_keep(phash_group),
+                ))
+
+    _results[library_id] = confirmed
+    return confirmed
 
 
 def get_cached_results(library_id: int) -> list[DuplicateGroup] | None:
