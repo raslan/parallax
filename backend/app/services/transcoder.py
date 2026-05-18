@@ -61,7 +61,11 @@ def _transcode_one(
     """
     src = file_obj.path
     base, ext = os.path.splitext(src)
-    tmp = base + ".transcoding" + (ext or ".mkv")
+    # WebM/FLV/AVI containers don't support H.264/HEVC — remux into MKV
+    _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
+    out_ext = ".mkv" if ext.lower() in _NEEDS_REMUX else (ext or ".mkv")
+    dst = src if out_ext == ext.lower() else (base + out_ext)
+    tmp = base + ".transcoding" + out_ext
     duration = file_obj.duration or 0.0
 
     original_status = file_obj.status
@@ -119,12 +123,15 @@ def _transcode_one(
         originals_dir = os.path.join(os.path.dirname(src), "_originals")
         os.makedirs(originals_dir, exist_ok=True)
         shutil.move(src, os.path.join(originals_dir, file_obj.filename))
-        shutil.move(tmp, src)
+        shutil.move(tmp, dst)
 
         file_obj.status = FileStatus.DONE
         file_obj.transcoded_at = now()
+        if dst != src:
+            file_obj.path = dst
+            file_obj.filename = os.path.basename(dst)
         try:
-            file_obj.size = os.path.getsize(src)
+            file_obj.size = os.path.getsize(dst)
         except OSError:
             pass
         db.commit()
