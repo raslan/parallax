@@ -29,8 +29,8 @@ def probe_file(path: str) -> dict:
             [
                 "ffprobe", "-v", "error",
                 "-select_streams", "v:0",
-                "-show_entries", "stream=codec_name,codec_type,duration,bit_rate",
-                "-show_entries", "format=size,duration,bit_rate",
+                "-show_entries", "stream=codec_name,codec_type,duration,bit_rate,width,height,r_frame_rate",
+                "-show_entries", "format=size,duration,bit_rate,tags",
                 "-of", "json",
                 path,
             ],
@@ -195,6 +195,31 @@ def scan_library(library_id: int):
                             file_obj.video_bitrate = int(br)
                         except (ValueError, TypeError):
                             pass
+
+                    # width / height
+                    file_obj.file_width  = s.get("width")
+                    file_obj.file_height = s.get("height")
+
+                    # fps — r_frame_rate is a fraction like "30000/1001"
+                    raw_fps = s.get("r_frame_rate", "")
+                    if "/" in raw_fps:
+                        num, den = raw_fps.split("/")
+                        file_obj.file_fps = round(int(num) / int(den), 3) if int(den) else None
+                    else:
+                        file_obj.file_fps = float(raw_fps) if raw_fps else None
+
+            # file_date: embedded creation_time preferred, mtime fallback
+            creation_time_str = None
+            if data:
+                creation_time_str = data.get("format", {}).get("tags", {}).get("creation_time")
+            if creation_time_str:
+                try:
+                    dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))
+                    file_obj.file_date = dt.timestamp()
+                except (ValueError, TypeError):
+                    file_obj.file_date = os.path.getmtime(path)
+            else:
+                file_obj.file_date = os.path.getmtime(path)
 
             file_obj.scanned_at = _now()
             db.commit()
