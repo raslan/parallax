@@ -1,4 +1,5 @@
 import os
+import shutil
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -7,7 +8,11 @@ from app.database import get_db
 from app.models.library import Library
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobType
-from app.schemas import LibraryCreate, LibraryRead, LibraryUpdate, StatsRead, BrowseResponse, FileRead, TranscodeRequest
+from app.schemas import (
+    LibraryCreate, LibraryRead, LibraryUpdate, StatsRead,
+    BrowseResponse, FileRead, TranscodeRequest,
+    DuplicateGroupRead, DuplicateFileRead, DeleteDuplicatesRequest,
+)
 from app.services.scanner import scan_library, thumbnail_path
 from app.services.corruption import check_library_corruption
 from app.services.transcoder import transcode_library_corrupt
@@ -146,6 +151,19 @@ async def trigger_check(library_id: int, db: Session = Depends(get_db)):
     return {"message": "Corruption check queued"}
 
 
+@router.post("/{library_id}/corrupt", status_code=202)
+async def corrupt_library_endpoint(library_id: int, db: Session = Depends(get_db)):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
+    if file_count == 0:
+        raise HTTPException(422, "Scan the library first to index files before corrupting")
+    from app.services.corruptor import corrupt_library
+    await enqueue(None, corrupt_library, library_id)
+    return {"message": "Corruption queued"}
+
+
 @router.post("/{library_id}/transcode", status_code=202)
 async def trigger_transcode(library_id: int, body: TranscodeRequest, db: Session = Depends(get_db)):
     lib = db.get(Library, library_id)
@@ -225,3 +243,68 @@ def browse_library(
         dirs=sorted(dirs),
         files=[to_read(f) for f in sorted_files],
     )
+
+
+@router.post("/{library_id}/find-duplicates", status_code=202)
+async def find_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
+    if file_count == 0:
+        raise HTTPException(422, "Scan the library first to index files before checking for duplicates")
+    from app.services.duplicates import find_duplicates
+    await enqueue(None, find_duplicates, library_id)
+    return {"message": "Duplicate scan queued"}
+
+
+@router.get("/{library_id}/duplicates", response_model=list[DuplicateGroupRead])
+def get_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    from app.services.duplicates import get_cached_results
+    from app.services.scanner import thumbnail_path
+    results = get_cached_results(library_id)
+    if results is None:
+        raise HTTPException(404, "No duplicate scan has been run for this library yet")
+    out = []
+    for group in results:
+        files = [
+            DuplicateFileRead(
+                id=f.id,
+                library_id=f.library_id,
+                path=f.path,
+                filename=f.filename,
+                size=f.size,
+                duration=f.duration,
+                codec_name=f.codec_name,
+                video_bitrate=f.video_bitrate,
+                status=f.status,
+                has_thumbnail=os.path.exists(thumbnail_path(f.id)),
+            )
+            for f in group.files
+        ]
+        out.append(DuplicateGroupRead(files=files, keep_id=group.keep_id))
+    return out
+
+
+@router.delete("/{library_id}/duplicates", status_code=204)
+def delete_duplicates_endpoint(
+    library_id: int,
+    body: DeleteDuplicatesRequest,
+    db: Session = Depends(get_db),
+):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    for file_id in body.file_ids:
+        f = db.get(File, file_id)
+        if not f or f.library_id != library_id:
+            continue
+        if os.path.exists(f.path):
+            originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
+            os.makedirs(originals_dir, exist_ok=True)
+            shutil.move(f.path, os.path.join(originals_dir, f.filename))
+        db.delete(f)
+    db.commit()
