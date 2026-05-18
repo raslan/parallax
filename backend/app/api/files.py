@@ -31,6 +31,10 @@ def _to_file_read(f: File) -> FileRead:
         transcoded_at=f.transcoded_at,
         created_at=f.created_at,
         has_thumbnail=os.path.exists(thumb),
+        file_width=f.file_width,
+        file_height=f.file_height,
+        file_fps=f.file_fps,
+        file_date=f.file_date,
     )
 
 

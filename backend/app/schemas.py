@@ -49,6 +49,10 @@ class FileRead(BaseModel):
     transcoded_at: Optional[datetime] = None
     created_at: datetime
     has_thumbnail: bool = False
+    file_width: Optional[int] = None
+    file_height: Optional[int] = None
+    file_fps: Optional[float] = None
+    file_date: Optional[float] = None
 
     model_config = {"from_attributes": True}
 

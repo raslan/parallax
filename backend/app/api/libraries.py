@@ -233,6 +233,10 @@ def browse_library(
             video_bitrate=f.video_bitrate, status=f.status, scan_error=f.scan_error,
             scanned_at=f.scanned_at, transcoded_at=f.transcoded_at, created_at=f.created_at,
             has_thumbnail=os.path.exists(thumbnail_path(f.id)),
+            file_width=f.file_width,
+            file_height=f.file_height,
+            file_fps=f.file_fps,
+            file_date=f.file_date,
         )
 
     sort_key = _BROWSE_SORT_KEYS.get(sort_by, _BROWSE_SORT_KEYS["filename"])
