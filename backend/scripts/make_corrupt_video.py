@@ -41,34 +41,14 @@ def make_valid_video(path: str, duration: int = 10) -> None:
 
 
 def corrupt_file(path: str, seed: int = 0) -> int:
-    """Overwrite random chunks inside the stream data. Returns number of bytes corrupted."""
+    """Truncate the file to 85–95% of its size, simulating a partial/truncated download."""
     size = os.path.getsize(path)
     rng = random.Random(seed)
-    total = 0
-
+    keep = rng.uniform(0.85, 0.95)
+    new_size = int(size * keep)
     with open(path, "r+b") as f:
-        # Skip the first 8 KB (container header) and last 4 KB
-        safe_start = 8192
-        safe_end   = size - 4096
-
-        if safe_end <= safe_start:
-            # File too small — corrupt from 20% in
-            safe_start = size // 5
-            safe_end   = size - 1024
-
-        # Corrupt 4–6 separate regions spread through the stream
-        num_regions = rng.randint(4, 6)
-        for i in range(num_regions):
-            pos = rng.randint(
-                safe_start + (safe_end - safe_start) * i // num_regions,
-                safe_start + (safe_end - safe_start) * (i + 1) // num_regions,
-            )
-            length = rng.randint(256, 1024)
-            f.seek(pos)
-            f.write(bytes(rng.randint(0, 255) for _ in range(length)))
-            total += length
-
-    return total
+        f.truncate(new_size)
+    return size - new_size
 
 
 def check_corruption(path: str) -> list[str]:

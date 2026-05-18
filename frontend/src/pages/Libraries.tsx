@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2 } from "lucide-react";
+import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -108,6 +108,7 @@ export function Libraries() {
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
   const [transcodingIds, setTranscodingIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [corruptingIds, setCorruptingIds] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transcodePresetFor, setTranscodePresetFor] = useState<number | null>(null);
   const presetRef = useRef<HTMLDivElement>(null);
@@ -163,6 +164,18 @@ export function Libraries() {
       if (!e.message?.includes("409")) throw e;
     } finally {
       setTranscodingIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleCorrupt = async (id: number) => {
+    if (!confirm("Physically corrupt all files in this library? This overwrites random bytes in each video — intended for demo/testing only.")) return;
+    setCorruptingIds((s) => new Set(s).add(id));
+    try {
+      await api.corruptLibrary(id);
+    } catch (e: any) {
+      if (!e.message?.includes("409")) throw e;
+    } finally {
+      setCorruptingIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
   };
 
@@ -278,6 +291,16 @@ export function Libraries() {
                         </div>
                       )}
                     </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-amber-500 hover:text-amber-400"
+                      onClick={() => handleCorrupt(lib.id)}
+                      disabled={corruptingIds.has(lib.id) || notIndexed}
+                      title={notIndexed ? "Scan the library first" : "Corrupt all files (demo/testing)"}
+                    >
+                      <Zap className={`h-3.5 w-3.5 ${corruptingIds.has(lib.id) ? "animate-pulse" : notIndexed ? "opacity-30" : ""}`} />
+                    </Button>
                     <Button
                       size="icon"
                       variant="ghost"
