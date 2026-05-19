@@ -31,15 +31,16 @@ def tv_season_folder_name(season: int) -> str:
 
 
 def list_video_files(folder_path: str) -> list[str]:
-    """Return sorted list of absolute paths to video files directly inside folder_path."""
+    """Return sorted list of absolute paths to video files inside folder_path (recursive)."""
+    results = []
     try:
-        entries = sorted(os.scandir(folder_path), key=lambda e: e.name.lower())
-        return [
-            e.path for e in entries
-            if e.is_file() and os.path.splitext(e.name)[1].lower() in VIDEO_EXTENSIONS
-        ]
+        for dirpath, _dirs, filenames in os.walk(folder_path):
+            for name in filenames:
+                if os.path.splitext(name)[1].lower() in VIDEO_EXTENSIONS:
+                    results.append(os.path.join(dirpath, name))
     except (PermissionError, FileNotFoundError, NotADirectoryError):
         return []
+    return sorted(results, key=lambda p: p.lower())
 
 
 def compute_ops(
