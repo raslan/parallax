@@ -79,19 +79,20 @@ def compute_ops(
             folder_ops.append({"old_path": folder_path, "new_path": new_folder})
 
     else:  # tv
-        season = tmdb_data.get("season_number") or 1
         for m in mappings:
             fp = m.get("file_path", "")
             ep_num = m.get("episode_number")
             ep_name = m.get("episode_name") or f"Episode {ep_num}"
+            season = m.get("season_number") or 1
             if not fp or ep_num is None:
                 continue
             ext = os.path.splitext(fp)[1].lower()
-            new_path = os.path.join(abs_folder, tv_file_name(title, season, ep_num, ep_name, ext))
+            season_dir = os.path.join(abs_folder, tv_season_folder_name(season))
+            new_path = os.path.join(season_dir, tv_file_name(title, season, ep_num, ep_name, ext))
             if os.path.abspath(fp) != os.path.abspath(new_path):
                 file_ops.append({"old_path": fp, "new_path": new_path})
 
-        new_folder = os.path.join(parent, safe_name(title), tv_season_folder_name(season))
+        new_folder = os.path.join(parent, safe_name(title))
         if abs_folder != os.path.abspath(new_folder):
             folder_ops.append({"old_path": folder_path, "new_path": new_folder})
 
@@ -113,6 +114,7 @@ def apply_ops(
 
     for op in file_ops:
         try:
+            os.makedirs(os.path.dirname(op["new_path"]), exist_ok=True)
             os.rename(op["old_path"], op["new_path"])
             f = db.query(File).filter(File.path == op["old_path"]).first()
             if f:

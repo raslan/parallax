@@ -29,6 +29,7 @@ class SearchResult(BaseModel):
 
 
 class Episode(BaseModel):
+    season_number: int = 1
     episode_number: int
     name: str
     overview: str
@@ -36,6 +37,7 @@ class Episode(BaseModel):
 
 class FileMapping(BaseModel):
     file_path: str
+    season_number: Optional[int] = None
     episode_number: Optional[int] = None
     episode_name: Optional[str] = None
 
@@ -46,7 +48,6 @@ class PreviewRequest(BaseModel):
     title: str
     year: Optional[int] = None
     tmdb_id: int
-    season_number: Optional[int] = None
     mappings: list[FileMapping]
 
 
@@ -94,6 +95,15 @@ def search(body: SearchRequest, db: Session = Depends(get_db)):
         raise HTTPException(502, f"TMDB error: {e}")
 
 
+@router.get("/tv/{tmdb_id}/episodes", response_model=list[Episode])
+def get_all_episodes(tmdb_id: int, db: Session = Depends(get_db)):
+    key = _api_key(db)
+    try:
+        return tmdb_service.get_all_episodes(tmdb_id, key)
+    except Exception as e:
+        raise HTTPException(502, f"TMDB error: {e}")
+
+
 @router.get("/tv/{tmdb_id}/season/{season_number}", response_model=list[Episode])
 def get_season(tmdb_id: int, season_number: int, db: Session = Depends(get_db)):
     key = _api_key(db)
@@ -108,11 +118,11 @@ def preview(body: PreviewRequest, db: Session = Depends(get_db)):
     tmdb_data = {
         "title": body.title,
         "year": body.year,
-        "season_number": body.season_number,
     }
     mappings = [
         {
             "file_path": m.file_path,
+            "season_number": m.season_number,
             "episode_number": m.episode_number,
             "episode_name": m.episode_name,
         }
