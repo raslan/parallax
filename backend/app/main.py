@@ -14,6 +14,7 @@ from app.api.files import router as files_router
 from app.api.jobs import router as jobs_router
 from app.api.settings import router as settings_router
 from app.api.originals import router as originals_router
+from app.api.identify import router as identify_router
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 
@@ -70,6 +71,7 @@ app.include_router(files_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(originals_router, prefix="/api")
+app.include_router(identify_router, prefix="/api")
 
 # Serve the built React frontend — must come after all API routes
 if os.path.isdir(STATIC_DIR):
