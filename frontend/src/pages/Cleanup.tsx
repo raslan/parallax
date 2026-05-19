@@ -259,6 +259,7 @@ export function Cleanup() {
     <div className="p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
+          <SectionHeader className="mb-1.5">Library maintenance</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Cleanup</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Filter library files by duration, frame rate, date, or resolution and bulk-delete matches.

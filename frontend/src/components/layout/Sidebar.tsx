@@ -1,11 +1,10 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Library, Film, Activity, Settings, Archive, Copy, Scissors } from "lucide-react";
+import { Library, Film, Activity, Settings, Archive, Copy, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { ParallaxLogo } from "@/components/ParallaxLogo";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/libraries", icon: Library, label: "Libraries" },
   { to: "/files", icon: Film, label: "Files" },
   { to: "/jobs", icon: Activity, label: "Jobs" },

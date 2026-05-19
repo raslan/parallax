@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2 } from "lucide-react";
+import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2, ChevronRight, ArrowLeft, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,114 @@ import { api, Library } from "@/lib/api";
 import { PRESETS } from "@/lib/presets";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+
+function DirPicker({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (path: string) => void;
+  onClose: () => void;
+}) {
+  const [currentPath, setCurrentPath] = useState("/media");
+  const [dirs, setDirs] = useState<string[]>([]);
+  const [parent, setParent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [manualPath, setManualPath] = useState("");
+
+  const browse = async (path: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.fsBrowse(path);
+      setCurrentPath(res.path);
+      setDirs(res.dirs);
+      setParent(res.parent);
+      setManualPath("");
+    } catch (e: any) {
+      setError(e.message || "Cannot open directory");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { browse("/media"); }, []);
+
+  const handleManualGo = () => {
+    if (manualPath.trim()) browse(manualPath.trim());
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* breadcrumb / current path */}
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          disabled={!parent || loading}
+          onClick={() => parent && browse(parent)}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-sm font-mono text-muted-foreground truncate flex-1" title={currentPath}>
+          {currentPath}
+        </span>
+      </div>
+
+      {/* directory list */}
+      <div className="border border-border rounded-md overflow-hidden">
+        <div className="max-h-48 overflow-y-auto">
+          {loading && (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {!loading && error && (
+            <p className="text-xs text-destructive px-3 py-2">{error}</p>
+          )}
+          {!loading && !error && dirs.length === 0 && (
+            <p className="text-xs text-muted-foreground px-3 py-2">No subdirectories</p>
+          )}
+          {!loading && dirs.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => browse(`${currentPath}/${d}`)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted/50 transition-colors text-left"
+            >
+              <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate">{d}</span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* manual path input */}
+      <div className="flex gap-2">
+        <Input
+          placeholder="Or type a path…"
+          value={manualPath}
+          onChange={(e) => setManualPath(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleManualGo(); } }}
+          className="text-sm font-mono"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={handleManualGo} disabled={!manualPath.trim() || loading}>
+          Go
+        </Button>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+        <Button type="button" size="sm" onClick={() => onSelect(currentPath)}>
+          Select "{currentPath.split("/").pop() || "/"}"
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function AddLibraryDialog({
   open,
@@ -22,13 +130,12 @@ function AddLibraryDialog({
 }) {
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
-  const [scanAuto, setScanAuto] = useState(false);
-  const [autoTranscode, setAutoTranscode] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const reset = () => {
-    setName(""); setPath(""); setScanAuto(false); setAutoTranscode(false); setError("");
+    setName(""); setPath(""); setPicking(false); setError("");
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -37,7 +144,7 @@ function AddLibraryDialog({
     setLoading(true);
     setError("");
     try {
-      await api.createLibrary({ name: name.trim(), path: path.trim(), scan_automatically: scanAuto, auto_transcode_corrupt: autoTranscode });
+      await api.createLibrary({ name: name.trim(), path: path.trim() });
       reset();
       onOpenChange(false);
       onCreated();
@@ -54,49 +161,48 @@ function AddLibraryDialog({
         <DialogHeader>
           <DialogTitle>Add Library</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="lib-name">Name</Label>
-            <Input
-              id="lib-name"
-              placeholder="My Movies"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="lib-path">Path</Label>
-            <Input
-              id="lib-path"
-              placeholder="/media/movies"
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Must be a path mounted inside the container (e.g. via volumes in docker-compose.yml).
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={scanAuto} onChange={(e) => setScanAuto(e.target.checked)} className="accent-primary" />
-              Scan automatically on a schedule
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={autoTranscode} onChange={(e) => setAutoTranscode(e.target.checked)} className="accent-primary" />
-              Auto-transcode corrupt files after scan
-            </label>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Add Library
-            </Button>
-          </DialogFooter>
-        </form>
+        {picking ? (
+          <DirPicker
+            onSelect={(p) => { setPath(p); setPicking(false); }}
+            onClose={() => setPicking(false)}
+          />
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="lib-name">Name</Label>
+              <Input
+                id="lib-name"
+                placeholder="My Movies"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Path</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="/media/movies"
+                  value={path}
+                  onChange={(e) => setPath(e.target.value)}
+                  className="font-mono text-sm"
+                  required
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => setPicking(true)} title="Browse">
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Add Library
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -182,6 +288,7 @@ export function Libraries() {
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
+          <SectionHeader className="mb-1.5">Media collection</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Libraries</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage the folders you want to scan and transcode.
@@ -305,12 +412,6 @@ export function Libraries() {
                         <span className="text-destructive ml-1">· <span className="font-mono">{lib.corrupt_count}</span> corrupt</span>
                       )}
                     </span>
-                  )}
-                  {lib.scan_automatically && (
-                    <Badge variant="secondary" className="text-xs">Auto-scan</Badge>
-                  )}
-                  {lib.auto_transcode_corrupt && (
-                    <Badge variant="secondary" className="text-xs">Auto-transcode</Badge>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">

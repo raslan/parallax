@@ -139,7 +139,7 @@ function loadCriteria(): DuplicateCriteria {
     const stored = localStorage.getItem(CRITERIA_KEY);
     if (stored) return JSON.parse(stored);
   } catch {}
-  return { use_size: true, use_duration: true, use_phash: true };
+  return { use_size: true, use_duration: true, use_phash: true, duration_tolerance: 1 };
 }
 
 export function Duplicates() {
@@ -270,6 +270,7 @@ export function Duplicates() {
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
+            <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
             <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Find videos matching the selected criteria.
@@ -301,20 +302,35 @@ export function Duplicates() {
           {(
             [
               { key: "use_size",     label: "Exact size" },
-              { key: "use_duration", label: "Duration (±2s)" },
+              { key: "use_duration", label: "Duration" },
               { key: "use_phash",    label: "Visual (pHash)" },
             ] as { key: keyof DuplicateCriteria; label: string }[]
           ).map(({ key, label }) => (
             <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={criteria[key]}
+                checked={criteria[key] as boolean}
                 onChange={(e) => setCriteria((prev) => ({ ...prev, [key]: e.target.checked }))}
                 className="accent-[var(--px-accent)] h-3.5 w-3.5"
               />
               <span className="text-sm text-muted-foreground">{label}</span>
             </label>
           ))}
+          {criteria.use_duration && (
+            <label className="flex items-center gap-1.5 select-none">
+              <span className="text-sm text-muted-foreground">±</span>
+              <input
+                type="number"
+                min={0}
+                max={60}
+                step={0.5}
+                value={criteria.duration_tolerance}
+                onChange={(e) => setCriteria((prev) => ({ ...prev, duration_tolerance: Math.max(0, Number(e.target.value)) }))}
+                className="w-14 bg-card border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+              />
+              <span className="text-sm text-muted-foreground">s</span>
+            </label>
+          )}
         </div>
       </div>
 

@@ -219,6 +219,7 @@ export function Originals() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
+          <SectionHeader className="mb-1.5">Pre-transcode backups</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Originals</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Backup files kept from before transcoding. Delete once you're happy, or restore to undo.

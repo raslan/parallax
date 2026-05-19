@@ -1,6 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { Dashboard } from "@/pages/Dashboard";
 import { Libraries } from "@/pages/Libraries";
 import { Files } from "@/pages/Files";
 import { Jobs } from "@/pages/Jobs";
@@ -14,7 +13,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Navigate to="/libraries" replace />} />
           <Route path="/libraries" element={<Libraries />} />
           <Route path="/files" element={<Files />} />
           <Route path="/jobs" element={<Jobs />} />

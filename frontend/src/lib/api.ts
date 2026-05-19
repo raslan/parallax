@@ -35,8 +35,6 @@ export interface Library {
   id: number;
   name: string;
   path: string;
-  scan_automatically: boolean;
-  auto_transcode_corrupt: boolean;
   created_at: string;
   last_scanned_at: string | null;
   file_count: number;
@@ -111,6 +109,7 @@ export interface DuplicateCriteria {
   use_size: boolean;
   use_duration: boolean;
   use_phash: boolean;
+  duration_tolerance: number;
 }
 
 export interface DuplicateFile {
@@ -159,7 +158,7 @@ export const api = {
   // Libraries
   getLibraries: () => req<Library[]>("/libraries"),
   getStats: () => req<Stats>("/libraries/stats"),
-  createLibrary: (body: { name: string; path: string; scan_automatically: boolean; auto_transcode_corrupt: boolean }) =>
+  createLibrary: (body: { name: string; path: string }) =>
     req<Library>("/libraries", { method: "POST", body: JSON.stringify(body) }),
   deleteLibrary: (id: number) => req<void>(`/libraries/${id}`, { method: "DELETE" }),
   scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
@@ -225,6 +224,9 @@ export const api = {
     req<{ message: string; path: string }>("/originals/restore", { method: "POST", body: JSON.stringify({ path }) }),
   deleteLibraryOriginals: (library_id: number) =>
     req<void>(`/originals/library/${library_id}`, { method: "DELETE" }),
+
+  // Filesystem
+  fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
   getSettings: () => req<{ max_concurrent_transcodes: number }>("/settings"),
