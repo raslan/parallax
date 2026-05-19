@@ -1,6 +1,6 @@
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -10,7 +10,7 @@ from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import (
     LibraryCreate, LibraryRead, LibraryUpdate, StatsRead,
-    BrowseResponse, FileRead, TranscodeRequest,
+    BrowseResponse, FileRead, TranscodeRequest, DuplicateCriteriaRequest,
     DuplicateGroupRead, DuplicateFileRead, DeleteDuplicatesRequest,
 )
 from app.services.scanner import scan_library, thumbnail_path
@@ -238,7 +238,11 @@ def browse_library(
 
 
 @router.post("/{library_id}/find-duplicates", status_code=202)
-async def find_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
+async def find_duplicates_endpoint(
+    library_id: int,
+    body: DuplicateCriteriaRequest = Body(default=DuplicateCriteriaRequest()),
+    db: Session = Depends(get_db),
+):
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
@@ -246,7 +250,7 @@ async def find_duplicates_endpoint(library_id: int, db: Session = Depends(get_db
     if file_count == 0:
         raise HTTPException(422, "Scan the library first to index files before checking for duplicates")
     from app.services.duplicates import find_duplicates
-    await enqueue(None, find_duplicates, library_id)
+    await enqueue(None, find_duplicates, library_id, body.use_size, body.use_duration, body.use_phash)
     return {"message": "Duplicate scan queued"}
 
 

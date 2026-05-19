@@ -7,6 +7,12 @@ class TranscodeRequest(BaseModel):
     preset: Literal["high", "medium", "low"] = "medium"
 
 
+class DuplicateCriteriaRequest(BaseModel):
+    use_size: bool = True
+    use_duration: bool = True
+    use_phash: bool = True
+
+
 class LibraryCreate(BaseModel):
     name: str
     path: str
