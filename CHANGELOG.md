@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.10.1](https://github.com/raslan/parallax/compare/v0.10.0...v0.10.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* remove Rose / Infrared theme ([e5eeef9](https://github.com/raslan/parallax/commit/e5eeef90e9947f9ee6872c22a7d5a60206f1575f))
+
 ## [0.10.0](https://github.com/raslan/parallax/compare/v0.9.0...v0.10.0) (2026-05-19)
 
 
