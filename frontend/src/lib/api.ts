@@ -202,7 +202,6 @@ export const api = {
   findDuplicates: (id: number, criteria: DuplicateCriteria) =>
     req<{ message: string }>(`/libraries/${id}/find-duplicates`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(criteria),
     }),
   getDuplicates: (id: number) => req<DuplicateGroup[]>(`/libraries/${id}/duplicates`),
