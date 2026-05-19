@@ -251,8 +251,14 @@ async def find_duplicates_endpoint(
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
         raise HTTPException(422, "Scan the library first to index files before checking for duplicates")
+    if active_job_exists(db, library_id, JobType.DUPLICATES):
+        raise HTTPException(409, "A duplicate scan is already running for this library")
     from app.services.duplicates import find_duplicates
-    await enqueue(None, find_duplicates, library_id, body.use_size, body.use_duration, body.use_phash)
+    job = Job(type=JobType.DUPLICATES, status=JobStatus.PENDING, library_id=library_id)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash)
     return {"message": "Duplicate scan queued"}
 
 
