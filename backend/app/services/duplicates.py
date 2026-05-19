@@ -10,6 +10,8 @@ from sqlalchemy import func
 
 from app.database import SessionLocal
 from app.models.file import File
+from app.models.job import Job, JobStatus
+from app.services.common import now
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +112,23 @@ def _cluster_by_phash(files: list[File], threshold: int = 10) -> list[list[File]
 
 def find_duplicates(
     library_id: int,
+    job_id: int | None = None,
     use_size: bool = True,
     use_duration: bool = True,
     use_phash: bool = True,
 ) -> list[DuplicateGroup]:
-    _results.pop(library_id, None)
     db = SessionLocal()
+    job = None
     try:
+        if job_id is not None:
+            job = db.get(Job, job_id)
+            if job:
+                job.status = JobStatus.RUNNING
+                job.started_at = now()
+                db.commit()
+
+        _results.pop(library_id, None)
+
         if use_size:
             dup_sizes = (
                 db.query(File.size)
@@ -128,6 +140,11 @@ def find_duplicates(
             size_values = [row[0] for row in dup_sizes]
             if not size_values:
                 _results[library_id] = []
+                if job:
+                    job.status = JobStatus.COMPLETED
+                    job.finished_at = now()
+                    job.progress = 100.0
+                    db.commit()
                 return []
             candidates = (
                 db.query(File)
@@ -141,35 +158,50 @@ def find_duplicates(
         else:
             candidates = db.query(File).filter(File.library_id == library_id).all()
             size_groups = [candidates]
+
+        confirmed: list[DuplicateGroup] = []
+        for size_group in size_groups:
+            if len(size_group) < 2:
+                continue
+            if use_duration:
+                dur_clusters = _cluster_by_duration(size_group)
+            else:
+                dur_clusters = [size_group]
+
+            for dur_cluster in dur_clusters:
+                if len(dur_cluster) < 2:
+                    continue
+                if use_phash:
+                    phash_groups = _cluster_by_phash(dur_cluster)
+                else:
+                    phash_groups = [dur_cluster]
+
+                for group in phash_groups:
+                    if len(group) >= 2:
+                        confirmed.append(DuplicateGroup(
+                            files=group,
+                            keep_id=_pick_keep(group),
+                        ))
+
+        _results[library_id] = confirmed
+
+        if job:
+            job.status = JobStatus.COMPLETED
+            job.finished_at = now()
+            job.progress = 100.0
+            db.commit()
+
+        return confirmed
+    except Exception as e:
+        logger.exception("Duplicate scan failed for library %d: %s", library_id, e)
+        if job:
+            job.status = JobStatus.FAILED
+            job.error = str(e)
+            job.finished_at = now()
+            db.commit()
+        raise
     finally:
         db.close()
-
-    confirmed: list[DuplicateGroup] = []
-    for size_group in size_groups:
-        if len(size_group) < 2:
-            continue
-        if use_duration:
-            dur_clusters = _cluster_by_duration(size_group)
-        else:
-            dur_clusters = [size_group]
-
-        for dur_cluster in dur_clusters:
-            if len(dur_cluster) < 2:
-                continue
-            if use_phash:
-                phash_groups = _cluster_by_phash(dur_cluster)
-            else:
-                phash_groups = [dur_cluster]
-
-            for group in phash_groups:
-                if len(group) >= 2:
-                    confirmed.append(DuplicateGroup(
-                        files=group,
-                        keep_id=_pick_keep(group),
-                    ))
-
-    _results[library_id] = confirmed
-    return confirmed
 
 
 def get_cached_results(library_id: int) -> list[DuplicateGroup] | None:
