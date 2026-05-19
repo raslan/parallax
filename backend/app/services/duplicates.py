@@ -159,8 +159,19 @@ def find_duplicates(
             candidates = db.query(File).filter(File.library_id == library_id).all()
             size_groups = [candidates]
 
+        total_files = len(candidates)
+        if job:
+            job.total_files = total_files
+            db.commit()
+
+        processed = 0
         confirmed: list[DuplicateGroup] = []
         for size_group in size_groups:
+            processed += len(size_group)
+            if job and total_files > 0:
+                job.processed_files = processed
+                job.progress = min(99.0, processed / total_files * 100)
+                db.commit()
             if len(size_group) < 2:
                 continue
             if use_duration:
