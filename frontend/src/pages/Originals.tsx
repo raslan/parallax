@@ -66,7 +66,7 @@ function LibraryGroup({
   };
 
   const handleRestore = async (path: string) => {
-    if (!confirm("Restore this original? The transcoded file will be replaced.")) return;
+    if (!confirm("Restore this original? The modified file will be replaced.")) return;
     setPathBusy(path, true);
     try {
       await api.restoreOriginal(path);
@@ -132,7 +132,7 @@ function LibraryGroup({
                     <p className="text-sm truncate" title={entry.path}>{entry.filename}</p>
                     {missing && (
                       <p className="text-xs text-amber-400 flex items-center gap-1 mt-0.5">
-                        <AlertTriangle className="h-3 w-3" /> Transcoded file missing
+                        <AlertTriangle className="h-3 w-3" /> Modified file missing
                       </p>
                     )}
                   </div>
@@ -156,7 +156,7 @@ function LibraryGroup({
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      title="Restore original (replaces transcoded file)"
+                      title="Restore original (replaces modified file)"
                       disabled={busy}
                       onClick={() => handleRestore(entry.path)}
                     >
@@ -219,10 +219,10 @@ export function Originals() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <SectionHeader className="mb-1.5">Pre-transcode backups</SectionHeader>
+          <SectionHeader className="mb-1.5">Backups of modified files</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Originals</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Backup files kept from before transcoding. Delete once you're happy, or restore to undo.
+            Backup files kept from before modifications. Delete once you're happy, or restore to undo.
           </p>
         </div>
         <button
@@ -265,7 +265,7 @@ export function Originals() {
             <Archive className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No originals</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Original files will appear here after transcoding. They're kept as backups until you delete them.
+              Original files will appear here after modification. They're kept as backups until you delete them.
             </p>
           </CardContent>
         </Card>

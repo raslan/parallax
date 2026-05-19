@@ -130,21 +130,27 @@ function AddLibraryDialog({
 }) {
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
+  const [split, setSplit] = useState(false);
+  const [autoScan, setAutoScan] = useState(true);
   const [picking, setPicking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const reset = () => {
-    setName(""); setPath(""); setPicking(false); setError("");
+    setName(""); setPath(""); setSplit(false); setAutoScan(true); setPicking(false); setError("");
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !path.trim()) return;
+    if (!path.trim()) return;
+    if (!split && !name.trim()) return;
     setLoading(true);
     setError("");
     try {
-      await api.createLibrary({ name: name.trim(), path: path.trim() });
+      const created = await api.createLibrary({ name: name.trim(), path: path.trim(), split_into_sublibraries: split });
+      if (autoScan) {
+        await Promise.all(created.map((lib) => api.scanLibrary(lib.id).catch(() => {})));
+      }
       reset();
       onOpenChange(false);
       onCreated();
@@ -168,16 +174,18 @@ function AddLibraryDialog({
           />
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="lib-name">Name</Label>
-              <Input
-                id="lib-name"
-                placeholder="My Movies"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+            {!split && (
+              <div className="space-y-1.5">
+                <Label htmlFor="lib-name">Name</Label>
+                <Input
+                  id="lib-name"
+                  placeholder="My Movies"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required={!split}
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Path</Label>
               <div className="flex gap-2">
@@ -193,12 +201,40 @@ function AddLibraryDialog({
                 </Button>
               </div>
             </div>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={split}
+                onChange={(e) => setSplit(e.target.checked)}
+                className="accent-primary h-4 w-4 mt-0.5 shrink-0"
+              />
+              <div>
+                <p className="text-sm font-medium">Split into sub-libraries</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Create one library per immediate subdirectory, named after each folder. Files belong only to their parent folder's library.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoScan}
+                onChange={(e) => setAutoScan(e.target.checked)}
+                className="accent-primary h-4 w-4 mt-0.5 shrink-0"
+              />
+              <div>
+                <p className="text-sm font-medium">Scan after creation</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Automatically index files as soon as the library is created.
+                </p>
+              </div>
+            </label>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Add Library
+                {split ? "Add Libraries" : "Add Library"}
               </Button>
             </DialogFooter>
           </form>

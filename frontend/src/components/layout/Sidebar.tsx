@@ -7,10 +7,10 @@ import { ParallaxLogo } from "@/components/ParallaxLogo";
 const navItems = [
   { to: "/libraries", icon: Library, label: "Libraries" },
   { to: "/files", icon: Film, label: "Files" },
-  { to: "/jobs", icon: Activity, label: "Jobs" },
   { to: "/originals", icon: Archive, label: "Originals" },
   { to: "/duplicates", icon: Copy, label: "Duplicates" },
   { to: "/cleanup", icon: Scissors, label: "Cleanup" },
+  { to: "/jobs", icon: Activity, label: "Jobs" },
 ];
 
 function navClass(isActive: boolean) {

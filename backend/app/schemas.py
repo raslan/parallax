@@ -15,8 +15,9 @@ class DuplicateCriteriaRequest(BaseModel):
 
 
 class LibraryCreate(BaseModel):
-    name: str
+    name: str = ""
     path: str
+    split_into_sublibraries: bool = False
 
 
 class LibraryRead(BaseModel):

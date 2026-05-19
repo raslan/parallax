@@ -158,8 +158,8 @@ export const api = {
   // Libraries
   getLibraries: () => req<Library[]>("/libraries"),
   getStats: () => req<Stats>("/libraries/stats"),
-  createLibrary: (body: { name: string; path: string }) =>
-    req<Library>("/libraries", { method: "POST", body: JSON.stringify(body) }),
+  createLibrary: (body: { name: string; path: string; split_into_sublibraries?: boolean }) =>
+    req<Library[]>("/libraries", { method: "POST", body: JSON.stringify(body) }),
   deleteLibrary: (id: number) => req<void>(`/libraries/${id}`, { method: "DELETE" }),
   scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
   checkLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),

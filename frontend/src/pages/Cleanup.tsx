@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Scissors, Loader2, Trash2, Search, Play, LayoutGrid, List, ImageOff, Check } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Scissors, Loader2, Trash2, Search, Play, LayoutGrid, List, ImageOff, Check, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, CleanupParams, Library, VideoFile } from "@/lib/api";
@@ -173,6 +173,8 @@ export function Cleanup() {
   const [error, setError] = useState<string | null>(null);
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [sortBy, setSortBy] = useState("filename");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     api.getLibraries().then((libs) => {
@@ -182,6 +184,25 @@ export function Cleanup() {
   }, []);
 
   const anyFilterEnabled = durationEnabled || fpsEnabled || dateEnabled || heightEnabled;
+
+  const SORT_OPTIONS = [
+    { value: "filename",      label: "Name" },
+    { value: "size",          label: "Size" },
+    { value: "duration",      label: "Duration" },
+    { value: "video_bitrate", label: "Bitrate" },
+    { value: "file_date",     label: "File date" },
+  ] as const;
+
+  const sortedResults = useMemo(() => {
+    if (!results) return null;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...results].sort((a, b) => {
+      const av = (a as any)[sortBy] ?? "";
+      const bv = (b as any)[sortBy] ?? "";
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }, [results, sortBy, sortDir]);
 
   const buildParams = (): CleanupParams => {
     const params: CleanupParams = {};
@@ -382,7 +403,7 @@ export function Cleanup() {
         </Card>
       )}
 
-      {!loading && results !== null && results.length === 0 && (
+      {!loading && sortedResults !== null && sortedResults.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
@@ -392,22 +413,38 @@ export function Cleanup() {
         </Card>
       )}
 
-      {!loading && results !== null && results.length > 0 && (
+      {!loading && sortedResults !== null && sortedResults.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums font-mono">{results.length}</span> file{results.length !== 1 ? "s" : ""} match
+              <span className="font-semibold text-foreground tabular-nums font-mono">{sortedResults.length}</span> file{sortedResults.length !== 1 ? "s" : ""} match
             </p>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input
                   type="checkbox"
                   className="accent-primary h-4 w-4"
-                  checked={selected.size === results.length && results.length > 0}
+                  checked={selected.size === sortedResults.length && sortedResults.length > 0}
                   onChange={toggleAll}
                 />
                 Select all
               </label>
+              <select
+                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+                className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title={sortDir === "asc" ? "Ascending" : "Descending"}
+              >
+                {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+              </button>
               <div className="flex items-center rounded-md border border-input overflow-hidden">
                 <button
                   onClick={() => setViewMode("list")}
@@ -454,7 +491,7 @@ export function Cleanup() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {results.map((f) => (
+                  {sortedResults.map((f) => (
                     <tr
                       key={f.id}
                       className={`hover:bg-muted/20 cursor-pointer transition-colors ${selected.has(f.id) ? "bg-primary/5" : ""}`}
@@ -515,7 +552,7 @@ export function Cleanup() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {results.map((f) => (
+              {sortedResults.map((f) => (
                 <CleanupCard
                   key={f.id}
                   file={f}

@@ -51,16 +51,36 @@ def list_libraries(db: Session = Depends(get_db)):
     return _with_counts(libs, db)
 
 
-@router.post("", response_model=LibraryRead, status_code=201)
+@router.post("", response_model=list[LibraryRead], status_code=201)
 def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
-    existing = db.query(Library).filter(Library.path == body.path).first()
-    if existing:
-        raise HTTPException(400, "A library with this path already exists")
-    lib = Library(**body.model_dump())
-    db.add(lib)
-    db.commit()
-    db.refresh(lib)
-    return lib
+    if body.split_into_sublibraries:
+        try:
+            subdirs = sorted(
+                e.path for e in os.scandir(body.path)
+                if e.is_dir(follow_symlinks=True) and not e.name.startswith(".")
+            )
+        except (PermissionError, FileNotFoundError, NotADirectoryError) as exc:
+            raise HTTPException(400, f"Cannot read directory: {exc}")
+        if not subdirs:
+            raise HTTPException(422, "No subdirectories found at the selected path")
+        created = []
+        for subdir in subdirs:
+            if db.query(Library).filter(Library.path == subdir).first():
+                continue
+            lib = Library(name=os.path.basename(subdir), path=subdir)
+            db.add(lib)
+            db.commit()
+            db.refresh(lib)
+            created.append(lib)
+        return _with_counts(created, db)
+    else:
+        if db.query(Library).filter(Library.path == body.path).first():
+            raise HTTPException(400, "A library with this path already exists")
+        lib = Library(name=body.name, path=body.path)
+        db.add(lib)
+        db.commit()
+        db.refresh(lib)
+        return [lib]
 
 
 @router.get("/stats", response_model=StatsRead)
