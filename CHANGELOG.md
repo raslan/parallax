@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.10.3](https://github.com/raslan/parallax/compare/v0.10.2...v0.10.3) (2026-05-19)
+
+
+### Bug Fixes
+
+* scan video files recursively to support pre-structured season folders ([8e8c91f](https://github.com/raslan/parallax/commit/8e8c91f3881fca7f7db10502492686988cf58e33))
+
 ## [0.10.2](https://github.com/raslan/parallax/compare/v0.10.1...v0.10.2) (2026-05-19)
 
 
