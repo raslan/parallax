@@ -1,7 +1,21 @@
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 TMDB_BASE = "https://api.themoviedb.org/3"
+
+
+def _fetch_tv_seasons(tmdb_id: int, api_key: str) -> int | None:
+    try:
+        r = requests.get(
+            f"{TMDB_BASE}/tv/{tmdb_id}",
+            params={"api_key": api_key},
+            timeout=5,
+        )
+        r.raise_for_status()
+        return r.json().get("number_of_seasons")
+    except Exception:
+        return None
 
 
 def search(query: str, media_type: Literal["movie", "tv"], api_key: str) -> list[dict]:
@@ -24,7 +38,15 @@ def search(query: str, media_type: Literal["movie", "tv"], api_key: str) -> list
             "overview": item.get("overview", ""),
             "poster_path": item.get("poster_path"),
             "type": media_type,
+            "number_of_seasons": None,
         })
+
+    if media_type == "tv" and out:
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            seasons = list(pool.map(lambda x: _fetch_tv_seasons(x["tmdb_id"], api_key), out))
+        for item, n in zip(out, seasons):
+            item["number_of_seasons"] = n
+
     return out
 
 
