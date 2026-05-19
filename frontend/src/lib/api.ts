@@ -152,6 +152,7 @@ export interface SearchResult {
 }
 
 export interface Episode {
+  season_number: number;
   episode_number: number;
   name: string;
   overview: string;
@@ -159,6 +160,7 @@ export interface Episode {
 
 export interface FileMapping {
   file_path: string;
+  season_number: number | null;
   episode_number: number | null;
   episode_name: string | null;
 }
@@ -275,6 +277,8 @@ export const api = {
     req<{ path: string; files: string[] }>(`/identify/files?path=${encodeURIComponent(path)}`),
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
+  identifyGetAllEpisodes: (tmdb_id: number) =>
+    req<Episode[]>(`/identify/tv/${tmdb_id}/episodes`),
   identifyGetSeason: (tmdb_id: number, season_number: number) =>
     req<Episode[]>(`/identify/tv/${tmdb_id}/season/${season_number}`),
   identifyPreview: (body: {
@@ -283,7 +287,6 @@ export const api = {
     title: string;
     year: number | null;
     tmdb_id: number;
-    season_number: number | null;
     mappings: FileMapping[];
   }) =>
     req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),

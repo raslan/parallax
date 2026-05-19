@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Loader2, Search, ChevronRight, Check, AlertCircle, Wand2, FolderOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,6 @@ export function Identify() {
   const [searchQuery, setSearchQuery]         = useState("");
   const [searchResults, setSearchResults]     = useState<SearchResult[]>([]);
   const [selected, setSelected]               = useState<SelectedMedia | null>(null);
-  const [seasonNumber, setSeasonNumber]       = useState(1);
   const [episodes, setEpisodes]               = useState<Episode[]>([]);
   const [files, setFiles]                     = useState<string[]>([]);
   const [orderedFiles, setOrderedFiles]       = useState<string[]>([]);
@@ -36,7 +35,7 @@ export function Identify() {
   const [picking, setPicking]                 = useState(false);
   const [loadingFiles, setLoadingFiles]       = useState(false);
   const [loadingSearch, setLoadingSearch]     = useState(false);
-  const [loadingSeason, setLoadingSeason]     = useState(false);
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [loadingPreview, setLoadingPreview]   = useState(false);
   const [loadingApply, setLoadingApply]       = useState(false);
   const [error, setError]                     = useState("");
@@ -72,43 +71,27 @@ export function Identify() {
     }
   }
 
-  const seasonDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  async function fetchSeason(tmdbId: number, season: number) {
-    setLoadingSeason(true);
-    setError("");
-    try {
-      const eps = await api.identifyGetSeason(tmdbId, season);
-      setEpisodes(eps);
-    } catch (e: any) {
-      setError(e.message || "Failed to load season");
-    } finally {
-      setLoadingSeason(false);
-    }
-  }
-
   async function selectMedia(result: SearchResult) {
-    const media = { tmdb_id: result.tmdb_id, title: result.title, year: result.year, type: mediaType };
-    setSelected(media);
+    setSelected({ tmdb_id: result.tmdb_id, title: result.title, year: result.year, type: mediaType });
     setEpisodes([]);
     if (mediaType === "movie") {
-      setEpisodes([{ episode_number: 1, name: result.title, overview: result.overview }]);
+      setEpisodes([{ season_number: 1, episode_number: 1, name: result.title, overview: result.overview }]);
     } else {
-      setSeasonNumber(1);
-      fetchSeason(result.tmdb_id, 1);
+      setLoadingEpisodes(true);
+      setError("");
+      try {
+        const eps = await api.identifyGetAllEpisodes(result.tmdb_id);
+        setEpisodes(eps);
+      } catch (e: any) {
+        setError(e.message || "Failed to load episodes");
+      } finally {
+        setLoadingEpisodes(false);
+      }
     }
-  }
-
-  function handleSeasonChange(n: number) {
-    const season = Math.max(1, n);
-    setSeasonNumber(season);
-    if (!selected) return;
-    if (seasonDebounce.current) clearTimeout(seasonDebounce.current);
-    seasonDebounce.current = setTimeout(() => fetchSeason(selected.tmdb_id, season), 400);
   }
 
   function canAdvanceToMatch() {
-    return files.length > 0 && selected !== null && episodes.length > 0;
+    return files.length > 0 && selected !== null && episodes.length > 0 && !loadingEpisodes;
   }
 
   async function doPreview() {
@@ -118,6 +101,7 @@ export function Identify() {
     try {
       const mappings: FileMapping[] = orderedFiles.map((fp, i) => ({
         file_path: fp,
+        season_number: episodes[i]?.season_number ?? null,
         episode_number: episodes[i]?.episode_number ?? null,
         episode_name: episodes[i]?.name ?? null,
       }));
@@ -127,7 +111,6 @@ export function Identify() {
         title: selected.title,
         year: selected.year,
         tmdb_id: selected.tmdb_id,
-        season_number: mediaType === "tv" ? seasonNumber : null,
         mappings,
       });
       setFileOps(res.file_ops);
@@ -320,20 +303,10 @@ export function Identify() {
               )}
 
               {selected && mediaType === "tv" && (
-                <div className="flex items-center gap-2 pt-1">
-                  <label className="text-sm text-muted-foreground whitespace-nowrap">Season</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={seasonNumber}
-                    onChange={(e) => handleSeasonChange(Number(e.target.value))}
-                    className="w-20 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  {loadingSeason
-                    ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    : episodes.length > 0 && (
-                        <span className="text-xs text-muted-foreground">{episodes.length} episodes</span>
-                      )
+                <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                  {loadingEpisodes
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading all episodes…</>
+                    : episodes.length > 0 && <span>{episodes.length} episodes across {new Set(episodes.map(e => e.season_number)).size} season(s) loaded</span>
                   }
                 </div>
               )}
@@ -369,7 +342,6 @@ export function Identify() {
               <FileMatcher
                 files={orderedFiles}
                 episodes={episodes}
-                season={seasonNumber}
                 mediaType={mediaType}
                 onChange={setOrderedFiles}
               />

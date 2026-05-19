@@ -13,11 +13,10 @@ interface SortableRowProps {
   id: string;
   filename: string;
   episode: Episode | undefined;
-  season: number;
   mediaType: "movie" | "tv";
 }
 
-function SortableRow({ id, filename, episode, season, mediaType }: SortableRowProps) {
+function SortableRow({ id, filename, episode, mediaType }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -26,7 +25,7 @@ function SortableRow({ id, filename, episode, season, mediaType }: SortableRowPr
   function episodeLabel(): string {
     if (!episode) return "";
     if (mediaType === "movie") return episode.name;
-    const s = String(season).padStart(2, "0");
+    const s = String(episode.season_number).padStart(2, "0");
     const e = String(episode.episode_number).padStart(2, "0");
     return `S${s}E${e} — ${episode.name}`;
   }
@@ -71,12 +70,11 @@ function SortableRow({ id, filename, episode, season, mediaType }: SortableRowPr
 interface FileMatcherProps {
   files: string[];
   episodes: Episode[];
-  season: number;
   mediaType: "movie" | "tv";
   onChange: (reorderedFiles: string[]) => void;
 }
 
-export function FileMatcher({ files, episodes, season, mediaType, onChange }: FileMatcherProps) {
+export function FileMatcher({ files, episodes, mediaType, onChange }: FileMatcherProps) {
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (over && active.id !== over.id) {
@@ -102,7 +100,6 @@ export function FileMatcher({ files, episodes, season, mediaType, onChange }: Fi
               id={file}
               filename={file.split("/").pop() ?? file}
               episode={episodes[i]}
-              season={season}
               mediaType={mediaType}
             />
           ))}
