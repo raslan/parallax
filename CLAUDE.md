@@ -5,12 +5,14 @@
 **Parallax** is a self-hosted video transcoding manager. Its primary purpose is to scan media libraries for corrupt video files and repair them by re-encoding with ffmpeg, preserving originals as backups. It runs as a single Docker container and is managed through a browser UI.
 
 Key capabilities:
-- Library management: watch folders, periodic scan scheduling
+- Library management: add folders via filesystem dir picker, scan on demand
 - Corruption detection: ffprobe-based per-file integrity checks
 - Smart transcoding: source-aware codec selection (HEVC/AV1/VP9 → HEVC out; H.264/older → H.264), constrained CRF so output never exceeds source bitrate
-- Job queue: configurable concurrency, PENDING/RUNNING/CANCELLED states, live SSE progress
+- Job queue: configurable concurrency, PENDING/RUNNING/CANCELLED states, live SSE progress; all job types (scan, check, transcode, duplicates) appear on Jobs page
 - Originals management: browse, restore, and bulk-delete `_originals/` backups
 - File browser: thumbnail grid, per-file corruption details, sort by name/size/duration/bitrate
+- Duplicate detection: size, duration (configurable ±N s tolerance), and visual (pHash) matching; results cached in memory per library
+- Cleanup: bulk-delete files filtered by duration, FPS, date, or resolution
 
 ## Tech stack
 
