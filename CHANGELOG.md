@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.8.0] - 2026-05-19
+
+### Documentation
+
+- Update changelog for v0.7.0
+
+### Features
+
+- Cleanup sort, sub-library split, auto-scan on library creation
+
 ## [0.7.0] - 2026-05-19
 
 ### Bug Fixes
