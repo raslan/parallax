@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<string, string> = {
   scan: "Scan",
   check: "Corruption check",
   transcode: "Transcode",
+  duplicates: "Duplicate scan",
 };
 
 function ProgressBar({ value }: { value: number }) {
