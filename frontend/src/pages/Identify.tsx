@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Loader2, Search, ChevronRight, Check, AlertCircle, Wand2, FolderOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,26 +72,39 @@ export function Identify() {
     }
   }
 
-  async function selectMedia(result: SearchResult) {
-    setSelected({ tmdb_id: result.tmdb_id, title: result.title, year: result.year, type: mediaType });
-    setEpisodes([]);
-    if (mediaType === "movie") {
-      setEpisodes([{ episode_number: 1, name: result.title, overview: result.overview }]);
-    }
-  }
+  const seasonDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function loadSeason() {
-    if (!selected) return;
+  async function fetchSeason(tmdbId: number, season: number) {
     setLoadingSeason(true);
     setError("");
     try {
-      const eps = await api.identifyGetSeason(selected.tmdb_id, seasonNumber);
+      const eps = await api.identifyGetSeason(tmdbId, season);
       setEpisodes(eps);
     } catch (e: any) {
       setError(e.message || "Failed to load season");
     } finally {
       setLoadingSeason(false);
     }
+  }
+
+  async function selectMedia(result: SearchResult) {
+    const media = { tmdb_id: result.tmdb_id, title: result.title, year: result.year, type: mediaType };
+    setSelected(media);
+    setEpisodes([]);
+    if (mediaType === "movie") {
+      setEpisodes([{ episode_number: 1, name: result.title, overview: result.overview }]);
+    } else {
+      setSeasonNumber(1);
+      fetchSeason(result.tmdb_id, 1);
+    }
+  }
+
+  function handleSeasonChange(n: number) {
+    const season = Math.max(1, n);
+    setSeasonNumber(season);
+    if (!selected) return;
+    if (seasonDebounce.current) clearTimeout(seasonDebounce.current);
+    seasonDebounce.current = setTimeout(() => fetchSeason(selected.tmdb_id, season), 400);
   }
 
   function canAdvanceToMatch() {
@@ -313,15 +326,15 @@ export function Identify() {
                     type="number"
                     min={1}
                     value={seasonNumber}
-                    onChange={(e) => setSeasonNumber(Math.max(1, Number(e.target.value)))}
+                    onChange={(e) => handleSeasonChange(Number(e.target.value))}
                     className="w-20 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                  <Button onClick={loadSeason} disabled={loadingSeason} size="sm" variant="outline">
-                    {loadingSeason ? <Loader2 className="h-4 w-4 animate-spin" /> : "Load episodes"}
-                  </Button>
-                  {episodes.length > 0 && (
-                    <span className="text-xs text-muted-foreground">{episodes.length} episodes loaded</span>
-                  )}
+                  {loadingSeason
+                    ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    : episodes.length > 0 && (
+                        <span className="text-xs text-muted-foreground">{episodes.length} episodes</span>
+                      )
+                  }
                 </div>
               )}
             </CardContent>
