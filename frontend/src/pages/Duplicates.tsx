@@ -3,7 +3,7 @@ import { Copy, Loader2, Trash2, ShieldCheck, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { api, DuplicateGroup, DuplicateFile, Library } from "@/lib/api";
+import { api, DuplicateGroup, DuplicateFile, Library, DuplicateCriteria } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -141,6 +141,11 @@ export function Duplicates() {
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [criteria, setCriteria] = useState<DuplicateCriteria>({
+    use_size: true,
+    use_duration: true,
+    use_phash: true,
+  });
 
   useEffect(() => {
     api.getLibraries().then((libs) => {
@@ -161,7 +166,7 @@ export function Duplicates() {
     setGroups(null);
     setKeepIds({});
     try {
-      await api.findDuplicates(selectedId);
+      await api.findDuplicates(selectedId, criteria);
     } catch {
       setScanning(false);
       return;
@@ -180,7 +185,6 @@ export function Duplicates() {
           stopPolling();
           setScanning(false);
         }
-        // 404 means scan not done yet — keep polling
       }
     }, 2000);
   };
@@ -221,28 +225,54 @@ export function Duplicates() {
 
   return (
     <div className="p-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Find videos with identical size, duration, and first frame.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {libraries.length > 0 && (
-            <LibrarySelector
-              libraries={libraries}
-              selected={selectedId}
-              onChange={(id) => { setSelectedId(id); setGroups(null); setKeepIds({}); }}
-            />
-          )}
-          <Button onClick={handleScan} disabled={scanning || !selectedId}>
-            {scanning ? (
-              <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Scanning…</>
-            ) : (
-              <><ShieldCheck className="h-3.5 w-3.5 mr-2" />Scan for Duplicates</>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Find videos matching the selected criteria.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {libraries.length > 0 && (
+              <LibrarySelector
+                libraries={libraries}
+                selected={selectedId}
+                onChange={(id) => { setSelectedId(id); setGroups(null); setKeepIds({}); }}
+              />
             )}
-          </Button>
+            <Button
+              onClick={handleScan}
+              disabled={scanning || !selectedId || (!criteria.use_size && !criteria.use_duration && !criteria.use_phash)}
+            >
+              {scanning ? (
+                <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Scanning…</>
+              ) : (
+                <><ShieldCheck className="h-3.5 w-3.5 mr-2" />Scan for Duplicates</>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <SectionHeader>Match Criteria</SectionHeader>
+          {(
+            [
+              { key: "use_size",     label: "Exact size" },
+              { key: "use_duration", label: "Duration (±1s)" },
+              { key: "use_phash",    label: "Visual (pHash)" },
+            ] as { key: keyof DuplicateCriteria; label: string }[]
+          ).map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={criteria[key]}
+                onChange={(e) => setCriteria((prev) => ({ ...prev, [key]: e.target.checked }))}
+                className="accent-[var(--px-accent)] h-3.5 w-3.5"
+              />
+              <span className="text-sm text-muted-foreground">{label}</span>
+            </label>
+          ))}
         </div>
       </div>
 
