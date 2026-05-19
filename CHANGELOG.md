@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.9.0](https://github.com/raslan/parallax/compare/v0.8.1...v0.9.0) (2026-05-19)
+
+
+### Features
+
+* add TMDB API key to settings ([ea7244f](https://github.com/raslan/parallax/commit/ea7244f84d67a16f14154433957ab6a05ba71de8))
+* auto-load episodes on show select, season input triggers reload ([b8e183e](https://github.com/raslan/parallax/commit/b8e183e1e51c8974d04d1de277366a68fbd5736b))
+* extract DirPicker to shared component, use in Identify page ([8b0ebd5](https://github.com/raslan/parallax/commit/8b0ebd5556422a0eb4c8846c9c817b1cc43e0e9c))
+* identify API router with search, preview, and apply endpoints ([409c5c6](https://github.com/raslan/parallax/commit/409c5c644ac64fe195fbd4b3201e749471d9d9ed))
+* Identify wizard page, FileMatcher component, and sidebar navigation ([f80c8a4](https://github.com/raslan/parallax/commit/f80c8a4c1f7ae8fc8d2272730d92a1b3a09c6284))
+* load all seasons/episodes at once, files sorted into season subfolders ([7e9d778](https://github.com/raslan/parallax/commit/7e9d77804864ad4143567ef8a7aba94655e2249d))
+* poster grid for search results with season count for TV shows ([0e509f4](https://github.com/raslan/parallax/commit/0e509f4c44e1d47c1ea061e56c55224a6fb5bec6))
+* renamer service with Plex/Jellyfin filename generation ([4741519](https://github.com/raslan/parallax/commit/4741519d0bccf9276e4ace19ffe9030c3d00593f))
+* thumbnails and per-season accordions in file matcher ([33d770f](https://github.com/raslan/parallax/commit/33d770fbb9218a3c08816147d04eef3c60782876))
+* TMDB service with search and season endpoints ([e876c63](https://github.com/raslan/parallax/commit/e876c633509d53a61696d15dbd74c3557e0da1b5))
+
+
+### Bug Fixes
+
+* enable cross-season drag-and-drop in file matcher ([0f7f6f5](https://github.com/raslan/parallax/commit/0f7f6f5106d248e3d027a54d91d9a35d73ddf99e))
+
 ## [0.8.0] - 2026-05-19
 
 ### Documentation
@@ -189,5 +210,3 @@ Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) 
 ### Features
 
 - **backend:** Phase 1 — FastAPI skeleton with SQLAlchemy models
-
-
