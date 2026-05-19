@@ -16,5 +16,10 @@ data/
 .DS_Store
 Thumbs.db
 
+# Internal docs
+CLAUDE.md
+**/CLAUDE.md
+docs/
+
 # Superpowers
 .superpowers/
