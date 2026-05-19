@@ -57,7 +57,7 @@ def _extract_phash(path: str) -> "imagehash.ImageHash | None":
             pass
 
 
-def _cluster_by_duration(files: list[File], tolerance: float = 1.0) -> list[list[File]]:
+def _cluster_by_duration(files: list[File], tolerance: float = 2.0) -> list[list[File]]:
     """Group files whose duration is within tolerance seconds of a group anchor.
 
     Files are sorted by duration first so clustering is deterministic and
@@ -208,6 +208,7 @@ def find_duplicates(
             job.status = JobStatus.COMPLETED
             job.finished_at = now()
             job.progress = 100.0
+            job.processed_files = total_files
             db.commit()
 
         return confirmed

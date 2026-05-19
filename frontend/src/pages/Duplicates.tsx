@@ -301,7 +301,7 @@ export function Duplicates() {
           {(
             [
               { key: "use_size",     label: "Exact size" },
-              { key: "use_duration", label: "Duration (±1s)" },
+              { key: "use_duration", label: "Duration (±2s)" },
               { key: "use_phash",    label: "Visual (pHash)" },
             ] as { key: keyof DuplicateCriteria; label: string }[]
           ).map(({ key, label }) => (
