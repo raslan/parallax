@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.10.4](https://github.com/raslan/parallax/compare/v0.10.3...v0.10.4) (2026-05-19)
+
+
+### Bug Fixes
+
+* move unmatched files to Unmatched/ instead of leaving them in place ([5babf10](https://github.com/raslan/parallax/commit/5babf105972fbac571654b87adfea65db0fb90ff))
+* save all settings to DB before runtime update so TMDB key persists ([d0ec229](https://github.com/raslan/parallax/commit/d0ec229e127ca29409243a3a7f910ec08e471942))
+
 ## [0.10.3](https://github.com/raslan/parallax/compare/v0.10.2...v0.10.3) (2026-05-19)
 
 
