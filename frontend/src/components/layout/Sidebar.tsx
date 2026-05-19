@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Library, Film, Activity, Settings, Archive, Copy, Scissors } from "lucide-react";
+import { Library, Film, Activity, Settings, Archive, Copy, Scissors, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { ParallaxLogo } from "@/components/ParallaxLogo";
@@ -9,8 +9,9 @@ const navItems = [
   { to: "/files", icon: Film, label: "Files" },
   { to: "/originals", icon: Archive, label: "Originals" },
   { to: "/duplicates", icon: Copy, label: "Duplicates" },
-  { to: "/cleanup", icon: Scissors, label: "Cleanup" },
-  { to: "/jobs", icon: Activity, label: "Jobs" },
+  { to: "/cleanup",    icon: Scissors, label: "Cleanup" },
+  { to: "/identify",   icon: Wand2,    label: "Identify" },
+  { to: "/jobs",       icon: Activity, label: "Jobs" },
 ];
 
 function navClass(isActive: boolean) {
