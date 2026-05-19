@@ -58,22 +58,25 @@ def _extract_phash(path: str) -> "imagehash.ImageHash | None":
 
 
 def _cluster_by_duration(files: list[File], tolerance: float = 1.0) -> list[list[File]]:
-    """Group files whose duration is within ±tolerance seconds of each other."""
+    """Group files whose duration is within tolerance seconds of a group anchor.
+
+    Files are sorted by duration first so clustering is deterministic and
+    order-independent. Each group anchors on its first (shortest) member;
+    consecutive files within `tolerance` of that anchor join the group.
+    """
+    sorted_files = sorted(files, key=lambda f: f.duration or 0.0)
     groups: list[list[File]] = []
-    remaining = list(files)
-    while remaining:
-        anchor = remaining.pop(0)
-        anchor_dur = anchor.duration or 0.0
-        group = [anchor]
-        rest = []
-        for f in remaining:
-            if abs((f.duration or 0.0) - anchor_dur) <= tolerance:
-                group.append(f)
-            else:
-                rest.append(f)
-        remaining = rest
+    i = 0
+    while i < len(sorted_files):
+        anchor_dur = sorted_files[i].duration or 0.0
+        group = []
+        j = i
+        while j < len(sorted_files) and abs((sorted_files[j].duration or 0.0) - anchor_dur) <= tolerance:
+            group.append(sorted_files[j])
+            j += 1
         if len(group) > 1:
             groups.append(group)
+        i = j if j > i else i + 1
     return groups
 
 
