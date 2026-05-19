@@ -258,7 +258,7 @@ async def find_duplicates_endpoint(
     db.add(job)
     db.commit()
     db.refresh(job)
-    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash)
+    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash, body.duration_tolerance)
     return {"message": "Duplicate scan queued"}
 
 
@@ -270,6 +270,8 @@ def get_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
     from app.services.duplicates import get_cached_results
     from app.services.scanner import thumbnail_path
     results = get_cached_results(library_id)
+    import logging as _logging
+    _logging.getLogger(__name__).warning("get_duplicates_endpoint: library=%d results=%s", library_id, None if results is None else f"{len(results)} groups")
     if results is None:
         raise HTTPException(404, "No duplicate scan has been run for this library yet")
     out = []

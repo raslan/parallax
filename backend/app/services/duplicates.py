@@ -17,8 +17,21 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class CachedFile:
+    id: int
+    library_id: int
+    path: str
+    filename: str
+    size: int
+    duration: float | None
+    codec_name: str | None
+    video_bitrate: int | None
+    status: str
+
+
+@dataclass
 class DuplicateGroup:
-    files: list[File]
+    files: list[CachedFile]
     keep_id: int
 
 
@@ -26,12 +39,26 @@ class DuplicateGroup:
 _results: dict[int, list[DuplicateGroup]] = {}
 
 
-def _pick_keep(files: list[File]) -> int:
+def _pick_keep(files: list[CachedFile]) -> int:
     """Highest bitrate → largest size → shortest path."""
     return sorted(
         files,
         key=lambda f: (-(f.video_bitrate or 0), -(f.size or 0), f.path),
     )[0].id
+
+
+def _snapshot(f: File) -> CachedFile:
+    return CachedFile(
+        id=f.id,
+        library_id=f.library_id,
+        path=f.path,
+        filename=f.filename,
+        size=f.size,
+        duration=f.duration,
+        codec_name=f.codec_name,
+        video_bitrate=f.video_bitrate,
+        status=f.status,
+    )
 
 
 def _extract_phash(path: str) -> "imagehash.ImageHash | None":
@@ -65,6 +92,8 @@ def _cluster_by_duration(files: list[File], tolerance: float = 2.0) -> list[list
     consecutive files within `tolerance` of that anchor join the group.
     """
     sorted_files = sorted(files, key=lambda f: f.duration or 0.0)
+    durations = [(f.filename, f.duration) for f in sorted_files[:10]]
+    logger.warning("_cluster_by_duration: %d files, tolerance=%.1f, sample durations: %s", len(sorted_files), tolerance, durations)
     groups: list[list[File]] = []
     i = 0
     while i < len(sorted_files):
@@ -77,6 +106,7 @@ def _cluster_by_duration(files: list[File], tolerance: float = 2.0) -> list[list
         if len(group) > 1:
             groups.append(group)
         i = j if j > i else i + 1
+    logger.warning("_cluster_by_duration: found %d groups", len(groups))
     return groups
 
 
@@ -121,6 +151,7 @@ def find_duplicates(
     use_size: bool = True,
     use_duration: bool = True,
     use_phash: bool = True,
+    duration_tolerance: float = 1.0,
 ) -> list[DuplicateGroup]:
     db = SessionLocal()
     job = None
@@ -134,6 +165,8 @@ def find_duplicates(
 
         _results.pop(library_id, None)
 
+        logger.warning("find_duplicates: library=%d use_size=%s use_duration=%s use_phash=%s", library_id, use_size, use_duration, use_phash)
+
         if use_size:
             dup_sizes = (
                 db.query(File.size)
@@ -143,6 +176,7 @@ def find_duplicates(
                 .all()
             )
             size_values = [row[0] for row in dup_sizes]
+            logger.warning("find_duplicates: %d duplicate sizes found", len(size_values))
             if not size_values:
                 _results[library_id] = []
                 if job:
@@ -164,6 +198,7 @@ def find_duplicates(
             candidates = db.query(File).filter(File.library_id == library_id).all()
             size_groups = [candidates]
 
+        logger.warning("find_duplicates: %d candidates, %d size_groups", len(candidates), len(size_groups))
         total_files = len(candidates)
         processed = [0]
         if job:
@@ -179,14 +214,16 @@ def find_duplicates(
             db.commit()
 
         confirmed: list[DuplicateGroup] = []
-        for size_group in size_groups:
+        for sg_idx, size_group in enumerate(size_groups):
+            logger.warning("find_duplicates: size_group[%d] has %d files", sg_idx, len(size_group))
             if len(size_group) < 2:
                 continue
             if use_duration:
-                dur_clusters = _cluster_by_duration(size_group)
+                dur_clusters = _cluster_by_duration(size_group, tolerance=duration_tolerance)
             else:
                 dur_clusters = [size_group]
 
+            logger.warning("find_duplicates: size_group[%d] -> %d dur_clusters", sg_idx, len(dur_clusters))
             for dur_cluster in dur_clusters:
                 if len(dur_cluster) < 2:
                     continue
@@ -197,11 +234,13 @@ def find_duplicates(
 
                 for group in phash_groups:
                     if len(group) >= 2:
+                        cached = [_snapshot(f) for f in group]
                         confirmed.append(DuplicateGroup(
-                            files=group,
-                            keep_id=_pick_keep(group),
+                            files=cached,
+                            keep_id=_pick_keep(cached),
                         ))
 
+        logger.warning("find_duplicates: %d confirmed duplicate groups", len(confirmed))
         _results[library_id] = confirmed
 
         if job:

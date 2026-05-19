@@ -11,21 +11,18 @@ class DuplicateCriteriaRequest(BaseModel):
     use_size: bool = True
     use_duration: bool = True
     use_phash: bool = True
+    duration_tolerance: float = 1.0
 
 
 class LibraryCreate(BaseModel):
     name: str
     path: str
-    scan_automatically: bool = False
-    auto_transcode_corrupt: bool = False
 
 
 class LibraryRead(BaseModel):
     id: int
     name: str
     path: str
-    scan_automatically: bool
-    auto_transcode_corrupt: bool
     created_at: datetime
     last_scanned_at: Optional[datetime] = None
     file_count: int = 0
@@ -36,8 +33,6 @@ class LibraryRead(BaseModel):
 
 class LibraryUpdate(BaseModel):
     name: Optional[str] = None
-    scan_automatically: Optional[bool] = None
-    auto_transcode_corrupt: Optional[bool] = None
 
 
 class FileRead(BaseModel):
