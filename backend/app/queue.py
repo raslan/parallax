@@ -33,9 +33,8 @@ def init_queue(max_concurrent: int = 1) -> None:
 
 def update_max_concurrent(n: int) -> None:
     """Apply a new concurrency limit at runtime. Affects jobs that haven't started yet."""
-    global _max_concurrent, _semaphore, _executor
+    global _max_concurrent, _executor
     _max_concurrent = n
-    _semaphore = asyncio.Semaphore(n)
     _executor = ThreadPoolExecutor(max_workers=n, thread_name_prefix="job-worker")
 
 
