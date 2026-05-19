@@ -162,7 +162,11 @@ export function Duplicates() {
         (j) => j.type === "duplicates" && j.library_id === selectedId &&
                (j.status === "running" || j.status === "pending")
       );
-      if (!active) return;
+      if (!active) {
+        stopPolling();
+        setScanning(false);
+        return;
+      }
       setScanning(true);
       startPolling(selectedId);
     }).catch(() => {});
