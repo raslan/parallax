@@ -1,7 +1,10 @@
 import os
+import subprocess
+import tempfile
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -11,6 +14,8 @@ from app.services import tmdb as tmdb_service
 from app.services import renamer
 
 router = APIRouter(prefix="/identify", tags=["identify"])
+
+_thumb_cache: dict[str, bytes] = {}
 
 
 class SearchRequest(BaseModel):
@@ -76,6 +81,36 @@ def _api_key(db) -> str:
     if not key:
         raise HTTPException(400, "TMDB API key not configured. Add it in Settings.")
     return key
+
+
+@router.get("/thumbnail")
+def get_thumbnail(path: str = Query(...)):
+    if not os.path.isfile(path):
+        raise HTTPException(404, "File not found")
+    if path in _thumb_cache:
+        return Response(_thumb_cache[path], media_type="image/jpeg")
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-ss", "00:00:05", "-i", path,
+             "-vframes", "1", "-vf", "scale=160:-1", tmp_path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15,
+        )
+        with open(tmp_path, "rb") as f:
+            data = f.read()
+    except Exception:
+        raise HTTPException(502, "Failed to extract thumbnail")
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+    if not data:
+        raise HTTPException(502, "Empty thumbnail")
+    if len(_thumb_cache) < 200:
+        _thumb_cache[path] = data
+    return Response(data, media_type="image/jpeg")
 
 
 @router.get("/files")

@@ -273,6 +273,7 @@ export const api = {
     req<{ max_concurrent_transcodes: number; tmdb_api_key: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 
   // Identify
+  identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
   identifyFiles: (path: string) =>
     req<{ path: string; files: string[] }>(`/identify/files?path=${encodeURIComponent(path)}`),
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
