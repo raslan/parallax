@@ -172,7 +172,7 @@ def restore_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
 
     # Reset the DB record so the file shows as needing repair again
     if file_obj:
-        file_obj.status = FileStatus.CORRUPT
+        file_obj.status = FileStatus.UNKNOWN
         file_obj.transcoded_at = None
         file_obj.path = restore_path
         file_obj.filename = filename
