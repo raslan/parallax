@@ -246,6 +246,8 @@ async def find_duplicates_endpoint(
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
+    if not body.use_size and not body.use_duration and not body.use_phash:
+        raise HTTPException(422, "At least one matching criterion must be selected")
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
         raise HTTPException(422, "Scan the library first to index files before checking for duplicates")

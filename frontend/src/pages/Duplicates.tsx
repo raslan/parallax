@@ -171,7 +171,14 @@ export function Duplicates() {
       setScanning(false);
       return;
     }
+    let attempts = 0;
     pollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 60) {
+        stopPolling();
+        setScanning(false);
+        return;
+      }
       try {
         const result = await api.getDuplicates(selectedId);
         setGroups(result);
