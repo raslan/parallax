@@ -51,6 +51,20 @@ def _scan_library_originals(library: Library) -> list[OriginalEntry]:
                 continue
 
             current_path = os.path.join(parent_dir, filename)
+            # Transcode may have changed the extension (e.g. .webm → .mkv) —
+            # fall back to any same-stem file in the parent dir
+            if not os.path.exists(current_path):
+                stem = os.path.splitext(filename)[0]
+                try:
+                    for candidate in os.listdir(parent_dir):
+                        c_stem, _ = os.path.splitext(candidate)
+                        if c_stem == stem and candidate != filename:
+                            full = os.path.join(parent_dir, candidate)
+                            if os.path.isfile(full):
+                                current_path = full
+                                break
+                except OSError:
+                    pass
             current_size: int | None = None
             if os.path.exists(current_path):
                 try:
@@ -127,13 +141,27 @@ def restore_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
     originals_dir = os.path.dirname(path)
     parent_dir    = os.path.dirname(originals_dir)
     filename      = os.path.basename(path)
-    current_path  = os.path.join(parent_dir, filename)
+    restore_path  = os.path.join(parent_dir, filename)
 
-    # Remove transcoded file if it exists
-    if os.path.exists(current_path):
-        os.remove(current_path)
+    # Find the DB record — extension may differ if transcode changed the container
+    # (e.g. .webm original transcoded to .mkv)
+    file_obj = db.query(File).filter(File.path == restore_path).first()
+    if not file_obj:
+        stem = os.path.splitext(filename)[0]
+        file_obj = (
+            db.query(File)
+            .filter(File.path.like(os.path.join(parent_dir, stem) + ".%"))
+            .first()
+        )
 
-    shutil.move(path, current_path)
+    # Delete the transcoded file (use DB path so we get the right extension)
+    transcoded_path = file_obj.path if file_obj else restore_path
+    if os.path.exists(transcoded_path) and transcoded_path != restore_path:
+        os.remove(transcoded_path)
+    elif os.path.exists(restore_path):
+        os.remove(restore_path)
+
+    shutil.move(path, restore_path)
 
     # Clean up empty _originals dir
     try:
@@ -143,17 +171,18 @@ def restore_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
         pass
 
     # Reset the DB record so the file shows as needing repair again
-    file_obj = db.query(File).filter(File.path == current_path).first()
     if file_obj:
         file_obj.status = FileStatus.CORRUPT
         file_obj.transcoded_at = None
+        file_obj.path = restore_path
+        file_obj.filename = filename
         try:
-            file_obj.size = os.path.getsize(current_path)
+            file_obj.size = os.path.getsize(restore_path)
         except OSError:
             pass
         db.commit()
 
-    return {"message": "Restored", "path": current_path}
+    return {"message": "Restored", "path": restore_path}
 
 
 @router.delete("/library/{library_id}", status_code=204)
