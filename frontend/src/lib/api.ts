@@ -158,7 +158,6 @@ export const api = {
   deleteLibrary: (id: number) => req<void>(`/libraries/${id}`, { method: "DELETE" }),
   scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
   checkLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
-  corruptLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/corrupt`, { method: "POST" }),
   browseLibrary: (id: number, path: string, status?: string, sort_by?: string, sort_dir?: string) => {
     const q = new URLSearchParams({ path });
     if (status)   q.set("status",   status);

@@ -151,18 +151,6 @@ async def trigger_check(library_id: int, db: Session = Depends(get_db)):
     return {"message": "Corruption check queued"}
 
 
-@router.post("/{library_id}/corrupt", status_code=202)
-async def corrupt_library_endpoint(library_id: int, db: Session = Depends(get_db)):
-    lib = db.get(Library, library_id)
-    if not lib:
-        raise HTTPException(404, "Library not found")
-    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
-    if file_count == 0:
-        raise HTTPException(422, "Scan the library first to index files before corrupting")
-    from app.services.corruptor import corrupt_library
-    await enqueue(None, corrupt_library, library_id)
-    return {"message": "Corruption queued"}
-
 
 @router.post("/{library_id}/transcode", status_code=202)
 async def trigger_transcode(library_id: int, body: TranscodeRequest, db: Session = Depends(get_db)):
