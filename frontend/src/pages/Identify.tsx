@@ -262,24 +262,47 @@ export function Identify() {
               </div>
 
               {searchResults.length > 0 && (
-                <div className="space-y-1">
-                  {searchResults.map((r) => (
-                    <button
-                      key={r.tmdb_id}
-                      onClick={() => selectMedia(r)}
-                      className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-colors ${
-                        selected?.tmdb_id === r.tmdb_id
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-accent"
-                      }`}
-                    >
-                      <span className="font-medium">{r.title}</span>
-                      {r.year && <span className="text-muted-foreground ml-2 text-xs">({r.year})</span>}
-                      {r.overview && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{r.overview}</p>
-                      )}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                  {searchResults.map((r) => {
+                    const isActive = selected?.tmdb_id === r.tmdb_id;
+                    return (
+                      <button
+                        key={r.tmdb_id}
+                        onClick={() => selectMedia(r)}
+                        className={`group flex flex-col rounded-md border overflow-hidden text-left transition-colors ${
+                          isActive ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <div className="aspect-[2/3] bg-muted relative overflow-hidden">
+                          {r.poster_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w200${r.poster_path}`}
+                              alt={r.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                              No image
+                            </div>
+                          )}
+                          {isActive && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <Check className="h-6 w-6 text-primary drop-shadow" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 space-y-0.5">
+                          <p className="text-xs font-medium leading-tight line-clamp-2">{r.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {r.year ?? "—"}
+                            {r.number_of_seasons != null && (
+                              <span className="ml-1">· {r.number_of_seasons} season{r.number_of_seasons !== 1 ? "s" : ""}</span>
+                            )}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 

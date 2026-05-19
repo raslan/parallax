@@ -148,6 +148,7 @@ export interface SearchResult {
   overview: string;
   poster_path: string | null;
   type: string;
+  number_of_seasons: number | null;
 }
 
 export interface Episode {

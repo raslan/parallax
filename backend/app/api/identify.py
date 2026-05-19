@@ -25,6 +25,7 @@ class SearchResult(BaseModel):
     overview: str
     poster_path: Optional[str] = None
     type: str
+    number_of_seasons: Optional[int] = None
 
 
 class Episode(BaseModel):
