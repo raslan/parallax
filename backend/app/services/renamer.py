@@ -85,7 +85,13 @@ def compute_ops(
             ep_num = m.get("episode_number")
             ep_name = m.get("episode_name") or f"Episode {ep_num}"
             season = m.get("season_number") or 1
-            if not fp or ep_num is None:
+            if not fp:
+                continue
+            if ep_num is None:
+                unmatched_dir = os.path.join(abs_folder, "Unmatched")
+                new_path = os.path.join(unmatched_dir, os.path.basename(fp))
+                if os.path.abspath(fp) != os.path.abspath(new_path):
+                    file_ops.append({"old_path": fp, "new_path": new_path})
                 continue
             ext = os.path.splitext(fp)[1].lower()
             season_dir = os.path.join(abs_folder, tv_season_folder_name(season))
