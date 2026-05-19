@@ -141,6 +141,42 @@ export interface CleanupParams {
   height_val?: number;
 }
 
+export interface SearchResult {
+  tmdb_id: number;
+  title: string;
+  year: number | null;
+  overview: string;
+  poster_path: string | null;
+  type: string;
+}
+
+export interface Episode {
+  episode_number: number;
+  name: string;
+  overview: string;
+}
+
+export interface FileMapping {
+  file_path: string;
+  episode_number: number | null;
+  episode_name: string | null;
+}
+
+export interface RenameOp {
+  old_path: string;
+  new_path: string;
+}
+
+export interface PreviewResponse {
+  file_ops: RenameOp[];
+  folder_ops: RenameOp[];
+}
+
+export interface ApplyResponse {
+  successes: string[];
+  failures: { path: string; error: string }[];
+}
+
 function buildCleanupQuery(params: CleanupParams): string {
   const q = new URLSearchParams();
   if (params.duration_op)                q.set("duration_op",   params.duration_op);
@@ -229,7 +265,27 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes: number }) =>
-    req<{ max_concurrent_transcodes: number }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes: number; tmdb_api_key: string }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+
+  // Identify
+  identifyFiles: (path: string) =>
+    req<{ path: string; files: string[] }>(`/identify/files?path=${encodeURIComponent(path)}`),
+  identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
+    req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
+  identifyGetSeason: (tmdb_id: number, season_number: number) =>
+    req<Episode[]>(`/identify/tv/${tmdb_id}/season/${season_number}`),
+  identifyPreview: (body: {
+    folder_path: string;
+    type: "movie" | "tv";
+    title: string;
+    year: number | null;
+    tmdb_id: number;
+    season_number: number | null;
+    mappings: FileMapping[];
+  }) =>
+    req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
+  identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[] }) =>
+    req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
 };
