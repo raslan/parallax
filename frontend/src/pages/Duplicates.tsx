@@ -155,8 +155,48 @@ export function Duplicates() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
+  useEffect(() => {
+    if (!selectedId) return;
+    api.getJobs().then((jobs) => {
+      const active = jobs.find(
+        (j) => j.type === "duplicates" && j.library_id === selectedId &&
+               (j.status === "running" || j.status === "pending")
+      );
+      if (!active) return;
+      setScanning(true);
+      startPolling(selectedId);
+    }).catch(() => {});
+  }, [selectedId]);
+
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
+  const startPolling = (libraryId: number) => {
+    stopPolling();
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 60) {
+        stopPolling();
+        setScanning(false);
+        return;
+      }
+      try {
+        const result = await api.getDuplicates(libraryId);
+        setGroups(result);
+        const init: Record<number, number> = {};
+        result.forEach((g, i) => { init[i] = g.keep_id; });
+        setKeepIds(init);
+        stopPolling();
+        setScanning(false);
+      } catch (e: any) {
+        if (!e?.message?.startsWith("404")) {
+          stopPolling();
+          setScanning(false);
+        }
+      }
+    }, 2000);
   };
 
   const handleScan = async () => {
@@ -171,29 +211,7 @@ export function Duplicates() {
       setScanning(false);
       return;
     }
-    let attempts = 0;
-    pollRef.current = setInterval(async () => {
-      attempts++;
-      if (attempts > 60) {
-        stopPolling();
-        setScanning(false);
-        return;
-      }
-      try {
-        const result = await api.getDuplicates(selectedId);
-        setGroups(result);
-        const init: Record<number, number> = {};
-        result.forEach((g, i) => { init[i] = g.keep_id; });
-        setKeepIds(init);
-        stopPolling();
-        setScanning(false);
-      } catch (e: any) {
-        if (!e?.message?.startsWith("404")) {
-          stopPolling();
-          setScanning(false);
-        }
-      }
-    }, 2000);
+    startPolling(selectedId);
   };
 
   const handleFlip = (groupIndex: number, fileId: number) => {
