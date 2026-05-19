@@ -108,43 +108,65 @@ def _cluster_by_phash(files: list[File], threshold: int = 10) -> list[list[File]
     return groups
 
 
-def find_duplicates(library_id: int) -> list[DuplicateGroup]:
-    # Clear stale result so GET returns 404 while this scan is in progress
+def find_duplicates(
+    library_id: int,
+    use_size: bool = True,
+    use_duration: bool = True,
+    use_phash: bool = True,
+) -> list[DuplicateGroup]:
     _results.pop(library_id, None)
     db = SessionLocal()
     try:
-        dup_sizes = (
-            db.query(File.size)
-            .filter(File.library_id == library_id)
-            .group_by(File.size)
-            .having(func.count(File.id) > 1)
-            .all()
-        )
-        size_values = [row[0] for row in dup_sizes]
-        if not size_values:
-            _results[library_id] = []
-            return []
-
-        candidates = (
-            db.query(File)
-            .filter(File.library_id == library_id, File.size.in_(size_values))
-            .all()
-        )
+        if use_size:
+            dup_sizes = (
+                db.query(File.size)
+                .filter(File.library_id == library_id)
+                .group_by(File.size)
+                .having(func.count(File.id) > 1)
+                .all()
+            )
+            size_values = [row[0] for row in dup_sizes]
+            if not size_values:
+                _results[library_id] = []
+                return []
+            candidates = (
+                db.query(File)
+                .filter(File.library_id == library_id, File.size.in_(size_values))
+                .all()
+            )
+            by_size: dict[int, list[File]] = {}
+            for f in candidates:
+                by_size.setdefault(f.size, []).append(f)
+            size_groups = list(by_size.values())
+        else:
+            candidates = db.query(File).filter(File.library_id == library_id).all()
+            size_groups = [candidates]
     finally:
         db.close()
 
-    by_size: dict[int, list[File]] = {}
-    for f in candidates:
-        by_size.setdefault(f.size, []).append(f)
-
     confirmed: list[DuplicateGroup] = []
-    for size_group in by_size.values():
-        for dur_group in _cluster_by_duration(size_group):
-            for phash_group in _cluster_by_phash(dur_group):
-                confirmed.append(DuplicateGroup(
-                    files=phash_group,
-                    keep_id=_pick_keep(phash_group),
-                ))
+    for size_group in size_groups:
+        if len(size_group) < 2:
+            continue
+        if use_duration:
+            dur_clusters = _cluster_by_duration(size_group)
+        else:
+            dur_clusters = [size_group]
+
+        for dur_cluster in dur_clusters:
+            if len(dur_cluster) < 2:
+                continue
+            if use_phash:
+                phash_groups = _cluster_by_phash(dur_cluster)
+            else:
+                phash_groups = [dur_cluster]
+
+            for group in phash_groups:
+                if len(group) >= 2:
+                    confirmed.append(DuplicateGroup(
+                        files=group,
+                        keep_id=_pick_keep(group),
+                    ))
 
     _results[library_id] = confirmed
     return confirmed
