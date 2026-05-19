@@ -111,6 +111,40 @@
   }
 }
 
+  /* ── Rose / Infrared ───────────────────────────────────────── */
+  [data-theme="rose"] {
+    --background:          345 55% 5%;
+    --foreground:          345 60% 94%;
+    --card:                345 48% 8%;
+    --card-foreground:     345 60% 94%;
+    --popover:             345 48% 8%;
+    --popover-foreground:  345 60% 94%;
+    --primary:             345 85% 65%;
+    --primary-foreground:  0 0% 100%;
+    --secondary:           345 40% 12%;
+    --secondary-foreground: 345 40% 80%;
+    --muted:               345 40% 10%;
+    --muted-foreground:    345 18% 44%;
+    --accent:              345 40% 12%;
+    --accent-foreground:   345 60% 94%;
+    --border:              345 38% 14%;
+    --input:               345 40% 12%;
+    --ring:                345 85% 65%;
+    --sidebar:             345 62% 4%;
+    --sidebar-foreground:  345 60% 94%;
+    --sidebar-border:      345 42% 10%;
+    --sidebar-accent:      345 40% 11%;
+
+    --px-accent:           #fb7185;
+    --px-accent-secondary: #e11d48;
+    --px-accent-dim:       rgba(251, 113, 133, 0.12);
+    --px-accent-border:    rgba(251, 113, 133, 0.25);
+    --px-bg-surface:       #150710;
+    --px-bg-elevated:      #22101a;
+    --px-text-muted:       #7a4455;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

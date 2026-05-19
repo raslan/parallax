@@ -10,6 +10,7 @@ const THEMES = [
   { id: "violet" as const, label: "Deep Space",      accent: "#a78bfa" },
   { id: "cyan"   as const, label: "Modern HUD",      accent: "#22d3ee" },
   { id: "amber"  as const, label: "Mission Control", accent: "#f59e0b" },
+  { id: "rose"   as const, label: "Infrared",        accent: "#fb7185" },
 ];
 
 export function Settings() {
