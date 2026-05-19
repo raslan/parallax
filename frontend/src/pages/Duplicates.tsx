@@ -132,31 +132,44 @@ function GroupCard({
   );
 }
 
+const CRITERIA_KEY = "parallax-dup-criteria";
+
+function loadCriteria(): DuplicateCriteria {
+  try {
+    const stored = localStorage.getItem(CRITERIA_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return { use_size: true, use_duration: true, use_phash: true };
+}
+
 export function Duplicates() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [initializing, setInitializing] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
   const [keepIds, setKeepIds] = useState<Record<number, number>>({});
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [criteria, setCriteria] = useState<DuplicateCriteria>({
-    use_size: true,
-    use_duration: true,
-    use_phash: true,
-  });
+  const [criteria, setCriteria] = useState<DuplicateCriteria>(loadCriteria);
+
+  useEffect(() => {
+    localStorage.setItem(CRITERIA_KEY, JSON.stringify(criteria));
+  }, [criteria]);
 
   useEffect(() => {
     api.getLibraries().then((libs) => {
       setLibraries(libs);
       if (libs.length > 0) setSelectedId(libs[0].id);
+      else setInitializing(false);
     });
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
   useEffect(() => {
     if (!selectedId) return;
+    setInitializing(true);
     api.getJobs().then((jobs) => {
       const active = jobs.find(
         (j) => j.type === "duplicates" && j.library_id === selectedId &&
@@ -165,11 +178,11 @@ export function Duplicates() {
       if (!active) {
         stopPolling();
         setScanning(false);
-        return;
+      } else {
+        setScanning(true);
+        startPolling(selectedId);
       }
-      setScanning(true);
-      startPolling(selectedId);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => setInitializing(false));
   }, [selectedId]);
 
   const stopPolling = () => {
@@ -360,7 +373,7 @@ export function Duplicates() {
         </div>
       )}
 
-      {!scanning && groups === null && (
+      {!scanning && groups === null && !initializing && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Copy className="h-10 w-10 text-muted-foreground mb-4" />
