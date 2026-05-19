@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.10.2](https://github.com/raslan/parallax/compare/v0.10.1...v0.10.2) (2026-05-19)
+
+
+### Bug Fixes
+
+* remove stray closing brace from index.css ([8e89581](https://github.com/raslan/parallax/commit/8e89581f33d234d2c1e81d70455a965a36d548bc))
+
 ## [0.10.1](https://github.com/raslan/parallax/compare/v0.10.0...v0.10.1) (2026-05-19)
 
 
