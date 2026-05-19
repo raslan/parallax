@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Loader2, Check, Palette } from "lucide-react";
+import { Settings as SettingsIcon, Loader2, Check, Palette, KeyRound } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -16,6 +16,7 @@ export function Settings() {
   const { theme, setTheme } = useTheme();
 
   const [maxConcurrent, setMaxConcurrent] = useState(1);
+  const [tmdbKey, setTmdbKey]             = useState("");
   const [loading, setLoading]             = useState(true);
   const [saving, setSaving]               = useState(false);
   const [saved, setSaved]                 = useState(false);
@@ -23,20 +24,21 @@ export function Settings() {
 
   useEffect(() => {
     api.getSettings()
-      .then((s) => setMaxConcurrent(s.max_concurrent_transcodes))
+      .then((s) => {
+        setMaxConcurrent(s.max_concurrent_transcodes);
+        setTmdbKey(s.tmdb_api_key);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const handleChange = (n: number) => {
-    setMaxConcurrent(n);
-    setDirty(true);
-    setSaved(false);
-  };
+  const markDirty = () => { setDirty(true); setSaved(false); };
+
+  const handleConcurrentChange = (n: number) => { setMaxConcurrent(n); markDirty(); };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent });
+      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -75,10 +77,7 @@ export function Settings() {
                     isActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
                   }`}
                 >
-                  <div
-                    className="h-8 w-8 rounded-full"
-                    style={{ background: t.accent }}
-                  />
+                  <div className="h-8 w-8 rounded-full" style={{ background: t.accent }} />
                   <span className="text-xs font-medium whitespace-nowrap">{t.label}</span>
                   {isActive && <Check className="h-3 w-3 text-primary" />}
                 </button>
@@ -117,7 +116,7 @@ export function Settings() {
                     min={1}
                     max={8}
                     value={maxConcurrent}
-                    onChange={(e) => handleChange(Number(e.target.value))}
+                    onChange={(e) => handleConcurrentChange(Number(e.target.value))}
                     className="w-48 accent-primary"
                   />
                   <span className="text-sm font-mono w-4 text-center">{maxConcurrent}</span>
@@ -126,7 +125,7 @@ export function Settings() {
                   {[1, 2, 3, 4].map((n) => (
                     <button
                       key={n}
-                      onClick={() => handleChange(n)}
+                      onClick={() => handleConcurrentChange(n)}
                       className={`px-3 py-1 rounded text-xs border transition-colors ${
                         maxConcurrent === n
                           ? "bg-primary text-primary-foreground border-primary"
@@ -139,6 +138,53 @@ export function Settings() {
                 </div>
               </div>
 
+              <Button onClick={handleSave} disabled={saving || !dirty} size="sm">
+                {saving && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
+                {saved  && <Check   className="h-3.5 w-3.5 mr-2 text-green-400" />}
+                {saved ? "Saved" : "Save"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <KeyRound className="h-4 w-4" />
+            Metadata
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">TMDB API key</label>
+                <p className="text-xs text-muted-foreground">
+                  Required for the Identify feature. Get a free key at{" "}
+                  <a
+                    href="https://www.themoviedb.org/settings/api"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary underline"
+                  >
+                    themoviedb.org
+                  </a>
+                  .
+                </p>
+                <input
+                  type="password"
+                  value={tmdbKey}
+                  onChange={(e) => { setTmdbKey(e.target.value); markDirty(); }}
+                  placeholder="Paste your TMDB API key…"
+                  className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
               <Button onClick={handleSave} disabled={saving || !dirty} size="sm">
                 {saving && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
                 {saved  && <Check   className="h-3.5 w-3.5 mr-2 text-green-400" />}
