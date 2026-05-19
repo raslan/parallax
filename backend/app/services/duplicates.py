@@ -77,10 +77,12 @@ def _cluster_by_duration(files: list[File], tolerance: float = 1.0) -> list[list
     return groups
 
 
-def _cluster_by_phash(files: list[File], threshold: int = 10) -> list[list[File]]:
+def _cluster_by_phash(files: list[File], threshold: int = 10, on_file=None) -> list[list[File]]:
     """Extract pHash for each file and group pairs with Hamming distance ≤ threshold."""
     hashes: list[tuple[File, "imagehash.ImageHash"]] = []
     for f in files:
+        if on_file:
+            on_file()
         if not os.path.exists(f.path):
             logger.warning("File not on disk, skipping: %s", f.path)
             continue
@@ -160,18 +162,21 @@ def find_duplicates(
             size_groups = [candidates]
 
         total_files = len(candidates)
+        processed = [0]
         if job:
             job.total_files = total_files
             db.commit()
 
-        processed = 0
+        def _on_phash_file():
+            if not job or total_files == 0:
+                return
+            processed[0] += 1
+            job.processed_files = processed[0]
+            job.progress = min(99.0, processed[0] / total_files * 100)
+            db.commit()
+
         confirmed: list[DuplicateGroup] = []
         for size_group in size_groups:
-            processed += len(size_group)
-            if job and total_files > 0:
-                job.processed_files = processed
-                job.progress = min(99.0, processed / total_files * 100)
-                db.commit()
             if len(size_group) < 2:
                 continue
             if use_duration:
@@ -183,7 +188,7 @@ def find_duplicates(
                 if len(dur_cluster) < 2:
                     continue
                 if use_phash:
-                    phash_groups = _cluster_by_phash(dur_cluster)
+                    phash_groups = _cluster_by_phash(dur_cluster, on_file=_on_phash_file)
                 else:
                     phash_groups = [dur_cluster]
 
