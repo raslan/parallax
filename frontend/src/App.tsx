@@ -7,6 +7,7 @@ import { Settings } from "@/pages/Settings";
 import { Originals } from "@/pages/Originals";
 import { Duplicates } from "@/pages/Duplicates";
 import { Cleanup } from "@/pages/Cleanup";
+import { Identify } from "@/pages/Identify";
 
 export default function App() {
   return (
@@ -16,10 +17,11 @@ export default function App() {
           <Route path="/" element={<Navigate to="/libraries" replace />} />
           <Route path="/libraries" element={<Libraries />} />
           <Route path="/files" element={<Files />} />
-          <Route path="/jobs" element={<Jobs />} />
           <Route path="/originals" element={<Originals />} />
           <Route path="/duplicates" element={<Duplicates />} />
           <Route path="/cleanup" element={<Cleanup />} />
+          <Route path="/identify" element={<Identify />} />
+          <Route path="/jobs" element={<Jobs />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
