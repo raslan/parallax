@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Loader2, Search, ChevronRight, Check, AlertCircle, Wand2 } from "lucide-react";
+import { Loader2, Search, ChevronRight, Check, AlertCircle, Wand2, FolderOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SectionHeader } from "@/components/SectionHeader";
 import { FileMatcher } from "@/components/FileMatcher";
+import { DirPicker } from "@/components/DirPicker";
 import { api, type SearchResult, type Episode, type RenameOp, type FileMapping } from "@/lib/api";
 
 type Step = "search" | "match" | "preview" | "done";
@@ -31,6 +33,7 @@ export function Identify() {
   const [folderOps, setFolderOps]             = useState<RenameOp[]>([]);
   const [applySuccesses, setApplySuccesses]   = useState<string[]>([]);
   const [applyFailures, setApplyFailures]     = useState<{ path: string; error: string }[]>([]);
+  const [picking, setPicking]                 = useState(false);
   const [loadingFiles, setLoadingFiles]       = useState(false);
   const [loadingSearch, setLoadingSearch]     = useState(false);
   const [loadingSeason, setLoadingSeason]     = useState(false);
@@ -139,6 +142,13 @@ export function Identify() {
     }
   }
 
+  function handleFolderSelect(path: string) {
+    setFolderPath(path);
+    setPicking(false);
+    setFiles([]);
+    setOrderedFiles([]);
+  }
+
   function reset() {
     setStep("search");
     setFolderPath("");
@@ -197,21 +207,19 @@ export function Identify() {
               <CardTitle className="text-base">Folder</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Enter the absolute path to the folder containing the files to rename.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={folderPath}
-                  onChange={(e) => setFolderPath(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && loadFiles()}
-                  placeholder="/media/rips/breaking bad season 2"
-                  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <Button onClick={loadFiles} disabled={loadingFiles || !folderPath.trim()} size="sm">
-                  {loadingFiles ? <Loader2 className="h-4 w-4 animate-spin" /> : "Load files"}
+              <div className="flex items-center gap-2">
+                <span className="flex-1 text-sm font-mono text-muted-foreground truncate">
+                  {folderPath || <span className="italic">No folder selected</span>}
+                </span>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPicking(true)} className="gap-1.5 shrink-0">
+                  <FolderOpen className="h-4 w-4" />
+                  Browse
                 </Button>
+                {folderPath && (
+                  <Button onClick={loadFiles} disabled={loadingFiles} size="sm">
+                    {loadingFiles ? <Loader2 className="h-4 w-4 animate-spin" /> : "Load files"}
+                  </Button>
+                )}
               </div>
               {files.length > 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -440,6 +448,15 @@ export function Identify() {
           <Button onClick={reset}>Identify another folder</Button>
         </div>
       )}
+
+      <Dialog open={picking} onOpenChange={setPicking}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select folder</DialogTitle>
+          </DialogHeader>
+          <DirPicker onSelect={handleFolderSelect} onClose={() => setPicking(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
