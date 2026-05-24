@@ -19,6 +19,7 @@ def _build_cmd(
     crf: int,
     source_codec: str | None = None,
     source_bitrate: int | None = None,
+    reencode_audio: bool = False,
 ) -> list[str]:
     encoder = encoder_for_codec(source_codec)
     nvenc = encoder in ("h264_nvenc", "hevc_nvenc")
@@ -36,12 +37,17 @@ def _build_cmd(
         bufsize = source_bitrate * 2
         bitrate_args = ["-maxrate", str(maxrate), "-bufsize", str(bufsize)]
 
+    # When converting containers (e.g. WMV→MKV), WMA and other container-specific
+    # audio codecs can't be safely stream-copied into the new container — re-encode
+    # to AAC instead. For same-container transcodes, copy is safe and faster.
+    audio_args = ["-c:a", "aac", "-b:a", "192k"] if reencode_audio else ["-c:a", "copy"]
+
     return [
         "ffmpeg", "-y",
         "-i", input_path,
         *video_args,
         *bitrate_args,
-        "-c:a", "copy",
+        *audio_args,
         "-progress", "pipe:1",
         "-nostats",
         output_path,
@@ -61,9 +67,11 @@ def _transcode_one(
     """
     src = file_obj.path
     base, ext = os.path.splitext(src)
-    # WebM/FLV/AVI containers don't support H.264/HEVC — remux into MKV
+    # These containers don't support H.264/HEVC, or use codecs (e.g. WMA) that
+    # can't be safely stream-copied into MKV — remux and re-encode audio.
     _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
-    out_ext = ".mkv" if ext.lower() in _NEEDS_REMUX else (ext or ".mkv")
+    changing_container = ext.lower() in _NEEDS_REMUX
+    out_ext = ".mkv" if changing_container else (ext or ".mkv")
     dst = src if out_ext == ext.lower() else (base + out_ext)
     tmp = base + ".transcoding" + out_ext
     duration = file_obj.duration or 0.0
@@ -76,7 +84,7 @@ def _transcode_one(
     err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="transcode_")
     try:
         proc = subprocess.Popen(
-            _build_cmd(src, tmp, crf, file_obj.codec_name, file_obj.video_bitrate),
+            _build_cmd(src, tmp, crf, file_obj.codec_name, file_obj.video_bitrate, reencode_audio=changing_container),
             stdout=subprocess.PIPE,
             stderr=err_fd,
             text=True,
