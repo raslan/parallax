@@ -35,3 +35,4 @@ class File(Base):
     file_height: Mapped[int] = mapped_column(Integer, nullable=True)
     file_fps: Mapped[float] = mapped_column(Float, nullable=True)
     file_date: Mapped[float] = mapped_column(Float, nullable=True)
+    extension: Mapped[str] = mapped_column(String(16), nullable=True)

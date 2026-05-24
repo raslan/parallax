@@ -44,6 +44,7 @@ _SORT_COLUMNS = {
     "duration":      File.duration,
     "video_bitrate": File.video_bitrate,
     "created_at":    File.created_at,
+    "extension":     File.extension,
 }
 
 

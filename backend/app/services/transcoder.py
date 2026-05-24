@@ -138,6 +138,7 @@ def _transcode_one(
         if dst != src:
             file_obj.path = dst
             file_obj.filename = os.path.basename(dst)
+            file_obj.extension = os.path.splitext(dst)[1].lower().lstrip(".")
         try:
             file_obj.size = os.path.getsize(dst)
         except OSError:

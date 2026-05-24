@@ -692,6 +692,7 @@ function FlatView({
 
 const SORT_OPTIONS = [
   { value: "filename",      label: "Name" },
+  { value: "extension",     label: "Extension" },
   { value: "size",          label: "Size" },
   { value: "duration",      label: "Duration" },
   { value: "video_bitrate", label: "Bitrate" },
