@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List } from "lucide-react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Check, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,11 +22,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const ALL_STATUSES = ["unknown", "scanning", "clean", "corrupt", "queued", "transcoding", "done", "failed"];
 const PAGE_SIZE = 48;
-
-// ─── Thumbnail card ───────────────────────────────────────────────────────────
-
-
-// ─── Error detail modal ───────────────────────────────────────────────────────
 
 const VIDEO_CODECS = ["h264", "hevc", "h265", "mpeg4", "mpeg2", "vp8", "vp9", "av1", "vc1"];
 const AUDIO_CODECS = ["aac", "mp3", "ac3", "opus", "vorbis", "flac", "dts", "eac3", "truehd"];
@@ -99,7 +94,19 @@ function CorruptionDetailModal({ file, onClose }: { file: VideoFile; onClose: ()
   );
 }
 
-function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void }) {
+// ─── Thumbnail card ───────────────────────────────────────────────────────────
+
+function ThumbnailCard({
+  file,
+  isSelected,
+  onToggle,
+  onPlay,
+}: {
+  file: VideoFile;
+  isSelected: boolean;
+  onToggle: () => void;
+  onPlay: () => void;
+}) {
   const [imgError, setImgError] = useState(false);
   const [checking, setChecking] = useState(false);
   const [transcoding, setTranscoding] = useState(false);
@@ -139,8 +146,14 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
 
   return (
     <Card
-      className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isCorrupt ? "ring-1 ring-destructive/60 hover:ring-destructive" : "hover:ring-primary"}`}
-      onClick={() => { if (!presetOpen) onClick(); }}
+      className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${
+        isSelected
+          ? "ring-2 ring-primary"
+          : isCorrupt
+          ? "ring-1 ring-destructive/60 hover:ring-destructive"
+          : "hover:ring-primary"
+      }`}
+      onClick={onToggle}
     >
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
@@ -154,6 +167,20 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
         ) : (
           <ImageOff className="h-8 w-8 text-muted-foreground/40" />
         )}
+
+        {/* Selection checkbox */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          title="Toggle selection"
+          className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity ${
+            isSelected
+              ? "opacity-100 bg-primary border-primary"
+              : "opacity-0 group-hover:opacity-100 bg-black/50 border-white/70"
+          }`}
+        >
+          {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+        </button>
+
         <div className="absolute top-1.5 right-1.5">
           <Badge
             variant={(STATUS_COLORS[file.status] ?? "secondary") as any}
@@ -174,6 +201,13 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
               <AlertCircle className="h-3.5 w-3.5 text-destructive" />
             </button>
           )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onPlay(); }}
+            title="Play video"
+            className="bg-black/60 hover:bg-black/80 rounded p-1"
+          >
+            <Play className="h-3.5 w-3.5 text-white" />
+          </button>
           <button
             onClick={handleCheck}
             disabled={checking}
@@ -232,7 +266,17 @@ function ThumbnailCard({ file, onClick }: { file: VideoFile; onClick: () => void
 
 // ─── List row ────────────────────────────────────────────────────────────────
 
-function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
+function FileListRow({
+  file,
+  isSelected,
+  onToggle,
+  onPlay,
+}: {
+  file: VideoFile;
+  isSelected: boolean;
+  onToggle: () => void;
+  onPlay: () => void;
+}) {
   const [imgError, setImgError] = useState(false);
   const [checking, setChecking] = useState(false);
   const isCorrupt = file.status === "corrupt";
@@ -245,9 +289,23 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
 
   return (
     <tr
-      className={`hover:bg-muted/20 cursor-pointer transition-colors border-b border-border last:border-0 ${isCorrupt ? "text-destructive" : ""}`}
-      onClick={onPlay}
+      className={`hover:bg-muted/20 cursor-pointer transition-colors border-b border-border last:border-0 group/row ${
+        isSelected ? "bg-primary/5" : ""
+      } ${isCorrupt ? "text-destructive" : ""}`}
+      onClick={onToggle}
     >
+      <td className="px-2 py-1.5 w-8">
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
+            isSelected
+              ? "bg-primary border-primary"
+              : "border-muted-foreground/40 hover:border-primary"
+          }`}
+        >
+          {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+        </button>
+      </td>
       <td className="px-2 py-1.5">
         <div className="relative h-8 w-14 shrink-0">
           {file.has_thumbnail && !imgError ? (
@@ -287,25 +345,71 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
         {formatSize(file.size)}
       </td>
       <td className="px-3 py-2 text-right">
-        <button
-          onClick={handleCheck}
-          disabled={checking}
-          title="Check for corruption"
-          className="opacity-0 group-hover/row:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-        >
-          <ShieldCheck className={`h-3.5 w-3.5 ${checking ? "animate-pulse" : ""}`} />
-        </button>
+        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); onPlay(); }}
+            title="Play video"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Play className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={handleCheck}
+            disabled={checking}
+            title="Check for corruption"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ShieldCheck className={`h-3.5 w-3.5 ${checking ? "animate-pulse" : ""}`} />
+          </button>
+        </div>
       </td>
     </tr>
   );
 }
 
-function FileListTable({ files, onPlay }: { files: VideoFile[]; onPlay: (f: VideoFile) => void }) {
+function FileListTable({
+  files,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onPlay,
+}: {
+  files: VideoFile[];
+  selectedIds: Set<number>;
+  onToggle: (id: number) => void;
+  onSelectAll: (ids: number[]) => void;
+  onPlay: (f: VideoFile) => void;
+}) {
+  const allSelected = files.length > 0 && files.every((f) => selectedIds.has(f.id));
+  const someSelected = files.some((f) => selectedIds.has(f.id));
+
+  const handleHeaderToggle = () => {
+    if (allSelected) {
+      onSelectAll([]);
+    } else {
+      onSelectAll(files.map((f) => f.id));
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
           <tr>
+            <th className="w-8 px-2 py-2">
+              <button
+                onClick={handleHeaderToggle}
+                className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
+                  allSelected
+                    ? "bg-primary border-primary"
+                    : someSelected
+                    ? "bg-primary/40 border-primary/60"
+                    : "border-muted-foreground/40 hover:border-primary"
+                }`}
+              >
+                {(allSelected || someSelected) && <Check className="h-2.5 w-2.5 text-white" />}
+              </button>
+            </th>
             <th className="w-16 px-2 py-2"></th>
             <th className="px-3 py-2 text-left">Filename</th>
             <th className="px-3 py-2 text-left">Status</th>
@@ -313,11 +417,19 @@ function FileListTable({ files, onPlay }: { files: VideoFile[]; onPlay: (f: Vide
             <th className="px-3 py-2 text-right">Duration</th>
             <th className="px-3 py-2 text-right">Bitrate</th>
             <th className="px-3 py-2 text-right">Size</th>
-            <th className="w-10 px-3 py-2"></th>
+            <th className="w-16 px-3 py-2"></th>
           </tr>
         </thead>
         <tbody className="group/rows">
-          {files.map((f) => <FileListRow key={f.id} file={f} onPlay={() => onPlay(f)} />)}
+          {files.map((f) => (
+            <FileListRow
+              key={f.id}
+              file={f}
+              isSelected={selectedIds.has(f.id)}
+              onToggle={() => onToggle(f.id)}
+              onPlay={() => onPlay(f)}
+            />
+          ))}
         </tbody>
       </table>
     </div>
@@ -392,6 +504,9 @@ function LibraryBrowser({
   sortBy,
   sortDir,
   viewMode,
+  selectedIds,
+  onToggle,
+  onSelectAll,
   onPlay,
 }: {
   library: Library;
@@ -399,6 +514,9 @@ function LibraryBrowser({
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  selectedIds: Set<number>;
+  onToggle: (id: number) => void;
+  onSelectAll: (ids: number[]) => void;
   onPlay: (f: VideoFile) => void;
 }) {
   const [path, setPath] = useState("");
@@ -455,10 +573,24 @@ function LibraryBrowser({
               )}
               {viewMode === "grid" ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {browse.files.map((f) => <ThumbnailCard key={f.id} file={f} onClick={() => onPlay(f)} />)}
+                  {browse.files.map((f) => (
+                    <ThumbnailCard
+                      key={f.id}
+                      file={f}
+                      isSelected={selectedIds.has(f.id)}
+                      onToggle={() => onToggle(f.id)}
+                      onPlay={() => onPlay(f)}
+                    />
+                  ))}
                 </div>
               ) : (
-                <FileListTable files={browse.files} onPlay={onPlay} />
+                <FileListTable
+                  files={browse.files}
+                  selectedIds={selectedIds}
+                  onToggle={onToggle}
+                  onSelectAll={onSelectAll}
+                  onPlay={onPlay}
+                />
               )}
             </>
           )}
@@ -470,7 +602,25 @@ function LibraryBrowser({
 
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
-function FlatView({ statusFilter, sortBy, sortDir, viewMode, onPlay }: { statusFilter: string | undefined; sortBy: string; sortDir: string; viewMode: "grid" | "list"; onPlay: (f: VideoFile) => void }) {
+function FlatView({
+  statusFilter,
+  sortBy,
+  sortDir,
+  viewMode,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onPlay,
+}: {
+  statusFilter: string | undefined;
+  sortBy: string;
+  sortDir: string;
+  viewMode: "grid" | "list";
+  selectedIds: Set<number>;
+  onToggle: (id: number) => void;
+  onSelectAll: (ids: number[]) => void;
+  onPlay: (f: VideoFile) => void;
+}) {
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -504,10 +654,24 @@ function FlatView({ statusFilter, sortBy, sortDir, viewMode, onPlay }: { statusF
     <>
       {viewMode === "grid" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {files.map((f) => <ThumbnailCard key={f.id} file={f} onClick={() => onPlay(f)} />)}
+          {files.map((f) => (
+            <ThumbnailCard
+              key={f.id}
+              file={f}
+              isSelected={selectedIds.has(f.id)}
+              onToggle={() => onToggle(f.id)}
+              onPlay={() => onPlay(f)}
+            />
+          ))}
         </div>
       ) : (
-        <FileListTable files={files} onPlay={onPlay} />
+        <FileListTable
+          files={files}
+          selectedIds={selectedIds}
+          onToggle={onToggle}
+          onSelectAll={onSelectAll}
+          onPlay={onPlay}
+        />
       )}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
@@ -545,9 +709,45 @@ export function Files() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [batchTranscoding, setBatchTranscoding] = useState(false);
+
   useEffect(() => {
     api.getLibraries().then(setLibraries).catch(() => {});
   }, []);
+
+  // Clear selection when the view changes
+  useEffect(() => { setSelectedIds(new Set()); }, [selectedLibraryId, selectedStatus]);
+
+  const toggleId = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback((ids: number[]) => {
+    if (ids.length === 0) {
+      setSelectedIds((prev) => {
+        // ids is empty — called from header when all selected, so clear all
+        return new Set();
+      });
+    } else {
+      setSelectedIds(new Set(ids));
+    }
+  }, []);
+
+  const handleBatchTranscode = async (preset: string) => {
+    if (selectedIds.size === 0) return;
+    setBatchTranscoding(true);
+    try {
+      await Promise.all([...selectedIds].map((id) => api.transcodeFile(id, preset).catch(() => {})));
+      setSelectedIds(new Set());
+    } finally {
+      setBatchTranscoding(false);
+    }
+  };
 
   const selectedLibrary = libraries.find((l) => l.id === selectedLibraryId) ?? null;
 
@@ -622,10 +822,63 @@ export function Files() {
         </div>
       </div>
 
+      {/* Batch transcode action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <span className="text-sm font-medium text-primary">
+            {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs text-muted-foreground">Transcode as:</span>
+            {PRESETS.map((p) => (
+              <Button
+                key={p.value}
+                size="sm"
+                variant="outline"
+                title={p.title}
+                onClick={() => handleBatchTranscode(p.value)}
+                disabled={batchTranscoding}
+                className="h-7 px-3 text-xs"
+              >
+                {batchTranscoding
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : p.label}
+              </Button>
+            ))}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+              title="Clear selection"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {selectedLibrary ? (
-        <LibraryBrowser library={selectedLibrary} statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} viewMode={viewMode} onPlay={setPlayingFile} />
+        <LibraryBrowser
+          library={selectedLibrary}
+          statusFilter={selectedStatus}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          viewMode={viewMode}
+          selectedIds={selectedIds}
+          onToggle={toggleId}
+          onSelectAll={selectAll}
+          onPlay={setPlayingFile}
+        />
       ) : (
-        <FlatView statusFilter={selectedStatus} sortBy={sortBy} sortDir={sortDir} viewMode={viewMode} onPlay={setPlayingFile} />
+        <FlatView
+          statusFilter={selectedStatus}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          viewMode={viewMode}
+          selectedIds={selectedIds}
+          onToggle={toggleId}
+          onSelectAll={selectAll}
+          onPlay={setPlayingFile}
+        />
       )}
 
       {playingFile && (
