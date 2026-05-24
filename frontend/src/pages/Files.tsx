@@ -98,11 +98,13 @@ function CorruptionDetailModal({ file, onClose }: { file: VideoFile; onClose: ()
 
 function ThumbnailCard({
   file,
+  selectionMode,
   isSelected,
   onToggle,
   onPlay,
 }: {
   file: VideoFile;
+  selectionMode: boolean;
   isSelected: boolean;
   onToggle: () => void;
   onPlay: () => void;
@@ -117,26 +119,14 @@ function ThumbnailCard({
   const handleCheck = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setChecking(true);
-    try {
-      await api.checkFile(file.id);
-    } catch {
-      // 409 = already running, silently ignore
-    } finally {
-      setChecking(false);
-    }
+    try { await api.checkFile(file.id); } catch { } finally { setChecking(false); }
   };
 
   const handleTranscode = async (e: React.MouseEvent, preset: string) => {
     e.stopPropagation();
     setPresetOpen(false);
     setTranscoding(true);
-    try {
-      await api.transcodeFile(file.id, preset);
-    } catch {
-      // 409 = already running, silently ignore
-    } finally {
-      setTranscoding(false);
-    }
+    try { await api.transcodeFile(file.id, preset); } catch { } finally { setTranscoding(false); }
   };
 
   const togglePreset = (e: React.MouseEvent) => {
@@ -153,7 +143,7 @@ function ThumbnailCard({
           ? "ring-1 ring-destructive/60 hover:ring-destructive"
           : "hover:ring-primary"
       }`}
-      onClick={onToggle}
+      onClick={selectionMode ? onToggle : onPlay}
     >
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
@@ -168,29 +158,25 @@ function ThumbnailCard({
           <ImageOff className="h-8 w-8 text-muted-foreground/40" />
         )}
 
-        {/* Selection checkbox */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          title="Toggle selection"
-          className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity ${
-            isSelected
-              ? "opacity-100 bg-primary border-primary"
-              : "opacity-0 group-hover:opacity-100 bg-black/50 border-white/70"
-          }`}
-        >
-          {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-        </button>
+        {/* Selection checkbox — only shown in selection mode */}
+        {selectionMode && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
+              isSelected ? "bg-primary border-primary" : "bg-black/50 border-white/70"
+            }`}
+          >
+            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+          </button>
+        )}
 
         <div className="absolute top-1.5 right-1.5">
-          <Badge
-            variant={(STATUS_COLORS[file.status] ?? "secondary") as any}
-            className="text-xs capitalize"
-          >
+          <Badge variant={(STATUS_COLORS[file.status] ?? "secondary") as any} className="text-xs capitalize">
             {file.status}
           </Badge>
         </div>
 
-        {/* Action buttons — visible on hover */}
+        {/* Hover action buttons */}
         <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {isCorrupt && file.scan_error && (
             <button
@@ -201,13 +187,16 @@ function ThumbnailCard({
               <AlertCircle className="h-3.5 w-3.5 text-destructive" />
             </button>
           )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onPlay(); }}
-            title="Play video"
-            className="bg-black/60 hover:bg-black/80 rounded p-1"
-          >
-            <Play className="h-3.5 w-3.5 text-white" />
-          </button>
+          {/* Play button always available even in selection mode */}
+          {selectionMode && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onPlay(); }}
+              title="Play video"
+              className="bg-black/60 hover:bg-black/80 rounded p-1"
+            >
+              <Play className="h-3.5 w-3.5 text-white" />
+            </button>
+          )}
           <button
             onClick={handleCheck}
             disabled={checking}
@@ -216,17 +205,19 @@ function ThumbnailCard({
           >
             <ShieldCheck className={`h-3.5 w-3.5 text-white ${checking ? "animate-pulse" : ""}`} />
           </button>
-          <button
-            onClick={togglePreset}
-            disabled={transcoding}
-            title="Transcode"
-            className={`bg-black/60 hover:bg-black/80 rounded p-1 ${presetOpen ? "bg-black/80" : ""}`}
-          >
-            <Wand2 className={`h-3.5 w-3.5 text-white ${transcoding ? "animate-pulse" : ""}`} />
-          </button>
+          {!selectionMode && (
+            <button
+              onClick={togglePreset}
+              disabled={transcoding}
+              title="Transcode"
+              className={`bg-black/60 hover:bg-black/80 rounded p-1 ${presetOpen ? "bg-black/80" : ""}`}
+            >
+              <Wand2 className={`h-3.5 w-3.5 text-white ${transcoding ? "animate-pulse" : ""}`} />
+            </button>
+          )}
         </div>
 
-        {/* Preset picker overlay */}
+        {/* Per-file preset picker (only outside selection mode) */}
         {presetOpen && (
           <div
             className="absolute inset-0 bg-black/70 flex items-center justify-center gap-2"
@@ -257,9 +248,7 @@ function ThumbnailCard({
         </p>
       </CardContent>
 
-      {errorOpen && (
-        <CorruptionDetailModal file={file} onClose={() => setErrorOpen(false)} />
-      )}
+      {errorOpen && <CorruptionDetailModal file={file} onClose={() => setErrorOpen(false)} />}
     </Card>
   );
 }
@@ -268,11 +257,13 @@ function ThumbnailCard({
 
 function FileListRow({
   file,
+  selectionMode,
   isSelected,
   onToggle,
   onPlay,
 }: {
   file: VideoFile;
+  selectionMode: boolean;
   isSelected: boolean;
   onToggle: () => void;
   onPlay: () => void;
@@ -284,7 +275,7 @@ function FileListRow({
   const handleCheck = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setChecking(true);
-    try { await api.checkFile(file.id); } catch { /* 409 = already running */ } finally { setChecking(false); }
+    try { await api.checkFile(file.id); } catch { } finally { setChecking(false); }
   };
 
   return (
@@ -292,20 +283,21 @@ function FileListRow({
       className={`hover:bg-muted/20 cursor-pointer transition-colors border-b border-border last:border-0 group/row ${
         isSelected ? "bg-primary/5" : ""
       } ${isCorrupt ? "text-destructive" : ""}`}
-      onClick={onToggle}
+      onClick={selectionMode ? onToggle : onPlay}
     >
-      <td className="px-2 py-1.5 w-8">
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
-            isSelected
-              ? "bg-primary border-primary"
-              : "border-muted-foreground/40 hover:border-primary"
-          }`}
-        >
-          {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-        </button>
-      </td>
+      {/* Checkbox column — only shown in selection mode */}
+      {selectionMode && (
+        <td className="px-2 py-1.5 w-8">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
+              isSelected ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
+            }`}
+          >
+            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+          </button>
+        </td>
+      )}
       <td className="px-2 py-1.5">
         <div className="relative h-8 w-14 shrink-0">
           {file.has_thumbnail && !imgError ? (
@@ -369,47 +361,43 @@ function FileListRow({
 
 function FileListTable({
   files,
+  selectionMode,
   selectedIds,
   onToggle,
   onSelectAll,
   onPlay,
 }: {
   files: VideoFile[];
+  selectionMode: boolean;
   selectedIds: Set<number>;
   onToggle: (id: number) => void;
   onSelectAll: (ids: number[]) => void;
   onPlay: (f: VideoFile) => void;
 }) {
   const allSelected = files.length > 0 && files.every((f) => selectedIds.has(f.id));
-  const someSelected = files.some((f) => selectedIds.has(f.id));
-
-  const handleHeaderToggle = () => {
-    if (allSelected) {
-      onSelectAll([]);
-    } else {
-      onSelectAll(files.map((f) => f.id));
-    }
-  };
+  const someSelected = !allSelected && files.some((f) => selectedIds.has(f.id));
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
           <tr>
-            <th className="w-8 px-2 py-2">
-              <button
-                onClick={handleHeaderToggle}
-                className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
-                  allSelected
-                    ? "bg-primary border-primary"
-                    : someSelected
-                    ? "bg-primary/40 border-primary/60"
-                    : "border-muted-foreground/40 hover:border-primary"
-                }`}
-              >
-                {(allSelected || someSelected) && <Check className="h-2.5 w-2.5 text-white" />}
-              </button>
-            </th>
+            {selectionMode && (
+              <th className="w-8 px-2 py-2">
+                <button
+                  onClick={() => onSelectAll(allSelected ? [] : files.map((f) => f.id))}
+                  className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
+                    allSelected
+                      ? "bg-primary border-primary"
+                      : someSelected
+                      ? "bg-primary/40 border-primary/60"
+                      : "border-muted-foreground/40 hover:border-primary"
+                  }`}
+                >
+                  {(allSelected || someSelected) && <Check className="h-2.5 w-2.5 text-white" />}
+                </button>
+              </th>
+            )}
             <th className="w-16 px-2 py-2"></th>
             <th className="px-3 py-2 text-left">Filename</th>
             <th className="px-3 py-2 text-left">Status</th>
@@ -420,11 +408,12 @@ function FileListTable({
             <th className="w-16 px-3 py-2"></th>
           </tr>
         </thead>
-        <tbody className="group/rows">
+        <tbody>
           {files.map((f) => (
             <FileListRow
               key={f.id}
               file={f}
+              selectionMode={selectionMode}
               isSelected={selectedIds.has(f.id)}
               onToggle={() => onToggle(f.id)}
               onPlay={() => onPlay(f)}
@@ -453,24 +442,11 @@ function DirCard({ name, onClick }: { name: string; onClick: () => void }) {
 
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
-function Breadcrumb({
-  library,
-  path,
-  onNavigate,
-}: {
-  library: Library;
-  path: string;
-  onNavigate: (p: string) => void;
-}) {
+function Breadcrumb({ library, path, onNavigate }: { library: Library; path: string; onNavigate: (p: string) => void }) {
   const parts = path ? path.split("/") : [];
-
   return (
     <nav className="flex items-center gap-1 text-sm flex-wrap">
-      <button
-        onClick={() => onNavigate("")}
-        className="text-primary hover:underline font-medium truncate max-w-[160px]"
-        title={library.name}
-      >
+      <button onClick={() => onNavigate("")} className="text-primary hover:underline font-medium truncate max-w-[160px]" title={library.name}>
         {library.name}
       </button>
       {parts.map((part, i) => {
@@ -482,12 +458,7 @@ function Breadcrumb({
             {isLast ? (
               <span className="text-foreground truncate max-w-[200px]">{part}</span>
             ) : (
-              <button
-                onClick={() => onNavigate(segPath)}
-                className="text-primary hover:underline truncate max-w-[200px]"
-              >
-                {part}
-              </button>
+              <button onClick={() => onNavigate(segPath)} className="text-primary hover:underline truncate max-w-[200px]">{part}</button>
             )}
           </span>
         );
@@ -496,24 +467,18 @@ function Breadcrumb({
   );
 }
 
-// ─── Library browser (when a library is selected) ────────────────────────────
+// ─── Library browser ──────────────────────────────────────────────────────────
 
 function LibraryBrowser({
-  library,
-  statusFilter,
-  sortBy,
-  sortDir,
-  viewMode,
-  selectedIds,
-  onToggle,
-  onSelectAll,
-  onPlay,
+  library, statusFilter, sortBy, sortDir, viewMode,
+  selectionMode, selectedIds, onToggle, onSelectAll, onPlay,
 }: {
   library: Library;
   statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  selectionMode: boolean;
   selectedIds: Set<number>;
   onToggle: (id: number) => void;
   onSelectAll: (ids: number[]) => void;
@@ -523,7 +488,6 @@ function LibraryBrowser({
   const [browse, setBrowse] = useState<BrowseResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Reset to root when library changes
   useEffect(() => { setPath(""); }, [library.id]);
 
   useEffect(() => {
@@ -533,64 +497,38 @@ function LibraryBrowser({
       .finally(() => setLoading(false));
   }, [library.id, path, statusFilter, sortBy, sortDir]);
 
-  const navigate = (subdir: string) => {
-    setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
-  };
+  const navigate = (subdir: string) => setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
 
   return (
     <div className="space-y-4">
       <Breadcrumb library={library} path={path} onNavigate={setPath} />
-
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : !browse || (browse.dirs.length === 0 && browse.files.length === 0) ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Film className="h-8 w-8 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">
-              {statusFilter ? "No files match this filter here." : "No files in this folder."}
-            </p>
+            <p className="text-sm text-muted-foreground">{statusFilter ? "No files match this filter here." : "No files in this folder."}</p>
           </CardContent>
         </Card>
       ) : (
         <>
           {browse.dirs.length > 0 && (
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {browse.dirs.map((dir) => (
-                <DirCard key={dir} name={dir} onClick={() => navigate(dir)} />
-              ))}
+              {browse.dirs.map((dir) => <DirCard key={dir} name={dir} onClick={() => navigate(dir)} />)}
             </div>
           )}
-
           {browse.files.length > 0 && (
             <>
-              {browse.dirs.length > 0 && (
-                <div className="border-t pt-4">
-                  <SectionHeader>Files in this folder</SectionHeader>
-                </div>
-              )}
+              {browse.dirs.length > 0 && <div className="border-t pt-4"><SectionHeader>Files in this folder</SectionHeader></div>}
               {viewMode === "grid" ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                   {browse.files.map((f) => (
-                    <ThumbnailCard
-                      key={f.id}
-                      file={f}
-                      isSelected={selectedIds.has(f.id)}
-                      onToggle={() => onToggle(f.id)}
-                      onPlay={() => onPlay(f)}
-                    />
+                    <ThumbnailCard key={f.id} file={f} selectionMode={selectionMode} isSelected={selectedIds.has(f.id)} onToggle={() => onToggle(f.id)} onPlay={() => onPlay(f)} />
                   ))}
                 </div>
               ) : (
-                <FileListTable
-                  files={browse.files}
-                  selectedIds={selectedIds}
-                  onToggle={onToggle}
-                  onSelectAll={onSelectAll}
-                  onPlay={onPlay}
-                />
+                <FileListTable files={browse.files} selectionMode={selectionMode} selectedIds={selectedIds} onToggle={onToggle} onSelectAll={onSelectAll} onPlay={onPlay} />
               )}
             </>
           )}
@@ -603,19 +541,14 @@ function LibraryBrowser({
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
 function FlatView({
-  statusFilter,
-  sortBy,
-  sortDir,
-  viewMode,
-  selectedIds,
-  onToggle,
-  onSelectAll,
-  onPlay,
+  statusFilter, sortBy, sortDir, viewMode,
+  selectionMode, selectedIds, onToggle, onSelectAll, onPlay,
 }: {
   statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  selectionMode: boolean;
   selectedIds: Set<number>;
   onToggle: (id: number) => void;
   onSelectAll: (ids: number[]) => void;
@@ -655,23 +588,11 @@ function FlatView({
       {viewMode === "grid" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {files.map((f) => (
-            <ThumbnailCard
-              key={f.id}
-              file={f}
-              isSelected={selectedIds.has(f.id)}
-              onToggle={() => onToggle(f.id)}
-              onPlay={() => onPlay(f)}
-            />
+            <ThumbnailCard key={f.id} file={f} selectionMode={selectionMode} isSelected={selectedIds.has(f.id)} onToggle={() => onToggle(f.id)} onPlay={() => onPlay(f)} />
           ))}
         </div>
       ) : (
-        <FileListTable
-          files={files}
-          selectedIds={selectedIds}
-          onToggle={onToggle}
-          onSelectAll={onSelectAll}
-          onPlay={onPlay}
-        />
+        <FileListTable files={files} selectionMode={selectionMode} selectedIds={selectedIds} onToggle={onToggle} onSelectAll={onSelectAll} onPlay={onPlay} />
       )}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
@@ -710,15 +631,21 @@ export function Files() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
+  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [batchTranscoding, setBatchTranscoding] = useState(false);
 
-  useEffect(() => {
-    api.getLibraries().then(setLibraries).catch(() => {});
-  }, []);
+  useEffect(() => { api.getLibraries().then(setLibraries).catch(() => {}); }, []);
 
-  // Clear selection when the view changes
+  // Clear selection when view changes
   useEffect(() => { setSelectedIds(new Set()); }, [selectedLibraryId, selectedStatus]);
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((v) => {
+      if (v) setSelectedIds(new Set()); // clear on exit
+      return !v;
+    });
+  };
 
   const toggleId = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -729,14 +656,7 @@ export function Files() {
   }, []);
 
   const selectAll = useCallback((ids: number[]) => {
-    if (ids.length === 0) {
-      setSelectedIds((prev) => {
-        // ids is empty — called from header when all selected, so clear all
-        return new Set();
-      });
-    } else {
-      setSelectedIds(new Set(ids));
-    }
+    setSelectedIds(ids.length === 0 ? new Set() : new Set(ids));
   }, []);
 
   const handleBatchTranscode = async (preset: string) => {
@@ -757,9 +677,7 @@ export function Files() {
       <div>
         <SectionHeader className="mb-1.5">Indexed media</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Browse and manage video files across all libraries.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Browse and manage video files across all libraries.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -769,9 +687,7 @@ export function Files() {
           onChange={(e) => setSelectedLibraryId(e.target.value === "all" ? "all" : Number(e.target.value))}
         >
           <option value="all">All libraries (flat)</option>
-          {libraries.map((l) => (
-            <option key={l.id} value={l.id}>{l.name}</option>
-          ))}
+          {libraries.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
 
         <select
@@ -780,30 +696,35 @@ export function Files() {
           onChange={(e) => setSelectedStatus(e.target.value || undefined)}
         >
           <option value="">All statuses</option>
-          {ALL_STATUSES.map((s) => (
-            <option key={s} value={s} className="capitalize">{s}</option>
-          ))}
+          {ALL_STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
         </select>
 
         <div className="flex items-center gap-1 ml-auto">
-          <select
-            className={selectCls}
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+          <select className={selectCls} value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <button
             onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
             className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             title={sortDir === "asc" ? "Ascending" : "Descending"}
           >
-            {sortDir === "asc"
-              ? <ArrowUp className="h-3.5 w-3.5" />
-              : <ArrowDown className="h-3.5 w-3.5" />}
+            {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
           </button>
+
+          {/* Transcode mode toggle */}
+          <button
+            onClick={toggleSelectionMode}
+            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-md border text-xs font-medium transition-colors ${
+              selectionMode
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-input text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+            title={selectionMode ? "Exit transcode selection" : "Select files to transcode"}
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Transcode
+          </button>
+
           <div className="flex items-center rounded-md border border-input overflow-hidden">
             <button
               onClick={() => setViewMode("grid")}
@@ -823,33 +744,35 @@ export function Files() {
         </div>
       </div>
 
-      {/* Batch transcode action bar */}
-      {selectedIds.size > 0 && (
+      {/* Batch action bar — only visible in selection mode */}
+      {selectionMode && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
           <span className="text-sm font-medium text-primary">
-            {selectedIds.size} file{selectedIds.size !== 1 ? "s" : ""} selected
+            {selectedIds.size === 0 ? "Click files to select" : `${selectedIds.size} file${selectedIds.size !== 1 ? "s" : ""} selected`}
           </span>
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-muted-foreground">Transcode as:</span>
-            {PRESETS.map((p) => (
-              <Button
-                key={p.value}
-                size="sm"
-                variant="outline"
-                title={p.title}
-                onClick={() => handleBatchTranscode(p.value)}
-                disabled={batchTranscoding}
-                className="h-7 px-3 text-xs"
-              >
-                {batchTranscoding
-                  ? <Loader2 className="h-3 w-3 animate-spin" />
-                  : p.label}
-              </Button>
-            ))}
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">Transcode as:</span>
+                {PRESETS.map((p) => (
+                  <Button
+                    key={p.value}
+                    size="sm"
+                    variant="outline"
+                    title={p.title}
+                    onClick={() => handleBatchTranscode(p.value)}
+                    disabled={batchTranscoding}
+                    className="h-7 px-3 text-xs"
+                  >
+                    {batchTranscoding ? <Loader2 className="h-3 w-3 animate-spin" /> : p.label}
+                  </Button>
+                ))}
+              </>
+            )}
             <button
-              onClick={() => setSelectedIds(new Set())}
+              onClick={toggleSelectionMode}
               className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
-              title="Clear selection"
+              title="Exit selection mode"
             >
               <X className="h-4 w-4" />
             </button>
@@ -864,6 +787,7 @@ export function Files() {
           sortBy={sortBy}
           sortDir={sortDir}
           viewMode={viewMode}
+          selectionMode={selectionMode}
           selectedIds={selectedIds}
           onToggle={toggleId}
           onSelectAll={selectAll}
@@ -875,6 +799,7 @@ export function Files() {
           sortBy={sortBy}
           sortDir={sortDir}
           viewMode={viewMode}
+          selectionMode={selectionMode}
           selectedIds={selectedIds}
           onToggle={toggleId}
           onSelectAll={selectAll}
@@ -882,9 +807,7 @@ export function Files() {
         />
       )}
 
-      {playingFile && (
-        <VideoPlayerModal file={playingFile} onClose={() => setPlayingFile(null)} />
-      )}
+      {playingFile && <VideoPlayerModal file={playingFile} onClose={() => setPlayingFile(null)} />}
     </div>
   );
 }
