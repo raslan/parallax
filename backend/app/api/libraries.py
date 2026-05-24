@@ -194,6 +194,7 @@ async def trigger_transcode(library_id: int, body: TranscodeRequest, db: Session
 
 _BROWSE_SORT_KEYS = {
     "filename":      lambda f: (f.filename or "").lower(),
+    "extension":     lambda f: (f.extension or "").lower(),
     "size":          lambda f: f.size or 0,
     "duration":      lambda f: f.duration or 0,
     "video_bitrate": lambda f: f.video_bitrate or 0,
