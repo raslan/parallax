@@ -164,6 +164,7 @@ def scan_library(library_id: int):
                     library_id=library_id,
                     path=path,
                     filename=os.path.basename(path),
+                    extension=os.path.splitext(path)[1].lower().lstrip("."),
                     status=FileStatus.UNKNOWN,
                 )
                 db.add(file_obj)
