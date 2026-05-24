@@ -42,6 +42,7 @@ def init_db():
             "ALTER TABLE files ADD COLUMN file_height INTEGER",
             "ALTER TABLE files ADD COLUMN file_fps REAL",
             "ALTER TABLE files ADD COLUMN file_date REAL",
+            "ALTER TABLE files ADD COLUMN extension TEXT",
         ]:
             try:
                 conn.execute(text(sql))
