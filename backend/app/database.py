@@ -48,3 +48,4 @@ def init_db():
                 conn.execute(text(sql))
             except Exception:
                 pass  # column already exists
+
