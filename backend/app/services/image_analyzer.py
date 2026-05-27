@@ -75,8 +75,7 @@ def _tokenize(text: str) -> dict:
     tok = _get_tokenizer()
     enc = tok(text, return_tensors="np", padding="max_length",
                max_length=64, truncation=True)
-    return {"input_ids": enc["input_ids"].astype(np.int64),
-            "attention_mask": enc["attention_mask"].astype(np.int64)}
+    return {"input_ids": enc["input_ids"].astype(np.int64)}
 
 
 def _preprocess_image(path: str) -> np.ndarray:
@@ -125,7 +124,8 @@ def compute_phash(path: str) -> int:
     img = Image.open(path)
     if hasattr(img, "n_frames"):
         img.seek(0)
-    return int(str(imagehash.phash(img)), 16)
+    val = int(str(imagehash.phash(img)), 16)
+    return val - 2**64 if val >= 2**63 else val
 
 
 def _get_nudenet_session() -> _ort.InferenceSession:
@@ -150,7 +150,7 @@ def run_nudenet(path: str) -> list[dict]:
     detector = NudeDetector()
     detector.onnx_session = _get_nudenet_session()
     results = detector.detect(path)
-    return [{"label": r["label"], "confidence": r["score"],
+    return [{"label": r["class"], "confidence": r["score"],
              "bbox_json": json.dumps(r["box"])} for r in results]
 
 
@@ -158,7 +158,7 @@ def encode_image_siglip(path: str) -> list[float]:
     session = _get_vision_session()
     pixel_values = _preprocess_image(path)
     input_name = session.get_inputs()[0].name
-    output = session.run(None, {input_name: pixel_values})[0]
+    output = session.run(None, {input_name: pixel_values})[1]  # pooler_output
     vec = output[0].astype(np.float64)
     norm = np.linalg.norm(vec)
     if norm > 0:
@@ -169,9 +169,8 @@ def encode_image_siglip(path: str) -> list[float]:
 def encode_text_siglip(text: str) -> list[float]:
     session = _get_text_session()
     tokens = _tokenize(text)
-    inputs = {session.get_inputs()[0].name: tokens["input_ids"],
-              session.get_inputs()[1].name: tokens["attention_mask"]}
-    output = session.run(None, inputs)[0]
+    inputs = {session.get_inputs()[0].name: tokens["input_ids"]}
+    output = session.run(None, inputs)[1]  # pooler_output
     vec = output[0].astype(np.float64)
     norm = np.linalg.norm(vec)
     if norm > 0:
