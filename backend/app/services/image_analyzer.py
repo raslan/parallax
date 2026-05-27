@@ -22,9 +22,11 @@ SIGLIP_REPO = "Xenova/siglip-base-patch16-224"
 
 _vision_session = None
 _text_session = None
+_nudenet_session = None
 _tokenizer = None
 _vision_lock = threading.Lock()
 _text_lock = threading.Lock()
+_nudenet_lock = threading.Lock()
 _tokenizer_lock = threading.Lock()
 
 
@@ -126,9 +128,27 @@ def compute_phash(path: str) -> int:
     return int(str(imagehash.phash(img)), 16)
 
 
+def _get_nudenet_session() -> _ort.InferenceSession:
+    global _nudenet_session
+    with _nudenet_lock:
+        if _nudenet_session is None:
+            _nudenet_session = _ort.InferenceSession(_NUDENET_MODEL, providers=_GPU_PROVIDERS)
+    return _nudenet_session
+
+
+def release_sessions() -> None:
+    global _vision_session, _text_session, _nudenet_session
+    with _vision_lock:
+        _vision_session = None
+    with _text_lock:
+        _text_session = None
+    with _nudenet_lock:
+        _nudenet_session = None
+
+
 def run_nudenet(path: str) -> list[dict]:
     detector = NudeDetector()
-    detector.onnx_session = _ort.InferenceSession(_NUDENET_MODEL, providers=_GPU_PROVIDERS)
+    detector.onnx_session = _get_nudenet_session()
     results = detector.detect(path)
     return [{"label": r["label"], "confidence": r["score"],
              "bbox_json": json.dumps(r["box"])} for r in results]
