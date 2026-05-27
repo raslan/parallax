@@ -13,24 +13,36 @@ from app.services.common import now
 router = APIRouter(prefix="/image-libraries", tags=["image-libraries"])
 
 
-def _to_read(lib: ImageLibrary, db: Session) -> ImageLibraryRead:
-    count = db.query(func.count(ImageFile.id)).filter(
-        ImageFile.library_id == lib.id
-    ).scalar()
-    return ImageLibraryRead(
-        id=lib.id,
-        name=lib.name,
-        path=lib.path,
-        created_at=lib.created_at,
-        last_scanned_at=lib.last_scanned_at,
-        image_count=count or 0,
+def _with_counts(libs: list[ImageLibrary], db: Session) -> list[ImageLibraryRead]:
+    ids = [l.id for l in libs]
+    if not ids:
+        return []
+    counts = dict(
+        db.query(ImageFile.library_id, func.count(ImageFile.id))
+        .filter(ImageFile.library_id.in_(ids))
+        .group_by(ImageFile.library_id).all()
     )
+    return [
+        ImageLibraryRead(
+            id=lib.id,
+            name=lib.name,
+            path=lib.path,
+            created_at=lib.created_at,
+            last_scanned_at=lib.last_scanned_at,
+            image_count=counts.get(lib.id, 0),
+        )
+        for lib in libs
+    ]
+
+
+def _to_read(lib: ImageLibrary, db: Session) -> ImageLibraryRead:
+    return _with_counts([lib], db)[0]
 
 
 @router.get("", response_model=list[ImageLibraryRead])
 def list_image_libraries(db: Session = Depends(get_db)):
     libs = db.query(ImageLibrary).order_by(ImageLibrary.name).all()
-    return [_to_read(lib, db) for lib in libs]
+    return _with_counts(libs, db)
 
 
 @router.post("", response_model=ImageLibraryRead, status_code=201)
@@ -69,10 +81,11 @@ async def scan_image_library(
 
     running = db.query(Job).filter(
         Job.type == JobType.IMAGE_SCAN,
+        Job.library_id == library_id,
         Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
     ).first()
     if running:
-        raise HTTPException(409, "An image scan is already running")
+        raise HTTPException(409, "A scan is already running for this library")
 
     job = Job(
         type=JobType.IMAGE_SCAN,
