@@ -169,4 +169,6 @@ def scan_image_library(library_id: int, job_id: int,
             job.finished_at = now()
             db.commit()
     finally:
+        from app.services.image_analyzer import release_sessions
+        release_sessions()
         db.close()
