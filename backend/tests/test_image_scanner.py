@@ -52,3 +52,11 @@ def test_image_detection_model(db):
     db.refresh(det)
     assert det.id is not None
     assert det.confidence == 0.91
+
+
+from app.schemas import ImageLibraryRead, ImageRead, ImageScanRequest
+
+def test_image_schemas():
+    req = ImageScanRequest(run_phash=True, run_nudenet=False, run_siglip=True)
+    assert req.run_nudenet is False
+    assert req.run_phash is True
