@@ -1,7 +1,7 @@
 # Build tagged images for each runtime:
-#   docker build --build-arg RUNTIME=cpu  --build-arg ONNX_PKG="onnxruntime==1.20.1"     -t parallax .
-#   docker build --build-arg RUNTIME=cuda --build-arg ONNX_PKG="onnxruntime-gpu==1.20.1" -t parallax:cuda .
-#   docker build --build-arg RUNTIME=rocm --build-arg ONNX_PKG="onnxruntime-rocm"         -t parallax:rocm .
+#   docker build -t parallax .
+#   docker build --build-arg RUNTIME=cuda -t parallax:cuda .
+#   docker build --build-arg RUNTIME=rocm -t parallax:rocm .
 ARG RUNTIME=cpu
 
 # Stage 1: build the React frontend
@@ -44,13 +44,18 @@ RUN apt-get update && \
 ARG RUNTIME=cpu
 FROM base-${RUNTIME}
 
-ARG ONNX_PKG=onnxruntime==1.20.1
+ARG RUNTIME=cpu
+RUN case "${RUNTIME}" in \
+      cuda) ONNX_PKG="onnxruntime-gpu==1.20.1" ;; \
+      rocm) ONNX_PKG="onnxruntime-rocm" ;; \
+      *)    ONNX_PKG="onnxruntime==1.20.1" ;; \
+    esac && \
+    python3.12 -m pip install --no-cache-dir "${ONNX_PKG}"
 
 WORKDIR /app
 
 COPY backend/requirements.txt ./
-RUN python3.12 -m pip install --no-cache-dir -r requirements.txt && \
-    python3.12 -m pip install --no-cache-dir "${ONNX_PKG}"
+RUN python3.12 -m pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./
 
