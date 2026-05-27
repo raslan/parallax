@@ -116,7 +116,7 @@ async def scan_image_library(
         type=JobType.IMAGE_SCAN,
         status=JobStatus.PENDING,
         library_id=library_id,
-        settings=f"phash={body.run_phash},nudenet={body.run_nudenet},siglip={body.run_siglip}",
+        settings=f"phash={body.run_phash},nudenet={body.run_nudenet},clip={body.run_clip},reset={body.reset}",
     )
     db.add(job)
     db.commit()
@@ -126,6 +126,6 @@ async def scan_image_library(
     from app.queue import enqueue
     await enqueue(
         job.id, do_scan, library_id, job.id,
-        body.run_phash, body.run_nudenet, body.run_siglip,
+        body.run_phash, body.run_nudenet, body.run_clip, body.reset,
     )
     return {"job_id": job.id}

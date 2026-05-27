@@ -349,7 +349,8 @@ export interface ImageSearchResult {
 export interface ImageScanRequest {
   run_phash: boolean;
   run_nudenet: boolean;
-  run_siglip: boolean;
+  run_clip: boolean;
+  reset: boolean;
 }
 
 // ── Image library API ────────────────────────────────────────────────────────

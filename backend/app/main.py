@@ -40,9 +40,24 @@ def _reap_orphaned_jobs():
         db.close()
 
 
+def _migrate_siglip_to_clip():
+    """One-time column rename: siglip_embedding → clip_embedding (SQLite 3.35+)."""
+    from app.database import engine
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(
+            __import__("sqlalchemy").text("PRAGMA table_info(images)")
+        )]
+        if "siglip_embedding" in cols and "clip_embedding" not in cols:
+            conn.execute(__import__("sqlalchemy").text(
+                "ALTER TABLE images RENAME COLUMN siglip_embedding TO clip_embedding"
+            ))
+            conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _migrate_siglip_to_clip()
     from app.services.model_manager import migrate_legacy_clip
     migrate_legacy_clip()
     _reap_orphaned_jobs()
