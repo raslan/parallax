@@ -44,10 +44,10 @@ NUDENET_MODELS: dict[str, dict] = {
         "id": "640m",
         "type": "nudenet",
         "name": "NudeNet 640m",
-        "description": "Better at small/partial detections. ~20 MB download.",
+        "description": "Better at small/partial detections. ~99 MB download.",
         "bundled": False,
-        "url": "https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/640m.onnx",
-        "size_mb": 20,
+        "url": "https://api.github.com/repos/notAI-tech/NudeNet/releases/assets/176832019",
+        "size_mb": 99,
         "quality": "better",
         "inference_resolution": 640,
     },
@@ -193,11 +193,32 @@ def download_nudenet(model_id: str, job_id: int) -> None:
         job.progress = 10.0
         db.commit()
 
-        r = requests.get(meta["url"], stream=True, timeout=120)
+        headers = {
+            "Accept": "application/octet-stream",
+            "User-Agent": "python-requests/2.28",
+        }
+        r = requests.get(meta["url"], stream=True, timeout=120, headers=headers)
         r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            raise ValueError(
+                f"Download URL returned HTML instead of binary data. "
+                f"URL may be invalid or require authentication: {meta['url']}"
+            )
+
+        expected_bytes = meta["size_mb"] * 1024 * 1024
+        downloaded = 0
         with open(target, "wb") as f:
             for chunk in r.iter_content(chunk_size=65536):
                 f.write(chunk)
+                downloaded += len(chunk)
+
+        if downloaded < expected_bytes * 0.5:
+            os.remove(target)
+            raise ValueError(
+                f"Downloaded file too small: {downloaded} bytes "
+                f"(expected ~{expected_bytes} bytes). File may be corrupt."
+            )
 
         job.progress = 60.0
         db.commit()
@@ -207,7 +228,7 @@ def download_nudenet(model_id: str, job_id: int) -> None:
         job.finished_at = now()
         job.current_file = None
         db.commit()
-        log(db, job_id, f"{meta['name']} downloaded successfully.")
+        log(db, job_id, f"{meta['name']} downloaded successfully ({downloaded // 1024 // 1024} MB).")
 
     except Exception as e:
         if job:
