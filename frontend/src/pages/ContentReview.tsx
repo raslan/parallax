@@ -77,6 +77,7 @@ export function ContentReview() {
 
   const [searchEnabled, setSearchEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [invertSearch, setInvertSearch] = useState(false);
 
   const [combineMode, setCombineMode] = useState<CombineMode>("union");
 
@@ -129,7 +130,7 @@ export function ContentReview() {
 
       if (searchEnabled && searchQuery.trim()) {
         promises.push(
-          imageApi.searchImages(searchQuery.trim(), { limit: 200 })
+          imageApi.searchImages(searchQuery.trim(), { limit: 200, exclude: invertSearch })
             .then((results) => setSearchResults(results.map((r) => r.image)))
         );
       }
@@ -273,6 +274,16 @@ export function ContentReview() {
             disabled={!searchEnabled}
             className="text-sm"
           />
+          <label className="mt-3 flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={invertSearch}
+              onChange={(e) => setInvertSearch(e.target.checked)}
+              disabled={!searchEnabled}
+              className="h-4 w-4 rounded border-border accent-primary"
+            />
+            <span className="text-xs text-muted-foreground">Invert (least similar first)</span>
+          </label>
         </div>
       </div>
 

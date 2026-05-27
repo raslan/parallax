@@ -410,9 +410,10 @@ export const imageApi = {
   deleteImage: (id: number) =>
     req<void>(`/images/${id}`, { method: "DELETE" }),
 
-  searchImages: (q: string, opts?: { limit?: number; library_id?: number }) => {
+  searchImages: (q: string, opts?: { limit?: number; exclude?: boolean; library_id?: number }) => {
     const p = new URLSearchParams({ q });
     if (opts?.limit) p.set("limit", String(opts.limit));
+    if (opts?.exclude) p.set("exclude", "true");
     if (opts?.library_id) p.set("library_id", String(opts.library_id));
     return req<ImageSearchResult[]>(`/images/search?${p}`);
   },
