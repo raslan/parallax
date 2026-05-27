@@ -1,8 +1,8 @@
 services:
-  transcoder:
+  transcoder-dev:
     build: .
     ports:
-      - "${PORT:-7899}:7899"
+      - "${PORT:-7900}:7899"
     volumes:
       - ./data:/app/data
       # Mount your media folders here, e.g.:
