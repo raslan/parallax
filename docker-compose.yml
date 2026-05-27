@@ -14,6 +14,7 @@ services:
     user: "1000:1000"
     environment:
       - DATA_DIR=/app/data
+      - HF_HOME=/app/data/hf-cache
     restart: unless-stopped
 
     # ── NVIDIA (requires nvidia-container-toolkit on the host) ───────────────
