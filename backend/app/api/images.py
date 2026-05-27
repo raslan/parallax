@@ -126,6 +126,7 @@ def list_quarantined(
 def search_images(
     q: str = Query(..., min_length=1),
     limit: int = Query(50, ge=1, le=200),
+    exclude: bool = Query(False, description="Return least similar images instead of most similar"),
     library_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
@@ -150,7 +151,7 @@ def search_images(
         except Exception:
             continue
 
-    scored.sort(key=lambda x: x[1], reverse=True)
+    scored.sort(key=lambda x: x[1], reverse=not exclude)
     return [
         ImageSearchResult(image=_to_image_read(f, db), score=round(score, 4))
         for f, score in scored[:limit]
