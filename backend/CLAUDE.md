@@ -33,3 +33,7 @@ backend/app/
 - Transcoding: always use `-progress pipe:1 -nostats` and read stdout line-by-line for `out_time_ms=` to drive progress updates.
 - Probe: `ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,codec_type,duration,bit_rate -show_entries format=size,duration,bit_rate -of json`.
 - Encoder selection: `encoder_for_codec(source_codec)` in `services/encoder.py` — HEVC/AV1/VP9 sources get HEVC output; everything else gets H.264. Hardware encoders (nvenc) are preferred when available.
+
+## Testing
+
+Tests exist in `backend/tests/` but **cannot be run in the development environment** — the test runner requires `DATA_DIR` to be writable (defaults to `/app/data`) and several ML packages (onnxruntime, nudenet, transformers) to be installed. Tests are written to validate logic and are executed only inside Docker where all dependencies are present.

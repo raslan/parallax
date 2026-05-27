@@ -120,3 +120,72 @@ class DuplicateGroupRead(BaseModel):
 
 class DeleteDuplicatesRequest(BaseModel):
     file_ids: list[int]
+
+
+# ── Image library schemas ────────────────────────────────────────────────────
+
+class ImageLibraryCreate(BaseModel):
+    name: str = ""
+    path: str
+
+
+class ImageLibraryRead(BaseModel):
+    id: int
+    name: str
+    path: str
+    created_at: datetime
+    last_scanned_at: Optional[datetime] = None
+    image_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class ImageDetectionRead(BaseModel):
+    id: int
+    image_id: int
+    label: str
+    confidence: float
+    bbox_json: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ImageRead(BaseModel):
+    id: int
+    library_id: int
+    path: str
+    filename: str
+    extension: str
+    size: int
+    width: Optional[int] = None
+    height: Optional[int] = None
+    exif_date: Optional[float] = None
+    exif_gps: Optional[str] = None
+    exif_camera: Optional[str] = None
+    status: str
+    scan_error: Optional[str] = None
+    scanned_at: Optional[datetime] = None
+    created_at: datetime
+    has_thumbnail: bool = False
+    detections: list[ImageDetectionRead] = []
+
+    model_config = {"from_attributes": True}
+
+
+class ImagesResponse(BaseModel):
+    items: list[ImageRead]
+    total: int
+    page: int
+    page_size: int
+
+
+class ImageScanRequest(BaseModel):
+    run_phash: bool = True
+    run_nudenet: bool = True
+    run_clip: bool = True
+    reset: bool = False
+
+
+class ImageSearchResult(BaseModel):
+    image: ImageRead
+    score: float

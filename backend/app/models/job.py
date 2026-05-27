@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
@@ -9,6 +10,8 @@ class JobType:
     CHECK = "check"
     TRANSCODE = "transcode"
     DUPLICATES = "duplicates"
+    IMAGE_SCAN = "image_scan"
+    MODEL_DOWNLOAD = "model_download"
 
 
 class JobStatus:
@@ -25,7 +28,7 @@ class Job(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default=JobStatus.PENDING)
-    library_id: Mapped[int] = mapped_column(ForeignKey("libraries.id"), nullable=True)
+    library_id: Mapped[Optional[int]] = mapped_column(nullable=True)
     progress: Mapped[float] = mapped_column(Float, default=0.0)
     total_files: Mapped[int] = mapped_column(Integer, default=0)
     processed_files: Mapped[int] = mapped_column(Integer, default=0)
