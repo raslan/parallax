@@ -398,7 +398,7 @@ export const imageApi = {
   quarantineBulk: (ids: number[]) =>
     req<{ moved: number }>("/images/quarantine-bulk", {
       method: "POST",
-      body: JSON.stringify(ids),
+      body: JSON.stringify({ ids }),
     }),
 
   listQuarantined: (page = 1, page_size = 50) =>

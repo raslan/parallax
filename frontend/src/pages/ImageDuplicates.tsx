@@ -3,15 +3,15 @@ import { Copy, FolderX } from "lucide-react";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
-function DuplicateCluster({ ids, onQuarantine }: { ids: number[]; onQuarantine: (id: number) => void }) {
+function DuplicateCluster({ ids, libraryId, onQuarantine }: { ids: number[]; libraryId?: number; onQuarantine: (id: number) => void }) {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    imageApi.listImages({ page: 1, page_size: 200 }).then((r) => {
+    imageApi.listImages({ library_id: libraryId, page: 1, page_size: 1000 }).then((r) => {
       setImages(r.items.filter((img) => ids.includes(img.id)));
     });
-  }, [ids]);
+  }, [ids, libraryId]);
 
   const toggle = (id: number) =>
     setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -54,16 +54,16 @@ function DuplicateCluster({ ids, onQuarantine }: { ids: number[]; onQuarantine: 
   );
 }
 
-export function ImageDuplicates() {
+export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const [clusters, setClusters] = useState<number[][]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = () => {
     setLoading(true);
-    imageApi.duplicates().then(setClusters).catch(() => {}).finally(() => setLoading(false));
+    imageApi.duplicates(libraryId).then(setClusters).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [libraryId]);
 
   async function quarantine(id: number) {
     await imageApi.quarantineImage(id).catch(() => {});
@@ -90,7 +90,7 @@ export function ImageDuplicates() {
 
       <div className="flex flex-col gap-4">
         {clusters.map((ids, i) => (
-          <DuplicateCluster key={i} ids={ids} onQuarantine={quarantine} />
+          <DuplicateCluster key={i} ids={ids} libraryId={libraryId} onQuarantine={quarantine} />
         ))}
       </div>
     </div>
