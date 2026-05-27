@@ -91,7 +91,7 @@ function AddImageLibraryDialog({
               {([
                 ["run_phash", "Duplicates (pHash)"],
                 ["run_nudenet", "Content review (NudeNet)"],
-                ["run_siglip", "Semantic search (SigLIP)"],
+                ["run_siglip", "Semantic search (CLIP)"],
               ] as const).map(([key, label]) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                   <input
@@ -251,7 +251,7 @@ export function ImageLibraries() {
                           {([
                             ["run_phash", "Duplicates (pHash)"],
                             ["run_nudenet", "Content review (NudeNet)"],
-                            ["run_siglip", "Semantic search (SigLIP)"],
+                            ["run_siglip", "Semantic search (CLIP)"],
                           ] as const).map(([key, label]) => (
                             <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                               <input
