@@ -20,6 +20,7 @@ RUN apt-get update && \
 
 # Stage 2b: NVIDIA CUDA base
 FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu22.04 AS base-cuda
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
@@ -31,6 +32,7 @@ RUN apt-get update && \
 
 # Stage 2c: AMD ROCm base
 FROM rocm/dev-ubuntu-22.04:6.0.2 AS base-rocm
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
