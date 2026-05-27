@@ -13,7 +13,8 @@ import { formatDate } from "@/lib/format";
 const DEFAULT_SCAN_OPTS: ImageScanRequest = {
   run_phash: true,
   run_nudenet: true,
-  run_siglip: true,
+  run_clip: true,
+  reset: false,
 };
 
 function AddImageLibraryDialog({
@@ -91,7 +92,7 @@ function AddImageLibraryDialog({
               {([
                 ["run_phash", "Duplicates (pHash)"],
                 ["run_nudenet", "Content review (NudeNet)"],
-                ["run_siglip", "Semantic search (CLIP)"],
+                ["run_clip", "Semantic search (CLIP)"],
               ] as const).map(([key, label]) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                   <input
@@ -164,11 +165,11 @@ export function ImageLibraries() {
 
   useEffect(() => { load(); }, []);
 
-  const handleScan = async (id: number) => {
+  const handleScan = async (id: number, reset = false) => {
     setScanOptsFor(null);
     setScanningIds((s) => new Set(s).add(id));
     try {
-      await imageApi.scanLibrary(id, scanOpts);
+      await imageApi.scanLibrary(id, { ...scanOpts, reset });
     } catch (e: unknown) {
       if (!(e instanceof Error && e.message?.includes("409"))) throw e;
     } finally {
@@ -247,11 +248,11 @@ export function ImageLibraries() {
                         <ScanLine className={`h-3.5 w-3.5 ${scanningIds.has(lib.id) ? "text-primary animate-pulse" : ""}`} />
                       </Button>
                       {scanOptsFor === lib.id && (
-                        <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-[200px]">
+                        <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-[210px]">
                           {([
                             ["run_phash", "Duplicates (pHash)"],
                             ["run_nudenet", "Content review (NudeNet)"],
-                            ["run_siglip", "Semantic search (CLIP)"],
+                            ["run_clip", "Semantic search (CLIP)"],
                           ] as const).map(([key, label]) => (
                             <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                               <input
@@ -263,9 +264,22 @@ export function ImageLibraries() {
                               <span className="text-xs">{label}</span>
                             </label>
                           ))}
-                          <Button size="sm" className="mt-1" onClick={() => handleScan(lib.id)}>
-                            Scan
-                          </Button>
+                          <div className="border-t border-border pt-2 mt-1 flex flex-col gap-1.5">
+                            <Button size="sm" onClick={() => handleScan(lib.id)}>
+                              Scan new images
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => {
+                                if (confirm("Delete all existing image records for this library and rescan from scratch? Thumbnails will be removed.")) {
+                                  handleScan(lib.id, true);
+                                }
+                              }}
+                            >
+                              Reset &amp; rescan all
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>

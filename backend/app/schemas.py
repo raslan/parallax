@@ -182,7 +182,8 @@ class ImagesResponse(BaseModel):
 class ImageScanRequest(BaseModel):
     run_phash: bool = True
     run_nudenet: bool = True
-    run_siglip: bool = True
+    run_clip: bool = True
+    reset: bool = False
 
 
 class ImageSearchResult(BaseModel):

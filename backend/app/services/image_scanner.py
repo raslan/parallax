@@ -38,7 +38,7 @@ def _thumbnail_path(image_id: int) -> str:
 
 
 def _process_one(db, library_id: int, path: str,
-                  run_phash: bool, run_nudenet: bool, run_siglip: bool,
+                  run_phash: bool, run_nudenet: bool, run_clip: bool,
                   clip_model_id: str = "clip-vit-base-patch32",
                   nudenet_model_id: str = "320n") -> ImageFile:
     from app.services.image_analyzer import (
@@ -66,9 +66,9 @@ def _process_one(db, library_id: int, path: str,
     if run_phash:
         img_obj.phash = compute_phash(path)
 
-    if run_siglip:
+    if run_clip:
         embedding = encode_image_clip(path, model_id=clip_model_id)
-        img_obj.siglip_embedding = json.dumps(embedding)
+        img_obj.clip_embedding = json.dumps(embedding)
 
     db.add(img_obj)
     db.flush()  # get img_obj.id
@@ -90,7 +90,8 @@ def _process_one(db, library_id: int, path: str,
 def scan_image_library(library_id: int, job_id: int,
                         run_phash: bool = True,
                         run_nudenet: bool = True,
-                        run_siglip: bool = True) -> None:
+                        run_clip: bool = True,
+                        reset: bool = False) -> None:
     from app.models.settings import get_setting
     db = SessionLocal()
     job = None
@@ -109,6 +110,19 @@ def scan_image_library(library_id: int, job_id: int,
         job.status = JobStatus.RUNNING
         job.started_at = now()
         db.commit()
+
+        if reset:
+            existing = db.query(ImageFile).filter(ImageFile.library_id == library_id).all()
+            for img in existing:
+                try:
+                    os.remove(_thumbnail_path(img.id))
+                except FileNotFoundError:
+                    pass
+            count = len(existing)
+            db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
+            db.commit()
+            log(db, job_id, f"Reset: removed {count} existing image records")
+
         log(db, job_id, f"Scanning image library: {library.path}")
 
         paths = collect_image_paths(library.path)
@@ -136,7 +150,7 @@ def scan_image_library(library_id: int, job_id: int,
             db.commit()
 
             try:
-                _process_one(db, library_id, path, run_phash, run_nudenet, run_siglip,
+                _process_one(db, library_id, path, run_phash, run_nudenet, run_clip,
                              clip_model_id=clip_model_id, nudenet_model_id=nudenet_model_id)
                 db.commit()
                 succeeded += 1

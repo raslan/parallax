@@ -137,7 +137,7 @@ def search_images(
     text_vec = encode_text_clip(q, model_id=clip_model_id)
 
     query = db.query(ImageFile).filter(
-        ImageFile.siglip_embedding.isnot(None),
+        ImageFile.clip_embedding.isnot(None),
         ImageFile.status != ImageStatus.QUARANTINED,
     )
     if library_id is not None:
@@ -147,7 +147,7 @@ def search_images(
     scored = []
     for f in candidates:
         try:
-            img_vec = json.loads(f.siglip_embedding)
+            img_vec = json.loads(f.clip_embedding)
             score = cosine_similarity(text_vec, img_vec)
             scored.append((f, score))
         except Exception:

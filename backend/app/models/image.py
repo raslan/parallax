@@ -26,7 +26,7 @@ class ImageFile(Base):
     exif_gps: Mapped[str] = mapped_column(Text, nullable=True)
     exif_camera: Mapped[str] = mapped_column(String(256), nullable=True)
     phash: Mapped[int] = mapped_column(Integer, nullable=True)
-    siglip_embedding: Mapped[str] = mapped_column(Text, nullable=True)
+    clip_embedding: Mapped[str] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default=ImageStatus.PENDING)
     scan_error: Mapped[str] = mapped_column(Text, nullable=True)
     scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
