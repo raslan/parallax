@@ -19,9 +19,9 @@ def test_nudenet_model_registry():
     assert NUDENET_MODELS["640m"]["inference_resolution"] == 640
 
 def test_clip_path_helpers(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATA_DIR", str(tmp_path))
     import importlib, app.services.model_manager as mm
     importlib.reload(mm)
+    monkeypatch.setattr(mm, "MODELS_DIR", os.path.join(str(tmp_path), "models"))
     p = mm.clip_vision_path("clip-vit-base-patch32")
     assert p.endswith("clip/clip-vit-base-patch32/vision.onnx")
 
@@ -31,15 +31,15 @@ def test_is_nudenet_downloaded_bundled():
     assert is_nudenet_downloaded("320n") is True
 
 def test_is_clip_downloaded_false(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATA_DIR", str(tmp_path))
     import importlib, app.services.model_manager as mm
     importlib.reload(mm)
+    monkeypatch.setattr(mm, "MODELS_DIR", os.path.join(str(tmp_path), "models"))
     assert mm.is_clip_downloaded("clip-vit-large-patch14") is False
 
 def test_migrate_legacy_clip_moves_files(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATA_DIR", str(tmp_path))
     import importlib, app.services.model_manager as mm
     importlib.reload(mm)
+    monkeypatch.setattr(mm, "MODELS_DIR", os.path.join(str(tmp_path), "models"))
 
     legacy_clip = os.path.join(str(tmp_path), "models", "clip")
     os.makedirs(legacy_clip)
