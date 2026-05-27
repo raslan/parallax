@@ -3,12 +3,17 @@ import json
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc, nullslast
 
 from app.database import get_db, DATA_DIR
 from app.models.image import ImageFile, ImageDetection, ImageStatus
 from app.schemas import ImageRead, ImagesResponse, ImageDetectionRead, ImageSearchResult
+
+
+class BulkQuarantineRequest(BaseModel):
+    ids: list[int]
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -60,7 +65,7 @@ def list_images(
     status: str | None = Query(None),
     has_detections: str | None = Query(None),  # "any", "exposed", "none"
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=10000),
     sort_by: str = Query("filename"),
     sort_dir: str = Query("asc"),
     db: Session = Depends(get_db),
@@ -206,9 +211,9 @@ def get_image_duplicates(
 
 
 @router.post("/quarantine-bulk", status_code=200)
-def quarantine_bulk(image_ids: list[int], db: Session = Depends(get_db)):
+def quarantine_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
     moved = 0
-    for image_id in image_ids:
+    for image_id in body.ids:
         f = db.get(ImageFile, image_id)
         if not f or f.status == ImageStatus.QUARANTINED:
             continue

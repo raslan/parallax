@@ -29,8 +29,8 @@ def generate_thumbnail(src_path: str, out_path: str) -> None:
         if hasattr(raw, "n_frames"):
             raw.seek(0)
             img = raw.convert("RGB")
-    img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
-    img.save(out_path, "JPEG", quality=85)
+        img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
+        img.save(out_path, "JPEG", quality=85)
 
 
 def _thumbnail_path(image_id: int) -> str:
