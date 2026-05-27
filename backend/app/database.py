@@ -29,6 +29,7 @@ def get_db():
 
 def init_db():
     from app.models import library, file, job, schedule, settings  # noqa: F401
+    from app.models import image_library, image  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
     # Lightweight migrations for columns added after initial creation

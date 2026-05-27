@@ -29,6 +29,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        include:
+          - runtime: cpu
+            tag_suffix: ""
+          - runtime: cuda
+            tag_suffix: "-cuda"
+          - runtime: rocm
+            tag_suffix: "-rocm"
 
     steps:
       - name: Checkout
@@ -46,6 +55,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: |
+            suffix=${{ matrix.tag_suffix }}
           tags: |
             type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name }}
@@ -58,3 +69,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            RUNTIME=${{ matrix.runtime }}

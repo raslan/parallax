@@ -268,9 +268,9 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes: number; tmdb_api_key: string }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
@@ -293,4 +293,189 @@ export const api = {
     req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
   identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[] }) =>
     req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
+};
+
+// ── Image library types ──────────────────────────────────────────────────────
+
+export interface ImageLibrary {
+  id: number;
+  name: string;
+  path: string;
+  created_at: string;
+  last_scanned_at: string | null;
+  image_count: number;
+}
+
+export interface ImageDetection {
+  id: number;
+  image_id: number;
+  label: string;
+  confidence: number;
+  bbox_json: string | null;
+}
+
+export interface ImageFile {
+  id: number;
+  library_id: number;
+  path: string;
+  filename: string;
+  extension: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+  exif_date: number | null;
+  exif_gps: string | null;
+  exif_camera: string | null;
+  status: string;
+  scan_error: string | null;
+  scanned_at: string | null;
+  created_at: string;
+  has_thumbnail: boolean;
+  detections: ImageDetection[];
+}
+
+export interface ImagesResponse {
+  items: ImageFile[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ImageSearchResult {
+  image: ImageFile;
+  score: number;
+}
+
+export interface ImageScanRequest {
+  run_phash: boolean;
+  run_nudenet: boolean;
+  run_clip: boolean;
+  reset: boolean;
+}
+
+// ── Image library API ────────────────────────────────────────────────────────
+
+export const imageApi = {
+  listLibraries: () =>
+    req<ImageLibrary[]>("/image-libraries"),
+
+  createLibrary: (body: { name?: string; path: string }) =>
+    req<ImageLibrary>("/image-libraries", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  deleteLibrary: (id: number) =>
+    req<void>(`/image-libraries/${id}`, { method: "DELETE" }),
+
+  scanLibrary: (id: number, opts: ImageScanRequest) =>
+    req<{ job_id: number }>(`/image-libraries/${id}/scan`, {
+      method: "POST",
+      body: JSON.stringify(opts),
+    }),
+
+  listImages: (params: {
+    library_id?: number;
+    status?: string;
+    has_detections?: "any" | "exposed" | "none";
+    page?: number;
+    page_size?: number;
+    sort_by?: string;
+    sort_dir?: "asc" | "desc";
+  }) => {
+    const p = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined) p.set(k, String(v));
+    });
+    return req<ImagesResponse>(`/images?${p}`);
+  },
+
+  thumbnailUrl: (id: number) => `/api/images/${id}/thumbnail`,
+  fullUrl: (id: number) => `/api/images/${id}/full`,
+
+  quarantineImage: (id: number) =>
+    req<{ message: string }>(`/images/${id}/quarantine`, { method: "POST" }),
+
+  quarantineBulk: (ids: number[]) =>
+    req<{ moved: number }>("/images/quarantine-bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+
+  listQuarantined: (page = 1, page_size = 50) =>
+    req<ImagesResponse>(`/images/quarantined?page=${page}&page_size=${page_size}`),
+
+  restoreImage: (id: number) =>
+    req<{ message: string }>(`/images/${id}/restore`, { method: "POST" }),
+
+  deleteImage: (id: number) =>
+    req<void>(`/images/${id}`, { method: "DELETE" }),
+
+  searchImages: (q: string, opts?: { limit?: number; exclude?: boolean; library_id?: number }) => {
+    const p = new URLSearchParams({ q });
+    if (opts?.limit) p.set("limit", String(opts.limit));
+    if (opts?.exclude) p.set("exclude", "true");
+    if (opts?.library_id) p.set("library_id", String(opts.library_id));
+    return req<ImageSearchResult[]>(`/images/search?${p}`);
+  },
+
+  filterByDetections: (params: {
+    labels: string[];
+    min_confidence: number;
+    exclude?: boolean;
+    library_id?: number;
+    page?: number;
+    page_size?: number;
+  }) => {
+    const p = new URLSearchParams({
+      labels: params.labels.join(","),
+      min_confidence: String(params.min_confidence),
+    });
+    if (params.exclude) p.set("exclude", "true");
+    if (params.library_id) p.set("library_id", String(params.library_id));
+    if (params.page) p.set("page", String(params.page));
+    if (params.page_size) p.set("page_size", String(params.page_size));
+    return req<ImagesResponse>(`/images/detections?${p}`);
+  },
+
+  duplicates: (library_id?: number) => {
+    const p = library_id ? `?library_id=${library_id}` : "";
+    return req<number[][]>(`/images/duplicates${p}`);
+  },
+};
+
+// ── AI model management ──────────────────────────────────────────────────────
+
+export interface ModelInfo {
+  id: string;
+  type: "clip" | "nudenet";
+  name: string;
+  description: string;
+  size_mb: number;
+  quality: string;
+  downloaded: boolean;
+  active: boolean;
+  bundled: boolean;
+}
+
+export const modelsApi = {
+  listModels: () => req<ModelInfo[]>("/models"),
+
+  downloadClip: (model_id: string) =>
+    req<{ job_id: number }>(`/models/clip/${model_id}/download`, { method: "POST" }),
+
+  downloadNudenet: (model_id: string) =>
+    req<{ job_id: number }>(`/models/nudenet/${model_id}/download`, { method: "POST" }),
+
+  deleteClip: (model_id: string) =>
+    req<void>(`/models/clip/${model_id}`, { method: "DELETE" }),
+
+  deleteNudenet: (model_id: string) =>
+    req<void>(`/models/nudenet/${model_id}`, { method: "DELETE" }),
+
+  activateClip: (model_id: string) =>
+    api.updateSettings({ clip_model: model_id }),
+
+  activateNudenet: (model_id: string) =>
+    api.updateSettings({ nudenet_model: model_id }),
 };
