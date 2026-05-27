@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2 } from "lucide-react";
+import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -144,6 +144,7 @@ export function Libraries() {
   const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
   const [transcodingIds, setTranscodingIds] = useState<Set<number>>(new Set());
+  const [aiScanningIds, setAiScanningIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transcodePresetFor, setTranscodePresetFor] = useState<number | null>(null);
@@ -200,6 +201,17 @@ export function Libraries() {
       if (!e.message?.includes("409")) throw e;
     } finally {
       setTranscodingIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleAiScan = async (id: number) => {
+    setAiScanningIds((s) => new Set(s).add(id));
+    try {
+      await api.triggerVideoScan(id);
+    } catch (e: any) {
+      if (!e.message?.includes("409")) throw e;
+    } finally {
+      setAiScanningIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
   };
 
@@ -289,6 +301,16 @@ export function Libraries() {
                       title={checkTitle}
                     >
                       <ShieldCheck className={`h-3.5 w-3.5 ${checkingIds.has(lib.id) ? "text-primary" : notIndexed ? "opacity-30" : ""}`} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => handleAiScan(lib.id)}
+                      disabled={aiScanningIds.has(lib.id) || notIndexed}
+                      title={notIndexed ? "Scan the library first before running AI scan" : "Run CLIP + NudeNet AI scan on video keyframes"}
+                    >
+                      <Brain className={`h-3.5 w-3.5 ${aiScanningIds.has(lib.id) ? "text-primary animate-pulse" : notIndexed ? "opacity-30" : ""}`} />
                     </Button>
                     <div className="relative" ref={transcodePresetFor === lib.id ? presetRef : undefined}>
                       <Button

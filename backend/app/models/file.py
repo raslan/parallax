@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, func
+from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -36,3 +36,5 @@ class File(Base):
     file_fps: Mapped[float] = mapped_column(Float, nullable=True)
     file_date: Mapped[float] = mapped_column(Float, nullable=True)
     extension: Mapped[str] = mapped_column(String(16), nullable=True)
+    clip_embedding: Mapped[str] = mapped_column(Text, nullable=True)
+    video_scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

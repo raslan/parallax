@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.database import init_db
+from app.models import video as _video_models  # noqa: F401 — ensures VideoDetection table is created
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
 from app.api.health import router as health_router
@@ -40,6 +41,20 @@ def _reap_orphaned_jobs():
         db.close()
 
 
+def _migrate_video_columns():
+    """Add clip_embedding and video_scanned_at to files table if missing."""
+    from app.database import engine
+    import sqlalchemy as sa
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(sa.text("PRAGMA table_info(files)"))]
+        if "clip_embedding" not in cols:
+            conn.execute(sa.text("ALTER TABLE files ADD COLUMN clip_embedding TEXT"))
+            conn.commit()
+        if "video_scanned_at" not in cols:
+            conn.execute(sa.text("ALTER TABLE files ADD COLUMN video_scanned_at DATETIME"))
+            conn.commit()
+
+
 def _migrate_siglip_to_clip():
     """One-time column rename: siglip_embedding → clip_embedding (SQLite 3.35+)."""
     from app.database import engine
@@ -58,6 +73,7 @@ def _migrate_siglip_to_clip():
 async def lifespan(app: FastAPI):
     init_db()
     _migrate_siglip_to_clip()
+    _migrate_video_columns()
     from app.services.model_manager import migrate_legacy_clip
     migrate_legacy_clip()
     _reap_orphaned_jobs()

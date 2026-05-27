@@ -223,6 +223,23 @@ export const api = {
   },
   thumbnailUrl: (id: number) => `${BASE}/files/${id}/thumbnail`,
   streamUrl: (id: number) => `${BASE}/files/${id}/stream`,
+  searchFiles: (q: string, library_id?: number, limit = 50) => {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    if (library_id !== undefined) params.set("library_id", String(library_id));
+    return req<VideoSearchResult[]>(`/files/search?${params}`);
+  },
+  filterFilesByDetections: (params: { labels: string[]; min_confidence: number; library_id?: number; page?: number; page_size?: number }) => {
+    const q = new URLSearchParams({
+      labels: params.labels.join(","),
+      min_confidence: String(params.min_confidence),
+      page: String(params.page ?? 1),
+      page_size: String(params.page_size ?? 50),
+    });
+    if (params.library_id !== undefined) q.set("library_id", String(params.library_id));
+    return req<FilesResponse>(`/files/detections?${q}`);
+  },
+  triggerVideoScan: (library_id: number, reset = false) =>
+    req<{ job_id: number; message: string }>(`/libraries/${library_id}/video-scan?reset=${reset}`, { method: "POST" }),
 
   // Jobs
   getJobs: (limit = 50) => req<Job[]>(`/jobs?limit=${limit}`),
@@ -344,6 +361,11 @@ export interface ImagesResponse {
 
 export interface ImageSearchResult {
   image: ImageFile;
+  score: number;
+}
+
+export interface VideoSearchResult {
+  file: VideoFile;
   score: number;
 }
 
