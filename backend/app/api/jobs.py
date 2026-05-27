@@ -10,6 +10,15 @@ from app.schemas import JobRead
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
+# Map job types to display labels
+JOB_TYPE_LABELS = {
+    "scan": "Scan",
+    "check": "Corruption check",
+    "transcode": "Transcode",
+    "duplicates": "Duplicate scan",
+    "image_scan": "Image Scan",
+}
+
 
 @router.get("/stream")
 async def stream_jobs():
