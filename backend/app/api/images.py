@@ -131,8 +131,10 @@ def search_images(
     db: Session = Depends(get_db),
 ):
     from app.services.image_analyzer import encode_text_clip, cosine_similarity
+    from app.models.settings import get_setting
 
-    text_vec = encode_text_clip(q)
+    clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
+    text_vec = encode_text_clip(q, model_id=clip_model_id)
 
     query = db.query(ImageFile).filter(
         ImageFile.siglip_embedding.isnot(None),
