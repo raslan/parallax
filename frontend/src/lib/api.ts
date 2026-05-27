@@ -420,6 +420,7 @@ export const imageApi = {
   filterByDetections: (params: {
     labels: string[];
     min_confidence: number;
+    exclude?: boolean;
     library_id?: number;
     page?: number;
     page_size?: number;
@@ -428,6 +429,7 @@ export const imageApi = {
       labels: params.labels.join(","),
       min_confidence: String(params.min_confidence),
     });
+    if (params.exclude) p.set("exclude", "true");
     if (params.library_id) p.set("library_id", String(params.library_id));
     if (params.page) p.set("page", String(params.page));
     if (params.page_size) p.set("page_size", String(params.page_size));

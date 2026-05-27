@@ -161,6 +161,7 @@ def search_images(
 def filter_by_detections(
     labels: str = Query(..., description="Comma-separated NudeNet labels"),
     min_confidence: float = Query(0.7, ge=0.0, le=1.0),
+    exclude: bool = Query(False, description="Return images that do NOT match the criteria"),
     library_id: int | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -180,7 +181,8 @@ def filter_by_detections(
         .subquery()
     )
 
-    q = db.query(ImageFile).filter(ImageFile.id.in_(matching_ids))
+    id_filter = ImageFile.id.notin_(matching_ids) if exclude else ImageFile.id.in_(matching_ids)
+    q = db.query(ImageFile).filter(id_filter)
     if library_id is not None:
         q = q.filter(ImageFile.library_id == library_id)
 

@@ -64,23 +64,42 @@ function ImageGrid({
   );
 }
 
+type CombineMode = "union" | "intersection";
+
 export function ContentReview() {
+  const [detectionEnabled, setDetectionEnabled] = useState(true);
   const [checkedLabels, setCheckedLabels] = useState<Set<string>>(new Set([
     "FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED",
     "MALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED",
   ]));
   const [confidence, setConfidence] = useState(0.7);
+  const [invertDetection, setInvertDetection] = useState(false);
+
+  const [searchEnabled, setSearchEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [combineMode, setCombineMode] = useState<CombineMode>("union");
+
   const [detectionResults, setDetectionResults] = useState<ImageFile[]>([]);
   const [searchResults, setSearchResults] = useState<ImageFile[]>([]);
   const [selectedIds, setSelectedIds] = useState(new Set<number>());
   const [loading, setLoading] = useState(false);
   const [quarantining, setQuarantining] = useState(false);
+  const [hasRun, setHasRun] = useState(false);
 
-  const allResults = [
-    ...detectionResults,
-    ...searchResults.filter((sr) => !detectionResults.some((dr) => dr.id === sr.id)),
-  ];
+  const bothActive = detectionEnabled && checkedLabels.size > 0 && searchEnabled && searchQuery.trim().length > 0;
+
+  const allResults = (() => {
+    if (!bothActive || combineMode === "union") {
+      return [
+        ...detectionResults,
+        ...searchResults.filter((sr) => !detectionResults.some((dr) => dr.id === sr.id)),
+      ];
+    }
+    // intersection: only images present in both
+    const detectionIds = new Set(detectionResults.map((r) => r.id));
+    return searchResults.filter((sr) => detectionIds.has(sr.id));
+  })();
 
   const toggleLabel = (label: string) =>
     setCheckedLabels((s) => { const n = new Set(s); n.has(label) ? n.delete(label) : n.add(label); return n; });
@@ -93,20 +112,22 @@ export function ContentReview() {
     setDetectionResults([]);
     setSearchResults([]);
     setSelectedIds(new Set());
+    setHasRun(true);
     try {
       const promises: Promise<void>[] = [];
 
-      if (checkedLabels.size > 0) {
+      if (detectionEnabled && checkedLabels.size > 0) {
         promises.push(
           imageApi.filterByDetections({
             labels: [...checkedLabels],
             min_confidence: confidence,
+            exclude: invertDetection,
             page_size: 200,
           }).then((r) => setDetectionResults(r.items))
         );
       }
 
-      if (searchQuery.trim()) {
+      if (searchEnabled && searchQuery.trim()) {
         promises.push(
           imageApi.searchImages(searchQuery.trim(), { limit: 200 })
             .then((results) => setSearchResults(results.map((r) => r.image)))
@@ -131,6 +152,10 @@ export function ContentReview() {
     }
   }
 
+  const canRun =
+    (detectionEnabled && checkedLabels.size > 0) ||
+    (searchEnabled && searchQuery.trim().length > 0);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-3">
@@ -138,17 +163,30 @@ export function ContentReview() {
         <div>
           <h1 className="text-lg font-semibold">Content Review</h1>
           <p className="text-xs text-muted-foreground">
-            Filter images by detected content or search by description.
+            Filter images by detected content or semantic search. Enable one or both.
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Detection Labels
-          </p>
-          <div className="mb-4 flex flex-col gap-3">
+        {/* Detection panel */}
+        <div className={`rounded-lg border bg-card p-4 transition-opacity ${detectionEnabled ? "border-border" : "border-border opacity-50"}`}>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Detection Labels
+            </p>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-xs text-muted-foreground">Enable</span>
+              <input
+                type="checkbox"
+                checked={detectionEnabled}
+                onChange={(e) => setDetectionEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-border accent-primary"
+              />
+            </label>
+          </div>
+
+          <div className={`mb-4 flex flex-col gap-3 ${!detectionEnabled ? "pointer-events-none" : ""}`}>
             {DETECTION_GROUPS.map((group) => (
               <div key={group.label}>
                 <p className="mb-1.5 text-xs text-muted-foreground">{group.label}</p>
@@ -168,35 +206,62 @@ export function ContentReview() {
               </div>
             ))}
           </div>
-          <div>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Min Confidence: <span className="font-mono">{confidence.toFixed(2)}</span>
-            </p>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={confidence}
-              onChange={(e) => setConfidence(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
+
+          <div className={`space-y-3 ${!detectionEnabled ? "pointer-events-none" : ""}`}>
+            <div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Min Confidence: <span className="font-mono">{confidence.toFixed(2)}</span>
+              </p>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={confidence}
+                onChange={(e) => setConfidence(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Button
+                size="sm" variant="outline" className="text-xs"
+                onClick={() => setCheckedLabels(new Set([
+                  "FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED",
+                  "MALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED",
+                ]))}
+              >
+                Exposed Only
+              </Button>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={invertDetection}
+                  onChange={(e) => setInvertDetection(e.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                <span className="text-xs text-muted-foreground">Invert (exclude matches)</span>
+              </label>
+            </div>
           </div>
-          <Button
-            size="sm" variant="outline" className="mt-3 w-full text-xs"
-            onClick={() => setCheckedLabels(new Set([
-              "FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED",
-              "MALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED",
-            ]))}
-          >
-            Exposed Only Preset
-          </Button>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Semantic Search
-          </p>
+        {/* Search panel */}
+        <div className={`rounded-lg border bg-card p-4 transition-opacity ${searchEnabled ? "border-border" : "border-border opacity-50"}`}>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Semantic Search
+            </p>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-xs text-muted-foreground">Enable</span>
+              <input
+                type="checkbox"
+                checked={searchEnabled}
+                onChange={(e) => setSearchEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-border accent-primary"
+              />
+            </label>
+          </div>
           <p className="mb-3 text-xs text-muted-foreground">
             Describe what you're looking for. Results are ranked by visual similarity.
           </p>
@@ -204,13 +269,34 @@ export function ContentReview() {
             placeholder="e.g. person at beach, food, outdoor scene…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && runFilters()}
+            onKeyDown={(e) => e.key === "Enter" && canRun && runFilters()}
+            disabled={!searchEnabled}
             className="text-sm"
           />
         </div>
       </div>
 
-      <Button onClick={runFilters} disabled={loading} className="w-full sm:w-auto">
+      {/* Combine mode — only shown when both active */}
+      {bothActive && (
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>Combine results:</span>
+          {(["union", "intersection"] as CombineMode[]).map((mode) => (
+            <label key={mode} className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="radio"
+                name="combineMode"
+                value={mode}
+                checked={combineMode === mode}
+                onChange={() => setCombineMode(mode)}
+                className="accent-primary"
+              />
+              <span className="capitalize">{mode === "union" ? "OR (either)" : "AND (both)"}</span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      <Button onClick={runFilters} disabled={loading || !canRun} className="w-full sm:w-auto">
         <Search className="h-4 w-4" />
         {loading ? "Searching…" : "Run Filters"}
       </Button>
@@ -230,9 +316,9 @@ export function ContentReview() {
         </>
       )}
 
-      {!loading && allResults.length === 0 && (checkedLabels.size > 0 || searchQuery) && (
+      {!loading && hasRun && allResults.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-12">
-          No results. Try adjusting the confidence threshold or search query.
+          No results. Try adjusting filters or search query.
         </p>
       )}
     </div>
