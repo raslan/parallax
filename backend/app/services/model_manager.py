@@ -207,11 +207,18 @@ def download_nudenet(model_id: str, job_id: int) -> None:
             )
 
         expected_bytes = meta["size_mb"] * 1024 * 1024
+        content_length = int(r.headers.get("Content-Length", 0)) or expected_bytes
         downloaded = 0
+        last_reported = 0
         with open(target, "wb") as f:
             for chunk in r.iter_content(chunk_size=65536):
                 f.write(chunk)
                 downloaded += len(chunk)
+                pct = 10.0 + (downloaded / content_length) * 85.0
+                if pct - last_reported >= 2.0:
+                    job.progress = min(pct, 95.0)
+                    db.commit()
+                    last_reported = pct
 
         if downloaded < expected_bytes * 0.5:
             os.remove(target)
@@ -219,9 +226,6 @@ def download_nudenet(model_id: str, job_id: int) -> None:
                 f"Downloaded file too small: {downloaded} bytes "
                 f"(expected ~{expected_bytes} bytes). File may be corrupt."
             )
-
-        job.progress = 60.0
-        db.commit()
 
         job.status = JobStatus.COMPLETED
         job.progress = 100.0
