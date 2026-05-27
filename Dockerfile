@@ -19,13 +19,13 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Stage 2b: NVIDIA CUDA base
-FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu22.04 AS base-cuda
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS base-cuda
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg python3.12 python3.12-venv python3.12-dev libcublas-12-9 && \
+    apt-get install -y --no-install-recommends ffmpeg python3.12 python3.12-venv python3.12-dev libcublas-12-4 && \
     python3.12 -m ensurepip --upgrade && \
     python3.12 -m pip install --upgrade pip && \
     rm -rf /var/lib/apt/lists/*
