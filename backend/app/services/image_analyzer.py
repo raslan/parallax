@@ -34,7 +34,7 @@ def _download_siglip_if_needed() -> None:
     os.makedirs(SIGLIP_DIR, exist_ok=True)
     if not os.path.exists(SIGLIP_VISION_PATH):
         from huggingface_hub import hf_hub_download
-        src = hf_hub_download(repo_id=SIGLIP_REPO, filename="onnx/model.onnx",
+        src = hf_hub_download(repo_id=SIGLIP_REPO, filename="onnx/vision_model.onnx",
                               local_dir=SIGLIP_DIR)
         shutil.move(src, SIGLIP_VISION_PATH)
     if not os.path.exists(SIGLIP_TEXT_PATH):
