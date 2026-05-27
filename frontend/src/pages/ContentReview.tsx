@@ -87,10 +87,11 @@ export function ContentReview() {
   const [searchQuery, setSearchQuery] = useState("");
   const [invertSearch, setInvertSearch] = useState(false);
 
+  const [minScore, setMinScore] = useState(0.2);
   const [combineMode, setCombineMode] = useState<CombineMode>("union");
 
   const [detectionResults, setDetectionResults] = useState<ImageFile[]>([]);
-  const [searchResults, setSearchResults] = useState<ImageFile[]>([]);
+  const [searchResults, setSearchResults] = useState<{ image: ImageFile; score: number }[]>([]);
   const [selectedIds, setSelectedIds] = useState(new Set<number>());
   const [loading, setLoading] = useState(false);
   const [quarantining, setQuarantining] = useState(false);
@@ -99,16 +100,20 @@ export function ContentReview() {
 
   const bothActive = detectionEnabled && checkedLabels.size > 0 && searchEnabled && searchQuery.trim().length > 0;
 
+  const filteredSearchImages = searchResults
+    .filter((r) => r.score >= minScore)
+    .map((r) => r.image);
+
   const allResults = (() => {
     if (!bothActive || combineMode === "union") {
       return [
         ...detectionResults,
-        ...searchResults.filter((sr) => !detectionResults.some((dr) => dr.id === sr.id)),
+        ...filteredSearchImages.filter((sr) => !detectionResults.some((dr) => dr.id === sr.id)),
       ];
     }
     // intersection: only images present in both
     const detectionIds = new Set(detectionResults.map((r) => r.id));
-    return searchResults.filter((sr) => detectionIds.has(sr.id));
+    return filteredSearchImages.filter((sr) => detectionIds.has(sr.id));
   })();
 
   const toggleLabel = (label: string) =>
@@ -140,7 +145,7 @@ export function ContentReview() {
       if (searchEnabled && searchQuery.trim()) {
         promises.push(
           imageApi.searchImages(searchQuery.trim(), { limit: 200, exclude: invertSearch })
-            .then((results) => setSearchResults(results.map((r) => r.image)))
+            .then(setSearchResults)
         );
       }
 
@@ -293,6 +298,21 @@ export function ContentReview() {
             />
             <span className="text-xs text-muted-foreground">Invert (least similar first)</span>
           </label>
+          <div className={`mt-3 ${!searchEnabled ? "pointer-events-none opacity-50" : ""}`}>
+            <p className="mb-1 text-xs text-muted-foreground">
+              Min similarity: <span className="font-mono">{minScore.toFixed(2)}</span>
+            </p>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={minScore}
+              onChange={(e) => setMinScore(Number(e.target.value))}
+              disabled={!searchEnabled}
+              className="w-full accent-primary"
+            />
+          </div>
         </div>
       </div>
 
