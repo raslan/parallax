@@ -38,7 +38,9 @@ def _thumbnail_path(image_id: int) -> str:
 
 
 def _process_one(db, library_id: int, path: str,
-                  run_phash: bool, run_nudenet: bool, run_siglip: bool) -> ImageFile:
+                  run_phash: bool, run_nudenet: bool, run_siglip: bool,
+                  clip_model_id: str = "clip-vit-base-patch32",
+                  nudenet_model_id: str = "320n") -> ImageFile:
     from app.services.image_analyzer import (
         get_image_metadata, compute_phash, run_nudenet as nudenet_detect,
         encode_image_clip,
@@ -65,14 +67,14 @@ def _process_one(db, library_id: int, path: str,
         img_obj.phash = compute_phash(path)
 
     if run_siglip:
-        embedding = encode_image_clip(path)
+        embedding = encode_image_clip(path, model_id=clip_model_id)
         img_obj.siglip_embedding = json.dumps(embedding)
 
     db.add(img_obj)
     db.flush()  # get img_obj.id
 
     if run_nudenet:
-        detections = nudenet_detect(path)
+        detections = nudenet_detect(path, model_id=nudenet_model_id)
         for d in detections:
             db.add(ImageDetection(
                 image_id=img_obj.id,
@@ -89,6 +91,7 @@ def scan_image_library(library_id: int, job_id: int,
                         run_phash: bool = True,
                         run_nudenet: bool = True,
                         run_siglip: bool = True) -> None:
+    from app.models.settings import get_setting
     db = SessionLocal()
     job = None
     try:
@@ -99,6 +102,9 @@ def scan_image_library(library_id: int, job_id: int,
         job = db.get(Job, job_id)
         if not job or job.status == JobStatus.CANCELLED:
             return
+
+        clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
+        nudenet_model_id = get_setting(db, "nudenet_model", "320n")
 
         job.status = JobStatus.RUNNING
         job.started_at = now()
@@ -130,7 +136,8 @@ def scan_image_library(library_id: int, job_id: int,
             db.commit()
 
             try:
-                _process_one(db, library_id, path, run_phash, run_nudenet, run_siglip)
+                _process_one(db, library_id, path, run_phash, run_nudenet, run_siglip,
+                             clip_model_id=clip_model_id, nudenet_model_id=nudenet_model_id)
                 db.commit()
                 succeeded += 1
             except Exception as e:
