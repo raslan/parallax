@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Copy, FolderX } from "lucide-react";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ImageViewerModal } from "@/components/ImageViewerModal";
 
 function DuplicateCluster({ ids, libraryId, onQuarantine }: { ids: number[]; libraryId?: number; onQuarantine: (id: number) => void }) {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
   useEffect(() => {
     imageApi.listImages({ library_id: libraryId, page: 1, page_size: 1000 }).then((r) => {
@@ -22,7 +24,7 @@ function DuplicateCluster({ ids, libraryId, onQuarantine }: { ids: number[]; lib
         {images.map((img) => (
           <div
             key={img.id}
-            onClick={() => toggle(img.id)}
+            onClick={() => setViewingImg(img)}
             className={`relative cursor-pointer rounded-md overflow-hidden border w-32 h-32 ${
               selected.has(img.id) ? "ring-2 ring-primary border-primary" : "border-border"
             }`}
@@ -33,6 +35,18 @@ function DuplicateCluster({ ids, libraryId, onQuarantine }: { ids: number[]; lib
             ) : (
               <div className="w-full h-full bg-muted" />
             )}
+            <div
+              onClick={(e) => { e.stopPropagation(); toggle(img.id); }}
+              className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer ${
+                selected.has(img.id)
+                  ? "bg-primary border-primary"
+                  : "bg-background/80 border-muted-foreground"
+              }`}
+            >
+              {selected.has(img.id) && (
+                <span className="text-[10px] text-primary-foreground font-bold">✓</span>
+              )}
+            </div>
             <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5">
               <p className="truncate text-[10px] text-white">{img.filename}</p>
               <p className="text-[10px] text-white/60">{(img.size / 1024).toFixed(0)} KB</p>
@@ -49,6 +63,9 @@ function DuplicateCluster({ ids, libraryId, onQuarantine }: { ids: number[]; lib
             Quarantine Selected
           </Button>
         </div>
+      )}
+      {viewingImg && (
+        <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />
       )}
     </div>
   );

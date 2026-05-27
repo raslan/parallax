@@ -3,6 +3,7 @@ import { ShieldAlert, Search, FolderX } from "lucide-react";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImageViewerModal } from "@/components/ImageViewerModal";
 
 const DETECTION_GROUPS = [
   {
@@ -30,14 +31,14 @@ const DETECTION_GROUPS = [
 ];
 
 function ImageGrid({
-  images, selectedIds, onToggle,
-}: { images: ImageFile[]; selectedIds: Set<number>; onToggle: (id: number) => void }) {
+  images, selectedIds, onToggle, onOpen,
+}: { images: ImageFile[]; selectedIds: Set<number>; onToggle: (id: number) => void; onOpen: (img: ImageFile) => void }) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
       {images.map((img) => (
         <div
           key={img.id}
-          onClick={() => onToggle(img.id)}
+          onClick={() => onOpen(img)}
           className={`relative cursor-pointer rounded-md overflow-hidden border aspect-square ${
             selectedIds.has(img.id) ? "ring-2 ring-primary border-primary" : "border-border"
           }`}
@@ -48,11 +49,18 @@ function ImageGrid({
           ) : (
             <div className="w-full h-full bg-muted" />
           )}
-          {selectedIds.has(img.id) && (
-            <div className="absolute top-1 left-1 h-5 w-5 rounded bg-primary flex items-center justify-center">
+          <div
+            onClick={(e) => { e.stopPropagation(); onToggle(img.id); }}
+            className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer ${
+              selectedIds.has(img.id)
+                ? "bg-primary border-primary"
+                : "bg-background/80 border-muted-foreground"
+            }`}
+          >
+            {selectedIds.has(img.id) && (
               <span className="text-[10px] text-primary-foreground font-bold">✓</span>
-            </div>
-          )}
+            )}
+          </div>
           {img.detections.length > 0 && (
             <div className="absolute top-1 right-1 rounded bg-destructive/90 px-1 py-0.5 text-[10px] text-white">
               {img.detections.length}
@@ -87,6 +95,7 @@ export function ContentReview() {
   const [loading, setLoading] = useState(false);
   const [quarantining, setQuarantining] = useState(false);
   const [hasRun, setHasRun] = useState(false);
+  const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
   const bothActive = detectionEnabled && checkedLabels.size > 0 && searchEnabled && searchQuery.trim().length > 0;
 
@@ -323,7 +332,7 @@ export function ContentReview() {
               </Button>
             )}
           </div>
-          <ImageGrid images={allResults} selectedIds={selectedIds} onToggle={toggleId} />
+          <ImageGrid images={allResults} selectedIds={selectedIds} onToggle={toggleId} onOpen={setViewingImg} />
         </>
       )}
 
@@ -331,6 +340,10 @@ export function ContentReview() {
         <p className="text-center text-sm text-muted-foreground py-12">
           No results. Try adjusting filters or search query.
         </p>
+      )}
+
+      {viewingImg && (
+        <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />
       )}
     </div>
   );
