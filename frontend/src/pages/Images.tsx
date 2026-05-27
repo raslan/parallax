@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight } from "lucide-react";
+import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { formatSize } from "@/lib/format";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
@@ -12,21 +13,61 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 60;
 
+function ImageViewerModal({ img, onClose }: { img: ImageFile; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/80" />
+      <div
+        className="relative z-10 max-w-5xl w-full px-4 flex flex-col gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-white text-sm font-medium truncate pr-4" title={img.path}>
+            {img.filename}
+          </p>
+          <button
+            onClick={onClose}
+            className="text-white/70 hover:text-white transition-colors shrink-0"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <img
+          src={imageApi.fullUrl(img.id)}
+          alt={img.filename}
+          className="max-h-[80vh] w-auto mx-auto rounded-lg object-contain"
+        />
+        <p className="text-white/50 text-xs text-center">
+          {img.width && img.height ? `${img.width}×${img.height} · ` : ""}
+          {formatSize(img.size)} · {img.path}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ImageCard({
-  img, selectionMode, selected, onToggle, onQuarantine,
+  img, selectionMode, selected, onToggle, onQuarantine, onOpen,
 }: {
   img: ImageFile;
   selectionMode: boolean;
   selected: boolean;
   onToggle: () => void;
   onQuarantine: () => void;
+  onOpen: () => void;
 }) {
   return (
     <div
       className={`relative group rounded-md overflow-hidden border cursor-pointer transition-all ${
         selected ? "ring-2 ring-primary border-primary" : "border-border"
       }`}
-      onClick={() => { if (selectionMode) onToggle(); else window.open(imageApi.fullUrl(img.id), "_blank"); }}
+      onClick={() => { if (selectionMode) onToggle(); else onOpen(); }}
     >
       {img.has_thumbnail ? (
         <img
@@ -80,6 +121,7 @@ export function Images() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set<number>());
   const [quarantining, setQuarantining] = useState(false);
+  const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
   const load = useCallback(() => {
     imageApi.listImages({
@@ -198,6 +240,7 @@ export function Images() {
             selected={selectedIds.has(img.id)}
             onToggle={() => toggleId(img.id)}
             onQuarantine={() => quarantineOne(img.id)}
+            onOpen={() => setViewingImg(img)}
           />
         ))}
       </div>
@@ -235,6 +278,10 @@ export function Images() {
           )}
           <Button size="sm" variant="ghost" onClick={toggleSelectionMode}>Cancel</Button>
         </div>
+      )}
+
+      {viewingImg && (
+        <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />
       )}
     </div>
   );

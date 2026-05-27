@@ -29,6 +29,18 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        include:
+          - runtime: cpu
+            onnx_pkg: "onnxruntime==1.20.1"
+            tag_suffix: ""
+          - runtime: cuda
+            onnx_pkg: "onnxruntime-gpu==1.20.1"
+            tag_suffix: "-cuda"
+          - runtime: rocm
+            onnx_pkg: "onnxruntime-rocm"
+            tag_suffix: "-rocm"
 
     steps:
       - name: Checkout
@@ -46,6 +58,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: |
+            suffix=${{ matrix.tag_suffix }}
           tags: |
             type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name }}
@@ -58,3 +72,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            RUNTIME=${{ matrix.runtime }}
+            ONNX_PKG=${{ matrix.onnx_pkg }}

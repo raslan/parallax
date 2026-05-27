@@ -3,12 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.database import get_db
+from app.database import get_db, DATA_DIR
 from app.models.image_library import ImageLibrary
-from app.models.image import ImageFile
+from app.models.image import ImageFile, ImageDetection
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import ImageLibraryCreate, ImageLibraryRead, ImageScanRequest
-from app.services.common import now
+from app.services.common import now, request_cancel
 
 router = APIRouter(prefix="/image-libraries", tags=["image-libraries"])
 
@@ -65,8 +65,33 @@ def delete_image_library(library_id: int, db: Session = Depends(get_db)):
     lib = db.get(ImageLibrary, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
+
+    active_jobs = db.query(Job).filter(
+        Job.type == JobType.IMAGE_SCAN,
+        Job.library_id == library_id,
+        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+    ).all()
+    for job in active_jobs:
+        request_cancel(job.id)
+
+    image_ids = [
+        row[0] for row in
+        db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
+    ]
+    if image_ids:
+        db.query(ImageDetection).filter(
+            ImageDetection.image_id.in_(image_ids)
+        ).delete(synchronize_session=False)
+    db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
     db.delete(lib)
     db.commit()
+
+    thumb_dir = os.path.join(DATA_DIR, "image-thumbnails")
+    for image_id in image_ids:
+        try:
+            os.remove(os.path.join(thumb_dir, f"{image_id}.jpg"))
+        except FileNotFoundError:
+            pass
 
 
 @router.post("/{library_id}/scan", status_code=202)

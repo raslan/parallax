@@ -1,141 +1,310 @@
-import { useState, useEffect } from "react";
-import { Library, Plus, Trash2, ScanLine, Images } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Images, Library, Plus, Trash2, ScanLine, FolderOpen, Loader2 } from "lucide-react";
 import { imageApi, ImageLibrary, ImageScanRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { SectionHeader } from "@/components/SectionHeader";
+import { DirPicker } from "@/components/DirPicker";
+import { formatDate } from "@/lib/format";
+
+const DEFAULT_SCAN_OPTS: ImageScanRequest = {
+  run_phash: true,
+  run_nudenet: true,
+  run_siglip: true,
+};
+
+function AddImageLibraryDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onCreated: (lib: ImageLibrary) => void;
+}) {
+  const [path, setPath] = useState("");
+  const [scanOpts, setScanOpts] = useState<ImageScanRequest>(DEFAULT_SCAN_OPTS);
+  const [autoScan, setAutoScan] = useState(true);
+  const [picking, setPicking] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = () => {
+    setPath(""); setScanOpts(DEFAULT_SCAN_OPTS); setAutoScan(true);
+    setPicking(false); setError("");
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!path.trim()) return;
+    setLoading(true);
+    setError("");
+    try {
+      const lib = await imageApi.createLibrary({ path: path.trim() });
+      if (autoScan) {
+        await imageApi.scanLibrary(lib.id, scanOpts).catch(() => {});
+      }
+      reset();
+      onOpenChange(false);
+      onCreated(lib);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create library");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+      <DialogContent onClose={() => onOpenChange(false)}>
+        <DialogHeader>
+          <DialogTitle>Add Image Library</DialogTitle>
+        </DialogHeader>
+        {picking ? (
+          <DirPicker
+            onSelect={(p) => { setPath(p); setPicking(false); }}
+            onClose={() => setPicking(false)}
+          />
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Path</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="/media/photos"
+                  value={path}
+                  onChange={(e) => setPath(e.target.value)}
+                  className="font-mono text-sm"
+                  required
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => setPicking(true)} title="Browse">
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Scan options</Label>
+              {([
+                ["run_phash", "Duplicates (pHash)"],
+                ["run_nudenet", "Content review (NudeNet)"],
+                ["run_siglip", "Semantic search (SigLIP)"],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={scanOpts[key]}
+                    onChange={(e) => setScanOpts((o) => ({ ...o, [key]: e.target.checked }))}
+                    className="h-4 w-4 rounded border-border accent-primary"
+                  />
+                  <span className="text-sm">{label}</span>
+                </label>
+              ))}
+            </div>
+
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoScan}
+                onChange={(e) => setAutoScan(e.target.checked)}
+                className="accent-primary h-4 w-4 mt-0.5 shrink-0"
+              />
+              <div>
+                <p className="text-sm font-medium">Scan after creation</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Automatically index and analyse images as soon as the library is created.
+                </p>
+              </div>
+            </label>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit" disabled={loading || !path.trim()}>
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Add Library
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function ImageLibraries() {
   const [libraries, setLibraries] = useState<ImageLibrary[]>([]);
-  const [newPath, setNewPath] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [scanOpts, setScanOpts] = useState<ImageScanRequest>({
-    run_phash: true,
-    run_nudenet: true,
-    run_siglip: true,
-  });
+  const [loading, setLoading] = useState(true);
+  const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [scanOptsFor, setScanOptsFor] = useState<number | null>(null);
+  const [scanOpts, setScanOpts] = useState<ImageScanRequest>(DEFAULT_SCAN_OPTS);
+  const scanOptsRef = useRef<HTMLDivElement>(null);
 
-  const load = () => imageApi.listLibraries().then(setLibraries).catch(() => {});
+  useEffect(() => {
+    if (scanOptsFor === null) return;
+    const handler = (e: MouseEvent) => {
+      if (scanOptsRef.current && !scanOptsRef.current.contains(e.target as Node)) {
+        setScanOptsFor(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [scanOptsFor]);
+
+  const load = () => {
+    setLoading(true);
+    imageApi.listLibraries().then(setLibraries).finally(() => setLoading(false));
+  };
 
   useEffect(() => { load(); }, []);
 
-  async function addLibrary() {
-    if (!newPath.trim()) return;
-    setAdding(true);
+  const handleScan = async (id: number) => {
+    setScanOptsFor(null);
+    setScanningIds((s) => new Set(s).add(id));
     try {
-      await imageApi.createLibrary({ path: newPath.trim() });
-      setNewPath("");
-      await load();
+      await imageApi.scanLibrary(id, scanOpts);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : String(e));
+      if (!(e instanceof Error && e.message?.includes("409"))) throw e;
     } finally {
-      setAdding(false);
+      setScanningIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
-  }
+  };
 
-  async function deleteLibrary(id: number) {
-    if (!confirm("Remove this image library?")) return;
-    await imageApi.deleteLibrary(id).catch(() => {});
-    await load();
-  }
-
-  async function scanLibrary(id: number) {
-    await imageApi.scanLibrary(id, scanOpts).catch((e: unknown) =>
-      alert(e instanceof Error ? e.message : String(e))
-    );
-  }
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this image library and remove all its records? Files on disk are not touched.")) return;
+    setDeletingIds((s) => new Set(s).add(id));
+    try {
+      await imageApi.deleteLibrary(id);
+      setLibraries((prev) => prev.filter((l) => l.id !== id));
+    } finally {
+      setDeletingIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
 
   const totalImages = libraries.reduce((s, l) => s + l.image_count, 0);
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center gap-3">
-        <Images className="h-5 w-5" style={{ color: "var(--px-accent)" }} />
+    <div className="p-8 space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Image Libraries</h1>
-          <p className="text-xs text-muted-foreground">Add folders to scan for images.</p>
+          <SectionHeader className="mb-1.5">Image collection</SectionHeader>
+          <h1 className="text-2xl font-semibold tracking-tight">Image Libraries</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {totalImages > 0
+              ? `${libraries.length} ${libraries.length === 1 ? "library" : "libraries"} · ${totalImages.toLocaleString()} images`
+              : "Add folders to scan for images."}
+          </p>
         </div>
-      </div>
-
-      <div
-        className="flex gap-6 rounded-[0.4rem] p-4"
-        style={{ border: "1px solid var(--px-accent-border)", background: "var(--px-accent-dim)" }}
-      >
-        <div>
-          <p className="text-2xl font-semibold">{libraries.length}</p>
-          <p className="text-xs text-muted-foreground">Libraries</p>
-        </div>
-        <div>
-          <p className="text-2xl font-semibold">{totalImages}</p>
-          <p className="text-xs text-muted-foreground">Total Images</p>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-border bg-card p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
           Add Library
-        </p>
-        <div className="flex gap-2">
-          <Input
-            placeholder="/media/photos"
-            value={newPath}
-            onChange={(e) => setNewPath(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addLibrary()}
-            className="flex-1 font-mono text-sm"
-          />
-          <Button size="sm" onClick={addLibrary} disabled={adding || !newPath.trim()}>
-            <Plus className="h-4 w-4" />
-            Add
-          </Button>
-        </div>
+        </Button>
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Scan Options
-        </p>
-        <div className="flex flex-col gap-2">
-          {([
-            ["run_phash", "Duplicates (pHash)"],
-            ["run_nudenet", "Content Review (NudeNet)"],
-            ["run_siglip", "Semantic Search (SigLIP)"],
-          ] as const).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={scanOpts[key]}
-                onChange={(e) => setScanOpts(o => ({ ...o, [key]: e.target.checked }))}
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              <span className="text-sm">{label}</span>
-            </label>
+      <AddImageLibraryDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onCreated={(lib) => setLibraries((prev) => [...prev, lib])}
+      />
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : libraries.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Images className="h-10 w-10 text-muted-foreground mb-4" />
+            <h3 className="font-semibold text-lg mb-1">No image libraries</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Add a folder to start scanning and analysing your images.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {libraries.map((lib) => (
+            <Card key={lib.id}>
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-base leading-tight">{lib.name}</CardTitle>
+                  <div className="flex gap-1 shrink-0 items-center relative">
+                    <div className="relative" ref={scanOptsFor === lib.id ? scanOptsRef : undefined}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        disabled={scanningIds.has(lib.id)}
+                        title="Scan for images"
+                        onClick={() => setScanOptsFor((v) => v === lib.id ? null : lib.id)}
+                      >
+                        <ScanLine className={`h-3.5 w-3.5 ${scanningIds.has(lib.id) ? "text-primary animate-pulse" : ""}`} />
+                      </Button>
+                      {scanOptsFor === lib.id && (
+                        <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-[200px]">
+                          {([
+                            ["run_phash", "Duplicates (pHash)"],
+                            ["run_nudenet", "Content review (NudeNet)"],
+                            ["run_siglip", "Semantic search (SigLIP)"],
+                          ] as const).map(([key, label]) => (
+                            <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={scanOpts[key]}
+                                onChange={(e) => setScanOpts((o) => ({ ...o, [key]: e.target.checked }))}
+                                className="h-3.5 w-3.5 accent-primary"
+                              />
+                              <span className="text-xs">{label}</span>
+                            </label>
+                          ))}
+                          <Button size="sm" className="mt-1" onClick={() => handleScan(lib.id)}>
+                            Scan
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      disabled={deletingIds.has(lib.id)}
+                      title="Delete library"
+                      onClick={() => handleDelete(lib.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate font-mono">{lib.path}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Library className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">
+                    {lib.image_count > 0
+                      ? <><span className="font-mono">{lib.image_count.toLocaleString()}</span> images</>
+                      : "No images indexed"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {lib.last_scanned_at
+                    ? `Last scanned: ${formatDate(lib.last_scanned_at)}`
+                    : "Not yet scanned — click the scan icon to index images"}
+                </p>
+              </CardContent>
+            </Card>
           ))}
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {libraries.map((lib) => (
-          <div key={lib.id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
-            <Library className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium">{lib.name}</p>
-              <p className="truncate font-mono text-xs text-muted-foreground">{lib.path}</p>
-            </div>
-            <span className="text-xs text-muted-foreground">{lib.image_count} images</span>
-            <Button size="sm" variant="outline" onClick={() => scanLibrary(lib.id)}>
-              <ScanLine className="h-3.5 w-3.5" />
-              Scan
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => deleteLibrary(lib.id)}>
-              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-            </Button>
-          </div>
-        ))}
-        {libraries.length === 0 && (
-          <p className="text-center text-sm text-muted-foreground py-8">
-            No image libraries yet. Add a folder above.
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 }
