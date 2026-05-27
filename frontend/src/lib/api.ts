@@ -268,9 +268,9 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes: number; tmdb_api_key: string }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
@@ -441,4 +441,40 @@ export const imageApi = {
     const p = library_id ? `?library_id=${library_id}` : "";
     return req<number[][]>(`/images/duplicates${p}`);
   },
+};
+
+// ── AI model management ──────────────────────────────────────────────────────
+
+export interface ModelInfo {
+  id: string;
+  type: "clip" | "nudenet";
+  name: string;
+  description: string;
+  size_mb: number;
+  quality: string;
+  downloaded: boolean;
+  active: boolean;
+  bundled: boolean;
+}
+
+export const modelsApi = {
+  listModels: () => req<ModelInfo[]>("/models"),
+
+  downloadClip: (model_id: string) =>
+    req<{ job_id: number }>(`/models/clip/${model_id}/download`, { method: "POST" }),
+
+  downloadNudenet: (model_id: string) =>
+    req<{ job_id: number }>(`/models/nudenet/${model_id}/download`, { method: "POST" }),
+
+  deleteClip: (model_id: string) =>
+    req<void>(`/models/clip/${model_id}`, { method: "DELETE" }),
+
+  deleteNudenet: (model_id: string) =>
+    req<void>(`/models/nudenet/${model_id}`, { method: "DELETE" }),
+
+  activateClip: (model_id: string) =>
+    api.updateSettings({ clip_model: model_id }),
+
+  activateNudenet: (model_id: string) =>
+    api.updateSettings({ nudenet_model: model_id }),
 };
