@@ -19,7 +19,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Stage 2b: NVIDIA CUDA base
-FROM nvidia/cuda:12.2.0-cudnn9-runtime-ubuntu22.04 AS base-cuda
+FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu22.04 AS base-cuda
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
