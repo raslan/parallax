@@ -1,6 +1,9 @@
 services:
   transcoder-dev:
-    build: .
+    build:
+      context: .
+      args:
+        RUNTIME: ${RUNTIME:-cpu}
     ports:
       - "${PORT:-7900}:7899"
     volumes:
