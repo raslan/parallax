@@ -41,7 +41,7 @@ def _process_one(db, library_id: int, path: str,
                   run_phash: bool, run_nudenet: bool, run_siglip: bool) -> ImageFile:
     from app.services.image_analyzer import (
         get_image_metadata, compute_phash, run_nudenet as nudenet_detect,
-        encode_image_siglip,
+        encode_image_clip,
     )
     meta = get_image_metadata(path)
     ext = os.path.splitext(path)[1].lower().lstrip(".")
@@ -65,7 +65,7 @@ def _process_one(db, library_id: int, path: str,
         img_obj.phash = compute_phash(path)
 
     if run_siglip:
-        embedding = encode_image_siglip(path)
+        embedding = encode_image_clip(path)
         img_obj.siglip_embedding = json.dumps(embedding)
 
     db.add(img_obj)

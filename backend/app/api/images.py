@@ -129,9 +129,9 @@ def search_images(
     library_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    from app.services.image_analyzer import encode_text_siglip, cosine_similarity
+    from app.services.image_analyzer import encode_text_clip, cosine_similarity
 
-    text_vec = encode_text_siglip(q)
+    text_vec = encode_text_clip(q)
 
     query = db.query(ImageFile).filter(
         ImageFile.siglip_embedding.isnot(None),
