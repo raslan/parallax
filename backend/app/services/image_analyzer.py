@@ -1,6 +1,8 @@
 import os
 import json
 import shutil
+import struct
+import threading
 import numpy as np
 from PIL import Image, ExifTags
 import imagehash
@@ -16,6 +18,9 @@ SIGLIP_REPO = "Xenova/siglip-base-patch16-224"
 _vision_session = None
 _text_session = None
 _tokenizer = None
+_vision_lock = threading.Lock()
+_text_lock = threading.Lock()
+_tokenizer_lock = threading.Lock()
 
 
 def _download_siglip_if_needed() -> None:
@@ -34,29 +39,32 @@ def _download_siglip_if_needed() -> None:
 
 def _get_vision_session():
     global _vision_session
-    if _vision_session is None:
-        import onnxruntime as ort
-        _download_siglip_if_needed()
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        _vision_session = ort.InferenceSession(SIGLIP_VISION_PATH, providers=providers)
+    with _vision_lock:
+        if _vision_session is None:
+            import onnxruntime as ort
+            _download_siglip_if_needed()
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            _vision_session = ort.InferenceSession(SIGLIP_VISION_PATH, providers=providers)
     return _vision_session
 
 
 def _get_text_session():
     global _text_session
-    if _text_session is None:
-        import onnxruntime as ort
-        _download_siglip_if_needed()
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        _text_session = ort.InferenceSession(SIGLIP_TEXT_PATH, providers=providers)
+    with _text_lock:
+        if _text_session is None:
+            import onnxruntime as ort
+            _download_siglip_if_needed()
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            _text_session = ort.InferenceSession(SIGLIP_TEXT_PATH, providers=providers)
     return _text_session
 
 
 def _get_tokenizer():
     global _tokenizer
-    if _tokenizer is None:
-        from transformers import AutoTokenizer
-        _tokenizer = AutoTokenizer.from_pretrained("google/siglip-base-patch16-224")
+    with _tokenizer_lock:
+        if _tokenizer is None:
+            from transformers import AutoTokenizer
+            _tokenizer = AutoTokenizer.from_pretrained("google/siglip-base-patch16-224")
     return _tokenizer
 
 
@@ -104,7 +112,7 @@ def get_image_metadata(path: str) -> dict:
             gps = tags.get("GPSInfo")
             if gps:
                 exif_gps = json.dumps({"raw": str(gps)})
-    except Exception:
+    except (AttributeError, ValueError, KeyError, TypeError, struct.error):
         pass
     return {"width": width, "height": height, "size": size,
             "exif_date": exif_date, "exif_gps": exif_gps, "exif_camera": exif_camera}
