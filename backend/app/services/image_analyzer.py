@@ -4,10 +4,15 @@ import shutil
 import struct
 import threading
 import numpy as np
+import onnxruntime as _ort
 from PIL import Image, ExifTags
 import imagehash
+import nudenet as _nudenet_pkg
 from nudenet import NudeDetector
 from app.database import DATA_DIR
+
+_GPU_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+_NUDENET_MODEL = os.path.join(os.path.dirname(_nudenet_pkg.__file__), "320n.onnx")
 
 MODELS_DIR = os.path.join(DATA_DIR, "models")
 SIGLIP_DIR = os.path.join(MODELS_DIR, "siglip")
@@ -41,10 +46,8 @@ def _get_vision_session():
     global _vision_session
     with _vision_lock:
         if _vision_session is None:
-            import onnxruntime as ort
             _download_siglip_if_needed()
-            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            _vision_session = ort.InferenceSession(SIGLIP_VISION_PATH, providers=providers)
+            _vision_session = _ort.InferenceSession(SIGLIP_VISION_PATH, providers=_GPU_PROVIDERS)
     return _vision_session
 
 
@@ -52,10 +55,8 @@ def _get_text_session():
     global _text_session
     with _text_lock:
         if _text_session is None:
-            import onnxruntime as ort
             _download_siglip_if_needed()
-            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            _text_session = ort.InferenceSession(SIGLIP_TEXT_PATH, providers=providers)
+            _text_session = _ort.InferenceSession(SIGLIP_TEXT_PATH, providers=_GPU_PROVIDERS)
     return _text_session
 
 
@@ -127,6 +128,7 @@ def compute_phash(path: str) -> int:
 
 def run_nudenet(path: str) -> list[dict]:
     detector = NudeDetector()
+    detector.onnx_session = _ort.InferenceSession(_NUDENET_MODEL, providers=_GPU_PROVIDERS)
     results = detector.detect(path)
     return [{"label": r["label"], "confidence": r["score"],
              "bbox_json": json.dumps(r["box"])} for r in results]
