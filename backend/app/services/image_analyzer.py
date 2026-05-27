@@ -26,7 +26,7 @@ _CLIP_STD = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32)
 
 _vision_sessions: dict[str, _ort.InferenceSession] = {}
 _text_sessions: dict[str, _ort.InferenceSession] = {}
-_nudenet_sessions: dict[str, _ort.InferenceSession] = {}
+_nudenet_detectors: dict[str, NudeDetector] = {}
 _tokenizer = None
 
 _vision_lock = threading.Lock()
@@ -53,13 +53,17 @@ def _get_text_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
         return _text_sessions[model_id]
 
 
-def _get_nudenet_session(model_id: str = _NUDENET_DEFAULT) -> _ort.InferenceSession:
+def _get_nudenet_detector(model_id: str = _NUDENET_DEFAULT) -> NudeDetector:
     with _nudenet_lock:
-        if model_id not in _nudenet_sessions:
-            _nudenet_sessions[model_id] = _ort.InferenceSession(
-                nudenet_path(model_id), providers=_GPU_PROVIDERS
+        if model_id not in _nudenet_detectors:
+            meta = NUDENET_MODELS.get(model_id)
+            if meta is None:
+                raise ValueError(f"Unknown NudeNet model: {model_id!r}")
+            _nudenet_detectors[model_id] = NudeDetector(
+                model_path=nudenet_path(model_id),
+                inference_resolution=meta["inference_resolution"],
             )
-        return _nudenet_sessions[model_id]
+        return _nudenet_detectors[model_id]
 
 
 def _get_tokenizer():
@@ -132,15 +136,11 @@ def release_sessions() -> None:
     with _vision_lock, _text_lock, _nudenet_lock:
         _vision_sessions.clear()
         _text_sessions.clear()
-        _nudenet_sessions.clear()
+        _nudenet_detectors.clear()
 
 
 def run_nudenet(path: str, model_id: str = _NUDENET_DEFAULT) -> list[dict]:
-    meta = NUDENET_MODELS.get(model_id)
-    if meta is None:
-        raise ValueError(f"Unknown NudeNet model: {model_id!r}")
-    detector = NudeDetector(inference_resolution=meta["inference_resolution"])
-    detector.onnx_session = _get_nudenet_session(model_id)
+    detector = _get_nudenet_detector(model_id)
     results = detector.detect(path)
     return [{"label": r["class"], "confidence": r["score"],
              "bbox_json": json.dumps(r["box"])} for r in results]
