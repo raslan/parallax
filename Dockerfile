@@ -46,18 +46,18 @@ RUN apt-get update && \
 ARG RUNTIME=cpu
 FROM base-${RUNTIME}
 
-ARG RUNTIME=cpu
-RUN case "${RUNTIME}" in \
-      cuda) ONNX_PKG="onnxruntime-gpu==1.20.1" ;; \
-      rocm) ONNX_PKG="onnxruntime-rocm" ;; \
-      *)    ONNX_PKG="onnxruntime==1.20.1" ;; \
-    esac && \
-    python3.12 -m pip install --no-cache-dir "${ONNX_PKG}"
-
 WORKDIR /app
 
 COPY backend/requirements.txt ./
-RUN python3.12 -m pip install --no-cache-dir -r requirements.txt
+ARG RUNTIME=cpu
+# Install requirements first, then force-reinstall the correct onnxruntime variant
+# so nudenet's CPU onnxruntime dependency doesn't overwrite the GPU build.
+RUN python3.12 -m pip install --no-cache-dir -r requirements.txt && \
+    case "${RUNTIME}" in \
+      cuda) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.20.1 ;; \
+      rocm) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-rocm ;; \
+      *)    python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime==1.20.1 ;; \
+    esac
 
 COPY backend/ ./
 
