@@ -9,6 +9,7 @@ class JobType:
     CHECK = "check"
     TRANSCODE = "transcode"
     DUPLICATES = "duplicates"
+    IMAGE_SCAN = "image_scan"
 
 
 class JobStatus:
