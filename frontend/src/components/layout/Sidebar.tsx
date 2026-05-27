@@ -1,7 +1,8 @@
-import { NavLink } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   Library, Film, Activity, Settings, Archive, Copy, Scissors, Wand2,
-  Images, ShieldAlert, FolderX,
+  Images, ShieldAlert, FolderX, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -33,15 +34,70 @@ function navClass(isActive: boolean) {
   );
 }
 
-function SectionLabel({ label }: { label: string }) {
+function SectionGroup({
+  label,
+  items,
+  storageKey,
+  forceOpen,
+}: {
+  label: string;
+  items: { to: string; icon: React.ElementType; label: string }[];
+  storageKey: string;
+  forceOpen: boolean;
+}) {
+  const [open, setOpen] = useState(() => {
+    const stored = localStorage.getItem(storageKey);
+    return stored !== null ? stored === "true" : true;
+  });
+
+  useEffect(() => {
+    if (forceOpen && !open) setOpen(true);
+  }, [forceOpen, open]);
+
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      localStorage.setItem(storageKey, String(next));
+      return next;
+    });
+  };
+
   return (
-    <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-      {label}
-    </p>
+    <div>
+      <button
+        onClick={toggle}
+        className="flex w-full items-center justify-between px-3 pb-1 pt-3 group"
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
+          {label}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-all",
+            !open && "-rotate-90"
+          )}
+        />
+      </button>
+      {open && (
+        <div className="space-y-0.5">
+          {items.map(({ to, icon: Icon, label: itemLabel }) => (
+            <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
+              <Icon className="h-4 w-4 shrink-0" />
+              {itemLabel}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
 export function Sidebar() {
+  const { pathname } = useLocation();
+
+  const videoActive = videoItems.some((i) => pathname.startsWith(i.to));
+  const imageActive = imageItems.some((i) => pathname.startsWith(i.to));
+
   return (
     <aside className="flex h-screen w-56 flex-col border-r bg-[hsl(var(--sidebar))] border-[hsl(var(--sidebar-border))]">
       <div className="flex items-center gap-2.5 px-4 py-5">
@@ -54,27 +110,20 @@ export function Sidebar() {
       <Separator className="bg-[hsl(var(--sidebar-border))]" />
 
       <nav className="flex-1 overflow-y-auto px-2 py-2">
-        <SectionLabel label="Videos" />
-        <div className="space-y-0.5">
-          {videoItems.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </NavLink>
-          ))}
-        </div>
+        <SectionGroup
+          label="Videos"
+          items={videoItems}
+          storageKey="sidebar-videos-open"
+          forceOpen={videoActive}
+        />
+        <SectionGroup
+          label="Images"
+          items={imageItems}
+          storageKey="sidebar-images-open"
+          forceOpen={imageActive}
+        />
 
-        <SectionLabel label="Images" />
-        <div className="space-y-0.5">
-          {imageItems.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </NavLink>
-          ))}
-        </div>
-
-        <SectionLabel label="" />
+        <div className="px-3 pb-1 pt-3" />
         <div className="space-y-0.5">
           <NavLink to="/jobs" className={({ isActive }) => navClass(isActive)}>
             <Activity className="h-4 w-4 shrink-0" />
