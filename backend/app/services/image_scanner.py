@@ -24,9 +24,11 @@ def collect_image_paths(root: str) -> list[str]:
 
 def generate_thumbnail(src_path: str, out_path: str) -> None:
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    img = Image.open(src_path).convert("RGB")
-    if hasattr(img, "n_frames"):
-        img.seek(0)
+    with Image.open(src_path) as raw:
+        img = raw.convert("RGB")
+        if hasattr(raw, "n_frames"):
+            raw.seek(0)
+            img = raw.convert("RGB")
     img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
     img.save(out_path, "JPEG", quality=85)
 
@@ -125,6 +127,7 @@ def scan_image_library(library_id: int, job_id: int,
 
             job.current_file = os.path.basename(path)
             job.progress = i / total * 100 if total else 100
+            db.commit()
 
             try:
                 _process_one(db, library_id, path, run_phash, run_nudenet, run_siglip)
