@@ -258,6 +258,29 @@ def browse_library(
     )
 
 
+@router.post("/{library_id}/video-scan", status_code=202)
+async def trigger_video_scan(
+    library_id: int,
+    reset: bool = False,
+    db: Session = Depends(get_db),
+):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
+    if file_count == 0:
+        raise HTTPException(422, "Scan the library first to index its files before running AI scan")
+    if active_job_exists(db, library_id, JobType.VIDEO_SCAN):
+        raise HTTPException(409, "A video scan is already running for this library")
+    from app.services.video_scanner import scan_video_library
+    job = Job(type=JobType.VIDEO_SCAN, status=JobStatus.PENDING, library_id=library_id)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    await enqueue(job.id, scan_video_library, library_id, job.id, True, True, reset)
+    return {"job_id": job.id, "message": "Video AI scan queued"}
+
+
 @router.post("/{library_id}/find-duplicates", status_code=202)
 async def find_duplicates_endpoint(
     library_id: int,

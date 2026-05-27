@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Check, Play } from "lucide-react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Check, Play, Brain, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
+import { api, VideoFile, Library, BrowseResponse, VideoSearchResult } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { PRESETS } from "@/lib/presets";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
@@ -22,6 +22,12 @@ const STATUS_COLORS: Record<string, string> = {
 
 const ALL_STATUSES = ["unknown", "scanning", "clean", "corrupt", "queued", "transcoding", "done", "failed"];
 const PAGE_SIZE = 48;
+
+const NUDENET_GROUPS = [
+  { label: "Exposed", labels: ["FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED", "MALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED"] },
+  { label: "Covered", labels: ["FEMALE_BREAST_COVERED", "FEMALE_GENITALIA_COVERED", "MALE_GENITALIA_COVERED", "BUTTOCKS_COVERED"] },
+  { label: "Other",   labels: ["BELLY_EXPOSED", "ARMPITS_EXPOSED", "FEET_EXPOSED"] },
+];
 
 const VIDEO_CODECS = ["h264", "hevc", "h265", "mpeg4", "mpeg2", "vp8", "vp9", "av1", "vc1"];
 const AUDIO_CODECS = ["aac", "mp3", "ac3", "opus", "vorbis", "flac", "dts", "eac3", "truehd"];
@@ -635,6 +641,16 @@ export function Files() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [batchTranscoding, setBatchTranscoding] = useState(false);
 
+  // AI search state
+  const [aiMode, setAiMode] = useState(false);
+  const [clipQuery, setClipQuery] = useState("");
+  const [clipResults, setClipResults] = useState<VideoSearchResult[]>([]);
+  const [checkedLabels, setCheckedLabels] = useState<Set<string>>(new Set());
+  const [detectionConfidence, setDetectionConfidence] = useState(0.5);
+  const [detectionResults, setDetectionResults] = useState<VideoFile[]>([]);
+  const [aiSearching, setAiSearching] = useState(false);
+  const [aiTab, setAiTab] = useState<"clip" | "nudenet">("clip");
+
   useEffect(() => { api.getLibraries().then(setLibraries).catch(() => {}); }, []);
 
   // Clear selection when view changes
@@ -668,6 +684,43 @@ export function Files() {
     } finally {
       setBatchTranscoding(false);
     }
+  };
+
+  const runClipSearch = async () => {
+    if (!clipQuery.trim()) return;
+    setAiSearching(true);
+    try {
+      const libId = selectedLibraryId === "all" ? undefined : selectedLibraryId;
+      const results = await api.searchFiles(clipQuery.trim(), libId);
+      setClipResults(results);
+    } finally {
+      setAiSearching(false);
+    }
+  };
+
+  const runDetectionFilter = async () => {
+    if (checkedLabels.size === 0) return;
+    setAiSearching(true);
+    try {
+      const libId = selectedLibraryId === "all" ? undefined : selectedLibraryId;
+      const res = await api.filterFilesByDetections({
+        labels: [...checkedLabels],
+        min_confidence: detectionConfidence,
+        library_id: libId,
+        page_size: 200,
+      });
+      setDetectionResults(res.items);
+    } finally {
+      setAiSearching(false);
+    }
+  };
+
+  const toggleLabel = (label: string) => {
+    setCheckedLabels((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
   };
 
   const selectedLibrary = libraries.find((l) => l.id === selectedLibraryId) ?? null;
@@ -709,6 +762,20 @@ export function Files() {
             title={sortDir === "asc" ? "Ascending" : "Descending"}
           >
             {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+          </button>
+
+          {/* AI Search toggle */}
+          <button
+            onClick={() => setAiMode((v) => !v)}
+            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-md border text-xs font-medium transition-colors ${
+              aiMode
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-input text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+            title="AI Search — CLIP semantic search + NudeNet detection filter"
+          >
+            <Brain className="h-3.5 w-3.5" />
+            AI Search
           </button>
 
           {/* Transcode mode toggle */}
@@ -777,6 +844,125 @@ export function Files() {
               <X className="h-4 w-4" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* AI Search panel */}
+      {aiMode && (
+        <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+          <div className="flex gap-2 border-b border-border pb-3">
+            <button
+              onClick={() => setAiTab("clip")}
+              className={`text-sm font-medium px-3 py-1 rounded-md transition-colors ${aiTab === "clip" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Semantic Search
+            </button>
+            <button
+              onClick={() => setAiTab("nudenet")}
+              className={`text-sm font-medium px-3 py-1 rounded-md transition-colors ${aiTab === "nudenet" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Content Detection
+            </button>
+          </div>
+
+          {aiTab === "clip" && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Search videos by description using CLIP. Requires AI scan.</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={clipQuery}
+                  onChange={(e) => setClipQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && runClipSearch()}
+                  placeholder="e.g. beach sunset, people dancing…"
+                  className="flex-1 h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <Button size="sm" onClick={runClipSearch} disabled={aiSearching || !clipQuery.trim()}>
+                  {aiSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+              {clipResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">{clipResults.length} results</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                    {clipResults.map(({ file, score }) => (
+                      <div key={file.id} className="relative cursor-pointer group" onClick={() => setPlayingFile(file)}>
+                        <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                          {file.has_thumbnail ? (
+                            <img src={api.thumbnailUrl(file.id)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" alt={file.filename} />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center"><Film className="h-6 w-6 text-muted-foreground/40" /></div>
+                          )}
+                        </div>
+                        <div className="absolute top-1 right-1 text-[10px] bg-black/70 text-white rounded px-1">{Math.round(score * 100)}%</div>
+                        <p className="text-xs truncate mt-1 text-muted-foreground">{file.filename}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {aiTab === "nudenet" && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Filter videos by detected content. Requires AI scan.</p>
+              <div className="space-y-2">
+                {NUDENET_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1">{group.label}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.labels.map((label) => (
+                        <button
+                          key={label}
+                          onClick={() => toggleLabel(label)}
+                          className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                            checkedLabels.has(label)
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "border-border text-muted-foreground hover:border-foreground/40"
+                          }`}
+                        >
+                          {label.replace(/_/g, " ")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Min confidence: {Math.round(detectionConfidence * 100)}%</label>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={detectionConfidence}
+                  onChange={(e) => setDetectionConfidence(Number(e.target.value))}
+                  className="flex-1 accent-primary"
+                />
+              </div>
+              <Button size="sm" onClick={runDetectionFilter} disabled={aiSearching || checkedLabels.size === 0}>
+                {aiSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                Filter videos
+              </Button>
+              {detectionResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">{detectionResults.length} videos matched</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                    {detectionResults.map((file) => (
+                      <div key={file.id} className="relative cursor-pointer group" onClick={() => setPlayingFile(file)}>
+                        <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                          {file.has_thumbnail ? (
+                            <img src={api.thumbnailUrl(file.id)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" alt={file.filename} />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center"><Film className="h-6 w-6 text-muted-foreground/40" /></div>
+                          )}
+                        </div>
+                        <p className="text-xs truncate mt-1 text-muted-foreground">{file.filename}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

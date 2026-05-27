@@ -1,3 +1,4 @@
+import json
 import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -69,6 +70,78 @@ def list_files(
 
     total = q.with_entities(func.count(File.id)).scalar()
     items = q.order_by(order).offset((page - 1) * page_size).limit(page_size).all()
+
+    return FilesResponse(
+        items=[_to_file_read(f) for f in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/search")
+def search_files(
+    q: str = Query(..., min_length=1),
+    library_id: int | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    from app.services.image_analyzer import encode_text_clip, cosine_similarity
+    from app.models.settings import get_setting
+
+    clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
+    text_vec = encode_text_clip(q, model_id=clip_model_id)
+
+    query = db.query(File).filter(File.clip_embedding.isnot(None))
+    if library_id is not None:
+        query = query.filter(File.library_id == library_id)
+
+    scored = []
+    for f in query.all():
+        try:
+            score = cosine_similarity(text_vec, json.loads(f.clip_embedding))
+            scored.append((f, score))
+        except Exception:
+            continue
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [
+        {"file": _to_file_read(f), "score": round(score, 4)}
+        for f, score in scored[:limit]
+    ]
+
+
+@router.get("/detections")
+def filter_by_detections(
+    labels: str = Query(..., description="Comma-separated NudeNet labels"),
+    min_confidence: float = Query(0.5, ge=0.0, le=1.0),
+    library_id: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    from app.models.video import VideoDetection
+
+    label_list = [l.strip() for l in labels.split(",") if l.strip()]
+    if not label_list:
+        raise HTTPException(400, "At least one label is required")
+
+    matching_ids = (
+        db.query(VideoDetection.file_id)
+        .filter(
+            VideoDetection.label.in_(label_list),
+            VideoDetection.confidence >= min_confidence,
+        )
+        .distinct()
+        .subquery()
+    )
+
+    q = db.query(File).filter(File.id.in_(matching_ids))
+    if library_id is not None:
+        q = q.filter(File.library_id == library_id)
+
+    total = q.with_entities(func.count(File.id)).scalar()
+    items = q.order_by(File.filename).offset((page - 1) * page_size).limit(page_size).all()
 
     return FilesResponse(
         items=[_to_file_read(f) for f in items],
