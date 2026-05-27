@@ -17,6 +17,7 @@ from app.api.originals import router as originals_router
 from app.api.identify import router as identify_router
 from app.api.image_libraries import router as image_libraries_router
 from app.api.images import router as images_router
+from app.api.models import router as models_router
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 
@@ -42,6 +43,8 @@ def _reap_orphaned_jobs():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    from app.services.model_manager import migrate_legacy_clip
+    migrate_legacy_clip()
     _reap_orphaned_jobs()
     detect_encoder()
     # Load saved concurrency setting before starting the worker
@@ -76,6 +79,7 @@ app.include_router(originals_router, prefix="/api")
 app.include_router(identify_router, prefix="/api")
 app.include_router(image_libraries_router, prefix="/api")
 app.include_router(images_router, prefix="/api")
+app.include_router(models_router, prefix="/api")
 
 # Serve the built React frontend — must come after all API routes
 if os.path.isdir(STATIC_DIR):

@@ -11,6 +11,7 @@ class JobType:
     TRANSCODE = "transcode"
     DUPLICATES = "duplicates"
     IMAGE_SCAN = "image_scan"
+    MODEL_DOWNLOAD = "model_download"
 
 
 class JobStatus:
