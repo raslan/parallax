@@ -41,7 +41,7 @@ def _get_vision_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
             _vision_sessions[model_id] = _ort.InferenceSession(
                 clip_vision_path(model_id), providers=_GPU_PROVIDERS
             )
-    return _vision_sessions[model_id]
+        return _vision_sessions[model_id]
 
 
 def _get_text_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
@@ -50,7 +50,7 @@ def _get_text_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
             _text_sessions[model_id] = _ort.InferenceSession(
                 clip_text_path(model_id), providers=_GPU_PROVIDERS
             )
-    return _text_sessions[model_id]
+        return _text_sessions[model_id]
 
 
 def _get_nudenet_session(model_id: str = _NUDENET_DEFAULT) -> _ort.InferenceSession:
@@ -59,7 +59,7 @@ def _get_nudenet_session(model_id: str = _NUDENET_DEFAULT) -> _ort.InferenceSess
             _nudenet_sessions[model_id] = _ort.InferenceSession(
                 nudenet_path(model_id), providers=_GPU_PROVIDERS
             )
-    return _nudenet_sessions[model_id]
+        return _nudenet_sessions[model_id]
 
 
 def _get_tokenizer():
@@ -129,16 +129,16 @@ def compute_phash(path: str) -> int:
 
 
 def release_sessions() -> None:
-    with _vision_lock:
+    with _vision_lock, _text_lock, _nudenet_lock:
         _vision_sessions.clear()
-    with _text_lock:
         _text_sessions.clear()
-    with _nudenet_lock:
         _nudenet_sessions.clear()
 
 
 def run_nudenet(path: str, model_id: str = _NUDENET_DEFAULT) -> list[dict]:
-    meta = NUDENET_MODELS[model_id]
+    meta = NUDENET_MODELS.get(model_id)
+    if meta is None:
+        raise ValueError(f"Unknown NudeNet model: {model_id!r}")
     detector = NudeDetector(inference_resolution=meta["inference_resolution"])
     detector.onnx_session = _get_nudenet_session(model_id)
     results = detector.detect(path)
