@@ -60,3 +60,47 @@ def test_image_schemas():
     req = ImageScanRequest(run_phash=True, run_nudenet=False, run_siglip=True)
     assert req.run_nudenet is False
     assert req.run_phash is True
+
+
+import os
+import tempfile
+from PIL import Image
+from unittest.mock import patch, MagicMock
+
+def _make_library_with_images(db):
+    from app.models.image_library import ImageLibrary
+    tmpdir = tempfile.mkdtemp()
+    for name in ["a.jpg", "b.png"]:
+        img = Image.new("RGB", (10, 10), color=(100, 100, 100))
+        img.save(os.path.join(tmpdir, name))
+    os.makedirs(os.path.join(tmpdir, "_quarantine"))
+    img2 = Image.new("RGB", (10, 10))
+    img2.save(os.path.join(tmpdir, "_quarantine", "hidden.jpg"))
+
+    lib = ImageLibrary(name="Scan Test", path=tmpdir)
+    db.add(lib)
+    db.commit()
+    db.refresh(lib)
+    return lib, tmpdir
+
+
+def test_collect_image_paths_excludes_underscore(db):
+    from app.services.image_scanner import collect_image_paths
+    lib, tmpdir = _make_library_with_images(db)
+    paths = collect_image_paths(tmpdir)
+    assert all("_quarantine" not in p for p in paths)
+    assert len(paths) == 2
+
+
+def test_generate_thumbnail(db):
+    from app.services.image_scanner import generate_thumbnail
+    tmpdir = tempfile.mkdtemp()
+    img = Image.new("RGB", (800, 600), color=(50, 100, 200))
+    src = os.path.join(tmpdir, "test.jpg")
+    img.save(src)
+    thumb_dir = tempfile.mkdtemp()
+    out = os.path.join(thumb_dir, "1.jpg")
+    generate_thumbnail(src, out)
+    assert os.path.exists(out)
+    thumb = Image.open(out)
+    assert thumb.width <= 400
