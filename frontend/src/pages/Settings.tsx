@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { Settings as SettingsIcon, Loader2, Check, Palette, KeyRound, Cpu, Download, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Settings as SettingsIcon, Loader2, Check, Palette, KeyRound, Cpu, Download, Trash2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api, modelsApi, ModelInfo } from "@/lib/api";
@@ -16,12 +16,66 @@ const THEMES = [
 function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadJobId, setDownloadJobId] = useState<number | null>(null);
+  const [jobProgress, setJobProgress] = useState<number>(0);
+  const [jobStatus, setJobStatus] = useState<string>("");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const act = async (fn: () => Promise<unknown>) => {
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (downloadJobId === null) return;
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const job = await api.getJob(downloadJobId);
+        setJobProgress(job.progress ?? 0);
+        if (job.status === "completed") {
+          stopPolling();
+          setDownloadJobId(null);
+          setBusy(false);
+          onAction();
+        } else if (job.status === "failed") {
+          stopPolling();
+          setDownloadJobId(null);
+          setBusy(false);
+          setError(job.error ?? "Download failed");
+        } else {
+          setJobStatus(job.current_file ?? job.status);
+        }
+      } catch {
+        // transient error — keep polling
+      }
+    }, 1500);
+    return stopPolling;
+  }, [downloadJobId, onAction, stopPolling]);
+
+  const download = async () => {
+    setBusy(true);
+    setError(null);
+    setJobProgress(0);
+    setJobStatus("Starting…");
+    try {
+      const res = await (model.type === "clip"
+        ? modelsApi.downloadClip(model.id)
+        : modelsApi.downloadNudenet(model.id));
+      setDownloadJobId(res.job_id);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
     setBusy(true);
     setError(null);
     try {
-      await fn();
+      await (model.type === "clip" ? modelsApi.deleteClip(model.id) : modelsApi.deleteNudenet(model.id));
       onAction();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -30,20 +84,20 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
     }
   };
 
-  const download = () =>
-    act(() => model.type === "clip"
-      ? modelsApi.downloadClip(model.id)
-      : modelsApi.downloadNudenet(model.id));
+  const activate = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await (model.type === "clip" ? modelsApi.activateClip(model.id) : modelsApi.activateNudenet(model.id));
+      onAction();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const remove = () =>
-    act(() => model.type === "clip"
-      ? modelsApi.deleteClip(model.id)
-      : modelsApi.deleteNudenet(model.id));
-
-  const activate = () =>
-    act(() => model.type === "clip"
-      ? modelsApi.activateClip(model.id)
-      : modelsApi.activateNudenet(model.id));
+  const downloading = busy && downloadJobId !== null;
 
   return (
     <div className={`rounded-lg border p-4 transition-colors ${model.active ? "border-primary bg-primary/5" : "border-border"}`}>
@@ -64,14 +118,35 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{model.description}</p>
-          {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+          {downloading && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">{jobStatus}</span>
+                <span className="text-[11px] text-muted-foreground shrink-0 ml-2">{Math.round(jobProgress)}%</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${jobProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {error && (
+            <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3 shrink-0" />{error}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {!model.downloaded && !model.bundled && (
+          {!model.downloaded && !model.bundled && !downloading && (
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={download} disabled={busy}>
               {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
               Download
             </Button>
+          )}
+          {downloading && (
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
           )}
           {model.downloaded && !model.active && (
             <>

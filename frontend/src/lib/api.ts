@@ -226,6 +226,7 @@ export const api = {
 
   // Jobs
   getJobs: (limit = 50) => req<Job[]>(`/jobs?limit=${limit}`),
+  getJob: (id: number) => req<Job>(`/jobs/${id}`),
   checkFile: (id: number) => req<{ message: string }>(`/files/${id}/check`, { method: "POST" }),
   transcodeFile: (id: number, preset: string) =>
     req<{ message: string }>(`/files/${id}/transcode`, { method: "POST", body: JSON.stringify({ preset }) }),
