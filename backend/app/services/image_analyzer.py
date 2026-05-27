@@ -4,6 +4,7 @@ import shutil
 import numpy as np
 from PIL import Image, ExifTags
 import imagehash
+from nudenet import NudeDetector
 from app.database import DATA_DIR
 
 MODELS_DIR = os.path.join(DATA_DIR, "models")
@@ -117,7 +118,6 @@ def compute_phash(path: str) -> int:
 
 
 def run_nudenet(path: str) -> list[dict]:
-    from nudenet import NudeDetector
     detector = NudeDetector()
     results = detector.detect(path)
     return [{"label": r["label"], "confidence": r["score"],
