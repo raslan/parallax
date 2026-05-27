@@ -1,69 +1,65 @@
 import os
 import json
-import shutil
 import struct
 import threading
 import numpy as np
 import onnxruntime as _ort
 from PIL import Image, ExifTags
 import imagehash
-import nudenet as _nudenet_pkg
 from nudenet import NudeDetector
-from app.database import DATA_DIR
+
+from app.services.model_manager import (
+    NUDENET_MODELS,
+    clip_vision_path,
+    clip_text_path,
+    nudenet_path,
+)
 
 _GPU_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-_NUDENET_MODEL = os.path.join(os.path.dirname(_nudenet_pkg.__file__), "320n.onnx")
 
-MODELS_DIR = os.path.join(DATA_DIR, "models")
-CLIP_DIR = os.path.join(MODELS_DIR, "clip")
-CLIP_VISION_PATH = os.path.join(CLIP_DIR, "vision.onnx")
-CLIP_TEXT_PATH = os.path.join(CLIP_DIR, "text.onnx")
-CLIP_REPO = "Xenova/clip-vit-base-patch32"
+_CLIP_DEFAULT = "clip-vit-base-patch32"
+_NUDENET_DEFAULT = "320n"
 
-# CLIP ViT-B/32 image normalization constants
+# CLIP ViT normalization constants (same for all CLIP variants)
 _CLIP_MEAN = np.array([0.48145466, 0.4578275, 0.40821073], dtype=np.float32)
 _CLIP_STD = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32)
 
-_vision_session = None
-_text_session = None
-_nudenet_session = None
+_vision_sessions: dict[str, _ort.InferenceSession] = {}
+_text_sessions: dict[str, _ort.InferenceSession] = {}
+_nudenet_sessions: dict[str, _ort.InferenceSession] = {}
 _tokenizer = None
+
 _vision_lock = threading.Lock()
 _text_lock = threading.Lock()
 _nudenet_lock = threading.Lock()
 _tokenizer_lock = threading.Lock()
 
 
-def _download_clip_if_needed() -> None:
-    os.makedirs(CLIP_DIR, exist_ok=True)
-    if not os.path.exists(CLIP_VISION_PATH):
-        from huggingface_hub import hf_hub_download
-        src = hf_hub_download(repo_id=CLIP_REPO, filename="onnx/vision_model.onnx",
-                              local_dir=CLIP_DIR)
-        shutil.move(src, CLIP_VISION_PATH)
-    if not os.path.exists(CLIP_TEXT_PATH):
-        from huggingface_hub import hf_hub_download
-        src = hf_hub_download(repo_id=CLIP_REPO, filename="onnx/text_model.onnx",
-                              local_dir=CLIP_DIR)
-        shutil.move(src, CLIP_TEXT_PATH)
-
-
-def _get_vision_session():
-    global _vision_session
+def _get_vision_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
     with _vision_lock:
-        if _vision_session is None:
-            _download_clip_if_needed()
-            _vision_session = _ort.InferenceSession(CLIP_VISION_PATH, providers=_GPU_PROVIDERS)
-    return _vision_session
+        if model_id not in _vision_sessions:
+            _vision_sessions[model_id] = _ort.InferenceSession(
+                clip_vision_path(model_id), providers=_GPU_PROVIDERS
+            )
+    return _vision_sessions[model_id]
 
 
-def _get_text_session():
-    global _text_session
+def _get_text_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
     with _text_lock:
-        if _text_session is None:
-            _download_clip_if_needed()
-            _text_session = _ort.InferenceSession(CLIP_TEXT_PATH, providers=_GPU_PROVIDERS)
-    return _text_session
+        if model_id not in _text_sessions:
+            _text_sessions[model_id] = _ort.InferenceSession(
+                clip_text_path(model_id), providers=_GPU_PROVIDERS
+            )
+    return _text_sessions[model_id]
+
+
+def _get_nudenet_session(model_id: str = _NUDENET_DEFAULT) -> _ort.InferenceSession:
+    with _nudenet_lock:
+        if model_id not in _nudenet_sessions:
+            _nudenet_sessions[model_id] = _ort.InferenceSession(
+                nudenet_path(model_id), providers=_GPU_PROVIDERS
+            )
+    return _nudenet_sessions[model_id]
 
 
 def _get_tokenizer():
@@ -132,34 +128,26 @@ def compute_phash(path: str) -> int:
     return val - 2**64 if val >= 2**63 else val
 
 
-def _get_nudenet_session() -> _ort.InferenceSession:
-    global _nudenet_session
-    with _nudenet_lock:
-        if _nudenet_session is None:
-            _nudenet_session = _ort.InferenceSession(_NUDENET_MODEL, providers=_GPU_PROVIDERS)
-    return _nudenet_session
-
-
 def release_sessions() -> None:
-    global _vision_session, _text_session, _nudenet_session
     with _vision_lock:
-        _vision_session = None
+        _vision_sessions.clear()
     with _text_lock:
-        _text_session = None
+        _text_sessions.clear()
     with _nudenet_lock:
-        _nudenet_session = None
+        _nudenet_sessions.clear()
 
 
-def run_nudenet(path: str) -> list[dict]:
-    detector = NudeDetector()
-    detector.onnx_session = _get_nudenet_session()
+def run_nudenet(path: str, model_id: str = _NUDENET_DEFAULT) -> list[dict]:
+    meta = NUDENET_MODELS[model_id]
+    detector = NudeDetector(inference_resolution=meta["inference_resolution"])
+    detector.onnx_session = _get_nudenet_session(model_id)
     results = detector.detect(path)
     return [{"label": r["class"], "confidence": r["score"],
              "bbox_json": json.dumps(r["box"])} for r in results]
 
 
-def encode_image_clip(path: str) -> list[float]:
-    session = _get_vision_session()
+def encode_image_clip(path: str, model_id: str = _CLIP_DEFAULT) -> list[float]:
+    session = _get_vision_session(model_id)
     pixel_values = _preprocess_image(path)
     output = session.run(["image_embeds"], {"pixel_values": pixel_values})[0]
     vec = output[0].astype(np.float64)
@@ -169,8 +157,8 @@ def encode_image_clip(path: str) -> list[float]:
     return vec.tolist()
 
 
-def encode_text_clip(text: str) -> list[float]:
-    session = _get_text_session()
+def encode_text_clip(text: str, model_id: str = _CLIP_DEFAULT) -> list[float]:
+    session = _get_text_session(model_id)
     input_ids = _tokenize(text)
     output = session.run(["text_embeds"], {"input_ids": input_ids})[0]
     vec = output[0].astype(np.float64)
