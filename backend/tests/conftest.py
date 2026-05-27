@@ -17,10 +17,14 @@ def engine():
 
 @pytest.fixture
 def db(engine):
-    Session = sessionmaker(bind=engine)
+    connection = engine.connect()
+    transaction = connection.begin()
+    Session = sessionmaker(bind=connection)
     session = Session()
     yield session
     session.close()
+    transaction.rollback()
+    connection.close()
 
 @pytest.fixture
 def client(engine):
