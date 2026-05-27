@@ -1,6 +1,9 @@
 services:
   transcoder:
-    build: .
+    build:
+      context: .
+      args:
+        RUNTIME: ${RUNTIME:-cuda}
     ports:
       - "${PORT:-7899}:7899"
     volumes:
@@ -8,6 +11,7 @@ services:
       # Mount your media folders here, e.g.:
       # - /mnt/media:/media
       - /home/raslan/Downloads:/media
+    user: "1000:1000"
     environment:
       - DATA_DIR=/app/data
     restart: unless-stopped
