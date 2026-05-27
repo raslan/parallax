@@ -1,17 +1,27 @@
 import { NavLink } from "react-router-dom";
-import { Library, Film, Activity, Settings, Archive, Copy, Scissors, Wand2 } from "lucide-react";
+import {
+  Library, Film, Activity, Settings, Archive, Copy, Scissors, Wand2,
+  Images, ShieldAlert, FolderX,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { ParallaxLogo } from "@/components/ParallaxLogo";
 
-const navItems = [
-  { to: "/libraries", icon: Library, label: "Libraries" },
-  { to: "/files", icon: Film, label: "Files" },
-  { to: "/originals", icon: Archive, label: "Originals" },
-  { to: "/duplicates", icon: Copy, label: "Duplicates" },
+const videoItems = [
+  { to: "/libraries",  icon: Library,  label: "Libraries" },
+  { to: "/files",      icon: Film,     label: "Files" },
+  { to: "/duplicates", icon: Copy,     label: "Duplicates" },
   { to: "/cleanup",    icon: Scissors, label: "Cleanup" },
+  { to: "/originals",  icon: Archive,  label: "Originals" },
   { to: "/identify",   icon: Wand2,    label: "Identify" },
-  { to: "/jobs",       icon: Activity, label: "Jobs" },
+];
+
+const imageItems = [
+  { to: "/image-libraries",   icon: Library,     label: "Libraries" },
+  { to: "/images",            icon: Images,      label: "Images" },
+  { to: "/image-duplicates",  icon: Copy,        label: "Duplicates" },
+  { to: "/content-review",    icon: ShieldAlert, label: "Content Review" },
+  { to: "/image-quarantined", icon: FolderX,     label: "Quarantined" },
 ];
 
 function navClass(isActive: boolean) {
@@ -20,6 +30,14 @@ function navClass(isActive: boolean) {
     isActive
       ? "bg-primary/10 text-primary font-medium"
       : "text-muted-foreground hover:bg-[hsl(var(--sidebar-accent))] hover:text-foreground"
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+      {label}
+    </p>
   );
 }
 
@@ -35,13 +53,34 @@ export function Sidebar() {
 
       <Separator className="bg-[hsl(var(--sidebar-border))]" />
 
-      <nav className="flex-1 space-y-0.5 px-2 py-3">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => navClass(isActive)}>
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
+      <nav className="flex-1 overflow-y-auto px-2 py-2">
+        <SectionLabel label="Videos" />
+        <div className="space-y-0.5">
+          {videoItems.map(({ to, icon: Icon, label }) => (
+            <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
+              <Icon className="h-4 w-4 shrink-0" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+
+        <SectionLabel label="Images" />
+        <div className="space-y-0.5">
+          {imageItems.map(({ to, icon: Icon, label }) => (
+            <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
+              <Icon className="h-4 w-4 shrink-0" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+
+        <SectionLabel label="" />
+        <div className="space-y-0.5">
+          <NavLink to="/jobs" className={({ isActive }) => navClass(isActive)}>
+            <Activity className="h-4 w-4 shrink-0" />
+            Jobs
           </NavLink>
-        ))}
+        </div>
       </nav>
 
       <Separator className="bg-[hsl(var(--sidebar-border))]" />
