@@ -43,11 +43,11 @@ export function VideoPlayerModal({ file, onClose }: { file: PlayableFile; onClos
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" onClick={onClose}>
       <div className="fixed inset-0 bg-black/85" />
       <div
-        className="relative z-10 w-full max-w-5xl px-4 flex flex-col gap-3"
+        className="relative z-10 w-full max-w-5xl px-4 flex flex-col gap-3 max-h-screen py-4"
         onClick={(e) => e.stopPropagation()}
         style={{ "--plyr-color-main": "hsl(var(--primary))" } as React.CSSProperties}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between shrink-0">
           <p className="text-white text-sm font-medium truncate pr-4" title={file.path}>
             {file.filename}
           </p>
@@ -58,13 +58,16 @@ export function VideoPlayerModal({ file, onClose }: { file: PlayableFile; onClos
             <X className="h-5 w-5" />
           </button>
         </div>
-        <video
-          ref={videoRef}
-          src={api.streamUrl(file.id)}
-          autoPlay
-          className="w-full rounded-lg"
-        />
-        <p className="text-white/50 text-xs text-center">
+        <div className="min-h-0 flex-1">
+          <video
+            ref={videoRef}
+            src={api.streamUrl(file.id)}
+            autoPlay
+            className="w-full h-full rounded-lg"
+            style={{ maxHeight: "calc(100vh - 8rem)" }}
+          />
+        </div>
+        <p className="text-white/50 text-xs text-center shrink-0">
           {formatSize(file.size)}
           {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
           {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}

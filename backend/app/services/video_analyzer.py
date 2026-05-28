@@ -2,10 +2,9 @@ import os
 import json
 import shutil
 import subprocess
-import tempfile
 import numpy as np
 
-_FRAME_INTERVAL_SECS = 30  # 1 keyframe per 30 seconds
+_DEFAULT_KEYFRAMES_PER_VIDEO = 8
 
 
 def get_video_duration(video_path: str) -> float | None:
@@ -28,41 +27,50 @@ def get_video_duration(video_path: str) -> float | None:
 
 def extract_keyframes(
     video_path: str,
-    interval_secs: int = _FRAME_INTERVAL_SECS,
+    num_frames: int = _DEFAULT_KEYFRAMES_PER_VIDEO,
+    dest_dir: str | None = None,
 ) -> tuple[str, list[tuple[str, float]]]:
     """
-    Extract one frame every `interval_secs` seconds into a temp directory.
-    Returns (tmpdir, [(frame_path, timestamp_secs), ...]).
-    Caller must delete tmpdir when done.
+    Extract exactly `num_frames` evenly-spaced frames from the video.
+    Writes to `dest_dir` (persistent) or a tempdir if not provided.
+    Returns (frame_dir, [(frame_path, timestamp_secs), ...]).
     """
-    tmpdir = tempfile.mkdtemp(prefix="parallax_vframes_")
-    pattern = os.path.join(tmpdir, "%06d.jpg")
-    try:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-i", video_path,
-                "-vf", f"fps=1/{interval_secs}",
-                "-q:v", "5",
-                pattern,
-                "-hide_banner", "-loglevel", "error",
-            ],
-            timeout=300,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-        shutil.rmtree(tmpdir, ignore_errors=True)
-        raise RuntimeError(f"ffmpeg frame extraction failed: {e}") from e
+    import tempfile
 
-    frames = sorted(
-        f for f in os.listdir(tmpdir) if f.endswith(".jpg")
-    )
+    duration = get_video_duration(video_path)
+    if not duration or duration <= 0:
+        raise RuntimeError("Could not determine video duration")
+
+    n = max(1, num_frames)
+    # Space timestamps evenly, avoiding the very start/end (use n+1 intervals)
+    timestamps = [duration * (i + 1) / (n + 1) for i in range(n)]
+
+    frame_dir = dest_dir or tempfile.mkdtemp(prefix="parallax_vframes_")
+    os.makedirs(frame_dir, exist_ok=True)
+
     results = []
-    for i, fname in enumerate(frames):
-        timestamp = i * interval_secs
-        results.append((os.path.join(tmpdir, fname), float(timestamp)))
+    for i, ts in enumerate(timestamps):
+        out_path = os.path.join(frame_dir, f"{i:06d}.jpg")
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-ss", str(ts),
+                    "-i", video_path,
+                    "-frames:v", "1",
+                    "-q:v", "5",
+                    out_path,
+                    "-hide_banner", "-loglevel", "error",
+                    "-y",
+                ],
+                timeout=60,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            raise RuntimeError(f"ffmpeg frame extraction failed at {ts:.1f}s: {e}") from e
+        results.append((out_path, ts))
 
-    return tmpdir, results
+    return frame_dir, results
 
 
 def embed_video_clip(

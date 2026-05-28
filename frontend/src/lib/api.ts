@@ -223,12 +223,13 @@ export const api = {
   },
   thumbnailUrl: (id: number) => `${BASE}/files/${id}/thumbnail`,
   streamUrl: (id: number) => `${BASE}/files/${id}/stream`,
-  searchFiles: (q: string, library_id?: number, limit = 50) => {
+  searchFiles: (q: string, library_id?: number, limit = 50, exclude = false) => {
     const params = new URLSearchParams({ q, limit: String(limit) });
     if (library_id !== undefined) params.set("library_id", String(library_id));
+    if (exclude) params.set("exclude", "true");
     return req<VideoSearchResult[]>(`/files/search?${params}`);
   },
-  filterFilesByDetections: (params: { labels: string[]; min_confidence: number; library_id?: number; page?: number; page_size?: number }) => {
+  filterFilesByDetections: (params: { labels: string[]; min_confidence: number; exclude?: boolean; library_id?: number; page?: number; page_size?: number }) => {
     const q = new URLSearchParams({
       labels: params.labels.join(","),
       min_confidence: String(params.min_confidence),
@@ -236,6 +237,7 @@ export const api = {
       page_size: String(params.page_size ?? 50),
     });
     if (params.library_id !== undefined) q.set("library_id", String(params.library_id));
+    if (params.exclude) q.set("exclude", "true");
     return req<FilesResponse>(`/files/detections?${q}`);
   },
   triggerVideoScan: (library_id: number, reset = false) =>
@@ -286,9 +288,9 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,

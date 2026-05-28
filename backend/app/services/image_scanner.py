@@ -106,6 +106,7 @@ def scan_image_library(library_id: int, job_id: int,
 
         clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
         nudenet_model_id = get_setting(db, "nudenet_model", "320n")
+        batch_size = int(get_setting(db, "scan_batch_size", "4"))
 
         job.status = JobStatus.RUNNING
         job.started_at = now()
@@ -137,7 +138,12 @@ def scan_image_library(library_id: int, job_id: int,
         arm_cancel(job_id)
         succeeded = failed = 0
 
-        for i, path in enumerate(new_paths):
+        from app.services.image_analyzer import (
+            get_image_metadata, compute_phash,
+            encode_image_clip_batch, run_nudenet_batch,
+        )
+
+        for batch_start in range(0, total, batch_size):
             if should_cancel(job_id):
                 job.status = JobStatus.CANCELLED
                 job.finished_at = now()
@@ -145,32 +151,87 @@ def scan_image_library(library_id: int, job_id: int,
                 clear_cancel(job_id)
                 return
 
-            job.current_file = os.path.basename(path)
-            job.progress = i / total * 100 if total else 100
+            batch_paths = new_paths[batch_start:batch_start + batch_size]
+            job.current_file = os.path.basename(batch_paths[0])
+            job.progress = batch_start / total * 100 if total else 100
             db.commit()
 
-            try:
-                _process_one(db, library_id, path, run_phash, run_nudenet, run_clip,
-                             clip_model_id=clip_model_id, nudenet_model_id=nudenet_model_id)
-                db.commit()
-                succeeded += 1
-            except Exception as e:
-                db.rollback()
-                err = ImageFile(
-                    library_id=library_id,
-                    path=path,
-                    filename=os.path.basename(path),
-                    extension=os.path.splitext(path)[1].lower().lstrip("."),
-                    size=0,
-                    status=ImageStatus.FAILED,
-                    scan_error=str(e)[:512],
-                )
-                db.add(err)
-                db.commit()
-                failed += 1
-                log(db, job_id, f"Failed: {os.path.basename(path)} — {e}", level="error")
+            # Build ImageFile records (metadata + phash) for each path in batch
+            img_objs: list[ImageFile] = []
+            good_paths: list[str] = []  # paths that loaded successfully
+            for path in batch_paths:
+                try:
+                    meta = get_image_metadata(path)
+                    ext = os.path.splitext(path)[1].lower().lstrip(".")
+                    img_obj = ImageFile(
+                        library_id=library_id,
+                        path=path,
+                        filename=os.path.basename(path),
+                        extension=ext,
+                        size=meta["size"],
+                        width=meta["width"],
+                        height=meta["height"],
+                        exif_date=meta["exif_date"],
+                        exif_gps=meta["exif_gps"],
+                        exif_camera=meta["exif_camera"],
+                        status=ImageStatus.SCANNED,
+                        scanned_at=now(),
+                    )
+                    if run_phash:
+                        img_obj.phash = compute_phash(path)
+                    db.add(img_obj)
+                    img_objs.append(img_obj)
+                    good_paths.append(path)
+                except Exception as e:
+                    err = ImageFile(
+                        library_id=library_id,
+                        path=path,
+                        filename=os.path.basename(path),
+                        extension=os.path.splitext(path)[1].lower().lstrip("."),
+                        size=0,
+                        status=ImageStatus.FAILED,
+                        scan_error=str(e)[:512],
+                    )
+                    db.add(err)
+                    failed += 1
+                    log(db, job_id, f"Failed: {os.path.basename(path)} — {e}", level="error")
 
-            job.processed_files = i + 1
+            db.flush()  # get IDs for all img_objs
+
+            # Batch CLIP
+            if run_clip and good_paths:
+                try:
+                    embeddings = encode_image_clip_batch(good_paths, model_id=clip_model_id)
+                    for img_obj, emb in zip(img_objs, embeddings):
+                        img_obj.clip_embedding = json.dumps(emb)
+                except Exception as e:
+                    log(db, job_id, f"CLIP batch failed — {e}", level="error")
+
+            # Batch NudeNet
+            if run_nudenet and good_paths:
+                try:
+                    batch_detections = run_nudenet_batch(good_paths, model_id=nudenet_model_id)
+                    for img_obj, detections in zip(img_objs, batch_detections):
+                        for d in detections:
+                            db.add(ImageDetection(
+                                image_id=img_obj.id,
+                                label=d["label"],
+                                confidence=d["confidence"],
+                                bbox_json=d["bbox_json"],
+                            ))
+                except Exception as e:
+                    log(db, job_id, f"NudeNet batch failed — {e}", level="error")
+
+            # Thumbnails (still per-image — can't batch PIL saves meaningfully)
+            for img_obj, path in zip(img_objs, good_paths):
+                try:
+                    generate_thumbnail(path, _thumbnail_path(img_obj.id))
+                except Exception:
+                    pass
+
+            db.commit()
+            succeeded += len(img_objs)
+            job.processed_files = min(batch_start + batch_size, total)
             db.commit()
 
         library.last_scanned_at = now()
