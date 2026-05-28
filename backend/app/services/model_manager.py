@@ -15,6 +15,7 @@ CLIP_MODELS: dict[str, dict] = {
         "hf_text_file": "onnx/text_model.onnx",
         "size_mb": 350,
         "quality": "good",
+        "image_size": 224,
     },
     "clip-vit-large-patch14": {
         "id": "clip-vit-large-patch14",
@@ -26,6 +27,7 @@ CLIP_MODELS: dict[str, dict] = {
         "hf_text_file": "onnx/text_model.onnx",
         "size_mb": 1600,
         "quality": "better",
+        "image_size": 224,
     },
     "clip-vit-large-patch14-336": {
         "id": "clip-vit-large-patch14-336",
@@ -37,6 +39,7 @@ CLIP_MODELS: dict[str, dict] = {
         "hf_text_file": "onnx/text_model.onnx",
         "size_mb": 1600,
         "quality": "best",
+        "image_size": 336,
     },
 }
 

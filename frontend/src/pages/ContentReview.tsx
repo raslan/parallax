@@ -101,7 +101,7 @@ export function ContentReview() {
   const bothActive = detectionEnabled && checkedLabels.size > 0 && searchEnabled && searchQuery.trim().length > 0;
 
   const filteredSearchImages = searchResults
-    .filter((r) => r.score >= minScore)
+    .filter((r) => invertSearch ? r.score < minScore : r.score >= minScore)
     .map((r) => r.image);
 
   const allResults = (() => {
@@ -137,14 +137,14 @@ export function ContentReview() {
             labels: [...checkedLabels],
             min_confidence: confidence,
             exclude: invertDetection,
-            page_size: 200,
+            page_size: 10000,
           }).then((r) => setDetectionResults(r.items))
         );
       }
 
       if (searchEnabled && searchQuery.trim()) {
         promises.push(
-          imageApi.searchImages(searchQuery.trim(), { limit: 200, exclude: invertSearch })
+          imageApi.searchImages(searchQuery.trim(), { limit: 10000 })
             .then(setSearchResults)
         );
       }
@@ -296,7 +296,7 @@ export function ContentReview() {
               disabled={!searchEnabled}
               className="h-4 w-4 rounded border-border accent-primary"
             />
-            <span className="text-xs text-muted-foreground">Invert (least similar first)</span>
+            <span className="text-xs text-muted-foreground">Exclude matches (show images that do not match)</span>
           </label>
           <div className={`mt-3 ${!searchEnabled ? "pointer-events-none opacity-50" : ""}`}>
             <p className="mb-1 text-xs text-muted-foreground">
@@ -344,7 +344,25 @@ export function ContentReview() {
       {allResults.length > 0 && (
         <>
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{allResults.length} results</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">{allResults.length} results</p>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  onClick={() => setSelectedIds(new Set(allResults.map((i) => i.id)))}
+                  className="text-primary hover:underline"
+                >
+                  Select all
+                </button>
+                {selectedIds.size > 0 && (
+                  <>
+                    <span className="text-muted-foreground">·</span>
+                    <button onClick={() => setSelectedIds(new Set())} className="text-muted-foreground hover:underline">
+                      None
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
             {selectedIds.size > 0 && (
               <Button size="sm" variant="destructive" disabled={quarantining} onClick={quarantineSelected}>
                 <FolderX className="h-3.5 w-3.5" />
