@@ -207,7 +207,7 @@ export function Libraries() {
   const handleAiScan = async (id: number) => {
     setAiScanningIds((s) => new Set(s).add(id));
     try {
-      await api.triggerVideoScan(id);
+      await api.triggerVideoScan(id, true);
     } catch (e: any) {
       if (!e.message?.includes("409")) throw e;
     } finally {

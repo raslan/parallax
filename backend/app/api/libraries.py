@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
+from app.services.video_scanner import delete_keyframes
 from app.models.library import Library
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobType
@@ -141,6 +142,9 @@ def delete_library(library_id: int, db: Session = Depends(get_db)):
     ).all()
     for job in active_jobs:
         request_cancel(job.id)
+    files = db.query(File).filter(File.library_id == library_id).all()
+    for f in files:
+        delete_keyframes(f.id)
     db.query(File).filter(File.library_id == library_id).delete()
     db.delete(lib)
     db.commit()
@@ -356,6 +360,7 @@ def delete_duplicates_endpoint(
             originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
             os.makedirs(originals_dir, exist_ok=True)
             shutil.move(f.path, os.path.join(originals_dir, f.filename))
+        delete_keyframes(f.id)
         db.delete(f)
     db.commit()
 
@@ -465,5 +470,6 @@ def delete_cleanup_files(
                 base, ext = os.path.splitext(f.filename)
                 dest = os.path.join(originals_dir, f"{base}_{f.id}{ext}")
             shutil.move(f.path, dest)
+        delete_keyframes(f.id)
         db.delete(f)
     db.commit()
