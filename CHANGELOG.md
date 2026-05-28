@@ -3,62 +3,199 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
-## [0.10.4](https://github.com/raslan/parallax/compare/v0.10.3...v0.10.4) (2026-05-19)
-
-
-### Bug Fixes
-
-* move unmatched files to Unmatched/ instead of leaving them in place ([5babf10](https://github.com/raslan/parallax/commit/5babf105972fbac571654b87adfea65db0fb90ff))
-* save all settings to DB before runtime update so TMDB key persists ([d0ec229](https://github.com/raslan/parallax/commit/d0ec229e127ca29409243a3a7f910ec08e471942))
-
-## [0.10.3](https://github.com/raslan/parallax/compare/v0.10.2...v0.10.3) (2026-05-19)
-
+## [Unreleased]
 
 ### Bug Fixes
 
-* scan video files recursively to support pre-structured season folders ([8e8c91f](https://github.com/raslan/parallax/commit/8e8c91f3881fca7f7db10502492686988cf58e33))
+- Re-encode audio to AAC when converting WMV/AVI/WebM to MKV
+- Add migration for files.extension column
+- Add extension to browse sort keys in libraries endpoint
+- Use transaction rollback pattern in db fixture, add pytest-mock
+- Remove premature image model import from init_db
+- Thread-safe lazy init and narrow EXIF exception in image_analyzer
+- Batched count query and per-library scan lock in image_libraries API
+- Address post-review issues in image library implementation
+- Multi-runtime Docker builds, cascade image library delete, UI consistency
+- Pass RUNTIME build arg via env var in docker-compose
+- Correct nvidia/cuda base image tag to 12.9.2-cudnn-runtime-ubuntu22.04
+- Set DEBIAN_FRONTEND=noninteractive to suppress tzdata prompt in gpu stages
+- Install libcublas-12-9 in cuda stage (not included in runtime image)
+- Install onnxruntime variant after requirements.txt to prevent nudenet overwriting gpu build
+- Force GPU providers for NudeNet session, consolidate provider list to constant
+- Use cuda 12.4 base image — driver 550.x doesn't support 12.9 forward compat on consumer GPUs
+- Cache nudenet session per scan, release all GPU sessions when scan completes
+- Add sentencepiece dependency required by SiglipTokenizer
+- Download vision_model.onnx (vision-only encoder) instead of model.onnx (full cross-modal)
+- Correct NudeNet key (class not label), use SigLIP pooler_output for embeddings
+- Switch from SigLIP to CLIP ViT-B/32 for image search embeddings
+- Update UI label from SigLIP to CLIP
+- Settings PATCH — optional fields, targeted release_sessions, 422 for undownloaded model
+- Image_analyzer — return session inside lock, atomic release, guard NUDENET_MODELS lookup
+- Monkeypatch MODELS_DIR directly to avoid app.database import caching in tests
+- Cache NudeDetector objects directly so 640m gets correct 640x640 input size
+- Set HF_HOME to data volume so HuggingFace cache is writable as non-root user
+- Correct NudeNet 640m download URL and add content validation
 
-## [0.10.2](https://github.com/raslan/parallax/compare/v0.10.1...v0.10.2) (2026-05-19)
+### Chores
 
+- Add test infrastructure and image ML dependencies
+- Gitignore test_images.db
 
-### Bug Fixes
+### Documentation
 
-* remove stray closing brace from index.css ([8e89581](https://github.com/raslan/parallax/commit/8e89581f33d234d2c1e81d70455a965a36d548bc))
-
-## [0.10.1](https://github.com/raslan/parallax/compare/v0.10.0...v0.10.1) (2026-05-19)
-
-
-### Bug Fixes
-
-* remove Rose / Infrared theme ([e5eeef9](https://github.com/raslan/parallax/commit/e5eeef90e9947f9ee6872c22a7d5a60206f1575f))
-
-## [0.10.0](https://github.com/raslan/parallax/compare/v0.9.0...v0.10.0) (2026-05-19)
-
+- Add image library management design spec
 
 ### Features
 
-* add Rose / Infrared theme option ([13e76ae](https://github.com/raslan/parallax/commit/13e76ae6f2d5991eaf942d966901ad8ca4752482))
+- Multi-select batch transcoding in Files view
+- Add sort by extension in Files view
+- Default RUNTIME=cuda in docker-compose for nvidia GPU
+- Add ImageLibrary DB model
+- Add Image and ImageDetection DB models
+- Add IMAGE_SCAN job type and image Pydantic schemas
+- Add image analyzer service (NudeNet + SigLIP ONNX)
+- Add image analyzer service (NudeNet + SigLIP ONNX)
+- Add image scanner service
+- Add image scanner service
+- Add image duplicates service
+- Add image libraries and images API routers
+- Register image API routers and add IMAGE_SCAN job label
+- Restructure sidebar into VIDEOS / IMAGES sections
+- Add image API types and client functions
+- Add image section pages and wire routes
+- Content review — enable toggles, AND/OR combine mode, invert detection
+- Add invert option to CLIP semantic search
+- Click-to-preview with always-visible checkbox on image cards
+- Add model registry and download service
+- Add MODEL_DOWNLOAD job type and models API router
+- Add clip_model and nudenet_model to settings API
+- Per-model session caching in image_analyzer — dict keyed by model_id
+- Wire clip_model and nudenet_model settings into scanner and search
+- Add ModelInfo type and modelsApi to frontend api.ts, update settings types
+- AI Models card in Settings with download/delete/activate per model
+- Min_score slider in ContentReview semantic search panel
+- Rename siglip_embedding→clip_embedding, add reset+rescan, run_siglip→run_clip
+- Image library — CLIP/NudeNet search, content review, quarantine, model management
+- Show inline download progress in Settings AI Models card
+- Collapsible sidebar sections with localStorage persistence
+- Add CLIP ViT-L/14@336px model option
+- Replace native video element with Plyr player
+- CLIP semantic search + NudeNet detection for video files
+- Scan batching, persistent keyframes, AI filter improvements
 
-## [0.9.0](https://github.com/raslan/parallax/compare/v0.8.1...v0.9.0) (2026-05-19)
+### Refactor
 
+- Make play-on-click the default, gate multi-select behind Transcode toggle
+- Derive onnxruntime package from RUNTIME arg, no user input needed
 
-### Features
-
-* add TMDB API key to settings ([ea7244f](https://github.com/raslan/parallax/commit/ea7244f84d67a16f14154433957ab6a05ba71de8))
-* auto-load episodes on show select, season input triggers reload ([b8e183e](https://github.com/raslan/parallax/commit/b8e183e1e51c8974d04d1de277366a68fbd5736b))
-* extract DirPicker to shared component, use in Identify page ([8b0ebd5](https://github.com/raslan/parallax/commit/8b0ebd5556422a0eb4c8846c9c817b1cc43e0e9c))
-* identify API router with search, preview, and apply endpoints ([409c5c6](https://github.com/raslan/parallax/commit/409c5c644ac64fe195fbd4b3201e749471d9d9ed))
-* Identify wizard page, FileMatcher component, and sidebar navigation ([f80c8a4](https://github.com/raslan/parallax/commit/f80c8a4c1f7ae8fc8d2272730d92a1b3a09c6284))
-* load all seasons/episodes at once, files sorted into season subfolders ([7e9d778](https://github.com/raslan/parallax/commit/7e9d77804864ad4143567ef8a7aba94655e2249d))
-* poster grid for search results with season count for TV shows ([0e509f4](https://github.com/raslan/parallax/commit/0e509f4c44e1d47c1ea061e56c55224a6fb5bec6))
-* renamer service with Plex/Jellyfin filename generation ([4741519](https://github.com/raslan/parallax/commit/4741519d0bccf9276e4ace19ffe9030c3d00593f))
-* thumbnails and per-season accordions in file matcher ([33d770f](https://github.com/raslan/parallax/commit/33d770fbb9218a3c08816147d04eef3c60782876))
-* TMDB service with search and season endpoints ([e876c63](https://github.com/raslan/parallax/commit/e876c633509d53a61696d15dbd74c3557e0da1b5))
-
+## [0.10.4] - 2026-05-19
 
 ### Bug Fixes
 
-* enable cross-season drag-and-drop in file matcher ([0f7f6f5](https://github.com/raslan/parallax/commit/0f7f6f5106d248e3d027a54d91d9a35d73ddf99e))
+- Move unmatched files to Unmatched/ instead of leaving them in place
+- Save all settings to DB before runtime update so TMDB key persists
+
+### Chores
+
+- **main:** Release 0.10.4
+- **main:** Release 0.10.4
+
+## [0.10.3] - 2026-05-19
+
+### Bug Fixes
+
+- Scan video files recursively to support pre-structured season folders
+
+### Chores
+
+- **main:** Release 0.10.3
+- **main:** Release 0.10.3
+
+## [0.10.2] - 2026-05-19
+
+### Bug Fixes
+
+- Remove stray closing brace from index.css
+
+### Chores
+
+- **main:** Release 0.10.2
+- **main:** Release 0.10.2
+
+## [0.10.1] - 2026-05-19
+
+### Bug Fixes
+
+- Remove Rose / Infrared theme
+
+### Chores
+
+- **main:** Release 0.10.1
+- **main:** Release 0.10.1
+
+### Ci
+
+- Inline docker publish into release-please workflow
+
+## [0.10.0] - 2026-05-19
+
+### Chores
+
+- **main:** Release 0.10.0
+- **main:** Release 0.10.0
+
+### Features
+
+- Add Rose / Infrared theme option
+
+### Ci
+
+- Trigger docker publish on release published instead of tag push
+
+## [0.9.0] - 2026-05-19
+
+### Bug Fixes
+
+- Enable cross-season drag-and-drop in file matcher
+
+### Chores
+
+- Add release-please for automated semantic versioning
+- Ignore CLAUDE.md in all subdirectories
+- Ignore .worktrees directory
+- Add requests dependency
+- Add dnd-kit dependencies
+- Remove parallel season fetching, use search response data only
+- **main:** Release 0.9.0
+- **main:** Release 0.9.0
+
+### Documentation
+
+- Add README
+
+### Features
+
+- Add TMDB API key to settings
+- TMDB service with search and season endpoints
+- Renamer service with Plex/Jellyfin filename generation
+- Identify API router with search, preview, and apply endpoints
+- Identify wizard page, FileMatcher component, and sidebar navigation
+- Extract DirPicker to shared component, use in Identify page
+- Poster grid for search results with season count for TV shows
+- Auto-load episodes on show select, season input triggers reload
+- Load all seasons/episodes at once, files sorted into season subfolders
+- Thumbnails and per-season accordions in file matcher
+
+## [0.8.1] - 2026-05-19
+
+### Chores
+
+- Add CLAUDE.md and docs/ to .gitignore
+- Add GHCR publish workflow on version tags
+
+### Documentation
+
+- Update changelog for v0.8.0
 
 ## [0.8.0] - 2026-05-19
 
@@ -203,12 +340,22 @@ Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) 
 - Cancellable corruption checks, skip _originals on scan, queue multiple transcodes
 - Exclude null muxer lines from corruption detection
 
+### Chores
+
+- Initial project setup with Docker and gitignore
+- Add .dockerignore
+- Add git-cliff config for changelog generation
+
 ### Documentation
 
+- Add initial CHANGELOG.md generated by git-cliff
 - Update changelog for v0.3.0
 
 ### Features
 
+- **backend:** Phase 1 — FastAPI skeleton with SQLAlchemy models
+- **frontend:** Phase 1 — React/Vite/shadcn/Tailwind scaffold
+- Phase 3 — corruption scanning with asyncio queue and SSE progress
 - Phase 4 — transcode corrupt files with encoder detection and preset picker
 - Corruption detail display and richer job progress
 - Codec detection, constrained CRF, and job queue overhaul
@@ -216,33 +363,4 @@ Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) 
 - Originals management — browse, restore, and delete backups
 - File sorting by name, size, duration, and bitrate
 
-## [0.3.0] - 2026-05-08
 
-### Documentation
-
-- Add initial CHANGELOG.md generated by git-cliff
-
-### Features
-
-- Phase 3 — corruption scanning with asyncio queue and SSE progress
-
-## [0.2.0] - 2026-05-08
-
-### Chores
-
-- Add .dockerignore
-- Add git-cliff config for changelog generation
-
-### Features
-
-- **frontend:** Phase 1 — React/Vite/shadcn/Tailwind scaffold
-
-## [0.1.0] - 2026-05-08
-
-### Chores
-
-- Initial project setup with Docker and gitignore
-
-### Features
-
-- **backend:** Phase 1 — FastAPI skeleton with SQLAlchemy models
