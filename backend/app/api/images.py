@@ -110,7 +110,7 @@ def list_images(
 @router.get("/quarantined", response_model=ImagesResponse)
 def list_quarantined(
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=100000),
     db: Session = Depends(get_db),
 ):
     q = db.query(ImageFile).filter(ImageFile.status == ImageStatus.QUARANTINED)
@@ -125,7 +125,7 @@ def list_quarantined(
 @router.get("/search", response_model=list[ImageSearchResult])
 def search_images(
     q: str = Query(..., min_length=1),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=100000),
     exclude: bool = Query(False, description="Return least similar images instead of most similar"),
     library_id: int | None = Query(None),
     db: Session = Depends(get_db),
@@ -167,7 +167,7 @@ def filter_by_detections(
     exclude: bool = Query(False, description="Return images that do NOT match the criteria"),
     library_id: int | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=100000),
     db: Session = Depends(get_db),
 ):
     label_list = [l.strip() for l in labels.split(",") if l.strip()]
@@ -302,6 +302,7 @@ def delete_image(image_id: int, db: Session = Depends(get_db)):
     f = db.get(ImageFile, image_id)
     if not f:
         raise HTTPException(404, "Image not found")
+    parent_dir = os.path.dirname(f.path)
     if os.path.exists(f.path):
         os.remove(f.path)
     thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
@@ -310,3 +311,8 @@ def delete_image(image_id: int, db: Session = Depends(get_db)):
     db.query(ImageDetection).filter(ImageDetection.image_id == image_id).delete()
     db.delete(f)
     db.commit()
+    if os.path.basename(parent_dir) == "_quarantine":
+        try:
+            os.rmdir(parent_dir)
+        except OSError:
+            pass

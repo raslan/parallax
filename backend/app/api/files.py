@@ -83,7 +83,8 @@ def list_files(
 def search_files(
     q: str = Query(..., min_length=1),
     library_id: int | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=100000),
+    exclude: bool = Query(False, description="Return least similar files instead of most similar"),
     db: Session = Depends(get_db),
 ):
     from app.services.image_analyzer import encode_text_clip, cosine_similarity
@@ -104,7 +105,7 @@ def search_files(
         except Exception:
             continue
 
-    scored.sort(key=lambda x: x[1], reverse=True)
+    scored.sort(key=lambda x: x[1], reverse=not exclude)
     return [
         {"file": _to_file_read(f), "score": round(score, 4)}
         for f, score in scored[:limit]
@@ -115,9 +116,10 @@ def search_files(
 def filter_by_detections(
     labels: str = Query(..., description="Comma-separated NudeNet labels"),
     min_confidence: float = Query(0.5, ge=0.0, le=1.0),
+    exclude: bool = Query(False, description="Return files that do NOT match the criteria"),
     library_id: int | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=100000),
     db: Session = Depends(get_db),
 ):
     from app.models.video import VideoDetection
@@ -136,7 +138,8 @@ def filter_by_detections(
         .subquery()
     )
 
-    q = db.query(File).filter(File.id.in_(matching_ids))
+    id_filter = File.id.notin_(matching_ids) if exclude else File.id.in_(matching_ids)
+    q = db.query(File).filter(id_filter)
     if library_id is not None:
         q = q.filter(File.library_id == library_id)
 

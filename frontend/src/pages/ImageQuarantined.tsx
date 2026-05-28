@@ -9,7 +9,7 @@ export function ImageQuarantined() {
   const [selected, setSelected] = useState(new Set<number>());
 
   const load = () => {
-    imageApi.listQuarantined(1, 200).then((r) => {
+    imageApi.listQuarantined(1, 10000).then((r) => {
       setImages(r.items);
       setTotal(r.total);
     }).catch(() => {});
