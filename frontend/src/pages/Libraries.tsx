@@ -22,7 +22,6 @@ function AddLibraryDialog({
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
 }) {
-  const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [split, setSplit] = useState(false);
   const [autoScan, setAutoScan] = useState(true);
@@ -30,18 +29,20 @@ function AddLibraryDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const parts = path.trim().split("/").filter(Boolean);
+  const derivedName = parts.length > 0 ? parts[parts.length - 1] : "";
+
   const reset = () => {
-    setName(""); setPath(""); setSplit(false); setAutoScan(true); setPicking(false); setError("");
+    setPath(""); setSplit(false); setAutoScan(true); setPicking(false); setError("");
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!path.trim()) return;
-    if (!split && !name.trim()) return;
     setLoading(true);
     setError("");
     try {
-      const created = await api.createLibrary({ name: name.trim(), path: path.trim(), split_into_sublibraries: split });
+      const created = await api.createLibrary({ name: derivedName, path: path.trim(), split_into_sublibraries: split });
       if (autoScan) {
         await Promise.all(created.map((lib) => api.scanLibrary(lib.id).catch(() => {})));
       }
@@ -68,18 +69,6 @@ function AddLibraryDialog({
           />
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            {!split && (
-              <div className="space-y-1.5">
-                <Label htmlFor="lib-name">Name</Label>
-                <Input
-                  id="lib-name"
-                  placeholder="My Movies"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required={!split}
-                />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label>Path</Label>
               <div className="flex gap-2">
