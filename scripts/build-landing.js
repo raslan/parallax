@@ -24,21 +24,24 @@ function mdInline(str) {
 
 // ── Parse README ─────────────────────────────────────────────────────────────
 
+// Split on ## headings — avoids multiline $ gotcha in JS regex
 function getSection(heading) {
-  const re = new RegExp(`^## ${heading}\\s*\\n([\\s\\S]*?)(?=^## |$)`, "m");
-  const m = README.match(re);
-  return m ? m[1].trim() : "";
+  const parts = README.split(/^## /m);
+  const part = parts.find((p) => p.startsWith(heading));
+  return part ? part.slice(heading.length).trim() : "";
 }
 
 // Parse feature groups (### subsections with bullet lists)
 function parseFeatureGroups() {
   const section = getSection("Features");
   const groups = [];
-  const groupRe = /^### (.+)\n([\s\S]*?)(?=^### |\s*$)/gm;
-  let m;
-  while ((m = groupRe.exec(section)) !== null) {
-    const title = m[1].trim();
-    const items = [...m[2].matchAll(/^- \*\*(.+?)\*\* — (.+)/gm)].map(
+  const subParts = section.split(/^### /m);
+  for (const sub of subParts) {
+    const nl = sub.indexOf("\n");
+    if (nl === -1) continue;
+    const title = sub.slice(0, nl).trim();
+    const body = sub.slice(nl);
+    const items = [...body.matchAll(/^- \*\*(.+?)\*\* — (.+)/gm)].map(
       ([, name, desc]) => ({ name, desc })
     );
     if (items.length) groups.push({ title, items });
@@ -46,13 +49,12 @@ function parseFeatureGroups() {
   return groups;
 }
 
-// Parse tag table from Deployment section
+// Parse tag table from Deployment section — match all ghcr.io rows anywhere in section
 function parseRuntimeTable() {
   const section = getSection("Deployment");
-  const rows = [...section.matchAll(/^\| `?([^|`]+)`? \| ([^|]+) \|/gm)]
-    .slice(1) // skip header
-    .map(([, tag, desc]) => ({ tag: tag.trim(), desc: desc.trim() }))
-    .filter((r) => r.tag.startsWith("ghcr.io"));
+  const rows = [...section.matchAll(/\| `(ghcr\.io[^`]+)` \| ([^|]+) \|/g)].map(
+    ([, tag, desc]) => ({ tag: tag.trim(), desc: desc.trim() })
+  );
   return rows;
 }
 
@@ -176,10 +178,6 @@ const html = `<!DOCTYPE html>
     }
     .logo-mark {
       width: 32px; height: 32px;
-      background: var(--accent);
-      border-radius: 0.4rem;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 1rem; color: #fff;
     }
     nav .links { display: flex; gap: 1.5rem; align-items: center; }
     nav .links a { color: var(--muted); font-size: 0.9rem; }
@@ -385,7 +383,12 @@ const html = `<!DOCTYPE html>
 <nav>
   <div class="inner">
     <a href="/" class="logo">
-      <div class="logo-mark">P</div>
+      <svg class="logo-mark" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <text x="1" y="16" font-family="monospace" font-size="15" font-weight="700" fill="#8b5cf6">P</text>
+        <circle cx="17" cy="4" r="1.2" fill="#8b5cf6"/>
+        <line x1="17" y1="1.3" x2="17" y2="6.7" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="14.3" y1="4" x2="19.7" y2="4" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
+      </svg>
       Parallax
     </a>
     <div class="links">
