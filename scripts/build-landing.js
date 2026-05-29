@@ -294,6 +294,7 @@ const html = `<!DOCTYPE html>
       font-style: italic;
       color: var(--text);
     }
+    h1 em .h1-accent { color: var(--accent-hi); }
     .hero-sub {
       color: var(--muted);
       font-size: 1.0625rem;
@@ -605,7 +606,7 @@ const html = `<!DOCTYPE html>
       <span>·</span>
       Docker
     </div>
-    <h1>Media management,<br><em>without the cloud</em></h1>
+    <h1>Media management,<br><em><span class="h1-accent">without</span> the cloud</em></h1>
     <p class="hero-sub">Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own. Free and open source. Your files never leave your server.</p>
     <div class="hero-cta">
       <a href="#deploy" class="btn btn-solid">Deploy now</a>
