@@ -8,6 +8,7 @@ __pycache__/
 # Node
 node_modules/
 frontend/dist/
+dist/
 
 # Runtime data
 data/
