@@ -30,30 +30,27 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 
 ## Deployment
 
-### Choosing a runtime
+Pre-built images are published to the GitHub Container Registry on every release. Pick the tag for your hardware:
 
-The image must be built with a `RUNTIME` build argument matching your hardware. There is no pre-built image — build it locally.
+| Tag | Hardware |
+|-----|----------|
+| `ghcr.io/raslan/parallax:latest` | CPU only (no GPU inference) |
+| `ghcr.io/raslan/parallax:latest-cuda` | NVIDIA GPU — ONNX CUDA + NVENC |
+| `ghcr.io/raslan/parallax:latest-rocm` | AMD GPU — ONNX ROCm + VA-API |
 
-| `RUNTIME` | When to use |
-|-----------|-------------|
-| `cpu` (default) | No GPU, or GPU only for ffmpeg transcoding |
-| `cuda` | NVIDIA GPU — enables ONNX GPU inference + NVENC transcoding |
-| `rocm` | AMD GPU — enables ONNX ROCm inference + VA-API transcoding |
+Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2.0-cuda`.
 
 ---
 
 ### Docker Compose (recommended)
 
-Create a `docker-compose.yml` and a `data/` directory alongside it:
+Save this as `docker-compose.yml`, create a `data/` folder alongside it, then run `docker compose up -d`.
 
+**NVIDIA:**
 ```yaml
 services:
   parallax:
-    build:
-      context: .
-      args:
-        RUNTIME: cuda          # cpu | cuda | rocm
-    image: parallax:cuda
+    image: ghcr.io/raslan/parallax:latest-cuda
     container_name: parallax
     ports:
       - "7899:7899"
@@ -63,10 +60,8 @@ services:
     environment:
       - DATA_DIR=/app/data
       - HF_HOME=/app/data/hf-cache
-    user: "1000:1000"          # match your host UID:GID
+    user: "1000:1000"          # match your host UID:GID — run `id` to check
     restart: unless-stopped
-
-    # ── NVIDIA (requires nvidia-container-toolkit on the host) ──
     deploy:
       resources:
         reservations:
@@ -74,40 +69,51 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu, video]
-
-    # ── Intel / AMD (VA-API) — swap in instead of the nvidia block ──
-    # devices:
-    #   - /dev/dri:/dev/dri
-    # group_add:
-    #   - video
 ```
 
-```bash
-git clone https://github.com/raslan/parallax.git
-cd parallax
-docker compose up -d --build
+**AMD (ROCm):**
+```yaml
+services:
+  parallax:
+    image: ghcr.io/raslan/parallax:latest-rocm
+    container_name: parallax
+    ports:
+      - "7899:7899"
+    volumes:
+      - ./data:/app/data
+      - /mnt/media:/media
+    environment:
+      - DATA_DIR=/app/data
+      - HF_HOME=/app/data/hf-cache
+    user: "1000:1000"
+    restart: unless-stopped
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
 ```
 
-Open [http://localhost:7899](http://localhost:7899).
-
-> **Note:** Always pass `--build`. A plain `docker compose up` won't pick up code changes.
+**CPU:**
+```yaml
+services:
+  parallax:
+    image: ghcr.io/raslan/parallax:latest
+    container_name: parallax
+    ports:
+      - "7899:7899"
+    volumes:
+      - ./data:/app/data
+      - /mnt/media:/media
+    environment:
+      - DATA_DIR=/app/data
+      - HF_HOME=/app/data/hf-cache
+    user: "1000:1000"
+    restart: unless-stopped
+```
 
 ---
 
 ### Docker Run
-
-Build first, then run:
-
-```bash
-# CPU
-docker build -t parallax:cpu .
-
-# NVIDIA CUDA
-docker build --build-arg RUNTIME=cuda -t parallax:cuda .
-
-# AMD ROCm
-docker build --build-arg RUNTIME=rocm -t parallax:rocm .
-```
 
 **CPU:**
 ```bash
@@ -120,7 +126,7 @@ docker run -d \
   -e HF_HOME=/app/data/hf-cache \
   --user 1000:1000 \
   --restart unless-stopped \
-  parallax:cpu
+  ghcr.io/raslan/parallax:latest
 ```
 
 **NVIDIA:**
@@ -135,7 +141,7 @@ docker run -d \
   --user 1000:1000 \
   --gpus all \
   --restart unless-stopped \
-  parallax:cuda
+  ghcr.io/raslan/parallax:latest-cuda
 ```
 
 **AMD (ROCm):**
@@ -151,7 +157,7 @@ docker run -d \
   --device /dev/dri:/dev/dri \
   --group-add video \
   --restart unless-stopped \
-  parallax:rocm
+  ghcr.io/raslan/parallax:latest-rocm
 ```
 
 ---
@@ -193,6 +199,30 @@ Requires [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-nat
 3. Go to **Settings → Metadata** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature
 4. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
 5. Run a scan; for video libraries the AI scan extracts keyframes then runs CLIP + content detection in batches; for image libraries it generates thumbnails and runs the same AI pipeline
+
+---
+
+## Build from source
+
+If you want to build your own image (e.g. to run unreleased code):
+
+```bash
+git clone https://github.com/raslan/parallax.git
+cd parallax
+
+# CPU
+docker build -t parallax:cpu .
+
+# NVIDIA CUDA
+docker build --build-arg RUNTIME=cuda -t parallax:cuda .
+
+# AMD ROCm
+docker build --build-arg RUNTIME=rocm -t parallax:rocm .
+```
+
+Then substitute `parallax:cuda` (etc.) for the `ghcr.io/...` image in the examples above.
+
+> When iterating locally, always pass `--build` to `docker compose up` — a plain restart won't pick up code changes.
 
 ---
 
