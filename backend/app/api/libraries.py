@@ -8,6 +8,7 @@ from app.database import get_db
 from app.services.video_scanner import delete_keyframes
 from app.models.library import Library
 from app.models.file import File, FileStatus
+from app.models.video import VideoDetection
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import (
     LibraryCreate, LibraryRead, LibraryUpdate, StatsRead,
@@ -306,7 +307,7 @@ async def find_duplicates_endpoint(
     db.add(job)
     db.commit()
     db.refresh(job)
-    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash, body.duration_tolerance)
+    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash, body.duration_tolerance, body.phash_threshold, body.phash_mode)
     return {"message": "Duplicate scan queued"}
 
 
@@ -361,6 +362,7 @@ def delete_duplicates_endpoint(
             os.makedirs(originals_dir, exist_ok=True)
             shutil.move(f.path, os.path.join(originals_dir, f.filename))
         delete_keyframes(f.id)
+        db.query(VideoDetection).filter(VideoDetection.file_id == f.id).delete()
         db.delete(f)
     db.commit()
 
@@ -376,6 +378,7 @@ def get_cleanup_files(
     date_ts: float | None = Query(None),
     height_op: str | None = Query(None),
     height_val: int | None = Query(None),
+    fetch_all: bool = Query(False),
     db: Session = Depends(get_db),
 ):
     lib = db.get(Library, library_id)
@@ -388,7 +391,7 @@ def get_cleanup_files(
         date_op and date_ts is not None,
         height_op and height_val is not None,
     ])
-    if not filters_present:
+    if not filters_present and not fetch_all:
         raise HTTPException(422, "At least one filter must be specified")
 
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
@@ -471,5 +474,6 @@ def delete_cleanup_files(
                 dest = os.path.join(originals_dir, f"{base}_{f.id}{ext}")
             shutil.move(f.path, dest)
         delete_keyframes(f.id)
+        db.query(VideoDetection).filter(VideoDetection.file_id == f.id).delete()
         db.delete(f)
     db.commit()

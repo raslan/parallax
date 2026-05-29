@@ -139,7 +139,7 @@ function loadCriteria(): DuplicateCriteria {
     const stored = localStorage.getItem(CRITERIA_KEY);
     if (stored) return JSON.parse(stored);
   } catch {}
-  return { use_size: true, use_duration: true, use_phash: true, duration_tolerance: 1 };
+  return { use_size: true, use_duration: true, use_phash: true, duration_tolerance: 1, phash_threshold: 10, phash_mode: "all_frames" };
 }
 
 export function Duplicates() {
@@ -330,6 +330,36 @@ export function Duplicates() {
               />
               <span className="text-sm text-muted-foreground">s</span>
             </label>
+          )}
+          {criteria.use_phash && (
+            <>
+              <div className="flex items-center gap-1.5 select-none">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Min similarity</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round((1 - criteria.phash_threshold / 64) * 100)}
+                  onChange={(e) => setCriteria((prev) => ({
+                    ...prev,
+                    phash_threshold: Math.round((1 - Number(e.target.value) / 100) * 64),
+                  }))}
+                  className="w-24 accent-primary"
+                />
+                <span className="text-xs font-mono text-muted-foreground w-8">
+                  {Math.round((1 - criteria.phash_threshold / 64) * 100)}%
+                </span>
+              </div>
+              <select
+                value={criteria.phash_mode}
+                onChange={(e) => setCriteria((prev) => ({ ...prev, phash_mode: e.target.value as "first_frame" | "all_frames" }))}
+                className="bg-card border border-border text-xs rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="all_frames">All frames</option>
+                <option value="first_frame">First frame only</option>
+              </select>
+            </>
           )}
         </div>
       </div>
