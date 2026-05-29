@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Library, Film, Activity, Settings, Archive, Copy, Scissors, Wand2,
-  Images, ShieldAlert, FolderX, ChevronDown,
+  Images, ShieldAlert, FolderX, ChevronDown, Captions,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -14,7 +14,11 @@ const videoItems = [
   { to: "/duplicates", icon: Copy,     label: "Duplicates" },
   { to: "/cleanup",    icon: Scissors, label: "Cleanup" },
   { to: "/originals",  icon: Archive,  label: "Originals" },
+];
+
+const toolItems = [
   { to: "/identify",   icon: Wand2,    label: "Identify" },
+  { to: "/subtitles",  icon: Captions, label: "Subtitles" },
 ];
 
 const imageItems = [
@@ -97,6 +101,7 @@ export function Sidebar() {
 
   const videoActive = videoItems.some((i) => pathname.startsWith(i.to));
   const imageActive = imageItems.some((i) => pathname.startsWith(i.to));
+  const toolActive  = toolItems.some((i) => pathname.startsWith(i.to));
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r bg-[hsl(var(--sidebar))] border-[hsl(var(--sidebar-border))]">
@@ -121,6 +126,12 @@ export function Sidebar() {
           items={imageItems}
           storageKey="sidebar-images-open"
           forceOpen={imageActive}
+        />
+        <SectionGroup
+          label="Tools"
+          items={toolItems}
+          storageKey="sidebar-tools-open"
+          forceOpen={toolActive}
         />
 
         <div className="px-3 pb-1 pt-3" />
