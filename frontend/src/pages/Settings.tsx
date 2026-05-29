@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Loader2, Check, Palette, KeyRound, Cpu, Download, Trash2, AlertCircle } from "lucide-react";
+import { Loader2, Check, Palette, KeyRound, Cpu, Download, Trash2, AlertCircle, Captions } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api, modelsApi, ModelInfo } from "@/lib/api";
@@ -18,6 +18,7 @@ const TABS = [
   { id: "transcoder", label: "Transcoder",  icon: null },
   { id: "metadata",   label: "Metadata",    icon: KeyRound },
   { id: "ai",         label: "AI Models",   icon: Cpu },
+  { id: "subtitles",  label: "Subtitles",   icon: Captions },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -186,6 +187,8 @@ export function Settings() {
   const [tmdbKey, setTmdbKey]                     = useState("");
   const [videoKeyframesPerVideo, setVideoKeyframesPerVideo] = useState(8);
   const [scanBatchSize, setScanBatchSize]                   = useState(4);
+  const [osApiKey, setOsApiKey]                   = useState("");
+  const [subtitleLanguages, setSubtitleLanguages] = useState("en");
   const [loading, setLoading]                     = useState(true);
   const [saving, setSaving]                       = useState(false);
   const [saved, setSaved]                         = useState(false);
@@ -201,6 +204,8 @@ export function Settings() {
         setTmdbKey(s.tmdb_api_key);
         setVideoKeyframesPerVideo(s.video_keyframes_per_video ?? 8);
         setScanBatchSize(s.scan_batch_size ?? 4);
+        setOsApiKey(s.opensubtitles_api_key ?? "");
+        setSubtitleLanguages(s.subtitle_languages ?? "en");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -218,7 +223,7 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize });
+      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_api_key: osApiKey, subtitle_languages: subtitleLanguages });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -377,6 +382,53 @@ export function Settings() {
                     value={tmdbKey}
                     onChange={(e) => { setTmdbKey(e.target.value); markDirty(); }}
                     placeholder="Paste your TMDB API key…"
+                    className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <SaveButton />
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Subtitles */}
+      {activeTab === "subtitles" && (
+        <Card>
+          <CardContent className="pt-6 space-y-6">
+            {loading ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />Loading…
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Default languages</p>
+                  <p className="text-xs text-muted-foreground">
+                    Comma-separated ISO 639-1 codes (e.g. <span className="font-mono">en,fr,de</span>).
+                    Used when no override is set on the Subtitles page.
+                  </p>
+                  <input
+                    type="text"
+                    value={subtitleLanguages}
+                    onChange={(e) => { setSubtitleLanguages(e.target.value); markDirty(); }}
+                    placeholder="en"
+                    className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">OpenSubtitles API key <span className="text-muted-foreground font-normal">(optional)</span></p>
+                  <p className="text-xs text-muted-foreground">
+                    Adds OpenSubtitles to the provider pool for better coverage. Free key at{" "}
+                    <a href="https://www.opensubtitles.com/en/consumers" target="_blank" rel="noreferrer" className="text-primary underline">
+                      opensubtitles.com
+                    </a>. Without a key, Podnapisi is used.
+                  </p>
+                  <input
+                    type="password"
+                    value={osApiKey}
+                    onChange={(e) => { setOsApiKey(e.target.value); markDirty(); }}
+                    placeholder="Paste your OpenSubtitles API key…"
                     className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>

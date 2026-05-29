@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Captions, FolderOpen, ScanLine, Download, CheckCircle2,
-  XCircle, Loader2, ChevronRight, Film,
+  XCircle, Loader2, ChevronRight, Film, Globe,
 } from "lucide-react";
 import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,29 @@ import { Input } from "@/components/ui/input";
 import { DirPicker } from "@/components/DirPicker";
 import { SectionHeader } from "@/components/SectionHeader";
 import { cn } from "@/lib/utils";
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const COMMON_LANGS = [
+  { code: "en", label: "English" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "es", label: "Spanish" },
+  { code: "pt", label: "Portuguese" },
+  { code: "it", label: "Italian" },
+  { code: "nl", label: "Dutch" },
+  { code: "pl", label: "Polish" },
+  { code: "ru", label: "Russian" },
+  { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" },
+  { code: "zh", label: "Chinese" },
+  { code: "ar", label: "Arabic" },
+  { code: "sv", label: "Swedish" },
+  { code: "da", label: "Danish" },
+  { code: "fi", label: "Finnish" },
+  { code: "nb", label: "Norwegian" },
+  { code: "tr", label: "Turkish" },
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,12 +112,29 @@ export function Subtitles() {
   const [files, setFiles] = useState<SubtitleFile[] | null>(null);
   const [scanError, setScanError] = useState("");
 
+  const [selectedLangs, setSelectedLangs] = useState<string[]>(["en"]);
   const [downloading, setDownloading] = useState(false);
   const [jobProgress, setJobProgress] = useState<number | null>(null);
   const [jobStatus, setJobStatus] = useState<string>("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Load default languages from settings
+  useEffect(() => {
+    api.getSettings().then((s) => {
+      const codes = (s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean);
+      setSelectedLangs(codes);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  const toggleLang = (code: string) => {
+    setSelectedLangs((prev) =>
+      prev.includes(code)
+        ? prev.length > 1 ? prev.filter((c) => c !== code) : prev // keep at least one
+        : [...prev, code]
+    );
+  };
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -122,7 +162,7 @@ export function Subtitles() {
     setJobStatus("Starting…");
 
     try {
-      const { job_id } = await subtitlesApi.download(path.trim());
+      const { job_id } = await subtitlesApi.download(path.trim(), selectedLangs);
       stopPolling();
       pollRef.current = setInterval(async () => {
         try {
@@ -197,6 +237,39 @@ export function Subtitles() {
               Scan
             </Button>
           </>
+        )}
+      </div>
+
+      {/* Language picker */}
+      <div className="space-y-2 max-w-2xl">
+        <div className="flex items-center gap-2">
+          <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Languages</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {COMMON_LANGS.map(({ code, label }) => {
+            const active = selectedLangs.includes(code);
+            return (
+              <button
+                key={code}
+                onClick={() => toggleLang(code)}
+                title={label}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-xs font-medium transition-colors border",
+                  active
+                    ? "bg-primary/15 border-primary/40 text-primary"
+                    : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                )}
+              >
+                {code}
+              </button>
+            );
+          })}
+        </div>
+        {selectedLangs.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Downloading: {selectedLangs.map((c) => COMMON_LANGS.find((l) => l.code === c)?.label ?? c).join(", ")}
+          </p>
         )}
       </div>
 
