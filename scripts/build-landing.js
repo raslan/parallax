@@ -61,45 +61,50 @@ function parseRuntimeTable() {
 const featureGroups = parseFeatureGroups();
 const runtimeRows = parseRuntimeTable();
 
-// ── Feature icons ─────────────────────────────────────────────────────────────
+// ── Build HTML parts ──────────────────────────────────────────────────────────
 
-const groupIcons = {
-  Videos: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`,
-  Images: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
-  AI: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/></svg>`,
-  General: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-};
+// Flatten all features into a single list for a clean grid
+const allFeatures = featureGroups.flatMap((g) => g.items);
 
-// ── Build HTML ────────────────────────────────────────────────────────────────
-
-const featureCardsHtml = featureGroups
+const featuresHtml = allFeatures
   .map(
-    ({ title, items }) => `
-    <div class="feature-group">
-      <div class="group-header">
-        <span class="group-icon">${groupIcons[title] || groupIcons.General}</span>
-        <h3>${escapeHtml(title)}</h3>
-      </div>
-      <ul>
-        ${items
-          .map(
-            ({ name, desc }) =>
-              `<li><strong>${escapeHtml(name)}</strong><span>${mdInline(desc)}</span></li>`
-          )
-          .join("\n        ")}
-      </ul>
+    ({ name, desc }) => `
+    <div class="feat-item">
+      <strong>${escapeHtml(name)}</strong>
+      <span>${mdInline(desc)}</span>
     </div>`
   )
   .join("\n");
 
-const runtimeRowsHtml = runtimeRows
-  .map(
-    ({ tag, desc }) =>
-      `<tr><td><code>${escapeHtml(tag)}</code></td><td>${escapeHtml(desc)}</td></tr>`
-  )
-  .join("\n          ");
+const runtimeLabels = { cpu: "CPU", cuda: "NVIDIA", rocm: "AMD" };
+const runtimeDescs = {
+  cpu: "No GPU required. AI inference runs on CPU.",
+  cuda: "ONNX CUDA backend + NVENC hardware transcoding.",
+  rocm: "ONNX ROCm backend + VA-API hardware transcoding.",
+};
+
+const runtimeCardsHtml = runtimeRows
+  .map(({ tag, desc }) => {
+    const key = tag.endsWith("-cuda") ? "cuda" : tag.endsWith("-rocm") ? "rocm" : "cpu";
+    return `
+    <div class="runtime-card">
+      <div class="runtime-label">${runtimeLabels[key]}</div>
+      <code class="runtime-tag">${escapeHtml(tag)}</code>
+      <p class="runtime-desc">${runtimeDescs[key]}</p>
+    </div>`;
+  })
+  .join("\n");
 
 const ghUrl = "https://github.com/raslan/parallax";
+
+const GITHUB_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>`;
+
+const LOGO_SVG = `<svg class="logo-mark" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <text x="1" y="16" font-family="monospace" font-size="15" font-weight="700" fill="#8b5cf6">P</text>
+        <circle cx="17" cy="4" r="1.2" fill="#8b5cf6"/>
+        <line x1="17" y1="1.3" x2="17" y2="6.7" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="14.3" y1="4" x2="19.7" y2="4" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
+      </svg>`;
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -117,12 +122,12 @@ const html = `<!DOCTYPE html>
       --bg-card2:  #18181b;
       --border:    #27272a;
       --accent:    #8b5cf6;
-      --accent-lo: #8b5cf620;
+      --accent-lo: rgba(139,92,246,0.1);
       --accent-hi: #a78bfa;
       --text:      #fafafa;
-      --muted:     #a1a1aa;
-      --code-bg:   #1c1c1f;
-      --radius:    0.5rem;
+      --muted:     #71717a;
+      --radius:    0.4rem;
+      --mono:      "SF Mono", "Fira Code", "Cascadia Code", monospace;
     }
 
     body {
@@ -131,332 +136,514 @@ const html = `<!DOCTYPE html>
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 16px;
       line-height: 1.6;
-      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
     a { color: var(--accent-hi); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    a:hover { color: var(--text); }
     code {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 0.25rem;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 0.85em;
-      padding: 0.15em 0.4em;
+      font-family: var(--mono);
+      font-size: 0.8em;
     }
-    strong { color: var(--text); font-weight: 600; }
 
-    /* ── Layout ── */
-    .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 2rem; }
 
     /* ── Nav ── */
     nav {
       border-bottom: 1px solid var(--border);
-      padding: 1rem 0;
+      padding: 0.875rem 0;
       position: sticky;
       top: 0;
-      background: #09090bcc;
-      backdrop-filter: blur(12px);
+      background: rgba(9,9,11,0.85);
+      backdrop-filter: blur(16px);
       z-index: 10;
     }
-    nav .inner {
+    .nav-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
     }
     .logo {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-      font-weight: 700;
-      font-size: 1.1rem;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.95rem;
       color: var(--text);
-      text-decoration: none;
+      letter-spacing: -0.01em;
     }
-    .logo-mark {
-      width: 32px; height: 32px;
+    .logo-mark { width: 28px; height: 28px; }
+    .nav-links { display: flex; align-items: center; gap: 0.25rem; }
+    .nav-links a {
+      color: var(--muted);
+      font-size: 0.875rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: var(--radius);
+      transition: color 0.15s;
     }
-    nav .links { display: flex; gap: 1.5rem; align-items: center; }
-    nav .links a { color: var(--muted); font-size: 0.9rem; }
-    nav .links a:hover { color: var(--text); text-decoration: none; }
+    .nav-links a:hover { color: var(--text); }
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      padding: 0.45rem 1rem;
+      gap: 0.375rem;
+      padding: 0.4rem 0.875rem;
       border-radius: var(--radius);
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       font-weight: 500;
-      transition: opacity 0.15s;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
     }
-    .btn:hover { opacity: 0.85; text-decoration: none; }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-ghost {
-      background: transparent;
+    .btn-outline {
       color: var(--muted);
       border: 1px solid var(--border);
+      background: transparent;
     }
-    .btn-ghost:hover { color: var(--text); }
+    .btn-outline:hover { color: var(--text); border-color: #3f3f46; }
+    .btn-solid { background: var(--accent); color: #fff; }
+    .btn-solid:hover { opacity: 0.88; color: #fff; }
 
     /* ── Hero ── */
     .hero {
-      padding: 6rem 0 4rem;
+      padding: 7rem 0 5rem;
       text-align: center;
       position: relative;
-      overflow: hidden;
     }
     .hero::before {
       content: "";
       position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse 80% 50% at 50% 0%, #8b5cf630 0%, transparent 70%);
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 900px; height: 400px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.18) 0%, transparent 68%);
       pointer-events: none;
     }
-    .badge {
+    .eyebrow {
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      background: var(--accent-lo);
-      border: 1px solid #8b5cf640;
-      border-radius: 99px;
-      color: var(--accent-hi);
+      gap: 0.5rem;
+      color: var(--muted);
       font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       font-weight: 500;
-      padding: 0.3rem 0.8rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.75rem;
     }
-    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .eyebrow-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .eyebrow span { color: var(--border); }
     h1 {
-      font-size: clamp(2.2rem, 6vw, 3.8rem);
+      font-size: clamp(2.4rem, 6vw, 4rem);
       font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
-      margin-bottom: 1rem;
+      letter-spacing: -0.04em;
+      line-height: 1.08;
+      margin-bottom: 1.25rem;
+      color: var(--text);
     }
-    h1 span { color: var(--accent-hi); }
+    h1 em {
+      font-style: normal;
+      color: var(--accent-hi);
+    }
     .hero-sub {
       color: var(--muted);
-      font-size: clamp(1rem, 2.5vw, 1.2rem);
-      max-width: 600px;
+      font-size: 1.0625rem;
+      max-width: 520px;
       margin: 0 auto 2.5rem;
+      line-height: 1.65;
     }
-    .hero-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
-
-    /* ── Quick start ── */
-    .quickstart {
-      margin: 3rem auto;
-      max-width: 560px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .quickstart-header {
-      padding: 0.6rem 1rem;
-      background: var(--bg-card2);
-      border-bottom: 1px solid var(--border);
-      font-size: 0.75rem;
-      color: var(--muted);
+    .hero-cta {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
     }
-    .quickstart-header .dots { display: flex; gap: 0.35rem; }
-    .quickstart-header .dots span {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--border);
-    }
-    .quickstart pre {
-      padding: 1rem 1.25rem;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 0.85rem;
-      color: #e4e4e7;
-      overflow-x: auto;
-      background: none;
-      border: none;
-    }
-    .quickstart pre .prompt { color: var(--accent); user-select: none; }
-    .quickstart pre .comment { color: var(--muted); }
 
-    /* ── Runtime tags ── */
-    .runtime-section {
-      margin: 4rem 0;
-      text-align: center;
-    }
-    .runtime-section h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-    }
-    .runtime-section p { color: var(--muted); margin-bottom: 1.5rem; }
-    .runtime-table {
-      display: inline-table;
-      border-collapse: collapse;
+    /* ── Terminal ── */
+    .terminal {
+      margin: 0 auto;
+      max-width: 520px;
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: 0.6rem;
       overflow: hidden;
-      font-size: 0.875rem;
+      background: var(--bg-card);
       text-align: left;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
     }
-    .runtime-table th {
+    .terminal-bar {
       background: var(--bg-card2);
-      padding: 0.6rem 1.25rem;
-      color: var(--muted);
-      font-weight: 500;
       border-bottom: 1px solid var(--border);
-    }
-    .runtime-table td {
-      padding: 0.7rem 1.25rem;
-      border-bottom: 1px solid var(--border);
-    }
-    .runtime-table tr:last-child td { border-bottom: none; }
-    .runtime-table tr:hover td { background: var(--bg-card); }
-
-    /* ── Features ── */
-    .features-section { padding: 4rem 0; }
-    .features-section > .container > h2 {
-      font-size: 1.8rem;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 0.5rem;
-    }
-    .features-section > .container > p {
-      text-align: center;
-      color: var(--muted);
-      margin-bottom: 3rem;
-    }
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.25rem;
-    }
-    .feature-group {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      transition: border-color 0.2s;
-    }
-    .feature-group:hover { border-color: #8b5cf650; }
-    .group-header {
+      padding: 0.6rem 1rem;
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.75rem;
+    }
+    .t-dots { display: flex; gap: 0.4rem; }
+    .t-dots span { width: 9px; height: 9px; border-radius: 50%; }
+    .t-dots .r { background: #ff5f57; }
+    .t-dots .y { background: #febc2e; }
+    .t-dots .g { background: #28c840; }
+    .t-label { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }
+    .terminal pre {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      line-height: 1.7;
+      color: #d4d4d8;
+      overflow-x: auto;
+    }
+    .t-comment { color: #52525b; }
+    .t-key { color: #a78bfa; }
+    .t-val { color: #86efac; }
+    .t-prompt { color: #52525b; user-select: none; }
+
+    /* ── Section shared ── */
+    .section { padding: 6rem 0; border-top: 1px solid var(--border); }
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+    .section-heading {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
       margin-bottom: 1rem;
     }
-    .group-icon { color: var(--accent-hi); flex-shrink: 0; }
-    .group-header h3 { font-size: 1rem; font-weight: 600; }
-    .feature-group ul { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
-    .feature-group li {
+    .section-sub {
+      color: var(--muted);
+      font-size: 0.9375rem;
+      max-width: 480px;
+      line-height: 1.6;
+    }
+
+    /* ── Features ── */
+    .features-layout {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 4rem;
+      align-items: start;
+    }
+    .feat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .feat-item {
+      padding: 1.1rem 1.25rem;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .feat-item:hover { background: var(--bg-card); }
+    .feat-item:nth-child(2n) { border-right: none; }
+    .feat-item strong {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.2rem;
+    }
+    .feat-item span {
+      font-size: 0.775rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .feat-item span code {
+      background: rgba(255,255,255,0.05);
+      border-radius: 0.2rem;
+      padding: 0.05em 0.35em;
+      font-size: 0.75em;
+      color: #a1a1aa;
+    }
+
+    /* ── Deploy ── */
+    .deploy-layout {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 4rem;
+      align-items: start;
+    }
+    .runtime-cards {
       display: flex;
       flex-direction: column;
-      gap: 0.1rem;
-      padding-left: 0.85rem;
-      border-left: 2px solid var(--border);
-      font-size: 0.875rem;
+      gap: 0.75rem;
     }
-    .feature-group li strong { font-size: 0.875rem; color: var(--text); }
-    .feature-group li span { color: var(--muted); line-height: 1.4; }
+    .runtime-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      display: grid;
+      grid-template-columns: 3.5rem 1fr;
+      grid-template-rows: auto auto;
+      gap: 0.15rem 1rem;
+      align-items: start;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .runtime-card:hover { border-color: #3f3f46; background: var(--bg-card); }
+    .runtime-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-hi);
+      padding-top: 0.1rem;
+      grid-row: 1;
+    }
+    .runtime-tag {
+      font-family: var(--mono);
+      font-size: 0.775rem;
+      color: #d4d4d8;
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .runtime-desc {
+      font-size: 0.775rem;
+      color: var(--muted);
+      grid-column: 2;
+      grid-row: 2;
+      line-height: 1.4;
+    }
+    .deploy-snippet {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .snippet-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card2);
+    }
+    .snippet-tab {
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      user-select: none;
+      transition: color 0.15s;
+    }
+    .snippet-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .snippet-body { display: none; }
+    .snippet-body.active { display: block; }
+    .snippet-body pre {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 1.7;
+      color: #d4d4d8;
+      overflow-x: auto;
+    }
+    .s-comment { color: #52525b; }
+    .s-key { color: #a78bfa; }
+    .s-val { color: #86efac; }
+    .s-str { color: #fbbf24; }
 
     /* ── Footer ── */
     footer {
       border-top: 1px solid var(--border);
-      padding: 2rem 0;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.85rem;
+      padding: 2.5rem 0;
     }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .footer-logo svg { width: 22px; height: 22px; }
+    footer p { font-size: 0.8rem; color: var(--muted); }
     footer a { color: var(--muted); }
     footer a:hover { color: var(--text); }
 
-    @media (max-width: 600px) {
-      .hero { padding: 4rem 0 2.5rem; }
-      nav .links .hide-mobile { display: none; }
+    @media (max-width: 768px) {
+      .features-layout, .deploy-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .feat-item { border-right: none; }
+      h1 { font-size: 2.2rem; }
+      .hero { padding: 5rem 0 3.5rem; }
+      .section { padding: 4rem 0; }
+      .nav-hide { display: none; }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
 
 <nav>
-  <div class="inner">
+  <div class="nav-inner">
     <a href="/" class="logo">
-      <svg class="logo-mark" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <text x="1" y="16" font-family="monospace" font-size="15" font-weight="700" fill="#8b5cf6">P</text>
-        <circle cx="17" cy="4" r="1.2" fill="#8b5cf6"/>
-        <line x1="17" y1="1.3" x2="17" y2="6.7" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
-        <line x1="14.3" y1="4" x2="19.7" y2="4" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
-      </svg>
+      ${LOGO_SVG}
       Parallax
     </a>
-    <div class="links">
-      <a href="#features" class="hide-mobile">Features</a>
-      <a href="#deploy" class="hide-mobile">Deploy</a>
-      <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-ghost">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
-        GitHub
-      </a>
-      <a href="${ghUrl}/releases" target="_blank" rel="noopener" class="btn btn-primary">Get Parallax</a>
+    <div class="nav-links">
+      <a href="#features" class="nav-hide">Features</a>
+      <a href="#deploy" class="nav-hide">Deploy</a>
+      <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} GitHub</a>
+      <a href="${ghUrl}/releases" target="_blank" rel="noopener" class="btn btn-solid">Get started</a>
     </div>
   </div>
 </nav>
 
 <section class="hero">
   <div class="container">
-    <div class="badge"><span class="badge-dot"></span>Self-hosted · Docker · Open source</div>
-    <h1>Your media library,<br><span>under your control</span></h1>
-    <p class="hero-sub">Parallax is a self-hosted video and image manager with GPU-accelerated AI scanning, transcoding, duplicate detection, and media identification.</p>
-    <div class="hero-actions">
-      <a href="#deploy" class="btn btn-primary">Deploy now</a>
-      <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-ghost">View on GitHub</a>
+    <div class="eyebrow">
+      <span class="eyebrow-dot"></span>
+      Open source
+      <span>·</span>
+      Self-hosted
+      <span>·</span>
+      Docker
+    </div>
+    <h1>Media management,<br><em>without the cloud</em></h1>
+    <p class="hero-sub">Scan, transcode, deduplicate, and search your video and image libraries — with GPU-accelerated AI — on hardware you own.</p>
+    <div class="hero-cta">
+      <a href="#deploy" class="btn btn-solid">Deploy now</a>
+      <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} View on GitHub</a>
     </div>
 
-    <div class="quickstart">
-      <div class="quickstart-header">
-        <div class="dots"><span></span><span></span><span></span></div>
-        docker-compose.yml
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="t-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <span class="t-label">docker-compose.yml</span>
       </div>
-      <pre><span class="comment"># NVIDIA GPU</span>
-<span class="prompt">$</span> docker compose up -d
-
-<span class="comment"># Pull the latest CUDA image</span>
-image: ghcr.io/raslan/parallax:latest-cuda</pre>
+      <pre><span class="t-key">services</span>:
+  <span class="t-key">parallax</span>:
+    <span class="t-key">image</span>: <span class="t-val">ghcr.io/raslan/parallax:latest-cuda</span>
+    <span class="t-key">ports</span>:
+      - <span class="t-val">"7899:7899"</span>
+    <span class="t-key">volumes</span>:
+      - <span class="t-val">./data:/app/data</span>
+      - <span class="t-val">/your/media:/media</span>
+    <span class="t-key">restart</span>: <span class="t-val">unless-stopped</span>
+    <span class="t-key">deploy</span>:
+      <span class="t-comment"># NVIDIA GPU</span>
+      <span class="t-key">resources</span>:
+        <span class="t-key">reservations</span>:
+          <span class="t-key">devices</span>: [{<span class="t-key">driver</span>: <span class="t-val">nvidia</span>, <span class="t-key">count</span>: <span class="t-val">all</span>, <span class="t-key">capabilities</span>: [<span class="t-val">gpu</span>]}]</pre>
     </div>
   </div>
 </section>
 
-<section class="runtime-section" id="deploy">
+<section class="section" id="features">
   <div class="container">
-    <h2>Pick your runtime</h2>
-    <p>Pre-built images for every hardware target — no compilation needed.</p>
-    <table class="runtime-table">
-      <thead><tr><th>Image tag</th><th>Hardware</th></tr></thead>
-      <tbody>
-        ${runtimeRowsHtml}
-      </tbody>
-    </table>
-    <br><br>
-    <a href="${ghUrl}#deployment" target="_blank" rel="noopener" class="btn btn-ghost">Full deploy docs &rarr;</a>
+    <div class="features-layout">
+      <div>
+        <div class="section-label">Features</div>
+        <h2 class="section-heading">Built for serious libraries</h2>
+        <p class="section-sub">Video and image management with AI scanning, hardware transcoding, and duplicate detection — all in one container.</p>
+      </div>
+      <div class="feat-grid">
+        ${featuresHtml}
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="features-section" id="features">
+<section class="section" id="deploy">
   <div class="container">
-    <h2>Everything you need</h2>
-    <p>One container. No cloud. Your data stays yours.</p>
-    <div class="features-grid">
-      ${featureCardsHtml}
+    <div class="deploy-layout">
+      <div>
+        <div class="section-label">Deploy</div>
+        <h2 class="section-heading">One command, any hardware</h2>
+        <p class="section-sub">Pre-built images for CPU, NVIDIA, and AMD. No compilation. Pull and run.</p>
+        <br>
+        <div class="runtime-cards">
+          ${runtimeCardsHtml}
+        </div>
+        <br>
+        <a href="${ghUrl}#deployment" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:0.5rem">Full deploy docs →</a>
+      </div>
+      <div>
+        <div class="deploy-snippet">
+          <div class="snippet-tabs">
+            <div class="snippet-tab active" onclick="switchTab(this,'nvidia')">NVIDIA</div>
+            <div class="snippet-tab" onclick="switchTab(this,'amd')">AMD</div>
+            <div class="snippet-tab" onclick="switchTab(this,'cpu')">CPU</div>
+          </div>
+          <div class="snippet-body active" id="tab-nvidia"><pre><span class="s-comment"># NVIDIA — requires nvidia-container-toolkit</span>
+<span class="s-key">services</span>:
+  <span class="s-key">parallax</span>:
+    <span class="s-key">image</span>: <span class="s-val">ghcr.io/raslan/parallax:latest-cuda</span>
+    <span class="s-key">ports</span>: [<span class="s-str">"7899:7899"</span>]
+    <span class="s-key">volumes</span>:
+      - <span class="s-val">./data:/app/data</span>
+      - <span class="s-val">/your/media:/media</span>
+    <span class="s-key">restart</span>: <span class="s-val">unless-stopped</span>
+    <span class="s-key">deploy</span>:
+      <span class="s-key">resources</span>:
+        <span class="s-key">reservations</span>:
+          <span class="s-key">devices</span>:
+            - {<span class="s-key">driver</span>: <span class="s-val">nvidia</span>, <span class="s-key">count</span>: <span class="s-val">all</span>, <span class="s-key">capabilities</span>: [<span class="s-val">gpu</span>, <span class="s-val">video</span>]}</pre></div>
+          <div class="snippet-body" id="tab-amd"><pre><span class="s-comment"># AMD — VA-API via /dev/dri</span>
+<span class="s-key">services</span>:
+  <span class="s-key">parallax</span>:
+    <span class="s-key">image</span>: <span class="s-val">ghcr.io/raslan/parallax:latest-rocm</span>
+    <span class="s-key">ports</span>: [<span class="s-str">"7899:7899"</span>]
+    <span class="s-key">volumes</span>:
+      - <span class="s-val">./data:/app/data</span>
+      - <span class="s-val">/your/media:/media</span>
+    <span class="s-key">restart</span>: <span class="s-val">unless-stopped</span>
+    <span class="s-key">devices</span>:
+      - <span class="s-val">/dev/dri:/dev/dri</span>
+    <span class="s-key">group_add</span>: [<span class="s-val">video</span>]</pre></div>
+          <div class="snippet-body" id="tab-cpu"><pre><span class="s-comment"># CPU — no GPU required</span>
+<span class="s-key">services</span>:
+  <span class="s-key">parallax</span>:
+    <span class="s-key">image</span>: <span class="s-val">ghcr.io/raslan/parallax:latest</span>
+    <span class="s-key">ports</span>: [<span class="s-str">"7899:7899"</span>]
+    <span class="s-key">volumes</span>:
+      - <span class="s-val">./data:/app/data</span>
+      - <span class="s-val">/your/media:/media</span>
+    <span class="s-key">restart</span>: <span class="s-val">unless-stopped</span></pre></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="container">
-    <p>Parallax is open source — <a href="${ghUrl}" target="_blank" rel="noopener">github.com/raslan/parallax</a></p>
+    <div class="footer-inner">
+      <a href="/" class="footer-logo">
+        ${LOGO_SVG}
+        Parallax
+      </a>
+      <p>Open source — <a href="${ghUrl}" target="_blank" rel="noopener">github.com/raslan/parallax</a></p>
+    </div>
   </div>
 </footer>
+
+<script>
+  function switchTab(el, id) {
+    el.closest('.deploy-snippet').querySelectorAll('.snippet-tab').forEach(t => t.classList.remove('active'));
+    el.closest('.deploy-snippet').querySelectorAll('.snippet-body').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-' + id).classList.add('active');
+  }
+</script>
 
 </body>
 </html>`;
