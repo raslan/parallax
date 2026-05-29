@@ -23,6 +23,9 @@ _VIDEO_KEYFRAMES_KEY = "video_keyframes_per_video"
 _VIDEO_KEYFRAMES_DEFAULT = "8"
 _BATCH_SIZE_KEY = "scan_batch_size"
 _BATCH_SIZE_DEFAULT = "4"
+_OS_API_KEY = "opensubtitles_api_key"
+_SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
+_SUBTITLE_LANGUAGES_DEFAULT = "en"
 
 
 class SettingsRead(BaseModel):
@@ -32,6 +35,8 @@ class SettingsRead(BaseModel):
     nudenet_model: str
     video_keyframes_per_video: int
     scan_batch_size: int
+    opensubtitles_api_key: str
+    subtitle_languages: str
 
 
 class SettingsUpdate(BaseModel):
@@ -41,6 +46,8 @@ class SettingsUpdate(BaseModel):
     nudenet_model: Optional[str] = None
     video_keyframes_per_video: Optional[int] = Field(default=None, ge=1, le=50)
     scan_batch_size: Optional[int] = Field(default=None, ge=1, le=32)
+    opensubtitles_api_key: Optional[str] = Field(default=None, max_length=128)
+    subtitle_languages: Optional[str] = Field(default=None, max_length=64)
 
 
 def _read_settings(db: Session) -> SettingsRead:
@@ -51,6 +58,8 @@ def _read_settings(db: Session) -> SettingsRead:
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
         video_keyframes_per_video=int(get_setting(db, _VIDEO_KEYFRAMES_KEY, _VIDEO_KEYFRAMES_DEFAULT)),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
+        opensubtitles_api_key=get_setting(db, _OS_API_KEY, ""),
+        subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
     )
 
 
@@ -94,6 +103,12 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.scan_batch_size is not None:
         set_setting(db, _BATCH_SIZE_KEY, str(body.scan_batch_size))
+
+    if body.opensubtitles_api_key is not None:
+        set_setting(db, _OS_API_KEY, body.opensubtitles_api_key)
+
+    if body.subtitle_languages is not None:
+        set_setting(db, _SUBTITLE_LANGUAGES_KEY, body.subtitle_languages)
 
     if model_changed:
         release_sessions()
