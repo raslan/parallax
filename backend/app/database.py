@@ -44,6 +44,8 @@ def init_db():
             "ALTER TABLE files ADD COLUMN file_fps REAL",
             "ALTER TABLE files ADD COLUMN file_date REAL",
             "ALTER TABLE files ADD COLUMN extension TEXT",
+            "ALTER TABLE files ADD COLUMN phash INTEGER",
+            "ALTER TABLE files ADD COLUMN phash_frames TEXT",
         ]:
             try:
                 conn.execute(text(sql))
