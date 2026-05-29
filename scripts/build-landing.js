@@ -534,15 +534,45 @@ const html = `<!DOCTYPE html>
     footer a { color: var(--muted); }
     footer a:hover { color: var(--text); }
 
+    /* ensure code blocks never blow out the viewport */
+    .terminal pre, .snippet-body pre { white-space: pre; overflow-x: auto; }
+
     @media (max-width: 768px) {
-      .features-layout, .deploy-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+      .container { padding: 0 1.25rem; }
+      .nav-inner { padding: 0 1.25rem; }
+      .nav-hide { display: none; }
+
+      .hero { padding: 4.5rem 0 3rem; }
+      h1 { font-size: 2.2rem; }
+      .hero-sub { font-size: 1rem; }
+      .hero-cta { flex-direction: column; align-items: center; }
+      .hero-cta .btn { width: 100%; max-width: 280px; justify-content: center; }
+
+      .terminal { max-width: 100%; }
+
+      .section { padding: 3.5rem 0; }
+      .features-layout, .deploy-layout { grid-template-columns: 1fr; gap: 2rem; }
+
       .feat-grid { grid-template-columns: 1fr; }
       .feat-item { border-right: none; }
-      h1 { font-size: 2.4rem; }
-      .hero { padding: 5rem 0 3.5rem; }
-      .section { padding: 4rem 0; }
-      .nav-hide { display: none; }
+
+      .section-heading { font-size: 1.6rem; }
+      .section-sub { max-width: 100%; }
+
+      .runtime-card {
+        grid-template-columns: 2.5rem 1fr;
+      }
+
+      .snippet-tabs { overflow-x: auto; }
+      .snippet-tab { white-space: nowrap; }
+
       .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 420px) {
+      h1 { font-size: 1.9rem; }
+      .eyebrow { font-size: 0.7rem; gap: 0.35rem; }
+      .terminal pre, .snippet-body pre { font-size: 0.72rem; }
     }
   </style>
 </head>
