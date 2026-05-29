@@ -83,12 +83,14 @@ const runtimeDescs = {
   rocm: "ONNX ROCm backend + VA-API hardware transcoding.",
 };
 
+const runtimeColorClass = { cpu: "cpu", cuda: "nvidia", rocm: "amd" };
+
 const runtimeCardsHtml = runtimeRows
   .map(({ tag, desc }) => {
     const key = tag.endsWith("-cuda") ? "cuda" : tag.endsWith("-rocm") ? "rocm" : "cpu";
     return `
     <div class="runtime-card">
-      <div class="runtime-label">${runtimeLabels[key]}</div>
+      <div class="runtime-label ${runtimeColorClass[key]}">${runtimeLabels[key]}</div>
       <code class="runtime-tag">${escapeHtml(tag)}</code>
       <p class="runtime-desc">${runtimeDescs[key]}</p>
     </div>`;
@@ -117,15 +119,17 @@ const html = `<!DOCTYPE html>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #09090b;
-      --bg-card:   #111113;
-      --bg-card2:  #18181b;
-      --border:    #27272a;
-      --accent:    #8b5cf6;
-      --accent-lo: rgba(139,92,246,0.1);
+      --bg:        #08080a;
+      --bg-card:   #0f0f12;
+      --bg-card2:  #16161a;
+      --border:    #222228;
+      --border-hi: #2e2e38;
+      --accent:    #7c3aed;
       --accent-hi: #a78bfa;
-      --text:      #fafafa;
-      --muted:     #71717a;
+      --accent-lo: rgba(124,58,237,0.12);
+      --indigo:    #4f46e5;
+      --text:      #f4f4f5;
+      --muted:     #6b6b78;
       --radius:    0.4rem;
       --mono:      "SF Mono", "Fira Code", "Cascadia Code", monospace;
     }
@@ -202,7 +206,7 @@ const html = `<!DOCTYPE html>
       background: transparent;
     }
     .btn-outline:hover { color: var(--text); border-color: #3f3f46; }
-    .btn-solid { background: var(--accent); color: #fff; }
+    .btn-solid { background: linear-gradient(135deg, var(--accent) 0%, var(--indigo) 100%); color: #fff; }
     .btn-solid:hover { opacity: 0.88; color: #fff; }
 
     /* ── Hero ── */
@@ -210,23 +214,35 @@ const html = `<!DOCTYPE html>
       padding: 7rem 0 5rem;
       text-align: center;
       position: relative;
+      overflow: hidden;
     }
     .hero::before {
       content: "";
       position: absolute;
-      top: 0; left: 50%;
+      top: -80px; left: 50%;
       transform: translateX(-50%);
-      width: 900px; height: 400px;
-      background: radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.18) 0%, transparent 68%);
+      width: 1000px; height: 500px;
+      background:
+        radial-gradient(ellipse 60% 55% at 40% 40%, rgba(124,58,237,0.22) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 45% at 65% 30%, rgba(79,70,229,0.16) 0%, transparent 60%);
       pointer-events: none;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 75%);
     }
     .eyebrow {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
       color: var(--muted);
-      font-size: 0.8rem;
-      letter-spacing: 0.06em;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       font-weight: 500;
       margin-bottom: 1.75rem;
@@ -234,9 +250,9 @@ const html = `<!DOCTYPE html>
     .eyebrow-dot {
       width: 5px; height: 5px;
       border-radius: 50%;
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--accent), var(--indigo));
     }
-    .eyebrow span { color: var(--border); }
+    .eyebrow span { color: var(--border-hi); }
     h1 {
       font-size: clamp(2.4rem, 6vw, 4rem);
       font-weight: 800;
@@ -247,7 +263,10 @@ const html = `<!DOCTYPE html>
     }
     h1 em {
       font-style: normal;
-      color: var(--accent-hi);
+      background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
     .hero-sub {
       color: var(--muted);
@@ -309,8 +328,12 @@ const html = `<!DOCTYPE html>
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--accent);
+      background: linear-gradient(90deg, var(--accent-hi), #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
       margin-bottom: 0.75rem;
+      display: inline-block;
     }
     .section-heading {
       font-size: clamp(1.6rem, 3vw, 2.2rem);
@@ -347,7 +370,8 @@ const html = `<!DOCTYPE html>
       border-bottom: 1px solid var(--border);
       transition: background 0.15s;
     }
-    .feat-item:hover { background: var(--bg-card); }
+    .feat-item:hover { background: rgba(124,58,237,0.04); }
+    .feat-item:hover strong { color: var(--accent-hi); }
     .feat-item:nth-child(2n) { border-right: none; }
     .feat-item strong {
       display: block;
@@ -398,10 +422,12 @@ const html = `<!DOCTYPE html>
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--accent-hi);
       padding-top: 0.1rem;
       grid-row: 1;
     }
+    .runtime-label.nvidia { color: #4ade80; }
+    .runtime-label.amd    { color: #fb923c; }
+    .runtime-label.cpu    { color: var(--muted); }
     .runtime-tag {
       font-family: var(--mono);
       font-size: 0.775rem;
@@ -502,7 +528,6 @@ const html = `<!DOCTYPE html>
       <a href="#features" class="nav-hide">Features</a>
       <a href="#deploy" class="nav-hide">Deploy</a>
       <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} GitHub</a>
-      <a href="${ghUrl}/releases" target="_blank" rel="noopener" class="btn btn-solid">Get started</a>
     </div>
   </div>
 </nav>
