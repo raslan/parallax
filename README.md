@@ -4,16 +4,27 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 
 ## Features
 
-- **Library management** — scan folders of video or image files; browse by status; split into sub-libraries
-- **Transcoding** — re-encode files using ffmpeg with hardware acceleration (NVIDIA NVENC, Intel/AMD VA-API); preserves originals and tracks savings
-- **Duplicate detection** — find duplicate files by size, duration, and perceptual hash with configurable similarity threshold and first-frame/all-frames comparison mode
-- **Cleanup** — filter and bulk-delete video files by duration, resolution, FPS, date, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack and support invert/exclude mode
-- **Image library** — scan image folders with thumbnail generation, pHash deduplication, CLIP semantic search, and content detection; quarantine and restore workflow
-- **AI scanning** — CLIP ONNX models for semantic search across images and videos; content detection ONNX models; configurable batch size and model selection; GPU-accelerated with automatic VRAM release after idle
-- **Content review** — filter images by semantic similarity and/or content detections; bulk quarantine matches
+### Videos
+- **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries
+- **Transcoding** — re-encode with ffmpeg using hardware acceleration (NVIDIA NVENC, Intel/AMD VA-API); source-aware codec selection; preserves originals and tracks space savings
+- **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold and first-frame/all-frames comparison mode
+- **Cleanup** — filter and bulk-delete by duration, resolution, FPS, date, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
-- **Job queue** — background job system with live progress, logs, and cancellation
-- **Three themes** — violet, cyan, amber
+
+### Images
+- **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection
+- **Duplicate detection** — find duplicate images by perceptual hash with configurable similarity threshold
+- **Semantic search** — CLIP-powered natural language search across your entire image library
+- **Content review** — filter by semantic similarity and/or content detections; bulk quarantine flagged images; restore or permanently delete from quarantine
+
+### AI
+- **CLIP models** — ONNX vision/text encoders for semantic search across both images and videos; multiple model sizes available
+- **Content detection** — ONNX-based content detection models; configurable confidence threshold and batch size
+- **GPU-accelerated** — CUDA (NVIDIA) and ROCm (AMD) ONNX backends; automatic VRAM release after 2 minutes idle; batch size tunable per your hardware
+
+### General
+- **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
+- **Three themes** — violet (Deep Space), cyan (Modern HUD), amber (Mission Control)
 
 ---
 
@@ -178,9 +189,10 @@ Requires [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-nat
 ## First run
 
 1. Open [http://localhost:7899](http://localhost:7899)
-2. Go to **Settings → AI Models** to download CLIP and content detection models
+2. Go to **Settings → AI Models** to download CLIP and content detection models (required for AI features on both videos and images)
 3. Go to **Settings → Metadata** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature
-4. Add a library under **Videos** or **Images** and start a scan
+4. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
+5. Run a scan; for video libraries the AI scan extracts keyframes then runs CLIP + content detection in batches; for image libraries it generates thumbnails and runs the same AI pipeline
 
 ---
 
