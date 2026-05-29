@@ -251,8 +251,8 @@ const html = `<!DOCTYPE html>
       transform: translateX(-50%);
       width: 1000px; height: 500px;
       background:
-        radial-gradient(ellipse 60% 55% at 40% 40%, rgba(124,58,237,0.13) 0%, transparent 65%),
-        radial-gradient(ellipse 50% 45% at 65% 30%, rgba(79,70,229,0.09) 0%, transparent 60%);
+        radial-gradient(ellipse 60% 55% at 40% 40%, rgba(255,255,255,0.055) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 45% at 65% 30%, rgba(255,255,255,0.03) 0%, transparent 60%);
       pointer-events: none;
     }
     .hero::after {
@@ -606,7 +606,7 @@ const html = `<!DOCTYPE html>
       Docker
     </div>
     <h1>Media management,<br><em>without the cloud</em></h1>
-    <p class="hero-sub">Scan, transcode, deduplicate, and search your video and image libraries — with GPU-accelerated AI — on hardware you own.</p>
+    <p class="hero-sub">Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own. Free and open source. Your files never leave your server.</p>
     <div class="hero-cta">
       <a href="#deploy" class="btn btn-solid">Deploy now</a>
       <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} View on GitHub</a>
