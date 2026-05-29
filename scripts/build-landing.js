@@ -697,4 +697,11 @@ const html = `<!DOCTYPE html>
 const outDir = path.join(__dirname, "../dist");
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, "index.html"), html, "utf8");
+
+const ogSrc = path.join(__dirname, "../og-image.png");
+if (fs.existsSync(ogSrc)) {
+  fs.copyFileSync(ogSrc, path.join(outDir, "og-image.png"));
+  console.log("Copied og-image.png to dist/");
+}
+
 console.log("Built dist/index.html");
