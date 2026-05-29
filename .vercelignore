@@ -5,3 +5,4 @@ docs/
 dist/
 *.md
 !README.md
+!og-image.png
