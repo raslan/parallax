@@ -116,6 +116,11 @@ const html = `<!DOCTYPE html>
   <title>Parallax — Self-hosted media manager</title>
   <meta name="description" content="A self-hosted video and image library manager with transcoding, AI scanning, duplicate detection, and media identification. Runs in Docker." />
 
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600;1,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='1' y='16' font-family='monospace' font-size='15' font-weight='700' fill='%238b5cf6'%3EP%3C/text%3E%3Ccircle cx='17' cy='4' r='1.2' fill='%238b5cf6'/%3E%3Cline x1='17' y1='1.3' x2='17' y2='6.7' stroke='%238b5cf6' stroke-width='0.7' opacity='0.55'/%3E%3Cline x1='14.3' y1='4' x2='19.7' y2='4' stroke='%238b5cf6' stroke-width='0.7' opacity='0.55'/%3E%3C/svg%3E" />
 
@@ -136,34 +141,37 @@ const html = `<!DOCTYPE html>
   <meta name="twitter:image" content="https://parallax.raslan.dev/og-image.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { max-width: 100%; overflow-x: hidden; }
 
     :root {
-      --bg:        #08080a;
-      --bg-card:   #0f0f12;
-      --bg-card2:  #16161a;
-      --border:    #222228;
-      --border-hi: #2e2e38;
+      --bg:        #000000;
+      --bg-card:   #0a0a0a;
+      --bg-card2:  #111111;
+      --border:    #1a1a1a;
+      --border-hi: #262626;
       --accent:    #7c3aed;
       --accent-hi: #a78bfa;
-      --accent-lo: rgba(124,58,237,0.12);
+      --accent-lo: rgba(124,58,237,0.08);
       --indigo:    #4f46e5;
-      --text:      #f4f4f5;
-      --muted:     #6b6b78;
+      --text:      #ffffff;
+      --muted:     #717171;
       --radius:    0.4rem;
+      --serif:     "Playfair Display", Georgia, "Times New Roman", serif;
+      --sans:      "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --mono:      "SF Mono", "Fira Code", "Cascadia Code", monospace;
     }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: var(--sans);
       font-size: 16px;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
     }
 
-    a { color: var(--accent-hi); text-decoration: none; }
-    a:hover { color: var(--text); }
+    a { color: var(--text); text-decoration: none; }
+    a:hover { color: var(--text); opacity: 0.8; }
     code {
       font-family: var(--mono);
       font-size: 0.8em;
@@ -177,7 +185,7 @@ const html = `<!DOCTYPE html>
       padding: 0.875rem 0;
       position: sticky;
       top: 0;
-      background: rgba(9,9,11,0.85);
+      background: rgba(0,0,0,0.85);
       backdrop-filter: blur(16px);
       z-index: 10;
     }
@@ -193,10 +201,11 @@ const html = `<!DOCTYPE html>
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      font-weight: 600;
-      font-size: 0.95rem;
+      font-family: var(--serif);
+      font-weight: 700;
+      font-size: 1rem;
       color: var(--text);
-      letter-spacing: -0.01em;
+      letter-spacing: 0.01em;
     }
     .logo-mark { width: 28px; height: 28px; }
     .nav-links { display: flex; align-items: center; gap: 0.25rem; }
@@ -224,9 +233,9 @@ const html = `<!DOCTYPE html>
       border: 1px solid var(--border);
       background: transparent;
     }
-    .btn-outline:hover { color: var(--text); border-color: #3f3f46; }
-    .btn-solid { background: linear-gradient(135deg, var(--accent) 0%, var(--indigo) 100%); color: #fff; }
-    .btn-solid:hover { opacity: 0.88; color: #fff; }
+    .btn-outline:hover { color: var(--text); border-color: #3f3f3f; }
+    .btn-solid { background: #fff; color: #000; }
+    .btn-solid:hover { opacity: 0.88; color: #000; }
 
     /* ── Hero ── */
     .hero {
@@ -242,15 +251,15 @@ const html = `<!DOCTYPE html>
       transform: translateX(-50%);
       width: 1000px; height: 500px;
       background:
-        radial-gradient(ellipse 60% 55% at 40% 40%, rgba(124,58,237,0.22) 0%, transparent 65%),
-        radial-gradient(ellipse 50% 45% at 65% 30%, rgba(79,70,229,0.16) 0%, transparent 60%);
+        radial-gradient(ellipse 60% 55% at 40% 40%, rgba(255,255,255,0.055) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 45% at 65% 30%, rgba(255,255,255,0.03) 0%, transparent 60%);
       pointer-events: none;
     }
     .hero::after {
       content: "";
       position: absolute;
       inset: 0;
-      background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-image: radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px);
       background-size: 28px 28px;
       pointer-events: none;
       mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 75%);
@@ -261,7 +270,7 @@ const html = `<!DOCTYPE html>
       gap: 0.5rem;
       color: var(--muted);
       font-size: 0.75rem;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       font-weight: 500;
       margin-bottom: 1.75rem;
@@ -269,24 +278,23 @@ const html = `<!DOCTYPE html>
     .eyebrow-dot {
       width: 5px; height: 5px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--indigo));
+      background: rgba(255,255,255,0.35);
     }
     .eyebrow span { color: var(--border-hi); }
     h1 {
-      font-size: clamp(2.4rem, 6vw, 4rem);
-      font-weight: 800;
-      letter-spacing: -0.04em;
-      line-height: 1.08;
+      font-family: var(--serif);
+      font-size: clamp(2.6rem, 6vw, 4.2rem);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
       margin-bottom: 1.25rem;
       color: var(--text);
     }
     h1 em {
-      font-style: normal;
-      background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-style: italic;
+      color: var(--text);
     }
+    h1 em .h1-accent { color: var(--accent-hi); }
     .hero-sub {
       color: var(--muted);
       font-size: 1.0625rem;
@@ -311,7 +319,7 @@ const html = `<!DOCTYPE html>
       overflow: hidden;
       background: var(--bg-card);
       text-align: left;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
     }
     .terminal-bar {
       background: var(--bg-card2);
@@ -335,17 +343,17 @@ const html = `<!DOCTYPE html>
       color: #d4d4d8;
       overflow-x: auto;
     }
-    .t-comment { color: #52525b; }
+    .t-comment { color: #3f3f46; }
     .t-key { color: #a78bfa; }
     .t-val { color: #86efac; }
-    .t-prompt { color: #52525b; user-select: none; }
+    .t-prompt { color: #3f3f46; user-select: none; }
 
     /* ── Section shared ── */
     .section { padding: 6rem 0; border-top: 1px solid var(--border); }
     .section-label {
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       font-weight: 600;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       background: linear-gradient(90deg, var(--accent-hi), #818cf8);
       -webkit-background-clip: text;
@@ -355,10 +363,11 @@ const html = `<!DOCTYPE html>
       display: inline-block;
     }
     .section-heading {
-      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-family: var(--serif);
+      font-size: clamp(1.7rem, 3vw, 2.4rem);
       font-weight: 700;
-      letter-spacing: -0.03em;
-      line-height: 1.2;
+      letter-spacing: -0.01em;
+      line-height: 1.18;
       margin-bottom: 1rem;
     }
     .section-sub {
@@ -389,8 +398,8 @@ const html = `<!DOCTYPE html>
       border-bottom: 1px solid var(--border);
       transition: background 0.15s;
     }
-    .feat-item:hover { background: rgba(124,58,237,0.04); }
-    .feat-item:hover strong { color: var(--accent-hi); }
+    .feat-item:hover { background: rgba(255,255,255,0.03); }
+    .feat-item:hover strong { color: var(--text); }
     .feat-item:nth-child(2n) { border-right: none; }
     .feat-item strong {
       display: block;
@@ -419,6 +428,7 @@ const html = `<!DOCTYPE html>
       gap: 4rem;
       align-items: start;
     }
+    .deploy-layout > *, .features-layout > * { min-width: 0; }
     .runtime-cards {
       display: flex;
       flex-direction: column;
@@ -435,7 +445,7 @@ const html = `<!DOCTYPE html>
       align-items: start;
       transition: border-color 0.15s, background 0.15s;
     }
-    .runtime-card:hover { border-color: #3f3f46; background: var(--bg-card); }
+    .runtime-card:hover { border-color: #2a2a2a; background: var(--bg-card); }
     .runtime-label {
       font-size: 0.7rem;
       font-weight: 700;
@@ -453,6 +463,9 @@ const html = `<!DOCTYPE html>
       color: #d4d4d8;
       grid-column: 2;
       grid-row: 1;
+      overflow-wrap: break-word;
+      word-break: break-all;
+      min-width: 0;
     }
     .runtime-desc {
       font-size: 0.775rem;
@@ -466,6 +479,7 @@ const html = `<!DOCTYPE html>
       border-radius: var(--radius);
       overflow: hidden;
       background: var(--bg-card);
+      min-width: 0;
     }
     .snippet-tabs {
       display: flex;
@@ -482,7 +496,7 @@ const html = `<!DOCTYPE html>
       user-select: none;
       transition: color 0.15s;
     }
-    .snippet-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .snippet-tab.active { color: var(--text); border-bottom-color: var(--text); }
     .snippet-body { display: none; }
     .snippet-body.active { display: block; }
     .snippet-body pre {
@@ -493,7 +507,7 @@ const html = `<!DOCTYPE html>
       color: #d4d4d8;
       overflow-x: auto;
     }
-    .s-comment { color: #52525b; }
+    .s-comment { color: #3f3f46; }
     .s-key { color: #a78bfa; }
     .s-val { color: #86efac; }
     .s-str { color: #fbbf24; }
@@ -514,8 +528,9 @@ const html = `<!DOCTYPE html>
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 600;
+      font-family: var(--serif);
+      font-size: 0.95rem;
+      font-weight: 700;
       color: var(--text);
     }
     .footer-logo svg { width: 22px; height: 22px; }
@@ -523,15 +538,45 @@ const html = `<!DOCTYPE html>
     footer a { color: var(--muted); }
     footer a:hover { color: var(--text); }
 
+    /* ensure code blocks never blow out the viewport */
+    .terminal pre, .snippet-body pre { white-space: pre; overflow-x: auto; }
+
     @media (max-width: 768px) {
-      .features-layout, .deploy-layout { grid-template-columns: 1fr; gap: 2.5rem; }
+      .container { padding: 0 1.25rem; }
+      .nav-inner { padding: 0 1.25rem; }
+      .nav-hide { display: none; }
+
+      .hero { padding: 4.5rem 0 3rem; }
+      h1 { font-size: 2.2rem; }
+      .hero-sub { font-size: 1rem; }
+      .hero-cta { flex-direction: column; align-items: center; }
+      .hero-cta .btn { width: 100%; max-width: 280px; justify-content: center; }
+
+      .terminal { max-width: 100%; }
+
+      .section { padding: 3.5rem 0; }
+      .features-layout, .deploy-layout { grid-template-columns: 1fr; gap: 2rem; }
+
       .feat-grid { grid-template-columns: 1fr; }
       .feat-item { border-right: none; }
-      h1 { font-size: 2.2rem; }
-      .hero { padding: 5rem 0 3.5rem; }
-      .section { padding: 4rem 0; }
-      .nav-hide { display: none; }
+
+      .section-heading { font-size: 1.6rem; }
+      .section-sub { max-width: 100%; }
+
+      .runtime-card {
+        grid-template-columns: 2.5rem 1fr;
+      }
+
+      .snippet-tabs { overflow-x: auto; }
+      .snippet-tab { white-space: nowrap; }
+
       .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 420px) {
+      h1 { font-size: 1.9rem; }
+      .eyebrow { font-size: 0.7rem; gap: 0.35rem; }
+      .terminal pre, .snippet-body pre { font-size: 0.72rem; }
     }
   </style>
 </head>
@@ -561,8 +606,8 @@ const html = `<!DOCTYPE html>
       <span>·</span>
       Docker
     </div>
-    <h1>Media management,<br><em>without the cloud</em></h1>
-    <p class="hero-sub">Scan, transcode, deduplicate, and search your video and image libraries — with GPU-accelerated AI — on hardware you own.</p>
+    <h1>Media management,<br><em><span class="h1-accent">without</span> the cloud</em></h1>
+    <p class="hero-sub">Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own. Free and open source. Your files never leave your server.</p>
     <div class="hero-cta">
       <a href="#deploy" class="btn btn-solid">Deploy now</a>
       <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} View on GitHub</a>
@@ -586,7 +631,7 @@ const html = `<!DOCTYPE html>
       <span class="t-comment"># NVIDIA GPU</span>
       <span class="t-key">resources</span>:
         <span class="t-key">reservations</span>:
-          <span class="t-key">devices</span>: [{<span class="t-key">driver</span>: <span class="t-val">nvidia</span>, <span class="t-key">count</span>: <span class="t-val">all</span>, <span class="t-key">capabilities</span>: [<span class="t-val">gpu</span>]}]</pre>
+          <span class="t-key">devices</span>: [{<span class="t-key">driver</span>: <span class="t-val">nvidia</span>, <span class="t-key">count</span>: <span class="t-val">all</span>, <span class="t-key">capabilities</span>: [<span class="t-val">gpu</span>, <span class="t-val">video</span>]}]</pre>
     </div>
   </div>
 </section>
