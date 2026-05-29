@@ -102,10 +102,10 @@ const ghUrl = "https://github.com/raslan/parallax";
 const GITHUB_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>`;
 
 const LOGO_SVG = `<svg class="logo-mark" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <text x="1" y="16" font-family="monospace" font-size="15" font-weight="700" fill="#0d9488">P</text>
-        <circle cx="17" cy="4" r="1.2" fill="#0d9488"/>
-        <line x1="17" y1="1.3" x2="17" y2="6.7" stroke="#0d9488" stroke-width="0.7" opacity="0.55"/>
-        <line x1="14.3" y1="4" x2="19.7" y2="4" stroke="#0d9488" stroke-width="0.7" opacity="0.55"/>
+        <text x="1" y="16" font-family="monospace" font-size="15" font-weight="700" fill="#8b5cf6">P</text>
+        <circle cx="17" cy="4" r="1.2" fill="#8b5cf6"/>
+        <line x1="17" y1="1.3" x2="17" y2="6.7" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="14.3" y1="4" x2="19.7" y2="4" stroke="#8b5cf6" stroke-width="0.7" opacity="0.55"/>
       </svg>`;
 
 const html = `<!DOCTYPE html>
@@ -122,7 +122,7 @@ const html = `<!DOCTYPE html>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600;1,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
   <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='1' y='16' font-family='monospace' font-size='15' font-weight='700' fill='%230d9488'%3EP%3C/text%3E%3Ccircle cx='17' cy='4' r='1.2' fill='%230d9488'/%3E%3Cline x1='17' y1='1.3' x2='17' y2='6.7' stroke='%230d9488' stroke-width='0.7' opacity='0.55'/%3E%3Cline x1='14.3' y1='4' x2='19.7' y2='4' stroke='%230d9488' stroke-width='0.7' opacity='0.55'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='1' y='16' font-family='monospace' font-size='15' font-weight='700' fill='%238b5cf6'%3EP%3C/text%3E%3Ccircle cx='17' cy='4' r='1.2' fill='%238b5cf6'/%3E%3Cline x1='17' y1='1.3' x2='17' y2='6.7' stroke='%238b5cf6' stroke-width='0.7' opacity='0.55'/%3E%3Cline x1='14.3' y1='4' x2='19.7' y2='4' stroke='%238b5cf6' stroke-width='0.7' opacity='0.55'/%3E%3C/svg%3E" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
@@ -144,17 +144,17 @@ const html = `<!DOCTYPE html>
     html, body { max-width: 100%; overflow-x: hidden; }
 
     :root {
-      --bg:        #070c0b;
-      --bg-card:   #0c1210;
-      --bg-card2:  #101916;
-      --border:    #192520;
-      --border-hi: #243530;
-      --accent:    #0d9488;
-      --accent-hi: #2dd4bf;
-      --accent-lo: rgba(13,148,136,0.1);
-      --cyan:      #0891b2;
-      --text:      #eef7f5;
-      --muted:     #6b7f7c;
+      --bg:        #000000;
+      --bg-card:   #0a0a0a;
+      --bg-card2:  #111111;
+      --border:    #1a1a1a;
+      --border-hi: #262626;
+      --accent:    #7c3aed;
+      --accent-hi: #a78bfa;
+      --accent-lo: rgba(124,58,237,0.08);
+      --indigo:    #4f46e5;
+      --text:      #ffffff;
+      --muted:     #717171;
       --radius:    0.4rem;
       --serif:     "Playfair Display", Georgia, "Times New Roman", serif;
       --sans:      "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -185,7 +185,7 @@ const html = `<!DOCTYPE html>
       padding: 0.875rem 0;
       position: sticky;
       top: 0;
-      background: rgba(7,12,11,0.88);
+      background: rgba(0,0,0,0.85);
       backdrop-filter: blur(16px);
       z-index: 10;
     }
@@ -233,8 +233,8 @@ const html = `<!DOCTYPE html>
       border: 1px solid var(--border);
       background: transparent;
     }
-    .btn-outline:hover { color: var(--text); border-color: #2e4440; }
-    .btn-solid { background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%); color: #fff; }
+    .btn-outline:hover { color: var(--text); border-color: #3f3f3f; }
+    .btn-solid { background: linear-gradient(135deg, var(--accent) 0%, var(--indigo) 100%); color: #fff; }
     .btn-solid:hover { opacity: 0.88; color: #fff; }
 
     /* ── Hero ── */
@@ -251,8 +251,8 @@ const html = `<!DOCTYPE html>
       transform: translateX(-50%);
       width: 1000px; height: 500px;
       background:
-        radial-gradient(ellipse 60% 55% at 40% 40%, rgba(13,148,136,0.18) 0%, transparent 65%),
-        radial-gradient(ellipse 50% 45% at 65% 30%, rgba(8,145,178,0.13) 0%, transparent 60%);
+        radial-gradient(ellipse 60% 55% at 40% 40%, rgba(124,58,237,0.13) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 45% at 65% 30%, rgba(79,70,229,0.09) 0%, transparent 60%);
       pointer-events: none;
     }
     .hero::after {
@@ -292,7 +292,7 @@ const html = `<!DOCTYPE html>
     }
     h1 em {
       font-style: italic;
-      background: linear-gradient(135deg, #2dd4bf 0%, #22d3ee 100%);
+      background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -321,7 +321,7 @@ const html = `<!DOCTYPE html>
       overflow: hidden;
       background: var(--bg-card);
       text-align: left;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(13,148,136,0.06);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
     }
     .terminal-bar {
       background: var(--bg-card2);
@@ -342,13 +342,13 @@ const html = `<!DOCTYPE html>
       font-family: var(--mono);
       font-size: 0.8125rem;
       line-height: 1.7;
-      color: #cfe8e4;
+      color: #d4d4d8;
       overflow-x: auto;
     }
-    .t-comment { color: #334d49; }
-    .t-key { color: #5eead4; }
+    .t-comment { color: #3f3f46; }
+    .t-key { color: #a78bfa; }
     .t-val { color: #86efac; }
-    .t-prompt { color: #334d49; user-select: none; }
+    .t-prompt { color: #3f3f46; user-select: none; }
 
     /* ── Section shared ── */
     .section { padding: 6rem 0; border-top: 1px solid var(--border); }
@@ -357,7 +357,7 @@ const html = `<!DOCTYPE html>
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      background: linear-gradient(90deg, var(--accent-hi), #22d3ee);
+      background: linear-gradient(90deg, var(--accent-hi), #818cf8);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -400,7 +400,7 @@ const html = `<!DOCTYPE html>
       border-bottom: 1px solid var(--border);
       transition: background 0.15s;
     }
-    .feat-item:hover { background: rgba(13,148,136,0.05); }
+    .feat-item:hover { background: rgba(124,58,237,0.04); }
     .feat-item:hover strong { color: var(--accent-hi); }
     .feat-item:nth-child(2n) { border-right: none; }
     .feat-item strong {
@@ -420,7 +420,7 @@ const html = `<!DOCTYPE html>
       border-radius: 0.2rem;
       padding: 0.05em 0.35em;
       font-size: 0.75em;
-      color: #8ab8b2;
+      color: #a1a1aa;
     }
 
     /* ── Deploy ── */
@@ -447,7 +447,7 @@ const html = `<!DOCTYPE html>
       align-items: start;
       transition: border-color 0.15s, background 0.15s;
     }
-    .runtime-card:hover { border-color: #2e4440; background: var(--bg-card); }
+    .runtime-card:hover { border-color: #2a2a2a; background: var(--bg-card); }
     .runtime-label {
       font-size: 0.7rem;
       font-weight: 700;
@@ -462,7 +462,7 @@ const html = `<!DOCTYPE html>
     .runtime-tag {
       font-family: var(--mono);
       font-size: 0.775rem;
-      color: #cfe8e4;
+      color: #d4d4d8;
       grid-column: 2;
       grid-row: 1;
       overflow-wrap: break-word;
@@ -506,11 +506,11 @@ const html = `<!DOCTYPE html>
       font-family: var(--mono);
       font-size: 0.8rem;
       line-height: 1.7;
-      color: #cfe8e4;
+      color: #d4d4d8;
       overflow-x: auto;
     }
-    .s-comment { color: #334d49; }
-    .s-key { color: #5eead4; }
+    .s-comment { color: #3f3f46; }
+    .s-key { color: #a78bfa; }
     .s-val { color: #86efac; }
     .s-str { color: #fbbf24; }
 
