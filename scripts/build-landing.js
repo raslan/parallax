@@ -170,8 +170,8 @@ const html = `<!DOCTYPE html>
       -webkit-font-smoothing: antialiased;
     }
 
-    a { color: var(--accent-hi); text-decoration: none; }
-    a:hover { color: var(--text); }
+    a { color: var(--text); text-decoration: none; }
+    a:hover { color: var(--text); opacity: 0.8; }
     code {
       font-family: var(--mono);
       font-size: 0.8em;
@@ -234,8 +234,8 @@ const html = `<!DOCTYPE html>
       background: transparent;
     }
     .btn-outline:hover { color: var(--text); border-color: #3f3f3f; }
-    .btn-solid { background: linear-gradient(135deg, var(--accent) 0%, var(--indigo) 100%); color: #fff; }
-    .btn-solid:hover { opacity: 0.88; color: #fff; }
+    .btn-solid { background: #fff; color: #000; }
+    .btn-solid:hover { opacity: 0.88; color: #000; }
 
     /* ── Hero ── */
     .hero {
@@ -278,7 +278,7 @@ const html = `<!DOCTYPE html>
     .eyebrow-dot {
       width: 5px; height: 5px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      background: rgba(255,255,255,0.35);
     }
     .eyebrow span { color: var(--border-hi); }
     h1 {
@@ -292,10 +292,7 @@ const html = `<!DOCTYPE html>
     }
     h1 em {
       font-style: italic;
-      background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: var(--text);
     }
     .hero-sub {
       color: var(--muted);
@@ -400,8 +397,8 @@ const html = `<!DOCTYPE html>
       border-bottom: 1px solid var(--border);
       transition: background 0.15s;
     }
-    .feat-item:hover { background: rgba(124,58,237,0.04); }
-    .feat-item:hover strong { color: var(--accent-hi); }
+    .feat-item:hover { background: rgba(255,255,255,0.03); }
+    .feat-item:hover strong { color: var(--text); }
     .feat-item:nth-child(2n) { border-right: none; }
     .feat-item strong {
       display: block;
@@ -498,7 +495,7 @@ const html = `<!DOCTYPE html>
       user-select: none;
       transition: color 0.15s;
     }
-    .snippet-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .snippet-tab.active { color: var(--text); border-bottom-color: var(--text); }
     .snippet-body { display: none; }
     .snippet-body.active { display: block; }
     .snippet-body pre {
