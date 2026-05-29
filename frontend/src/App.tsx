@@ -8,6 +8,7 @@ import { Originals } from "@/pages/Originals";
 import { Duplicates } from "@/pages/Duplicates";
 import { Cleanup } from "@/pages/Cleanup";
 import { Identify } from "@/pages/Identify";
+import { Subtitles } from "@/pages/Subtitles";
 import { ImageLibraries } from "@/pages/ImageLibraries";
 import { Images } from "@/pages/Images";
 import { ImageDuplicates } from "@/pages/ImageDuplicates";
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/duplicates" element={<Duplicates />} />
           <Route path="/cleanup" element={<Cleanup />} />
           <Route path="/identify" element={<Identify />} />
+          <Route path="/subtitles" element={<Subtitles />} />
           {/* Image routes */}
           <Route path="/image-libraries" element={<ImageLibraries />} />
           <Route path="/images" element={<Images />} />
