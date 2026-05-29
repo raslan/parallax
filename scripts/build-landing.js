@@ -141,6 +141,7 @@ const html = `<!DOCTYPE html>
   <meta name="twitter:image" content="https://parallax.raslan.dev/og-image.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { max-width: 100%; overflow-x: hidden; }
 
     :root {
       --bg:        #070c0b;
@@ -429,6 +430,7 @@ const html = `<!DOCTYPE html>
       gap: 4rem;
       align-items: start;
     }
+    .deploy-layout > *, .features-layout > * { min-width: 0; }
     .runtime-cards {
       display: flex;
       flex-direction: column;
@@ -463,6 +465,9 @@ const html = `<!DOCTYPE html>
       color: #cfe8e4;
       grid-column: 2;
       grid-row: 1;
+      overflow-wrap: break-word;
+      word-break: break-all;
+      min-width: 0;
     }
     .runtime-desc {
       font-size: 0.775rem;
@@ -476,6 +481,7 @@ const html = `<!DOCTYPE html>
       border-radius: var(--radius);
       overflow: hidden;
       background: var(--bg-card);
+      min-width: 0;
     }
     .snippet-tabs {
       display: flex;
