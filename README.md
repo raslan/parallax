@@ -38,7 +38,15 @@ Pre-built images are published to the GitHub Container Registry on every release
 | `ghcr.io/raslan/parallax:latest-cuda` | NVIDIA GPU — ONNX CUDA + NVENC |
 | `ghcr.io/raslan/parallax:latest-rocm` | AMD GPU — ONNX ROCm + VA-API |
 
-Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2.0-cuda`.
+On each release, three images are built and pushed with version tags:
+
+| Image | Tags (example: v1.2.0) |
+|-------|------------------------|
+| CPU | `latest`, `1.2.0`, `1.2` |
+| NVIDIA CUDA | `latest-cuda`, `1.2.0-cuda`, `1.2-cuda` |
+| AMD ROCm | `latest-rocm`, `1.2.0-rocm`, `1.2-rocm` |
+
+Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2-cuda` to track all patch releases on 1.2 with CUDA support.
 
 ---
 
