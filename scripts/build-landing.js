@@ -115,6 +115,25 @@ const html = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Parallax — Self-hosted media manager</title>
   <meta name="description" content="A self-hosted video and image library manager with transcoding, AI scanning, duplicate detection, and media identification. Runs in Docker." />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ctext x='1' y='16' font-family='monospace' font-size='15' font-weight='700' fill='%238b5cf6'%3EP%3C/text%3E%3Ccircle cx='17' cy='4' r='1.2' fill='%238b5cf6'/%3E%3Cline x1='17' y1='1.3' x2='17' y2='6.7' stroke='%238b5cf6' stroke-width='0.7' opacity='0.55'/%3E%3Cline x1='14.3' y1='4' x2='19.7' y2='4' stroke='%238b5cf6' stroke-width='0.7' opacity='0.55'/%3E%3C/svg%3E" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Parallax" />
+  <meta property="og:title" content="Parallax — Self-hosted media manager" />
+  <meta property="og:description" content="Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own." />
+  <meta property="og:image" content="https://parallax.raslan.dev/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:url" content="https://parallax.raslan.dev" />
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Parallax — Self-hosted media manager" />
+  <meta name="twitter:description" content="Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own." />
+  <meta name="twitter:image" content="https://parallax.raslan.dev/og-image.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
