@@ -293,9 +293,9 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_api_key: string; subtitle_languages: string }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; opensubtitles_api_key?: string; subtitle_languages?: string }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_api_key: string; subtitle_languages: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
@@ -508,4 +508,26 @@ export const modelsApi = {
 
   activateNudenet: (model_id: string) =>
     api.updateSettings({ nudenet_model: model_id }),
+};
+
+// ── Subtitles ────────────────────────────────────────────────────────────────
+
+export interface SubtitleFile {
+  path: string;
+  filename: string;
+  relative_dir: string;
+  has_subtitle: boolean;
+  title: string;
+  season: number | null;
+  episode: number | null;
+  year: number | null;
+  media_type: string;
+}
+
+export const subtitlesApi = {
+  scan: (path: string) =>
+    req<SubtitleFile[]>("/subtitles/scan", { method: "POST", body: JSON.stringify({ path }) }),
+
+  download: (path: string, languages?: string[]) =>
+    req<{ job_id: number }>("/subtitles/download", { method: "POST", body: JSON.stringify({ path, languages }) }),
 };
