@@ -20,30 +20,33 @@ Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) 
 - Correct nvidia/cuda base image tag to 12.9.2-cudnn-runtime-ubuntu22.04
 - Set DEBIAN_FRONTEND=noninteractive to suppress tzdata prompt in gpu stages
 - Install libcublas-12-9 in cuda stage (not included in runtime image)
-- Install onnxruntime variant after requirements.txt to prevent inappropriate content overwriting gpu build
-- Force GPU providers for inappropriate content session, consolidate provider list to constant
+- Install onnxruntime variant after requirements.txt to prevent inappropriate_model overwriting gpu build
+- Force GPU providers for inappropriate content model session, consolidate provider list to constant
 - Use cuda 12.4 base image — driver 550.x doesn't support 12.9 forward compat on consumer GPUs
-- Cache inappropriate content session per scan, release all GPU sessions when scan completes
+- Cache inappropriate_model session per scan, release all GPU sessions when scan completes
 - Add sentencepiece dependency required by SiglipTokenizer
 - Download vision_model.onnx (vision-only encoder) instead of model.onnx (full cross-modal)
-- Correct inappropriate content key (class not label), use SigLIP pooler_output for embeddings
+- Correct inappropriate content model key (class not label), use SigLIP pooler_output for embeddings
 - Switch from SigLIP to CLIP ViT-B/32 for image search embeddings
 - Update UI label from SigLIP to CLIP
 - Settings PATCH — optional fields, targeted release_sessions, 422 for undownloaded model
-- Image_analyzer — return session inside lock, atomic release, guard NUDENET_MODELS lookup
+- Image_analyzer — return session inside lock, atomic release, guard INAPPROPRIATE_MODELS lookup
 - Monkeypatch MODELS_DIR directly to avoid app.database import caching in tests
 - Cache NudeDetector objects directly so 640m gets correct 640x640 input size
 - Set HF_HOME to data volume so HuggingFace cache is writable as non-root user
-- Correct inappropriate content 640m download URL and add content validation
+- Correct inappropriate content model 640m download URL and add content validation
 
 ### Chores
 
 - Add test infrastructure and image ML dependencies
 - Gitignore test_images.db
+- Merge feature/scan-batching into main
 
 ### Documentation
 
 - Add image library management design spec
+- Update changelog
+- Replace inappropriate content model name with 'inappropriate content' in docs
 
 ### Features
 
@@ -53,8 +56,8 @@ Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) 
 - Add ImageLibrary DB model
 - Add Image and ImageDetection DB models
 - Add IMAGE_SCAN job type and image Pydantic schemas
-- Add image analyzer service (inappropriate content + SigLIP ONNX)
-- Add image analyzer service (inappropriate content + SigLIP ONNX)
+- Add image analyzer service (inappropriate content model + SigLIP ONNX)
+- Add image analyzer service (inappropriate content model + SigLIP ONNX)
 - Add image scanner service
 - Add image scanner service
 - Add image duplicates service
@@ -68,20 +71,21 @@ Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) 
 - Click-to-preview with always-visible checkbox on image cards
 - Add model registry and download service
 - Add MODEL_DOWNLOAD job type and models API router
-- Add clip_model and inappropriate_model to settings API
+- Add clip_model and inappropriate_model_model to settings API
 - Per-model session caching in image_analyzer — dict keyed by model_id
-- Wire clip_model and inappropriate_model settings into scanner and search
+- Wire clip_model and inappropriate_model_model settings into scanner and search
 - Add ModelInfo type and modelsApi to frontend api.ts, update settings types
 - AI Models card in Settings with download/delete/activate per model
 - Min_score slider in ContentReview semantic search panel
 - Rename siglip_embedding→clip_embedding, add reset+rescan, run_siglip→run_clip
-- Image library — CLIP/inappropriate content search, content review, quarantine, model management
+- Image library — CLIP/inappropriate content model search, content review, quarantine, model management
 - Show inline download progress in Settings AI Models card
 - Collapsible sidebar sections with localStorage persistence
 - Add CLIP ViT-L/14@336px model option
 - Replace native video element with Plyr player
-- CLIP semantic search + inappropriate content detection for video files
+- CLIP semantic search + inappropriate content model detection for video files
 - Scan batching, persistent keyframes, AI filter improvements
+- PHash duplicate detection, filename filter, and scan improvements
 
 ### Refactor
 
