@@ -110,6 +110,8 @@ export interface DuplicateCriteria {
   use_duration: boolean;
   use_phash: boolean;
   duration_tolerance: number;
+  phash_threshold: number;
+  phash_mode: "first_frame" | "all_frames";
 }
 
 export interface DuplicateFile {
@@ -267,8 +269,11 @@ export const api = {
     req<void>(`/libraries/${id}/duplicates`, { method: "DELETE", body: JSON.stringify({ file_ids }) }),
 
   // Cleanup
-  getCleanupFiles: (id: number, params: CleanupParams) =>
-    req<VideoFile[]>(`/libraries/${id}/cleanup?${buildCleanupQuery(params)}`),
+  getCleanupFiles: (id: number, params: CleanupParams, fetchAll = false) => {
+    const q = buildCleanupQuery(params);
+    const qs = fetchAll ? (q ? `${q}&fetch_all=true` : "fetch_all=true") : q;
+    return req<VideoFile[]>(`/libraries/${id}/cleanup?${qs}`);
+  },
   deleteCleanupFiles: (id: number, file_ids: number[]) =>
     req<void>(`/libraries/${id}/cleanup`, { method: "DELETE", body: JSON.stringify({ file_ids }) }),
 

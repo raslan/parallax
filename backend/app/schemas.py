@@ -12,6 +12,8 @@ class DuplicateCriteriaRequest(BaseModel):
     use_duration: bool = True
     use_phash: bool = True
     duration_tolerance: float = 1.0
+    phash_threshold: int = 10  # Hamming distance 0–64
+    phash_mode: str = "all_frames"  # "first_frame" | "all_frames"
 
 
 class LibraryCreate(BaseModel):

@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import subprocess
@@ -110,34 +111,80 @@ def _cluster_by_duration(files: list[File], tolerance: float = 2.0) -> list[list
     return groups
 
 
-def _cluster_by_phash(files: list[File], threshold: int = 10, on_file=None) -> list[list[File]]:
-    """Extract pHash for each file and group pairs with Hamming distance ≤ threshold."""
-    hashes: list[tuple[File, "imagehash.ImageHash"]] = []
+def _hamming(a: int, b: int) -> int:
+    return bin(a ^ b).count("1")
+
+
+def _frames_distance(frames_a: list[int], frames_b: list[int]) -> float:
+    """Average of per-frame minimum Hamming distances (avg-of-minimums)."""
+    total = 0.0
+    for ha in frames_a:
+        total += min(_hamming(ha, hb) for hb in frames_b)
+    for hb in frames_b:
+        total += min(_hamming(ha, hb) for ha in frames_a)
+    return total / (len(frames_a) + len(frames_b))
+
+
+def _get_hashes(f: File) -> tuple["imagehash.ImageHash | None", list[int]]:
+    """Return (single_hash, frames_list). Uses stored values; falls back to ffmpeg."""
+    frames: list[int] = []
+    if f.phash_frames:
+        try:
+            frames = json.loads(f.phash_frames)
+        except Exception:
+            pass
+    if f.phash is not None and not frames:
+        frames = [f.phash]
+
+    single: "imagehash.ImageHash | None" = None
+    if f.phash is not None:
+        single = imagehash.ImageHash(
+            __import__("numpy").array(
+                [(f.phash >> (63 - i)) & 1 for i in range(64)], dtype=bool
+            ).reshape(8, 8)
+        )
+    elif not frames:
+        single = _extract_phash(f.path)
+        if single is not None:
+            frames = [int(str(single), 16)]
+
+    return single, frames
+
+
+def _cluster_by_phash(files: list[File], threshold: int = 10, mode: str = "all_frames", on_file=None) -> list[list[File]]:
+    """Group files by pHash similarity. Uses stored multi-frame hashes when available and mode='all_frames'."""
+    entries: list[tuple[File, "imagehash.ImageHash | None", list[int]]] = []
     for f in files:
         if on_file:
             on_file()
         if not os.path.exists(f.path):
             logger.warning("File not on disk, skipping: %s", f.path)
             continue
-        h = _extract_phash(f.path)
-        if h is None:
+        single, frames = _get_hashes(f)
+        if not frames and single is None:
             continue
-        hashes.append((f, h))
+        entries.append((f, single, frames))
 
-    if len(hashes) < 2:
+    if len(entries) < 2:
         return []
 
     groups: list[list[File]] = []
     used: set[int] = set()
-    for i, (fi, hi) in enumerate(hashes):
+    for i, (fi, hi, frames_i) in enumerate(entries):
         if i in used:
             continue
         group = [fi]
         used.add(i)
-        for j, (fj, hj) in enumerate(hashes):
+        for j, (fj, hj, frames_j) in enumerate(entries):
             if j <= i or j in used:
                 continue
-            if (hi - hj) <= threshold:
+            if mode == "all_frames" and frames_i and frames_j:
+                dist = _frames_distance(frames_i, frames_j)
+            elif hi is not None and hj is not None:
+                dist = hi - hj
+            else:
+                continue
+            if dist <= threshold:
                 group.append(fj)
                 used.add(j)
         if len(group) > 1:
@@ -152,6 +199,8 @@ def find_duplicates(
     use_duration: bool = True,
     use_phash: bool = True,
     duration_tolerance: float = 1.0,
+    phash_threshold: int = 10,
+    phash_mode: str = "all_frames",
 ) -> list[DuplicateGroup]:
     db = SessionLocal()
     job = None
@@ -228,7 +277,7 @@ def find_duplicates(
                 if len(dur_cluster) < 2:
                     continue
                 if use_phash:
-                    phash_groups = _cluster_by_phash(dur_cluster, on_file=_on_phash_file)
+                    phash_groups = _cluster_by_phash(dur_cluster, threshold=phash_threshold, mode=phash_mode, on_file=_on_phash_file)
                 else:
                     phash_groups = [dur_cluster]
 

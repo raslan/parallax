@@ -63,12 +63,12 @@ def extract_keyframes(
                     "-hide_banner", "-loglevel", "error",
                     "-y",
                 ],
-                timeout=60,
+                timeout=30,
                 check=True,
             )
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            raise RuntimeError(f"ffmpeg frame extraction failed at {ts:.1f}s: {e}") from e
-        results.append((out_path, ts))
+            results.append((out_path, ts))
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass  # skip unextractable frames; caller raises if results is empty
 
     return frame_dir, results
 

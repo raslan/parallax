@@ -397,7 +397,7 @@ export function Cleanup() {
       // If filename is the only active filter, fetch all files as the base universe
       if (filenameActive && !anyServerFilterActive) {
         tasks.push(
-          api.getCleanupFiles(selectedId, {}).then((files) => {
+          api.getCleanupFiles(selectedId, {}, true).then((files) => {
             files.forEach((f) => fileMap.set(f.id, f));
             idSets.push(new Set(files.map((f) => f.id)));
           })
