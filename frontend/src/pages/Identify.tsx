@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Search, ChevronRight, Check, AlertCircle, Wand2, FolderOpen } from "lucide-react";
+import { Loader2, Search, ChevronRight, Check, AlertCircle, Wand2, FolderOpen, Settings } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,6 +7,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { FileMatcher } from "@/components/FileMatcher";
 import { DirPicker } from "@/components/DirPicker";
 import { api, type SearchResult, type Episode, type RenameOp, type FileMapping } from "@/lib/api";
+import { Link } from "react-router-dom";
 
 type Step = "search" | "match" | "preview" | "done";
 type MediaType = "movie" | "tv";
@@ -176,6 +177,13 @@ export function Identify() {
         <p className="text-sm text-muted-foreground mt-1">
           Identify a folder of badly-named files and rename them to Plex/Jellyfin format.
         </p>
+        <Link
+          to="/settings?tab=credentials"
+          className="inline-flex items-center gap-1.5 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Settings className="h-3 w-3" />
+          Requires a TMDB API key — configure in Settings → Keys &amp; Accounts
+        </Link>
       </div>
 
       {/* Step indicator */}

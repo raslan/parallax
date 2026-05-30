@@ -63,7 +63,95 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
     return results
 
 
-def run_download_job(job_id: int, path: str, lang_codes: list[str], os_api_key: str = "") -> None:
+def _build_providers(os_username: str, os_password: str) -> tuple[list[str], dict]:
+    if os_username and os_password:
+        import hashlib
+        hashed = hashlib.md5(os_password.encode()).hexdigest()  # noqa: S324 — OpenSubtitles.org XMLRPC requires MD5
+        return ["opensubtitles"], {"opensubtitles": {"username": os_username, "password": hashed}}
+    return ["podnapisi"], {}
+
+
+def _build_lang_set(lang_codes: list[str]):
+    langs = set(filter(None, (_to_language(c) for c in lang_codes)))
+    return langs or {_to_language("en")}
+
+
+def search_file(file_path: str, lang_codes: list[str], os_username: str = "", os_password: str = "") -> list[dict]:
+    """Return scored subtitle candidates for a single video file."""
+    import subliminal
+
+    if not os.path.isfile(file_path):
+        raise ValueError("File not found")
+
+    providers, provider_configs = _build_providers(os_username, os_password)
+    lang_set = _build_lang_set(lang_codes)
+
+    video = subliminal.scan_video(file_path)
+    video.subtitle_languages = set()
+
+    raw: list = []
+    with subliminal.core.ProviderPool(providers=providers, provider_configs=provider_configs) as pool:
+        for pname in providers:
+            try:
+                p_subs = pool[pname].list_subtitles(video, lang_set)
+                logger.warning("search_file %s: %s → %d candidates", os.path.basename(file_path), pname, len(p_subs))
+                raw.extend(p_subs)
+            except Exception as exc:
+                logger.warning("search_file provider error [%s]: %s: %s", pname, type(exc).__name__, exc)
+
+    serialized = []
+    for sub in raw:
+        score = subliminal.compute_score(sub, video)
+        serialized.append({
+            "subtitle_id": str(sub.subtitle_id),
+            "provider": sub.provider_name,
+            "language": str(sub.language),
+            "release": (
+                getattr(sub, "movie_full_name", None)
+                or getattr(sub, "release", None)
+                or str(sub.subtitle_id)
+            ),
+            "score": score,
+            "hearing_impaired": bool(getattr(sub, "hearing_impaired", False)),
+        })
+
+    serialized.sort(key=lambda x: x["score"], reverse=True)
+    return serialized
+
+
+def download_one(
+    file_path: str,
+    provider: str,
+    subtitle_id: str,
+    language: str,
+    os_username: str = "",
+    os_password: str = "",
+) -> bool:
+    """Download a specific subtitle by provider + subtitle_id and save alongside the video."""
+    import subliminal
+
+    if not os.path.isfile(file_path):
+        raise ValueError("File not found")
+
+    _, provider_configs = _build_providers(os_username, os_password)
+    lang_set = _build_lang_set([language])
+
+    video = subliminal.scan_video(file_path)
+    video.subtitle_languages = set()
+
+    with subliminal.core.ProviderPool(providers=[provider], provider_configs=provider_configs) as pool:
+        candidates = pool.list_subtitles(video, lang_set)
+        match = next((s for s in candidates if str(s.subtitle_id) == subtitle_id), None)
+        if not match:
+            return False
+        ok = pool.download_subtitle(match)
+        if ok and match.content:
+            subliminal.save_subtitles(video, [match])
+            return True
+    return False
+
+
+def run_download_job(job_id: int, path: str, lang_codes: list[str], os_username: str = "", os_password: str = "") -> None:
     import subliminal
 
     from app.database import SessionLocal
@@ -97,15 +185,8 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str], os_api_key: 
         job.total_files = len(video_paths)
         db.commit()
 
-        # Build provider list — podnapisi always, opensubtitlescom if key present
-        providers = ["podnapisi"]
-        provider_configs: dict = {}
-        if os_api_key:
-            providers.append("opensubtitlescom")
-            provider_configs["opensubtitlescom"] = {"api_key": os_api_key}
-
-        # Build babelfish Language set
-        lang_set = set(filter(None, (_to_language(c) for c in lang_codes))) or {_to_language("en")}
+        providers, provider_configs = _build_providers(os_username, os_password)
+        lang_set = _build_lang_set(lang_codes)
 
         found = skipped = failed = 0
 
@@ -126,15 +207,23 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str], os_api_key: 
 
             try:
                 video = subliminal.scan_video(video_path)
-                subs = subliminal.download_best_subtitles(
-                    [video],
-                    lang_set,
-                    providers=providers,
-                    provider_configs=provider_configs,
-                )
-                downloaded = subs.get(video, [])
-                if downloaded:
-                    subliminal.save_subtitles(video, downloaded)
+                # Clear detected subtitle languages so check_video() doesn't skip files
+                # with embedded subtitle tracks — we want external .srt files regardless.
+                video.subtitle_languages = set()
+                downloaded_subs = []
+                with subliminal.core.ProviderPool(providers=providers, provider_configs=provider_configs) as pool:
+                    candidates = []
+                    for pname in providers:
+                        try:
+                            p_subs = pool[pname].list_subtitles(video, lang_set)
+                            _log(db, job_id, f"  {pname}: {len(p_subs)} candidates")
+                            candidates.extend(p_subs)
+                        except Exception as perr:
+                            _log(db, job_id, f"  {pname}: {type(perr).__name__} — {perr}", level="error")
+                    if candidates:
+                        downloaded_subs = pool.download_best_subtitles(candidates, video, lang_set, min_score=0)
+                if downloaded_subs:
+                    subliminal.save_subtitles(video, downloaded_subs)
                     found += 1
                     _log(db, job_id, f"Downloaded: {fname}")
                 else:

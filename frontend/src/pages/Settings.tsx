@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Loader2, Check, Palette, KeyRound, Cpu, Download, Trash2, AlertCircle, Captions } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Loader2, Check, Palette, KeyRound, Cpu, Download, Trash2, AlertCircle } from "lucide-react";
+import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api, modelsApi, ModelInfo } from "@/lib/api";
@@ -14,11 +16,10 @@ const THEMES = [
 ];
 
 const TABS = [
-  { id: "appearance", label: "Appearance",  icon: Palette },
-  { id: "transcoder", label: "Transcoder",  icon: null },
-  { id: "metadata",   label: "Metadata",    icon: KeyRound },
-  { id: "ai",         label: "AI Models",   icon: Cpu },
-  { id: "subtitles",  label: "Subtitles",   icon: Captions },
+  { id: "appearance",   label: "Appearance",      icon: Palette },
+  { id: "transcoder",   label: "Transcoder",      icon: null },
+  { id: "credentials",  label: "Keys & Accounts", icon: KeyRound },
+  { id: "ai",           label: "AI Models",       icon: Cpu },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -181,14 +182,17 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
 
 export function Settings() {
   const { theme, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<TabId>("appearance");
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as TabId | null) ?? "appearance";
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   const [maxConcurrent, setMaxConcurrent]         = useState(1);
   const [tmdbKey, setTmdbKey]                     = useState("");
   const [videoKeyframesPerVideo, setVideoKeyframesPerVideo] = useState(8);
   const [scanBatchSize, setScanBatchSize]                   = useState(4);
-  const [osApiKey, setOsApiKey]                   = useState("");
-  const [subtitleLanguages, setSubtitleLanguages] = useState("en");
+  const [osUsername, setOsUsername]               = useState("");
+  const [osPassword, setOsPassword]               = useState("");
+  const [subtitleLangs, setSubtitleLangs]         = useState<string[]>(["en"]);
   const [loading, setLoading]                     = useState(true);
   const [saving, setSaving]                       = useState(false);
   const [saved, setSaved]                         = useState(false);
@@ -204,8 +208,9 @@ export function Settings() {
         setTmdbKey(s.tmdb_api_key);
         setVideoKeyframesPerVideo(s.video_keyframes_per_video ?? 8);
         setScanBatchSize(s.scan_batch_size ?? 4);
-        setOsApiKey(s.opensubtitles_api_key ?? "");
-        setSubtitleLanguages(s.subtitle_languages ?? "en");
+        setOsUsername(s.opensubtitles_username ?? "");
+        setOsPassword(s.opensubtitles_password ?? "");
+        setSubtitleLangs((s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -223,7 +228,7 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_api_key: osApiKey, subtitle_languages: subtitleLanguages });
+      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(",") });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -354,29 +359,26 @@ export function Settings() {
         </Card>
       )}
 
-      {/* Metadata */}
-      {activeTab === "metadata" && (
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            {loading ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />Loading…
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">TMDB API key</p>
-                  <p className="text-xs text-muted-foreground">
-                    Required for the Identify feature. Get a free key at{" "}
-                    <a
-                      href="https://www.themoviedb.org/settings/api"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline"
-                    >
-                      themoviedb.org
-                    </a>.
-                  </p>
+      {/* Keys & Accounts */}
+      {activeTab === "credentials" && (
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />Loading…
+            </div>
+          ) : (
+            <>
+              <Card>
+                <CardContent className="pt-6 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">TMDB API key</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Required for Identify & Rename. Free key at{" "}
+                      <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer" className="text-primary underline">
+                        themoviedb.org
+                      </a>.
+                    </p>
+                  </div>
                   <input
                     type="password"
                     value={tmdbKey}
@@ -384,59 +386,73 @@ export function Settings() {
                     placeholder="Paste your TMDB API key…"
                     className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                </div>
-                <SaveButton />
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                </CardContent>
+              </Card>
 
-      {/* Subtitles */}
-      {activeTab === "subtitles" && (
-        <Card>
-          <CardContent className="pt-6 space-y-6">
-            {loading ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />Loading…
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Default languages</p>
-                  <p className="text-xs text-muted-foreground">
-                    Comma-separated ISO 639-1 codes (e.g. <span className="font-mono">en,fr,de</span>).
-                    Used when no override is set on the Subtitles page.
-                  </p>
-                  <input
-                    type="text"
-                    value={subtitleLanguages}
-                    onChange={(e) => { setSubtitleLanguages(e.target.value); markDirty(); }}
-                    placeholder="en"
-                    className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">OpenSubtitles API key <span className="text-muted-foreground font-normal">(optional)</span></p>
-                  <p className="text-xs text-muted-foreground">
-                    Adds OpenSubtitles to the provider pool for better coverage. Free key at{" "}
-                    <a href="https://www.opensubtitles.com/en/consumers" target="_blank" rel="noreferrer" className="text-primary underline">
-                      opensubtitles.com
-                    </a>. Without a key, Podnapisi is used.
-                  </p>
-                  <input
-                    type="password"
-                    value={osApiKey}
-                    onChange={(e) => { setOsApiKey(e.target.value); markDirty(); }}
-                    placeholder="Paste your OpenSubtitles API key…"
-                    className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <SaveButton />
-              </>
-            )}
-          </CardContent>
-        </Card>
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium">OpenSubtitles.org account</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Required for Subtitles. Free account at{" "}
+                      <a href="https://www.opensubtitles.org" target="_blank" rel="noreferrer" className="text-primary underline">
+                        opensubtitles.org
+                      </a>{" "}— 200 downloads/day.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={osUsername}
+                      onChange={(e) => { setOsUsername(e.target.value); markDirty(); }}
+                      placeholder="Username"
+                      autoComplete="off"
+                      className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <input
+                      type="password"
+                      value={osPassword}
+                      onChange={(e) => { setOsPassword(e.target.value); markDirty(); }}
+                      placeholder="Password"
+                      autoComplete="new-password"
+                      className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Default subtitle languages</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {COMMON_LANGS.map(({ code, label }) => {
+                        const active = subtitleLangs.includes(code);
+                        return (
+                          <button
+                            key={code}
+                            onClick={() => {
+                              setSubtitleLangs((prev) =>
+                                prev.includes(code)
+                                  ? prev.length > 1 ? prev.filter((c) => c !== code) : prev
+                                  : [...prev, code]
+                              );
+                              markDirty();
+                            }}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+                              active
+                                ? "bg-primary/15 border-primary/40 text-primary"
+                                : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <SaveButton />
+            </>
+          )}
+        </div>
       )}
 
       {/* AI Models */}
