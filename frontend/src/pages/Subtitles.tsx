@@ -1,37 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Captions, FolderOpen, ScanLine, Download, CheckCircle2,
-  XCircle, Loader2, ChevronRight, Film, Globe,
+  XCircle, Loader2, ChevronRight, Film, Globe, Search, Settings,
 } from "lucide-react";
 import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
+import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
+import { COMMON_LANGS } from "@/lib/subtitle-langs";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DirPicker } from "@/components/DirPicker";
 import { SectionHeader } from "@/components/SectionHeader";
 import { cn } from "@/lib/utils";
-
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const COMMON_LANGS = [
-  { code: "en", label: "English" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "es", label: "Spanish" },
-  { code: "pt", label: "Portuguese" },
-  { code: "it", label: "Italian" },
-  { code: "nl", label: "Dutch" },
-  { code: "pl", label: "Polish" },
-  { code: "ru", label: "Russian" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "zh", label: "Chinese" },
-  { code: "ar", label: "Arabic" },
-  { code: "sv", label: "Swedish" },
-  { code: "da", label: "Danish" },
-  { code: "fi", label: "Finnish" },
-  { code: "nb", label: "Norwegian" },
-  { code: "tr", label: "Turkish" },
-];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,10 +34,10 @@ function episodeLabel(f: SubtitleFile): string {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function FileRow({ file }: { file: SubtitleFile }) {
+function FileRow({ file, onSearch }: { file: SubtitleFile; onSearch: () => void }) {
   const label = episodeLabel(file);
   return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+    <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
       <Film className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
       <span className="flex-1 text-sm font-mono truncate text-muted-foreground" title={file.filename}>
         {file.filename}
@@ -65,6 +45,13 @@ function FileRow({ file }: { file: SubtitleFile }) {
       {label && (
         <span className="text-xs text-muted-foreground/60 shrink-0 font-mono">{label}</span>
       )}
+      <button
+        onClick={onSearch}
+        title="Search subtitles"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
+      >
+        <Search className="h-3.5 w-3.5" />
+      </button>
       {file.has_subtitle ? (
         <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
       ) : (
@@ -74,7 +61,7 @@ function FileRow({ file }: { file: SubtitleFile }) {
   );
 }
 
-function DirGroup({ dir, files }: { dir: string; files: SubtitleFile[] }) {
+function DirGroup({ dir, files, onSearch }: { dir: string; files: SubtitleFile[]; onSearch: (f: SubtitleFile) => void }) {
   const [open, setOpen] = useState(true);
   const withSub = files.filter((f) => f.has_subtitle).length;
 
@@ -96,7 +83,7 @@ function DirGroup({ dir, files }: { dir: string; files: SubtitleFile[] }) {
       </button>
       {open && (
         <div>
-          {files.map((f) => <FileRow key={f.path} file={f} />)}
+          {files.map((f) => <FileRow key={f.path} file={f} onSearch={() => onSearch(f)} />)}
         </div>
       )}
     </div>
@@ -113,6 +100,7 @@ export function Subtitles() {
   const [scanError, setScanError] = useState("");
 
   const [selectedLangs, setSelectedLangs] = useState<string[]>(["en"]);
+  const [searchFile, setSearchFile] = useState<SubtitleFile | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [jobProgress, setJobProgress] = useState<number | null>(null);
   const [jobStatus, setJobStatus] = useState<string>("");
@@ -198,8 +186,22 @@ export function Subtitles() {
   const withSub = files?.filter((f) => f.has_subtitle).length ?? 0;
   const missing = totalFiles - withSub;
 
+  const handleSearchDownloaded = async () => {
+    if (!path.trim()) return;
+    const result = await subtitlesApi.scan(path.trim()).catch(() => null);
+    if (result) setFiles(result);
+  };
+
   return (
     <div className="p-8 space-y-6">
+      {searchFile && (
+        <SubtitleSearchDialog
+          file={searchFile}
+          languages={selectedLangs}
+          onClose={() => setSearchFile(null)}
+          onDownloaded={handleSearchDownloaded}
+        />
+      )}
       {/* Header */}
       <div>
         <SectionHeader className="mb-1.5">Tools</SectionHeader>
@@ -207,6 +209,13 @@ export function Subtitles() {
         <p className="text-sm text-muted-foreground mt-1">
           Download and match subtitle files for a folder of videos.
         </p>
+        <Link
+          to="/settings?tab=credentials"
+          className="inline-flex items-center gap-1.5 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Settings className="h-3 w-3" />
+          Requires an OpenSubtitles.org account — configure in Settings → Keys &amp; Accounts
+        </Link>
       </div>
 
       {/* Path input */}
@@ -253,7 +262,6 @@ export function Subtitles() {
               <button
                 key={code}
                 onClick={() => toggleLang(code)}
-                title={label}
                 className={cn(
                   "px-2.5 py-1 rounded-md text-xs font-medium transition-colors border",
                   active
@@ -261,7 +269,7 @@ export function Subtitles() {
                     : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
                 )}
               >
-                {code}
+                {label}
               </button>
             );
           })}
@@ -320,7 +328,7 @@ export function Subtitles() {
           {groups && groups.size > 0 ? (
             <div className="space-y-2">
               {[...groups.entries()].map(([dir, dirFiles]) => (
-                <DirGroup key={dir} dir={dir} files={dirFiles} />
+                <DirGroup key={dir} dir={dir} files={dirFiles} onSearch={setSearchFile} />
               ))}
             </div>
           ) : (
