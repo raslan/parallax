@@ -75,6 +75,8 @@ def list_images(
         q = q.filter(ImageFile.library_id == library_id)
     if status:
         q = q.filter(ImageFile.status == status)
+    else:
+        q = q.filter(ImageFile.status != ImageStatus.QUARANTINED)
     if has_detections == "any":
         q = q.filter(ImageFile.id.in_(
             db.query(ImageDetection.image_id).distinct()
