@@ -31,7 +31,7 @@ function ImageCard({
   return (
     <div
       onClick={onView}
-      className={`relative cursor-pointer rounded-md overflow-hidden border w-36 h-36 transition-all shrink-0 ${
+      className={`relative cursor-pointer rounded-md overflow-hidden border flex-1 min-w-[160px] aspect-square transition-all ${
         isChecked
           ? "border-destructive/50 ring-1 ring-destructive/40"
           : "border-border hover:border-muted-foreground/50"
