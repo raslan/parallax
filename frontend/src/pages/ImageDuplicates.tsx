@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { Copy, FolderX, Check } from "lucide-react";
+import { Check, Copy, FolderX, Loader2 } from "lucide-react";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { formatSize } from "@/lib/format";
+import { SectionHeader } from "@/components/SectionHeader";
 
 function recommendKeep(images: ImageFile[]): number {
   return images.reduce((best, img) => {
@@ -14,99 +15,102 @@ function recommendKeep(images: ImageFile[]): number {
   }).id;
 }
 
+function ImageCard({
+  img,
+  isChecked,
+  isSuggested,
+  onToggle,
+  onView,
+}: {
+  img: ImageFile;
+  isChecked: boolean;
+  isSuggested: boolean;
+  onToggle: () => void;
+  onView: () => void;
+}) {
+  return (
+    <div
+      onClick={onView}
+      className={`relative cursor-pointer rounded-md overflow-hidden border w-36 h-36 transition-all shrink-0 ${
+        isChecked
+          ? "border-destructive/50 ring-1 ring-destructive/40"
+          : "border-border hover:border-muted-foreground/50"
+      }`}
+    >
+      {img.has_thumbnail ? (
+        <img
+          src={imageApi.thumbnailUrl(img.id)}
+          alt={img.filename}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full bg-muted" />
+      )}
+
+      {/* Checkbox top-left */}
+      <div
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors z-10 ${
+          isChecked
+            ? "bg-destructive border-destructive"
+            : "bg-background/80 border-muted-foreground hover:border-foreground"
+        }`}
+      >
+        {isChecked && <Check className="h-3 w-3 text-white" />}
+      </div>
+
+      {/* Suggested keep badge top-right */}
+      {isSuggested && (
+        <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded z-10">
+          KEEP
+        </div>
+      )}
+
+      {/* Filename + size overlay bottom */}
+      <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1.5 py-1">
+        <p className="truncate text-[10px] text-white leading-tight">{img.filename}</p>
+        <p className="text-[10px] text-white/60">{formatSize(img.size)}</p>
+      </div>
+    </div>
+  );
+}
+
 function ClusterCard({
   images,
-  keepId,
-  selectedIds,
-  onFlipKeep,
+  suggestedKeepId,
+  deleteIds,
   onToggle,
   onView,
 }: {
   images: ImageFile[];
-  keepId: number;
-  selectedIds: Set<number>;
-  onFlipKeep: (id: number) => void;
+  suggestedKeepId: number;
+  deleteIds: Set<number>;
   onToggle: (id: number) => void;
   onView: (img: ImageFile) => void;
 }) {
+  const checkedCount = images.filter((img) => deleteIds.has(img.id)).length;
   return (
     <Card>
       <CardHeader className="pb-2 pt-4 px-4">
         <CardTitle className="text-sm font-normal text-muted-foreground">
           {images.length} copies
-          {" · "}
-          <span className="text-foreground font-medium">
-            {images.find((i) => i.id === keepId)?.filename ?? ""}
-          </span>
-          {" "}recommended to keep
+          {checkedCount > 0 && (
+            <span className="ml-2 text-destructive">{checkedCount} selected for quarantine</span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4">
         <div className="flex flex-wrap gap-3">
-          {images.map((img) => {
-            const isKeep = img.id === keepId;
-            const isSelected = selectedIds.has(img.id);
-            return (
-              <div key={img.id} className="flex flex-col gap-1 items-center">
-                <div
-                  onClick={() => onView(img)}
-                  className={`relative cursor-pointer rounded-md overflow-hidden border w-32 h-32 transition-all ${
-                    isKeep
-                      ? "ring-2 ring-green-500 border-green-500"
-                      : isSelected
-                      ? "ring-2 ring-primary border-primary"
-                      : "border-border opacity-70"
-                  }`}
-                >
-                  {img.has_thumbnail ? (
-                    <img
-                      src={imageApi.thumbnailUrl(img.id)}
-                      alt={img.filename}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted" />
-                  )}
-
-                  {/* Keep badge */}
-                  {isKeep && (
-                    <div className="absolute top-1.5 right-1.5 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                      KEEP
-                    </div>
-                  )}
-
-                  {/* Selection checkbox (non-keep only) */}
-                  {!isKeep && (
-                    <div
-                      onClick={(e) => { e.stopPropagation(); onToggle(img.id); }}
-                      className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                        isSelected
-                          ? "bg-primary border-primary"
-                          : "bg-background/80 border-muted-foreground"
-                      }`}
-                    >
-                      {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5">
-                    <p className="truncate text-[10px] text-white">{img.filename}</p>
-                    <p className="text-[10px] text-white/60">{formatSize(img.size)}</p>
-                  </div>
-                </div>
-
-                {/* "Make keep" button for non-keep images */}
-                {!isKeep && (
-                  <button
-                    onClick={() => onFlipKeep(img.id)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Set as keep
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {images.map((img) => (
+            <ImageCard
+              key={img.id}
+              img={img}
+              isChecked={deleteIds.has(img.id)}
+              isSuggested={img.id === suggestedKeepId && !deleteIds.has(img.id)}
+              onToggle={() => onToggle(img.id)}
+              onView={() => onView(img)}
+            />
+          ))}
         </div>
       </CardContent>
     </Card>
@@ -117,8 +121,8 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const [clusters, setClusters] = useState<number[][]>([]);
   const [allImages, setAllImages] = useState<Map<number, ImageFile>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [keepIds, setKeepIds] = useState<Record<number, number>>({});
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [suggestedKeepIds, setSuggestedKeepIds] = useState<Record<number, number>>({});
+  const [deleteIds, setDeleteIds] = useState<Set<number>>(new Set());
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
@@ -134,17 +138,16 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
       setAllImages(imgMap);
       setClusters(clusterData);
 
-      // Compute keep IDs (largest resolution / size) and pre-select all others
       const newKeepIds: Record<number, number> = {};
-      const newSelected = new Set<number>();
+      const newDeleteIds = new Set<number>();
       clusterData.forEach((ids, i) => {
         const imgs = ids.map((id) => imgMap.get(id)).filter(Boolean) as ImageFile[];
         const keepId = recommendKeep(imgs);
         newKeepIds[i] = keepId;
-        ids.forEach((id) => { if (id !== keepId) newSelected.add(id); });
+        ids.forEach((id) => { if (id !== keepId) newDeleteIds.add(id); });
       });
-      setKeepIds(newKeepIds);
-      setSelectedIds(newSelected);
+      setSuggestedKeepIds(newKeepIds);
+      setDeleteIds(newDeleteIds);
     } catch {
       // ignore
     } finally {
@@ -155,26 +158,12 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   useEffect(() => { load(); }, [libraryId]);
 
   const clusterImages = useMemo(() =>
-    clusters.map((ids) =>
-      ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]
-    ),
+    clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
     [clusters, allImages]
   );
 
-  const flipKeep = (clusterIdx: number, newKeepId: number) => {
-    const oldKeepId = keepIds[clusterIdx];
-    setKeepIds((prev) => ({ ...prev, [clusterIdx]: newKeepId }));
-    // old keep becomes selectable (pre-select it), new keep deselects
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.add(oldKeepId);
-      next.delete(newKeepId);
-      return next;
-    });
-  };
-
-  const toggleSelected = (id: number) => {
-    setSelectedIds((prev) => {
+  const toggleDelete = (id: number) => {
+    setDeleteIds((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -182,65 +171,85 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   };
 
   const handleQuarantine = async () => {
-    if (!selectedIds.size) return;
-    if (!confirm(`Quarantine ${selectedIds.size} image(s)?`)) return;
+    if (!deleteIds.size) return;
+    if (!confirm(`Quarantine ${deleteIds.size} image(s)?`)) return;
     setQuarantining(true);
     try {
-      await imageApi.quarantineBulk([...selectedIds]);
+      await imageApi.quarantineBulk([...deleteIds]);
       await load();
     } finally {
       setQuarantining(false);
     }
   };
 
-  const totalSelected = selectedIds.size;
-
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Copy className="h-5 w-5" style={{ color: "var(--px-accent)" }} />
-          <div>
-            <h1 className="text-lg font-semibold">Image Duplicates</h1>
-            <p className="text-xs text-muted-foreground">
-              {loading
-                ? "Scanning…"
-                : `${clusters.length} duplicate group${clusters.length !== 1 ? "s" : ""} · ${totalSelected} image${totalSelected !== 1 ? "s" : ""} selected for quarantine`}
-            </p>
-          </div>
+    <div className="p-8 space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
+          <h1 className="text-2xl font-semibold tracking-tight">Image Duplicates</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Check images to quarantine, uncheck to keep. Click any image to preview.
+          </p>
         </div>
-
         {!loading && clusters.length > 0 && (
           <Button
             variant="destructive"
-            disabled={totalSelected === 0 || quarantining}
+            disabled={deleteIds.size === 0 || quarantining}
             onClick={handleQuarantine}
+            className="shrink-0"
           >
             <FolderX className="h-4 w-4 mr-2" />
-            {quarantining ? "Quarantining…" : `Quarantine ${totalSelected} Selected`}
+            {quarantining ? "Quarantining…" : `Quarantine ${deleteIds.size} Selected`}
           </Button>
         )}
       </div>
 
-      {!loading && clusters.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-16">
-          No duplicate images found. Make sure you've scanned with Duplicates enabled.
-        </p>
+      {loading && (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
       )}
 
-      <div className="flex flex-col gap-4">
-        {clusters.map((ids, i) => (
-          <ClusterCard
-            key={i}
-            images={clusterImages[i] ?? []}
-            keepId={keepIds[i]}
-            selectedIds={selectedIds}
-            onFlipKeep={(id) => flipKeep(i, id)}
-            onToggle={toggleSelected}
-            onView={setViewingImg}
-          />
-        ))}
-      </div>
+      {!loading && clusters.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Copy className="h-10 w-10 text-muted-foreground mb-4" />
+            <h3 className="font-semibold text-lg mb-1">No duplicates found</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              No duplicate images found. Make sure you've scanned with Duplicates enabled.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && clusters.length > 0 && (
+        <>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+            <p className="text-sm">
+              <span className="font-semibold tabular-nums font-mono">{clusters.length}</span> duplicate group{clusters.length !== 1 ? "s" : ""} found
+              {deleteIds.size > 0 && (
+                <span className="text-muted-foreground ml-2">
+                  · <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span> selected for quarantine
+                </span>
+              )}
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {clusters.map((_, i) => (
+              <ClusterCard
+                key={i}
+                images={clusterImages[i] ?? []}
+                suggestedKeepId={suggestedKeepIds[i]}
+                deleteIds={deleteIds}
+                onToggle={toggleDelete}
+                onView={setViewingImg}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {viewingImg && (
         <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />
