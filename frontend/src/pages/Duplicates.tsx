@@ -44,7 +44,7 @@ function FileCard({
   onPlay: () => void;
 }) {
   return (
-    <div className={`flex-1 min-w-[220px] rounded-lg border p-3 space-y-2 transition-colors ${
+    <div className={`flex-1 min-w-[180px] max-w-[260px] rounded-lg border p-3 space-y-2 transition-colors ${
       isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
     }`}>
       {/* Thumbnail */}
