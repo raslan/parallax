@@ -29,6 +29,20 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 
 ---
 
+## Windows
+
+Parallax runs on Windows via [Docker Desktop](https://www.docker.com/products/docker-desktop/). There is no separate installer — Docker handles the runtime environment.
+
+**All users:** Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) and make sure it is running before continuing. WSL 2 backend is required (the default).
+
+**NVIDIA GPU users:** A recent Game Ready or Studio driver (521+) is all you need — CUDA support for Docker is included in the driver automatically via WSL 2. No separate CUDA toolkit or NVIDIA Container Toolkit install is required on Windows. Use the `latest-cuda` image tag.
+
+**AMD GPU users:** AMD ROCm is not supported under WSL 2 / Docker Desktop on Windows. Use the `latest` (CPU) image tag instead. GPU-accelerated transcoding via hardware video encoders is not available on this path.
+
+Once Docker Desktop is running, follow the [Docker Compose](#docker-compose-recommended) instructions below with the image tag for your hardware. Everything else — the compose file, volume mounts, port — is identical to Linux.
+
+---
+
 ## Deployment
 
 Pre-built images are published to the GitHub Container Registry on every release. Pick the tag for your hardware:
