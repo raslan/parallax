@@ -13,6 +13,7 @@ class JobType:
     IMAGE_SCAN = "image_scan"
     VIDEO_SCAN = "video_scan"
     MODEL_DOWNLOAD = "model_download"
+    SUBTITLE_DOWNLOAD = "subtitle_download"
 
 
 class JobStatus:

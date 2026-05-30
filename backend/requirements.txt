@@ -5,6 +5,8 @@ python-multipart==0.0.12
 imagehash==4.3.1
 Pillow==10.4.0
 requests==2.32.3
+subliminal==2.2.0
+babelfish==0.6.1
 nudenet==3.4.2
 transformers==4.47.1
 sentencepiece==0.2.0

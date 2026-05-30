@@ -1,0 +1,262 @@
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".m4v", ".wmv", ".flv", ".ts", ".m2ts"}
+SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
+
+
+def _to_language(code: str):
+    from babelfish import Language
+    code = code.strip().lower()
+    try:
+        if len(code) == 2:
+            return Language.fromalpha2(code)
+        return Language(code)
+    except Exception:
+        return None
+
+
+def _has_subtitle(video_path: str, lang_codes: list[str]) -> bool:
+    base = os.path.splitext(video_path)[0]
+    for ext in SUBTITLE_EXTENSIONS:
+        if os.path.exists(f"{base}{ext}"):
+            return True
+        for lang in lang_codes:
+            if os.path.exists(f"{base}.{lang}{ext}"):
+                return True
+    return False
+
+
+def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
+    """Walk directory and return video files with subtitle status, grouped by relative dir."""
+    from guessit import guessit as _guessit
+
+    results = []
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        dirnames.sort()
+        for fname in sorted(filenames):
+            if os.path.splitext(fname)[1].lower() not in VIDEO_EXTENSIONS:
+                continue
+
+            full_path = os.path.join(dirpath, fname)
+            rel_dir = os.path.relpath(dirpath, root_path)
+
+            info = _guessit(fname)
+            has_sub = _has_subtitle(full_path, lang_codes)
+
+            results.append({
+                "path": full_path,
+                "filename": fname,
+                "relative_dir": "" if rel_dir == "." else rel_dir,
+                "has_subtitle": has_sub,
+                "title": str(info.get("title", "")),
+                "season": info.get("season"),
+                "episode": info.get("episode"),
+                "year": info.get("year"),
+                "media_type": info.get("type", "unknown"),
+            })
+
+    return results
+
+
+def _build_providers(os_username: str, os_password: str) -> tuple[list[str], dict]:
+    if os_username and os_password:
+        import hashlib
+        hashed = hashlib.md5(os_password.encode()).hexdigest()  # noqa: S324 — OpenSubtitles.org XMLRPC requires MD5
+        return ["opensubtitles"], {"opensubtitles": {"username": os_username, "password": hashed}}
+    return ["podnapisi"], {}
+
+
+def _build_lang_set(lang_codes: list[str]):
+    langs = set(filter(None, (_to_language(c) for c in lang_codes)))
+    return langs or {_to_language("en")}
+
+
+def search_file(file_path: str, lang_codes: list[str], os_username: str = "", os_password: str = "") -> list[dict]:
+    """Return scored subtitle candidates for a single video file."""
+    import subliminal
+
+    if not os.path.isfile(file_path):
+        raise ValueError("File not found")
+
+    providers, provider_configs = _build_providers(os_username, os_password)
+    lang_set = _build_lang_set(lang_codes)
+
+    video = subliminal.scan_video(file_path)
+    video.subtitle_languages = set()
+
+    raw: list = []
+    with subliminal.core.ProviderPool(providers=providers, provider_configs=provider_configs) as pool:
+        for pname in providers:
+            try:
+                p_subs = pool[pname].list_subtitles(video, lang_set)
+                logger.warning("search_file %s: %s → %d candidates", os.path.basename(file_path), pname, len(p_subs))
+                raw.extend(p_subs)
+            except Exception as exc:
+                logger.warning("search_file provider error [%s]: %s: %s", pname, type(exc).__name__, exc)
+
+    serialized = []
+    for sub in raw:
+        score = subliminal.compute_score(sub, video)
+        serialized.append({
+            "subtitle_id": str(sub.subtitle_id),
+            "provider": sub.provider_name,
+            "language": str(sub.language),
+            "release": (
+                getattr(sub, "movie_full_name", None)
+                or getattr(sub, "release", None)
+                or str(sub.subtitle_id)
+            ),
+            "score": score,
+            "hearing_impaired": bool(getattr(sub, "hearing_impaired", False)),
+        })
+
+    serialized.sort(key=lambda x: x["score"], reverse=True)
+    return serialized
+
+
+def download_one(
+    file_path: str,
+    provider: str,
+    subtitle_id: str,
+    language: str,
+    os_username: str = "",
+    os_password: str = "",
+) -> bool:
+    """Download a specific subtitle by provider + subtitle_id and save alongside the video."""
+    import subliminal
+
+    if not os.path.isfile(file_path):
+        raise ValueError("File not found")
+
+    _, provider_configs = _build_providers(os_username, os_password)
+    lang_set = _build_lang_set([language])
+
+    video = subliminal.scan_video(file_path)
+    video.subtitle_languages = set()
+
+    with subliminal.core.ProviderPool(providers=[provider], provider_configs=provider_configs) as pool:
+        candidates = pool.list_subtitles(video, lang_set)
+        match = next((s for s in candidates if str(s.subtitle_id) == subtitle_id), None)
+        if not match:
+            return False
+        ok = pool.download_subtitle(match)
+        if ok and match.content:
+            subliminal.save_subtitles(video, [match])
+            return True
+    return False
+
+
+def run_download_job(job_id: int, path: str, lang_codes: list[str], os_username: str = "", os_password: str = "") -> None:
+    import subliminal
+
+    from app.database import SessionLocal
+    from app.models.job import Job, JobLog, JobStatus
+
+    db = SessionLocal()
+    try:
+        job = db.get(Job, job_id)
+        if not job:
+            return
+
+        job.status = JobStatus.RUNNING
+        job.started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.commit()
+
+        # Collect all video files
+        video_paths = []
+        for dirpath, _, filenames in os.walk(path):
+            for fname in sorted(filenames):
+                if os.path.splitext(fname)[1].lower() in VIDEO_EXTENSIONS:
+                    video_paths.append(os.path.join(dirpath, fname))
+
+        if not video_paths:
+            job.status = JobStatus.COMPLETED
+            job.progress = 100.0
+            job.current_file = "No video files found"
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            db.commit()
+            return
+
+        job.total_files = len(video_paths)
+        db.commit()
+
+        providers, provider_configs = _build_providers(os_username, os_password)
+        lang_set = _build_lang_set(lang_codes)
+
+        found = skipped = failed = 0
+
+        for i, video_path in enumerate(video_paths):
+            if db.get(Job, job_id).status == JobStatus.CANCELLED:
+                break
+
+            fname = os.path.basename(video_path)
+            job.current_file = fname
+            job.processed_files = i
+            job.progress = (i / len(video_paths)) * 99
+            db.commit()
+
+            if _has_subtitle(video_path, lang_codes):
+                skipped += 1
+                _log(db, job_id, f"Skipped (subtitle exists): {fname}")
+                continue
+
+            try:
+                video = subliminal.scan_video(video_path)
+                # Clear detected subtitle languages so check_video() doesn't skip files
+                # with embedded subtitle tracks — we want external .srt files regardless.
+                video.subtitle_languages = set()
+                downloaded_subs = []
+                with subliminal.core.ProviderPool(providers=providers, provider_configs=provider_configs) as pool:
+                    candidates = []
+                    for pname in providers:
+                        try:
+                            p_subs = pool[pname].list_subtitles(video, lang_set)
+                            _log(db, job_id, f"  {pname}: {len(p_subs)} candidates")
+                            candidates.extend(p_subs)
+                        except Exception as perr:
+                            _log(db, job_id, f"  {pname}: {type(perr).__name__} — {perr}", level="error")
+                    if candidates:
+                        downloaded_subs = pool.download_best_subtitles(candidates, video, lang_set, min_score=0)
+                if downloaded_subs:
+                    subliminal.save_subtitles(video, downloaded_subs)
+                    found += 1
+                    _log(db, job_id, f"Downloaded: {fname}")
+                else:
+                    failed += 1
+                    _log(db, job_id, f"Not found: {fname}", level="warning")
+            except Exception as exc:
+                failed += 1
+                _log(db, job_id, f"Error on {fname}: {exc}", level="error")
+                logger.exception("Subtitle download error for %s", video_path)
+
+        job.processed_files = len(video_paths)
+        job.progress = 100.0
+        job.status = JobStatus.COMPLETED
+        job.current_file = f"{found} downloaded, {skipped} skipped, {failed} not found"
+        job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.commit()
+
+    except Exception as exc:
+        logger.exception("Subtitle job %d failed", job_id)
+        try:
+            job = db.get(Job, job_id)
+            if job:
+                job.status = JobStatus.FAILED
+                job.error = str(exc)
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+def _log(db, job_id: int, message: str, level: str = "info") -> None:
+    from app.models.job import JobLog
+    db.add(JobLog(job_id=job_id, message=message, level=level))
+    db.commit()
