@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, Loader2, Trash2, ShieldCheck, Play } from "lucide-react";
+import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,35 +24,31 @@ function LibrarySelector({
       onChange={(e) => onChange(Number(e.target.value))}
     >
       {libraries.map((lib) => (
-        <option key={lib.id} value={lib.id}>
-          {lib.name}
-        </option>
+        <option key={lib.id} value={lib.id}>{lib.name}</option>
       ))}
     </select>
   );
 }
 
-function FilePanel({
+function FileCard({
   file,
-  isKeep,
-  onClick,
+  isChecked,
+  isSuggested,
+  onToggle,
   onPlay,
 }: {
   file: DuplicateFile;
-  isKeep: boolean;
-  onClick: () => void;
-  onPlay: (f: DuplicateFile) => void;
+  isChecked: boolean;
+  isSuggested: boolean;
+  onToggle: () => void;
+  onPlay: () => void;
 }) {
   return (
-    <div
-      onClick={onClick}
-      className={`flex-1 min-w-[220px] rounded-lg border p-3 cursor-pointer transition-colors space-y-2 ${
-        isKeep
-          ? "border-primary/60 bg-primary/5"
-          : "border-border hover:border-muted-foreground/40"
-      }`}
-    >
-      <div className="relative aspect-video w-full rounded overflow-hidden bg-muted flex items-center justify-center group/thumb">
+    <div className={`flex-1 min-w-[220px] rounded-lg border p-3 space-y-2 transition-colors ${
+      isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
+    }`}>
+      {/* Thumbnail */}
+      <div className="relative aspect-video w-full rounded overflow-hidden bg-muted group/thumb">
         {file.has_thumbnail ? (
           <img
             src={`/api/files/${file.id}/thumbnail`}
@@ -60,31 +56,42 @@ function FilePanel({
             className="w-full h-full object-cover"
           />
         ) : (
-          <Copy className="h-6 w-6 text-muted-foreground" />
+          <div className="w-full h-full flex items-center justify-center">
+            <Copy className="h-6 w-6 text-muted-foreground" />
+          </div>
         )}
+
+        {/* Play overlay */}
         <button
-          onClick={(e) => { e.stopPropagation(); onPlay(file); }}
+          onClick={onPlay}
           title="Play video"
           className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity"
         >
           <Play className="h-6 w-6 text-white fill-white" />
         </button>
-      </div>
 
-      <div className="flex items-center gap-1.5">
-        {isKeep ? (
-          <Badge className="bg-primary/20 text-primary border-primary/30 text-xs">Keep</Badge>
-        ) : (
-          <span className="text-xs text-muted-foreground">Will delete</span>
+        {/* Checkbox top-left */}
+        <div
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors z-10 ${
+            isChecked
+              ? "bg-destructive border-destructive"
+              : "bg-background/80 border-muted-foreground hover:border-foreground"
+          }`}
+        >
+          {isChecked && <Check className="h-3 w-3 text-white" />}
+        </div>
+
+        {/* Suggested keep badge top-right */}
+        {isSuggested && (
+          <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded z-10">
+            KEEP
+          </div>
         )}
       </div>
 
-      <p className="text-xs font-medium truncate" title={file.filename}>
-        {file.filename}
-      </p>
-      <p className="text-xs text-muted-foreground truncate" title={file.path}>
-        {file.path}
-      </p>
+      <p className="text-xs font-medium truncate" title={file.filename}>{file.filename}</p>
+      <p className="text-xs text-muted-foreground truncate" title={file.path}>{file.path}</p>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
         <span className="font-mono">{formatSize(file.size)}</span>
         {file.duration != null && <span className="font-mono">{formatDuration(file.duration)}</span>}
@@ -99,31 +106,36 @@ function FilePanel({
 
 function GroupCard({
   group,
-  keepId,
-  onFlip,
+  deleteIds,
+  onToggle,
   onPlay,
 }: {
   group: DuplicateGroup;
-  keepId: number;
-  onFlip: (fileId: number) => void;
+  deleteIds: Set<number>;
+  onToggle: (id: number) => void;
   onPlay: (f: DuplicateFile) => void;
 }) {
+  const checkedCount = group.files.filter((f) => deleteIds.has(f.id)).length;
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-muted-foreground font-normal">
           {group.files.length} copies · {formatSize(group.files[0].size)}
+          {checkedCount > 0 && (
+            <span className="ml-2 text-destructive">{checkedCount} selected for deletion</span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-3">
           {group.files.map((f) => (
-            <FilePanel
+            <FileCard
               key={f.id}
               file={f}
-              isKeep={f.id === keepId}
-              onClick={() => { if (f.id !== keepId) onFlip(f.id); }}
-              onPlay={onPlay}
+              isChecked={deleteIds.has(f.id)}
+              isSuggested={f.id === group.keep_id && !deleteIds.has(f.id)}
+              onToggle={() => onToggle(f.id)}
+              onPlay={() => onPlay(f)}
             />
           ))}
         </div>
@@ -148,7 +160,7 @@ export function Duplicates() {
   const [initializing, setInitializing] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
-  const [keepIds, setKeepIds] = useState<Record<number, number>>({});
+  const [deleteIds, setDeleteIds] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -194,24 +206,17 @@ export function Duplicates() {
     let attempts = 0;
     pollRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > 60) {
-        stopPolling();
-        setScanning(false);
-        return;
-      }
+      if (attempts > 60) { stopPolling(); setScanning(false); return; }
       try {
         const result = await api.getDuplicates(libraryId);
         setGroups(result);
-        const init: Record<number, number> = {};
-        result.forEach((g, i) => { init[i] = g.keep_id; });
-        setKeepIds(init);
+        const init = new Set<number>();
+        result.forEach((g) => g.files.forEach((f) => { if (f.id !== g.keep_id) init.add(f.id); }));
+        setDeleteIds(init);
         stopPolling();
         setScanning(false);
       } catch (e: any) {
-        if (!e?.message?.startsWith("404")) {
-          stopPolling();
-          setScanning(false);
-        }
+        if (!e?.message?.startsWith("404")) { stopPolling(); setScanning(false); }
       }
     }, 2000);
   };
@@ -221,7 +226,7 @@ export function Duplicates() {
     stopPolling();
     setScanning(true);
     setGroups(null);
-    setKeepIds({});
+    setDeleteIds(new Set());
     try {
       await api.findDuplicates(selectedId, criteria);
     } catch {
@@ -231,38 +236,35 @@ export function Duplicates() {
     startPolling(selectedId);
   };
 
-  const handleFlip = (groupIndex: number, fileId: number) => {
-    setKeepIds((prev) => ({ ...prev, [groupIndex]: fileId }));
+  const toggleDelete = (fileId: number) => {
+    setDeleteIds((prev) => {
+      const next = new Set(prev);
+      next.has(fileId) ? next.delete(fileId) : next.add(fileId);
+      return next;
+    });
   };
 
-  const handleDeleteAll = async () => {
-    if (!selectedId || !groups) return;
-    const toDelete = groups.flatMap((g, i) =>
-      g.files.filter((f) => f.id !== (keepIds[i] ?? g.keep_id)).map((f) => f.id)
-    );
-    if (toDelete.length === 0) return;
-    if (!confirm(`Move ${toDelete.length} file(s) to _originals/ and remove from library?`)) return;
+  const handleDelete = async () => {
+    if (!selectedId || !groups || deleteIds.size === 0) return;
+    if (!confirm(`Move ${deleteIds.size} file(s) to _originals/ and remove from library?`)) return;
     setDeleting(true);
+    const toDelete = new Set(deleteIds);
     try {
-      await api.deleteDuplicates(selectedId, toDelete);
+      await api.deleteDuplicates(selectedId, [...toDelete]);
       setGroups((prev) =>
         prev
-          ?.map((g, i) => ({
-            ...g,
-            files: g.files.filter((f) => f.id === (keepIds[i] ?? g.keep_id)),
-          }))
+          ?.map((g) => ({ ...g, files: g.files.filter((f) => !toDelete.has(f.id)) }))
           .filter((g) => g.files.length > 1) ?? []
       );
+      setDeleteIds(new Set());
     } finally {
       setDeleting(false);
     }
   };
 
   const recoverable = groups
-    ? groups.reduce((sum, g, i) => {
-        const keepId = keepIds[i] ?? g.keep_id;
-        return sum + g.files.filter((f) => f.id !== keepId).reduce((s, f) => s + f.size, 0);
-      }, 0)
+    ? groups.reduce((sum, g) =>
+        sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0), 0)
     : 0;
 
   return (
@@ -273,7 +275,7 @@ export function Duplicates() {
             <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
             <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Find videos matching the selected criteria.
+              Find videos matching the selected criteria. Check files to delete, uncheck to keep.
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -281,7 +283,7 @@ export function Duplicates() {
               <LibrarySelector
                 libraries={libraries}
                 selected={selectedId}
-                onChange={(id) => { setSelectedId(id); setGroups(null); setKeepIds({}); }}
+                onChange={(id) => { setSelectedId(id); setGroups(null); setDeleteIds(new Set()); }}
               />
             )}
             <Button
@@ -368,20 +370,23 @@ export function Duplicates() {
         <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-sm">
             <span className="font-semibold tabular-nums font-mono">{groups.length}</span> duplicate group{groups.length !== 1 ? "s" : ""} found
-            {recoverable > 0 && (
-              <span className="text-muted-foreground ml-2">· {formatSize(recoverable)} recoverable</span>
+            {deleteIds.size > 0 && (
+              <span className="text-muted-foreground ml-2">
+                · <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span> selected for deletion
+                {recoverable > 0 && <span> · {formatSize(recoverable)} recoverable</span>}
+              </span>
             )}
           </p>
           <Button
             variant="destructive"
             size="sm"
-            onClick={handleDeleteAll}
-            disabled={deleting}
+            onClick={handleDelete}
+            disabled={deleting || deleteIds.size === 0}
           >
             {deleting ? (
               <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Deleting…</>
             ) : (
-              <><Trash2 className="h-3.5 w-3.5 mr-2" />Delete All Suggested</>
+              <><Trash2 className="h-3.5 w-3.5 mr-2" />Delete {deleteIds.size > 0 ? deleteIds.size : ""} Selected</>
             )}
           </Button>
         </div>
@@ -411,8 +416,8 @@ export function Duplicates() {
             <GroupCard
               key={i}
               group={group}
-              keepId={keepIds[i] ?? group.keep_id}
-              onFlip={(fileId) => handleFlip(i, fileId)}
+              deleteIds={deleteIds}
+              onToggle={toggleDelete}
               onPlay={setPlayingFile}
             />
           ))}
