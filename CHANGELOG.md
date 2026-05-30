@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.12.0](https://github.com/raslan/parallax/compare/v0.11.0...v0.12.0) (2026-05-30)
+
+
+### Features
+
+* add Tools sidebar section, move Identify, stub Subtitles page ([8ddb72a](https://github.com/raslan/parallax/commit/8ddb72a33bdf4dcde5b67517f952bb76b2b331b0))
+* add Vercel landing page with auto-build from README ([7b04311](https://github.com/raslan/parallax/commit/7b043117311a905841d5ee2df68dd024051a151f))
+* editorial landing page redesign (Playfair Display, Vercel-style black/white, purple accents) ([7155df0](https://github.com/raslan/parallax/commit/7155df0c22cd739cc96a8b7fbdadae5c93104257))
+* favicon, OG meta tags, Twitter card, color refresh, remove nav get-started button ([43d4fca](https://github.com/raslan/parallax/commit/43d4fcaaadf8ef9dca0566fe0d36182cd91cca1b))
+* language picker on subtitles page, subtitle settings tab ([8f63f3a](https://github.com/raslan/parallax/commit/8f63f3aa10f6410268944e9707b7c2860e457249))
+* subtitle download backend — subliminal service, API router, settings keys ([4cffdae](https://github.com/raslan/parallax/commit/4cffdaeaf7ace29cb06b9e4e4e3e769fcea1eb59))
+* subtitle feature — OpenSubtitles.org XMLRPC, manual search dialog, settings refinements ([9210b71](https://github.com/raslan/parallax/commit/9210b71ff809053cc2a2a0c36d2048ca1e11074a))
+* subtitles page — scan directory, file tree with status, download job progress ([926d931](https://github.com/raslan/parallax/commit/926d93155791ddb317caceaeddd28666e436ae78))
+
+
+### Bug Fixes
+
+* copy og-image.png into dist/ so Vercel serves it ([77d1679](https://github.com/raslan/parallax/commit/77d16797eb0d8b3c5d1ed857289a5d0248b3c707))
+* eliminate horizontal scroll on mobile in deploy section ([69707ef](https://github.com/raslan/parallax/commit/69707efda1f91d75a47e57bd595faeb62322c85c))
+* landing page parser and real logo SVG ([9a7c33a](https://github.com/raslan/parallax/commit/9a7c33aff35363a5aa8981a180b67eaadb842c02))
+* make landing page responsive on mobile ([05981e3](https://github.com/raslan/parallax/commit/05981e33bb8c4e01a87a541ed30b102f8ee37a85))
+
 ## [0.11.0](https://github.com/raslan/parallax/compare/v0.10.4...v0.11.0) (2026-05-29)
 
 
