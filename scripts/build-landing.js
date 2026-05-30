@@ -591,6 +591,7 @@ const html = `<!DOCTYPE html>
     <div class="nav-links">
       <a href="#features" class="nav-hide">Features</a>
       <a href="#deploy" class="nav-hide">Deploy</a>
+      <a href="#windows" class="nav-hide">Windows</a>
       <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} GitHub</a>
     </div>
   </div>
@@ -706,6 +707,69 @@ const html = `<!DOCTYPE html>
     <span class="s-key">volumes</span>:
       - <span class="s-val">./data:/app/data</span>
       - <span class="s-val">/your/media:/media</span>
+    <span class="s-key">restart</span>: <span class="s-val">unless-stopped</span></pre></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="windows">
+  <div class="container">
+    <div class="deploy-layout">
+      <div>
+        <div class="section-label">Windows</div>
+        <h2 class="section-heading">Runs on Windows too</h2>
+        <p class="section-sub">No separate installer. Docker Desktop handles the runtime — the compose file is identical to Linux.</p>
+        <br>
+        <div class="runtime-cards">
+          <div class="runtime-card">
+            <div class="runtime-label nvidia">NVIDIA</div>
+            <code class="runtime-tag">latest-cuda</code>
+            <p class="runtime-desc">Install Docker Desktop, then update your NVIDIA GPU driver (521+). WSL 2 includes CUDA support — no separate toolkit required.</p>
+          </div>
+          <div class="runtime-card">
+            <div class="runtime-label amd">AMD</div>
+            <code class="runtime-tag">latest</code>
+            <p class="runtime-desc">AMD ROCm is not supported under WSL 2. Use the CPU image. ONNX inference runs on CPU; hardware video encoding is unavailable on this path.</p>
+          </div>
+          <div class="runtime-card">
+            <div class="runtime-label cpu">CPU</div>
+            <code class="runtime-tag">latest</code>
+            <p class="runtime-desc">Works out of the box with Docker Desktop. No GPU setup needed.</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="deploy-snippet">
+          <div class="snippet-tabs">
+            <div class="snippet-tab active" onclick="switchTab(this,'win-nvidia')">NVIDIA</div>
+            <div class="snippet-tab" onclick="switchTab(this,'win-cpu')">CPU / AMD</div>
+          </div>
+          <div class="snippet-body active" id="tab-win-nvidia"><pre><span class="s-comment"># Windows — Docker Desktop + NVIDIA driver 521+</span>
+<span class="s-comment"># No NVIDIA Container Toolkit install needed on Windows</span>
+<span class="s-key">services</span>:
+  <span class="s-key">parallax</span>:
+    <span class="s-key">image</span>: <span class="s-val">ghcr.io/raslan/parallax:latest-cuda</span>
+    <span class="s-key">ports</span>: [<span class="s-str">"7899:7899"</span>]
+    <span class="s-key">volumes</span>:
+      - <span class="s-val">./data:/app/data</span>
+      - <span class="s-val">C:/your/media:/media</span>
+    <span class="s-key">restart</span>: <span class="s-val">unless-stopped</span>
+    <span class="s-key">deploy</span>:
+      <span class="s-key">resources</span>:
+        <span class="s-key">reservations</span>:
+          <span class="s-key">devices</span>:
+            - {<span class="s-key">driver</span>: <span class="s-val">nvidia</span>, <span class="s-key">count</span>: <span class="s-val">all</span>, <span class="s-key">capabilities</span>: [<span class="s-val">gpu</span>, <span class="s-val">video</span>]}</pre></div>
+          <div class="snippet-body" id="tab-win-cpu"><pre><span class="s-comment"># Windows — Docker Desktop, CPU only</span>
+<span class="s-comment"># AMD GPU acceleration not supported on Windows/WSL 2</span>
+<span class="s-key">services</span>:
+  <span class="s-key">parallax</span>:
+    <span class="s-key">image</span>: <span class="s-val">ghcr.io/raslan/parallax:latest</span>
+    <span class="s-key">ports</span>: [<span class="s-str">"7899:7899"</span>]
+    <span class="s-key">volumes</span>:
+      - <span class="s-val">./data:/app/data</span>
+      - <span class="s-val">C:/your/media:/media</span>
     <span class="s-key">restart</span>: <span class="s-val">unless-stopped</span></pre></div>
         </div>
       </div>
