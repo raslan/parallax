@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [0.13.0](https://github.com/raslan/parallax/compare/v0.12.0...v0.13.0) (2026-05-30)
+
+
+### Features
+
+* add Windows section to landing page with NVIDIA/CPU compose snippets ([3585c68](https://github.com/raslan/parallax/commit/3585c683f8a8c28f8059aba0875c650e5d7ce14c))
+
+
+### Bug Fixes
+
+* cap duplicate card max-width so small groups don't stretch too wide ([ffa0b39](https://github.com/raslan/parallax/commit/ffa0b391c18d1eaa009c797a4cbdbbb5ca414e76))
+* exclude quarantined images from general list endpoint by default ([d37b140](https://github.com/raslan/parallax/commit/d37b140a6d16e8a02ab7277115055bcb88d55444))
+* image duplicate cards flex full-width to match video duplicates ([4ae98b3](https://github.com/raslan/parallax/commit/4ae98b3e84cd9e1c698d17cc89e3f7803e353751))
+
 ## [0.12.0](https://github.com/raslan/parallax/compare/v0.11.0...v0.12.0) (2026-05-30)
 
 
