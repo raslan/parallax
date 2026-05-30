@@ -10,6 +10,7 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 - **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold and first-frame/all-frames comparison mode
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, date, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
+- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog to browse and pick from scored candidates; powered by OpenSubtitles.org (200 downloads/day free)
 
 ### Images
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection
@@ -204,7 +205,7 @@ Requires [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-nat
 
 1. Open [http://localhost:7899](http://localhost:7899)
 2. Go to **Settings → AI Models** to download CLIP and content detection models (required for AI features on both videos and images)
-3. Go to **Settings → Metadata** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature
+3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature, and your [OpenSubtitles.org](https://www.opensubtitles.org) credentials to enable subtitle downloads
 4. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
 5. Run a scan; for video libraries the AI scan extracts keyframes then runs CLIP + content detection in batches; for image libraries it generates thumbnails and runs the same AI pipeline
 
@@ -236,6 +237,6 @@ Then substitute `parallax:cuda` (etc.) for the `ghcr.io/...` image in the exampl
 
 ## Stack
 
-- **Backend** — Python 3.12, FastAPI, SQLAlchemy, SQLite, ffmpeg
+- **Backend** — Python 3.12, FastAPI, SQLAlchemy, SQLite, ffmpeg, subliminal
 - **Frontend** — React, TypeScript, Vite, shadcn/ui, Tailwind CSS
 - **Container** — multi-stage Docker build (Node → Python), single port, three runtime targets
