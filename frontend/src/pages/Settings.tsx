@@ -74,6 +74,8 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
     try {
       const res = await (model.type === "clip"
         ? modelsApi.downloadClip(model.id)
+        : model.type === "whisper"
+        ? modelsApi.downloadWhisper(model.id)
         : modelsApi.downloadNudenet(model.id));
       setDownloadJobId(res.job_id);
     } catch (e: unknown) {
@@ -86,7 +88,7 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "clip" ? modelsApi.deleteClip(model.id) : modelsApi.deleteNudenet(model.id));
+      await (model.type === "clip" ? modelsApi.deleteClip(model.id) : model.type === "whisper" ? modelsApi.deleteWhisper(model.id) : modelsApi.deleteNudenet(model.id));
       onAction();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -99,7 +101,7 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "clip" ? modelsApi.activateClip(model.id) : modelsApi.activateNudenet(model.id));
+      await (model.type === "clip" ? modelsApi.activateClip(model.id) : model.type === "whisper" ? modelsApi.activateWhisper(model.id) : modelsApi.activateNudenet(model.id));
       onAction();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -239,6 +241,7 @@ export function Settings() {
 
   const clipModels    = models.filter((m) => m.type === "clip");
   const nudenetModels = models.filter((m) => m.type === "nudenet");
+  const whisperModels = models.filter((m) => m.type === "whisper");
 
   const SaveButton = () => (
     <Button onClick={handleSave} disabled={saving || !dirty} size="sm">
@@ -585,6 +588,22 @@ export function Settings() {
                   </div>
                   <div className="space-y-2">
                     {nudenetModels.map((m) => (
+                      <ModelCard key={m.id} model={m} onAction={reloadModels} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-5 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium">Speech-to-Text (Whisper)</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Generates subtitle files locally from video audio. No API key required. Larger models are slower but more accurate.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {whisperModels.map((m) => (
                       <ModelCard key={m.id} model={m} onAction={reloadModels} />
                     ))}
                   </div>

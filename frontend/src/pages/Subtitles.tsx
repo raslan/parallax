@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Captions, FolderOpen, ScanLine, Download, CheckCircle2,
-  XCircle, Loader2, ChevronRight, Film, Globe, Search, Settings, Play,
+  XCircle, Loader2, ChevronRight, Film, Globe, Search, Settings, Play, Mic,
 } from "lucide-react";
 import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -35,7 +35,12 @@ function episodeLabel(f: SubtitleFile): string {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function FileRow({ file, onSearch, onPlay }: { file: SubtitleFile; onSearch: () => void; onPlay: () => void }) {
+function FileRow({ file, onSearch, onPlay, onGenerate }: {
+  file: SubtitleFile;
+  onSearch: () => void;
+  onPlay: () => void;
+  onGenerate: () => void;
+}) {
   const label = episodeLabel(file);
   return (
     <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
@@ -52,6 +57,13 @@ function FileRow({ file, onSearch, onPlay }: { file: SubtitleFile; onSearch: () 
         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
       >
         <Search className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={onGenerate}
+        title="Generate subtitle with Whisper"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
+      >
+        <Mic className="h-3.5 w-3.5" />
       </button>
       {file.has_subtitle && (
         <button
@@ -71,7 +83,7 @@ function FileRow({ file, onSearch, onPlay }: { file: SubtitleFile; onSearch: () 
   );
 }
 
-function DirGroup({ dir, files, onSearch, onPlay }: { dir: string; files: SubtitleFile[]; onSearch: (f: SubtitleFile) => void; onPlay: (f: SubtitleFile) => void }) {
+function DirGroup({ dir, files, onSearch, onPlay, onGenerate }: { dir: string; files: SubtitleFile[]; onSearch: (f: SubtitleFile) => void; onPlay: (f: SubtitleFile) => void; onGenerate: (f: SubtitleFile) => void }) {
   const [open, setOpen] = useState(true);
   const withSub = files.filter((f) => f.has_subtitle).length;
 
@@ -93,7 +105,7 @@ function DirGroup({ dir, files, onSearch, onPlay }: { dir: string; files: Subtit
       </button>
       {open && (
         <div>
-          {files.map((f) => <FileRow key={f.path} file={f} onSearch={() => onSearch(f)} onPlay={() => onPlay(f)} />)}
+          {files.map((f) => <FileRow key={f.path} file={f} onSearch={() => onSearch(f)} onPlay={() => onPlay(f)} onGenerate={() => onGenerate(f)} />)}
         </div>
       )}
     </div>
@@ -113,6 +125,10 @@ export function Subtitles() {
   const [searchFile, setSearchFile] = useState<SubtitleFile | null>(null);
   const [playingFile, setPlayingFile] = useState<SubtitleFile | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeProgress, setTranscribeProgress] = useState<number | null>(null);
+  const [transcribeStatus, setTranscribeStatus] = useState<string>("");
+  const transcribePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [jobProgress, setJobProgress] = useState<number | null>(null);
   const [jobStatus, setJobStatus] = useState<string>("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -125,7 +141,10 @@ export function Subtitles() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  useEffect(() => () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (transcribePollRef.current) clearInterval(transcribePollRef.current);
+  }, []);
 
   const toggleLang = (code: string) => {
     setSelectedLangs((prev) =>
@@ -137,6 +156,64 @@ export function Subtitles() {
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
+  const stopTranscribePolling = () => {
+    if (transcribePollRef.current) { clearInterval(transcribePollRef.current); transcribePollRef.current = null; }
+  };
+
+  const pollTranscribeJob = (job_id: number) => {
+    stopTranscribePolling();
+    transcribePollRef.current = setInterval(async () => {
+      try {
+        const jobs = await api.getJobs();
+        const job = jobs.find((j) => j.id === job_id);
+        if (!job) { stopTranscribePolling(); setTranscribing(false); return; }
+        setTranscribeProgress(job.progress);
+        setTranscribeStatus(job.current_file || job.status);
+        if (["completed", "failed", "cancelled"].includes(job.status)) {
+          stopTranscribePolling();
+          setTranscribing(false);
+          setTranscribeProgress(null);
+          if (path.trim()) {
+            const result = await subtitlesApi.scan(path.trim()).catch(() => null);
+            if (result) setFiles(result);
+          }
+        }
+      } catch {
+        stopTranscribePolling();
+        setTranscribing(false);
+      }
+    }, 2000);
+  };
+
+  const handleGenerateFile = async (file: SubtitleFile) => {
+    setTranscribing(true);
+    setTranscribeProgress(0);
+    setTranscribeStatus("Starting…");
+    try {
+      const { job_id } = await subtitlesApi.transcribeFile(file.path);
+      pollTranscribeJob(job_id);
+    } catch (e: unknown) {
+      setTranscribing(false);
+      setTranscribeProgress(null);
+      setScanError(e instanceof Error ? e.message : "Transcription failed");
+    }
+  };
+
+  const handleGenerateAll = async () => {
+    if (!path.trim()) return;
+    setTranscribing(true);
+    setTranscribeProgress(0);
+    setTranscribeStatus("Starting…");
+    try {
+      const { job_id } = await subtitlesApi.transcribeBulk(path.trim());
+      pollTranscribeJob(job_id);
+    } catch (e: unknown) {
+      setTranscribing(false);
+      setTranscribeProgress(null);
+      setScanError(e instanceof Error ? e.message : "Transcription failed");
+    }
   };
 
   const handleScan = async () => {
@@ -321,8 +398,8 @@ export function Subtitles() {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
-              {downloading && jobProgress !== null && (
+            <div className="flex items-center gap-3 flex-wrap">
+              {(downloading && jobProgress !== null) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span className="truncate max-w-xs" title={jobStatus}>
@@ -330,9 +407,27 @@ export function Subtitles() {
                   </span>
                 </div>
               )}
+              {(transcribing && transcribeProgress !== null) && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span className="truncate max-w-xs" title={transcribeStatus}>
+                    {Math.round(transcribeProgress)}% · {transcribeStatus}
+                  </span>
+                </div>
+              )}
+              <Button
+                onClick={handleGenerateAll}
+                disabled={transcribing || downloading || missing === 0}
+                variant="outline"
+              >
+                {transcribing
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  : <Mic className="h-4 w-4 mr-2" />}
+                {missing === 0 ? "All subtitles present" : `Generate ${missing} missing`}
+              </Button>
               <Button
                 onClick={handleDownload}
-                disabled={downloading || missing === 0}
+                disabled={downloading || transcribing || missing === 0}
                 variant={missing === 0 ? "outline" : "default"}
               >
                 {downloading
@@ -347,7 +442,7 @@ export function Subtitles() {
           {groups && groups.size > 0 ? (
             <div className="space-y-2">
               {[...groups.entries()].map(([dir, dirFiles]) => (
-                <DirGroup key={dir} dir={dir} files={dirFiles} onSearch={setSearchFile} onPlay={setPlayingFile} />
+                <DirGroup key={dir} dir={dir} files={dirFiles} onSearch={setSearchFile} onPlay={setPlayingFile} onGenerate={handleGenerateFile} />
               ))}
             </div>
           ) : (

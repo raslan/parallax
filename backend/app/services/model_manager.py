@@ -68,6 +68,89 @@ NUDENET_MODELS: dict[str, dict] = {
 }
 
 
+WHISPER_MODELS: dict[str, dict] = {
+    "tiny": {
+        "id": "tiny", "type": "whisper", "name": "Whisper Tiny",
+        "description": "Fastest, lowest accuracy. ~75 MB.",
+        "hf_repo": "Systran/faster-whisper-tiny", "size_mb": 75, "quality": "fast",
+    },
+    "base": {
+        "id": "base", "type": "whisper", "name": "Whisper Base",
+        "description": "Good speed/accuracy balance. ~145 MB.",
+        "hf_repo": "Systran/faster-whisper-base", "size_mb": 145, "quality": "good",
+    },
+    "small": {
+        "id": "small", "type": "whisper", "name": "Whisper Small",
+        "description": "Recommended. Strong accuracy, fast enough. ~460 MB.",
+        "hf_repo": "Systran/faster-whisper-small", "size_mb": 460, "quality": "better",
+    },
+    "medium": {
+        "id": "medium", "type": "whisper", "name": "Whisper Medium",
+        "description": "High accuracy. ~1.4 GB.",
+        "hf_repo": "Systran/faster-whisper-medium", "size_mb": 1400, "quality": "better",
+    },
+    "large-v3": {
+        "id": "large-v3", "type": "whisper", "name": "Whisper Large v3",
+        "description": "Best accuracy. ~3 GB.",
+        "hf_repo": "Systran/faster-whisper-large-v3", "size_mb": 3000, "quality": "best",
+    },
+}
+
+
+def whisper_model_dir(model_id: str) -> str:
+    return os.path.join(MODELS_DIR, "whisper", model_id)
+
+
+def is_whisper_downloaded(model_id: str) -> bool:
+    d = whisper_model_dir(model_id)
+    return os.path.isdir(d) and os.path.exists(os.path.join(d, "model.bin"))
+
+
+def download_whisper(model_id: str, job_id: int) -> None:
+    from huggingface_hub import snapshot_download
+    from app.database import SessionLocal
+    from app.models.job import Job, JobStatus
+    from app.services.common import now, log
+
+    meta = WHISPER_MODELS[model_id]
+    target_dir = whisper_model_dir(model_id)
+    os.makedirs(target_dir, exist_ok=True)
+
+    db = SessionLocal()
+    job = None
+    try:
+        job = db.get(Job, job_id)
+        if not job:
+            return
+        job.status = JobStatus.RUNNING
+        job.started_at = now()
+        db.commit()
+        log(db, job_id, f"Downloading {meta['name']} from HuggingFace…")
+        job.progress = 10.0
+        db.commit()
+        snapshot_download(repo_id=meta["hf_repo"], local_dir=target_dir)
+        job.status = JobStatus.COMPLETED
+        job.progress = 100.0
+        job.finished_at = now()
+        job.current_file = None
+        db.commit()
+        log(db, job_id, f"{meta['name']} downloaded successfully.")
+    except Exception as e:
+        if job:
+            job.status = JobStatus.FAILED
+            job.error = str(e)[:512]
+            job.finished_at = now()
+            db.commit()
+    finally:
+        db.close()
+
+
+def delete_whisper(model_id: str) -> None:
+    d = whisper_model_dir(model_id)
+    if os.path.isdir(d):
+        shutil.rmtree(d)
+
+
 def clip_dir(model_id: str) -> str:
     return os.path.join(MODELS_DIR, "clip", model_id)
 

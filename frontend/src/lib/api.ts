@@ -294,9 +294,9 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; opensubtitles_username?: string; opensubtitles_password?: string; subtitle_languages?: string }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; whisper_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; opensubtitles_username?: string; opensubtitles_password?: string; subtitle_languages?: string }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
@@ -479,7 +479,7 @@ export const imageApi = {
 
 export interface ModelInfo {
   id: string;
-  type: "clip" | "nudenet";
+  type: "clip" | "nudenet" | "whisper";
   name: string;
   description: string;
   size_mb: number;
@@ -509,6 +509,15 @@ export const modelsApi = {
 
   activateNudenet: (model_id: string) =>
     api.updateSettings({ nudenet_model: model_id }),
+
+  downloadWhisper: (model_id: string) =>
+    req<{ job_id: number }>(`/models/whisper/${model_id}/download`, { method: "POST" }),
+
+  deleteWhisper: (model_id: string) =>
+    req<void>(`/models/whisper/${model_id}`, { method: "DELETE" }),
+
+  activateWhisper: (model_id: string) =>
+    req<{ active: string }>(`/models/whisper/${model_id}/activate`, { method: "POST" }),
 };
 
 // ── Subtitles ────────────────────────────────────────────────────────────────
@@ -556,4 +565,10 @@ export const subtitlesApi = {
   streamUrl: (path: string) => `${BASE}/subtitles/stream?path=${encodeURIComponent(path)}`,
   vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
   tracksUrl: (path: string) => `${BASE}/subtitles/tracks?path=${encodeURIComponent(path)}`,
+
+  transcribeFile: (file_path: string, model_id?: string, language?: string) =>
+    req<{ job_id: number }>("/subtitles/transcribe-file", { method: "POST", body: JSON.stringify({ file_path, model_id, language }) }),
+
+  transcribeBulk: (path: string, model_id?: string, language?: string) =>
+    req<{ job_id: number }>("/subtitles/transcribe-bulk", { method: "POST", body: JSON.stringify({ path, model_id, language }) }),
 };

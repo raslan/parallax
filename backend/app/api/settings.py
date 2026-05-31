@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models.settings import get_setting, set_setting
 from app.queue import update_max_concurrent
 from app.services.image_analyzer import release_sessions
-from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS, is_clip_downloaded, is_nudenet_downloaded
+from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS, WHISPER_MODELS, is_clip_downloaded, is_nudenet_downloaded, is_whisper_downloaded
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -19,6 +19,8 @@ _CLIP_MODEL_KEY = "clip_model"
 _CLIP_MODEL_DEFAULT = "clip-vit-base-patch32"
 _NUDENET_MODEL_KEY = "nudenet_model"
 _NUDENET_MODEL_DEFAULT = "320n"
+_WHISPER_MODEL_KEY = "whisper_model"
+_WHISPER_MODEL_DEFAULT = "small"
 _VIDEO_KEYFRAMES_KEY = "video_keyframes_per_video"
 _VIDEO_KEYFRAMES_DEFAULT = "8"
 _BATCH_SIZE_KEY = "scan_batch_size"
@@ -34,6 +36,7 @@ class SettingsRead(BaseModel):
     tmdb_api_key: str
     clip_model: str
     nudenet_model: str
+    whisper_model: str
     video_keyframes_per_video: int
     scan_batch_size: int
     opensubtitles_username: str
@@ -46,6 +49,7 @@ class SettingsUpdate(BaseModel):
     tmdb_api_key: Optional[str] = Field(default=None, max_length=128)
     clip_model: Optional[str] = None
     nudenet_model: Optional[str] = None
+    whisper_model: Optional[str] = None
     video_keyframes_per_video: Optional[int] = Field(default=None, ge=1, le=50)
     scan_batch_size: Optional[int] = Field(default=None, ge=1, le=32)
     opensubtitles_username: Optional[str] = Field(default=None, max_length=128)
@@ -59,6 +63,7 @@ def _read_settings(db: Session) -> SettingsRead:
         tmdb_api_key=get_setting(db, _TMDB_KEY, ""),
         clip_model=get_setting(db, _CLIP_MODEL_KEY, _CLIP_MODEL_DEFAULT),
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
+        whisper_model=get_setting(db, _WHISPER_MODEL_KEY, _WHISPER_MODEL_DEFAULT),
         video_keyframes_per_video=int(get_setting(db, _VIDEO_KEYFRAMES_KEY, _VIDEO_KEYFRAMES_DEFAULT)),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
         opensubtitles_username=get_setting(db, _OS_USERNAME_KEY, ""),
@@ -91,6 +96,13 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
             raise HTTPException(422, f"NudeNet model '{body.nudenet_model}' is not downloaded yet")
         set_setting(db, _NUDENET_MODEL_KEY, body.nudenet_model)
         model_changed = True
+
+    if body.whisper_model is not None:
+        if body.whisper_model not in WHISPER_MODELS:
+            raise HTTPException(400, f"Unknown Whisper model: {body.whisper_model}")
+        if not is_whisper_downloaded(body.whisper_model):
+            raise HTTPException(422, f"Whisper model '{body.whisper_model}' is not downloaded yet")
+        set_setting(db, _WHISPER_MODEL_KEY, body.whisper_model)
 
     if body.max_concurrent_transcodes is not None:
         set_setting(db, _CONCURRENT_KEY, str(body.max_concurrent_transcodes))
