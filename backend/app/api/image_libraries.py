@@ -57,6 +57,8 @@ def create_image_library(body: ImageLibraryCreate, db: Session = Depends(get_db)
     db.add(lib)
     db.commit()
     db.refresh(lib)
+    from app.services import fs_watcher
+    fs_watcher.watch_library(lib.id, lib.path, is_image=True)
     return _to_read(lib, db)
 
 
@@ -85,6 +87,8 @@ def delete_image_library(library_id: int, db: Session = Depends(get_db)):
     db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
     db.delete(lib)
     db.commit()
+    from app.services import fs_watcher
+    fs_watcher.unwatch_library(library_id)
 
     thumb_dir = os.path.join(DATA_DIR, "image-thumbnails")
     for image_id in image_ids:

@@ -65,6 +65,7 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
             raise HTTPException(400, f"Cannot read directory: {exc}")
         if not subdirs:
             raise HTTPException(422, "No subdirectories found at the selected path")
+        from app.services import fs_watcher
         created = []
         for subdir in subdirs:
             if db.query(Library).filter(Library.path == subdir).first():
@@ -74,6 +75,7 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(lib)
             created.append(lib)
+            fs_watcher.watch_library(lib.id, lib.path, is_image=False)
         return _with_counts(created, db)
     else:
         if db.query(Library).filter(Library.path == body.path).first():
@@ -82,6 +84,8 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
         db.add(lib)
         db.commit()
         db.refresh(lib)
+        from app.services import fs_watcher
+        fs_watcher.watch_library(lib.id, lib.path, is_image=False)
         return [lib]
 
 
@@ -149,6 +153,8 @@ def delete_library(library_id: int, db: Session = Depends(get_db)):
     db.query(File).filter(File.library_id == library_id).delete()
     db.delete(lib)
     db.commit()
+    from app.services import fs_watcher
+    fs_watcher.unwatch_library(library_id)
 
 
 @router.post("/{library_id}/scan", status_code=202)

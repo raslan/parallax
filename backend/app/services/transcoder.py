@@ -23,6 +23,7 @@ def _build_cmd(
 ) -> list[str]:
     encoder = encoder_for_codec(source_codec)
     nvenc = encoder in ("h264_nvenc", "hevc_nvenc")
+    is_hevc = encoder in ("hevc_nvenc", "libx265")
 
     if nvenc:
         video_args = ["-c:v", encoder, "-rc:v", "vbr", "-cq:v", str(crf), "-preset", "p5"]
@@ -37,6 +38,10 @@ def _build_cmd(
         bufsize = source_bitrate * 2
         bitrate_args = ["-maxrate", str(maxrate), "-bufsize", str(bufsize)]
 
+    # MP4/M4V/MOV require hvc1 tag to accept HEVC streams.
+    out_ext = os.path.splitext(output_path)[1].lower()
+    tag_args = ["-tag:v", "hvc1"] if is_hevc and out_ext in {".mp4", ".m4v", ".mov"} else []
+
     # When converting containers (e.g. WMV→MKV), WMA and other container-specific
     # audio codecs can't be safely stream-copied into the new container — re-encode
     # to AAC instead. For same-container transcodes, copy is safe and faster.
@@ -47,6 +52,7 @@ def _build_cmd(
         "-i", input_path,
         *video_args,
         *bitrate_args,
+        *tag_args,
         *audio_args,
         "-progress", "pipe:1",
         "-nostats",
@@ -67,11 +73,21 @@ def _transcode_one(
     """
     src = file_obj.path
     base, ext = os.path.splitext(src)
+    encoder = encoder_for_codec(file_obj.codec_name)
+    is_hevc_out = encoder in ("hevc_nvenc", "libx265")
     # These containers don't support H.264/HEVC, or use codecs (e.g. WMA) that
     # can't be safely stream-copied into MKV — remux and re-encode audio.
     _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
-    changing_container = ext.lower() in _NEEDS_REMUX
-    out_ext = ".mkv" if changing_container else (ext or ".mkv")
+    # .m4v uses the ipod muxer which rejects HEVC regardless of tags; use .mp4 instead.
+    if is_hevc_out and ext.lower() == ".m4v":
+        out_ext = ".mp4"
+        changing_container = True
+    elif ext.lower() in _NEEDS_REMUX:
+        out_ext = ".mkv"
+        changing_container = True
+    else:
+        out_ext = ext.lower() or ".mkv"
+        changing_container = False
     dst = src if out_ext == ext.lower() else (base + out_ext)
     tmp = base + ".transcoding" + out_ext
     duration = file_obj.duration or 0.0
