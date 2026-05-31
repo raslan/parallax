@@ -192,7 +192,7 @@ export function Subtitles() {
     setTranscribeProgress(0);
     setTranscribeStatus("Starting…");
     try {
-      const { job_id } = await subtitlesApi.transcribeFile(file.path, undefined, selectedLangs[0]);
+      const { job_id } = await subtitlesApi.transcribeFile(file.path);
       pollTranscribeJob(job_id);
     } catch (e: unknown) {
       setTranscribing(false);
@@ -207,7 +207,7 @@ export function Subtitles() {
     setTranscribeProgress(0);
     setTranscribeStatus("Starting…");
     try {
-      const { job_id } = await subtitlesApi.transcribeBulk(path.trim(), undefined, selectedLangs[0]);
+      const { job_id } = await subtitlesApi.transcribeBulk(path.trim());
       pollTranscribeJob(job_id);
     } catch (e: unknown) {
       setTranscribing(false);
@@ -312,6 +312,10 @@ export function Subtitles() {
           <Settings className="h-3 w-3" />
           Requires an OpenSubtitles.org account — configure in Settings → Keys &amp; Accounts
         </Link>
+        <p className="text-xs text-muted-foreground mt-1">
+          <Mic className="h-3 w-3 inline mr-1 opacity-60" />
+          Whisper generates subtitles in the video's spoken language regardless of the language selection above. Download uses the selection.
+        </p>
       </div>
 
       {/* Path input */}
