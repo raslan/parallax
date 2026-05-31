@@ -909,7 +909,7 @@ export function Cleanup() {
         <VideoPlayerModal
           file={playingFile}
           streamUrl={api.streamUrl(playingFile.id)}
-          subtitleUrl={api.subtitleUrl(playingFile.id)}
+          subtitleTracksUrl={api.subtitleTracksUrl(playingFile.id)}
           onClose={() => setPlayingFile(null)}
         />
       )}

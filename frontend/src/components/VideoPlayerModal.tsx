@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Plyr from "plyr";
 import "plyr/dist/plyr.css";
 import { X } from "lucide-react";
+import { SubtitleTrack } from "@/lib/api";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 
 interface PlayableFile {
@@ -17,16 +18,18 @@ interface PlayableFile {
 export function VideoPlayerModal({
   file,
   streamUrl,
-  subtitleUrl,
+  subtitleTracksUrl,
   onClose,
 }: {
   file: PlayableFile;
   streamUrl: string;
-  subtitleUrl?: string;
+  subtitleTracksUrl?: string;
   onClose: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<Plyr | null>(null);
+  const [tracks, setTracks] = useState<SubtitleTrack[]>([]);
+  const [tracksReady, setTracksReady] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -34,10 +37,24 @@ export function VideoPlayerModal({
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  // Fetch subtitle tracks before initialising Plyr so <track> elements
+  // are in the DOM when Plyr scans them.
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!subtitleTracksUrl) {
+      setTracksReady(true);
+      return;
+    }
+    fetch(subtitleTracksUrl)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((t: SubtitleTrack[]) => { setTracks(t); setTracksReady(true); })
+      .catch(() => setTracksReady(true));
+  }, [subtitleTracksUrl]);
+
+  useEffect(() => {
+    if (!tracksReady || !videoRef.current) return;
+    const hasTracks = tracks.length > 0;
     const baseControls = ["play-large", "play", "progress", "current-time", "duration", "mute", "volume"];
-    const controls = subtitleUrl
+    const controls = hasTracks
       ? [...baseControls, "captions", "fullscreen"]
       : [...baseControls, "fullscreen"];
     playerRef.current = new Plyr(videoRef.current, {
@@ -51,7 +68,7 @@ export function VideoPlayerModal({
       playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [file.id, subtitleUrl]);
+  }, [file.id, tracksReady, tracks.length]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" onClick={onClose}>
@@ -73,23 +90,25 @@ export function VideoPlayerModal({
           </button>
         </div>
         <div className="min-h-0 flex-1">
-          <video
-            ref={videoRef}
-            src={streamUrl}
-            autoPlay
-            className="w-full h-full rounded-lg"
-            style={{ maxHeight: "calc(100vh - 8rem)" }}
-          >
-            {subtitleUrl && (
-              <track
-                kind="subtitles"
-                label="Subtitles"
-                srcLang="und"
-                src={subtitleUrl}
-                default
-              />
-            )}
-          </video>
+          {tracksReady && (
+            <video
+              ref={videoRef}
+              src={streamUrl}
+              autoPlay
+              className="w-full h-full rounded-lg"
+              style={{ maxHeight: "calc(100vh - 8rem)" }}
+            >
+              {tracks.map((t) => (
+                <track
+                  key={t.url}
+                  kind="subtitles"
+                  label={t.label}
+                  srcLang={t.lang}
+                  src={t.url}
+                />
+              ))}
+            </video>
+          )}
         </div>
         <p className="text-white/50 text-xs text-center shrink-0">
           {file.size ? formatSize(file.size) : ""}

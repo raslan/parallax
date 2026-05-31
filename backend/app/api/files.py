@@ -216,3 +216,17 @@ def get_subtitle(file_id: int, db: Session = Depends(get_db)):
     if vtt is None:
         raise HTTPException(404, "No subtitle found")
     return Response(content=vtt, media_type="text/vtt; charset=utf-8")
+
+
+@router.get("/{file_id}/subtitle-tracks")
+def get_subtitle_tracks(file_id: int, db: Session = Depends(get_db)):
+    f = db.get(File, file_id)
+    if not f:
+        raise HTTPException(404, "File not found")
+    from urllib.parse import quote
+    from app.services.subtitle_service import find_all_subtitle_tracks
+    tracks = find_all_subtitle_tracks(f.path)
+    return [
+        {"label": t["label"], "lang": t["lang"], "url": f"/subtitles/vtt?path={quote(t['path'])}"}
+        for t in tracks
+    ]

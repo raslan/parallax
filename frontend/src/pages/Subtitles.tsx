@@ -217,7 +217,7 @@ export function Subtitles() {
         <VideoPlayerModal
           file={{ id: 0, filename: playingFile.filename, path: playingFile.path }}
           streamUrl={subtitlesApi.streamUrl(playingFile.path)}
-          subtitleUrl={subtitlesApi.vttUrl(playingFile.path)}
+          subtitleTracksUrl={subtitlesApi.tracksUrl(playingFile.path)}
           onClose={() => setPlayingFile(null)}
         />
       )}

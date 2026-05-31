@@ -225,7 +225,7 @@ export const api = {
   },
   thumbnailUrl: (id: number) => `${BASE}/files/${id}/thumbnail`,
   streamUrl: (id: number) => `${BASE}/files/${id}/stream`,
-  subtitleUrl: (id: number) => `${BASE}/files/${id}/subtitle`,
+  subtitleTracksUrl: (id: number) => `${BASE}/files/${id}/subtitle-tracks`,
   searchFiles: (q: string, library_id?: number, limit = 50, exclude = false) => {
     const params = new URLSearchParams({ q, limit: String(limit) });
     if (library_id !== undefined) params.set("library_id", String(library_id));
@@ -534,6 +534,12 @@ export interface SubtitleCandidate {
   hearing_impaired: boolean;
 }
 
+export interface SubtitleTrack {
+  label: string;
+  lang: string;
+  url: string;
+}
+
 export const subtitlesApi = {
   scan: (path: string) =>
     req<SubtitleFile[]>("/subtitles/scan", { method: "POST", body: JSON.stringify({ path }) }),
@@ -549,4 +555,5 @@ export const subtitlesApi = {
 
   streamUrl: (path: string) => `${BASE}/subtitles/stream?path=${encodeURIComponent(path)}`,
   vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
+  tracksUrl: (path: string) => `${BASE}/subtitles/tracks?path=${encodeURIComponent(path)}`,
 };
