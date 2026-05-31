@@ -2,20 +2,29 @@ import { useEffect, useRef } from "react";
 import Plyr from "plyr";
 import "plyr/dist/plyr.css";
 import { X } from "lucide-react";
-import { api } from "@/lib/api";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 
 interface PlayableFile {
   id: number;
   filename: string;
   path: string;
-  size: number;
-  duration: number | null;
-  codec_name: string | null;
-  video_bitrate: number | null;
+  size?: number;
+  duration?: number | null;
+  codec_name?: string | null;
+  video_bitrate?: number | null;
 }
 
-export function VideoPlayerModal({ file, onClose }: { file: PlayableFile; onClose: () => void }) {
+export function VideoPlayerModal({
+  file,
+  streamUrl,
+  subtitleUrl,
+  onClose,
+}: {
+  file: PlayableFile;
+  streamUrl: string;
+  subtitleUrl?: string;
+  onClose: () => void;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<Plyr | null>(null);
 
@@ -27,17 +36,22 @@ export function VideoPlayerModal({ file, onClose }: { file: PlayableFile; onClos
 
   useEffect(() => {
     if (!videoRef.current) return;
+    const baseControls = ["play-large", "play", "progress", "current-time", "duration", "mute", "volume"];
+    const controls = subtitleUrl
+      ? [...baseControls, "captions", "fullscreen"]
+      : [...baseControls, "fullscreen"];
     playerRef.current = new Plyr(videoRef.current, {
-      controls: ["play-large", "play", "progress", "current-time", "duration", "mute", "volume", "fullscreen"],
+      controls,
       keyboard: { focused: true, global: false },
       tooltips: { controls: true, seek: true },
       speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+      captions: { active: true, language: "auto" },
     });
     return () => {
       playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [file.id]);
+  }, [file.id, subtitleUrl]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" onClick={onClose}>
@@ -61,14 +75,24 @@ export function VideoPlayerModal({ file, onClose }: { file: PlayableFile; onClos
         <div className="min-h-0 flex-1">
           <video
             ref={videoRef}
-            src={api.streamUrl(file.id)}
+            src={streamUrl}
             autoPlay
             className="w-full h-full rounded-lg"
             style={{ maxHeight: "calc(100vh - 8rem)" }}
-          />
+          >
+            {subtitleUrl && (
+              <track
+                kind="subtitles"
+                label="Subtitles"
+                srcLang="und"
+                src={subtitleUrl}
+                default
+              />
+            )}
+          </video>
         </div>
         <p className="text-white/50 text-xs text-center shrink-0">
-          {formatSize(file.size)}
+          {file.size ? formatSize(file.size) : ""}
           {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
           {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
           {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}

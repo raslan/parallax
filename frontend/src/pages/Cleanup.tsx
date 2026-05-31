@@ -906,7 +906,12 @@ export function Cleanup() {
       )}
 
       {playingFile && (
-        <VideoPlayerModal file={playingFile} onClose={() => setPlayingFile(null)} />
+        <VideoPlayerModal
+          file={playingFile}
+          streamUrl={api.streamUrl(playingFile.id)}
+          subtitleUrl={api.subtitleUrl(playingFile.id)}
+          onClose={() => setPlayingFile(null)}
+        />
       )}
     </div>
   );

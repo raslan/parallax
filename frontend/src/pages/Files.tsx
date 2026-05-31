@@ -807,7 +807,14 @@ export function Files() {
         />
       )}
 
-      {playingFile && <VideoPlayerModal file={playingFile} onClose={() => setPlayingFile(null)} />}
+      {playingFile && (
+        <VideoPlayerModal
+          file={playingFile}
+          streamUrl={api.streamUrl(playingFile.id)}
+          subtitleUrl={api.subtitleUrl(playingFile.id)}
+          onClose={() => setPlayingFile(null)}
+        />
+      )}
     </div>
   );
 }

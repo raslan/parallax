@@ -1,7 +1,7 @@
 import json
 import os
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc, nullslast
 
@@ -204,3 +204,15 @@ def stream_file(file_id: int, db: Session = Depends(get_db)):
     if not os.path.exists(f.path):
         raise HTTPException(404, "File not found on disk")
     return FileResponse(f.path)
+
+
+@router.get("/{file_id}/subtitle")
+def get_subtitle(file_id: int, db: Session = Depends(get_db)):
+    f = db.get(File, file_id)
+    if not f:
+        raise HTTPException(404, "File not found")
+    from app.services.subtitle_service import find_and_serve_vtt
+    vtt = find_and_serve_vtt(f.path)
+    if vtt is None:
+        raise HTTPException(404, "No subtitle found")
+    return Response(content=vtt, media_type="text/vtt; charset=utf-8")

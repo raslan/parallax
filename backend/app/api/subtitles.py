@@ -1,7 +1,8 @@
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -107,3 +108,23 @@ def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
         raise
     except Exception as exc:
         raise HTTPException(500, str(exc))
+
+
+@router.get("/vtt")
+def serve_vtt_by_path(path: str = Query(..., description="Absolute path to video file")):
+    """Serve subtitle as WebVTT for a video at an arbitrary path."""
+    if not os.path.isfile(path):
+        raise HTTPException(404, "File not found")
+    from app.services.subtitle_service import find_and_serve_vtt
+    vtt = find_and_serve_vtt(path)
+    if vtt is None:
+        raise HTTPException(404, "No subtitle found")
+    return Response(content=vtt, media_type="text/vtt; charset=utf-8")
+
+
+@router.get("/stream")
+def stream_by_path(path: str = Query(..., description="Absolute path to video file")):
+    """Stream a video file at an arbitrary path (for subtitle preview)."""
+    if not os.path.isfile(path):
+        raise HTTPException(404, "File not found")
+    return FileResponse(path)

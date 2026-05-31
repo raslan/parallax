@@ -225,6 +225,7 @@ export const api = {
   },
   thumbnailUrl: (id: number) => `${BASE}/files/${id}/thumbnail`,
   streamUrl: (id: number) => `${BASE}/files/${id}/stream`,
+  subtitleUrl: (id: number) => `${BASE}/files/${id}/subtitle`,
   searchFiles: (q: string, library_id?: number, limit = 50, exclude = false) => {
     const params = new URLSearchParams({ q, limit: String(limit) });
     if (library_id !== undefined) params.set("library_id", String(library_id));
@@ -545,4 +546,7 @@ export const subtitlesApi = {
 
   downloadOne: (file_path: string, provider: string, subtitle_id: string, language: string) =>
     req<{ ok: boolean }>("/subtitles/download-one", { method: "POST", body: JSON.stringify({ file_path, provider, subtitle_id, language }) }),
+
+  streamUrl: (path: string) => `${BASE}/subtitles/stream?path=${encodeURIComponent(path)}`,
+  vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
 };
