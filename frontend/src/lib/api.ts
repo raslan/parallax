@@ -300,6 +300,7 @@ export const api = {
   getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings"),
   updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; whisper_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; opensubtitles_username?: string; opensubtitles_password?: string; subtitle_languages?: string }) =>
     req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  purgeLibraryData: () => req<void>("/settings/purge-library-data", { method: "POST" }),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,

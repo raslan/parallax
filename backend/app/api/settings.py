@@ -1,10 +1,14 @@
+import os
+import shutil
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from sqlalchemy import text as sa_text
+
+from app.database import get_db, DATA_DIR
 from app.models.settings import get_setting, set_setting
 from app.queue import update_max_concurrent
 from app.services.image_analyzer import release_sessions
@@ -133,3 +137,60 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
         release_sessions()
 
     return _read_settings(db)
+
+
+@router.post("/purge-library-data", status_code=204)
+def purge_library_data(db: Session = Depends(get_db)):
+    """Delete all libraries, files, and derived data. Settings and AI models are preserved."""
+    from app.models.library import Library
+    from app.models.file import File
+    from app.models.video import VideoDetection
+    from app.models.schedule import Schedule
+    from app.models.job import Job
+    from app.models.image_library import ImageLibrary
+    from app.models.image import ImageFile, ImageDetection
+    from app.services import fs_watcher
+    from app.services.video_scanner import delete_keyframes
+
+    # Stop all watchers first
+    fs_watcher.shutdown()
+    fs_watcher.init()
+
+    # Video: delete VideoDetection, thumbnails, keyframes, files, schedules, libraries
+    all_files = db.query(File).all()
+    file_ids = [f.id for f in all_files]
+    if file_ids:
+        db.query(VideoDetection).filter(
+            VideoDetection.file_id.in_(file_ids)
+        ).delete(synchronize_session=False)
+    for f in all_files:
+        delete_keyframes(f.id)
+        thumb = os.path.join(DATA_DIR, "thumbnails", f"{f.id}.jpg")
+        try:
+            os.remove(thumb)
+        except FileNotFoundError:
+            pass
+    db.query(File).delete(synchronize_session=False)
+    db.query(Schedule).delete(synchronize_session=False)
+    db.query(Library).delete(synchronize_session=False)
+
+    # Image: delete ImageDetection, thumbnails, image files, image libraries
+    all_images = db.query(ImageFile).all()
+    image_ids = [img.id for img in all_images]
+    if image_ids:
+        db.query(ImageDetection).filter(
+            ImageDetection.image_id.in_(image_ids)
+        ).delete(synchronize_session=False)
+    thumb_dir = os.path.join(DATA_DIR, "image-thumbnails")
+    for image_id in image_ids:
+        try:
+            os.remove(os.path.join(thumb_dir, f"{image_id}.jpg"))
+        except FileNotFoundError:
+            pass
+    db.query(ImageFile).delete(synchronize_session=False)
+    db.query(ImageLibrary).delete(synchronize_session=False)
+
+    # Null out library_id on orphaned job records (historical, keep them)
+    db.execute(sa_text("UPDATE jobs SET library_id = NULL WHERE library_id IS NOT NULL"))
+
+    db.commit()
