@@ -12,19 +12,54 @@ SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 _BROWSER_SUB_EXTS = [".srt", ".vtt", ".ass", ".ssa", ".sub"]
 
 
+def _parse_lang(code: str) -> tuple[str, str]:
+    """Return (iso_code, display_name) from a language code string."""
+    if not code:
+        return "und", "Subtitles"
+    try:
+        from babelfish import Language
+        lang = Language.fromalpha2(code) if len(code) == 2 else Language(code)
+        return str(lang.alpha2 or code), lang.name
+    except Exception:
+        return code, code.title()
+
+
 def find_subtitle_path(video_path: str) -> str | None:
     """Return path to the first subtitle file found alongside the video, or None."""
     import glob
     base = os.path.splitext(video_path)[0]
     for ext in _BROWSER_SUB_EXTS:
-        # Exact match: video.srt
         if os.path.exists(base + ext):
             return base + ext
-        # Language-tagged match: video.en.srt, video.fr.vtt, etc.
         matches = sorted(glob.glob(f"{glob.escape(base)}.*{ext}"))
         if matches:
             return matches[0]
     return None
+
+
+def find_all_subtitle_tracks(video_path: str) -> list[dict]:
+    """Return all subtitle files alongside the video with language metadata."""
+    import glob as _glob
+    base = os.path.splitext(video_path)[0]
+    seen: set[str] = set()
+    tracks = []
+
+    for ext in _BROWSER_SUB_EXTS:
+        exact = base + ext
+        if os.path.exists(exact) and exact not in seen:
+            seen.add(exact)
+            tracks.append({"path": exact, "lang": "und", "label": "Subtitles"})
+
+        for m in sorted(_glob.glob(f"{_glob.escape(base)}.*{ext}")):
+            if m in seen:
+                continue
+            seen.add(m)
+            # Extract the part between basename and extension (e.g. "en" from "movie.en.srt")
+            suffix = m[len(base) + 1: -len(ext)]
+            lang, label = _parse_lang(suffix)
+            tracks.append({"path": m, "lang": lang, "label": label})
+
+    return tracks
 
 
 def subtitle_to_vtt(sub_path: str) -> str:
@@ -37,7 +72,6 @@ def subtitle_to_vtt(sub_path: str) -> str:
         return content
     if ext == ".srt":
         content = content.replace("\r\n", "\n").replace("\r", "\n")
-        # Replace SRT comma separator in timestamps with period
         content = re.sub(r"(\d{2}:\d{2}:\d{2}),(\d{3})", r"\1.\2", content)
         return "WEBVTT\n\n" + content
     # .ass/.ssa/.sub — not natively renderable; return empty VTT

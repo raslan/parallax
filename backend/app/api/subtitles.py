@@ -110,6 +110,20 @@ def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
         raise HTTPException(500, str(exc))
 
 
+@router.get("/tracks")
+def tracks_by_path(path: str = Query(..., description="Absolute path to video file")):
+    """Return all subtitle tracks for a video at an arbitrary path."""
+    if not os.path.isfile(path):
+        raise HTTPException(404, "File not found")
+    from urllib.parse import quote
+    from app.services.subtitle_service import find_all_subtitle_tracks
+    tracks = find_all_subtitle_tracks(path)
+    return [
+        {"label": t["label"], "lang": t["lang"], "url": f"/subtitles/vtt?path={quote(t['path'])}"}
+        for t in tracks
+    ]
+
+
 @router.get("/vtt")
 def serve_vtt_by_path(path: str = Query(..., description="Absolute path to video file")):
     """Serve subtitle as WebVTT for a video at an arbitrary path."""
