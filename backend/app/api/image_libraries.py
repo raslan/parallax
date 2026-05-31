@@ -88,6 +88,10 @@ def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Se
     if not lib:
         raise HTTPException(404, "Library not found")
 
+    # Stop watcher first so no new image records are inserted while we clean up
+    from app.services import fs_watcher
+    fs_watcher.unwatch_library(library_id)
+
     active_jobs = db.query(Job).filter(
         Job.type == JobType.IMAGE_SCAN,
         Job.library_id == library_id,
@@ -108,8 +112,6 @@ def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Se
     lib_path = lib.path
     db.delete(lib)
     db.commit()
-    from app.services import fs_watcher
-    fs_watcher.unwatch_library(library_id)
     if delete_leftovers:
         import shutil
         for dirpath, dirnames, _ in os.walk(lib_path):

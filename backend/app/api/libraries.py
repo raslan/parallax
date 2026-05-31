@@ -157,11 +157,14 @@ def library_leftovers(library_id: int, db: Session = Depends(get_db)):
 @router.delete("/{library_id}", status_code=204)
 def delete_library(library_id: int, delete_leftovers: bool = False, db: Session = Depends(get_db)):
     from app.services.common import request_cancel
-    import shutil
+    from app.models.schedule import Schedule
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
-    # Signal any running jobs for this library to stop before we pull the rug
+    # Stop watcher first so no new file records are inserted while we clean up
+    from app.services import fs_watcher
+    fs_watcher.unwatch_library(library_id)
+    # Signal any running jobs for this library to stop
     active_jobs = db.query(Job).filter(
         Job.library_id == library_id,
         Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
@@ -169,14 +172,25 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     for job in active_jobs:
         request_cancel(job.id)
     files = db.query(File).filter(File.library_id == library_id).all()
+    file_ids = [f.id for f in files]
+    # Delete VideoDetection rows first (FK to files.id)
+    if file_ids:
+        db.query(VideoDetection).filter(
+            VideoDetection.file_id.in_(file_ids)
+        ).delete(synchronize_session=False)
+    # Clean up disk artefacts and file records
     for f in files:
         delete_keyframes(f.id)
-    db.query(File).filter(File.library_id == library_id).delete()
+        try:
+            os.remove(thumbnail_path(f.id))
+        except FileNotFoundError:
+            pass
+        db.delete(f)
+    # Delete scheduled jobs for this library
+    db.query(Schedule).filter(Schedule.library_id == library_id).delete(synchronize_session=False)
     lib_path = lib.path
     db.delete(lib)
     db.commit()
-    from app.services import fs_watcher
-    fs_watcher.unwatch_library(library_id)
     if delete_leftovers:
         for dirpath, dirnames, _ in os.walk(lib_path):
             if os.path.basename(dirpath) == "_originals":
