@@ -24,6 +24,7 @@ const TYPE_LABEL: Record<string, string> = {
   subtitle_download: "Subtitle download",
   whisper_transcribe: "Whisper transcription",
   model_download: "Model download",
+  compress: "Compress",
 };
 
 function ProgressBar({ value }: { value: number }) {
