@@ -572,3 +572,30 @@ export const subtitlesApi = {
   transcribeBulk: (path: string, model_id?: string, language?: string) =>
     req<{ job_id: number }>("/subtitles/transcribe-bulk", { method: "POST", body: JSON.stringify({ path, model_id, language }) }),
 };
+
+// ── Compression ──────────────────────────────────────────────────────────────
+
+export interface CompressCodec {
+  id: string;
+  label: string;
+  encoder: string;
+  default_crf: number;
+  crf_min: number;
+  crf_max: number;
+  description: string;
+}
+
+export const compressApi = {
+  codecs: () => req<CompressCodec[]>("/compress/codecs"),
+
+  libraryFiles: (library_id: number) =>
+    req<VideoFile[]>(`/compress/library-files?library_id=${library_id}`),
+
+  start: (body: {
+    file_ids: number[];
+    codec: string;
+    crf: number;
+    speed: string;
+    keep_original: boolean;
+  }) => req<{ job_id: number }>("/compress/start", { method: "POST", body: JSON.stringify(body) }),
+};

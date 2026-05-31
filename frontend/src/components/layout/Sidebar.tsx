@@ -2,18 +2,19 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Library, Film, Activity, Settings, Archive, Copy, Scissors, Wand2,
-  Images, ShieldAlert, FolderX, ChevronDown, Captions,
+  Images, ShieldAlert, FolderX, ChevronDown, Captions, Minimize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { ParallaxLogo } from "@/components/ParallaxLogo";
 
 const videoItems = [
-  { to: "/libraries",  icon: Library,  label: "Libraries" },
-  { to: "/files",      icon: Film,     label: "Files" },
-  { to: "/duplicates", icon: Copy,     label: "Duplicates" },
-  { to: "/cleanup",    icon: Scissors, label: "Cleanup" },
-  { to: "/originals",  icon: Archive,  label: "Originals" },
+  { to: "/libraries",  icon: Library,   label: "Libraries" },
+  { to: "/files",      icon: Film,      label: "Files" },
+  { to: "/duplicates", icon: Copy,      label: "Duplicates" },
+  { to: "/cleanup",    icon: Scissors,  label: "Cleanup" },
+  { to: "/compress",   icon: Minimize2, label: "Compress" },
+  { to: "/originals",  icon: Archive,   label: "Originals" },
 ];
 
 const toolItems = [

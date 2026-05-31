@@ -15,6 +15,7 @@ class JobType:
     MODEL_DOWNLOAD = "model_download"
     SUBTITLE_DOWNLOAD = "subtitle_download"
     WHISPER_TRANSCRIBE = "whisper_transcribe"
+    COMPRESS = "compress"
 
 
 class JobStatus:
