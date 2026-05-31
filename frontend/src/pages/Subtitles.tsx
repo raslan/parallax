@@ -192,7 +192,7 @@ export function Subtitles() {
     setTranscribeProgress(0);
     setTranscribeStatus("Starting…");
     try {
-      const { job_id } = await subtitlesApi.transcribeFile(file.path);
+      const { job_id } = await subtitlesApi.transcribeFile(file.path, undefined, selectedLangs[0]);
       pollTranscribeJob(job_id);
     } catch (e: unknown) {
       setTranscribing(false);
@@ -207,7 +207,7 @@ export function Subtitles() {
     setTranscribeProgress(0);
     setTranscribeStatus("Starting…");
     try {
-      const { job_id } = await subtitlesApi.transcribeBulk(path.trim());
+      const { job_id } = await subtitlesApi.transcribeBulk(path.trim(), undefined, selectedLangs[0]);
       pollTranscribeJob(job_id);
     } catch (e: unknown) {
       setTranscribing(false);
