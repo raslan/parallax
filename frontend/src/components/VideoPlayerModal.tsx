@@ -55,7 +55,7 @@ export function VideoPlayerModal({
     const hasTracks = tracks.length > 0;
     const baseControls = ["play-large", "play", "progress", "current-time", "duration", "mute", "volume"];
     const controls = hasTracks
-      ? [...baseControls, "captions", "fullscreen"]
+      ? [...baseControls, "captions", "settings", "fullscreen"]
       : [...baseControls, "fullscreen"];
     playerRef.current = new Plyr(videoRef.current, {
       controls,
@@ -63,6 +63,7 @@ export function VideoPlayerModal({
       tooltips: { controls: true, seek: true },
       speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
       captions: { active: true, language: "auto" },
+      settings: ["captions", "speed"],
     });
     return () => {
       playerRef.current?.destroy();
