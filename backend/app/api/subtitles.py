@@ -119,7 +119,7 @@ def tracks_by_path(path: str = Query(..., description="Absolute path to video fi
     from app.services.subtitle_service import find_all_subtitle_tracks
     tracks = find_all_subtitle_tracks(path)
     return [
-        {"label": t["label"], "lang": t["lang"], "url": f"/subtitles/vtt?path={quote(t['path'])}"}
+        {"label": t["label"], "lang": t["lang"], "url": f"/api/subtitles/vtt?path={quote(t['path'])}"}
         for t in tracks
     ]
 

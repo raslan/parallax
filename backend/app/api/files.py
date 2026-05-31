@@ -227,6 +227,6 @@ def get_subtitle_tracks(file_id: int, db: Session = Depends(get_db)):
     from app.services.subtitle_service import find_all_subtitle_tracks
     tracks = find_all_subtitle_tracks(f.path)
     return [
-        {"label": t["label"], "lang": t["lang"], "url": f"/subtitles/vtt?path={quote(t['path'])}"}
+        {"label": t["label"], "lang": t["lang"], "url": f"/api/subtitles/vtt?path={quote(t['path'])}"}
         for t in tracks
     ]
