@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight } from "lucide-react";
+import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -132,7 +132,7 @@ export function Images() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className="p-8 space-y-6">
       <div>
         <SectionHeader className="mb-1.5">Images</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Images</h1>
@@ -141,30 +141,11 @@ export function Images() {
 
       <div className="flex flex-wrap items-center gap-2">
         <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8 text-xs"
-          onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
-        >
-          {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
-        </Button>
-
-        <select
           value={statusFilter || "all"}
           onChange={(e) => setStatusFilter(e.target.value === "all" ? "" : e.target.value)}
           className="h-8 rounded-md border border-input bg-background px-2 text-xs"
         >
-          <option value="all">All Status</option>
+          <option value="all">All statuses</option>
           <option value="scanned">Scanned</option>
           <option value="failed">Failed</option>
         </select>
@@ -174,23 +155,41 @@ export function Images() {
           onChange={(e) => setDetectionFilter(e.target.value === "all" ? "" : e.target.value)}
           className="h-8 rounded-md border border-input bg-background px-2 text-xs"
         >
-          <option value="all">All Images</option>
-          <option value="any">Has Detections</option>
-          <option value="exposed">Exposed Only</option>
-          <option value="none">No Detections</option>
+          <option value="all">All images</option>
+          <option value="any">Has detections</option>
+          <option value="exposed">Exposed only</option>
+          <option value="none">No detections</option>
         </select>
 
-        <button
-          onClick={toggleSelectionMode}
-          className={`h-8 px-2.5 flex items-center gap-1.5 rounded-md border text-xs font-medium transition-colors ml-auto ${
-            selectionMode
-              ? "bg-primary text-primary-foreground border-primary"
-              : "border-input text-muted-foreground hover:text-foreground hover:bg-accent"
-          }`}
-        >
-          <FolderX className="h-3.5 w-3.5" />
-          Select
-        </button>
+        <div className="flex items-center gap-1 ml-auto">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title={sortDir === "asc" ? "Ascending" : "Descending"}
+          >
+            {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            onClick={toggleSelectionMode}
+            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-md border text-xs font-medium transition-colors ${
+              selectionMode
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-input text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            <FolderX className="h-3.5 w-3.5" />
+            Select
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
