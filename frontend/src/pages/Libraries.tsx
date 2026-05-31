@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
-import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2, Brain } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2, Brain, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,86 @@ import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { DirPicker } from "@/components/DirPicker";
 
+
+interface Leftovers { has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }
+
+function DeleteLibraryDialog({ lib, onClose, onDeleted }: {
+  lib: Library | null;
+  onClose: () => void;
+  onDeleted: (id: number) => void;
+}) {
+  const navigate = useNavigate();
+  const [leftovers, setLeftovers] = useState<Leftovers | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!lib) { setLeftovers(null); return; }
+    api.libraryLeftovers(lib.id).then(setLeftovers).catch(() => setLeftovers(null));
+  }, [lib]);
+
+  const doDelete = async (deleteLeftovers: boolean) => {
+    if (!lib) return;
+    setDeleting(true);
+    try {
+      await api.deleteLibrary(lib.id, deleteLeftovers);
+      onDeleted(lib.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent onClose={onClose}>
+        <DialogHeader>
+          <DialogTitle>Delete library</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <p className="text-sm text-muted-foreground">
+            Remove <span className="font-medium text-foreground">{lib?.name || lib?.path}</span> and all its file records from Parallax. Files on disk are not touched.
+          </p>
+          {leftovers?.has_leftovers && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-1">
+              <p className="text-sm font-medium text-amber-400">
+                {leftovers.count} file{leftovers.count !== 1 ? "s" : ""} in <code className="font-mono text-xs">_originals/</code>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {(leftovers.total_bytes / 1024 ** 3).toFixed(2)} GB of original backups found. What should happen to them?
+              </p>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {leftovers?.has_leftovers ? (
+            <>
+              <Button variant="destructive" onClick={() => doDelete(true)} disabled={deleting} className="w-full justify-start">
+                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete library and originals
+              </Button>
+              <Button variant="outline" onClick={() => { onClose(); navigate("/originals"); }} className="w-full justify-start">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Review originals first
+              </Button>
+              <Button variant="outline" onClick={() => doDelete(false)} disabled={deleting} className="w-full justify-start">
+                Keep originals on disk
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="destructive" onClick={() => doDelete(false)} disabled={deleting} className="w-full">
+                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete library
+              </Button>
+              <Button variant="outline" onClick={onClose} className="w-full">Cancel</Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function AddLibraryDialog({
   open,
@@ -135,6 +216,7 @@ export function Libraries() {
   const [transcodingIds, setTranscodingIds] = useState<Set<number>>(new Set());
   const [aiScanningIds, setAiScanningIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [deletingLib, setDeletingLib] = useState<Library | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [transcodePresetFor, setTranscodePresetFor] = useState<number | null>(null);
   const presetRef = useRef<HTMLDivElement>(null);
@@ -204,15 +286,9 @@ export function Libraries() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this library and remove all its file records? Files on disk are not touched.")) return;
-    setDeletingIds((s) => new Set(s).add(id));
-    try {
-      await api.deleteLibrary(id);
-      setLibraries((prev) => prev.filter((l) => l.id !== id));
-    } finally {
-      setDeletingIds((s) => { const n = new Set(s); n.delete(id); return n; });
-    }
+  const handleDelete = (id: number) => {
+    const lib = libraries.find((l) => l.id === id) ?? null;
+    setDeletingLib(lib);
   };
 
   return (
@@ -231,6 +307,11 @@ export function Libraries() {
         </Button>
       </div>
 
+      <DeleteLibraryDialog
+        lib={deletingLib}
+        onClose={() => setDeletingLib(null)}
+        onDeleted={(id) => setLibraries((prev) => prev.filter((l) => l.id !== id))}
+      />
       <AddLibraryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

@@ -62,8 +62,28 @@ def create_image_library(body: ImageLibraryCreate, db: Session = Depends(get_db)
     return _to_read(lib, db)
 
 
+@router.get("/{library_id}/leftovers")
+def image_library_leftovers(library_id: int, db: Session = Depends(get_db)):
+    """Check for _quarantine/ directories inside the library path."""
+    lib = db.get(ImageLibrary, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    count = 0
+    total_bytes = 0
+    for dirpath, dirnames, filenames in os.walk(lib.path):
+        if os.path.basename(dirpath) == "_quarantine":
+            for fname in filenames:
+                try:
+                    total_bytes += os.path.getsize(os.path.join(dirpath, fname))
+                    count += 1
+                except OSError:
+                    pass
+            dirnames.clear()
+    return {"has_leftovers": count > 0, "dir_name": "_quarantine", "count": count, "total_bytes": total_bytes}
+
+
 @router.delete("/{library_id}", status_code=204)
-def delete_image_library(library_id: int, db: Session = Depends(get_db)):
+def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Session = Depends(get_db)):
     lib = db.get(ImageLibrary, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
@@ -85,10 +105,17 @@ def delete_image_library(library_id: int, db: Session = Depends(get_db)):
             ImageDetection.image_id.in_(image_ids)
         ).delete(synchronize_session=False)
     db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
+    lib_path = lib.path
     db.delete(lib)
     db.commit()
     from app.services import fs_watcher
     fs_watcher.unwatch_library(library_id)
+    if delete_leftovers:
+        import shutil
+        for dirpath, dirnames, _ in os.walk(lib_path):
+            if os.path.basename(dirpath) == "_quarantine":
+                shutil.rmtree(dirpath, ignore_errors=True)
+                dirnames.clear()
 
     thumb_dir = os.path.join(DATA_DIR, "image-thumbnails")
     for image_id in image_ids:

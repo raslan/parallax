@@ -201,7 +201,10 @@ export const api = {
   getStats: () => req<Stats>("/libraries/stats"),
   createLibrary: (body: { name: string; path: string; split_into_sublibraries?: boolean }) =>
     req<Library[]>("/libraries", { method: "POST", body: JSON.stringify(body) }),
-  deleteLibrary: (id: number) => req<void>(`/libraries/${id}`, { method: "DELETE" }),
+  deleteLibrary: (id: number, delete_leftovers = false) =>
+    req<void>(`/libraries/${id}?delete_leftovers=${delete_leftovers}`, { method: "DELETE" }),
+  libraryLeftovers: (id: number) =>
+    req<{ has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }>(`/libraries/${id}/leftovers`),
   scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
   checkLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
   browseLibrary: (id: number, path: string, status?: string, sort_by?: string, sort_dir?: string) => {
@@ -396,8 +399,10 @@ export const imageApi = {
       body: JSON.stringify(body),
     }),
 
-  deleteLibrary: (id: number) =>
-    req<void>(`/image-libraries/${id}`, { method: "DELETE" }),
+  deleteLibrary: (id: number, delete_leftovers = false) =>
+    req<void>(`/image-libraries/${id}?delete_leftovers=${delete_leftovers}`, { method: "DELETE" }),
+  libraryLeftovers: (id: number) =>
+    req<{ has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }>(`/image-libraries/${id}/leftovers`),
 
   scanLibrary: (id: number, opts: ImageScanRequest) =>
     req<{ job_id: number }>(`/image-libraries/${id}/scan`, {

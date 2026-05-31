@@ -134,9 +134,30 @@ def update_library(library_id: int, body: LibraryUpdate, db: Session = Depends(g
     return lib
 
 
+@router.get("/{library_id}/leftovers")
+def library_leftovers(library_id: int, db: Session = Depends(get_db)):
+    """Check for _originals/ directories inside the library path."""
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    count = 0
+    total_bytes = 0
+    for dirpath, dirnames, filenames in os.walk(lib.path):
+        if os.path.basename(dirpath) == "_originals":
+            for fname in filenames:
+                try:
+                    total_bytes += os.path.getsize(os.path.join(dirpath, fname))
+                    count += 1
+                except OSError:
+                    pass
+            dirnames.clear()
+    return {"has_leftovers": count > 0, "dir_name": "_originals", "count": count, "total_bytes": total_bytes}
+
+
 @router.delete("/{library_id}", status_code=204)
-def delete_library(library_id: int, db: Session = Depends(get_db)):
+def delete_library(library_id: int, delete_leftovers: bool = False, db: Session = Depends(get_db)):
     from app.services.common import request_cancel
+    import shutil
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
@@ -151,10 +172,16 @@ def delete_library(library_id: int, db: Session = Depends(get_db)):
     for f in files:
         delete_keyframes(f.id)
     db.query(File).filter(File.library_id == library_id).delete()
+    lib_path = lib.path
     db.delete(lib)
     db.commit()
     from app.services import fs_watcher
     fs_watcher.unwatch_library(library_id)
+    if delete_leftovers:
+        for dirpath, dirnames, _ in os.walk(lib_path):
+            if os.path.basename(dirpath) == "_originals":
+                shutil.rmtree(dirpath, ignore_errors=True)
+                dirnames.clear()
 
 
 @router.post("/{library_id}/scan", status_code=202)
