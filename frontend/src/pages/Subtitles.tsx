@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Captions, FolderOpen, ScanLine, Download, CheckCircle2,
-  XCircle, Loader2, ChevronRight, Film, Globe, Search, Settings,
+  XCircle, Loader2, ChevronRight, Film, Globe, Search, Settings, Play,
 } from "lucide-react";
 import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Link } from "react-router-dom";
@@ -34,7 +35,7 @@ function episodeLabel(f: SubtitleFile): string {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function FileRow({ file, onSearch }: { file: SubtitleFile; onSearch: () => void }) {
+function FileRow({ file, onSearch, onPlay }: { file: SubtitleFile; onSearch: () => void; onPlay: () => void }) {
   const label = episodeLabel(file);
   return (
     <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
@@ -52,6 +53,15 @@ function FileRow({ file, onSearch }: { file: SubtitleFile; onSearch: () => void 
       >
         <Search className="h-3.5 w-3.5" />
       </button>
+      {file.has_subtitle && (
+        <button
+          onClick={onPlay}
+          title="Preview with subtitle"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
+        >
+          <Play className="h-3.5 w-3.5" />
+        </button>
+      )}
       {file.has_subtitle ? (
         <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
       ) : (
@@ -61,7 +71,7 @@ function FileRow({ file, onSearch }: { file: SubtitleFile; onSearch: () => void 
   );
 }
 
-function DirGroup({ dir, files, onSearch }: { dir: string; files: SubtitleFile[]; onSearch: (f: SubtitleFile) => void }) {
+function DirGroup({ dir, files, onSearch, onPlay }: { dir: string; files: SubtitleFile[]; onSearch: (f: SubtitleFile) => void; onPlay: (f: SubtitleFile) => void }) {
   const [open, setOpen] = useState(true);
   const withSub = files.filter((f) => f.has_subtitle).length;
 
@@ -83,7 +93,7 @@ function DirGroup({ dir, files, onSearch }: { dir: string; files: SubtitleFile[]
       </button>
       {open && (
         <div>
-          {files.map((f) => <FileRow key={f.path} file={f} onSearch={() => onSearch(f)} />)}
+          {files.map((f) => <FileRow key={f.path} file={f} onSearch={() => onSearch(f)} onPlay={() => onPlay(f)} />)}
         </div>
       )}
     </div>
@@ -101,6 +111,7 @@ export function Subtitles() {
 
   const [selectedLangs, setSelectedLangs] = useState<string[]>(["en"]);
   const [searchFile, setSearchFile] = useState<SubtitleFile | null>(null);
+  const [playingFile, setPlayingFile] = useState<SubtitleFile | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [jobProgress, setJobProgress] = useState<number | null>(null);
   const [jobStatus, setJobStatus] = useState<string>("");
@@ -200,6 +211,14 @@ export function Subtitles() {
           languages={selectedLangs}
           onClose={() => setSearchFile(null)}
           onDownloaded={handleSearchDownloaded}
+        />
+      )}
+      {playingFile && (
+        <VideoPlayerModal
+          file={{ id: 0, filename: playingFile.filename, path: playingFile.path }}
+          streamUrl={subtitlesApi.streamUrl(playingFile.path)}
+          subtitleUrl={subtitlesApi.vttUrl(playingFile.path)}
+          onClose={() => setPlayingFile(null)}
         />
       )}
       {/* Header */}
@@ -328,7 +347,7 @@ export function Subtitles() {
           {groups && groups.size > 0 ? (
             <div className="space-y-2">
               {[...groups.entries()].map(([dir, dirFiles]) => (
-                <DirGroup key={dir} dir={dir} files={dirFiles} onSearch={setSearchFile} />
+                <DirGroup key={dir} dir={dir} files={dirFiles} onSearch={setSearchFile} onPlay={setPlayingFile} />
               ))}
             </div>
           ) : (

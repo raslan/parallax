@@ -8,6 +8,47 @@ logger = logging.getLogger(__name__)
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".m4v", ".wmv", ".flv", ".ts", ".m2ts"}
 SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 
+# Preferred order for browser-renderable subtitles
+_BROWSER_SUB_EXTS = [".srt", ".vtt", ".ass", ".ssa", ".sub"]
+
+
+def find_subtitle_path(video_path: str) -> str | None:
+    """Return path to the first subtitle file found alongside the video, or None."""
+    import glob
+    base = os.path.splitext(video_path)[0]
+    for ext in _BROWSER_SUB_EXTS:
+        # Exact match: video.srt
+        if os.path.exists(base + ext):
+            return base + ext
+        # Language-tagged match: video.en.srt, video.fr.vtt, etc.
+        matches = sorted(glob.glob(f"{glob.escape(base)}.*{ext}"))
+        if matches:
+            return matches[0]
+    return None
+
+
+def subtitle_to_vtt(sub_path: str) -> str:
+    """Read a subtitle file and return its content as WebVTT."""
+    import re
+    with open(sub_path, encoding="utf-8-sig", errors="replace") as f:
+        content = f.read()
+    ext = os.path.splitext(sub_path)[1].lower()
+    if ext == ".vtt":
+        return content
+    if ext == ".srt":
+        content = content.replace("\r\n", "\n").replace("\r", "\n")
+        # Replace SRT comma separator in timestamps with period
+        content = re.sub(r"(\d{2}:\d{2}:\d{2}),(\d{3})", r"\1.\2", content)
+        return "WEBVTT\n\n" + content
+    # .ass/.ssa/.sub — not natively renderable; return empty VTT
+    return "WEBVTT\n\n"
+
+
+def find_and_serve_vtt(video_path: str) -> str | None:
+    """Find subtitle alongside video and return as VTT string, or None if absent."""
+    sub = find_subtitle_path(video_path)
+    return subtitle_to_vtt(sub) if sub else None
+
 
 def _to_language(code: str):
     from babelfish import Language
