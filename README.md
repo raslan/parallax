@@ -5,15 +5,16 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 ## Features
 
 ### Videos
-- **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries
+- **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries; libraries auto-rescan when files change on disk
 - **Transcoding** — re-encode with ffmpeg using hardware acceleration (NVIDIA NVENC, Intel/AMD VA-API); source-aware codec selection; preserves originals and tracks space savings
+- **Compression** — dedicated Compress page to re-encode library files to H.264, HEVC, or AV1 with a CRF slider and live estimated savings; select files by codec (e.g. "non-HEVC" shortcut); cancelable bulk job with per-file progress
 - **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold and first-frame/all-frames comparison mode
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, date, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
-- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog to browse and pick from scored candidates; powered by OpenSubtitles.org (200 downloads/day free)
+- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; Whisper local speech-to-text generates SRT files from audio with no API key; multiple subtitle tracks shown in the Plyr player with a language picker; powered by OpenSubtitles.org (200 downloads/day free)
 
 ### Images
-- **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection
+- **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
 - **Duplicate detection** — find duplicate images by perceptual hash with configurable similarity threshold
 - **Semantic search** — CLIP-powered natural language search across your entire image library
 - **Content review** — filter by semantic similarity and/or content detections; bulk quarantine flagged images; restore or permanently delete from quarantine
@@ -21,10 +22,12 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 ### AI
 - **CLIP models** — ONNX vision/text encoders for semantic search across both images and videos; multiple model sizes available
 - **Content detection** — ONNX-based content detection models; configurable confidence threshold and batch size
-- **GPU-accelerated** — CUDA (NVIDIA) and ROCm (AMD) ONNX backends; automatic VRAM release after 2 minutes idle; batch size tunable per your hardware
+- **Whisper** — faster-whisper speech-to-text for local subtitle generation; five model sizes (tiny → large-v3); auto-detects spoken language
+- **GPU-accelerated** — CUDA (NVIDIA) and ROCm (AMD) ONNX backends; all AI inference isolated in worker subprocesses — VRAM fully freed after 2 minutes idle; batch size tunable per your hardware
 
 ### General
 - **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
+- **Library delete safety** — when deleting a library that has `_originals/` or `_quarantine/` leftovers, prompts to delete them, review them, or keep them on disk
 - **Three themes** — violet (Deep Space), cyan (Modern HUD), amber (Mission Control)
 
 ---
