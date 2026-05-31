@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight } from "lucide-react";
+import { SectionHeader } from "@/components/SectionHeader";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -132,12 +133,10 @@ export function Images() {
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <div className="flex items-center gap-3">
-        <ImagesIcon className="h-5 w-5" style={{ color: "var(--px-accent)" }} />
-        <div>
-          <h1 className="text-lg font-semibold">Images</h1>
-          <p className="text-xs text-muted-foreground">{total} images</p>
-        </div>
+      <div>
+        <SectionHeader className="mb-1.5">Images</SectionHeader>
+        <h1 className="text-2xl font-semibold tracking-tight">Images</h1>
+        <p className="text-sm text-muted-foreground mt-1">Browse and manage images across all libraries.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
