@@ -307,7 +307,7 @@ export function Compress() {
     setSelected(new Set());
     compressApi.libraryFiles(libraryId).then((f) => {
       setFiles(f);
-      setSelected(new Set(f.map((x) => x.id)));
+      setSelected(new Set());
     }).catch((e: unknown) => {
       setLoadError(e instanceof Error ? e.message : String(e));
     }).finally(() => setLoadingFiles(false));
@@ -344,6 +344,11 @@ export function Compress() {
 
   const selectAll = () => displayFiles && setSelected(new Set(displayFiles.map((f) => f.id)));
   const selectNone = () => setSelected(new Set());
+  // Select files whose codec differs from the target — the useful candidates for re-encoding
+  const selectCandidates = () =>
+    displayFiles && setSelected(new Set(
+      displayFiles.filter((f) => f.codec_name?.toLowerCase() !== codec).map((f) => f.id)
+    ));
 
   const selectedFiles = useMemo(
     () => (displayFiles ?? []).filter((f) => selected.has(f.id)),
@@ -455,101 +460,113 @@ export function Compress() {
         </p>
       </div>
 
-      {/* Settings — two rows, not one cramped line */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-5 items-start">
-          {/* Library */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">Library</Label>
-            <select
-              value={libraryId ?? ""}
-              onChange={(e) => setLibraryId(Number(e.target.value))}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {libraries.map((l) => (
-                <option key={l.id} value={l.id}>{l.name || l.path}</option>
-              ))}
-            </select>
-          </div>
+      {/* Settings panel */}
+      <div className="rounded-lg border border-border/50 bg-muted/10 divide-y divide-border/40">
 
-          {/* Target codec */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">Target Codec</Label>
+        {/* Row 1: Library */}
+        <div className="px-5 py-4 flex items-center gap-8">
+          <div className="w-40 shrink-0">
+            <p className="text-xs font-medium text-foreground">Library</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Source of files to compress</p>
+          </div>
+          <select
+            value={libraryId ?? ""}
+            onChange={(e) => setLibraryId(Number(e.target.value))}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-64"
+          >
+            {libraries.map((l) => (
+              <option key={l.id} value={l.id}>{l.name || l.path}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Row 2: Codec + Speed side by side */}
+        <div className="px-5 py-4 grid grid-cols-2 gap-0 divide-x divide-border/40">
+          <div className="flex items-center gap-8 pr-8">
+            <div className="w-40 shrink-0">
+              <p className="text-xs font-medium text-foreground">Target Codec</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                {selectedCodec?.description ?? "Output video format"}
+              </p>
+              {selectedCodec && (
+                <p className="text-[10px] text-muted-foreground/40 font-mono mt-1">via {selectedCodec.encoder}</p>
+              )}
+            </div>
             <select
               value={codec}
               onChange={(e) => handleCodecChange(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48"
             >
               {codecs.map((c) => (
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
-            {selectedCodec && (
-              <p className="text-[11px] text-muted-foreground/60">{selectedCodec.description}</p>
-            )}
           </div>
 
-          {/* Speed */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">Speed</Label>
+          <div className="flex items-center gap-8 pl-8">
+            <div className="w-40 shrink-0">
+              <p className="text-xs font-medium text-foreground">Encoding Speed</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">Slower finds more efficient compression at the same CRF — affects size by ~8%</p>
+            </div>
             <select
               value={speed}
               onChange={(e) => setSpeed(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48"
             >
-              <option value="slow">Slow (best compression)</option>
+              <option value="slow">Slow — best compression</option>
               <option value="medium">Medium</option>
               <option value="fast">Fast</option>
             </select>
           </div>
-
-          {/* Keep originals */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">Originals</Label>
-            <label className="flex items-center gap-2 h-9 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={keepOriginal}
-                onChange={(e) => setKeepOriginal(e.target.checked)}
-                className="accent-primary h-4 w-4"
-              />
-              <span className="text-sm text-muted-foreground">Keep originals</span>
-            </label>
-          </div>
         </div>
 
-        {/* CRF on its own row so it has room to breathe */}
-        <div className="space-y-1.5 max-w-md">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">Quality (CRF)</Label>
-            <span className="text-xs font-mono text-foreground tabular-nums">{crf}</span>
+        {/* Row 3: CRF slider — full width */}
+        <div className="px-5 py-4 flex items-start gap-8">
+          <div className="w-40 shrink-0">
+            <p className="text-xs font-medium text-foreground">Quality (CRF)</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Lower = better quality, larger file. Each +6 roughly halves the bitrate.</p>
           </div>
-          <input
-            type="range"
-            min={crfRange.min}
-            max={crfRange.max}
-            step={1}
-            value={crf}
-            onChange={(e) => setCrf(Number(e.target.value))}
-            className="w-full accent-primary"
-          />
-          <div className="flex items-center justify-between">
-            <div className="flex justify-between text-[10px] text-muted-foreground/50 flex-1">
-              <span>Better quality</span>
-              <span>Smaller size</span>
+          <div className="flex-1 space-y-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-mono font-light tabular-nums text-foreground">{crf}</span>
+              {(() => { const tier = getCrfTier(codec, crf); return <span className={cn("text-sm font-medium", tier.color)}>{tier.label}</span>; })()}
+            </div>
+            <input
+              type="range"
+              min={crfRange.min}
+              max={crfRange.max}
+              step={1}
+              value={crf}
+              onChange={(e) => setCrf(Number(e.target.value))}
+              className="w-full accent-primary"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground/40">
+              <span>{crfRange.min} — lossless</span>
+              <span>{crfRange.max} — smallest</span>
             </div>
           </div>
-          {(() => {
-            const tier = getCrfTier(codec, crf);
-            return (
-              <p className={cn("text-xs font-medium", tier.color)}>{tier.label}</p>
-            );
-          })()}
         </div>
 
-        {selectedCodec && (
-          <p className="text-xs text-muted-foreground/40 font-mono">Encoder: {selectedCodec.encoder}</p>
-        )}
+        {/* Row 4: Output options */}
+        <div className="px-5 py-4 flex items-center gap-8">
+          <div className="w-40 shrink-0">
+            <p className="text-xs font-medium text-foreground">Output</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-0.5">What happens to the original file</p>
+          </div>
+          <label className="flex items-start gap-3 cursor-pointer select-none group">
+            <input
+              type="checkbox"
+              checked={keepOriginal}
+              onChange={(e) => setKeepOriginal(e.target.checked)}
+              className="accent-primary h-4 w-4 mt-0.5"
+            />
+            <div>
+              <p className="text-sm text-foreground group-hover:text-foreground/90 transition-colors">Keep originals</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">Moves source file to <code className="font-mono">_originals/</code> before replacing. Lets you restore or free space later.</p>
+            </div>
+          </label>
+        </div>
+
       </div>
 
       {/* Job progress */}
@@ -597,10 +614,13 @@ export function Compress() {
               {displayFiles.length} file{displayFiles.length !== 1 ? "s" : ""}
             </span>
             <button onClick={selectAll} className="text-xs text-muted-foreground/60 hover:text-foreground transition-colors underline underline-offset-2">
-              Select all
+              All
             </button>
             <button onClick={selectNone} className="text-xs text-muted-foreground/60 hover:text-foreground transition-colors underline underline-offset-2">
               None
+            </button>
+            <button onClick={selectCandidates} className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2" title={`Select files not already ${selectedCodec?.label ?? codec}`}>
+              Non-{selectedCodec?.label ?? codec.toUpperCase()}
             </button>
             <div className="flex-1" />
 

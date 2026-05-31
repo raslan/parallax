@@ -91,7 +91,12 @@ async def lifespan(app: FastAPI):
         _db.close()
     init_queue(n)
     await start_worker()
+    # Start filesystem watcher for auto-rescan on file changes
+    from app.services import fs_watcher
+    fs_watcher.init()
+    fs_watcher.watch_all_libraries()
     yield
+    fs_watcher.shutdown()
 
 
 app = FastAPI(title="Transcoder", lifespan=lifespan)

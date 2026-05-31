@@ -135,6 +135,7 @@ def _build_compress_cmd(
         encoder = _get_av1_encoder() or "libsvtav1"
 
     nvenc = encoder in ("h264_nvenc", "hevc_nvenc")
+    is_hevc = codec == "hevc"
 
     if nvenc:
         nvenc_preset = {"slow": "p7", "medium": "p5", "fast": "p3"}.get(speed, "p5")
@@ -147,12 +148,18 @@ def _build_compress_cmd(
     else:
         video_args = ["-c:v", encoder, "-crf", str(crf), "-preset", speed]
 
+    # MP4/M4V/MOV containers require the hvc1 tag to signal HEVC; without it
+    # the muxer rejects the stream ("codec not currently supported in container").
+    out_ext = os.path.splitext(output_path)[1].lower()
+    tag_args = ["-tag:v", "hvc1"] if is_hevc and out_ext in {".mp4", ".m4v", ".mov"} else []
+
     audio_args = ["-c:a", "aac", "-b:a", "192k"] if reencode_audio else ["-c:a", "copy"]
 
     return [
         "ffmpeg", "-y",
         "-i", input_path,
         *video_args,
+        *tag_args,
         *audio_args,
         "-progress", "pipe:1",
         "-nostats",
@@ -173,8 +180,18 @@ def _compress_one(
     """Compress one file in-place. Returns (success, error_msg)."""
     src = file_path
     base, ext = os.path.splitext(src)
-    changing_container = ext.lower() in _NEEDS_REMUX
-    out_ext = ".mkv" if changing_container else (ext or ".mkv")
+    # .m4v uses the restrictive ipod muxer which rejects HEVC/AV1 regardless of tags.
+    # Force to .mp4 (standard mp4 muxer) so -tag:v hvc1 can do its job.
+    _IPOD_EXTS = {".m4v"}
+    if codec in ("hevc", "av1") and ext.lower() in _IPOD_EXTS:
+        out_ext = ".mp4"
+        changing_container = True
+    elif ext.lower() in _NEEDS_REMUX:
+        out_ext = ".mkv"
+        changing_container = True
+    else:
+        out_ext = ext.lower() or ".mkv"
+        changing_container = False
     tmp = base + ".compressing" + out_ext
     dst = src if out_ext == ext.lower() else (base + out_ext)
 
