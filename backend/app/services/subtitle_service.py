@@ -341,7 +341,6 @@ def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, langu
     """Background job: transcribe a list of video files with Whisper and save SRT files."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
     from app.services.whisper_service import transcribe
 
     db = SessionLocal()
@@ -350,47 +349,48 @@ def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, langu
         job = db.get(Job, job_id)
         if not job:
             return
-        arm_cancel(job_id)
         job.status = JobStatus.RUNNING
-        job.started_at = now()
+        job.started_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
 
         total = len(video_paths)
-        done = 0
-        for path in video_paths:
-            if should_cancel(job_id):
-                job.status = JobStatus.CANCELLED
-                job.finished_at = now()
+        succeeded = 0
+        for i, path in enumerate(video_paths):
+            if db.get(Job, job_id).status == JobStatus.CANCELLED:
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 db.commit()
-                clear_cancel(job_id)
                 return
 
             fname = os.path.basename(path)
             job.current_file = fname
-            job.progress = (done / total) * 100
+            # Show at least 5% immediately so the bar isn't stuck at 0
+            job.progress = max(5.0, (i / total) * 100)
             db.commit()
-            log(db, job_id, f"Transcribing: {fname}")
+            _log(db, job_id, f"[{i + 1}/{total}] Transcribing: {fname}")
 
             try:
                 out_path = transcribe(path, model_id, language)
-                log(db, job_id, f"Saved: {os.path.basename(out_path)}")
+                _log(db, job_id, f"Saved: {os.path.basename(out_path)}")
+                succeeded += 1
             except Exception as exc:
-                log(db, job_id, f"Error on {fname}: {exc}", level="error")
+                _log(db, job_id, f"Error on {fname}: {exc}", level="error")
 
-            done += 1
+            # Update progress after this file completes
+            job.progress = ((i + 1) / total) * 100
+            db.commit()
 
         job.status = JobStatus.COMPLETED
         job.progress = 100.0
-        job.finished_at = now()
-        job.current_file = None
+        job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        job.current_file = f"{succeeded}/{total} transcribed"
         db.commit()
-        log(db, job_id, f"Done: {done}/{total} files transcribed.")
+        _log(db, job_id, f"Done: {succeeded}/{total} files transcribed.")
 
     except Exception as exc:
         if job:
             job.status = JobStatus.FAILED
             job.error = str(exc)[:512]
-            job.finished_at = now()
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
     finally:
         db.close()
