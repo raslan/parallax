@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Images, Library, Plus, Trash2, ScanLine, FolderOpen, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Images, Library, Plus, Trash2, ScanLine, FolderOpen, Loader2, ExternalLink } from "lucide-react";
 import { imageApi, ImageLibrary, ImageScanRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,85 @@ const DEFAULT_SCAN_OPTS: ImageScanRequest = {
   run_clip: true,
   reset: false,
 };
+
+interface Leftovers { has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }
+
+function DeleteImageLibraryDialog({ lib, onClose, onDeleted }: {
+  lib: ImageLibrary | null;
+  onClose: () => void;
+  onDeleted: (id: number) => void;
+}) {
+  const navigate = useNavigate();
+  const [leftovers, setLeftovers] = useState<Leftovers | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!lib) { setLeftovers(null); return; }
+    imageApi.libraryLeftovers(lib.id).then(setLeftovers).catch(() => setLeftovers(null));
+  }, [lib]);
+
+  const doDelete = async (deleteLeftovers: boolean) => {
+    if (!lib) return;
+    setDeleting(true);
+    try {
+      await imageApi.deleteLibrary(lib.id, deleteLeftovers);
+      onDeleted(lib.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!lib} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent onClose={onClose}>
+        <DialogHeader>
+          <DialogTitle>Delete image library</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <p className="text-sm text-muted-foreground">
+            Remove <span className="font-medium text-foreground">{lib?.name || lib?.path}</span> and all its image records from Parallax. Files on disk are not touched.
+          </p>
+          {leftovers?.has_leftovers && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-1">
+              <p className="text-sm font-medium text-amber-400">
+                {leftovers.count} file{leftovers.count !== 1 ? "s" : ""} in <code className="font-mono text-xs">_quarantine/</code>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {(leftovers.total_bytes / 1024 ** 3).toFixed(2)} GB of quarantined images found. What should happen to them?
+              </p>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {leftovers?.has_leftovers ? (
+            <>
+              <Button variant="destructive" onClick={() => doDelete(true)} disabled={deleting} className="w-full justify-start">
+                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete library and quarantined files
+              </Button>
+              <Button variant="outline" onClick={() => { onClose(); navigate("/image-quarantined"); }} className="w-full justify-start">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Review quarantine first
+              </Button>
+              <Button variant="outline" onClick={() => doDelete(false)} disabled={deleting} className="w-full justify-start">
+                Keep quarantined files on disk
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="destructive" onClick={() => doDelete(false)} disabled={deleting} className="w-full">
+                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete library
+              </Button>
+              <Button variant="outline" onClick={onClose} className="w-full">Cancel</Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function AddImageLibraryDialog({
   open,
@@ -142,6 +222,7 @@ export function ImageLibraries() {
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [deletingLib, setDeletingLib] = useState<ImageLibrary | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [scanOptsFor, setScanOptsFor] = useState<number | null>(null);
   const [scanOpts, setScanOpts] = useState<ImageScanRequest>(DEFAULT_SCAN_OPTS);
@@ -177,15 +258,9 @@ export function ImageLibraries() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this image library and remove all its records? Files on disk are not touched.")) return;
-    setDeletingIds((s) => new Set(s).add(id));
-    try {
-      await imageApi.deleteLibrary(id);
-      setLibraries((prev) => prev.filter((l) => l.id !== id));
-    } finally {
-      setDeletingIds((s) => { const n = new Set(s); n.delete(id); return n; });
-    }
+  const handleDelete = (id: number) => {
+    const lib = libraries.find((l) => l.id === id) ?? null;
+    setDeletingLib(lib);
   };
 
   const totalImages = libraries.reduce((s, l) => s + l.image_count, 0);
@@ -208,6 +283,11 @@ export function ImageLibraries() {
         </Button>
       </div>
 
+      <DeleteImageLibraryDialog
+        lib={deletingLib}
+        onClose={() => setDeletingLib(null)}
+        onDeleted={(id) => setLibraries((prev) => prev.filter((l) => l.id !== id))}
+      />
       <AddImageLibraryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
