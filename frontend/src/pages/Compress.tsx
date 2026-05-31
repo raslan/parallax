@@ -8,11 +8,47 @@ import { compressApi, CompressCodec, VideoFile, Library, api } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatSize, formatDuration } from "@/lib/format";
+
+// ── Radio toggle group ────────────────────────────────────────────────────────
+
+function RadioToggle<T extends string>({ value, onChange, options }: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { id: T; label: string; hint?: string }[];
+}) {
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {options.map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            onClick={() => onChange(opt.id)}
+            className={cn(
+              "flex items-start gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors flex-1 min-w-[120px]",
+              active
+                ? "border-primary/60 bg-primary/10 text-foreground"
+                : "border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground"
+            )}
+          >
+            <span className={cn(
+              "mt-0.5 h-3.5 w-3.5 rounded-full border-2 shrink-0 transition-colors",
+              active ? "border-primary bg-primary" : "border-muted-foreground/40"
+            )} />
+            <span>
+              <span className="font-medium block">{opt.label}</span>
+              {opt.hint && <span className="text-[11px] text-muted-foreground/70 block mt-0.5">{opt.hint}</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // ── Estimation ────────────────────────────────────────────────────────────────
 
@@ -354,10 +390,25 @@ export function Compress() {
     () => (displayFiles ?? []).filter((f) => selected.has(f.id)),
     [displayFiles, selected]
   );
+
+  // Selection stats
   const totalSourceSize = selectedFiles.reduce((s, f) => s + f.size, 0);
   const totalEstSize = selectedFiles.reduce((s, f) => s + estimateSize(f, codec, crf, speed), 0);
   const totalSavingsPct = totalSourceSize > 0
     ? Math.round(((totalSourceSize - totalEstSize) / totalSourceSize) * 100)
+    : 0;
+
+  // Library-wide stats (all loaded files, not just selected)
+  const libraryTotalSize = useMemo(
+    () => (files ?? []).reduce((s, f) => s + f.size, 0),
+    [files]
+  );
+  const libraryEstSize = useMemo(
+    () => (files ?? []).reduce((s, f) => s + estimateSize(f, codec, crf, speed), 0),
+    [files, codec, crf, speed]
+  );
+  const librarySavingsPct = libraryTotalSize > 0
+    ? Math.round(((libraryTotalSize - libraryEstSize) / libraryTotalSize) * 100)
     : 0;
 
   const stopPoll = useCallback(() => {
@@ -482,41 +533,39 @@ export function Compress() {
 
         {/* Row 2: Codec + Speed side by side */}
         <div className="px-5 py-4 grid grid-cols-2 gap-0 divide-x divide-border/40">
-          <div className="flex items-center gap-8 pr-8">
+          <div className="flex items-start gap-8 pr-8">
             <div className="w-40 shrink-0">
               <p className="text-xs font-medium text-foreground">Target Codec</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                {selectedCodec?.description ?? "Output video format"}
-              </p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">Output video format</p>
               {selectedCodec && (
                 <p className="text-[10px] text-muted-foreground/40 font-mono mt-1">via {selectedCodec.encoder}</p>
               )}
             </div>
-            <select
-              value={codec}
-              onChange={(e) => handleCodecChange(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48"
-            >
-              {codecs.map((c) => (
-                <option key={c.id} value={c.id}>{c.label}</option>
-              ))}
-            </select>
+            <div className="flex-1">
+              <RadioToggle
+                value={codec}
+                onChange={handleCodecChange}
+                options={codecs.map((c) => ({ id: c.id, label: c.label, hint: c.description }))}
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-8 pl-8">
+          <div className="flex items-start gap-8 pl-8">
             <div className="w-40 shrink-0">
               <p className="text-xs font-medium text-foreground">Encoding Speed</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">Slower finds more efficient compression at the same CRF — affects size by ~8%</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">Slower finds better compression at same CRF — affects size by ~8%</p>
             </div>
-            <select
-              value={speed}
-              onChange={(e) => setSpeed(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48"
-            >
-              <option value="slow">Slow — best compression</option>
-              <option value="medium">Medium</option>
-              <option value="fast">Fast</option>
-            </select>
+            <div className="flex-1">
+              <RadioToggle
+                value={speed}
+                onChange={setSpeed}
+                options={[
+                  { id: "slow",   label: "Slow",   hint: "Best compression ratio" },
+                  { id: "medium", label: "Medium",  hint: "Balanced" },
+                  { id: "fast",   label: "Fast",    hint: "Quickest encode" },
+                ]}
+              />
+            </div>
           </div>
         </div>
 
@@ -568,6 +617,46 @@ export function Compress() {
         </div>
 
       </div>
+
+      {/* Library stats */}
+      {files && (
+        <div className="grid grid-cols-4 gap-4">
+          {[
+            {
+              label: "Library",
+              value: formatSize(libraryTotalSize),
+              sub: `${files.length} file${files.length !== 1 ? "s" : ""}`,
+              accent: false,
+            },
+            {
+              label: "Selected",
+              value: formatSize(totalSourceSize),
+              sub: `${selected.size} file${selected.size !== 1 ? "s" : ""}`,
+              accent: false,
+            },
+            {
+              label: "Estimated output",
+              value: selected.size > 0 ? formatSize(totalEstSize) : formatSize(libraryEstSize),
+              sub: selected.size > 0 ? "for selection" : "if all selected",
+              accent: false,
+            },
+            {
+              label: "Estimated savings",
+              value: selected.size > 0
+                ? `−${formatSize(totalSourceSize - totalEstSize)}`
+                : `−${formatSize(libraryTotalSize - libraryEstSize)}`,
+              sub: `${selected.size > 0 ? totalSavingsPct : librarySavingsPct}% reduction · est. ±20%`,
+              accent: true,
+            },
+          ].map(({ label, value, sub, accent }) => (
+            <div key={label} className="rounded-lg border border-border/50 bg-muted/10 px-5 py-4">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
+              <p className={cn("text-2xl font-light tabular-nums mt-1", accent ? "text-green-400" : "text-foreground")}>{value}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">{sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Job progress */}
       {(isRunning || isDone) && jobId != null && (
