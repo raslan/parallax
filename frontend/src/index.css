@@ -23,7 +23,7 @@
     --secondary:           258 45% 12%;
     --secondary-foreground: 263 40% 80%;
     --muted:               258 45% 10%;
-    --muted-foreground:    258 22% 46%;
+    --muted-foreground:    258 20% 68%;
     --accent:              258 45% 12%;
     --accent-foreground:   263 60% 93%;
     --border:              258 40% 14%;
@@ -41,7 +41,7 @@
     --px-accent-border:    rgba(167, 139, 250, 0.25);
     --px-bg-surface:       #0e0a1e;
     --px-bg-elevated:      #1a1430;
-    --px-text-muted:       #554d7a;
+    --px-text-muted:       #9d93c8;
   }
 
   /* ── Cyan / Modern HUD ──────────────────────────────────────── */
@@ -57,7 +57,7 @@
     --secondary:           210 65% 11%;
     --secondary-foreground: 188 40% 80%;
     --muted:               210 65% 11%;
-    --muted-foreground:    210 27% 40%;
+    --muted-foreground:    210 25% 65%;
     --accent:              210 65% 11%;
     --accent-foreground:   188 80% 94%;
     --border:              210 55% 12%;
@@ -74,7 +74,7 @@
     --px-accent-border:    rgba(34, 211, 238, 0.25);
     --px-bg-surface:       #071220;
     --px-bg-elevated:      #0d1f2d;
-    --px-text-muted:       #4a6a80;
+    --px-text-muted:       #7ab0c8;
   }
 
   /* ── Amber / Mission Control ────────────────────────────────── */
@@ -90,7 +90,7 @@
     --secondary:           240 38% 12%;
     --secondary-foreground: 38 50% 80%;
     --muted:               240 38% 12%;
-    --muted-foreground:    0 0% 53%;
+    --muted-foreground:    0 0% 68%;
     --accent:              240 38% 12%;
     --accent-foreground:   38 90% 94%;
     --border:              240 35% 14%;
@@ -107,7 +107,7 @@
     --px-accent-border:    rgba(245, 158, 11, 0.25);
     --px-bg-surface:       #0d0d18;
     --px-bg-elevated:      #1a1a28;
-    --px-text-muted:       #888888;
+    --px-text-muted:       #b0a898;
   }
 }
 
