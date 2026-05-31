@@ -576,9 +576,9 @@ export function Compress() {
             <p className="text-[11px] text-muted-foreground/60 mt-0.5">Lower = better quality, larger file. Each +6 roughly halves the bitrate.</p>
           </div>
           <div className="flex-1 space-y-2">
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-baseline gap-2">
               <span className="text-2xl font-mono font-light tabular-nums text-foreground">{crf}</span>
-              {(() => { const tier = getCrfTier(codec, crf); return <span className={cn("text-sm font-medium", tier.color)}>{tier.label}</span>; })()}
+              {(() => { const tier = getCrfTier(codec, crf); return <span className={cn("text-sm font-medium", tier.color)}>({tier.label})</span>; })()}
             </div>
             <input
               type="range"
@@ -589,7 +589,7 @@ export function Compress() {
               onChange={(e) => setCrf(Number(e.target.value))}
               className="w-full accent-primary"
             />
-            <div className="flex justify-between text-[10px] text-muted-foreground/40">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>{crfRange.min} — lossless</span>
               <span>{crfRange.max} — smallest</span>
             </div>
@@ -640,18 +640,27 @@ export function Compress() {
               sub: selected.size > 0 ? "for selection" : "if all selected",
               accent: false,
             },
-            {
-              label: "Estimated savings",
-              value: selected.size > 0
-                ? `−${formatSize(totalSourceSize - totalEstSize)}`
-                : `−${formatSize(libraryTotalSize - libraryEstSize)}`,
-              sub: `${selected.size > 0 ? totalSavingsPct : librarySavingsPct}% reduction · est. ±20%`,
-              accent: true,
-            },
-          ].map(({ label, value, sub, accent }) => (
-            <div key={label} className="rounded-lg border border-border/50 bg-muted/10 px-5 py-4">
+            (() => {
+              const useSelection = selected.size > 0;
+              const src = useSelection ? totalSourceSize : libraryTotalSize;
+              const est = useSelection ? totalEstSize : libraryEstSize;
+              const diff = src - est;
+              const pct = useSelection ? totalSavingsPct : librarySavingsPct;
+              const grows = diff < 0;
+              return {
+                label: "Estimated savings",
+                value: grows ? `+${formatSize(Math.abs(diff))}` : `−${formatSize(diff)}`,
+                sub: grows
+                  ? `Files would grow ${Math.abs(pct)}% — try a higher CRF`
+                  : `${pct}% reduction · est. ±20%`,
+                accent: !grows,
+                warn: grows,
+              };
+            })(),
+          ].map(({ label, value, sub, accent, warn }: { label: string; value: string; sub: string; accent?: boolean; warn?: boolean }) => (
+            <div key={label} className={cn("rounded-lg border bg-muted/10 px-5 py-4", warn ? "border-orange-500/30" : "border-border/50")}>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{label}</p>
-              <p className={cn("text-2xl font-light tabular-nums mt-1", accent ? "text-green-400" : "text-foreground")}>{value}</p>
+              <p className={cn("text-2xl font-light tabular-nums mt-1", warn ? "text-orange-400" : accent ? "text-green-400" : "text-foreground")}>{value}</p>
               <p className="text-[11px] text-muted-foreground/60 mt-0.5">{sub}</p>
             </div>
           ))}
