@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight } from "lucide-react";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatSize } from "@/lib/format";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 
@@ -208,9 +209,13 @@ export function Images() {
       </div>
 
       {images.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-16">
-          No images found. Add an image library and scan it.
-        </p>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <ImagesIcon className="h-10 w-10 text-muted-foreground mb-4" />
+            <h3 className="font-semibold text-lg mb-1">No images found</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">Add an image library and run a scan to populate this view.</p>
+          </CardContent>
+        </Card>
       )}
 
       <div className="flex items-center justify-between">
