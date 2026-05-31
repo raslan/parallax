@@ -335,3 +335,62 @@ def _log(db, job_id: int, message: str, level: str = "info") -> None:
     from app.models.job import JobLog
     db.add(JobLog(job_id=job_id, message=message, level=level))
     db.commit()
+
+
+def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, language: Optional[str] = None) -> None:
+    """Background job: transcribe a list of video files with Whisper and save SRT files."""
+    from app.database import SessionLocal
+    from app.models.job import Job, JobStatus
+    from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
+    from app.services.whisper_service import transcribe
+
+    db = SessionLocal()
+    job = None
+    try:
+        job = db.get(Job, job_id)
+        if not job:
+            return
+        arm_cancel(job_id)
+        job.status = JobStatus.RUNNING
+        job.started_at = now()
+        db.commit()
+
+        total = len(video_paths)
+        done = 0
+        for path in video_paths:
+            if should_cancel(job_id):
+                job.status = JobStatus.CANCELLED
+                job.finished_at = now()
+                db.commit()
+                clear_cancel(job_id)
+                return
+
+            fname = os.path.basename(path)
+            job.current_file = fname
+            job.progress = (done / total) * 100
+            db.commit()
+            log(db, job_id, f"Transcribing: {fname}")
+
+            try:
+                out_path = transcribe(path, model_id, language)
+                log(db, job_id, f"Saved: {os.path.basename(out_path)}")
+            except Exception as exc:
+                log(db, job_id, f"Error on {fname}: {exc}", level="error")
+
+            done += 1
+
+        job.status = JobStatus.COMPLETED
+        job.progress = 100.0
+        job.finished_at = now()
+        job.current_file = None
+        db.commit()
+        log(db, job_id, f"Done: {done}/{total} files transcribed.")
+
+    except Exception as exc:
+        if job:
+            job.status = JobStatus.FAILED
+            job.error = str(exc)[:512]
+            job.finished_at = now()
+            db.commit()
+    finally:
+        db.close()

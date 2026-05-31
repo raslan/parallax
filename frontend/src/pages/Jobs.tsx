@@ -21,6 +21,9 @@ const TYPE_LABEL: Record<string, string> = {
   check: "Corruption check",
   transcode: "Transcode",
   duplicates: "Duplicate scan",
+  subtitle_download: "Subtitle download",
+  whisper_transcribe: "Whisper transcription",
+  model_download: "Model download",
 };
 
 function ProgressBar({ value }: { value: number }) {

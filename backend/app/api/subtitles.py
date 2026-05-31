@@ -110,6 +110,58 @@ def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
         raise HTTPException(500, str(exc))
 
 
+class TranscribeFileRequest(BaseModel):
+    file_path: str
+    model_id: Optional[str] = None
+    language: Optional[str] = None
+
+
+class TranscribeBulkRequest(BaseModel):
+    path: str
+    model_id: Optional[str] = None
+    language: Optional[str] = None
+
+
+@router.post("/transcribe-file")
+async def transcribe_file(body: TranscribeFileRequest, db: Session = Depends(get_db)):
+    if not os.path.isfile(body.file_path):
+        raise HTTPException(400, "File not found")
+    model_id = body.model_id or get_setting(db, "whisper_model", "small")
+    from app.services.model_manager import is_whisper_downloaded
+    if not is_whisper_downloaded(model_id):
+        raise HTTPException(422, f"Whisper model '{model_id}' not downloaded — get it in Settings → AI Models")
+    job = Job(type=JobType.WHISPER_TRANSCRIBE, status=JobStatus.PENDING)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    from app.services.subtitle_service import run_transcribe_job
+    await enqueue(job.id, run_transcribe_job, job.id, [body.file_path], model_id, body.language)
+    return {"job_id": job.id}
+
+
+@router.post("/transcribe-bulk")
+async def transcribe_bulk(body: TranscribeBulkRequest, db: Session = Depends(get_db)):
+    if not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
+    model_id = body.model_id or get_setting(db, "whisper_model", "small")
+    from app.services.model_manager import is_whisper_downloaded
+    if not is_whisper_downloaded(model_id):
+        raise HTTPException(422, f"Whisper model '{model_id}' not downloaded — get it in Settings → AI Models")
+    lang_codes = _get_lang_codes(db)
+    from app.services.subtitle_service import scan_directory
+    scan_result = scan_directory(body.path, lang_codes)
+    missing = [f["path"] for f in scan_result if not f["has_subtitle"]]
+    if not missing:
+        raise HTTPException(422, "No files missing subtitles")
+    job = Job(type=JobType.WHISPER_TRANSCRIBE, status=JobStatus.PENDING)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    from app.services.subtitle_service import run_transcribe_job
+    await enqueue(job.id, run_transcribe_job, job.id, missing, model_id, body.language)
+    return {"job_id": job.id}
+
+
 @router.get("/tracks")
 def tracks_by_path(path: str = Query(..., description="Absolute path to video file")):
     """Return all subtitle tracks for a video at an arbitrary path."""
