@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.0.0](https://github.com/raslan/parallax/compare/v0.13.0...v1.0.0) (2026-06-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* refactors for v1.0
+
+### Features
+
+* ask about leftover dirs when deleting a library ([86a9b9d](https://github.com/raslan/parallax/commit/86a9b9df611d633696c42fce6fec14146bcfd750))
+* **compress:** add library-integrated compression page ([d37737f](https://github.com/raslan/parallax/commit/d37737ffc54db7711534efb823263cfc0d326900))
+* refactors for v1.0 ([34d636e](https://github.com/raslan/parallax/commit/34d636e187f0ea2a4ebbc7da485ad5b0776d2542))
+* **watcher:** incremental auto-rescan on filesystem changes ([41da0ec](https://github.com/raslan/parallax/commit/41da0ecb51fbffc998233b25872aaa2cfdcb23b4))
+* **watcher:** incremental auto-rescan on filesystem changes ([41da0ec](https://github.com/raslan/parallax/commit/41da0ecb51fbffc998233b25872aaa2cfdcb23b4))
+
+
+### Bug Fixes
+
+* **compress:** handle negative savings estimate and NaN in formatSize ([84ceeda](https://github.com/raslan/parallax/commit/84ceeda2dad19d3c5901038e5c43c1367c93dc08))
+* **libraries:** delete VideoDetection + thumbnails + schedules on library remove ([8d86dd7](https://github.com/raslan/parallax/commit/8d86dd70855278b1bc45cbf5e40f3525168f9e87))
+
 ## [0.13.0](https://github.com/raslan/parallax/compare/v0.12.0...v0.13.0) (2026-05-30)
 
 
