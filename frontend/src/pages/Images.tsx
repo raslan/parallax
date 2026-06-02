@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
+import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,7 @@ export function Images() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [statusFilter, setStatusFilter] = useState("");
   const [detectionFilter, setDetectionFilter] = useState("");
+  const [search, setSearch] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set<number>());
   const [quarantining, setQuarantining] = useState(false);
@@ -161,6 +162,17 @@ export function Images() {
           <option value="none">No detections</option>
         </select>
 
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search images…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 pl-7 pr-3 rounded-md border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring w-44"
+          />
+        </div>
+
         <div className="flex items-center gap-1 ml-auto">
           <select
             value={sortBy}
@@ -193,7 +205,7 @@ export function Images() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-        {images.map((img) => (
+        {(search.trim() ? images.filter((img) => img.filename.toLowerCase().includes(search.toLowerCase())) : images).map((img) => (
           <ImageCard
             key={img.id}
             img={img}
