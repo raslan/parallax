@@ -740,6 +740,7 @@ export function Settings() {
               </Button>
             </CardContent>
           </Card>
+          <SaveButton />
         </div>
       )}
 
