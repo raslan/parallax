@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Check, Palette, KeyRound, Cpu, Clapperboard, Download, Trash2, AlertCircle, OctagonAlert } from "lucide-react";
+import { Loader2, Check, Palette, KeyRound, Cpu, Clapperboard, Download, Trash2, AlertCircle, OctagonAlert, FolderOpen } from "lucide-react";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api, modelsApi, ModelInfo } from "@/lib/api";
+import { DirPicker } from "@/components/DirPicker";
 import { useTheme } from "@/components/ThemeProvider";
 import { SectionHeader } from "@/components/SectionHeader";
 import { formatSize } from "@/lib/format";
@@ -24,6 +25,7 @@ const TABS = [
   { id: "transcoder",   label: "Transcoder",      icon: Clapperboard },
   { id: "credentials",  label: "Keys & Accounts", icon: KeyRound },
   { id: "ai",           label: "AI Models",       icon: Cpu },
+  { id: "downloads",    label: "Downloads",       icon: Download },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -204,6 +206,12 @@ export function Settings() {
   const [saved, setSaved]                         = useState(false);
   const [dirty, setDirty]                         = useState(false);
 
+  const [downloadDir, setDownloadDir]               = useState("/downloads");
+  const [maxConcurrentDownloads, setMaxConcurrentDownloads] = useState(2);
+  const [ytdlpInfo, setYtdlpInfo]                   = useState<{ installed: boolean; version: string | null; path: string | null } | null>(null);
+  const [ytdlpUpdating, setYtdlpUpdating]           = useState(false);
+  const [showDirPicker, setShowDirPicker]           = useState(false);
+
   const [models, setModels]             = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
 
@@ -217,9 +225,17 @@ export function Settings() {
         setOsUsername(s.opensubtitles_username ?? "");
         setOsPassword(s.opensubtitles_password ?? "");
         setSubtitleLangs((s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean));
+        setDownloadDir(s.download_dir ?? "/downloads");
+        setMaxConcurrentDownloads(s.max_concurrent_downloads ?? 2);
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "downloads") {
+      api.ytdlpInfo().then(setYtdlpInfo).catch(() => {});
+    }
+  }, [activeTab]);
 
   const reloadModels = useCallback(() => {
     setModelsLoading(true);
@@ -234,7 +250,7 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(",") });
+      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(","), download_dir: downloadDir, max_concurrent_downloads: maxConcurrentDownloads });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -618,6 +634,89 @@ export function Settings() {
               </Card>
             </>
           )}
+        </div>
+      )}
+
+      {/* Downloads */}
+      {activeTab === "downloads" && (
+        <div className="space-y-4">
+          {/* Download Directory */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Default download directory</p>
+                <p className="text-xs text-muted-foreground mb-3">Where downloaded files are saved. Can be overridden per download.</p>
+                {showDirPicker ? (
+                  <DirPicker
+                    onSelect={(p) => { setDownloadDir(p); setShowDirPicker(false); markDirty(); }}
+                    onClose={() => setShowDirPicker(false)}
+                  />
+                ) : (
+                  <div className="flex gap-2 items-center">
+                    <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">{downloadDir}</code>
+                    <Button size="sm" variant="outline" onClick={() => setShowDirPicker(true)}>
+                      <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
+                      Browse
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium">Max concurrent downloads</p>
+                  <span className="text-sm font-mono">{maxConcurrentDownloads}</span>
+                </div>
+                <input
+                  type="range"
+                  min={1} max={5} step={1}
+                  value={maxConcurrentDownloads}
+                  onChange={(e) => { setMaxConcurrentDownloads(Number(e.target.value)); markDirty(); }}
+                  className="w-48 accent-primary"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground w-48 mt-1">
+                  <span>1</span><span>5</span>
+                </div>
+              </div>
+              <SaveButton />
+            </CardContent>
+          </Card>
+
+          {/* yt-dlp management */}
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <p className="text-sm font-medium">yt-dlp</p>
+              {ytdlpInfo === null ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />Loading…
+                </div>
+              ) : ytdlpInfo.installed ? (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Version: <span className="font-mono text-foreground">{ytdlpInfo.version}</span></p>
+                  <p className="text-xs text-muted-foreground truncate">Path: <span className="font-mono text-foreground">{ytdlpInfo.path}</span></p>
+                </div>
+              ) : (
+                <p className="text-sm text-amber-400">Not installed. Click Install to set it up.</p>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={ytdlpUpdating}
+                onClick={async () => {
+                  setYtdlpUpdating(true);
+                  try {
+                    await api.ytdlpUpdate();
+                    const info = await api.ytdlpInfo();
+                    setYtdlpInfo(info);
+                  } catch { /* ignore */ } finally {
+                    setYtdlpUpdating(false);
+                  }
+                }}
+              >
+                {ytdlpUpdating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
+                {ytdlpInfo?.installed ? "Update yt-dlp" : "Install yt-dlp"}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       )}
 
