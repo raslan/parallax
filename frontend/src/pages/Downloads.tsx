@@ -487,7 +487,7 @@ export function Downloads() {
   const [ytdlpVersion, setYtdlpVersion] = useState<string | null>(null);
   const [ytdlpUpdating, setYtdlpUpdating] = useState(false);
   const [impersonateTargets, setImpersonateTargets] = useState<string[]>([]);
-  const [activeCookies, setActiveCookies] = useState("");
+  const [activeCookies, setActiveCookies] = useState(() => sessionStorage.getItem("dl_cookies") ?? "");
   const [showCookiesModal, setShowCookiesModal] = useState(false);
   const [cookiesDraft, setCookiesDraft] = useState("");
   const [showOptions, setShowOptions] = useState(true);
@@ -501,8 +501,19 @@ export function Downloads() {
     downloadSubs: false,
     subLangs: "en",
     extraArgs: "",
-    impersonate: "",
+    impersonate: sessionStorage.getItem("dl_impersonate") ?? "",
   });
+
+  // Persist cookies + impersonate to sessionStorage
+  useEffect(() => {
+    if (activeCookies) sessionStorage.setItem("dl_cookies", activeCookies);
+    else sessionStorage.removeItem("dl_cookies");
+  }, [activeCookies]);
+
+  useEffect(() => {
+    if (opts.impersonate) sessionStorage.setItem("dl_impersonate", opts.impersonate);
+    else sessionStorage.removeItem("dl_impersonate");
+  }, [opts.impersonate]);
 
   // Load default output dir from settings
   useEffect(() => {
