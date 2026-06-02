@@ -343,7 +343,7 @@ def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
                 norm_fname = unicodedata.normalize("NFC", fname)
                 rest = norm_fname[len(prefix):]
                 _log.info("[cleanup] candidate=%r rest=%r", fname, rest)
-                if not (rest.startswith(".") or rest.startswith(" [")):
+                if not (rest.startswith(".") or rest.startswith(" [") or rest.startswith(" (")):
                     _log.info("[cleanup] SKIP %r (no match)", fname)
                     continue
             _log.info("[cleanup] DELETE %r", fname)
