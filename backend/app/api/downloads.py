@@ -87,13 +87,15 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
 
     created_ids: list[int] = []
 
-    for url in req.urls:
-        playlist_info = await asyncio.to_thread(fetch_playlist_info, url)
+    playlist_results = await asyncio.gather(
+        *[asyncio.to_thread(fetch_playlist_info, url) for url in req.urls]
+    )
 
+    for url, playlist_info in zip(req.urls, playlist_results):
         if playlist_info:
             safe_dir = _safe_dirname(playlist_info["playlist_title"])
             playlist_output_dir = os.path.join(output_dir, safe_dir)
-            os.makedirs(playlist_output_dir, exist_ok=True)
+            await asyncio.to_thread(lambda: os.makedirs(playlist_output_dir, exist_ok=True))
 
             for entry in playlist_info["entries"]:
                 download = Download(
