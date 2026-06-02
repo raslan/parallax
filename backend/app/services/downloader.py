@@ -283,18 +283,21 @@ def _parse_output_path(line: str) -> Optional[str]:
 
 def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
     """Delete yt-dlp temp files (.part, .ytdl) belonging to this download."""
+    import unicodedata
     if not output_dir or not os.path.isdir(output_dir):
         return
-    # Sanitize title: Linux yt-dlp only replaces / with _
-    prefix = title.replace("/", "_").replace("\x00", "").strip() if title else None
+    # Normalize + sanitize: NFC so Korean/Unicode length matches filesystem bytes
+    if title:
+        prefix = unicodedata.normalize("NFC", title).replace("/", "_").replace("\x00", "").strip()
+    else:
+        prefix = None
     try:
         for fname in os.listdir(output_dir):
             if not (fname.endswith(".part") or fname.endswith(".ytdl")):
                 continue
             if prefix:
-                # yt-dlp filenames: "{title}.ext.part" or "{title} [ID].ext.part"
-                # Accept prefix followed by ".", " [", or " (" (format tags)
-                rest = fname[len(prefix):]
+                norm_fname = unicodedata.normalize("NFC", fname)
+                rest = norm_fname[len(prefix):]
                 if not (rest.startswith(".") or rest.startswith(" [")):
                     continue
             try:
