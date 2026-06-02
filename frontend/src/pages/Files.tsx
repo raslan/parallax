@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, Wand2, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Check, Play } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
-import { PRESETS } from "@/lib/presets";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 
@@ -98,21 +98,14 @@ function CorruptionDetailModal({ file, onClose }: { file: VideoFile; onClose: ()
 
 function ThumbnailCard({
   file,
-  selectionMode,
-  isSelected,
-  onToggle,
   onPlay,
 }: {
   file: VideoFile;
-  selectionMode: boolean;
-  isSelected: boolean;
-  onToggle: () => void;
   onPlay: () => void;
 }) {
+  const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [transcoding, setTranscoding] = useState(false);
-  const [presetOpen, setPresetOpen] = useState(false);
   const [errorOpen, setErrorOpen] = useState(false);
   const isCorrupt = file.status === "corrupt";
 
@@ -122,28 +115,14 @@ function ThumbnailCard({
     try { await api.checkFile(file.id); } catch { } finally { setChecking(false); }
   };
 
-  const handleTranscode = async (e: React.MouseEvent, preset: string) => {
-    e.stopPropagation();
-    setPresetOpen(false);
-    setTranscoding(true);
-    try { await api.transcodeFile(file.id, preset); } catch { } finally { setTranscoding(false); }
-  };
-
-  const togglePreset = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setPresetOpen((v) => !v);
-  };
-
   return (
     <Card
       className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${
-        isSelected
-          ? "ring-2 ring-primary"
-          : isCorrupt
+        isCorrupt
           ? "ring-1 ring-destructive/60 hover:ring-destructive"
           : "hover:ring-primary"
       }`}
-      onClick={selectionMode ? onToggle : onPlay}
+      onClick={onPlay}
     >
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
@@ -158,18 +137,6 @@ function ThumbnailCard({
           <ImageOff className="h-8 w-8 text-muted-foreground/40" />
         )}
 
-        {/* Selection checkbox — only shown in selection mode */}
-        {selectionMode && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
-              isSelected ? "bg-primary border-primary" : "bg-black/50 border-white/70"
-            }`}
-          >
-            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-          </button>
-        )}
-
         <div className="absolute top-1.5 right-1.5">
           <Badge variant={(STATUS_COLORS[file.status] ?? "secondary") as any} className="text-xs capitalize">
             {file.status}
@@ -180,21 +147,11 @@ function ThumbnailCard({
         <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {isCorrupt && file.scan_error && (
             <button
-              onClick={(e) => { e.stopPropagation(); setPresetOpen(false); setErrorOpen(true); }}
+              onClick={(e) => { e.stopPropagation(); setErrorOpen(true); }}
               title="View corruption details"
               className="bg-black/60 hover:bg-black/80 rounded p-1"
             >
               <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-            </button>
-          )}
-          {/* Play button always available even in selection mode */}
-          {selectionMode && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onPlay(); }}
-              title="Play video"
-              className="bg-black/60 hover:bg-black/80 rounded p-1"
-            >
-              <Play className="h-3.5 w-3.5 text-white" />
             </button>
           )}
           <button
@@ -205,36 +162,7 @@ function ThumbnailCard({
           >
             <ShieldCheck className={`h-3.5 w-3.5 text-white ${checking ? "animate-pulse" : ""}`} />
           </button>
-          {!selectionMode && (
-            <button
-              onClick={togglePreset}
-              disabled={transcoding}
-              title="Transcode"
-              className={`bg-black/60 hover:bg-black/80 rounded p-1 ${presetOpen ? "bg-black/80" : ""}`}
-            >
-              <Wand2 className={`h-3.5 w-3.5 text-white ${transcoding ? "animate-pulse" : ""}`} />
-            </button>
-          )}
         </div>
-
-        {/* Per-file preset picker (only outside selection mode) */}
-        {presetOpen && (
-          <div
-            className="absolute inset-0 bg-black/70 flex items-center justify-center gap-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {PRESETS.map((p) => (
-              <button
-                key={p.value}
-                title={p.title}
-                onClick={(e) => handleTranscode(e, p.value)}
-                className="bg-white/10 hover:bg-white/25 border border-white/20 rounded px-2 py-1 text-white text-xs font-semibold transition-colors"
-              >
-                {p.shortLabel}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
       <CardContent className="p-2.5 space-y-0.5">
         <p className={`text-xs font-medium truncate ${isCorrupt ? "text-destructive" : ""}`} title={file.filename}>
@@ -246,6 +174,14 @@ function ThumbnailCard({
           {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
           {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
         </p>
+        {isCorrupt && (
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate("/compress"); }}
+            className="text-xs text-destructive/70 hover:text-destructive transition-colors"
+          >
+            Re-encode in Compress →
+          </button>
+        )}
       </CardContent>
 
       {errorOpen && <CorruptionDetailModal file={file} onClose={() => setErrorOpen(false)} />}
@@ -257,17 +193,12 @@ function ThumbnailCard({
 
 function FileListRow({
   file,
-  selectionMode,
-  isSelected,
-  onToggle,
   onPlay,
 }: {
   file: VideoFile;
-  selectionMode: boolean;
-  isSelected: boolean;
-  onToggle: () => void;
   onPlay: () => void;
 }) {
+  const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
   const [checking, setChecking] = useState(false);
   const isCorrupt = file.status === "corrupt";
@@ -280,24 +211,9 @@ function FileListRow({
 
   return (
     <tr
-      className={`hover:bg-muted/20 cursor-pointer transition-colors border-b border-border last:border-0 group/row ${
-        isSelected ? "bg-primary/5" : ""
-      } ${isCorrupt ? "text-destructive" : ""}`}
-      onClick={selectionMode ? onToggle : onPlay}
+      className={`hover:bg-muted/20 cursor-pointer transition-colors border-b border-border last:border-0 group/row ${isCorrupt ? "text-destructive" : ""}`}
+      onClick={onPlay}
     >
-      {/* Checkbox column — only shown in selection mode */}
-      {selectionMode && (
-        <td className="px-2 py-1.5 w-8">
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
-              isSelected ? "bg-primary border-primary" : "border-muted-foreground/40 hover:border-primary"
-            }`}
-          >
-            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-          </button>
-        </td>
-      )}
       <td className="px-2 py-1.5">
         <div className="relative h-8 w-14 shrink-0">
           {file.has_thumbnail && !imgError ? (
@@ -318,6 +234,14 @@ function FileListRow({
       <td className="px-3 py-2 max-w-xs">
         <p className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`} title={file.filename}>{file.filename}</p>
         <p className="truncate text-xs text-muted-foreground" title={file.path}>{file.path}</p>
+        {isCorrupt && (
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate("/compress"); }}
+            className="text-xs text-destructive/70 hover:text-destructive transition-colors"
+          >
+            Re-encode in Compress →
+          </button>
+        )}
       </td>
       <td className="px-3 py-2">
         <Badge variant={(STATUS_COLORS[file.status] ?? "secondary") as any} className="text-xs capitalize">
@@ -361,43 +285,16 @@ function FileListRow({
 
 function FileListTable({
   files,
-  selectionMode,
-  selectedIds,
-  onToggle,
-  onSelectAll,
   onPlay,
 }: {
   files: VideoFile[];
-  selectionMode: boolean;
-  selectedIds: Set<number>;
-  onToggle: (id: number) => void;
-  onSelectAll: (ids: number[]) => void;
   onPlay: (f: VideoFile) => void;
 }) {
-  const allSelected = files.length > 0 && files.every((f) => selectedIds.has(f.id));
-  const someSelected = !allSelected && files.some((f) => selectedIds.has(f.id));
-
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
           <tr>
-            {selectionMode && (
-              <th className="w-8 px-2 py-2">
-                <button
-                  onClick={() => onSelectAll(allSelected ? [] : files.map((f) => f.id))}
-                  className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${
-                    allSelected
-                      ? "bg-primary border-primary"
-                      : someSelected
-                      ? "bg-primary/40 border-primary/60"
-                      : "border-muted-foreground/40 hover:border-primary"
-                  }`}
-                >
-                  {(allSelected || someSelected) && <Check className="h-2.5 w-2.5 text-white" />}
-                </button>
-              </th>
-            )}
             <th className="w-16 px-2 py-2"></th>
             <th className="px-3 py-2 text-left">Filename</th>
             <th className="px-3 py-2 text-left">Status</th>
@@ -413,9 +310,6 @@ function FileListTable({
             <FileListRow
               key={f.id}
               file={f}
-              selectionMode={selectionMode}
-              isSelected={selectedIds.has(f.id)}
-              onToggle={() => onToggle(f.id)}
               onPlay={() => onPlay(f)}
             />
           ))}
@@ -470,18 +364,13 @@ function Breadcrumb({ library, path, onNavigate }: { library: Library; path: str
 // ─── Library browser ──────────────────────────────────────────────────────────
 
 function LibraryBrowser({
-  library, statusFilter, sortBy, sortDir, viewMode,
-  selectionMode, selectedIds, onToggle, onSelectAll, onPlay,
+  library, statusFilter, sortBy, sortDir, viewMode, onPlay,
 }: {
   library: Library;
   statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
-  selectionMode: boolean;
-  selectedIds: Set<number>;
-  onToggle: (id: number) => void;
-  onSelectAll: (ids: number[]) => void;
   onPlay: (f: VideoFile) => void;
 }) {
   const [path, setPath] = useState("");
@@ -524,11 +413,11 @@ function LibraryBrowser({
               {viewMode === "grid" ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                   {browse.files.map((f) => (
-                    <ThumbnailCard key={f.id} file={f} selectionMode={selectionMode} isSelected={selectedIds.has(f.id)} onToggle={() => onToggle(f.id)} onPlay={() => onPlay(f)} />
+                    <ThumbnailCard key={f.id} file={f} onPlay={() => onPlay(f)} />
                   ))}
                 </div>
               ) : (
-                <FileListTable files={browse.files} selectionMode={selectionMode} selectedIds={selectedIds} onToggle={onToggle} onSelectAll={onSelectAll} onPlay={onPlay} />
+                <FileListTable files={browse.files} onPlay={onPlay} />
               )}
             </>
           )}
@@ -541,17 +430,12 @@ function LibraryBrowser({
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
 function FlatView({
-  statusFilter, sortBy, sortDir, viewMode,
-  selectionMode, selectedIds, onToggle, onSelectAll, onPlay,
+  statusFilter, sortBy, sortDir, viewMode, onPlay,
 }: {
   statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
-  selectionMode: boolean;
-  selectedIds: Set<number>;
-  onToggle: (id: number) => void;
-  onSelectAll: (ids: number[]) => void;
   onPlay: (f: VideoFile) => void;
 }) {
   const [files, setFiles] = useState<VideoFile[]>([]);
@@ -588,11 +472,11 @@ function FlatView({
       {viewMode === "grid" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {files.map((f) => (
-            <ThumbnailCard key={f.id} file={f} selectionMode={selectionMode} isSelected={selectedIds.has(f.id)} onToggle={() => onToggle(f.id)} onPlay={() => onPlay(f)} />
+            <ThumbnailCard key={f.id} file={f} onPlay={() => onPlay(f)} />
           ))}
         </div>
       ) : (
-        <FileListTable files={files} selectionMode={selectionMode} selectedIds={selectedIds} onToggle={onToggle} onSelectAll={onSelectAll} onPlay={onPlay} />
+        <FileListTable files={files} onPlay={onPlay} />
       )}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
@@ -631,44 +515,7 @@ export function Files() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [batchTranscoding, setBatchTranscoding] = useState(false);
-
   useEffect(() => { api.getLibraries().then(setLibraries).catch(() => {}); }, []);
-
-  // Clear selection when view changes
-  useEffect(() => { setSelectedIds(new Set()); }, [selectedLibraryId, selectedStatus]);
-
-  const toggleSelectionMode = () => {
-    setSelectionMode((v) => {
-      if (v) setSelectedIds(new Set()); // clear on exit
-      return !v;
-    });
-  };
-
-  const toggleId = useCallback((id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }, []);
-
-  const selectAll = useCallback((ids: number[]) => {
-    setSelectedIds(ids.length === 0 ? new Set() : new Set(ids));
-  }, []);
-
-  const handleBatchTranscode = async (preset: string) => {
-    if (selectedIds.size === 0) return;
-    setBatchTranscoding(true);
-    try {
-      await Promise.all([...selectedIds].map((id) => api.transcodeFile(id, preset).catch(() => {})));
-      setSelectedIds(new Set());
-    } finally {
-      setBatchTranscoding(false);
-    }
-  };
 
   const selectedLibrary = libraries.find((l) => l.id === selectedLibraryId) ?? null;
 
@@ -711,20 +558,6 @@ export function Files() {
             {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
           </button>
 
-          {/* Transcode mode toggle */}
-          <button
-            onClick={toggleSelectionMode}
-            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-md border text-xs font-medium transition-colors ${
-              selectionMode
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-input text-muted-foreground hover:text-foreground hover:bg-accent"
-            }`}
-            title={selectionMode ? "Exit transcode selection" : "Select files to transcode"}
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-            Transcode
-          </button>
-
           <div className="flex items-center rounded-md border border-input overflow-hidden">
             <button
               onClick={() => setViewMode("grid")}
@@ -744,42 +577,6 @@ export function Files() {
         </div>
       </div>
 
-      {/* Batch action bar — only visible in selection mode */}
-      {selectionMode && (
-        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
-          <span className="text-sm font-medium text-primary">
-            {selectedIds.size === 0 ? "Click files to select" : `${selectedIds.size} file${selectedIds.size !== 1 ? "s" : ""} selected`}
-          </span>
-          <div className="flex items-center gap-2 ml-auto">
-            {selectedIds.size > 0 && (
-              <>
-                <span className="text-xs text-muted-foreground">Transcode as:</span>
-                {PRESETS.map((p) => (
-                  <Button
-                    key={p.value}
-                    size="sm"
-                    variant="outline"
-                    title={p.title}
-                    onClick={() => handleBatchTranscode(p.value)}
-                    disabled={batchTranscoding}
-                    className="h-7 px-3 text-xs"
-                  >
-                    {batchTranscoding ? <Loader2 className="h-3 w-3 animate-spin" /> : p.label}
-                  </Button>
-                ))}
-              </>
-            )}
-            <button
-              onClick={toggleSelectionMode}
-              className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
-              title="Exit selection mode"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {selectedLibrary ? (
         <LibraryBrowser
           library={selectedLibrary}
@@ -787,10 +584,6 @@ export function Files() {
           sortBy={sortBy}
           sortDir={sortDir}
           viewMode={viewMode}
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          onToggle={toggleId}
-          onSelectAll={selectAll}
           onPlay={setPlayingFile}
         />
       ) : (
@@ -799,10 +592,6 @@ export function Files() {
           sortBy={sortBy}
           sortDir={sortDir}
           viewMode={viewMode}
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          onToggle={toggleId}
-          onSelectAll={selectAll}
           onPlay={setPlayingFile}
         />
       )}

@@ -12,12 +12,11 @@ from app.models.video import VideoDetection
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import (
     LibraryCreate, LibraryRead, LibraryUpdate, StatsRead,
-    BrowseResponse, FileRead, TranscodeRequest, DuplicateCriteriaRequest,
+    BrowseResponse, FileRead, DuplicateCriteriaRequest,
     DuplicateGroupRead, DuplicateFileRead, DeleteDuplicatesRequest,
 )
 from app.services.scanner import scan_library, thumbnail_path
 from app.services.corruption import check_library_corruption
-from app.services.transcoder import transcode_library_corrupt
 from app.queue import enqueue
 from app.api.utils import active_job_exists
 
@@ -222,26 +221,6 @@ async def trigger_check(library_id: int, db: Session = Depends(get_db)):
     await enqueue(None, check_library_corruption, library_id)
     return {"message": "Corruption check queued"}
 
-
-
-@router.post("/{library_id}/transcode", status_code=202)
-async def trigger_transcode(library_id: int, body: TranscodeRequest, db: Session = Depends(get_db)):
-    lib = db.get(Library, library_id)
-    if not lib:
-        raise HTTPException(404, "Library not found")
-    if active_job_exists(db, library_id, JobType.TRANSCODE):
-        raise HTTPException(409, "A transcode job is already running for this library")
-    corrupt_count = db.query(func.count(File.id)).filter(
-        File.library_id == library_id, File.status == FileStatus.CORRUPT
-    ).scalar()
-    if corrupt_count == 0:
-        raise HTTPException(422, "No corrupt files to transcode in this library")
-    job = Job(type=JobType.TRANSCODE, status=JobStatus.PENDING, library_id=library_id, settings=body.preset)
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-    await enqueue(job.id, transcode_library_corrupt, library_id, body.preset, job.id)
-    return {"message": "Transcode queued"}
 
 
 _BROWSE_SORT_KEYS = {

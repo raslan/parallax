@@ -8,7 +8,7 @@ from sqlalchemy import func, asc, desc, nullslast
 from app.database import get_db
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobType
-from app.schemas import FilesResponse, FileRead, TranscodeRequest
+from app.schemas import FilesResponse, FileRead
 from app.services.scanner import thumbnail_path
 from app.api.utils import active_job_exists
 
@@ -177,23 +177,6 @@ async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
     await enqueue(None, check_file, file_id)
     return {"message": "Check queued"}
 
-
-@router.post("/{file_id}/transcode", status_code=202)
-async def transcode_file_endpoint(file_id: int, body: TranscodeRequest, db: Session = Depends(get_db)):
-    f = db.get(File, file_id)
-    if not f:
-        raise HTTPException(404, "File not found")
-    if f.status in (FileStatus.TRANSCODING, FileStatus.QUEUED):
-        raise HTTPException(409, "This file is already queued for transcoding")
-    job = Job(type=JobType.TRANSCODE, status=JobStatus.PENDING, library_id=f.library_id, settings=body.preset)
-    db.add(job)
-    f.status = FileStatus.QUEUED
-    db.commit()
-    db.refresh(job)
-    from app.services.transcoder import transcode_file
-    from app.queue import enqueue
-    await enqueue(job.id, transcode_file, file_id, body.preset, job.id)
-    return {"message": "Transcode queued"}
 
 
 @router.get("/{file_id}/stream")
