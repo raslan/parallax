@@ -216,6 +216,7 @@ interface DownloadOptions {
   downloadSubs: boolean;
   subLangs: string;
   extraArgs: string;
+  impersonate: string;  // empty = disabled
 }
 
 const VIDEO_QUALITIES = [
@@ -233,9 +234,11 @@ const AUDIO_CONTAINERS = ["mp3", "m4a", "opus"];
 function OptionsPanel({
   opts,
   onChange,
+  impersonateTargets,
 }: {
   opts: DownloadOptions;
   onChange: (updates: Partial<DownloadOptions>) => void;
+  impersonateTargets: string[];
 }) {
   const [showDirPicker, setShowDirPicker] = useState(false);
   const containers = opts.audioOnly ? AUDIO_CONTAINERS : VIDEO_CONTAINERS;
@@ -395,6 +398,36 @@ function OptionsPanel({
         )}
       </div>
 
+      {/* Impersonate */}
+      {impersonateTargets.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!opts.impersonate}
+                onChange={(e) => onChange({ impersonate: e.target.checked ? (impersonateTargets[0] ?? "") : "" })}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
+                Impersonate browser
+              </p>
+            </label>
+          </div>
+          {opts.impersonate && (
+            <select
+              value={opts.impersonate}
+              onChange={(e) => onChange({ impersonate: e.target.value })}
+              className="h-8 w-full rounded border border-border/40 bg-transparent px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {impersonateTargets.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
       {/* Extra args */}
       <div className="space-y-1.5">
         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
@@ -424,6 +457,7 @@ export function Downloads() {
   const [ytdlpBannerDismissed, setYtdlpBannerDismissed] = useState(false);
   const [ytdlpVersion, setYtdlpVersion] = useState<string | null>(null);
   const [ytdlpUpdating, setYtdlpUpdating] = useState(false);
+  const [impersonateTargets, setImpersonateTargets] = useState<string[]>([]);
   const [showOptions, setShowOptions] = useState(true);
   const [opts, setOpts] = useState<DownloadOptions>({
     audioOnly: false,
@@ -435,6 +469,7 @@ export function Downloads() {
     downloadSubs: false,
     subLangs: "en",
     extraArgs: "",
+    impersonate: "",
   });
 
   // Load default output dir from settings
@@ -449,6 +484,9 @@ export function Downloads() {
     api.ytdlpInfo().then((info) => {
       if (!info.installed) setYtdlpMissing(true);
       setYtdlpVersion(info.version ?? null);
+      if (info.installed) {
+        api.ytdlpImpersonateTargets().then((r) => setImpersonateTargets(r.targets)).catch(() => {});
+      }
     }).catch(() => {});
   }, []);
 
@@ -459,6 +497,9 @@ export function Downloads() {
       const info = await api.ytdlpInfo();
       setYtdlpVersion(info.version ?? null);
       setYtdlpMissing(!info.installed);
+      if (info.installed) {
+        api.ytdlpImpersonateTargets().then((r) => setImpersonateTargets(r.targets)).catch(() => {});
+      }
     } catch { /* ignore */ } finally {
       setYtdlpUpdating(false);
     }
@@ -515,6 +556,7 @@ export function Downloads() {
         download_subs: opts.downloadSubs,
         sub_langs: opts.downloadSubs ? opts.subLangs : undefined,
         extra_args: opts.extraArgs || undefined,
+        impersonate: opts.impersonate || null,
       };
       await api.enqueueDownloads(body);
       setUrlInput("");
@@ -643,6 +685,7 @@ export function Downloads() {
               <OptionsPanel
                 opts={opts}
                 onChange={(updates) => setOpts((o) => ({ ...o, ...updates }))}
+                impersonateTargets={impersonateTargets}
               />
             </div>
           )}

@@ -303,6 +303,7 @@ export const api = {
   // yt-dlp
   ytdlpInfo: () => req<{ installed: boolean; version: string | null; path: string | null }>("/downloads/ytdlp/info"),
   ytdlpUpdate: () => req<{ message: string }>("/downloads/ytdlp/update", { method: "POST" }),
+  ytdlpImpersonateTargets: () => req<{ targets: string[] }>("/downloads/ytdlp/impersonate-targets"),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
@@ -368,6 +369,7 @@ export interface DownloadRequest {
   download_subs?: boolean;
   sub_langs?: string;
   extra_args?: string;
+  impersonate?: string | null;
 }
 
 // ── Image library types ──────────────────────────────────────────────────────
