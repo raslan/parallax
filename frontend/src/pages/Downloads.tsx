@@ -3,7 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Download, X, Play, StopCircle, Trash2, ChevronDown, ChevronUp,
   Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock, Zap,
-  Folder, Music, Video, Subtitles, Settings2, Link,
+  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw,
 } from "lucide-react";
 import { api, DownloadItem, DownloadRequest } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -75,6 +75,7 @@ function DownloadCard({
   onRemove: (id: number) => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  const [errorExpanded, setErrorExpanded] = useState(false);
   const isActive = item.status === "pending" || item.status === "running";
   const canPlay = item.status === "completed" && item.output_path;
 
@@ -150,7 +151,17 @@ function DownloadCard({
 
         {/* Error */}
         {item.error && (
-          <p className="text-[11px] text-red-400 line-clamp-2">{item.error}</p>
+          <button
+            onClick={() => setErrorExpanded((v) => !v)}
+            className="text-left w-full"
+            title={errorExpanded ? "Click to collapse" : "Click to expand"}
+          >
+            {errorExpanded ? (
+              <pre className="text-[11px] text-red-400 whitespace-pre-wrap break-all font-mono leading-relaxed">{item.error}</pre>
+            ) : (
+              <p className="text-[11px] text-red-400 line-clamp-2 hover:line-clamp-none">{item.error.split("\n")[0]}</p>
+            )}
+          </button>
         )}
 
         {/* Output path for completed */}
@@ -411,6 +422,8 @@ export function Downloads() {
   const [playingItem, setPlayingItem] = useState<DownloadItem | null>(null);
   const [ytdlpMissing, setYtdlpMissing] = useState(false);
   const [ytdlpBannerDismissed, setYtdlpBannerDismissed] = useState(false);
+  const [ytdlpVersion, setYtdlpVersion] = useState<string | null>(null);
+  const [ytdlpUpdating, setYtdlpUpdating] = useState(false);
   const [showOptions, setShowOptions] = useState(true);
   const [opts, setOpts] = useState<DownloadOptions>({
     audioOnly: false,
@@ -431,12 +444,25 @@ export function Downloads() {
     }).catch(() => {});
   }, []);
 
-  // Check yt-dlp installed
+  // Check yt-dlp installed + get version
   useEffect(() => {
     api.ytdlpInfo().then((info) => {
       if (!info.installed) setYtdlpMissing(true);
+      setYtdlpVersion(info.version ?? null);
     }).catch(() => {});
   }, []);
+
+  const handleYtdlpUpdate = async () => {
+    setYtdlpUpdating(true);
+    try {
+      await api.ytdlpUpdate();
+      const info = await api.ytdlpInfo();
+      setYtdlpVersion(info.version ?? null);
+      setYtdlpMissing(!info.installed);
+    } catch { /* ignore */ } finally {
+      setYtdlpUpdating(false);
+    }
+  };
 
   // SSE connection for live updates
   useEffect(() => {
@@ -634,15 +660,31 @@ export function Downloads() {
               </Badge>
             )}
           </div>
-          {hasCompleted && (
+          <div className="flex items-center gap-3">
+            {ytdlpVersion && (
+              <span className="text-[10px] text-muted-foreground/40 font-mono">yt-dlp {ytdlpVersion}</span>
+            )}
             <button
-              onClick={handleClearCompleted}
-              className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
+              onClick={handleYtdlpUpdate}
+              disabled={ytdlpUpdating}
+              className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
+              title="Update yt-dlp to latest"
             >
-              <Trash2 className="h-3 w-3" />
-              Clear completed
+              {ytdlpUpdating
+                ? <Loader2 className="h-3 w-3 animate-spin" />
+                : <RefreshCw className="h-3 w-3" />}
+              Update
             </button>
-          )}
+            {hasCompleted && (
+              <button
+                onClick={handleClearCompleted}
+                className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
+              >
+                <Trash2 className="h-3 w-3" />
+                Clear completed
+              </button>
+            )}
+          </div>
         </div>
 
         <Card className="overflow-hidden border-border/50">
