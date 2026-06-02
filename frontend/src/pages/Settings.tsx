@@ -206,7 +206,7 @@ export function Settings() {
   const [saved, setSaved]                         = useState(false);
   const [dirty, setDirty]                         = useState(false);
 
-  const [downloadDir, setDownloadDir]               = useState("/downloads");
+  const [downloadDir, setDownloadDir]               = useState("/media/downloads");
   const [maxConcurrentDownloads, setMaxConcurrentDownloads] = useState(2);
   const [ytdlpChannel, setYtdlpChannel]             = useState<"stable" | "nightly">("stable");
   const [ytdlpInfo, setYtdlpInfo]                   = useState<{ installed: boolean; version: string | null; path: string | null } | null>(null);
@@ -226,7 +226,7 @@ export function Settings() {
         setOsUsername(s.opensubtitles_username ?? "");
         setOsPassword(s.opensubtitles_password ?? "");
         setSubtitleLangs((s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean));
-        setDownloadDir(s.download_dir ?? "/downloads");
+        setDownloadDir(s.download_dir ?? "/media/downloads");
         setMaxConcurrentDownloads(s.max_concurrent_downloads ?? 2);
         setYtdlpChannel((s.ytdlp_channel === "nightly" ? "nightly" : "stable") as "stable" | "nightly");
       })
