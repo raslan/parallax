@@ -233,6 +233,75 @@ def list_impersonate_targets() -> list[str]:
         return []
 
 
+def _safe_dirname(name: str) -> str:
+    """Sanitize a string for use as a filesystem directory name."""
+    import unicodedata
+    name = unicodedata.normalize("NFC", name)
+    for ch in r'\/:*?"<>|':
+        name = name.replace(ch, "_")
+    name = name.strip(". ")
+    return name[:100] or "playlist"
+
+
+def fetch_playlist_info(url: str) -> dict | None:
+    """Probe *url* to determine if it's a playlist.
+
+    Returns a dict with keys:
+      playlist_id: str
+      playlist_title: str
+      entries: list[{"url": str, "title": str | None, "index": int}]
+
+    Returns None if the URL is not a playlist, or on any error.
+    Blocking — wrap in asyncio.to_thread.
+    """
+    bin_path = _ytdlp_bin()
+    if not bin_path:
+        return None
+    try:
+        result = subprocess.run(
+            [bin_path, "--dump-single-json", "--flat-playlist", "--no-warnings", url],
+            capture_output=True, text=True, timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    except Exception:
+        return None
+
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+
+    try:
+        data = json.loads(result.stdout.strip())
+    except json.JSONDecodeError:
+        return None
+
+    if data.get("_type") != "playlist":
+        return None
+
+    entries_raw = data.get("entries") or []
+    entries = []
+    for i, entry in enumerate(entries_raw):
+        if not entry:
+            continue
+        video_url = entry.get("url") or entry.get("webpage_url")
+        if not video_url:
+            continue
+        entries.append({
+            "url": video_url,
+            "title": entry.get("title"),
+            "index": i + 1,
+        })
+
+    if not entries:
+        return None
+
+    return {
+        "playlist_id": data.get("id") or data.get("webpage_url") or url,
+        "playlist_title": data.get("title") or data.get("uploader") or "playlist",
+        "entries": entries,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Semaphore helper
 # ---------------------------------------------------------------------------
