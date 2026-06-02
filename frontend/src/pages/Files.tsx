@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Play } from "lucide-react";
+import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Play, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -364,13 +364,14 @@ function Breadcrumb({ library, path, onNavigate }: { library: Library; path: str
 // ─── Library browser ──────────────────────────────────────────────────────────
 
 function LibraryBrowser({
-  library, statusFilter, sortBy, sortDir, viewMode, onPlay,
+  library, statusFilter, sortBy, sortDir, viewMode, search, onPlay,
 }: {
   library: Library;
   statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  search: string;
   onPlay: (f: VideoFile) => void;
 }) {
   const [path, setPath] = useState("");
@@ -410,15 +411,20 @@ function LibraryBrowser({
           {browse.files.length > 0 && (
             <>
               {browse.dirs.length > 0 && <div className="border-t pt-4"><SectionHeader>Files in this folder</SectionHeader></div>}
-              {viewMode === "grid" ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {browse.files.map((f) => (
-                    <ThumbnailCard key={f.id} file={f} onPlay={() => onPlay(f)} />
-                  ))}
-                </div>
-              ) : (
-                <FileListTable files={browse.files} onPlay={onPlay} />
-              )}
+              {(() => {
+                const visibleFiles = search.trim()
+                  ? browse.files.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase()))
+                  : browse.files;
+                return viewMode === "grid" ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                    {visibleFiles.map((f) => (
+                      <ThumbnailCard key={f.id} file={f} onPlay={() => onPlay(f)} />
+                    ))}
+                  </div>
+                ) : (
+                  <FileListTable files={visibleFiles} onPlay={onPlay} />
+                );
+              })()}
             </>
           )}
         </>
@@ -430,12 +436,13 @@ function LibraryBrowser({
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
 function FlatView({
-  statusFilter, sortBy, sortDir, viewMode, onPlay,
+  statusFilter, sortBy, sortDir, viewMode, search, onPlay,
 }: {
   statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  search: string;
   onPlay: (f: VideoFile) => void;
 }) {
   const [files, setFiles] = useState<VideoFile[]>([]);
@@ -457,6 +464,10 @@ function FlatView({
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
+  const visibleFiles = search.trim()
+    ? files.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase()))
+    : files;
+
   if (files.length === 0) return (
     <Card className="border-dashed">
       <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -471,12 +482,12 @@ function FlatView({
     <>
       {viewMode === "grid" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {files.map((f) => (
+          {visibleFiles.map((f) => (
             <ThumbnailCard key={f.id} file={f} onPlay={() => onPlay(f)} />
           ))}
         </div>
       ) : (
-        <FileListTable files={files} onPlay={onPlay} />
+        <FileListTable files={visibleFiles} onPlay={onPlay} />
       )}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
@@ -513,6 +524,7 @@ export function Files() {
   const [sortBy, setSortBy] = useState("filename");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [search, setSearch] = useState("");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
   useEffect(() => { api.getLibraries().then(setLibraries).catch(() => {}); }, []);
@@ -545,6 +557,17 @@ export function Files() {
           <option value="">All statuses</option>
           {ALL_STATUSES.map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}
         </select>
+
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search files…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={`${selectCls} pl-7 w-44`}
+          />
+        </div>
 
         <div className="flex items-center gap-1 ml-auto">
           <select className={selectCls} value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
@@ -584,6 +607,7 @@ export function Files() {
           sortBy={sortBy}
           sortDir={sortDir}
           viewMode={viewMode}
+          search={search}
           onPlay={setPlayingFile}
         />
       ) : (
@@ -592,6 +616,7 @@ export function Files() {
           sortBy={sortBy}
           sortDir={sortDir}
           viewMode={viewMode}
+          search={search}
           onPlay={setPlayingFile}
         />
       )}

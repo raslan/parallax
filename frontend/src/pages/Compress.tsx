@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Minimize2, Zap, X, Loader2, ImageOff, Check, Play,
   CheckSquare, Square, TrendingDown, LayoutGrid, List,
-  ArrowUpDown, ArrowUp, ArrowDown,
+  ArrowUpDown, ArrowUp, ArrowDown, Search,
 } from "lucide-react";
 import { compressApi, CompressCodec, VideoFile, Library, api } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -313,6 +313,7 @@ export function Compress() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
+  const [search, setSearch] = useState("");
   const [jobId, setJobId] = useState<number | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [jobProgress, setJobProgress] = useState(0);
@@ -369,6 +370,12 @@ export function Compress() {
     () => files ? sortFiles(files, sortKey, sortDir, codec, crf, speed) : null,
     [files, sortKey, sortDir, codec, crf, speed]
   );
+  const filteredFiles = useMemo(
+    () => displayFiles
+      ? (search.trim() ? displayFiles.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase())) : displayFiles)
+      : null,
+    [displayFiles, search]
+  );
 
   const toggleFile = useCallback((id: number) => {
     setSelected((prev) => {
@@ -378,21 +385,20 @@ export function Compress() {
     });
   }, []);
 
-  const selectAll = () => displayFiles && setSelected(new Set(displayFiles.map((f) => f.id)));
+  const selectAll = () => filteredFiles && setSelected(new Set(filteredFiles.map((f) => f.id)));
   const selectNone = () => setSelected(new Set());
-  // Select files whose codec differs from the target — the useful candidates for re-encoding
   const selectCandidates = () =>
-    displayFiles && setSelected(new Set(
-      displayFiles.filter((f) => f.codec_name?.toLowerCase() !== codec).map((f) => f.id)
+    filteredFiles && setSelected(new Set(
+      filteredFiles.filter((f) => f.codec_name?.toLowerCase() !== codec).map((f) => f.id)
     ));
   const selectCorrupt = () =>
-    displayFiles && setSelected(new Set(
-      displayFiles.filter((f) => f.status === "corrupt").map((f) => f.id)
+    filteredFiles && setSelected(new Set(
+      filteredFiles.filter((f) => f.status === "corrupt").map((f) => f.id)
     ));
 
   const selectedFiles = useMemo(
-    () => (displayFiles ?? []).filter((f) => selected.has(f.id)),
-    [displayFiles, selected]
+    () => (filteredFiles ?? []).filter((f) => selected.has(f.id)),
+    [filteredFiles, selected]
   );
 
   // Selection stats
@@ -708,12 +714,22 @@ export function Compress() {
       {loadError && <p className="text-sm text-red-400">{loadError}</p>}
 
       {/* File list */}
-      {displayFiles && !loadingFiles && (
+      {filteredFiles && !loadingFiles && (
         <div className="space-y-3">
           {/* Toolbar */}
           <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search files…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 pl-7 pr-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring w-48"
+              />
+            </div>
             <span className="text-sm text-muted-foreground">
-              {displayFiles.length} file{displayFiles.length !== 1 ? "s" : ""}
+              {filteredFiles.length} file{filteredFiles.length !== 1 ? "s" : ""}
             </span>
             <button onClick={selectAll} className="text-xs text-muted-foreground/60 hover:text-foreground transition-colors underline underline-offset-2">
               All
@@ -767,13 +783,13 @@ export function Compress() {
             </Button>
           </div>
 
-          {displayFiles.length === 0 ? (
+          {filteredFiles.length === 0 ? (
             <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-              No files in this library
+              {search.trim() ? "No files match your search" : "No files in this library"}
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {displayFiles.map((f) => (
+              {filteredFiles.map((f) => (
                 <GridCard
                   key={f.id}
                   file={f}
@@ -799,7 +815,7 @@ export function Compress() {
                 <ColHeader label="Savings" sortKey="savings" current={sortKey} dir={sortDir} onSort={handleSort} className="w-14 justify-end shrink-0" />
                 <span className="w-6 shrink-0" />
               </div>
-              {displayFiles.map((f) => (
+              {filteredFiles.map((f) => (
                 <ListRow
                   key={f.id}
                   file={f}
