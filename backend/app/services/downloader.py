@@ -281,17 +281,26 @@ def _parse_output_path(line: str) -> Optional[str]:
 # Part-file cleanup
 # ---------------------------------------------------------------------------
 
-def _cleanup_part_files(output_dir: str, _title: str | None = None) -> None:
-    """Delete all yt-dlp temp files (.part, .ytdl) in the output directory."""
+def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
+    """Delete yt-dlp temp files (.part, .ytdl) belonging to this download."""
     if not output_dir or not os.path.isdir(output_dir):
         return
+    # Sanitize title: Linux yt-dlp only replaces / with _
+    prefix = title.replace("/", "_").replace("\x00", "").strip() if title else None
     try:
         for fname in os.listdir(output_dir):
-            if fname.endswith(".part") or fname.endswith(".ytdl"):
-                try:
-                    os.remove(os.path.join(output_dir, fname))
-                except OSError:
-                    pass
+            if not (fname.endswith(".part") or fname.endswith(".ytdl")):
+                continue
+            if prefix:
+                # yt-dlp filenames: "{title}.ext.part" or "{title} [ID].ext.part"
+                # Accept prefix followed by ".", " [", or " (" (format tags)
+                rest = fname[len(prefix):]
+                if not (rest.startswith(".") or rest.startswith(" [")):
+                    continue
+            try:
+                os.remove(os.path.join(output_dir, fname))
+            except OSError:
+                pass
     except OSError:
         pass
 
