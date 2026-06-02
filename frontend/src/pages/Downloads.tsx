@@ -736,10 +736,10 @@ export function Downloads() {
             </button>
           </div>
 
-          {/* Collapsed summary — mode + quality + codec */}
+          {/* Collapsed summary — mode + quality */}
           {!showOptions && (
-            <div className="px-4 py-3 space-y-2.5 border-t border-border/30">
-              {/* Mode row */}
+            <div className="px-4 py-3 space-y-2 border-t border-border/30">
+              {/* Mode */}
               <div className="grid grid-cols-2 gap-1.5">
                 {[
                   { id: false, label: "Video", Icon: Video },
@@ -749,7 +749,7 @@ export function Downloads() {
                     key={String(id)}
                     onClick={() => setOpts((o) => ({ ...o, audioOnly: id, codec: id ? "mp3" : "auto" }))}
                     className={cn(
-                      "flex items-center justify-center gap-2 px-3 py-2 rounded border text-sm font-medium transition-colors",
+                      "flex items-center justify-center gap-2 px-3 py-2.5 rounded border text-sm font-medium transition-colors",
                       opts.audioOnly === id
                         ? "border-primary/60 bg-primary/10 text-foreground"
                         : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
@@ -760,15 +760,15 @@ export function Downloads() {
                   </button>
                 ))}
               </div>
-              {/* Quality row — video only */}
+              {/* Quality — 2 rows × 3 cols */}
               {!opts.audioOnly && (
-                <div className="grid grid-cols-6 gap-1">
+                <div className="grid grid-cols-3 gap-1.5">
                   {VIDEO_QUALITIES.map((q) => (
                     <button
                       key={q.id}
                       onClick={() => setOpts((o) => ({ ...o, quality: q.id }))}
                       className={cn(
-                        "py-1.5 rounded border text-xs font-medium transition-colors",
+                        "py-2 rounded border text-sm font-medium transition-colors",
                         opts.quality === q.id
                           ? "border-primary/60 bg-primary/10 text-foreground"
                           : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
@@ -779,26 +779,6 @@ export function Downloads() {
                   ))}
                 </div>
               )}
-              {/* Codec row */}
-              <div className={cn("grid gap-1", opts.audioOnly ? "grid-cols-3" : "grid-cols-5")}>
-                {(opts.audioOnly ? ["mp3","m4a","opus"] : VIDEO_CODECS.map(c => c.id)).map((c) => {
-                  const label = opts.audioOnly ? c.toUpperCase() : (VIDEO_CODECS.find(v => v.id === c)?.label ?? c);
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setOpts((o) => ({ ...o, codec: c }))}
-                      className={cn(
-                        "py-1.5 rounded border text-xs font-medium transition-colors",
-                        opts.codec === c
-                          ? "border-primary/60 bg-primary/10 text-foreground"
-                          : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           )}
 
