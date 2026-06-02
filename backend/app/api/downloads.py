@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.models.download import Download, DownloadStatus
 from app.models.settings import get_setting
-from app.services.downloader import cancel_download, get_ytdlp_info, install_ytdlp, run_download
+from app.services.downloader import cancel_download, get_ytdlp_info, install_ytdlp, list_impersonate_targets, run_download
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
 
@@ -26,6 +26,7 @@ class DownloadRequest(BaseModel):
     download_subs: bool = False
     sub_langs: str = "en"
     extra_args: str = ""
+    impersonate: str | None = None
 
 
 def _serialize(d: Download) -> dict:
@@ -133,6 +134,12 @@ async def stream_downloads():
 @router.get("/ytdlp/info")
 def ytdlp_info():
     return get_ytdlp_info()
+
+
+@router.get("/ytdlp/impersonate-targets")
+async def ytdlp_impersonate_targets():
+    targets = await asyncio.to_thread(list_impersonate_targets)
+    return {"targets": targets}
 
 
 @router.post("/ytdlp/update")

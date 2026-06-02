@@ -110,6 +110,7 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     download_subs: bool = bool(options.get("download_subs", False))
     sub_langs: str = options.get("sub_langs") or "en"
     extra_args_str: str = options.get("extra_args") or ""
+    impersonate: Optional[str] = options.get("impersonate") or None
 
     cmd: list[str] = [_ytdlp_bin() or "yt-dlp"]
 
@@ -139,16 +140,45 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     if download_subs:
         cmd += ["--write-subs", "--write-auto-subs", "--sub-langs", sub_langs]
 
+    # Impersonation
+    if impersonate:
+        cmd += ["--impersonate", impersonate]
+
     # Extra user-supplied arguments
     if extra_args_str.strip():
         try:
             cmd += shlex.split(extra_args_str)
         except ValueError:
-            # If shlex fails, append as single token (best-effort)
             cmd.append(extra_args_str)
 
     cmd.append(url)
     return cmd
+
+
+def list_impersonate_targets() -> list[str]:
+    """Return available impersonate target names from the installed yt-dlp binary.
+
+    Blocking — callers must wrap in asyncio.to_thread if called from async context.
+    """
+    bin_path = _ytdlp_bin()
+    if not bin_path:
+        return []
+    try:
+        result = subprocess.run(
+            [bin_path, "--list-impersonate-targets"],
+            capture_output=True, text=True, timeout=15,
+        )
+        targets = []
+        for line in result.stdout.splitlines():
+            # Each line: "  chrome-131      curl_cffi"
+            stripped = line.strip()
+            if not stripped or stripped.startswith("Available") or stripped.startswith("Target") or set(stripped) <= {"-", "─"}:
+                continue
+            target = stripped.split()[0]
+            targets.append(target)
+        return targets
+    except Exception:
+        return []
 
 
 # ---------------------------------------------------------------------------
