@@ -60,7 +60,9 @@ def install_ytdlp() -> None:
     Blocking — callers must wrap in asyncio.to_thread if called from async context.
     """
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-U", "--break-system-packages", "yt-dlp[default,curl-cffi]"],
+        [sys.executable, "-m", "pip", "install", "-U",
+         "--no-user", "--break-system-packages",
+         "yt-dlp[default,curl-cffi]"],
         check=True,
         timeout=180,
     )
