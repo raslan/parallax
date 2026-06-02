@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.models.download import Download, DownloadStatus
 from app.models.settings import get_setting
-from app.services.downloader import cancel_download, get_ytdlp_info, install_ytdlp, list_impersonate_targets, run_download
+from app.services.downloader import (
+    cancel_download, fetch_playlist_info, get_ytdlp_info,
+    install_ytdlp, list_impersonate_targets, run_download,
+    _safe_dirname,
+)
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
 
@@ -47,6 +51,8 @@ def _serialize(d: Download) -> dict:
         "output_path": d.output_path,
         "output_dir": d.output_dir,
         "options": d.options,
+        "playlist_id": d.playlist_id,
+        "playlist_title": d.playlist_title,
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "started_at": d.started_at.isoformat() if d.started_at else None,
         "finished_at": d.finished_at.isoformat() if d.finished_at else None,
@@ -80,16 +86,39 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
     }
 
     created_ids: list[int] = []
+
     for url in req.urls:
-        download = Download(
-            url=url,
-            output_dir=output_dir,
-            status=DownloadStatus.PENDING,
-            options=json.dumps(options),
-        )
-        db.add(download)
-        db.flush()
-        created_ids.append(download.id)
+        playlist_info = await asyncio.to_thread(fetch_playlist_info, url)
+
+        if playlist_info:
+            safe_dir = _safe_dirname(playlist_info["playlist_title"])
+            playlist_output_dir = os.path.join(output_dir, safe_dir)
+            os.makedirs(playlist_output_dir, exist_ok=True)
+
+            for entry in playlist_info["entries"]:
+                download = Download(
+                    url=entry["url"],
+                    title=entry.get("title"),
+                    output_dir=playlist_output_dir,
+                    status=DownloadStatus.PENDING,
+                    options=json.dumps(options),
+                    playlist_id=playlist_info["playlist_id"],
+                    playlist_title=playlist_info["playlist_title"],
+                )
+                db.add(download)
+                db.flush()
+                created_ids.append(download.id)
+        else:
+            download = Download(
+                url=url,
+                output_dir=output_dir,
+                status=DownloadStatus.PENDING,
+                options=json.dumps(options),
+            )
+            db.add(download)
+            db.flush()
+            created_ids.append(download.id)
+
     db.commit()
 
     for download_id in created_ids:
