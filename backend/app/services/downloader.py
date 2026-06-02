@@ -278,6 +278,28 @@ def _parse_output_path(line: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
+# Part-file cleanup
+# ---------------------------------------------------------------------------
+
+def _cleanup_part_files(output_dir: str, started_at) -> None:
+    """Delete yt-dlp partial files (.part, .ytdl) created after the download started."""
+    if not output_dir or not os.path.isdir(output_dir):
+        return
+    try:
+        cutoff = started_at.timestamp() if started_at else 0
+        for fname in os.listdir(output_dir):
+            if fname.endswith((".part", ".ytdl")):
+                fpath = os.path.join(output_dir, fname)
+                try:
+                    if os.path.getmtime(fpath) >= cutoff:
+                        os.remove(fpath)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Blocking download worker (runs in thread)
 # ---------------------------------------------------------------------------
 
@@ -401,6 +423,8 @@ def _run_download_sync(download_id: int) -> None:
             _cancelled_ids.discard(download_id)
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
+            # Clean up partial files left by yt-dlp after cancellation
+            _cleanup_part_files(download.output_dir, download.started_at)
         else:
             tail = "\n".join(line for line in output_lines[-20:] if line.strip())
             download.status = DownloadStatus.FAILED
