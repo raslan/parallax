@@ -94,6 +94,94 @@ function DeleteLibraryDialog({ lib, onClose, onDeleted }: {
   );
 }
 
+function DeleteAllLibrariesDialog({ open, onClose, libraries, onDeleted }: {
+  open: boolean;
+  onClose: () => void;
+  libraries: Library[];
+  onDeleted: () => void;
+}) {
+  const navigate = useNavigate();
+  const [checking, setChecking] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!open || libraries.length === 0) { setTotalCount(0); setTotalBytes(0); return; }
+    setChecking(true);
+    Promise.all(libraries.map((l) => api.libraryLeftovers(l.id).catch(() => null)))
+      .then((results) => {
+        setTotalCount(results.reduce((s, r) => s + (r?.has_leftovers ? r.count : 0), 0));
+        setTotalBytes(results.reduce((s, r) => s + (r?.has_leftovers ? r.total_bytes : 0), 0));
+      })
+      .finally(() => setChecking(false));
+  }, [open, libraries]);
+
+  const doDeleteAll = async (deleteLeftovers: boolean) => {
+    setDeleting(true);
+    try {
+      await Promise.all(libraries.map((l) => api.deleteLibrary(l.id, deleteLeftovers).catch(() => {})));
+      onDeleted();
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const hasLeftovers = totalCount > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent onClose={onClose}>
+        <DialogHeader>
+          <DialogTitle>Delete all libraries</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <p className="text-sm text-muted-foreground">
+            Remove all <span className="font-medium text-foreground">{libraries.length}</span> libraries and their file records from Parallax. Files on disk are not touched.
+          </p>
+          {checking && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {!checking && hasLeftovers && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-1">
+              <p className="text-sm font-medium text-amber-400">
+                {totalCount} file{totalCount !== 1 ? "s" : ""} in <code className="font-mono text-xs">_originals/</code>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {(totalBytes / 1024 ** 3).toFixed(2)} GB of original backups found across libraries. What should happen to them?
+              </p>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {!checking && hasLeftovers ? (
+            <>
+              <Button variant="destructive" onClick={() => doDeleteAll(true)} disabled={deleting} className="w-full justify-start">
+                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete all libraries and originals
+              </Button>
+              <Button variant="outline" onClick={() => { onClose(); navigate("/originals"); }} className="w-full justify-start">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Review originals first
+              </Button>
+              <Button variant="outline" onClick={() => doDeleteAll(false)} disabled={deleting} className="w-full justify-start">
+                Keep originals on disk
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="destructive" onClick={() => doDeleteAll(false)} disabled={deleting || checking} className="w-full">
+                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete all libraries
+              </Button>
+              <Button variant="outline" onClick={onClose} className="w-full">Cancel</Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AddLibraryDialog({
   open,
   onOpenChange,
@@ -218,6 +306,7 @@ export function Libraries() {
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [deletingLib, setDeletingLib] = useState<Library | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [transcodePresetFor, setTranscodePresetFor] = useState<number | null>(null);
   const presetRef = useRef<HTMLDivElement>(null);
 
@@ -301,16 +390,30 @@ export function Libraries() {
             Manage the folders you want to scan and transcode.
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Library
-        </Button>
+        <div className="flex gap-2">
+          {libraries.length > 0 && (
+            <Button variant="outline" onClick={() => setDeleteAllOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete all
+            </Button>
+          )}
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Library
+          </Button>
+        </div>
       </div>
 
       <DeleteLibraryDialog
         lib={deletingLib}
         onClose={() => setDeletingLib(null)}
         onDeleted={(id) => setLibraries((prev) => prev.filter((l) => l.id !== id))}
+      />
+      <DeleteAllLibrariesDialog
+        open={deleteAllOpen}
+        onClose={() => setDeleteAllOpen(false)}
+        libraries={libraries}
+        onDeleted={() => { setLibraries([]); load(); }}
       />
       <AddLibraryDialog
         open={dialogOpen}
