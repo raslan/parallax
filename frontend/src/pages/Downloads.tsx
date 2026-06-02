@@ -144,13 +144,18 @@ function DownloadCard({
           <div className="space-y-0.5">
             <div className="h-1 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-primary transition-all duration-500"
-                style={{ width: `${item.progress}%` }}
+                className={cn(
+                  "h-full rounded-full bg-primary transition-all duration-500",
+                  item.status === "running" && item.progress === 0 && "animate-pulse w-full opacity-40"
+                )}
+                style={item.progress > 0 ? { width: `${item.progress}%` } : undefined}
               />
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                {item.progress > 0 ? `${Math.round(item.progress)}%` : "Waiting…"}
+                {item.progress > 0
+                  ? `${Math.round(item.progress)}%`
+                  : item.status === "running" ? "Processing…" : "Waiting…"}
               </span>
               {(item.speed || item.eta) && (
                 <span className="text-[10px] text-muted-foreground/50 font-mono">
