@@ -679,7 +679,6 @@ export function Settings() {
                   <span>1</span><span>5</span>
                 </div>
               </div>
-              <SaveButton />
             </CardContent>
           </Card>
 
@@ -740,6 +739,7 @@ export function Settings() {
               </Button>
             </CardContent>
           </Card>
+          <SaveButton />
         </div>
       )}
 
