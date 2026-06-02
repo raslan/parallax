@@ -284,28 +284,34 @@ def _parse_output_path(line: str) -> Optional[str]:
 def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
     """Delete yt-dlp temp files (.part, .ytdl) belonging to this download."""
     import unicodedata
+    print(f"[cleanup] output_dir={output_dir!r} title={title!r}", flush=True)
+    print(f"[cleanup] dir_exists={os.path.isdir(output_dir) if output_dir else False}", flush=True)
     if not output_dir or not os.path.isdir(output_dir):
         return
-    # Normalize + sanitize: NFC so Korean/Unicode length matches filesystem bytes
     if title:
         prefix = unicodedata.normalize("NFC", title).replace("/", "_").replace("\x00", "").strip()
     else:
         prefix = None
     try:
-        for fname in os.listdir(output_dir):
+        all_files = os.listdir(output_dir)
+        print(f"[cleanup] files_in_dir={all_files}", flush=True)
+        for fname in all_files:
             if not (fname.endswith(".part") or fname.endswith(".ytdl")):
                 continue
             if prefix:
                 norm_fname = unicodedata.normalize("NFC", fname)
                 rest = norm_fname[len(prefix):]
+                print(f"[cleanup] candidate={fname!r} rest={rest!r}", flush=True)
                 if not (rest.startswith(".") or rest.startswith(" [")):
+                    print(f"[cleanup] SKIP {fname!r} (no match)", flush=True)
                     continue
+            print(f"[cleanup] DELETE {fname!r}", flush=True)
             try:
                 os.remove(os.path.join(output_dir, fname))
-            except OSError:
-                pass
-    except OSError:
-        pass
+            except OSError as e:
+                print(f"[cleanup] ERROR deleting {fname!r}: {e}", flush=True)
+    except OSError as e:
+        print(f"[cleanup] listdir error: {e}", flush=True)
 
 
 # ---------------------------------------------------------------------------
