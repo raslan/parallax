@@ -10,7 +10,7 @@ services:
       - ./data:/app/data
       # Mount your media folders here, e.g.:
       # - /mnt/media:/media
-      - /home/raslan/Downloads:/media
+      - /home/raslan/Downloads/demo:/media
     user: "1000:1000"
     environment:
       - DATA_DIR=/app/data

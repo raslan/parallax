@@ -122,6 +122,7 @@ function FilterAccordion({
           type="checkbox"
           className="accent-primary h-4 w-4 shrink-0"
           checked={enabled}
+          data-testid={`filter-${label.toLowerCase().replace(/\s+/g, "-")}`}
           onChange={(e) => { e.stopPropagation(); onToggle(e.target.checked); }}
           onClick={(e) => e.stopPropagation()}
         />
@@ -789,6 +790,7 @@ export function Cleanup() {
                   onClick={() => setViewMode("list")}
                   className={`h-8 w-8 flex items-center justify-center transition-colors ${viewMode === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
                   title="List view"
+                  data-testid="view-list"
                 >
                   <List className="h-3.5 w-3.5" />
                 </button>
@@ -796,6 +798,7 @@ export function Cleanup() {
                   onClick={() => setViewMode("grid")}
                   className={`h-8 w-8 flex items-center justify-center transition-colors ${viewMode === "grid" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
                   title="Grid view"
+                  data-testid="view-grid"
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </button>
