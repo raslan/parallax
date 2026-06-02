@@ -182,7 +182,7 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     if trim_start or trim_end:
         start = trim_start or "0"
         end = trim_end or "inf"
-        cmd += ["--download-sections", f"*{start}-{end}", "--force-keyframes-at-cuts"]
+        cmd += ["--download-sections", f"*{start}-{end}"]
 
     # Subtitles
     if download_subs:
