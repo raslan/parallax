@@ -61,8 +61,8 @@ def get_ytdlp_info() -> dict:
 
 _YTDLP_BIN = os.path.join(DATA_DIR, "yt-dlp")  # stored in data volume, writable by container user
 _YTDLP_URLS = {
-    "stable":  "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
-    "nightly": "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp",
+    "stable":  "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux",
+    "nightly": "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_linux",
 }
 
 
