@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Download, X, Play, StopCircle, Trash2, ChevronDown, ChevronUp,
   Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock, Zap,
@@ -46,7 +47,14 @@ function YtdlpBanner({ onDismiss }: { onDismiss: () => void }) {
       <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
       <p className="text-sm text-amber-200/80 flex-1">
         <span className="font-semibold text-amber-300">yt-dlp is not installed.</span>{" "}
-        Go to <span className="font-mono text-amber-300">Settings → Downloads</span> to install it.
+        Go to{" "}
+        <RouterLink
+          to="/settings?tab=downloads"
+          className="underline underline-offset-2 font-medium hover:text-amber-300 transition-colors"
+        >
+          Settings → Downloads
+        </RouterLink>{" "}
+        to install it.
       </p>
       <button onClick={onDismiss} className="text-amber-400/60 hover:text-amber-400 transition-colors shrink-0">
         <X className="h-3.5 w-3.5" />
@@ -60,13 +68,11 @@ function YtdlpBanner({ onDismiss }: { onDismiss: () => void }) {
 function DownloadCard({
   item,
   onPlay,
-  onStop,
-  onDelete,
+  onRemove,
 }: {
   item: DownloadItem;
   onPlay: (item: DownloadItem) => void;
-  onStop: (id: number) => void;
-  onDelete: (id: number) => void;
+  onRemove: (id: number) => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const isActive = item.status === "pending" || item.status === "running";
@@ -168,7 +174,7 @@ function DownloadCard({
         )}
         {isActive && (
           <button
-            onClick={() => onStop(item.id)}
+            onClick={() => onRemove(item.id)}
             title="Stop"
             className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
           >
@@ -176,7 +182,7 @@ function DownloadCard({
           </button>
         )}
         <button
-          onClick={() => onDelete(item.id)}
+          onClick={() => onRemove(item.id)}
           title="Delete"
           className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
         >
@@ -418,8 +424,6 @@ export function Downloads() {
     extraArgs: "",
   });
 
-  const sseRef = useRef<EventSource | null>(null);
-
   // Load default output dir from settings
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -436,8 +440,13 @@ export function Downloads() {
 
   // SSE connection for live updates
   useEffect(() => {
-    const connect = () => {
-      const es = new EventSource(api.downloadsSseUrl());
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let es: EventSource | null = null;
+    let cancelled = false;
+
+    function connect() {
+      if (cancelled) return;
+      es = new EventSource(api.downloadsSseUrl());
       sseRef.current = es;
       es.onmessage = (e) => {
         try {
@@ -446,15 +455,19 @@ export function Downloads() {
         } catch {}
       };
       es.onerror = () => {
-        es.close();
-        // Reconnect after 3s on error
-        setTimeout(connect, 3000);
+        es?.close();
+        if (!cancelled) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
       };
-    };
+    }
+
     connect();
+
     return () => {
-      sseRef.current?.close();
-      sseRef.current = null;
+      cancelled = true;
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+      es?.close();
     };
   }, []);
 
@@ -487,12 +500,10 @@ export function Downloads() {
     }
   }, [urlInput, opts, submitting]);
 
-  const handleStop = useCallback(async (id: number) => {
-    try { await api.deleteDownload(id); } catch {}
-  }, []);
-
-  const handleDelete = useCallback(async (id: number) => {
-    try { await api.deleteDownload(id); } catch {}
+  // DELETE endpoint handles both cancellation (active) and removal (settled)
+  const handleRemove = useCallback(async (id: number) => {
+    await api.deleteDownload(id).catch(() => {});
+    setDownloads((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
   const handleClearCompleted = useCallback(async () => {
@@ -653,8 +664,7 @@ export function Downloads() {
                   key={item.id}
                   item={item}
                   onPlay={setPlayingItem}
-                  onStop={handleStop}
-                  onDelete={handleDelete}
+                  onRemove={handleRemove}
                 />
               ))}
             </div>
