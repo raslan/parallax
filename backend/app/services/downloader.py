@@ -300,7 +300,7 @@ def _run_download_sync(download_id: int) -> None:
         # Prefetch metadata (best-effort — don't fail if this errors)
         try:
             meta_result = subprocess.run(
-                [_ytdlp_bin() or "yt-dlp", "--dump-json", "--no-playlist", "--no-download", download.url],
+                [_ytdlp_bin() or "yt-dlp", "--dump-json", "--no-playlist", download.url],
                 capture_output=True, text=True, timeout=30
             )
             if meta_result.returncode == 0 and meta_result.stdout.strip():
