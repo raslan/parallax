@@ -462,12 +462,12 @@ function OptionsPanel({
         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
           Extra yt-dlp args
         </p>
-        <input
-          type="text"
+        <textarea
+          rows={3}
           placeholder="--no-playlist --write-thumbnail"
           value={opts.extraArgs}
           onChange={(e) => onChange({ extraArgs: e.target.value })}
-          className="w-full h-8 rounded border border-border/40 bg-transparent px-2 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20"
+          className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
         />
       </div>
     </div>
@@ -500,7 +500,7 @@ export function Downloads() {
     outputDir: "",
     downloadSubs: false,
     subLangs: "en",
-    extraArgs: "",
+    extraArgs: sessionStorage.getItem("dl_extra_args") ?? "",
     impersonate: sessionStorage.getItem("dl_impersonate") ?? "",
   });
 
@@ -514,6 +514,11 @@ export function Downloads() {
     if (opts.impersonate) sessionStorage.setItem("dl_impersonate", opts.impersonate);
     else sessionStorage.removeItem("dl_impersonate");
   }, [opts.impersonate]);
+
+  useEffect(() => {
+    if (opts.extraArgs) sessionStorage.setItem("dl_extra_args", opts.extraArgs);
+    else sessionStorage.removeItem("dl_extra_args");
+  }, [opts.extraArgs]);
 
   // Load default output dir from settings
   useEffect(() => {
