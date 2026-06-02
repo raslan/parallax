@@ -89,28 +89,68 @@ def install_ytdlp(channel: str = "stable") -> None:
 # ---------------------------------------------------------------------------
 
 
+_CODEC_VCODEC: dict[str, str] = {
+    "h264": "avc",
+    "hevc": "hev",   # matches hev1, hevc; hvc1 handled via fallback
+    "av1":  "av01",
+    "vp9":  "vp9",
+}
+_CODEC_CONTAINER: dict[str, str] = {
+    "h264": "mp4",
+    "hevc": "mp4",
+    "av1":  "webm",
+    "vp9":  "webm",
+    "auto": "mkv",
+}
+_AUDIO_CONTAINERS = {"mp3", "m4a", "opus", "flac", "wav"}
+
+
+def _format_selector(quality: str, codec: str) -> tuple[str, str]:
+    """Return (format_string, merge_container) for a quality+codec combination."""
+    h = f"[height<={quality}]" if quality != "best" else ""
+    vc = _CODEC_VCODEC.get(codec, "")
+    container = _CODEC_CONTAINER.get(codec, "mkv")
+
+    if not vc:  # auto
+        fmt = f"bestvideo{h}+bestaudio/best{h}"
+    elif codec == "hevc":
+        # HEVC streams tagged as hev1/hevc or hvc1 — try both
+        fmt = (
+            f"bestvideo{h}[vcodec*={vc}]+bestaudio"
+            f"/bestvideo{h}[vcodec*=hvc]+bestaudio"
+            f"/best{h}"
+        )
+    else:
+        fmt = f"bestvideo{h}[vcodec*={vc}]+bestaudio/best{h}"
+
+    return fmt, container
+
+
 def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     """Build yt-dlp command list from options dict.
 
     options keys (all optional):
       audio_only: bool
       quality: "best"|"2160"|"1440"|"1080"|"720"|"480"|"360"
-      container: "mp4"|"mkv"|"webm" (video) or "mp3"|"m4a"|"opus" (audio)
+      codec: "auto"|"h264"|"hevc"|"av1"|"vp9" (video) or audio container for audio_only
       trim_start: "00:01:30"
       trim_end: "00:05:00"
       download_subs: bool
       sub_langs: "en,fr"
-      extra_args: str — raw extra args
+      extra_args: str
+      impersonate: str
+      cookies_file: str — path to temp cookies file (caller manages lifecycle)
     """
     audio_only: bool = bool(options.get("audio_only", False))
     quality: str = options.get("quality", "best") or "best"
-    container: str = options.get("container", "mp4") or "mp4"
+    codec: str = options.get("codec", "auto") or "auto"
     trim_start: Optional[str] = options.get("trim_start") or None
     trim_end: Optional[str] = options.get("trim_end") or None
     download_subs: bool = bool(options.get("download_subs", False))
     sub_langs: str = options.get("sub_langs") or "en"
     extra_args_str: str = options.get("extra_args") or ""
     impersonate: Optional[str] = options.get("impersonate") or None
+    cookies_file: Optional[str] = options.get("cookies_file") or None
 
     cmd: list[str] = [_ytdlp_bin() or "yt-dlp"]
 
@@ -122,13 +162,12 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
 
     # Format / quality selection
     if audio_only:
-        cmd += ["-x", "--audio-format", container]
+        # codec field reused as audio container when audio_only=True
+        audio_fmt = codec if codec in _AUDIO_CONTAINERS else "mp3"
+        cmd += ["-x", "--audio-format", audio_fmt]
     else:
-        if quality == "best":
-            cmd += ["-f", "bestvideo+bestaudio/best"]
-        else:
-            cmd += ["-f", f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"]
-        cmd += ["--merge-output-format", container]
+        fmt, container = _format_selector(quality, codec)
+        cmd += ["-f", fmt, "--merge-output-format", container]
 
     # Trim / sections
     if trim_start or trim_end:
@@ -139,6 +178,10 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     # Subtitles
     if download_subs:
         cmd += ["--write-subs", "--write-auto-subs", "--sub-langs", sub_langs]
+
+    # Cookies
+    if cookies_file and os.path.isfile(cookies_file):
+        cmd += ["--cookies", cookies_file]
 
     # Impersonation
     if impersonate:
@@ -237,6 +280,7 @@ def _parse_output_path(line: str) -> Optional[str]:
 def _run_download_sync(download_id: int) -> None:
     """Blocking download worker. Intended to be called via asyncio.to_thread."""
     download: Optional["Download"] = None
+    cookies_tmp: Optional[str] = None
     db = SessionLocal()
     try:
         download = db.get(Download, download_id)
@@ -265,8 +309,20 @@ def _run_download_sync(download_id: int) -> None:
         except Exception:
             pass  # metadata prefetch failure is non-fatal
 
-        # Build command
+        # Build command — write cookies to temp file if provided
         options = json.loads(download.options or "{}")
+        raw_cookies: str = options.pop("cookies", "") or ""
+        if raw_cookies.strip():
+            import tempfile
+            fd, cookies_tmp = tempfile.mkstemp(prefix="parallax_cookies_", suffix=".txt")
+            try:
+                with os.fdopen(fd, "w") as f:
+                    f.write(raw_cookies)
+            except Exception:
+                cookies_tmp = None
+            else:
+                options["cookies_file"] = cookies_tmp
+
         try:
             cmd = build_ytdlp_cmd(download.url, download.output_dir, options)
         except Exception as exc:
@@ -359,6 +415,11 @@ def _run_download_sync(download_id: int) -> None:
                 pass
     finally:
         db.close()
+        if cookies_tmp and os.path.exists(cookies_tmp):
+            try:
+                os.remove(cookies_tmp)
+            except OSError:
+                pass
 
 
 # ---------------------------------------------------------------------------

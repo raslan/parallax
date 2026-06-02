@@ -20,13 +20,14 @@ class DownloadRequest(BaseModel):
     output_dir: str | None = None
     audio_only: bool = False
     quality: str = "best"
-    container: str = "mp4"
+    codec: str = "auto"          # video: auto/h264/hevc/av1/vp9; audio: mp3/m4a/opus
     trim_start: str | None = None
     trim_end: str | None = None
     download_subs: bool = False
     sub_langs: str = "en"
     extra_args: str = ""
     impersonate: str | None = None
+    cookies: str = ""            # Netscape cookie text, ephemeral
 
 
 def _serialize(d: Download) -> dict:
@@ -67,12 +68,14 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
     options = {
         "audio_only": req.audio_only,
         "quality": req.quality,
-        "container": req.container,
+        "codec": req.codec,
         "trim_start": req.trim_start,
         "trim_end": req.trim_end,
         "download_subs": req.download_subs,
         "sub_langs": req.sub_langs,
         "extra_args": req.extra_args,
+        "impersonate": req.impersonate,
+        "cookies": req.cookies,
     }
 
     created_ids: list[int] = []

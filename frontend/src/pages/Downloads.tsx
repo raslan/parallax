@@ -209,14 +209,14 @@ function DownloadCard({
 interface DownloadOptions {
   audioOnly: boolean;
   quality: string;
-  container: string;
+  codec: string;       // video: auto/h264/hevc/av1/vp9  audio: mp3/m4a/opus
   trimStart: string;
   trimEnd: string;
   outputDir: string;
   downloadSubs: boolean;
   subLangs: string;
   extraArgs: string;
-  impersonate: string;  // empty = disabled
+  impersonate: string;
 }
 
 const VIDEO_QUALITIES = [
@@ -228,8 +228,15 @@ const VIDEO_QUALITIES = [
   { id: "360",   label: "360p" },
 ];
 
-const VIDEO_CONTAINERS = ["mp4", "mkv", "webm"];
-const AUDIO_CONTAINERS = ["mp3", "m4a", "opus"];
+const VIDEO_CODECS = [
+  { id: "auto",  label: "Auto" },
+  { id: "h264",  label: "H.264" },
+  { id: "hevc",  label: "H.265" },
+  { id: "av1",   label: "AV1" },
+  { id: "vp9",   label: "VP9" },
+];
+
+const AUDIO_CODECS = ["mp3", "m4a", "opus"];
 
 function OptionsPanel({
   opts,
@@ -241,13 +248,11 @@ function OptionsPanel({
   impersonateTargets: string[];
 }) {
   const [showDirPicker, setShowDirPicker] = useState(false);
-  const containers = opts.audioOnly ? AUDIO_CONTAINERS : VIDEO_CONTAINERS;
 
-  // Reset container when switching mode if current container is invalid
   const handleModeToggle = (audioOnly: boolean) => {
-    const validContainers = audioOnly ? AUDIO_CONTAINERS : VIDEO_CONTAINERS;
-    const container = validContainers.includes(opts.container) ? opts.container : validContainers[0];
-    onChange({ audioOnly, container });
+    // Reset codec to sensible default when switching modes
+    const codec = audioOnly ? "mp3" : "auto";
+    onChange({ audioOnly, codec });
   };
 
   return (
@@ -300,24 +305,29 @@ function OptionsPanel({
         </div>
       )}
 
-      {/* Container */}
+      {/* Codec */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Container</p>
-        <div className="flex gap-1">
-          {containers.map((c) => (
-            <button
-              key={c}
-              onClick={() => onChange({ container: c })}
-              className={cn(
-                "flex-1 px-2 py-1.5 rounded border text-xs font-mono font-medium transition-colors",
-                opts.container === c
-                  ? "border-primary/60 bg-primary/10 text-foreground"
-                  : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
-              )}
-            >
-              {c}
-            </button>
-          ))}
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          {opts.audioOnly ? "Format" : "Codec"}
+        </p>
+        <div className="flex gap-1 flex-wrap">
+          {(opts.audioOnly ? AUDIO_CODECS : VIDEO_CODECS.map((c) => c.id)).map((c) => {
+            const label = opts.audioOnly ? c.toUpperCase() : (VIDEO_CODECS.find((v) => v.id === c)?.label ?? c);
+            return (
+              <button
+                key={c}
+                onClick={() => onChange({ codec: c })}
+                className={cn(
+                  "px-2.5 py-1.5 rounded border text-xs font-medium transition-colors",
+                  opts.codec === c
+                    ? "border-primary/60 bg-primary/10 text-foreground"
+                    : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -458,11 +468,14 @@ export function Downloads() {
   const [ytdlpVersion, setYtdlpVersion] = useState<string | null>(null);
   const [ytdlpUpdating, setYtdlpUpdating] = useState(false);
   const [impersonateTargets, setImpersonateTargets] = useState<string[]>([]);
+  const [activeCookies, setActiveCookies] = useState("");
+  const [showCookiesModal, setShowCookiesModal] = useState(false);
+  const [cookiesDraft, setCookiesDraft] = useState("");
   const [showOptions, setShowOptions] = useState(true);
   const [opts, setOpts] = useState<DownloadOptions>({
     audioOnly: false,
     quality: "best",
-    container: "mp4",
+    codec: "auto",
     trimStart: "",
     trimEnd: "",
     outputDir: "",
@@ -550,13 +563,14 @@ export function Downloads() {
         output_dir: opts.outputDir || undefined,
         audio_only: opts.audioOnly,
         quality: opts.quality,
-        container: opts.container,
+        codec: opts.codec,
         trim_start: opts.trimStart || null,
         trim_end: opts.trimEnd || null,
         download_subs: opts.downloadSubs,
         sub_langs: opts.downloadSubs ? opts.subLangs : undefined,
         extra_args: opts.extraArgs || undefined,
         impersonate: opts.impersonate || null,
+        cookies: activeCookies || undefined,
       };
       await api.enqueueDownloads(body);
       setUrlInput("");
@@ -668,20 +682,71 @@ export function Downloads() {
 
         {/* Right: Options panel */}
         <Card className="overflow-hidden border-border/50">
-          <button
-            onClick={() => setShowOptions((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
-          >
-            <span className="flex items-center gap-2">
+          {/* Header row — always visible */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
+            <button
+              onClick={() => setShowOptions((v) => !v)}
+              className="flex items-center gap-2 text-sm font-medium hover:text-foreground transition-colors"
+            >
               <Settings2 className="h-3.5 w-3.5 text-muted-foreground/60" />
               Options
-            </span>
-            {showOptions
-              ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/60" />
-              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60" />}
-          </button>
+              {showOptions
+                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/60" />
+                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60" />}
+            </button>
+            {/* Cookies button */}
+            <button
+              onClick={() => { setCookiesDraft(activeCookies); setShowCookiesModal(true); }}
+              className={cn(
+                "relative flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors",
+                activeCookies
+                  ? "border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                  : "border-border/50 text-muted-foreground/60 hover:text-foreground hover:border-border"
+              )}
+            >
+              🍪 Cookies
+              {activeCookies && (
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">1</span>
+              )}
+            </button>
+          </div>
+
+          {/* Collapsed summary — mode + quality */}
+          {!showOptions && (
+            <div className="px-4 py-2.5 flex items-center gap-3 text-xs text-muted-foreground">
+              <button
+                onClick={() => setOpts((o) => ({ ...o, audioOnly: !o.audioOnly, codec: o.audioOnly ? "auto" : "mp3" }))}
+                className={cn("flex items-center gap-1 px-2 py-1 rounded border transition-colors",
+                  opts.audioOnly
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border/50 hover:border-border"
+                )}
+              >
+                {opts.audioOnly ? <Music className="h-3 w-3" /> : <Video className="h-3 w-3" />}
+                {opts.audioOnly ? "Audio" : "Video"}
+              </button>
+              {!opts.audioOnly && (
+                <div className="flex gap-1">
+                  {VIDEO_QUALITIES.map((q) => (
+                    <button
+                      key={q.id}
+                      onClick={() => setOpts((o) => ({ ...o, quality: q.id }))}
+                      className={cn("px-1.5 py-0.5 rounded text-[10px] border transition-colors",
+                        opts.quality === q.id
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "border-border/40 text-muted-foreground/50 hover:border-border hover:text-foreground"
+                      )}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {showOptions && (
-            <div className="px-4 pb-4 pt-1 border-t border-border/40">
+            <div className="px-4 pb-4 pt-3">
               <OptionsPanel
                 opts={opts}
                 onChange={(updates) => setOpts((o) => ({ ...o, ...updates }))}
@@ -691,6 +756,49 @@ export function Downloads() {
           )}
         </Card>
       </div>
+
+      {/* Cookies modal */}
+      {showCookiesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowCookiesModal(false)}>
+          <div className="bg-card border border-border rounded-lg shadow-xl p-5 w-full max-w-lg mx-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Paste cookies</h3>
+              <button onClick={() => setShowCookiesModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Paste cookies in Netscape format (exported via a browser extension like "Get cookies.txt"). Active for this session only — navigating away clears them.
+            </p>
+            <textarea
+              value={cookiesDraft}
+              onChange={(e) => setCookiesDraft(e.target.value)}
+              placeholder={"# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t..."}
+              rows={8}
+              className="w-full rounded border border-input bg-muted/30 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/30"
+            />
+            <div className="flex gap-2 justify-end">
+              {activeCookies && (
+                <button
+                  onClick={() => { setActiveCookies(""); setCookiesDraft(""); setShowCookiesModal(false); }}
+                  className="px-3 py-1.5 text-xs text-destructive border border-destructive/30 rounded hover:bg-destructive/10 transition-colors"
+                >
+                  Clear cookies
+                </button>
+              )}
+              <button onClick={() => setShowCookiesModal(false)} className="px-3 py-1.5 text-xs border border-border rounded hover:bg-accent transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={() => { setActiveCookies(cookiesDraft.trim()); setShowCookiesModal(false); }}
+                className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Queue */}
       <div className="space-y-3">
