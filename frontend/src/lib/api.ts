@@ -354,6 +354,7 @@ export interface DownloadItem {
   output_path: string | null;
   output_dir: string;
   options: string | null;
+  source_url: string | null;
   playlist_id: string | null;
   playlist_title: string | null;
   created_at: string | null;

@@ -563,6 +563,7 @@ export function Downloads() {
   const [activeCookies, setActiveCookies] = useState(() => sessionStorage.getItem("dl_cookies") ?? "");
   const [showCookiesModal, setShowCookiesModal] = useState(false);
   const [cookiesDraft, setCookiesDraft] = useState("");
+  const [dupeUrls, setDupeUrls] = useState<string[]>([]);
   const [showOptions, setShowOptions] = useState(true);
   const [opts, setOpts] = useState<DownloadOptions>({
     audioOnly: false,
@@ -660,9 +661,7 @@ export function Downloads() {
 
   const urlCount = urlInput.split("\n").filter((l) => l.trim()).length;
 
-  const handleSubmit = useCallback(async () => {
-    const urls = urlInput.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (!urls.length || submitting) return;
+  const doSubmit = useCallback(async (urls: string[]) => {
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -687,7 +686,31 @@ export function Downloads() {
     } finally {
       setSubmitting(false);
     }
-  }, [urlInput, opts, submitting]);
+  }, [opts, activeCookies]);
+
+  const handleSubmit = useCallback(() => {
+    const urls = urlInput.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!urls.length || submitting) return;
+    const existingSourceUrls = new Set(
+      downloads.map((d) => d.source_url).filter(Boolean)
+    );
+    const dupes = urls.filter((u) => existingSourceUrls.has(u));
+    if (dupes.length > 0) {
+      setDupeUrls(dupes);
+      return;
+    }
+    doSubmit(urls);
+  }, [urlInput, submitting, downloads, doSubmit]);
+
+  const handleDupeConfirm = useCallback(() => {
+    const urls = urlInput.split("\n").map((l) => l.trim()).filter(Boolean);
+    setDupeUrls([]);
+    doSubmit(urls);
+  }, [urlInput, doSubmit]);
+
+  const handleDupeCancel = useCallback(() => {
+    setDupeUrls([]);
+  }, []);
 
   const handleClear = useCallback(async (id: number) => {
     await api.deleteDownload(id).catch(() => {});
@@ -920,6 +943,44 @@ export function Downloads() {
                 className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
               >
                 Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate URL confirmation dialog */}
+      {dupeUrls.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-background border border-border rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Already in queue</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {dupeUrls.length === 1
+                    ? "This URL was already submitted:"
+                    : `${dupeUrls.length} URLs were already submitted:`}
+                </p>
+              </div>
+            </div>
+            <ul className="space-y-1 max-h-40 overflow-y-auto">
+              {dupeUrls.map((u) => (
+                <li key={u} className="text-xs font-mono text-muted-foreground/70 truncate px-1">{u}</li>
+              ))}
+            </ul>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={handleDupeCancel}
+                className="px-3 py-1.5 text-xs border border-border rounded hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDupeConfirm}
+                className="px-3 py-1.5 text-xs bg-amber-500 text-black font-medium rounded hover:bg-amber-400 transition-colors"
+              >
+                Download anyway
               </button>
             </div>
           </div>
