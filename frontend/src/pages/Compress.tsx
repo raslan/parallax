@@ -718,16 +718,6 @@ export function Compress() {
         <div className="space-y-3">
           {/* Toolbar */}
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search files…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-7 pr-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring w-48"
-              />
-            </div>
             <span className="text-sm text-muted-foreground">
               {filteredFiles.length} file{filteredFiles.length !== 1 ? "s" : ""}
             </span>
@@ -743,6 +733,16 @@ export function Compress() {
             <button onClick={selectCorrupt} className="text-xs text-destructive/70 hover:text-destructive transition-colors underline underline-offset-2" title="Select all corrupt files">
               Corrupt
             </button>
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search files…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 pl-7 pr-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring w-48"
+              />
+            </div>
             <div className="flex-1" />
 
             {selected.size > 0 && (
