@@ -256,9 +256,7 @@ def _run_download_sync(download_id: int) -> None:
             )
         except FileNotFoundError:
             download.status = DownloadStatus.FAILED
-            download.error = (
-                "yt-dlp is not installed. Go to Settings → Downloader and click Install."
-            )
+            download.error = "yt-dlp not found. Go to Settings → Downloads and click Install."
             download.finished_at = now()
             db.commit()
             return
@@ -268,12 +266,14 @@ def _run_download_sync(download_id: int) -> None:
 
         last_pct: float = -1.0
         output_path: Optional[str] = None
+        output_lines: list[str] = []
 
         try:
             if proc.stdout is None:
                 raise RuntimeError("subprocess stdout is None")
             for line in iter(proc.stdout.readline, ""):
                 line = line.rstrip("\n")
+                output_lines.append(line)
 
                 # Try to extract output path
                 detected_path = _parse_output_path(line)
@@ -299,6 +299,7 @@ def _run_download_sync(download_id: int) -> None:
                 _active_procs.pop(download_id, None)
 
         # Determine final status
+        ytdlp_version = get_ytdlp_info().get("version") or "unknown"
         if proc.returncode == 0:
             download.status = DownloadStatus.COMPLETED
             download.progress = 100.0
@@ -310,8 +311,9 @@ def _run_download_sync(download_id: int) -> None:
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
         else:
+            tail = "\n".join(line for line in output_lines[-20:] if line.strip())
             download.status = DownloadStatus.FAILED
-            download.error = f"yt-dlp exited with code {proc.returncode}"
+            download.error = f"[yt-dlp {ytdlp_version}] exited with code {proc.returncode}\n\n{tail}"
             download.finished_at = now()
 
         db.commit()
