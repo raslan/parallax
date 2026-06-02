@@ -363,13 +363,14 @@ export interface DownloadRequest {
   output_dir?: string;
   audio_only?: boolean;
   quality?: string;
-  container?: string;
+  codec?: string;
   trim_start?: string | null;
   trim_end?: string | null;
   download_subs?: boolean;
   sub_langs?: string;
   extra_args?: string;
   impersonate?: string | null;
+  cookies?: string;
 }
 
 // ── Image library types ──────────────────────────────────────────────────────
