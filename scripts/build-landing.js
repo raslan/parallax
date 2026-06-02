@@ -105,11 +105,10 @@ function buildGroupSection(group, idx) {
   const icon = GROUP_ICONS[group.title] || "";
   const sectionId = `feat-${group.title.toLowerCase()}`;
 
-  const labelHtml = `<div class="section-label">${escapeHtml(group.title)}</div>`;
-  const iconHtml = icon ? `<div class="feat-icon">${icon}</div>` : "";
+  const labelHtml = `<div class="section-label">${icon ? `<span class="feat-icon">${icon}</span>` : ""}${escapeHtml(group.title)}</div>`;
   const headingHtml = `<h2 class="section-heading">${escapeHtml(heading)}</h2>`;
   const subHtml = `<p class="section-sub">${escapeHtml(sub)}</p>`;
-  const metaHtml = `<div class="feat-meta reveal">${iconHtml}${labelHtml}${headingHtml}${subHtml}</div>`;
+  const metaHtml = `<div class="feat-meta reveal">${labelHtml}${headingHtml}${subHtml}</div>`;
 
   let inner = "";
 
@@ -137,7 +136,7 @@ function buildGroupSection(group, idx) {
       .join("");
     inner = `
     <div class="feat-centered-header reveal">
-      ${iconHtml}${labelHtml}${headingHtml}
+      ${labelHtml}${headingHtml}
       <p class="section-sub">${escapeHtml(sub)}</p>
     </div>
     <div class="feat-tiles">${cardsHtml}</div>`;
@@ -152,19 +151,9 @@ function buildGroupSection(group, idx) {
       )
       .join("");
     inner = `
-    <div class="feat-panel reveal">
-      <div class="panel-dots" aria-hidden="true">
-        <div class="panel-dot" style="top:10%;left:88%;--dur:15s;--dx:-22px;--dy:28px"></div>
-        <div class="panel-dot" style="top:78%;left:6%;--dur:20s;--dx:28px;--dy:-18px"></div>
-        <div class="panel-dot" style="top:42%;left:70%;--dur:11s;--dx:-18px;--dy:14px"></div>
-        <div class="panel-dot" style="top:90%;left:82%;--dur:17s;--dx:-12px;--dy:-22px"></div>
-        <div class="panel-dot" style="top:20%;left:22%;--dur:24s;--dx:18px;--dy:32px"></div>
-        <div class="panel-dot" style="top:58%;left:48%;--dur:13s;--dx:14px;--dy:-12px"></div>
-      </div>
-      <div class="feat-split">
-        <div class="feat-meta">${iconHtml}${labelHtml}${headingHtml}${subHtml}</div>
-        <div class="feat-ai-rows">${listHtml}</div>
-      </div>
+    <div class="feat-split reveal">
+      <div class="feat-meta">${labelHtml}${headingHtml}${subHtml}</div>
+      <div class="feat-ai-rows">${listHtml}</div>
     </div>`;
   } else if (style === "compact") {
     const rowsHtml = group.items
@@ -274,9 +263,8 @@ const html = `<!DOCTYPE html>
       --accent:   #8b5cf6;
       --acc-hi:   #c4b5fd;
       --acc-lo:   rgba(139,92,246,0.06);
-      /* per-section accent — fallback to global violet */
-      --sec:      var(--accent);
-      --sec-hi:   var(--acc-hi);
+      --sec:    #7c3aed;
+      --sec-hi: #a78bfa;
       --serif:    "Playfair Display", Georgia, "Times New Roman", serif;
       --sans:     "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --mono:     "JetBrains Mono", "Fira Code", "SF Mono", monospace;
@@ -284,11 +272,7 @@ const html = `<!DOCTYPE html>
     }
 
     body {
-      background:
-        radial-gradient(ellipse at 8% 12%,  rgba(124, 58,237,0.09) 0%, transparent 38%),
-        radial-gradient(ellipse at 92% 85%, rgba(  8,145,178,0.05) 0%, transparent 32%),
-        radial-gradient(ellipse at 60% 55%, rgba(217,119,  6,0.03) 0%, transparent 28%),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: var(--sans);
       font-size: 16px;
@@ -388,19 +372,7 @@ const html = `<!DOCTYPE html>
     }
 
     .hero-left { position: relative; z-index: 2; }
-    .hero-right {
-      position: relative; z-index: 2;
-    }
-    .hero-right::before {
-      content: "";
-      position: absolute; top: 10%; right: -20%;
-      width: 400px; height: 400px;
-      background: radial-gradient(ellipse, rgba(8,145,178,0.08) 0%, transparent 65%);
-      pointer-events: none; z-index: 0;
-      animation: glowPulse 8s ease-in-out infinite;
-      animation-delay: 3s;
-    }
-    .hero-right > * { position: relative; z-index: 1; }
+    .hero-right { position: relative; z-index: 2; }
 
     /* hero glow blob */
     .hero-left::before {
@@ -551,13 +523,6 @@ const html = `<!DOCTYPE html>
 
     /* ── Section-specific flair ── */
 
-    /* per-section color identities — exact app theme colors */
-    #feat-videos    { --sec: #7c3aed; --sec-hi: #a78bfa; } /* Violet  / Deep Space      */
-    #feat-images    { --sec: #d97706; --sec-hi: #f59e0b; } /* Amber   / Mission Control */
-    #feat-ai        { --sec: #0891b2; --sec-hi: #22d3ee; } /* Cyan    / Modern HUD      */
-    #feat-downloads { --sec: #059669; --sec-hi: #34d399; } /* Emerald / Neon Grid       */
-    #deploy         { --sec: #4f46e5; --sec-hi: #818cf8; } /* Indigo  / Midnight Blue   */
-    #windows        { --sec: #e11d48; --sec-hi: #fb7185; } /* Rose    / Crimson Noir    */
 
     /* Videos: slow projector scan line */
     #feat-videos { overflow: hidden; }
@@ -580,7 +545,7 @@ const html = `<!DOCTYPE html>
       position: absolute; top: 45%; left: 50%;
       transform: translate(-50%, -50%);
       width: 700px; height: 500px;
-      background: radial-gradient(ellipse, rgba(217,119,6,0.08) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(124,58,237,0.07) 0%, transparent 65%);
       pointer-events: none; z-index: 0;
     }
     .feat-tile {
@@ -627,10 +592,11 @@ const html = `<!DOCTYPE html>
       100% { width: 100%; left: 0;    opacity: 0; }
     }
 
-    /* ── Feature icon ── */
+    /* ── Feature icon (inline beside section label) ── */
     .feat-icon {
-      width: 26px; height: 26px; color: var(--acc-hi);
-      opacity: 0.65; margin-bottom: 1.25rem;
+      display: inline-flex; align-items: center;
+      width: 13px; height: 13px; color: var(--sec-hi);
+      opacity: 0.7; flex-shrink: 0; vertical-align: middle;
     }
     .feat-icon svg { width: 100%; height: 100%; }
 
@@ -677,9 +643,7 @@ const html = `<!DOCTYPE html>
     .feat-centered-header {
       text-align: center; max-width: 580px; margin: 0 auto 3rem;
     }
-    .feat-centered-header .feat-icon { margin: 0 auto 1.25rem; }
     .feat-centered-header .section-label { justify-content: center; }
-    .feat-centered-header .section-label::before { display: none; }
     .feat-centered-header .section-sub { max-width: 100%; margin: 0 auto; }
 
     .feat-tiles {

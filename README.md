@@ -1,13 +1,12 @@
 # Parallax
 
-A self-hosted video and image library manager with transcoding, AI scanning, duplicate detection, and media identification. Runs in Docker, accessible from any browser.
+A self-hosted video and image library manager with hardware-accelerated compression, duplicate detection, subtitle management, and media identification. Runs in Docker, accessible from any browser.
 
 ## Features
 
 ### Videos
 - **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries; libraries auto-rescan when files change on disk
-- **Transcoding** — re-encode with ffmpeg using hardware acceleration (NVIDIA NVENC, Intel/AMD VA-API); source-aware codec selection; preserves originals and tracks space savings
-- **Compression** — dedicated Compress page to re-encode library files to H.264, HEVC, or AV1 with a CRF slider and live estimated savings; select files by codec (e.g. "non-HEVC" shortcut); cancelable bulk job with per-file progress
+- **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC") or corruption status; cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold and first-frame/all-frames comparison mode
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, date, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
