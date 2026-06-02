@@ -78,23 +78,16 @@ function DownloadCard({
 }) {
   const [imgError, setImgError] = useState(false);
   const [errorExpanded, setErrorExpanded] = useState(false);
-  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isActive = item.status === "pending" || item.status === "running";
   const isCompleted = item.status === "completed";
   const canPlay = isCompleted && !!item.output_path;
 
-  // Auto-disarm after 3s
-  const armDelete = () => {
-    setDeleteArmed(true);
-    setTimeout(() => setDeleteArmed(false), 3000);
-  };
-
   const handleDeleteFile = (e: React.MouseEvent) => {
-    if (e.shiftKey || deleteArmed) {
-      setDeleteArmed(false);
+    if (e.shiftKey) {
       onDeleteFile(item.id);
     } else {
-      armDelete();
+      setConfirmDelete(true);
     }
   };
 
@@ -189,42 +182,53 @@ function DownloadCard({
       <StatusBadge status={item.status} />
 
       {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        {canPlay && (
-          <button onClick={() => onPlay(item)} title="Play"
-            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
-            <Play className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {isActive && (
-          <button onClick={() => onClear(item.id)} title="Stop download"
-            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors">
-            <StopCircle className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {/* Clear from view — always shown for non-active */}
-        {!isActive && (
-          <button onClick={() => onClear(item.id)} title="Remove from list"
-            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {/* Delete file — only shown when there's a file */}
-        {isCompleted && (
+      {confirmDelete ? (
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-muted-foreground/70">Delete file?</span>
           <button
-            onClick={handleDeleteFile}
-            title={deleteArmed ? "Click again to confirm · Shift+click to skip" : "Delete file from disk (Shift+click to skip confirm)"}
-            className={cn(
-              "p-1 rounded transition-colors",
-              deleteArmed
-                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 ring-1 ring-red-500/40"
-                : "hover:bg-muted/60 text-muted-foreground hover:text-red-400"
-            )}
+            onClick={() => { setConfirmDelete(false); onDeleteFile(item.id); }}
+            className="px-2 py-0.5 text-xs rounded bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 transition-colors"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            Yes
           </button>
-        )}
-      </div>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            className="px-2 py-0.5 text-xs rounded hover:bg-muted/60 text-muted-foreground border border-border/50 transition-colors"
+          >
+            No
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          {canPlay && (
+            <button onClick={() => onPlay(item)} title="Play"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+              <Play className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {isActive && (
+            <button onClick={() => onClear(item.id)} title="Stop download"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors">
+              <StopCircle className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {!isActive && (
+            <button onClick={() => onClear(item.id)} title="Remove from list"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {isCompleted && (
+            <button
+              onClick={handleDeleteFile}
+              title="Delete file from disk (Shift+click to skip confirm)"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
