@@ -10,6 +10,7 @@ import json
 import re
 import shlex
 import subprocess
+import threading
 from typing import Optional
 
 from app.database import SessionLocal
@@ -21,6 +22,8 @@ from app.services.common import now
 # ---------------------------------------------------------------------------
 
 _active_procs: dict[int, subprocess.Popen] = {}  # download_id → process
+_active_procs_lock = threading.Lock()
+_cancelled_ids: set[int] = set()
 _download_semaphore: Optional[asyncio.Semaphore] = None
 _semaphore_limit: int = 0
 
@@ -51,7 +54,10 @@ def get_ytdlp_info() -> dict:
 
 
 def install_ytdlp() -> None:
-    """Install/upgrade yt-dlp via pip. Raises subprocess.CalledProcessError on failure."""
+    """Install/upgrade yt-dlp via pip. Raises subprocess.CalledProcessError on failure.
+
+    Blocking — callers must wrap in asyncio.to_thread if called from async context.
+    """
     subprocess.run(
         ["pip", "install", "-U", "yt-dlp[default,curl-cffi]"],
         check=True,
@@ -131,9 +137,13 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
 
 
 def get_semaphore(max_concurrent: int) -> asyncio.Semaphore:
-    """Return (or recreate) the module-level download semaphore."""
+    """Return the module-level download semaphore, creating it once on first call.
+
+    The initial limit is used for the life of the process — settings changes
+    take effect on next restart.
+    """
     global _download_semaphore, _semaphore_limit
-    if _download_semaphore is None or _semaphore_limit != max_concurrent:
+    if _download_semaphore is None:
         _download_semaphore = asyncio.Semaphore(max_concurrent)
         _semaphore_limit = max_concurrent
     return _download_semaphore
@@ -176,9 +186,10 @@ def _parse_output_path(line: str) -> Optional[str]:
 
 def _run_download_sync(download_id: int) -> None:
     """Blocking download worker. Intended to be called via asyncio.to_thread."""
+    download: Optional["Download"] = None
     db = SessionLocal()
     try:
-        download: Optional[Download] = db.get(Download, download_id)
+        download = db.get(Download, download_id)
         if download is None:
             return
 
@@ -215,19 +226,17 @@ def _run_download_sync(download_id: int) -> None:
             db.commit()
             return
 
-        _active_procs[download_id] = proc
+        with _active_procs_lock:
+            _active_procs[download_id] = proc
 
         last_pct: float = -1.0
         output_path: Optional[str] = None
 
         try:
-            assert proc.stdout is not None
+            if proc.stdout is None:
+                raise RuntimeError("subprocess stdout is None")
             for line in iter(proc.stdout.readline, ""):
                 line = line.rstrip("\n")
-
-                # Check if process was killed (cancel)
-                if proc.poll() is not None:
-                    break
 
                 # Try to extract output path
                 detected_path = _parse_output_path(line)
@@ -249,7 +258,8 @@ def _run_download_sync(download_id: int) -> None:
             proc.wait()
 
         finally:
-            _active_procs.pop(download_id, None)
+            with _active_procs_lock:
+                _active_procs.pop(download_id, None)
 
         # Determine final status
         if proc.returncode == 0:
@@ -258,8 +268,8 @@ def _run_download_sync(download_id: int) -> None:
             download.finished_at = now()
             if output_path:
                 download.output_path = output_path
-        elif proc.returncode == -9:
-            # SIGKILL — cancelled by cancel_download()
+        elif download_id in _cancelled_ids:
+            _cancelled_ids.discard(download_id)
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
         else:
@@ -270,13 +280,14 @@ def _run_download_sync(download_id: int) -> None:
         db.commit()
 
     except Exception as exc:
-        try:
-            download.status = DownloadStatus.FAILED
-            download.error = str(exc)
-            download.finished_at = now()
-            db.commit()
-        except Exception:
-            pass
+        if download is not None:
+            try:
+                download.status = DownloadStatus.FAILED
+                download.error = str(exc)
+                download.finished_at = now()
+                db.commit()
+            except Exception:
+                pass
     finally:
         db.close()
 
@@ -300,8 +311,10 @@ async def run_download(download_id: int, max_concurrent: int = 2) -> None:
 
 def cancel_download(download_id: int) -> bool:
     """Kill active subprocess. Return True if killed, False if not found."""
-    proc = _active_procs.get(download_id)
-    if proc:
-        proc.kill()
-        return True
+    with _active_procs_lock:
+        proc = _active_procs.get(download_id)
+        if proc:
+            _cancelled_ids.add(download_id)
+            proc.kill()
+            return True
     return False
