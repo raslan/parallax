@@ -20,10 +20,10 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 - **Content review** — filter by semantic similarity and/or content detections; bulk quarantine flagged images; restore or permanently delete from quarantine
 
 ### AI
-- **CLIP models** — ONNX vision/text encoders for semantic search across both images and videos; multiple model sizes available
-- **Content detection** — ONNX-based content detection models; configurable confidence threshold and batch size
-- **Whisper** — faster-whisper speech-to-text for local subtitle generation; five model sizes (tiny → large-v3); auto-detects spoken language
-- **GPU-accelerated** — CUDA (NVIDIA) and ROCm (AMD) ONNX backends; all AI inference isolated in worker subprocesses — VRAM fully freed after 2 minutes idle; batch size tunable per your hardware
+- **Semantic search** — natural language search across image and video libraries using CLIP; describe a scene or subject and find matching files instantly
+- **Content detection** — flag inappropriate content with configurable confidence thresholds; review, quarantine, or bulk-delete flagged files
+- **Local speech-to-text** — generate subtitle files from audio with Whisper; no API key or cloud upload required; auto-detects spoken language; five model sizes (tiny → large-v3)
+- **GPU-accelerated** — CUDA and ROCm backends; inference runs in isolated subprocesses so VRAM is fully freed when idle; batch size tunable per your hardware
 
 ### Downloads
 - **yt-dlp integration** — paste one or more URLs and queue downloads with live progress; supports YouTube, Vimeo, Twitch, and thousands of other sites

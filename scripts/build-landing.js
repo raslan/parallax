@@ -24,14 +24,12 @@ function mdInline(str) {
 
 // ── Parse README ─────────────────────────────────────────────────────────────
 
-// Split on ## headings — avoids multiline $ gotcha in JS regex
 function getSection(heading) {
   const parts = README.split(/^## /m);
   const part = parts.find((p) => p.startsWith(heading));
   return part ? part.slice(heading.length).trim() : "";
 }
 
-// Parse feature groups (### subsections with bullet lists)
 function parseFeatureGroups() {
   const section = getSection("Features");
   const groups = [];
@@ -49,7 +47,6 @@ function parseFeatureGroups() {
   return groups;
 }
 
-// Parse tag table from Deployment section — match all ghcr.io rows anywhere in section
 function parseRuntimeTable() {
   const section = getSection("Deployment");
   const rows = [...section.matchAll(/\| `(ghcr\.io[^`]+)` \| ([^|]+) \|/g)].map(
@@ -61,20 +58,164 @@ function parseRuntimeTable() {
 const featureGroups = parseFeatureGroups();
 const runtimeRows = parseRuntimeTable();
 
-// ── Build HTML parts ──────────────────────────────────────────────────────────
+// ── Per-group section metadata ────────────────────────────────────────────────
 
-// Flatten all features into a single list for a clean grid
-const allFeatures = featureGroups.flatMap((g) => g.items);
+const GROUP_ICONS = {
+  Videos: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 6 4-6 4V8Z"/></svg>`,
+  Images: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`,
+  AI:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"/></svg>`,
+  Downloads: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>`,
+  General: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>`,
+};
 
-const featuresHtml = allFeatures
-  .map(
-    ({ name, desc }) => `
-    <div class="feat-item">
-      <strong>${escapeHtml(name)}</strong>
-      <span>${mdInline(desc)}</span>
-    </div>`
-  )
-  .join("\n");
+const GROUP_META = {
+  Videos: {
+    heading: "Unlimited power over your video library",
+    sub: "Hardware-accelerated video compression, duplicate detection, TMDB-powered renaming, and local subtitle generation.",
+    style: "split-left",
+  },
+  Images: {
+    heading: "Your image library, actually searchable",
+    sub: "Thumbnail grid, perceptual deduplication, and search by describing what you're looking for. All on your machine. No cloud. No data harvested.",
+    style: "centered",
+  },
+  AI: {
+    heading: "Smart features with no cloud and no strings",
+    sub: "Content search and detection via local-only and offline AI models that run on any hardware.",
+    style: "accent-panel",
+  },
+  Downloads: {
+    heading: "Download anything.",
+    sub: "yt-dlp integration with quality control, codec selection, browser impersonation, ephemeral cookies, trimming, and live progress.",
+    style: "split-right",
+  },
+  General: {
+    heading: "No upsells. No nonsense.",
+    sub: "No premium tier. No engagement metrics. No reason to open your wallet.",
+    style: "compact",
+  },
+};
+
+// ── Per-group section HTML builder ────────────────────────────────────────────
+
+function buildGroupSection(group) {
+  const meta = GROUP_META[group.title] || { style: "split-left", heading: group.title, sub: "" };
+  const { heading, sub, style } = meta;
+  const icon = GROUP_ICONS[group.title] || "";
+  const sectionId = `feat-${group.title.toLowerCase()}`;
+
+  const labelHtml = `<div class="section-label">${escapeHtml(group.title)}</div>`;
+  const iconHtml = icon ? `<div class="feat-icon">${icon}</div>` : "";
+  const headingHtml = `<h2 class="section-heading">${escapeHtml(heading)}</h2>`;
+  const subHtml = `<p class="section-sub">${escapeHtml(sub)}</p>`;
+
+  let inner = "";
+
+  if (style === "split-left" || style === "split-right") {
+    const cardsHtml = group.items
+      .map(
+        ({ name, desc }) => `
+      <div class="feat-card">
+        <strong>${escapeHtml(name)}</strong>
+        <span>${mdInline(desc)}</span>
+      </div>`
+      )
+      .join("");
+    const reversed = style === "split-right" ? " feat-reversed" : "";
+    inner = `
+    <div class="feat-split${reversed}">
+      <div class="feat-meta">
+        ${iconHtml}
+        ${labelHtml}
+        ${headingHtml}
+        ${subHtml}
+      </div>
+      <div class="feat-cards">
+        ${cardsHtml}
+      </div>
+    </div>`;
+  } else if (style === "centered") {
+    const cardsHtml = group.items
+      .map(
+        ({ name, desc }) => `
+      <div class="feat-wide-card">
+        <strong>${escapeHtml(name)}</strong>
+        <span>${mdInline(desc)}</span>
+      </div>`
+      )
+      .join("");
+    inner = `
+    <div class="feat-centered-header">
+      ${iconHtml}
+      ${labelHtml}
+      ${headingHtml}
+      <p class="section-sub">${escapeHtml(sub)}</p>
+    </div>
+    <div class="feat-wide-cards">
+      ${cardsHtml}
+    </div>`;
+  } else if (style === "accent-panel") {
+    const listHtml = group.items
+      .map(
+        ({ name, desc }) => `
+      <div class="feat-ai-item">
+        <div class="feat-ai-dot"></div>
+        <div>
+          <strong>${escapeHtml(name)}</strong>
+          <span>${mdInline(desc)}</span>
+        </div>
+      </div>`
+      )
+      .join("");
+    inner = `
+    <div class="feat-accent-bg">
+      <div class="feat-split">
+        <div class="feat-meta">
+          ${iconHtml}
+          ${labelHtml}
+          ${headingHtml}
+          ${subHtml}
+        </div>
+        <div class="feat-ai-list">
+          ${listHtml}
+        </div>
+      </div>
+    </div>`;
+  } else if (style === "compact") {
+    const itemsHtml = group.items
+      .map(
+        ({ name, desc }) => `
+      <div class="feat-compact-item">
+        <strong>${escapeHtml(name)}</strong>
+        <span>${mdInline(desc)}</span>
+      </div>`
+      )
+      .join("");
+    inner = `
+    <div class="feat-compact-layout">
+      <div class="feat-compact-meta">
+        ${iconHtml}
+        ${labelHtml}
+        ${headingHtml}
+        ${subHtml}
+      </div>
+      <div class="feat-compact-items">
+        ${itemsHtml}
+      </div>
+    </div>`;
+  }
+
+  return `
+<section class="section" id="${sectionId}">
+  <div class="container">
+    ${inner}
+  </div>
+</section>`;
+}
+
+const featureGroupSectionsHtml = featureGroups.map((g) => buildGroupSection(g)).join("\n");
+
+// ── Runtime cards ─────────────────────────────────────────────────────────────
 
 const runtimeLabels = { cpu: "CPU", cuda: "NVIDIA", rocm: "AMD" };
 const runtimeDescs = {
@@ -82,7 +223,6 @@ const runtimeDescs = {
   cuda: "ONNX CUDA backend + NVENC hardware transcoding.",
   rocm: "ONNX ROCm backend + VA-API hardware transcoding.",
 };
-
 const runtimeColorClass = { cpu: "cpu", cuda: "nvidia", rocm: "amd" };
 
 const runtimeCardsHtml = runtimeRows
@@ -114,7 +254,7 @@ const html = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Parallax — Self-hosted media manager</title>
-  <meta name="description" content="A self-hosted video and image library manager with transcoding, AI scanning, duplicate detection, and media identification. Runs in Docker." />
+  <meta name="description" content="A self-hosted video and image library manager with transcoding, duplicate detection, subtitle management, and media identification. Runs in Docker." />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -128,7 +268,7 @@ const html = `<!DOCTYPE html>
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Parallax" />
   <meta property="og:title" content="Parallax — Self-hosted media manager" />
-  <meta property="og:description" content="Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own." />
+  <meta property="og:description" content="Scan, transcode, deduplicate, and download. A complete media library manager that runs on your hardware, not theirs." />
   <meta property="og:image" content="https://parallax.raslan.dev/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -137,7 +277,7 @@ const html = `<!DOCTYPE html>
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Parallax — Self-hosted media manager" />
-  <meta name="twitter:description" content="Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own." />
+  <meta name="twitter:description" content="Scan, transcode, deduplicate, and download. A complete media library manager that runs on your hardware, not theirs." />
   <meta name="twitter:image" content="https://parallax.raslan.dev/og-image.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -377,14 +517,39 @@ const html = `<!DOCTYPE html>
       line-height: 1.6;
     }
 
-    /* ── Features ── */
-    .features-layout {
+    /* ── Features intro ── */
+    .features-intro {
+      text-align: center;
+    }
+    .features-intro .section-sub {
+      margin: 0 auto;
+      max-width: 520px;
+    }
+
+    /* ── Group section icon ── */
+    .feat-icon {
+      width: 28px; height: 28px;
+      color: var(--accent-hi);
+      margin-bottom: 1rem;
+      opacity: 0.75;
+    }
+    .feat-icon svg { width: 100%; height: 100%; }
+
+    /* ── Split layout (Videos / Downloads) ── */
+    .feat-split {
       display: grid;
       grid-template-columns: 1fr 2fr;
       gap: 4rem;
       align-items: start;
     }
-    .feat-grid {
+    .feat-reversed .feat-meta { order: 2; }
+    .feat-reversed .feat-cards { order: 1; }
+    .feat-reversed {
+      grid-template-columns: 2fr 1fr;
+    }
+
+    /* ── Feature card grid ── */
+    .feat-cards {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 0;
@@ -392,28 +557,176 @@ const html = `<!DOCTYPE html>
       border-radius: var(--radius);
       overflow: hidden;
     }
-    .feat-item {
+    .feat-card {
       padding: 1.1rem 1.25rem;
       border-right: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
       transition: background 0.15s;
+      position: relative;
     }
-    .feat-item:hover { background: rgba(255,255,255,0.03); }
-    .feat-item:hover strong { color: var(--text); }
-    .feat-item:nth-child(2n) { border-right: none; }
-    .feat-item strong {
+    .feat-card::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: var(--accent-hi);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .feat-card:hover { background: rgba(255,255,255,0.025); }
+    .feat-card:hover::after { opacity: 0.35; }
+    .feat-card:nth-child(2n) { border-right: none; }
+    .feat-card strong {
       display: block;
       font-size: 0.8125rem;
       font-weight: 600;
       color: var(--text);
       margin-bottom: 0.2rem;
     }
-    .feat-item span {
+    .feat-card span {
       font-size: 0.775rem;
       color: var(--muted);
       line-height: 1.45;
     }
-    .feat-item span code {
+    .feat-card span code {
+      background: rgba(255,255,255,0.05);
+      border-radius: 0.2rem;
+      padding: 0.05em 0.35em;
+      font-size: 0.75em;
+      color: #a1a1aa;
+    }
+
+    /* ── Centered layout (Images) ── */
+    .feat-centered-header {
+      text-align: center;
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+    }
+    .feat-centered-header .feat-icon { margin: 0 auto 1rem; }
+    .feat-centered-header .section-sub { max-width: 100%; }
+    .feat-wide-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .feat-wide-card {
+      border: 1px solid var(--border);
+      border-left: 2px solid rgba(167,139,250,0.25);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      transition: border-left-color 0.2s, background 0.15s;
+    }
+    .feat-wide-card:hover {
+      border-left-color: var(--accent-hi);
+      background: rgba(255,255,255,0.02);
+    }
+    .feat-wide-card strong {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+    .feat-wide-card span {
+      font-size: 0.775rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .feat-wide-card span code {
+      background: rgba(255,255,255,0.05);
+      border-radius: 0.2rem;
+      padding: 0.05em 0.35em;
+      font-size: 0.75em;
+      color: #a1a1aa;
+    }
+
+    /* ── Accent panel (AI) ── */
+    .feat-accent-bg {
+      background: var(--bg-card);
+      border: 1px solid var(--border-hi);
+      border-radius: 0.6rem;
+      padding: 2.5rem 3rem;
+    }
+    .feat-ai-list {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .feat-ai-item {
+      display: grid;
+      grid-template-columns: 10px 1fr;
+      gap: 0 1rem;
+      align-items: start;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .feat-ai-item:last-child { border-bottom: none; }
+    .feat-ai-item:hover { background: rgba(167,139,250,0.04); }
+    .feat-ai-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-hi);
+      margin-top: 0.45rem;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px rgba(167,139,250,0.55);
+    }
+    .feat-ai-item strong {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.2rem;
+    }
+    .feat-ai-item span {
+      font-size: 0.775rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .feat-ai-item span code {
+      background: rgba(255,255,255,0.05);
+      border-radius: 0.2rem;
+      padding: 0.05em 0.35em;
+      font-size: 0.75em;
+      color: #a1a1aa;
+    }
+
+    /* ── Compact layout (General) ── */
+    .feat-compact-layout {
+      display: flex;
+      gap: 4rem;
+      align-items: start;
+    }
+    .feat-compact-meta { flex: 0 0 260px; }
+    .feat-compact-items {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .feat-compact-item {
+      padding: 1rem 1.125rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .feat-compact-item:hover {
+      background: rgba(255,255,255,0.02);
+      border-color: var(--border-hi);
+    }
+    .feat-compact-item strong {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.2rem;
+    }
+    .feat-compact-item span {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .feat-compact-item span code {
       background: rgba(255,255,255,0.05);
       border-radius: 0.2rem;
       padding: 0.05em 0.35em;
@@ -428,7 +741,7 @@ const html = `<!DOCTYPE html>
       gap: 4rem;
       align-items: start;
     }
-    .deploy-layout > *, .features-layout > * { min-width: 0; }
+    .deploy-layout > * { min-width: 0; }
     .runtime-cards {
       display: flex;
       flex-direction: column;
@@ -538,7 +851,6 @@ const html = `<!DOCTYPE html>
     footer a { color: var(--muted); }
     footer a:hover { color: var(--text); }
 
-    /* ensure code blocks never blow out the viewport */
     .terminal pre, .snippet-body pre { white-space: pre; overflow-x: auto; }
 
     @media (max-width: 768px) {
@@ -555,17 +867,33 @@ const html = `<!DOCTYPE html>
       .terminal { max-width: 100%; }
 
       .section { padding: 3.5rem 0; }
-      .features-layout, .deploy-layout { grid-template-columns: 1fr; gap: 2rem; }
+      .deploy-layout { grid-template-columns: 1fr; gap: 2rem; }
 
-      .feat-grid { grid-template-columns: 1fr; }
-      .feat-item { border-right: none; }
+      /* split layouts */
+      .feat-split,
+      .feat-reversed { grid-template-columns: 1fr; gap: 2rem; }
+      .feat-reversed .feat-meta { order: 0; }
+      .feat-reversed .feat-cards { order: 1; }
+
+      /* card grids */
+      .feat-cards { grid-template-columns: 1fr; }
+      .feat-card { border-right: none; }
+
+      /* centered */
+      .feat-wide-cards { grid-template-columns: 1fr; }
+
+      /* accent panel */
+      .feat-accent-bg { padding: 1.5rem; }
+
+      /* compact */
+      .feat-compact-layout { flex-direction: column; gap: 2rem; }
+      .feat-compact-meta { flex: none; }
+      .feat-compact-items { grid-template-columns: 1fr; }
 
       .section-heading { font-size: 1.6rem; }
       .section-sub { max-width: 100%; }
 
-      .runtime-card {
-        grid-template-columns: 2.5rem 1fr;
-      }
+      .runtime-card { grid-template-columns: 2.5rem 1fr; }
 
       .snippet-tabs { overflow-x: auto; }
       .snippet-tab { white-space: nowrap; }
@@ -603,12 +931,12 @@ const html = `<!DOCTYPE html>
       <span class="eyebrow-dot"></span>
       Open source
       <span>·</span>
-      Self-hosted
+      No nonsense
       <span>·</span>
-      Docker
+      Self-hosted
     </div>
-    <h1>Media management,<br><em><span class="h1-accent">without</span> the cloud</em></h1>
-    <p class="hero-sub">Scan, transcode, deduplicate, and search your video and image libraries with GPU-accelerated AI — on hardware you own. Free and open source. Your files never leave your server.</p>
+    <h1>Your media library.<br><em><span class="h1-accent">Unlimited control.</span></em></h1>
+    <p class="hero-sub">No pricing. No subscription. No uploads. Process your media, on your device, with your hardware.</p>
     <div class="hero-cta">
       <a href="#deploy" class="btn btn-solid">Deploy now</a>
       <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} View on GitHub</a>
@@ -638,27 +966,22 @@ const html = `<!DOCTYPE html>
 </section>
 
 <section class="section" id="features">
-  <div class="container">
-    <div class="features-layout">
-      <div>
-        <div class="section-label">Features</div>
-        <h2 class="section-heading">Built for serious libraries</h2>
-        <p class="section-sub">Video and image management with AI scanning, hardware transcoding, and duplicate detection — all in one container.</p>
-      </div>
-      <div class="feat-grid">
-        ${featuresHtml}
-      </div>
-    </div>
+  <div class="container features-intro">
+    <div class="section-label">Features</div>
+    <h2 class="section-heading">No subscriptions. No cloud. No nonsense.</h2>
+    <p class="section-sub">Everything the paid tiers don't want you to have: compression, repair, filtering, cleaning, renaming, subtitles, downloads and more; running locally on the hardware you already own.</p>
   </div>
 </section>
+
+${featureGroupSectionsHtml}
 
 <section class="section" id="deploy">
   <div class="container">
     <div class="deploy-layout">
       <div>
         <div class="section-label">Deploy</div>
-        <h2 class="section-heading">One command, any hardware</h2>
-        <p class="section-sub">Pre-built images for CPU, NVIDIA, and AMD. No compilation. Pull and run.</p>
+        <h2 class="section-heading">One container. Runs everywhere.</h2>
+        <p class="section-sub">Pre-built images for CPU, NVIDIA, and AMD. Pull, run, own your media.</p>
         <br>
         <div class="runtime-cards">
           ${runtimeCardsHtml}
@@ -686,7 +1009,7 @@ const html = `<!DOCTYPE html>
       <span class="s-key">resources</span>:
         <span class="s-key">reservations</span>:
           <span class="s-key">devices</span>:
-            - {<span class="s-key">driver</span>: <span class="s-val">nvidia</span>, <span class="s-key">count</span>: <span class="s-val">all</span>, <span class="s-key">capabilities</span>: [<span class="s-val">gpu</span>, <span class="s-val">video</span>]}</pre></div>
+            - {<span class="s-key">driver</span>: <span class="s-val">nvidia</span>, <span class="s-key">count</span>: <span class="s-val">all</span>, <span class="s-key">capabilities</span>: [<span class="s-val">gpu</span>, <span class="s-val">video</span>]}}</pre></div>
           <div class="snippet-body" id="tab-amd"><pre><span class="s-comment"># AMD — VA-API via /dev/dri</span>
 <span class="s-key">services</span>:
   <span class="s-key">parallax</span>:
@@ -719,8 +1042,8 @@ const html = `<!DOCTYPE html>
     <div class="deploy-layout">
       <div>
         <div class="section-label">Windows</div>
-        <h2 class="section-heading">Runs on Windows too</h2>
-        <p class="section-sub">No separate installer. Docker Desktop handles the runtime — the compose file is identical to Linux.</p>
+        <h2 class="section-heading">Even on Windows</h2>
+        <p class="section-sub"><a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a> handles the runtime. Same compose file as Linux. No installer wizard, no license key, no trial period.</p>
         <br>
         <div class="runtime-cards">
           <div class="runtime-card">
@@ -731,7 +1054,7 @@ const html = `<!DOCTYPE html>
           <div class="runtime-card">
             <div class="runtime-label amd">AMD</div>
             <code class="runtime-tag">latest</code>
-            <p class="runtime-desc">AMD ROCm is not supported under WSL 2. Use the CPU image. ONNX inference runs on CPU; hardware video encoding is unavailable on this path.</p>
+            <p class="runtime-desc">AMD ROCm is not supported under WSL 2. Use the CPU image. ONNX inference runs on CPU; hardware video encoding is unavailable with this configuration unfortunately.</p>
           </div>
           <div class="runtime-card">
             <div class="runtime-label cpu">CPU</div>
@@ -760,7 +1083,7 @@ const html = `<!DOCTYPE html>
       <span class="s-key">resources</span>:
         <span class="s-key">reservations</span>:
           <span class="s-key">devices</span>:
-            - {<span class="s-key">driver</span>: <span class="s-val">nvidia</span>, <span class="s-key">count</span>: <span class="s-val">all</span>, <span class="s-key">capabilities</span>: [<span class="s-val">gpu</span>, <span class="s-val">video</span>]}</pre></div>
+            - {<span class="s-key">driver</span>: <span class="s-val">nvidia</span>, <span class="s-key">count</span>: <span class="s-val">all</span>, <span class="s-key">capabilities</span>: [<span class="s-val">gpu</span>, <span class="s-val">video</span>]}}</pre></div>
           <div class="snippet-body" id="tab-win-cpu"><pre><span class="s-comment"># Windows — Docker Desktop, CPU only</span>
 <span class="s-comment"># AMD GPU acceleration not supported on Windows/WSL 2</span>
 <span class="s-key">services</span>:
