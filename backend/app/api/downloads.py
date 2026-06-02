@@ -190,9 +190,12 @@ def cancel_download_route(
     if not download:
         raise HTTPException(404, "Download not found")
 
-    # Cancel if active
+    # Cancel if active and clean up part files — do this before deleting the record
+    # because _run_download_sync will see None from db.get() and return early
     if download.status in (DownloadStatus.PENDING, DownloadStatus.RUNNING):
         cancel_download(download_id)
+        from app.services.downloader import _cleanup_part_files
+        _cleanup_part_files(download.output_dir, download.title)
 
     # Optionally delete the file on disk
     if delete_file and download.output_path and os.path.isfile(download.output_path):
