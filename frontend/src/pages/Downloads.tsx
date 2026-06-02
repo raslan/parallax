@@ -3,7 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Download, X, Play, StopCircle, Trash2, ChevronDown, ChevronUp,
   Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock, Zap,
-  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw,
+  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe,
 } from "lucide-react";
 import { api, DownloadItem, DownloadRequest } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -431,19 +431,18 @@ function OptionsPanel({
       {/* Impersonate */}
       {impersonateTargets.length > 0 && (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={!!opts.impersonate}
-                onChange={(e) => onChange({ impersonate: e.target.checked ? (impersonateTargets[0] ?? "") : "" })}
-                className="h-3.5 w-3.5 accent-primary"
-              />
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
-                Impersonate browser
-              </p>
-            </label>
-          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!opts.impersonate}
+              onChange={(e) => onChange({ impersonate: e.target.checked ? (impersonateTargets[0] ?? "") : "" })}
+              className="accent-primary h-3.5 w-3.5"
+            />
+            <span className="text-xs text-foreground flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-muted-foreground/60" />
+              Impersonate browser
+            </span>
+          </label>
           {opts.impersonate && (
             <select
               value={opts.impersonate}
