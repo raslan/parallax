@@ -3,7 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Download, X, Play, StopCircle, Trash2, ChevronDown, ChevronUp,
   Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock, Zap,
-  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe,
+  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe, ShieldCheck,
 } from "lucide-react";
 import { api, DownloadItem, DownloadRequest } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -728,7 +728,8 @@ export function Downloads() {
                   : "border-border/50 text-muted-foreground/60 hover:text-foreground hover:border-border"
               )}
             >
-              🍪 Cookies
+              <ShieldCheck className="h-3 w-3" />
+              Cookies
               {activeCookies && (
                 <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">1</span>
               )}
