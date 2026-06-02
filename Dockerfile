@@ -64,9 +64,7 @@ COPY backend/ ./
 # Copy built frontend so FastAPI can serve it as static files
 COPY --from=frontend-builder /frontend/dist ./static
 
-ARG PUID=1000
-ARG PGID=1000
-RUN mkdir -p /app/data && chown -R ${PUID}:${PGID} /app
+RUN mkdir -p /app/data
 
 EXPOSE 7899
 
