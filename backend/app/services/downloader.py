@@ -329,6 +329,7 @@ _PROGRESS_RE = re.compile(
 )
 _DESTINATION_RE = re.compile(r"\[download\] Destination: (.+)$")
 _MERGER_RE = re.compile(r'Merging formats into "(.+)"')
+_FFMPEG_TIME_RE = re.compile(r"\btime=(\d+:\d+:\d+\.\d+)")
 
 
 def _parse_progress(line: str) -> Optional[tuple[float, str, str]]:
@@ -337,6 +338,19 @@ def _parse_progress(line: str) -> Optional[tuple[float, str, str]]:
     if m:
         return float(m.group(1)), m.group(2), m.group(3)
     return None
+
+
+def _hhmmss_to_seconds(ts: str) -> float:
+    """Convert HH:MM:SS.ss or MM:SS or raw seconds string to float seconds."""
+    try:
+        parts = ts.split(":")
+        if len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+        if len(parts) == 2:
+            return int(parts[0]) * 60 + float(parts[1])
+        return float(ts)
+    except (ValueError, IndexError):
+        return 0.0
 
 
 def _parse_output_path(line: str) -> Optional[str]:
@@ -450,6 +464,18 @@ def _run_download_sync(download_id: int) -> None:
 
         # Build command — write cookies to temp file if provided
         options = json.loads(download.options or "{}")
+
+        # Compute trim duration for ffmpeg progress estimation (trim_end - trim_start in seconds)
+        trim_duration_s: Optional[float] = None
+        try:
+            ts = options.get("trim_start") or "0"
+            te = options.get("trim_end")
+            if te and te != "inf":
+                trim_duration_s = _hhmmss_to_seconds(te) - _hhmmss_to_seconds(ts)
+                if trim_duration_s <= 0:
+                    trim_duration_s = None
+        except Exception:
+            pass
         # Inject collision-free title so duplicate-URL titles get (1), (2) suffixes
         unique_title = _unique_output_title(download.output_dir, download.title)
         if unique_title and unique_title != download.title:
@@ -532,6 +558,17 @@ def _run_download_sync(download_id: int) -> None:
                         download.eta = eta
                         db.commit()
                         last_pct = pct
+                elif trim_duration_s:
+                    # ffmpeg progress for --download-sections: parse time=HH:MM:SS.ss
+                    m = _FFMPEG_TIME_RE.search(line)
+                    if m:
+                        elapsed = _hhmmss_to_seconds(m.group(1))
+                        if elapsed > 0:
+                            pct = min(elapsed / trim_duration_s * 100.0, 99.0)
+                            if pct - last_pct >= 1.0:
+                                download.progress = pct
+                                db.commit()
+                                last_pct = pct
 
             proc.wait()
 
