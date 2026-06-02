@@ -1,9 +1,10 @@
 import asyncio
 import json
 import os
+import urllib.request
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -150,6 +151,23 @@ async def ytdlp_update(db: Session = Depends(get_db)):
     channel = get_setting(db, "ytdlp_channel", "stable")
     await asyncio.to_thread(install_ytdlp, channel)
     return {"message": f"yt-dlp updated ({channel})"}
+
+
+@router.get("/{download_id}/thumbnail")
+async def thumbnail(download_id: int, db: Session = Depends(get_db)):
+    download = db.get(Download, download_id)
+    if not download or not download.thumbnail_url:
+        raise HTTPException(404, "No thumbnail")
+    def _fetch():
+        req = urllib.request.Request(download.thumbnail_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.read(), resp.headers.get("Content-Type", "image/jpeg")
+    try:
+        data, content_type = await asyncio.to_thread(_fetch)
+    except Exception:
+        raise HTTPException(502, "Could not fetch thumbnail")
+    return Response(content=data, media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/{download_id}/stream")
