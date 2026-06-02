@@ -2,6 +2,8 @@
 
 A self-hosted video and image library manager with hardware-accelerated compression, duplicate detection, subtitle management, and media identification. Runs in Docker, accessible from any browser.
 
+![Parallax demo](demo.gif)
+
 ## Features
 
 ### Videos

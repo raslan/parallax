@@ -344,11 +344,11 @@ const html = `<!DOCTYPE html>
     .hero {
       min-height: 92vh;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4rem;
+      grid-template-columns: 420px 1fr;
+      gap: 5rem;
       align-items: center;
       padding: 8rem 2.5rem 6rem;
-      max-width: 1100px;
+      max-width: 1320px;
       margin: 0 auto;
       position: relative;
     }
@@ -443,28 +443,16 @@ const html = `<!DOCTYPE html>
       opacity: 0; animation: rise 0.9s cubic-bezier(0.16,1,0.3,1) 0.6s forwards;
     }
 
-    /* hero terminal */
-    .terminal {
+    /* hero demo gif */
+    .hero-demo {
       border: 1px solid var(--rule-hi); border-radius: 5px;
-      overflow: hidden; background: var(--bg-r);
+      overflow: hidden;
       box-shadow: 0 32px 80px rgba(0,0,0,0.7);
       opacity: 0; animation: rise 1s cubic-bezier(0.16,1,0.3,1) 0.55s forwards;
     }
-    .terminal-bar {
-      background: var(--bg-c); border-bottom: 1px solid var(--rule);
-      padding: 0.55rem 1rem;
-      display: flex; align-items: center; gap: 0.625rem;
+    .hero-demo img {
+      display: block; width: 100%; height: auto;
     }
-    .t-dots { display: flex; gap: 0.375rem; }
-    .t-dots span { width: 8px; height: 8px; border-radius: 50%; }
-    .t-dots .r { background: #ff5f57; } .t-dots .y { background: #febc2e; } .t-dots .g { background: #28c840; }
-    .t-label { font-size: 0.68rem; color: var(--mid); font-family: var(--mono); }
-    .terminal pre {
-      padding: 1.25rem 1.5rem;
-      font-family: var(--mono); font-size: 0.775rem; line-height: 1.75;
-      color: #c9c5bd; overflow-x: auto; white-space: pre;
-    }
-    .t-c { color: var(--muted); } .t-k { color: var(--acc-hi); } .t-v { color: #86efac; }
 
     @keyframes rise {
       from { opacity: 0; transform: translateY(1.25rem); }
@@ -778,7 +766,7 @@ const html = `<!DOCTYPE html>
         grid-template-columns: 1fr; min-height: auto;
         padding: 6rem 1.5rem 4rem; gap: 3rem;
       }
-      .hero-right { display: none; }
+      .hero-right { display: block; }
       .feat-split, .feat-reversed { grid-template-columns: 1fr; gap: 2.5rem; }
       .feat-reversed .feat-meta { order: 0; }
       .feat-reversed .feat-rows { order: 1; }
@@ -844,27 +832,8 @@ const html = `<!DOCTYPE html>
       </div>
     </div>
     <div class="hero-right">
-      <div class="terminal">
-        <div class="terminal-bar">
-          <div class="t-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
-          <span class="t-label">docker-compose.yml</span>
-        </div>
-        <pre><span class="t-k">services</span>:
-  <span class="t-k">parallax</span>:
-    <span class="t-k">image</span>: <span class="t-v">ghcr.io/raslan/parallax:latest-cuda</span>
-    <span class="t-k">ports</span>:
-      - <span class="t-v">"7899:7899"</span>
-    <span class="t-k">volumes</span>:
-      - <span class="t-v">./data:/app/data</span>
-      - <span class="t-v">/your/media:/media</span>
-    <span class="t-k">restart</span>: <span class="t-v">unless-stopped</span>
-    <span class="t-k">deploy</span>:
-      <span class="t-c"># NVIDIA GPU</span>
-      <span class="t-k">resources</span>:
-        <span class="t-k">reservations</span>:
-          <span class="t-k">devices</span>:
-            - {<span class="t-k">driver</span>: <span class="t-v">nvidia</span>, <span class="t-k">count</span>: <span class="t-v">all</span>,
-               <span class="t-k">capabilities</span>: [<span class="t-v">gpu</span>, <span class="t-v">video</span>]}</pre>
+      <div class="hero-demo">
+        <img src="demo.gif" alt="Parallax in action — scanning a library, filtering files, and compressing video" width="640" height="400" loading="lazy" />
       </div>
     </div>
   </div>
@@ -1054,6 +1023,12 @@ const ogSrc = path.join(__dirname, "../og-image.jpg");
 if (fs.existsSync(ogSrc)) {
   fs.copyFileSync(ogSrc, path.join(outDir, "og-image.jpg"));
   console.log("Copied og-image.jpg to dist/");
+}
+
+const demoSrc = path.join(__dirname, "../demo.gif");
+if (fs.existsSync(demoSrc)) {
+  fs.copyFileSync(demoSrc, path.join(outDir, "demo.gif"));
+  console.log("Copied demo.gif to dist/");
 }
 
 console.log("Built dist/index.html");

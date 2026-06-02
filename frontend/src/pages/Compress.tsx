@@ -598,6 +598,7 @@ export function Compress() {
               value={crf}
               onChange={(e) => setCrf(Number(e.target.value))}
               className="w-full accent-primary"
+              data-testid="crf-slider"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{crfRange.min} — lossless</span>
