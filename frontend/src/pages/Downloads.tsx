@@ -68,19 +68,39 @@ function YtdlpBanner({ onDismiss }: { onDismiss: () => void }) {
 function DownloadCard({
   item,
   onPlay,
-  onRemove,
+  onClear,
+  onDeleteFile,
 }: {
   item: DownloadItem;
   onPlay: (item: DownloadItem) => void;
-  onRemove: (id: number) => void;
+  onClear: (id: number) => void;
+  onDeleteFile: (id: number) => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const [errorExpanded, setErrorExpanded] = useState(false);
+  const [deleteArmed, setDeleteArmed] = useState(false);
   const isActive = item.status === "pending" || item.status === "running";
-  const canPlay = item.status === "completed" && item.output_path;
+  const isCompleted = item.status === "completed";
+  const canPlay = isCompleted && !!item.output_path;
+  const hasFile = isCompleted && !!item.output_path;
+
+  // Auto-disarm after 3s
+  const armDelete = () => {
+    setDeleteArmed(true);
+    setTimeout(() => setDeleteArmed(false), 3000);
+  };
+
+  const handleDeleteFile = (e: React.MouseEvent) => {
+    if (e.shiftKey || deleteArmed) {
+      setDeleteArmed(false);
+      onDeleteFile(item.id);
+    } else {
+      armDelete();
+    }
+  };
 
   return (
-    <div className="flex gap-3 px-4 py-3 border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors group">
+    <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors group">
       {/* Thumbnail */}
       <div className="w-24 h-[54px] shrink-0 rounded overflow-hidden bg-muted flex items-center justify-center relative">
         {item.thumbnail_url && !imgError ? (
@@ -105,26 +125,19 @@ function DownloadCard({
       </div>
 
       {/* Info */}
-      <div className="flex-1 min-w-0 space-y-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate leading-tight" title={item.title ?? item.url}>
-              {item.title ?? (
-                <span className="font-mono text-muted-foreground text-xs break-all line-clamp-1">{item.url}</span>
-              )}
-            </p>
-            <div className="flex items-center gap-2 mt-0.5">
-              {item.uploader && (
-                <span className="text-xs text-muted-foreground/60 truncate">{item.uploader}</span>
-              )}
-              {item.duration != null && (
-                <span className="text-xs text-muted-foreground/40 shrink-0">{formatDuration(item.duration)}</span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <StatusBadge status={item.status} />
-          </div>
+      <div className="flex-1 min-w-0 space-y-1 min-h-0">
+        <p className="text-sm font-medium truncate leading-tight" title={item.title ?? item.url}>
+          {item.title ?? (
+            <span className="font-mono text-muted-foreground text-xs break-all line-clamp-1">{item.url}</span>
+          )}
+        </p>
+        <div className="flex items-center gap-2">
+          {item.uploader && (
+            <span className="text-xs text-muted-foreground/60 truncate">{item.uploader}</span>
+          )}
+          {item.duration != null && (
+            <span className="text-xs text-muted-foreground/40 shrink-0">{formatDuration(item.duration)}</span>
+          )}
         </div>
 
         {/* Progress bar */}
@@ -151,54 +164,62 @@ function DownloadCard({
 
         {/* Error */}
         {item.error && (
-          <button
-            onClick={() => setErrorExpanded((v) => !v)}
-            className="text-left w-full"
-            title={errorExpanded ? "Click to collapse" : "Click to expand"}
-          >
+          <button onClick={() => setErrorExpanded((v) => !v)} className="text-left w-full">
             {errorExpanded ? (
               <pre className="text-[11px] text-red-400 whitespace-pre-wrap break-all font-mono leading-relaxed">{item.error}</pre>
             ) : (
-              <p className="text-[11px] text-red-400 line-clamp-2 hover:line-clamp-none">{item.error.split("\n")[0]}</p>
+              <p className="text-[11px] text-red-400 line-clamp-2">{item.error.split("\n")[0]}</p>
             )}
           </button>
         )}
 
-        {/* Output path for completed */}
-        {item.status === "completed" && item.output_path && (
+        {/* Output path */}
+        {isCompleted && item.output_path && (
           <p className="text-[10px] text-muted-foreground/40 font-mono truncate" title={item.output_path}>
             {item.output_path}
           </p>
         )}
       </div>
 
+      {/* Badge — vertically centred as its own column */}
+      <StatusBadge status={item.status} />
+
       {/* Actions */}
       <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         {canPlay && (
-          <button
-            onClick={() => onPlay(item)}
-            title="Play"
-            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button onClick={() => onPlay(item)} title="Play"
+            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
             <Play className="h-3.5 w-3.5" />
           </button>
         )}
         {isActive && (
-          <button
-            onClick={() => onRemove(item.id)}
-            title="Stop"
-            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
-          >
+          <button onClick={() => onClear(item.id)} title="Stop download"
+            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors">
             <StopCircle className="h-3.5 w-3.5" />
           </button>
         )}
-        <button
-          onClick={() => onRemove(item.id)}
-          title="Delete"
-          className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {/* Clear from view — always shown for non-active */}
+        {!isActive && (
+          <button onClick={() => onClear(item.id)} title="Remove from list"
+            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {/* Delete file — only shown when there's a file */}
+        {hasFile && (
+          <button
+            onClick={handleDeleteFile}
+            title={deleteArmed ? "Click again to confirm · Shift+click to skip" : "Delete file from disk (Shift+click to skip confirm)"}
+            className={cn(
+              "p-1 rounded transition-colors",
+              deleteArmed
+                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 ring-1 ring-red-500/40"
+                : "hover:bg-muted/60 text-muted-foreground hover:text-red-400"
+            )}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -581,15 +602,20 @@ export function Downloads() {
     }
   }, [urlInput, opts, submitting]);
 
-  // DELETE endpoint handles both cancellation (active) and removal (settled)
-  const handleRemove = useCallback(async (id: number) => {
+  const handleClear = useCallback(async (id: number) => {
     await api.deleteDownload(id).catch(() => {});
+    setDownloads((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
+  const handleDeleteFile = useCallback(async (id: number) => {
+    await api.deleteDownloadWithFile(id).catch(() => {});
     setDownloads((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
   const handleClearCompleted = useCallback(async () => {
     const done = downloads.filter((d) => d.status === "completed" || d.status === "failed" || d.status === "cancelled");
     await Promise.allSettled(done.map((d) => api.deleteDownload(d.id)));
+    setDownloads((prev) => prev.filter((d) => d.status === "pending" || d.status === "running"));
   }, [downloads]);
 
   const hasCompleted = downloads.some((d) => ["completed", "failed", "cancelled"].includes(d.status));
@@ -856,7 +882,8 @@ export function Downloads() {
                   key={item.id}
                   item={item}
                   onPlay={setPlayingItem}
-                  onRemove={handleRemove}
+                  onClear={handleClear}
+                  onDeleteFile={handleDeleteFile}
                 />
               ))}
             </div>

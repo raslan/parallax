@@ -163,7 +163,11 @@ def stream_file(download_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{download_id}", status_code=204)
-def cancel_download_route(download_id: int, db: Session = Depends(get_db)):
+def cancel_download_route(
+    download_id: int,
+    delete_file: bool = False,
+    db: Session = Depends(get_db),
+):
     download = db.get(Download, download_id)
     if not download:
         raise HTTPException(404, "Download not found")
@@ -172,6 +176,12 @@ def cancel_download_route(download_id: int, db: Session = Depends(get_db)):
     if download.status in (DownloadStatus.PENDING, DownloadStatus.RUNNING):
         cancel_download(download_id)
 
-    # Always delete the record
+    # Optionally delete the file on disk
+    if delete_file and download.output_path and os.path.isfile(download.output_path):
+        try:
+            os.remove(download.output_path)
+        except OSError:
+            pass
+
     db.delete(download)
     db.commit()
