@@ -192,7 +192,7 @@ function buildGroupSection(group, idx) {
 
 const featureGroupSectionsHtml = featureGroups
   .filter((g) => g.title !== "General")
-  .map((g, i) => buildGroupSection(g, i))
+  .map((g, i) => buildGroupSection(g, i - 1))
   .join("\n");
 
 // ── Runtime cards ─────────────────────────────────────────────────────────────
@@ -271,6 +271,9 @@ const html = `<!DOCTYPE html>
       --accent:   #8b5cf6;
       --acc-hi:   #c4b5fd;
       --acc-lo:   rgba(139,92,246,0.06);
+      /* per-section accent — fallback to global violet */
+      --sec:      var(--accent);
+      --sec-hi:   var(--acc-hi);
       --serif:    "Playfair Display", Georgia, "Times New Roman", serif;
       --sans:     "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --mono:     "JetBrains Mono", "Fira Code", "SF Mono", monospace;
@@ -278,7 +281,11 @@ const html = `<!DOCTYPE html>
     }
 
     body {
-      background: var(--bg);
+      background:
+        radial-gradient(ellipse at 8% 12%,  rgba(124, 58,237,0.09) 0%, transparent 38%),
+        radial-gradient(ellipse at 92% 85%, rgba(  8,145,178,0.05) 0%, transparent 32%),
+        radial-gradient(ellipse at 60% 55%, rgba(217,119,  6,0.03) 0%, transparent 28%),
+        var(--bg);
       color: var(--text);
       font-family: var(--sans);
       font-size: 16px;
@@ -378,7 +385,19 @@ const html = `<!DOCTYPE html>
     }
 
     .hero-left { position: relative; z-index: 2; }
-    .hero-right { position: relative; z-index: 2; }
+    .hero-right {
+      position: relative; z-index: 2;
+    }
+    .hero-right::before {
+      content: "";
+      position: absolute; top: 10%; right: -20%;
+      width: 400px; height: 400px;
+      background: radial-gradient(ellipse, rgba(8,145,178,0.08) 0%, transparent 65%);
+      pointer-events: none; z-index: 0;
+      animation: glowPulse 8s ease-in-out infinite;
+      animation-delay: 3s;
+    }
+    .hero-right > * { position: relative; z-index: 1; }
 
     /* hero glow blob */
     .hero-left::before {
@@ -411,7 +430,7 @@ const html = `<!DOCTYPE html>
 
     h1 {
       font-family: var(--serif);
-      font-size: clamp(3.2rem, 6.5vw, 6rem);
+      font-size: clamp(2.2rem, 4.5vw, 4rem);
       font-weight: 700;
       line-height: 0.96;
       letter-spacing: -0.02em;
@@ -497,7 +516,7 @@ const html = `<!DOCTYPE html>
       position: absolute; top: -1.5rem; right: 1rem;
       font-family: var(--serif); font-weight: 700;
       font-size: clamp(7rem, 16vw, 14rem); line-height: 1;
-      color: rgba(255,255,255,0.055);
+      color: color-mix(in srgb, var(--sec-hi) 8%, rgba(255,255,255,0.04));
       pointer-events: none; user-select: none; z-index: 0;
     }
 
@@ -507,12 +526,12 @@ const html = `<!DOCTYPE html>
     .section-label {
       display: flex; align-items: center; gap: 0.75rem;
       font-size: 0.62rem; font-weight: 600; letter-spacing: 0.18em;
-      text-transform: uppercase; color: var(--acc-hi);
+      text-transform: uppercase; color: var(--sec-hi);
       margin-bottom: 1rem;
     }
     .section-label::before {
       content: ""; display: block; height: 1px;
-      background: var(--acc-hi); opacity: 0.55;
+      background: var(--sec-hi); opacity: 0.55;
       width: 0; transition: width 0.6s cubic-bezier(0.16,1,0.3,1) 0.2s;
     }
     .is-visible .section-label::before,
@@ -529,12 +548,20 @@ const html = `<!DOCTYPE html>
 
     /* ── Section-specific flair ── */
 
+    /* per-section color identities — exact app theme colors */
+    #feat-videos    { --sec: #7c3aed; --sec-hi: #a78bfa; } /* Violet  / Deep Space      */
+    #feat-images    { --sec: #d97706; --sec-hi: #f59e0b; } /* Amber   / Mission Control */
+    #feat-ai        { --sec: #0891b2; --sec-hi: #22d3ee; } /* Cyan    / Modern HUD      */
+    #feat-downloads { --sec: #059669; --sec-hi: #34d399; } /* Emerald / Neon Grid       */
+    #deploy         { --sec: #4f46e5; --sec-hi: #818cf8; } /* Indigo  / Midnight Blue   */
+    #windows        { --sec: #e11d48; --sec-hi: #fb7185; } /* Rose    / Crimson Noir    */
+
     /* Videos: slow projector scan line */
     #feat-videos { overflow: hidden; }
     #feat-videos::before {
       content: "";
       position: absolute; left: 0; right: 0; height: 140px;
-      background: linear-gradient(180deg, transparent, rgba(255,255,255,0.022), transparent);
+      background: linear-gradient(180deg, transparent, rgba(167,139,250,0.03), transparent);
       pointer-events: none; z-index: 0;
       animation: scanDown 12s linear infinite;
     }
@@ -543,14 +570,14 @@ const html = `<!DOCTYPE html>
       to   { top: 100%; }
     }
 
-    /* Images: radial glow from center */
+    /* Images: warm amber radial glow */
     #feat-images { overflow: hidden; }
     #feat-images::before {
       content: "";
       position: absolute; top: 45%; left: 50%;
       transform: translate(-50%, -50%);
       width: 700px; height: 500px;
-      background: radial-gradient(ellipse, rgba(124,58,237,0.07) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(217,119,6,0.08) 0%, transparent 65%);
       pointer-events: none; z-index: 0;
     }
     .feat-tile {
@@ -563,7 +590,7 @@ const html = `<!DOCTYPE html>
     .panel-dots { position: absolute; inset: 0; pointer-events: none; }
     .panel-dot {
       position: absolute; width: 3px; height: 3px;
-      border-radius: 50%; background: var(--acc-hi); opacity: 0.18;
+      border-radius: 50%; background: var(--sec-hi); opacity: 0.22;
       animation: panelDrift var(--dur, 14s) ease-in-out infinite alternate;
     }
     @keyframes panelDrift {
@@ -573,7 +600,7 @@ const html = `<!DOCTYPE html>
     .feat-panel::after {
       content: "";
       position: absolute; inset: 0;
-      background: radial-gradient(ellipse at 25% 35%, rgba(139,92,246,0.09) 0%, transparent 55%);
+      background: radial-gradient(ellipse at 25% 35%, color-mix(in srgb, var(--sec) 14%, transparent) 0%, transparent 55%);
       animation: panelGlow 7s ease-in-out infinite alternate;
       pointer-events: none;
     }
@@ -581,12 +608,12 @@ const html = `<!DOCTYPE html>
       from { opacity: 0.4; } to { opacity: 1; }
     }
 
-    /* Downloads: progress bar pulse on top border */
+    /* Downloads: emerald progress sweep */
     #feat-downloads { overflow: hidden; }
     #feat-downloads::before {
       content: "";
       position: absolute; top: 0; left: 0; height: 1px; width: 0%;
-      background: linear-gradient(90deg, transparent, var(--accent), var(--acc-hi), transparent);
+      background: linear-gradient(90deg, transparent, var(--sec), var(--sec-hi), transparent);
       pointer-events: none; z-index: 1;
       animation: dlSweep 5s ease-in-out infinite;
     }
@@ -626,7 +653,7 @@ const html = `<!DOCTYPE html>
     .feat-row::before {
       content: ""; position: absolute;
       left: 0; top: 0; bottom: 0; width: 2px;
-      background: var(--accent);
+      background: var(--sec);
       transform: scaleY(0); transform-origin: bottom;
       transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
     }
@@ -664,7 +691,7 @@ const html = `<!DOCTYPE html>
     }
     .feat-tile::after {
       content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, var(--accent), transparent);
+      background: linear-gradient(90deg, var(--sec), transparent);
       opacity: 0; transition: opacity 0.2s;
     }
     .feat-tile:hover { background: rgba(255,255,255,0.02); }
@@ -695,9 +722,9 @@ const html = `<!DOCTYPE html>
     .feat-ai-row:last-child { border-bottom: none; }
     .feat-ai-row:hover { background: rgba(167,139,250,0.04); }
     .feat-ai-dot {
-      width: 6px; height: 6px; border-radius: 50%; background: var(--acc-hi);
+      width: 6px; height: 6px; border-radius: 50%; background: var(--sec-hi);
       margin-top: 0.42rem; flex-shrink: 0;
-      box-shadow: 0 0 8px rgba(196,181,253,0.55);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--sec-hi) 55%, transparent);
     }
     .feat-ai-row strong {
       display: block; font-size: 0.8rem; font-weight: 600;
@@ -803,7 +830,7 @@ const html = `<!DOCTYPE html>
       .feat-tiles { grid-template-columns: 1fr; }
       .feat-tile { border-right: none; border-bottom: 1px solid var(--rule) !important; }
       .feat-tile:last-child { border-bottom: none !important; }
-      h1 { font-size: 2.75rem; }
+      h1 { font-size: 2rem; }
       .section-heading { font-size: 1.75rem; }
       .snippet-tabs { overflow-x: auto; }
       .snippet-tab { white-space: nowrap; }
@@ -820,7 +847,7 @@ const html = `<!DOCTYPE html>
   <div class="nav-inner">
     <a href="/" class="logo">${LOGO_SVG} Parallax</a>
     <div class="nav-links">
-      <a href="#features" class="nav-hide">Features</a>
+      <a href="#feat-videos" class="nav-hide">Features</a>
       <a href="#deploy" class="nav-hide">Deploy</a>
       <a href="#windows" class="nav-hide">Windows</a>
       <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} GitHub</a>
@@ -840,10 +867,10 @@ const html = `<!DOCTYPE html>
         Self-hosted
       </div>
       <h1>
-        <span class="hero-line">Your media library.</span>
-        <em class="hero-line"><span class="h1-accent">Unlimited control.</span></em>
+        <span class="hero-line">The media manager I couldn't find.</span>
+        <em class="hero-line"><span class="h1-accent">So I built it.</span></em>
       </h1>
-      <p class="hero-sub">No pricing. No subscription. No uploads. Process your media, on your device, with your hardware.</p>
+      <p class="hero-sub">Every tool was either paywalled, missing something, or one more service to keep alive. Parallax handles the whole job: transcode, deduplicate, rename, subtitle, download. One container, your hardware, no credit card.</p>
       <div class="hero-cta">
         <a href="#deploy" class="btn btn-solid">Deploy now</a>
         <a href="${ghUrl}" target="_blank" rel="noopener" class="btn btn-outline">${GITHUB_ICON} View on GitHub</a>
@@ -876,21 +903,10 @@ const html = `<!DOCTYPE html>
   </div>
 </div>
 
-<section class="section" id="features">
-  <div class="sect-num" aria-hidden="true">01</div>
-  <div class="container">
-    <div class="reveal">
-      <div class="section-label">Features</div>
-      <h2 class="section-heading">No subscriptions. No cloud. No nonsense.</h2>
-      <p class="section-sub">Everything the paid tiers don't want you to have: compression, repair, filtering, cleaning, renaming, subtitles, downloads and more; running locally on the hardware you already own.</p>
-    </div>
-  </div>
-</section>
-
 ${featureGroupSectionsHtml}
 
 <section class="section" id="deploy">
-  <div class="sect-num" aria-hidden="true">07</div>
+  <div class="sect-num" aria-hidden="true">05</div>
   <div class="container">
     <div class="deploy-layout">
       <div>
@@ -955,7 +971,7 @@ ${featureGroupSectionsHtml}
 </section>
 
 <section class="section" id="windows">
-  <div class="sect-num" aria-hidden="true">08</div>
+  <div class="sect-num" aria-hidden="true">06</div>
   <div class="container">
     <div class="deploy-layout">
       <div>
