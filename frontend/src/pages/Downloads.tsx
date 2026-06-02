@@ -82,7 +82,6 @@ function DownloadCard({
   const isActive = item.status === "pending" || item.status === "running";
   const isCompleted = item.status === "completed";
   const canPlay = isCompleted && !!item.output_path;
-  const hasFile = isCompleted && !!item.output_path;
 
   // Auto-disarm after 3s
   const armDelete = () => {
@@ -206,7 +205,7 @@ function DownloadCard({
           </button>
         )}
         {/* Delete file — only shown when there's a file */}
-        {hasFile && (
+        {isCompleted && (
           <button
             onClick={handleDeleteFile}
             title={deleteArmed ? "Click again to confirm · Shift+click to skip" : "Delete file from disk (Shift+click to skip confirm)"}
