@@ -246,7 +246,7 @@ def get_thumbnail(image_id: int, db: Session = Depends(get_db)):
     if not os.path.exists(thumb):
         raise HTTPException(404, "Thumbnail not available")
     return FileResponse(thumb, media_type="image/jpeg",
-                        headers={"Cache-Control": "no-cache"})
+                        headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{image_id}/full")
