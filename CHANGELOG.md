@@ -3,6 +3,68 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.2.0](https://github.com/raslan/parallax/compare/v1.1.0...v1.2.0) (2026-06-02)
+
+
+### Features
+
+* **downloader:** add Download model and init_db registration ([4bcb25e](https://github.com/raslan/parallax/commit/4bcb25e072d6ce15b879cb36390a5e5f1fed877f))
+* **downloader:** add stable/nightly channel selector for yt-dlp ([ada1474](https://github.com/raslan/parallax/commit/ada1474a558703a9b0a265dbb837e0fa106e77a6))
+* **downloader:** add yt-dlp downloader service ([1e78f69](https://github.com/raslan/parallax/commit/1e78f69a32d5b923e8bf6cdc09047478d037b63e))
+* **downloader:** auto-number colliding titles (1)(2) for same-title different URLs ([1ebd92f](https://github.com/raslan/parallax/commit/1ebd92f25a74d7f15c91724718d1aa9e29efb3a7))
+* **downloads:** add downloads API router with SSE stream ([ab3ca0c](https://github.com/raslan/parallax/commit/ab3ca0c4e9df944e406a3cc55e69f918c2d90ec2))
+* **downloads:** clear vs delete-file actions, badge centering, shift-click confirm ([40e3918](https://github.com/raslan/parallax/commit/40e3918e12c579c0be3945c3772a7580e5f0bbdb))
+* **downloads:** cookies paste modal, codec picker, collapsed options preview ([7761305](https://github.com/raslan/parallax/commit/7761305233b1f1ee3506b336655fdd02948923c6))
+* **downloads:** expandable errors with version, update button in queue header ([1ac6dd0](https://github.com/raslan/parallax/commit/1ac6dd0ea901c7a59297957a284ce113b2dd04d8))
+* **downloads:** extra args textarea, persist in sessionStorage ([ab9859c](https://github.com/raslan/parallax/commit/ab9859cd523c9a0c33d0df816e0f151448433ea5))
+* **downloads:** first-class impersonate target selection ([1088976](https://github.com/raslan/parallax/commit/1088976a2624c96fb2e5e0f5421a5eaf603b6e36))
+* **downloads:** implement Downloads page UI ([425446e](https://github.com/raslan/parallax/commit/425446ef3f32851dfbe10fd5216ed312615b59cc))
+* **downloads:** persist impersonate target and cookies in sessionStorage ([dac5b23](https://github.com/raslan/parallax/commit/dac5b23216680c7376e9e5768bd35bf1e3127510))
+* **downloads:** proxy thumbnails, persist history, reap orphaned downloads on startup ([2eb27bc](https://github.com/raslan/parallax/commit/2eb27bcc6624bfeb7b19d6a142ffd3b7cc57b50a))
+* **landing:** hero-driven story, per-theme section colors, polish ([2ba846b](https://github.com/raslan/parallax/commit/2ba846be972e9c2d184fa14f9121098e9808e65e))
+* **landing:** per-group feature sections with alternating layouts and revised copy ([192d191](https://github.com/raslan/parallax/commit/192d191caa698a51997d753cff1adb2e31aed768))
+* **landing:** radical visual redesign with per-section identity and animations ([b21b4a1](https://github.com/raslan/parallax/commit/b21b4a1204bba163d0bfe5ada7a644879c58e0a8))
+* **settings:** add download_dir and max_concurrent_downloads keys ([94fa2a6](https://github.com/raslan/parallax/commit/94fa2a618eeece1c402b598e098d6d64260026a5))
+* **settings:** add Downloads tab with yt-dlp management ([c7b4332](https://github.com/raslan/parallax/commit/c7b4332543d8c8da5d2140332a33dd3bc9356cc3))
+* wire up Downloads page navigation and routing ([3288bb9](https://github.com/raslan/parallax/commit/3288bb9cb0ac14145503a0325e21353fb6c84613))
+
+
+### Bug Fixes
+
+* add Cache-Control: no-store to identify thumbnail endpoint ([9bc22b0](https://github.com/raslan/parallax/commit/9bc22b09a8b7c8916e830552db25c93bb4800f71))
+* **docker:** chmod dist-packages writable for runtime pip installs ([7968892](https://github.com/raslan/parallax/commit/7968892ab6b969619d298c43fb8842afafc3275c))
+* **downloader:** add --no-user to pip install to force system-level install ([4b8b7d1](https://github.com/raslan/parallax/commit/4b8b7d1de22d14d5d001a4acb0529fbbdc412387))
+* **downloader:** cleanup matches numbered title variants Title (1).ext.part ([2be63e6](https://github.com/raslan/parallax/commit/2be63e6e6f0d27baf5ec3281050dcf8e04b7df06))
+* **downloader:** cleanup only matches exact title prefix, not numbered variants ([38cc2fd](https://github.com/raslan/parallax/commit/38cc2fd4250fb8a67d644af4f5e49c17f69213ae))
+* **downloader:** correct title sanitization for Linux yt-dlp (only / replaced) ([7eadcad](https://github.com/raslan/parallax/commit/7eadcadfc5aaf965955412ef38096f99d52595da))
+* **downloader:** download yt-dlp binary from GitHub instead of pip ([9afc92a](https://github.com/raslan/parallax/commit/9afc92ae9705373678dd350f0ed3c4d6d4898384))
+* **downloader:** killpg kills ffmpeg children, cancel works pre-subprocess ([b68242e](https://github.com/raslan/parallax/commit/b68242efba82c2e0850ccacbd4a6e246ac965edd))
+* **downloader:** NFC normalize title and filename before prefix match ([44f7cd1](https://github.com/raslan/parallax/commit/44f7cd1667271748bad08a76d56631e8337bbc22))
+* **downloader:** prioritise quality over codec in format fallback chain ([2669467](https://github.com/raslan/parallax/commit/266946761ec39dcbc9d574b545399d44c5c532c9))
+* **downloader:** scope part cleanup to cancelled download title only ([24437ea](https://github.com/raslan/parallax/commit/24437ea6eae9d326bf27d25b0258bb31486111b0))
+* **downloader:** store yt-dlp in DATA_DIR volume, chown /app in Dockerfile ([edd2d9d](https://github.com/raslan/parallax/commit/edd2d9d4db4d7a61fb1fd8556053896464d3d4d7))
+* **downloader:** thread safety, cancel detection, unbound guard ([1042c23](https://github.com/raslan/parallax/commit/1042c230b1c1ed213d01fc30e3693a0c0010840a))
+* **downloader:** unconditionally delete all .part/.ytdl in output dir on cancel ([64ea145](https://github.com/raslan/parallax/commit/64ea145eeadd2f088ef18e0a674835dc3e9a709b))
+* **downloader:** use --break-system-packages for pip install in container ([ddc7053](https://github.com/raslan/parallax/commit/ddc7053a9244baa6678826f60420bb2412f3d1fc))
+* **downloader:** use yt-dlp_linux binary which includes curl-cffi ([896059a](https://github.com/raslan/parallax/commit/896059ac8e6237b244c93255ab21f29edbaed76e))
+* **downloads:** always apply settings download_dir on page load ([db1f4e6](https://github.com/raslan/parallax/commit/db1f4e6941b2c8cbc5492900f5d5cdebdf696761))
+* **downloads:** clean up .part files on cancel, improve collapsed options layout ([55bc1ab](https://github.com/raslan/parallax/commit/55bc1ab71614475603d487829dfa1792e9618828))
+* **downloads:** cleanup part files in cancel route before record deletion ([52ad470](https://github.com/raslan/parallax/commit/52ad470fbe9d09ce0b30f699e5a78c1014b94537))
+* **downloads:** compile error, metadata prefetch, install timeout, purge integration ([8bf1884](https://github.com/raslan/parallax/commit/8bf1884500ae24836423d9568d5c46b3a26f27fe))
+* **downloads:** default dir /media/downloads, disable fetch cache for settings ([2df3db3](https://github.com/raslan/parallax/commit/2df3db3ea4ab8a15d4ccd1a73dd8708f6fbecb6d))
+* **downloads:** DELETE removes record for all download states ([8a62e81](https://github.com/raslan/parallax/commit/8a62e81cefb4aee50f051b0c82acbd6139057466))
+* **downloads:** remove invalid --no-download flag, show delete for all completed ([41ac7fa](https://github.com/raslan/parallax/commit/41ac7faccd9e6dfe3eb93d0db4f03dea83e80143))
+* **downloads:** SSE leak, banner link, consolidate remove handler ([b11e7e5](https://github.com/raslan/parallax/commit/b11e7e5fe19d038747e00b4831868c945d88e6a6))
+* **downloads:** title-based part cleanup, remove codec from collapsed panel ([0e2daad](https://github.com/raslan/parallax/commit/0e2daad8b8001fa56192d5d8d0b0578b3e2420f4))
+* **settings:** add missing Save button to Downloads tab ([26af403](https://github.com/raslan/parallax/commit/26af40373668e24a3d6f1ad3779707f325112581))
+* **settings:** remove duplicate SaveButton from Downloads tab ([9dc4fe0](https://github.com/raslan/parallax/commit/9dc4fe0ae694d034921c48d5fd7e080d331bf2c2))
+* use Cache-Control: no-store on all thumbnail endpoints to prevent stale cache ([2367bca](https://github.com/raslan/parallax/commit/2367bca52b0a363270cf1c9ebc2b178410825df7))
+
+
+### Reverts
+
+* **docker:** remove unnecessary chown, volume handles ownership ([8d5ecfc](https://github.com/raslan/parallax/commit/8d5ecfc0665d339e2ec83144026d9ca58272866a))
+
 ## [1.1.0](https://github.com/raslan/parallax/compare/v1.0.0...v1.1.0) (2026-06-02)
 
 
