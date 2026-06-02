@@ -136,9 +136,10 @@ def ytdlp_info():
 
 
 @router.post("/ytdlp/update")
-async def ytdlp_update():
-    await asyncio.to_thread(install_ytdlp)
-    return {"message": "yt-dlp updated"}
+async def ytdlp_update(db: Session = Depends(get_db)):
+    channel = get_setting(db, "ytdlp_channel", "stable")
+    await asyncio.to_thread(install_ytdlp, channel)
+    return {"message": f"yt-dlp updated ({channel})"}
 
 
 @router.get("/{download_id}/stream")

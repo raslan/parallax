@@ -208,6 +208,7 @@ export function Settings() {
 
   const [downloadDir, setDownloadDir]               = useState("/downloads");
   const [maxConcurrentDownloads, setMaxConcurrentDownloads] = useState(2);
+  const [ytdlpChannel, setYtdlpChannel]             = useState<"stable" | "nightly">("stable");
   const [ytdlpInfo, setYtdlpInfo]                   = useState<{ installed: boolean; version: string | null; path: string | null } | null>(null);
   const [ytdlpUpdating, setYtdlpUpdating]           = useState(false);
   const [showDirPicker, setShowDirPicker]           = useState(false);
@@ -227,6 +228,7 @@ export function Settings() {
         setSubtitleLangs((s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean));
         setDownloadDir(s.download_dir ?? "/downloads");
         setMaxConcurrentDownloads(s.max_concurrent_downloads ?? 2);
+        setYtdlpChannel((s.ytdlp_channel === "nightly" ? "nightly" : "stable") as "stable" | "nightly");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -250,7 +252,7 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(","), download_dir: downloadDir, max_concurrent_downloads: maxConcurrentDownloads });
+      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(","), download_dir: downloadDir, max_concurrent_downloads: maxConcurrentDownloads, ytdlp_channel: ytdlpChannel });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -697,6 +699,27 @@ export function Settings() {
               ) : (
                 <p className="text-sm text-amber-400">Not installed. Click Install to set it up.</p>
               )}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Release channel</p>
+                <div className="flex gap-1">
+                  {(["stable", "nightly"] as const).map((ch) => (
+                    <button
+                      key={ch}
+                      onClick={() => { setYtdlpChannel(ch); markDirty(); }}
+                      className={`px-3 py-1 rounded text-xs border transition-colors capitalize ${
+                        ytdlpChannel === ch
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border hover:bg-accent"
+                      }`}
+                    >
+                      {ch}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {ytdlpChannel === "nightly" ? "Built nightly from master — latest fixes, may be unstable." : "Latest tagged release — tested and stable."}
+                </p>
+              </div>
               <Button
                 size="sm"
                 variant="outline"
