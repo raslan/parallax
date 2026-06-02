@@ -25,10 +25,22 @@ A self-hosted video and image library manager with transcoding, AI scanning, dup
 - **Whisper** — faster-whisper speech-to-text for local subtitle generation; five model sizes (tiny → large-v3); auto-detects spoken language
 - **GPU-accelerated** — CUDA (NVIDIA) and ROCm (AMD) ONNX backends; all AI inference isolated in worker subprocesses — VRAM fully freed after 2 minutes idle; batch size tunable per your hardware
 
+### Downloads
+- **yt-dlp integration** — paste one or more URLs and queue downloads with live progress; supports YouTube, Vimeo, Twitch, and thousands of other sites
+- **Quality & codec control** — choose resolution (Best/4K/1080p/720p/480p/360p) and codec preference (Auto/H.264/H.265/AV1/VP9); quality-first fallback so codec degrades gracefully before resolution does
+- **Audio mode** — extract audio-only in mp3/m4a/opus
+- **Browser impersonation** — one-click enable with a dropdown of available targets from the installed binary; requires curl-cffi (included in the `yt-dlp_linux` standalone binary)
+- **Cookies** — paste Netscape-format cookies for session-only auth (age-restricted and logged-in content); ephemeral, never written to disk
+- **Trimming** — download a clip by setting start/end timestamps
+- **Subtitles** — optionally download subtitle files alongside the video
+- **yt-dlp management** — install/update from Settings → Downloads; stable or nightly channel; binary lives in the data volume and persists across rebuilds; quick Update button on the Downloads page shows current version
+- **Download history** — persists across restarts; clear from list (file kept) or delete with file (shift-click skips confirm)
+- **Playback** — completed downloads play in the built-in Plyr player with subtitle support
+
 ### General
 - **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
 - **Library delete safety** — when deleting a library that has `_originals/` or `_quarantine/` leftovers, prompts to delete them, review them, or keep them on disk
-- **Three themes** — violet (Deep Space), cyan (Modern HUD), amber (Mission Control)
+- **Seven themes** — violet (Deep Space, default), cyan (Modern HUD), amber (Mission Control), OLED, rose, emerald, indigo — selectable in Settings → General
 
 ---
 
@@ -223,8 +235,9 @@ Requires [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-nat
 1. Open [http://localhost:7899](http://localhost:7899)
 2. Go to **Settings → AI Models** to download CLIP and content detection models (required for AI features on both videos and images)
 3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature, and your [OpenSubtitles.org](https://www.opensubtitles.org) credentials to enable subtitle downloads
-4. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
-5. Run a scan; for video libraries the AI scan extracts keyframes then runs CLIP + content detection in batches; for image libraries it generates thumbnails and runs the same AI pipeline
+4. To use the Downloads feature, go to **Settings → Downloads** and click **Install yt-dlp** — choose stable or nightly channel first
+5. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
+6. Run a scan; for video libraries the AI scan extracts keyframes then runs CLIP + content detection in batches; for image libraries it generates thumbnails and runs the same AI pipeline
 
 ---
 
