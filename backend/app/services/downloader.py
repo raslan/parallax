@@ -283,11 +283,13 @@ def _parse_output_path(line: str) -> Optional[str]:
 # Part-file cleanup
 # ---------------------------------------------------------------------------
 
+_log = __import__("logging").getLogger(__name__)
+
 def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
     """Delete yt-dlp temp files (.part, .ytdl) belonging to this download."""
     import unicodedata
-    print(f"[cleanup] output_dir={output_dir!r} title={title!r}", flush=True)
-    print(f"[cleanup] dir_exists={os.path.isdir(output_dir) if output_dir else False}", flush=True)
+    _log.info("[cleanup] output_dir=%r title=%r dir_exists=%s", output_dir, title,
+              os.path.isdir(output_dir) if output_dir else False)
     if not output_dir or not os.path.isdir(output_dir):
         return
     if title:
@@ -296,24 +298,24 @@ def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
         prefix = None
     try:
         all_files = os.listdir(output_dir)
-        print(f"[cleanup] files_in_dir={all_files}", flush=True)
+        _log.info("[cleanup] files_in_dir=%s", all_files)
         for fname in all_files:
             if not (fname.endswith(".part") or fname.endswith(".ytdl")):
                 continue
             if prefix:
                 norm_fname = unicodedata.normalize("NFC", fname)
                 rest = norm_fname[len(prefix):]
-                print(f"[cleanup] candidate={fname!r} rest={rest!r}", flush=True)
+                _log.info("[cleanup] candidate=%r rest=%r", fname, rest)
                 if not (rest.startswith(".") or rest.startswith(" [")):
-                    print(f"[cleanup] SKIP {fname!r} (no match)", flush=True)
+                    _log.info("[cleanup] SKIP %r (no match)", fname)
                     continue
-            print(f"[cleanup] DELETE {fname!r}", flush=True)
+            _log.info("[cleanup] DELETE %r", fname)
             try:
                 os.remove(os.path.join(output_dir, fname))
             except OSError as e:
-                print(f"[cleanup] ERROR deleting {fname!r}: {e}", flush=True)
+                _log.error("[cleanup] ERROR deleting %r: %s", fname, e)
     except OSError as e:
-        print(f"[cleanup] listdir error: {e}", flush=True)
+        _log.error("[cleanup] listdir error: %s", e)
 
 
 # ---------------------------------------------------------------------------
