@@ -43,6 +43,7 @@ function LibraryGroup({
 }) {
   const [open, setOpen]           = useState(true);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [restoringAll, setRestoringAll] = useState(false);
   const [busyPaths, setBusyPaths] = useState<Set<string>>(new Set());
 
   const totalSavings  = entries.reduce((s, e) => s + (e.savings_bytes ?? 0), 0);
@@ -76,6 +77,17 @@ function LibraryGroup({
     }
   };
 
+  const handleRestoreAll = async () => {
+    if (!confirm(`Restore all ${entries.length} originals for "${libraryName}"? All modified files will be replaced.`)) return;
+    setRestoringAll(true);
+    try {
+      await Promise.all(entries.map((e) => api.restoreOriginal(e.path).catch(() => {})));
+      onRefresh();
+    } finally {
+      setRestoringAll(false);
+    }
+  };
+
   const handleDeleteAll = async () => {
     if (!confirm(`Delete all ${entries.length} originals for "${libraryName}"? This cannot be undone.`)) return;
     setDeletingAll(true);
@@ -105,18 +117,32 @@ function LibraryGroup({
             <span className="text-xs text-primary shrink-0">· {formatSize(totalSavings)} recoverable</span>
           )}
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs text-muted-foreground hover:text-destructive shrink-0 ml-4"
-          disabled={deletingAll}
-          onClick={(e) => { e.stopPropagation(); handleDeleteAll(); }}
-        >
-          {deletingAll
-            ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
-          Delete all
-        </Button>
+        <div className="flex items-center gap-1 shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs text-muted-foreground hover:text-foreground"
+            disabled={restoringAll || deletingAll}
+            onClick={handleRestoreAll}
+          >
+            {restoringAll
+              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              : <RotateCcw className="h-3.5 w-3.5 mr-1.5" />}
+            Restore all
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs text-muted-foreground hover:text-destructive"
+            disabled={deletingAll || restoringAll}
+            onClick={handleDeleteAll}
+          >
+            {deletingAll
+              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+            Delete all
+          </Button>
+        </div>
       </div>
 
       {open && (

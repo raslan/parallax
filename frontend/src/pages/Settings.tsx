@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Check, Palette, KeyRound, Cpu, Download, Trash2, AlertCircle, OctagonAlert } from "lucide-react";
+import { Loader2, Check, Palette, KeyRound, Cpu, Clapperboard, Download, Trash2, AlertCircle, OctagonAlert } from "lucide-react";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,18 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { formatSize } from "@/lib/format";
 
 const THEMES = [
-  { id: "violet" as const, label: "Deep Space",      accent: "#a78bfa" },
-  { id: "cyan"   as const, label: "Modern HUD",      accent: "#22d3ee" },
-  { id: "amber"  as const, label: "Mission Control", accent: "#f59e0b" },
+  { id: "violet"  as const, label: "Deep Space",      accent: "#a78bfa" },
+  { id: "cyan"    as const, label: "Modern HUD",      accent: "#22d3ee" },
+  { id: "amber"   as const, label: "Mission Control", accent: "#f59e0b" },
+  { id: "oled"    as const, label: "OLED",            accent: "#ffffff" },
+  { id: "rose"    as const, label: "Crimson Noir",    accent: "#fb7185" },
+  { id: "emerald" as const, label: "Neon Grid",       accent: "#34d399" },
+  { id: "indigo"  as const, label: "Midnight Blue",   accent: "#818cf8" },
 ];
 
 const TABS = [
-  { id: "appearance",   label: "Appearance",      icon: Palette },
-  { id: "transcoder",   label: "Transcoder",      icon: null },
+  { id: "general",      label: "General",         icon: Palette },
+  { id: "transcoder",   label: "Transcoder",      icon: Clapperboard },
   { id: "credentials",  label: "Keys & Accounts", icon: KeyRound },
   { id: "ai",           label: "AI Models",       icon: Cpu },
 ] as const;
@@ -185,7 +189,7 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
 export function Settings() {
   const { theme, setTheme } = useTheme();
   const [searchParams] = useSearchParams();
-  const initialTab = (searchParams.get("tab") as TabId | null) ?? "appearance";
+  const initialTab = (searchParams.get("tab") as TabId | null) ?? "general";
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   const [maxConcurrent, setMaxConcurrent]         = useState(1);
@@ -280,34 +284,37 @@ export function Settings() {
         })}
       </div>
 
-      {/* Appearance */}
-      {activeTab === "appearance" && (
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div>
-              <p className="text-sm font-medium mb-1">Colour theme</p>
-              <p className="text-xs text-muted-foreground mb-4">Takes effect immediately.</p>
-              <div className="flex gap-3">
-                {THEMES.map((t) => {
-                  const isActive = theme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setTheme(t.id)}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-[0.4rem] border transition-colors ${
-                        isActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <div className="h-8 w-8 rounded-full" style={{ background: t.accent }} />
-                      <span className="text-xs font-medium whitespace-nowrap">{t.label}</span>
-                      {isActive && <Check className="h-3 w-3 text-primary" />}
-                    </button>
-                  );
-                })}
+      {/* General */}
+      {activeTab === "general" && (
+        <>
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Colour theme</p>
+                <p className="text-xs text-muted-foreground mb-4">Takes effect immediately.</p>
+                <div className="flex gap-3">
+                  {THEMES.map((t) => {
+                    const isActive = theme === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setTheme(t.id)}
+                        className={`w-32 flex flex-col items-center gap-2 p-3 rounded-[0.4rem] border transition-colors ${
+                          isActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="h-8 w-8 rounded-full" style={{ background: t.accent }} />
+                        <span className="text-xs font-medium text-center leading-tight">{t.label}</span>
+                        {isActive && <Check className="h-3 w-3 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+          <DangerZone />
+        </>
       )}
 
       {/* Transcoder */}
@@ -614,7 +621,6 @@ export function Settings() {
         </div>
       )}
 
-      <DangerZone />
     </div>
   );
 }
