@@ -167,7 +167,7 @@ async def thumbnail(download_id: int, db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(502, "Could not fetch thumbnail")
     return Response(content=data, media_type=content_type,
-                    headers={"Cache-Control": "public, max-age=86400"})
+                    headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{download_id}/stream")
