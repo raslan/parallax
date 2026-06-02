@@ -569,7 +569,6 @@ export function Downloads() {
   const [showCookiesModal, setShowCookiesModal] = useState(false);
   const [cookiesDraft, setCookiesDraft] = useState("");
   const [dupeUrls, setDupeUrls] = useState<string[]>([]);
-  const [showOptions, setShowOptions] = useState(true);
   const [opts, setOpts] = useState<DownloadOptions>({
     audioOnly: false,
     quality: "best",
@@ -775,11 +774,11 @@ export function Downloads() {
         <YtdlpBanner onDismiss={() => setYtdlpBannerDismissed(true)} />
       )}
 
-      {/* Input + options layout */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
+      {/* Two-column layout: left = URL input + queue, right = options */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
 
-        {/* Left: URL input */}
-        <div className="space-y-3">
+        {/* Left: URL input + queue */}
+        <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Link className="h-3.5 w-3.5 text-muted-foreground/50" />
@@ -819,23 +818,107 @@ export function Downloads() {
               <span className="text-xs text-red-400 ml-auto">{submitError}</span>
             )}
           </div>
+
+          {/* Queue */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <SectionHeader>Queue</SectionHeader>
+                {activeCount > 0 && (
+                  <Badge variant="secondary" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
+                    {activeCount} active
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {ytdlpVersion && (
+                  <span className="text-[10px] text-muted-foreground/40 font-mono">yt-dlp {ytdlpVersion}</span>
+                )}
+                <button
+                  onClick={handleYtdlpUpdate}
+                  disabled={ytdlpUpdating}
+                  className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
+                  title="Update yt-dlp to latest"
+                >
+                  {ytdlpUpdating
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : <RefreshCw className="h-3 w-3" />}
+                  Update
+                </button>
+                {hasCompleted && (
+                  <button
+                    onClick={handleClearCompleted}
+                    className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Clear completed
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <Card className="overflow-hidden border-border/50">
+              {downloads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                  <div className="rounded-full bg-muted/30 p-4">
+                    <Download className="h-8 w-8 text-muted-foreground/30" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">No downloads yet</p>
+                    <p className="text-xs text-muted-foreground/50 mt-0.5">Paste a URL above to get started</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {(() => {
+                    const seen = new Set<string>();
+                    const rendered: JSX.Element[] = [];
+
+                    for (const item of downloads) {
+                      if (item.playlist_id) {
+                        if (seen.has(item.playlist_id)) continue;
+                        seen.add(item.playlist_id);
+                        const groupItems = downloads.filter(
+                          (d) => d.playlist_id === item.playlist_id
+                        );
+                        rendered.push(
+                          <PlaylistGroup
+                            key={`playlist-${item.playlist_id}`}
+                            title={item.playlist_title ?? item.playlist_id}
+                            items={groupItems}
+                            onPlay={setPlayingItem}
+                            onClear={handleClear}
+                            onDeleteFile={handleDeleteFile}
+                          />
+                        );
+                      } else {
+                        rendered.push(
+                          <DownloadCard
+                            key={item.id}
+                            item={item}
+                            onPlay={setPlayingItem}
+                            onClear={handleClear}
+                            onDeleteFile={handleDeleteFile}
+                          />
+                        );
+                      }
+                    }
+
+                    return rendered;
+                  })()}
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
 
-        {/* Right: Options panel */}
-        <Card className="overflow-hidden border-border/50">
-          {/* Header row — always visible */}
+        {/* Right: Options (always expanded) */}
+        <Card className="overflow-hidden border-border/50 sticky top-6">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
-            <button
-              onClick={() => setShowOptions((v) => !v)}
-              className="flex items-center gap-2 text-sm font-medium hover:text-foreground transition-colors"
-            >
+            <div className="flex items-center gap-2 text-sm font-medium">
               <Settings2 className="h-3.5 w-3.5 text-muted-foreground/60" />
               Options
-              {showOptions
-                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/60" />
-                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60" />}
-            </button>
-            {/* Cookies button */}
+            </div>
             <button
               onClick={() => { setCookiesDraft(activeCookies); setShowCookiesModal(true); }}
               className={cn(
@@ -852,62 +935,13 @@ export function Downloads() {
               )}
             </button>
           </div>
-
-          {/* Collapsed summary — mode + quality */}
-          {!showOptions && (
-            <div className="px-4 py-3 space-y-2 border-t border-border/30">
-              {/* Mode */}
-              <div className="grid grid-cols-2 gap-1.5">
-                {[
-                  { id: false, label: "Video", Icon: Video },
-                  { id: true,  label: "Audio only", Icon: Music },
-                ].map(({ id, label, Icon }) => (
-                  <button
-                    key={String(id)}
-                    onClick={() => setOpts((o) => ({ ...o, audioOnly: id, codec: id ? "mp3" : "auto" }))}
-                    className={cn(
-                      "flex items-center justify-center gap-2 px-3 py-2.5 rounded border text-sm font-medium transition-colors",
-                      opts.audioOnly === id
-                        ? "border-primary/60 bg-primary/10 text-foreground"
-                        : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {/* Quality — 2 rows × 3 cols */}
-              {!opts.audioOnly && (
-                <div className="grid grid-cols-3 gap-1.5">
-                  {VIDEO_QUALITIES.map((q) => (
-                    <button
-                      key={q.id}
-                      onClick={() => setOpts((o) => ({ ...o, quality: q.id }))}
-                      className={cn(
-                        "py-2 rounded border text-sm font-medium transition-colors",
-                        opts.quality === q.id
-                          ? "border-primary/60 bg-primary/10 text-foreground"
-                          : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
-                      )}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {showOptions && (
-            <div className="px-4 pb-4 pt-3">
-              <OptionsPanel
-                opts={opts}
-                onChange={(updates) => setOpts((o) => ({ ...o, ...updates }))}
-                impersonateTargets={impersonateTargets}
-              />
-            </div>
-          )}
+          <div className="px-4 pb-4 pt-3">
+            <OptionsPanel
+              opts={opts}
+              onChange={(updates) => setOpts((o) => ({ ...o, ...updates }))}
+              impersonateTargets={impersonateTargets}
+            />
+          </div>
         </Card>
       </div>
 
@@ -992,97 +1026,6 @@ export function Downloads() {
         </div>
       )}
 
-      {/* Queue */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <SectionHeader>Queue</SectionHeader>
-            {activeCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
-                {activeCount} active
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {ytdlpVersion && (
-              <span className="text-[10px] text-muted-foreground/40 font-mono">yt-dlp {ytdlpVersion}</span>
-            )}
-            <button
-              onClick={handleYtdlpUpdate}
-              disabled={ytdlpUpdating}
-              className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
-              title="Update yt-dlp to latest"
-            >
-              {ytdlpUpdating
-                ? <Loader2 className="h-3 w-3 animate-spin" />
-                : <RefreshCw className="h-3 w-3" />}
-              Update
-            </button>
-            {hasCompleted && (
-              <button
-                onClick={handleClearCompleted}
-                className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
-              >
-                <Trash2 className="h-3 w-3" />
-                Clear completed
-              </button>
-            )}
-          </div>
-        </div>
-
-        <Card className="overflow-hidden border-border/50">
-          {downloads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <div className="rounded-full bg-muted/30 p-4">
-                <Download className="h-8 w-8 text-muted-foreground/30" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">No downloads yet</p>
-                <p className="text-xs text-muted-foreground/50 mt-0.5">Paste a URL above to get started</p>
-              </div>
-            </div>
-          ) : (
-            <div>
-              {(() => {
-                const seen = new Set<string>();
-                const rendered: JSX.Element[] = [];
-
-                for (const item of downloads) {
-                  if (item.playlist_id) {
-                    if (seen.has(item.playlist_id)) continue;
-                    seen.add(item.playlist_id);
-                    const groupItems = downloads.filter(
-                      (d) => d.playlist_id === item.playlist_id
-                    );
-                    rendered.push(
-                      <PlaylistGroup
-                        key={`playlist-${item.playlist_id}`}
-                        title={item.playlist_title ?? item.playlist_id}
-                        items={groupItems}
-                        onPlay={setPlayingItem}
-                        onClear={handleClear}
-                        onDeleteFile={handleDeleteFile}
-                      />
-                    );
-                  } else {
-                    rendered.push(
-                      <DownloadCard
-                        key={item.id}
-                        item={item}
-                        onPlay={setPlayingItem}
-                        onClear={handleClear}
-                        onDeleteFile={handleDeleteFile}
-                      />
-                    );
-                  }
-                }
-
-                return rendered;
-              })()}
-            </div>
-          )}
-        </Card>
-      </div>
     </div>
   );
 }
