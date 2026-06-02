@@ -10,6 +10,7 @@ import json
 import re
 import shlex
 import subprocess
+import sys
 import threading
 from typing import Optional
 
@@ -59,8 +60,9 @@ def install_ytdlp() -> None:
     Blocking — callers must wrap in asyncio.to_thread if called from async context.
     """
     subprocess.run(
-        ["pip", "install", "-U", "yt-dlp[default,curl-cffi]"],
+        [sys.executable, "-m", "pip", "install", "-U", "yt-dlp[default,curl-cffi]"],
         check=True,
+        timeout=180,
     )
 
 
@@ -197,6 +199,23 @@ def _run_download_sync(download_id: int) -> None:
         download.status = DownloadStatus.RUNNING
         download.started_at = now()
         db.commit()
+
+        # Prefetch metadata (best-effort — don't fail if this errors)
+        try:
+            meta_result = subprocess.run(
+                ["yt-dlp", "--dump-json", "--no-playlist", "--no-download", download.url],
+                capture_output=True, text=True, timeout=30
+            )
+            if meta_result.returncode == 0 and meta_result.stdout.strip():
+                import json as _json
+                meta = _json.loads(meta_result.stdout.strip().splitlines()[0])
+                download.title = meta.get("title") or meta.get("fulltitle")
+                download.uploader = meta.get("uploader") or meta.get("channel")
+                download.thumbnail_url = meta.get("thumbnail")
+                download.duration = meta.get("duration")
+                db.commit()
+        except Exception:
+            pass  # metadata prefetch failure is non-fatal
 
         # Build command
         options = json.loads(download.options or "{}")
