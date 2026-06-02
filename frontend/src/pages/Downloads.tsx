@@ -736,30 +736,42 @@ export function Downloads() {
             </button>
           </div>
 
-          {/* Collapsed summary — mode + quality */}
+          {/* Collapsed summary — mode + quality + codec */}
           {!showOptions && (
-            <div className="px-4 py-2.5 flex items-center gap-3 text-xs text-muted-foreground">
-              <button
-                onClick={() => setOpts((o) => ({ ...o, audioOnly: !o.audioOnly, codec: o.audioOnly ? "auto" : "mp3" }))}
-                className={cn("flex items-center gap-1 px-2 py-1 rounded border transition-colors",
-                  opts.audioOnly
-                    ? "border-primary/40 bg-primary/10 text-primary"
-                    : "border-border/50 hover:border-border"
-                )}
-              >
-                {opts.audioOnly ? <Music className="h-3 w-3" /> : <Video className="h-3 w-3" />}
-                {opts.audioOnly ? "Audio" : "Video"}
-              </button>
+            <div className="px-4 py-3 space-y-2.5 border-t border-border/30">
+              {/* Mode row */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { id: false, label: "Video", Icon: Video },
+                  { id: true,  label: "Audio only", Icon: Music },
+                ].map(({ id, label, Icon }) => (
+                  <button
+                    key={String(id)}
+                    onClick={() => setOpts((o) => ({ ...o, audioOnly: id, codec: id ? "mp3" : "auto" }))}
+                    className={cn(
+                      "flex items-center justify-center gap-2 px-3 py-2 rounded border text-sm font-medium transition-colors",
+                      opts.audioOnly === id
+                        ? "border-primary/60 bg-primary/10 text-foreground"
+                        : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {/* Quality row — video only */}
               {!opts.audioOnly && (
-                <div className="flex gap-1">
+                <div className="grid grid-cols-6 gap-1">
                   {VIDEO_QUALITIES.map((q) => (
                     <button
                       key={q.id}
                       onClick={() => setOpts((o) => ({ ...o, quality: q.id }))}
-                      className={cn("px-1.5 py-0.5 rounded text-[10px] border transition-colors",
+                      className={cn(
+                        "py-1.5 rounded border text-xs font-medium transition-colors",
                         opts.quality === q.id
-                          ? "border-primary/50 bg-primary/10 text-primary"
-                          : "border-border/40 text-muted-foreground/50 hover:border-border hover:text-foreground"
+                          ? "border-primary/60 bg-primary/10 text-foreground"
+                          : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
                       )}
                     >
                       {q.label}
@@ -767,6 +779,26 @@ export function Downloads() {
                   ))}
                 </div>
               )}
+              {/* Codec row */}
+              <div className={cn("grid gap-1", opts.audioOnly ? "grid-cols-3" : "grid-cols-5")}>
+                {(opts.audioOnly ? ["mp3","m4a","opus"] : VIDEO_CODECS.map(c => c.id)).map((c) => {
+                  const label = opts.audioOnly ? c.toUpperCase() : (VIDEO_CODECS.find(v => v.id === c)?.label ?? c);
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setOpts((o) => ({ ...o, codec: c }))}
+                      className={cn(
+                        "py-1.5 rounded border text-xs font-medium transition-colors",
+                        opts.codec === c
+                          ? "border-primary/60 bg-primary/10 text-foreground"
+                          : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
