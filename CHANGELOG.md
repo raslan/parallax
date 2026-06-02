@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.1.0](https://github.com/raslan/parallax/compare/v1.0.0...v1.1.0) (2026-06-02)
+
+
+### Features
+
+* add filename search to Files, Compress, and Images pages ([11e1290](https://github.com/raslan/parallax/commit/11e1290d8d1be69eca2ded5d30bf370347e9d1c6))
+* **ui:** themes, bulk actions, settings improvements ([fdff912](https://github.com/raslan/parallax/commit/fdff9123ad933105d3c36a0f3a21e0a499791ca3))
+
 ## [1.0.0](https://github.com/raslan/parallax/compare/v0.13.0...v1.0.0) (2026-06-01)
 
 
