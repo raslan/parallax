@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Wand2, Brain, ExternalLink } from "lucide-react";
+import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Brain, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { api, Library } from "@/lib/api";
-import { PRESETS } from "@/lib/presets";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { DirPicker } from "@/components/DirPicker";
@@ -301,25 +300,11 @@ export function Libraries() {
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
   const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
-  const [transcodingIds, setTranscodingIds] = useState<Set<number>>(new Set());
   const [aiScanningIds, setAiScanningIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [deletingLib, setDeletingLib] = useState<Library | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [transcodePresetFor, setTranscodePresetFor] = useState<number | null>(null);
-  const presetRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (transcodePresetFor === null) return;
-    const handler = (e: MouseEvent) => {
-      if (presetRef.current && !presetRef.current.contains(e.target as Node)) {
-        setTranscodePresetFor(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [transcodePresetFor]);
 
   const load = () => {
     setLoading(true);
@@ -352,18 +337,6 @@ export function Libraries() {
     }
   };
 
-  const handleTranscode = async (id: number, preset: string) => {
-    setTranscodePresetFor(null);
-    setTranscodingIds((s) => new Set(s).add(id));
-    try {
-      await api.transcodeLibrary(id, preset);
-    } catch (e: any) {
-      if (!e.message?.includes("409")) throw e;
-    } finally {
-      setTranscodingIds((s) => { const n = new Set(s); n.delete(id); return n; });
-    }
-  };
-
   const handleAiScan = async (id: number) => {
     setAiScanningIds((s) => new Set(s).add(id));
     try {
@@ -387,7 +360,7 @@ export function Libraries() {
           <SectionHeader className="mb-1.5">Media collection</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Libraries</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage the folders you want to scan and transcode.
+            Manage the folders you want to scan.
           </p>
         </div>
         <div className="flex gap-2">
@@ -439,16 +412,9 @@ export function Libraries() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {libraries.map((lib) => {
             const notIndexed = lib.file_count === 0;
-            const noCorrupt = lib.corrupt_count === 0;
             const checkTitle = notIndexed
               ? "Scan the library first to index files before checking for corruption"
               : "Check all indexed files for corruption";
-            const transcodeTitle = notIndexed
-              ? "Scan and check the library first"
-              : noCorrupt
-              ? "No corrupt files to transcode"
-              : "Transcode all corrupt files";
-            const transcodeDisabled = transcodingIds.has(lib.id) || notIndexed || noCorrupt;
             return (
             <Card key={lib.id} className={lib.corrupt_count > 0 ? "border-destructive/40" : ""}>
               <CardHeader className="pb-2">
@@ -485,32 +451,6 @@ export function Libraries() {
                     >
                       <Brain className={`h-3.5 w-3.5 ${aiScanningIds.has(lib.id) ? "text-primary animate-pulse" : notIndexed ? "opacity-30" : ""}`} />
                     </Button>
-                    <div className="relative" ref={transcodePresetFor === lib.id ? presetRef : undefined}>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        disabled={transcodeDisabled}
-                        title={transcodeTitle}
-                        onClick={() => setTranscodePresetFor((v) => v === lib.id ? null : lib.id)}
-                      >
-                        <Wand2 className={`h-3.5 w-3.5 ${transcodingIds.has(lib.id) ? "text-primary animate-pulse" : transcodeDisabled ? "opacity-30" : ""}`} />
-                      </Button>
-                      {transcodePresetFor === lib.id && (
-                        <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-1 flex flex-col gap-0.5 min-w-[110px]">
-                          {PRESETS.map((p) => (
-                            <button
-                              key={p.value}
-                              title={p.title}
-                              onClick={() => handleTranscode(lib.id, p.value)}
-                              className="text-left px-2.5 py-1.5 text-xs rounded hover:bg-accent transition-colors"
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                     <Button
                       size="icon"
                       variant="ghost"

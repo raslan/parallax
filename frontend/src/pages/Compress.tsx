@@ -385,6 +385,10 @@ export function Compress() {
     displayFiles && setSelected(new Set(
       displayFiles.filter((f) => f.codec_name?.toLowerCase() !== codec).map((f) => f.id)
     ));
+  const selectCorrupt = () =>
+    displayFiles && setSelected(new Set(
+      displayFiles.filter((f) => f.status === "corrupt").map((f) => f.id)
+    ));
 
   const selectedFiles = useMemo(
     () => (displayFiles ?? []).filter((f) => selected.has(f.id)),
@@ -719,6 +723,9 @@ export function Compress() {
             </button>
             <button onClick={selectCandidates} className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2" title={`Select files not already ${selectedCodec?.label ?? codec}`}>
               Non-{selectedCodec?.label ?? codec.toUpperCase()}
+            </button>
+            <button onClick={selectCorrupt} className="text-xs text-destructive/70 hover:text-destructive transition-colors underline underline-offset-2" title="Select all corrupt files">
+              Corrupt
             </button>
             <div className="flex-1" />
 

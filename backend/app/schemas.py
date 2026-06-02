@@ -1,10 +1,6 @@
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Optional
 from pydantic import BaseModel
-
-
-class TranscodeRequest(BaseModel):
-    preset: Literal["high", "medium", "low"] = "medium"
 
 
 class DuplicateCriteriaRequest(BaseModel):
