@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.2.1](https://github.com/raslan/parallax/compare/v1.2.0...v1.2.1) (2026-06-02)
+
+
+### Bug Fixes
+
+* **landing:** switch og-image to JPEG, add missing width/height/type meta tags ([4986363](https://github.com/raslan/parallax/commit/4986363696018729637cd551b3e1ae136d18bccb))
+
 ## [1.2.0](https://github.com/raslan/parallax/compare/v1.1.0...v1.2.0) (2026-06-02)
 
 
