@@ -427,7 +427,7 @@ export function Downloads() {
   // Load default output dir from settings
   useEffect(() => {
     api.getSettings().then((s) => {
-      if (s.download_dir) setOpts((o) => ({ ...o, outputDir: s.download_dir }));
+      setOpts((o) => ({ ...o, outputDir: s.download_dir || "/downloads" }));
     }).catch(() => {});
   }, []);
 
