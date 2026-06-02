@@ -15,6 +15,7 @@ import threading
 import urllib.request
 from typing import Optional
 
+from app.config import DATA_DIR
 from app.database import SessionLocal
 from app.models.download import Download, DownloadStatus
 from app.services.common import now
@@ -34,20 +35,23 @@ _semaphore_limit: int = 0
 # ---------------------------------------------------------------------------
 
 
+def _ytdlp_bin() -> str | None:
+    """Return path to yt-dlp binary: data-volume location first, then PATH fallback."""
+    if os.path.isfile(_YTDLP_BIN) and os.access(_YTDLP_BIN, os.X_OK):
+        return _YTDLP_BIN
+    import shutil
+    return shutil.which("yt-dlp")
+
+
 def get_ytdlp_info() -> dict:
     """Return {"installed": bool, "version": str | None, "path": str | None}."""
-    import shutil
-
-    path = shutil.which("yt-dlp")
+    path = _ytdlp_bin()
     if path is None:
         return {"installed": False, "version": None, "path": None}
-
     try:
         result = subprocess.run(
-            ["yt-dlp", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10,
+            [path, "--version"],
+            capture_output=True, text=True, timeout=10,
         )
         version = result.stdout.strip() if result.returncode == 0 else None
         return {"installed": True, "version": version, "path": path}
@@ -55,7 +59,7 @@ def get_ytdlp_info() -> dict:
         return {"installed": False, "version": None, "path": None}
 
 
-_YTDLP_BIN = "/usr/local/bin/yt-dlp"
+_YTDLP_BIN = os.path.join(DATA_DIR, "yt-dlp")  # stored in data volume, writable by container user
 _YTDLP_URLS = {
     "stable":  "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
     "nightly": "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp",
@@ -107,7 +111,7 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     sub_langs: str = options.get("sub_langs") or "en"
     extra_args_str: str = options.get("extra_args") or ""
 
-    cmd: list[str] = ["yt-dlp"]
+    cmd: list[str] = [_ytdlp_bin() or "yt-dlp"]
 
     # Always-on flags
     cmd += ["--progress", "--newline", "--no-warnings"]
@@ -217,7 +221,7 @@ def _run_download_sync(download_id: int) -> None:
         # Prefetch metadata (best-effort — don't fail if this errors)
         try:
             meta_result = subprocess.run(
-                ["yt-dlp", "--dump-json", "--no-playlist", "--no-download", download.url],
+                [_ytdlp_bin() or "yt-dlp", "--dump-json", "--no-playlist", "--no-download", download.url],
                 capture_output=True, text=True, timeout=30
             )
             if meta_result.returncode == 0 and meta_result.stdout.strip():
