@@ -324,7 +324,50 @@ export const api = {
     req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
   identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[] }) =>
     req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
+
+  // Downloads
+  getDownloads: () => req<DownloadItem[]>("/downloads"),
+  enqueueDownloads: (body: DownloadRequest) =>
+    req<{ ids: number[] }>("/downloads", { method: "POST", body: JSON.stringify(body) }),
+  deleteDownload: (id: number) => req<void>(`/downloads/${id}`, { method: "DELETE" }),
+  downloadStreamUrl: (id: number) => `${BASE}/downloads/${id}/stream`,
+  downloadsSseUrl: () => `${BASE}/downloads/stream`,
 };
+
+// ── Download types ──────────────────────────────────────────────────────
+
+export interface DownloadItem {
+  id: number;
+  url: string;
+  title: string | null;
+  uploader: string | null;
+  thumbnail_url: string | null;
+  duration: number | null;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  progress: number;
+  speed: string | null;
+  eta: string | null;
+  error: string | null;
+  output_path: string | null;
+  output_dir: string;
+  options: string | null;
+  created_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface DownloadRequest {
+  urls: string[];
+  output_dir?: string;
+  audio_only?: boolean;
+  quality?: string;
+  container?: string;
+  trim_start?: string | null;
+  trim_end?: string | null;
+  download_subs?: boolean;
+  sub_langs?: string;
+  extra_args?: string;
+}
 
 // ── Image library types ──────────────────────────────────────────────────────
 

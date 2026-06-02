@@ -9,6 +9,7 @@ import { Duplicates } from "@/pages/Duplicates";
 import { Cleanup } from "@/pages/Cleanup";
 import { Identify } from "@/pages/Identify";
 import { Subtitles } from "@/pages/Subtitles";
+import { Downloads } from "@/pages/Downloads";
 import { Compress } from "@/pages/Compress";
 import { ImageLibraries } from "@/pages/ImageLibraries";
 import { Images } from "@/pages/Images";
@@ -28,8 +29,10 @@ export default function App() {
           <Route path="/originals" element={<Originals />} />
           <Route path="/duplicates" element={<Duplicates />} />
           <Route path="/cleanup" element={<Cleanup />} />
+          {/* Tools */}
           <Route path="/identify" element={<Identify />} />
           <Route path="/subtitles" element={<Subtitles />} />
+          <Route path="/downloads" element={<Downloads />} />
           <Route path="/compress" element={<Compress />} />
           {/* Image routes */}
           <Route path="/image-libraries" element={<ImageLibraries />} />
