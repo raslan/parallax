@@ -284,11 +284,8 @@ def _parse_output_path(line: str) -> Optional[str]:
 _PART_EXTS = (".part", ".ytdl", ".part-Frag0", ".part-Frag1")  # common yt-dlp temp extensions
 
 def _sanitize_title(title: str) -> str:
-    """Approximate yt-dlp filename sanitization for prefix matching."""
-    # yt-dlp replaces these characters in titles when building output paths
-    for ch in r'\/:*?"<>|':
-        title = title.replace(ch, "_")
-    return title.strip()
+    """Approximate yt-dlp filename sanitization on Linux: only / is replaced."""
+    return title.replace("/", "_").replace("\x00", "").strip()
 
 def _cleanup_part_files(output_dir: str, title: str | None) -> None:
     """Delete yt-dlp partial files matching the download title (rm title.* equivalent)."""
