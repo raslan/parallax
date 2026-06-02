@@ -294,10 +294,14 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; whisper_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; opensubtitles_username?: string; opensubtitles_password?: string; subtitle_languages?: string }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; whisper_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; opensubtitles_username?: string; opensubtitles_password?: string; subtitle_languages?: string; download_dir?: string; max_concurrent_downloads?: number }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
   purgeLibraryData: () => req<void>("/settings/purge-library-data", { method: "POST" }),
+
+  // yt-dlp
+  ytdlpInfo: () => req<{ installed: boolean; version: string | null; path: string | null }>("/downloads/ytdlp/info"),
+  ytdlpUpdate: () => req<{ message: string }>("/downloads/ytdlp/update", { method: "POST" }),
 
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
