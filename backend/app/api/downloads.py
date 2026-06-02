@@ -157,8 +157,10 @@ def cancel_download_route(download_id: int, db: Session = Depends(get_db)):
     if not download:
         raise HTTPException(404, "Download not found")
 
-    settled = {DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED}
-    if download.status in settled:
-        return
+    # Cancel if active
+    if download.status in (DownloadStatus.PENDING, DownloadStatus.RUNNING):
+        cancel_download(download_id)
 
-    cancel_download(download_id)
+    # Always delete the record
+    db.delete(download)
+    db.commit()
