@@ -26,6 +26,26 @@ from app.api.downloads import router as downloads_router
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 
 
+def _reap_orphaned_downloads():
+    """Mark any downloads still running/pending at startup as failed — killed mid-run."""
+    from datetime import datetime, timezone
+    from app.database import SessionLocal
+    from app.models.download import Download, DownloadStatus
+    db = SessionLocal()
+    try:
+        orphans = db.query(Download).filter(
+            Download.status.in_([DownloadStatus.RUNNING, DownloadStatus.PENDING])
+        ).all()
+        for d in orphans:
+            d.status = DownloadStatus.FAILED
+            d.error = "Interrupted by container restart"
+            d.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        if orphans:
+            db.commit()
+    finally:
+        db.close()
+
+
 def _reap_orphaned_jobs():
     """Mark any jobs still 'running' or 'pending' at startup as cancelled — they were killed mid-run."""
     from datetime import datetime, timezone
@@ -80,6 +100,7 @@ async def lifespan(app: FastAPI):
     from app.services.model_manager import migrate_legacy_clip
     migrate_legacy_clip()
     _reap_orphaned_jobs()
+    _reap_orphaned_downloads()
     detect_encoder()
     # Load saved concurrency setting before starting the worker
     from app.database import SessionLocal

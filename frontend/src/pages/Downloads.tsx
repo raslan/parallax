@@ -104,7 +104,7 @@ function DownloadCard({
       <div className="w-24 h-[54px] shrink-0 rounded overflow-hidden bg-muted flex items-center justify-center relative">
         {item.thumbnail_url && !imgError ? (
           <img
-            src={item.thumbnail_url}
+            src={`/api/downloads/${item.id}/thumbnail`}
             alt=""
             className="w-full h-full object-cover"
             onError={() => setImgError(true)}
