@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import threading
 import urllib.request
@@ -26,7 +27,8 @@ from app.services.common import now
 
 _active_procs: dict[int, subprocess.Popen] = {}  # download_id → process
 _active_procs_lock = threading.Lock()
-_cancelled_ids: set[int] = set()
+_cancelled_ids: set[int] = set()   # cancelled and process killed
+_cancel_requested: set[int] = set()  # cancel requested (may not have proc yet)
 _download_semaphore: Optional[asyncio.Semaphore] = None
 _semaphore_limit: int = 0
 
@@ -374,13 +376,23 @@ def _run_download_sync(download_id: int) -> None:
             db.commit()
             return
 
-        # Start subprocess
+        # Bail out early if cancel was requested before subprocess started
+        if download_id in _cancel_requested:
+            _cancel_requested.discard(download_id)
+            _cancelled_ids.add(download_id)
+            download.status = DownloadStatus.CANCELLED
+            download.finished_at = now()
+            db.commit()
+            return
+
+        # Start subprocess in a new session so killpg kills yt-dlp + all children (ffmpeg etc.)
         try:
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                start_new_session=True,
             )
         except FileNotFoundError:
             download.status = DownloadStatus.FAILED
@@ -428,14 +440,16 @@ def _run_download_sync(download_id: int) -> None:
 
         # Determine final status
         ytdlp_version = get_ytdlp_info().get("version") or "unknown"
+        _cancel_requested.discard(download_id)
         if proc.returncode == 0:
             download.status = DownloadStatus.COMPLETED
             download.progress = 100.0
             download.finished_at = now()
             if output_path:
                 download.output_path = output_path
-        elif download_id in _cancelled_ids:
+        elif download_id in _cancelled_ids or download_id in _cancel_requested:
             _cancelled_ids.discard(download_id)
+            _cancel_requested.discard(download_id)
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
             # Clean up partial files left by yt-dlp after cancellation
@@ -484,11 +498,17 @@ async def run_download(download_id: int, max_concurrent: int = 2) -> None:
 
 
 def cancel_download(download_id: int) -> bool:
-    """Kill active subprocess. Return True if killed, False if not found."""
+    """Signal cancellation and kill active subprocess + its entire process group."""
+    # Always mark as cancel-requested so pre-subprocess phase also stops
+    _cancel_requested.add(download_id)
     with _active_procs_lock:
         proc = _active_procs.get(download_id)
         if proc:
             _cancelled_ids.add(download_id)
-            proc.kill()
+            try:
+                # Kill the whole process group to take down yt-dlp + ffmpeg children
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                proc.kill()  # fallback if process group unavailable
             return True
     return False
