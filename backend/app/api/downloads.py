@@ -51,6 +51,7 @@ def _serialize(d: Download) -> dict:
         "output_path": d.output_path,
         "output_dir": d.output_dir,
         "options": d.options,
+        "source_url": d.source_url,
         "playlist_id": d.playlist_id,
         "playlist_title": d.playlist_title,
         "created_at": d.created_at.isoformat() if d.created_at else None,
@@ -104,6 +105,7 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
                     output_dir=playlist_output_dir,
                     status=DownloadStatus.PENDING,
                     options=json.dumps(options),
+                    source_url=url,
                     playlist_id=playlist_info["playlist_id"],
                     playlist_title=playlist_info["playlist_title"],
                 )
@@ -116,6 +118,7 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
                 output_dir=output_dir,
                 status=DownloadStatus.PENDING,
                 options=json.dumps(options),
+                source_url=url,
             )
             db.add(download)
             db.flush()
