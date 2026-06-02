@@ -165,7 +165,9 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     cmd += ["--progress", "--newline", "--no-warnings"]
 
     # Output template
-    cmd += ["-o", f"{output_dir}/%(title)s.%(ext)s"]
+    # _output_title_override is injected by _run_download_sync for collision avoidance
+    output_title = options.get("_output_title_override") or "%(title)s"
+    cmd += ["-o", f"{output_dir}/{output_title}.%(ext)s"]
 
     # Format / quality selection
     if audio_only:
@@ -280,10 +282,45 @@ def _parse_output_path(line: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Part-file cleanup
+# Collision-free output title
 # ---------------------------------------------------------------------------
 
 _log = __import__("logging").getLogger(__name__)
+
+def _unique_output_title(output_dir: str, title: str | None) -> str | None:
+    """Return title (possibly with ` (N)` suffix) if a file with that title already exists."""
+    import unicodedata
+    if not title or not output_dir or not os.path.isdir(output_dir):
+        return title
+    try:
+        existing = os.listdir(output_dir)
+    except OSError:
+        return title
+
+    def _sanitize(s: str) -> str:
+        return unicodedata.normalize("NFC", s).replace("/", "_").strip()
+
+    def _collides(candidate: str) -> bool:
+        sc = _sanitize(candidate)
+        return any(
+            _sanitize(f).startswith(sc + ".") or _sanitize(f).startswith(sc + " [")
+            for f in existing
+            if not f.endswith(".part") and not f.endswith(".ytdl")
+        )
+
+    if not _collides(title):
+        return title
+    n = 1
+    while True:
+        numbered = f"{title} ({n})"
+        if not _collides(numbered):
+            return numbered
+        n += 1
+
+
+# ---------------------------------------------------------------------------
+# Part-file cleanup
+# ---------------------------------------------------------------------------
 
 def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
     """Delete yt-dlp temp files (.part, .ytdl) belonging to this download."""
@@ -357,6 +394,12 @@ def _run_download_sync(download_id: int) -> None:
 
         # Build command — write cookies to temp file if provided
         options = json.loads(download.options or "{}")
+        # Inject collision-free title so duplicate-URL titles get (1), (2) suffixes
+        unique_title = _unique_output_title(download.output_dir, download.title)
+        if unique_title and unique_title != download.title:
+            options["_output_title_override"] = unique_title
+        elif download.title:
+            options["_output_title_override"] = download.title
         raw_cookies: str = options.pop("cookies", "") or ""
         if raw_cookies.strip():
             import tempfile
