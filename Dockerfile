@@ -57,8 +57,7 @@ RUN python3.12 -m pip install --no-cache-dir -r requirements.txt && \
       cuda) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.20.1 ;; \
       rocm) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-rocm ;; \
       *)    python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime==1.20.1 ;; \
-    esac && \
-    chmod -R u+w /usr/local/lib/python3.12/dist-packages
+    esac
 
 COPY backend/ ./
 

@@ -7,11 +7,12 @@ responsive.
 
 import asyncio
 import json
+import os
 import re
 import shlex
 import subprocess
-import sys
 import threading
+import urllib.request
 from typing import Optional
 
 from app.database import SessionLocal
@@ -54,18 +55,24 @@ def get_ytdlp_info() -> dict:
         return {"installed": False, "version": None, "path": None}
 
 
+_YTDLP_BIN = "/usr/local/bin/yt-dlp"
+_YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+
+
 def install_ytdlp() -> None:
-    """Install/upgrade yt-dlp via pip. Raises subprocess.CalledProcessError on failure.
+    """Download latest yt-dlp standalone binary from GitHub releases.
 
     Blocking — callers must wrap in asyncio.to_thread if called from async context.
     """
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-U",
-         "--no-user", "--break-system-packages",
-         "yt-dlp[default,curl-cffi]"],
-        check=True,
-        timeout=180,
-    )
+    tmp = _YTDLP_BIN + ".tmp"
+    try:
+        urllib.request.urlretrieve(_YTDLP_URL, tmp)
+        os.chmod(tmp, 0o755)
+        os.replace(tmp, _YTDLP_BIN)  # atomic replace
+    except Exception:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
 
 
 # ---------------------------------------------------------------------------
