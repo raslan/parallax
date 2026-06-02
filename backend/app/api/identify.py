@@ -88,7 +88,8 @@ def get_thumbnail(path: str = Query(...)):
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
     if path in _thumb_cache:
-        return Response(_thumb_cache[path], media_type="image/jpeg")
+        return Response(_thumb_cache[path], media_type="image/jpeg",
+                        headers={"Cache-Control": "no-store"})
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
         tmp_path = tmp.name
     try:
@@ -110,7 +111,7 @@ def get_thumbnail(path: str = Query(...)):
         raise HTTPException(502, "Empty thumbnail")
     if len(_thumb_cache) < 200:
         _thumb_cache[path] = data
-    return Response(data, media_type="image/jpeg")
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/files")
