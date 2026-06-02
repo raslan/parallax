@@ -8,7 +8,7 @@ const fs = require("fs");
 
 const distDir = path.join(__dirname, "../dist");
 const htmlPath = path.join(distDir, "index.html");
-const outPath = path.join(__dirname, "../og-image.png"); // repo root — committed and copied to dist/ by build-landing.js
+const outPath = path.join(__dirname, "../og-image.jpg"); // repo root — committed and copied to dist/ by build-landing.js
 
 if (!fs.existsSync(htmlPath)) {
   console.error("dist/index.html not found — run build-landing.js first");
@@ -25,8 +25,8 @@ if (!fs.existsSync(htmlPath)) {
   // wait for fonts and entrance animations to settle
   await page.waitForTimeout(1800);
 
-  await page.screenshot({ path: outPath });
+  await page.screenshot({ path: outPath, type: "jpeg", quality: 85 });
   await browser.close();
 
-  console.log(`og-image.png written to ${outPath}`);
+  console.log(`og-image.jpg written to ${outPath} (${Math.round(require("fs").statSync(outPath).size / 1024)}KB)`);
 })();

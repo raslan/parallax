@@ -248,12 +248,15 @@ const html = `<!DOCTYPE html>
   <meta property="og:site_name" content="Parallax" />
   <meta property="og:title" content="Parallax — Self-hosted media manager" />
   <meta property="og:description" content="Scan, transcode, deduplicate, and download. A complete media library manager that runs on your hardware, not theirs." />
-  <meta property="og:image" content="https://parallax.raslan.dev/og-image.png" />
+  <meta property="og:image" content="https://parallax.raslan.dev/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/jpeg" />
   <meta property="og:url" content="https://parallax.raslan.dev" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Parallax — Self-hosted media manager" />
   <meta name="twitter:description" content="Scan, transcode, deduplicate, and download. A complete media library manager that runs on your hardware, not theirs." />
-  <meta name="twitter:image" content="https://parallax.raslan.dev/og-image.png" />
+  <meta name="twitter:image" content="https://parallax.raslan.dev/og-image.jpg" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1083,10 +1086,10 @@ const outDir = path.join(__dirname, "../dist");
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, "index.html"), html, "utf8");
 
-const ogSrc = path.join(__dirname, "../og-image.png");
+const ogSrc = path.join(__dirname, "../og-image.jpg");
 if (fs.existsSync(ogSrc)) {
-  fs.copyFileSync(ogSrc, path.join(outDir, "og-image.png"));
-  console.log("Copied og-image.png to dist/");
+  fs.copyFileSync(ogSrc, path.join(outDir, "og-image.jpg"));
+  console.log("Copied og-image.jpg to dist/");
 }
 
 console.log("Built dist/index.html");
