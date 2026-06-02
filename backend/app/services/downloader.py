@@ -111,17 +111,22 @@ def _format_selector(quality: str, codec: str) -> tuple[str, str]:
     vc = _CODEC_VCODEC.get(codec, "")
     container = _CODEC_CONTAINER.get(codec, "mkv")
 
+    # Fallback chain priority: preferred codec → any codec (quality preserved) → combined stream
+    # This ensures quality is never sacrificed — codec degrades gracefully instead.
+    any_at_quality = f"bestvideo{h}+bestaudio"  # no codec filter, respects height limit
+    combined = f"best{h}"                        # last resort: pre-muxed stream
+
     if not vc:  # auto
-        fmt = f"bestvideo{h}+bestaudio/best{h}"
+        fmt = f"{any_at_quality}/{combined}"
     elif codec == "hevc":
-        # HEVC streams tagged as hev1/hevc or hvc1 — try both
+        # HEVC streams tagged as hev1/hevc or hvc1 — try both naming conventions
         fmt = (
             f"bestvideo{h}[vcodec*={vc}]+bestaudio"
             f"/bestvideo{h}[vcodec*=hvc]+bestaudio"
-            f"/best{h}"
+            f"/{any_at_quality}/{combined}"
         )
     else:
-        fmt = f"bestvideo{h}[vcodec*={vc}]+bestaudio/best{h}"
+        fmt = f"bestvideo{h}[vcodec*={vc}]+bestaudio/{any_at_quality}/{combined}"
 
     return fmt, container
 
