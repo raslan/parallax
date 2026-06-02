@@ -33,6 +33,10 @@ _OS_USERNAME_KEY = "opensubtitles_username"
 _OS_PASSWORD_KEY = "opensubtitles_password"
 _SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
 _SUBTITLE_LANGUAGES_DEFAULT = "en"
+_DOWNLOAD_DIR_KEY = "download_dir"
+_DOWNLOAD_DIR_DEFAULT = "/downloads"
+_MAX_DOWNLOADS_KEY = "max_concurrent_downloads"
+_MAX_DOWNLOADS_DEFAULT = "2"
 
 
 class SettingsRead(BaseModel):
@@ -46,6 +50,8 @@ class SettingsRead(BaseModel):
     opensubtitles_username: str
     opensubtitles_password: str
     subtitle_languages: str
+    download_dir: str
+    max_concurrent_downloads: int
 
 
 class SettingsUpdate(BaseModel):
@@ -59,6 +65,8 @@ class SettingsUpdate(BaseModel):
     opensubtitles_username: Optional[str] = Field(default=None, max_length=128)
     opensubtitles_password: Optional[str] = Field(default=None, max_length=128)
     subtitle_languages: Optional[str] = Field(default=None, max_length=64)
+    download_dir: Optional[str] = Field(default=None, max_length=512)
+    max_concurrent_downloads: Optional[int] = Field(default=None, ge=1, le=5)
 
 
 def _read_settings(db: Session) -> SettingsRead:
@@ -73,6 +81,8 @@ def _read_settings(db: Session) -> SettingsRead:
         opensubtitles_username=get_setting(db, _OS_USERNAME_KEY, ""),
         opensubtitles_password=get_setting(db, _OS_PASSWORD_KEY, ""),
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
+        download_dir=get_setting(db, _DOWNLOAD_DIR_KEY, _DOWNLOAD_DIR_DEFAULT),
+        max_concurrent_downloads=int(get_setting(db, _MAX_DOWNLOADS_KEY, _MAX_DOWNLOADS_DEFAULT)),
     )
 
 
@@ -132,6 +142,12 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.subtitle_languages is not None:
         set_setting(db, _SUBTITLE_LANGUAGES_KEY, body.subtitle_languages)
+
+    if body.download_dir is not None:
+        set_setting(db, _DOWNLOAD_DIR_KEY, body.download_dir)
+
+    if body.max_concurrent_downloads is not None:
+        set_setting(db, _MAX_DOWNLOADS_KEY, str(body.max_concurrent_downloads))
 
     if model_changed:
         release_sessions()
