@@ -46,6 +46,9 @@ def init_db():
             "ALTER TABLE files ADD COLUMN extension TEXT",
             "ALTER TABLE files ADD COLUMN phash INTEGER",
             "ALTER TABLE files ADD COLUMN phash_frames TEXT",
+            "ALTER TABLE downloads ADD COLUMN playlist_id TEXT",
+            "ALTER TABLE downloads ADD COLUMN playlist_title TEXT",
+            "ALTER TABLE downloads ADD COLUMN source_url TEXT",
         ]:
             try:
                 conn.execute(text(sql))
