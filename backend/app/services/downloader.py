@@ -285,8 +285,6 @@ def _parse_output_path(line: str) -> Optional[str]:
 # Collision-free output title
 # ---------------------------------------------------------------------------
 
-_log = __import__("logging").getLogger(__name__)
-
 def _unique_output_title(output_dir: str, title: str | None) -> str | None:
     """Return title (possibly with ` (N)` suffix) if a file with that title already exists."""
     import unicodedata
@@ -325,34 +323,23 @@ def _unique_output_title(output_dir: str, title: str | None) -> str | None:
 def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
     """Delete yt-dlp temp files (.part, .ytdl) belonging to this download."""
     import unicodedata
-    _log.info("[cleanup] output_dir=%r title=%r dir_exists=%s", output_dir, title,
-              os.path.isdir(output_dir) if output_dir else False)
     if not output_dir or not os.path.isdir(output_dir):
         return
-    if title:
-        prefix = unicodedata.normalize("NFC", title).replace("/", "_").replace("\x00", "").strip()
-    else:
-        prefix = None
+    prefix = unicodedata.normalize("NFC", title).replace("/", "_").replace("\x00", "").strip() if title else None
     try:
-        all_files = os.listdir(output_dir)
-        _log.info("[cleanup] files_in_dir=%s", all_files)
-        for fname in all_files:
+        for fname in os.listdir(output_dir):
             if not (fname.endswith(".part") or fname.endswith(".ytdl")):
                 continue
             if prefix:
-                norm_fname = unicodedata.normalize("NFC", fname)
-                rest = norm_fname[len(prefix):]
-                _log.info("[cleanup] candidate=%r rest=%r", fname, rest)
+                rest = unicodedata.normalize("NFC", fname)[len(prefix):]
                 if not (rest.startswith(".") or rest.startswith(" [")):
-                    _log.info("[cleanup] SKIP %r (no match)", fname)
                     continue
-            _log.info("[cleanup] DELETE %r", fname)
             try:
                 os.remove(os.path.join(output_dir, fname))
-            except OSError as e:
-                _log.error("[cleanup] ERROR deleting %r: %s", fname, e)
-    except OSError as e:
-        _log.error("[cleanup] listdir error: %s", e)
+            except OSError:
+                pass
+    except OSError:
+        pass
 
 
 # ---------------------------------------------------------------------------
