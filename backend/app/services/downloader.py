@@ -56,17 +56,22 @@ def get_ytdlp_info() -> dict:
 
 
 _YTDLP_BIN = "/usr/local/bin/yt-dlp"
-_YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+_YTDLP_URLS = {
+    "stable":  "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
+    "nightly": "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp",
+}
 
 
-def install_ytdlp() -> None:
+def install_ytdlp(channel: str = "stable") -> None:
     """Download latest yt-dlp standalone binary from GitHub releases.
 
+    The binary bundles all dependencies including curl-cffi.
     Blocking — callers must wrap in asyncio.to_thread if called from async context.
     """
+    url = _YTDLP_URLS.get(channel, _YTDLP_URLS["stable"])
     tmp = _YTDLP_BIN + ".tmp"
     try:
-        urllib.request.urlretrieve(_YTDLP_URL, tmp)
+        urllib.request.urlretrieve(url, tmp)
         os.chmod(tmp, 0o755)
         os.replace(tmp, _YTDLP_BIN)  # atomic replace
     except Exception:

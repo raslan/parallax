@@ -37,6 +37,8 @@ _DOWNLOAD_DIR_KEY = "download_dir"
 _DOWNLOAD_DIR_DEFAULT = "/downloads"
 _MAX_DOWNLOADS_KEY = "max_concurrent_downloads"
 _MAX_DOWNLOADS_DEFAULT = "2"
+_YTDLP_CHANNEL_KEY = "ytdlp_channel"
+_YTDLP_CHANNEL_DEFAULT = "stable"
 
 
 class SettingsRead(BaseModel):
@@ -52,6 +54,7 @@ class SettingsRead(BaseModel):
     subtitle_languages: str
     download_dir: str
     max_concurrent_downloads: int
+    ytdlp_channel: str
 
 
 class SettingsUpdate(BaseModel):
@@ -67,6 +70,7 @@ class SettingsUpdate(BaseModel):
     subtitle_languages: Optional[str] = Field(default=None, max_length=64)
     download_dir: Optional[str] = Field(default=None, max_length=512)
     max_concurrent_downloads: Optional[int] = Field(default=None, ge=1, le=5)
+    ytdlp_channel: Optional[str] = Field(default=None, pattern="^(stable|nightly)$")
 
 
 def _read_settings(db: Session) -> SettingsRead:
@@ -83,6 +87,7 @@ def _read_settings(db: Session) -> SettingsRead:
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
         download_dir=get_setting(db, _DOWNLOAD_DIR_KEY, _DOWNLOAD_DIR_DEFAULT),
         max_concurrent_downloads=int(get_setting(db, _MAX_DOWNLOADS_KEY, _MAX_DOWNLOADS_DEFAULT)),
+        ytdlp_channel=get_setting(db, _YTDLP_CHANNEL_KEY, _YTDLP_CHANNEL_DEFAULT),
     )
 
 
@@ -148,6 +153,8 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.max_concurrent_downloads is not None:
         set_setting(db, _MAX_DOWNLOADS_KEY, str(body.max_concurrent_downloads))
+    if body.ytdlp_channel is not None:
+        set_setting(db, _YTDLP_CHANNEL_KEY, body.ytdlp_channel)
 
     if model_changed:
         release_sessions()
