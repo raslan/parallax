@@ -281,18 +281,32 @@ def _parse_output_path(line: str) -> Optional[str]:
 # Part-file cleanup
 # ---------------------------------------------------------------------------
 
-def _cleanup_part_files(output_dir: str, started_at) -> None:
-    """Delete yt-dlp partial files (.part, .ytdl) created after the download started."""
+_PART_EXTS = (".part", ".ytdl", ".part-Frag0", ".part-Frag1")  # common yt-dlp temp extensions
+
+def _sanitize_title(title: str) -> str:
+    """Approximate yt-dlp filename sanitization for prefix matching."""
+    # yt-dlp replaces these characters in titles when building output paths
+    for ch in r'\/:*?"<>|':
+        title = title.replace(ch, "_")
+    return title.strip()
+
+def _cleanup_part_files(output_dir: str, title: str | None) -> None:
+    """Delete yt-dlp partial files matching the download title (rm title.* equivalent)."""
     if not output_dir or not os.path.isdir(output_dir):
         return
+    prefix = _sanitize_title(title) if title else None
     try:
-        cutoff = started_at.timestamp() if started_at else 0
         for fname in os.listdir(output_dir):
-            if fname.endswith((".part", ".ytdl")):
-                fpath = os.path.join(output_dir, fname)
+            # Match by title prefix if known, otherwise match any .part/.ytdl
+            if prefix:
+                is_match = fname.startswith(prefix) and any(
+                    fname.endswith(ext) for ext in (".part", ".ytdl")
+                )
+            else:
+                is_match = any(fname.endswith(ext) for ext in (".part", ".ytdl"))
+            if is_match:
                 try:
-                    if os.path.getmtime(fpath) >= cutoff:
-                        os.remove(fpath)
+                    os.remove(os.path.join(output_dir, fname))
                 except OSError:
                     pass
     except OSError:
@@ -424,7 +438,7 @@ def _run_download_sync(download_id: int) -> None:
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
             # Clean up partial files left by yt-dlp after cancellation
-            _cleanup_part_files(download.output_dir, download.started_at)
+            _cleanup_part_files(download.output_dir, download.title)
         else:
             tail = "\n".join(line for line in output_lines[-20:] if line.strip())
             download.status = DownloadStatus.FAILED
