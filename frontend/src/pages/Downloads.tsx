@@ -447,7 +447,6 @@ export function Downloads() {
     function connect() {
       if (cancelled) return;
       es = new EventSource(api.downloadsSseUrl());
-      sseRef.current = es;
       es.onmessage = (e) => {
         try {
           const data: DownloadItem[] = JSON.parse(e.data);

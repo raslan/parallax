@@ -206,6 +206,10 @@ def purge_library_data(db: Session = Depends(get_db)):
     db.query(ImageFile).delete(synchronize_session=False)
     db.query(ImageLibrary).delete(synchronize_session=False)
 
+    # Delete all downloads
+    from app.models.download import Download
+    db.query(Download).delete()
+
     # Null out library_id on orphaned job records (historical, keep them)
     db.execute(sa_text("UPDATE jobs SET library_id = NULL WHERE library_id IS NOT NULL"))
 
