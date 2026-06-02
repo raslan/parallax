@@ -332,6 +332,7 @@ export const api = {
   enqueueDownloads: (body: DownloadRequest) =>
     req<{ ids: number[] }>("/downloads", { method: "POST", body: JSON.stringify(body) }),
   deleteDownload: (id: number) => req<void>(`/downloads/${id}`, { method: "DELETE" }),
+  deleteDownloadWithFile: (id: number) => req<void>(`/downloads/${id}?delete_file=true`, { method: "DELETE" }),
   downloadStreamUrl: (id: number) => `${BASE}/downloads/${id}/stream`,
   downloadsSseUrl: () => `${BASE}/downloads/stream`,
 };
