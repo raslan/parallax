@@ -327,7 +327,7 @@ def get_semaphore(max_concurrent: int) -> asyncio.Semaphore:
 _PROGRESS_RE = re.compile(
     r"\[download\]\s+([\d.]+)%.*?at\s+(\S+)\s+ETA\s+(\S+)"
 )
-_DESTINATION_RE = re.compile(r"\[download\] Destination: (.+)$")
+_DESTINATION_RE = re.compile(r"\[(?:download|ExtractAudio|ffmpeg|Merger|MoveFiles)\] Destination: (.+)$")
 _MERGER_RE = re.compile(r'Merging formats into "(.+)"')
 _FFMPEG_TIME_RE = re.compile(r"\btime=(\d+:\d+:\d+\.\d+)")
 
