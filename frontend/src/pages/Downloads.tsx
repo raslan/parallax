@@ -752,6 +752,7 @@ export function Downloads() {
           }}
           streamUrl={api.downloadStreamUrl(playingItem.id)}
           subtitleTracksUrl={`/api/subtitles/tracks?path=${encodeURIComponent(playingItem.output_path)}`}
+          isAudio={/\.(mp3|m4a|opus|flac|wav|ogg|aac)$/i.test(playingItem.output_path)}
           onClose={() => setPlayingItem(null)}
         />
       )}
