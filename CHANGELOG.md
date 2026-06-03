@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.3.0](https://github.com/raslan/parallax/compare/v1.2.1...v1.3.0) (2026-06-03)
+
+
+### Features
+
+* cleanup updates ([19092cd](https://github.com/raslan/parallax/commit/19092cd08144e12c1f6615d0162c54c0523578b6))
+* **downloads:** add playlist_id and playlist_title to DownloadItem type ([728ca65](https://github.com/raslan/parallax/commit/728ca65d19d68a3fc28c8fd6fb0194b077e8cb79))
+* **downloads:** add source_url column for duplicate detection ([df51994](https://github.com/raslan/parallax/commit/df519949738c898a42f47a7af3411d328046127e))
+* **downloads:** expand playlist URLs into per-video Download records at enqueue ([81d1064](https://github.com/raslan/parallax/commit/81d106460eed0bda65acd3fe5fa494a4dc7a119d))
+* **downloads:** group playlist videos under collapsible header in queue ([b03ed81](https://github.com/raslan/parallax/commit/b03ed819a9b5c84450921347e854efd199e67d88))
+* **downloads:** set and serialize source_url on all Download records ([311af26](https://github.com/raslan/parallax/commit/311af26561f922b3f730d899402a16055ff171ab))
+* **downloads:** warn on duplicate URL submission with confirmation dialog ([efecd4a](https://github.com/raslan/parallax/commit/efecd4a922deb482cd1ca5305f6d258d26fee40d))
+
+
+### Bug Fixes
+
+* **downloads:** concurrent playlist probing, safe makedirs, drop YouTube URL fallback ([7d6209d](https://github.com/raslan/parallax/commit/7d6209d43f2169091e6786d15418d77601b3690d))
+* **downloads:** parse ffmpeg time= for trim progress; show pulsing bar when processing ([55c1b39](https://github.com/raslan/parallax/commit/55c1b390d049fde650ab9ed65795b68f4a8a4e2d))
+* **downloads:** remove --force-keyframes-at-cuts from trim command ([2399dc4](https://github.com/raslan/parallax/commit/2399dc46a16e7051288ff8343bf879fa7df28a93))
+
 ## [1.2.1](https://github.com/raslan/parallax/compare/v1.2.0...v1.2.1) (2026-06-02)
 
 
