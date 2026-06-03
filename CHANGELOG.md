@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.4.0](https://github.com/raslan/parallax/compare/v1.3.0...v1.4.0) (2026-06-03)
+
+
+### Features
+
+* **downloads:** audio playback support via Plyr audio element ([184bfad](https://github.com/raslan/parallax/commit/184bfadeca03deabb8a8c3d6aeab70d881d0a173))
+
+
+### Bug Fixes
+
+* **downloads:** capture post-processor destination lines for correct output_path on audio extraction ([20671e6](https://github.com/raslan/parallax/commit/20671e6482e52db2364fad19c8bf799648ad0419))
+
 ## [1.3.0](https://github.com/raslan/parallax/compare/v1.2.1...v1.3.0) (2026-06-03)
 
 
