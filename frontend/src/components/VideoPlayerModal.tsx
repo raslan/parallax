@@ -19,14 +19,16 @@ export function VideoPlayerModal({
   file,
   streamUrl,
   subtitleTracksUrl,
+  isAudio,
   onClose,
 }: {
   file: PlayableFile;
   streamUrl: string;
   subtitleTracksUrl?: string;
+  isAudio?: boolean;
   onClose: () => void;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const playerRef = useRef<Plyr | null>(null);
   const [tracks, setTracks] = useState<SubtitleTrack[]>([]);
   const [tracksReady, setTracksReady] = useState(false);
@@ -54,10 +56,12 @@ export function VideoPlayerModal({
     if (!tracksReady || !videoRef.current) return;
     const hasTracks = tracks.length > 0;
     const baseControls = ["play-large", "play", "progress", "current-time", "duration", "mute", "volume"];
-    const controls = hasTracks
-      ? [...baseControls, "captions", "settings", "fullscreen"]
-      : [...baseControls, "fullscreen"];
-    playerRef.current = new Plyr(videoRef.current, {
+    const controls = isAudio
+      ? [...baseControls, "settings"]
+      : hasTracks
+        ? [...baseControls, "captions", "settings", "fullscreen"]
+        : [...baseControls, "fullscreen"];
+    playerRef.current = new Plyr(videoRef.current as HTMLVideoElement, {
       controls,
       keyboard: { focused: true, global: false },
       tooltips: { controls: true, seek: true },
@@ -75,7 +79,7 @@ export function VideoPlayerModal({
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" onClick={onClose}>
       <div className="fixed inset-0 bg-black/85" />
       <div
-        className="relative z-10 w-full max-w-5xl px-4 flex flex-col gap-3 max-h-screen py-4"
+        className={`relative z-10 w-full px-4 flex flex-col gap-3 max-h-screen py-4 ${isAudio ? "max-w-lg" : "max-w-5xl"}`}
         onClick={(e) => e.stopPropagation()}
         style={{ "--plyr-color-main": "hsl(var(--primary))" } as React.CSSProperties}
       >
@@ -92,23 +96,32 @@ export function VideoPlayerModal({
         </div>
         <div className="min-h-0 flex-1">
           {tracksReady && (
-            <video
-              ref={videoRef}
-              src={streamUrl}
-              autoPlay
-              className="w-full h-full rounded-lg"
-              style={{ maxHeight: "calc(100vh - 8rem)" }}
-            >
-              {tracks.map((t) => (
-                <track
-                  key={t.url}
-                  kind="subtitles"
-                  label={t.label}
-                  srcLang={t.lang}
-                  src={t.url}
-                />
-              ))}
-            </video>
+            isAudio ? (
+              <audio
+                ref={videoRef as React.RefObject<HTMLAudioElement>}
+                src={streamUrl}
+                autoPlay
+                className="w-full"
+              />
+            ) : (
+              <video
+                ref={videoRef as React.RefObject<HTMLVideoElement>}
+                src={streamUrl}
+                autoPlay
+                className="w-full h-full rounded-lg"
+                style={{ maxHeight: "calc(100vh - 8rem)" }}
+              >
+                {tracks.map((t) => (
+                  <track
+                    key={t.url}
+                    kind="subtitles"
+                    label={t.label}
+                    srcLang={t.lang}
+                    src={t.url}
+                  />
+                ))}
+              </video>
+            )
           )}
         </div>
         <p className="text-white/50 text-xs text-center shrink-0">
