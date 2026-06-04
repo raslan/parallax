@@ -190,6 +190,24 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     lib_path = lib.path
     db.delete(lib)
     db.commit()
+
+    # Belt-and-suspenders: remove any File records that still reference this
+    # library_id (background jobs may have inserted after we started deleting).
+    lingering = db.query(File).filter(File.library_id == library_id).all()
+    if lingering:
+        lids = [f.id for f in lingering]
+        db.query(VideoDetection).filter(
+            VideoDetection.file_id.in_(lids)
+        ).delete(synchronize_session=False)
+        for f in lingering:
+            delete_keyframes(f.id)
+            try:
+                os.remove(thumbnail_path(f.id))
+            except FileNotFoundError:
+                pass
+            db.delete(f)
+        db.commit()
+
     if delete_leftovers:
         for dirpath, dirnames, _ in os.walk(lib_path):
             if os.path.basename(dirpath) == "_originals":

@@ -160,6 +160,15 @@ def scan_library(library_id: int):
 
             file_obj = existing.get(path)
             if not file_obj:
+                # Re-check library existence before inserting — the library may
+                # have been deleted by the time we get here.
+                db.expire_all()
+                if db.get(Library, library_id) is None or should_cancel(job.id):
+                    job.status = JobStatus.CANCELLED
+                    job.finished_at = _now()
+                    db.commit()
+                    clear_cancel(job.id)
+                    return
                 file_obj = File(
                     library_id=library_id,
                     path=path,

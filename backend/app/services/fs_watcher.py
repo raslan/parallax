@@ -107,6 +107,10 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
             f = db.query(File).filter(File.path == path).first()
             is_new = f is None
             if is_new:
+                # Re-check library still exists before inserting
+                db.expire(library)
+                if db.get(Library, library_id) is None:
+                    return
                 f = File(
                     library_id=library_id,
                     path=path,
@@ -225,7 +229,10 @@ def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: froz
                 db.commit()
                 img_thumb(path, _thumbnail_path(f.id))
             else:
-                # New file — insert record
+                # New file — re-check library still exists before inserting
+                db.expire(library)
+                if db.get(ImageLibrary, library_id) is None:
+                    return
                 meta = get_image_metadata(path)
                 ext = _os.path.splitext(path)[1].lower().lstrip(".")
                 f = ImageFile(
