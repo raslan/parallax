@@ -16,11 +16,24 @@ def _get_model(model_id: str):
     from app.services.model_manager import whisper_model_dir
 
     if _model is None or _model_id_loaded != model_id:
-        _model = WhisperModel(
-            whisper_model_dir(model_id),
-            device="auto",
-            compute_type="auto",
-        )
+        model_path = whisper_model_dir(model_id)
+        # Try progressively safer compute types. float16 requires Tensor Cores
+        # (CC ≥ 7.0); int8_float16 works on CC ≥ 6.0; int8 on CPU is the
+        # universal fallback.
+        attempts = [
+            ("auto", "auto"),
+            ("cuda", "int8_float16"),
+            ("cpu", "int8"),
+        ]
+        last_exc = None
+        for device, compute_type in attempts:
+            try:
+                _model = WhisperModel(model_path, device=device, compute_type=compute_type)
+                break
+            except Exception as exc:
+                last_exc = exc
+        else:
+            raise last_exc
         _model_id_loaded = model_id
     return _model
 
