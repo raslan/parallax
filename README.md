@@ -227,7 +227,19 @@ Set `--user UID:GID` (or `user:` in Compose) to match your host user so files cr
 
 ### NVIDIA prerequisites
 
-Requires [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed on the host before running a CUDA build.
+Requires the NVIDIA driver and container toolkit installed on the host before running a CUDA build. A convenience setup script for Debian/Ubuntu is at [`scripts/setup-nvidia-docker.sh`](scripts/setup-nvidia-docker.sh).
+
+#### Manual setup (Debian / Ubuntu)
+
+1. **Install kernel headers and build tools** — required for the driver's DKMS module to compile against your running kernel.
+
+2. **Install the latest NVIDIA driver** — distro repos often lag; follow [NVIDIA's driver installation guide for Debian/Ubuntu](https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/debian.html) to get a current version. RTX 50xx (Blackwell) requires driver ≥ 570.
+
+3. **Reboot** — the driver won't be active until the system restarts. Verify with `nvidia-smi` after rebooting.
+
+4. **Install NVIDIA Container Toolkit** — follow the official guide at [docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). This is what allows Docker to pass the GPU into containers.
+
+5. **Configure the Docker runtime** — run `nvidia-ctk runtime configure --runtime=docker` then `systemctl restart docker`. This adds the NVIDIA runtime to `/etc/docker/daemon.json`.
 
 ---
 

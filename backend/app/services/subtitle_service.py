@@ -393,4 +393,6 @@ def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, langu
             job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
     finally:
+        from app.services.whisper_service import release_model
+        release_model()
         db.close()

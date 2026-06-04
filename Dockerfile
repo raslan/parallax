@@ -19,13 +19,13 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Stage 2b: NVIDIA CUDA base
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS base-cuda
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04 AS base-cuda
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg python3.12 python3.12-venv python3.12-dev libcublas-12-4 && \
+    apt-get install -y --no-install-recommends ffmpeg python3.12 python3.12-venv python3.12-dev && \
     python3.12 -m ensurepip --upgrade && \
     python3.12 -m pip install --upgrade pip && \
     rm -rf /var/lib/apt/lists/*
@@ -54,7 +54,7 @@ ARG RUNTIME=cpu
 # so nudenet's CPU onnxruntime dependency doesn't overwrite the GPU build.
 RUN python3.12 -m pip install --no-cache-dir -r requirements.txt && \
     case "${RUNTIME}" in \
-      cuda) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.20.1 ;; \
+      cuda) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.21.0 ;; \
       rocm) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-rocm ;; \
       *)    python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime==1.20.1 ;; \
     esac
