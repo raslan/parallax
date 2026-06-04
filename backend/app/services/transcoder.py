@@ -60,6 +60,53 @@ def _build_cmd(
     ]
 
 
+def _update_file_metadata(file_obj: File, path: str) -> None:
+    from app.services.scanner import probe_file
+    from datetime import datetime
+
+    try:
+        file_obj.size = os.path.getsize(path)
+    except OSError:
+        pass
+
+    data = probe_file(path)
+    if not data:
+        return
+
+    fmt = data.get("format", {})
+    streams = data.get("streams", [])
+    if fmt.get("duration"):
+        file_obj.duration = float(fmt["duration"])
+    if fmt.get("size"):
+        file_obj.size = int(fmt["size"])
+    if streams:
+        s = streams[0]
+        if s.get("codec_name"):
+            file_obj.codec_name = s["codec_name"]
+        br = s.get("bit_rate") or fmt.get("bit_rate")
+        if br:
+            try:
+                file_obj.video_bitrate = int(br)
+            except (ValueError, TypeError):
+                pass
+        file_obj.file_width = s.get("width")
+        file_obj.file_height = s.get("height")
+        raw_fps = s.get("r_frame_rate", "")
+        if "/" in raw_fps:
+            num, den = raw_fps.split("/")
+            file_obj.file_fps = round(int(num) / int(den), 3) if int(den) else None
+
+    creation_time_str = fmt.get("tags", {}).get("creation_time")
+    if creation_time_str:
+        try:
+            dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))
+            file_obj.file_date = dt.timestamp()
+        except (ValueError, TypeError):
+            file_obj.file_date = os.path.getmtime(path)
+    else:
+        file_obj.file_date = os.path.getmtime(path)
+
+
 def _transcode_one(
     file_obj: File,
     crf: int,
@@ -155,11 +202,13 @@ def _transcode_one(
             file_obj.path = dst
             file_obj.filename = os.path.basename(dst)
             file_obj.extension = os.path.splitext(dst)[1].lower().lstrip(".")
-        try:
-            file_obj.size = os.path.getsize(dst)
-        except OSError:
-            pass
+
+        _update_file_metadata(file_obj, dst)
         db.commit()
+
+        from app.services.scanner import generate_thumbnail
+        generate_thumbnail(dst, file_obj.id)
+
         return True
 
     except Exception as e:

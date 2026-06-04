@@ -266,7 +266,7 @@ class _Handler:
         if "/_originals/" in norm or norm.endswith("/_originals"):
             return False
         name = os.path.basename(norm)
-        if name.startswith(".") or ".compressing" in name:
+        if name.startswith(".") or ".compressing" in name or ".transcoding" in name:
             return False
         return os.path.splitext(name)[1].lower() in self.valid_exts
 
