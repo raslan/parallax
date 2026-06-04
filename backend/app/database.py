@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event as _sa_event, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
@@ -11,6 +11,13 @@ engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
 )
+
+
+@_sa_event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_conn, _record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -54,4 +61,27 @@ def init_db():
                 conn.execute(text(sql))
             except Exception:
                 pass  # column already exists
+
+        # Remove orphaned records left by prior race conditions. Delete children
+        # before parents so FK enforcement (now ON) doesn't reject the deletes.
+        conn.execute(text("""
+            DELETE FROM video_detections
+            WHERE file_id IN (
+                SELECT id FROM files
+                WHERE library_id NOT IN (SELECT id FROM libraries)
+            )
+        """))
+        conn.execute(text(
+            "DELETE FROM files WHERE library_id NOT IN (SELECT id FROM libraries)"
+        ))
+        conn.execute(text("""
+            DELETE FROM image_detections
+            WHERE image_id IN (
+                SELECT id FROM images
+                WHERE library_id NOT IN (SELECT id FROM image_libraries)
+            )
+        """))
+        conn.execute(text(
+            "DELETE FROM images WHERE library_id NOT IN (SELECT id FROM image_libraries)"
+        ))
 

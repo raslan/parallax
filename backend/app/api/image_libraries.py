@@ -112,6 +112,21 @@ def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Se
     lib_path = lib.path
     db.delete(lib)
     db.commit()
+
+    # Belt-and-suspenders: remove any ImageFile records still referencing this
+    # library_id (background jobs may have inserted after we started deleting).
+    lingering_ids = [
+        row[0] for row in
+        db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
+    ]
+    if lingering_ids:
+        db.query(ImageDetection).filter(
+            ImageDetection.image_id.in_(lingering_ids)
+        ).delete(synchronize_session=False)
+        db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
+        db.commit()
+        image_ids = image_ids + lingering_ids
+
     if delete_leftovers:
         import shutil
         for dirpath, dirnames, _ in os.walk(lib_path):
