@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.5.0](https://github.com/raslan/parallax/compare/v1.4.1...v1.5.0) (2026-06-04)
+
+
+### Features
+
+* **gpu:** update to 12.8 base image and manage dependencies ([91ca049](https://github.com/raslan/parallax/commit/91ca0490828c1ce55a4167d577a1314d331e66d0))
+
 ## [1.4.1](https://github.com/raslan/parallax/compare/v1.4.0...v1.4.1) (2026-06-04)
 
 
