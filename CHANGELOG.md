@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.4.1](https://github.com/raslan/parallax/compare/v1.4.0...v1.4.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* **compress:** rescan properly after compress ([1768208](https://github.com/raslan/parallax/commit/17682082103b5ea4114608edad92caff4f717db2))
+* **library:** adjust library persistence behavior ([57f396b](https://github.com/raslan/parallax/commit/57f396bbbd854ad8a708ec7c183925433e651c7a))
+
 ## [1.4.0](https://github.com/raslan/parallax/compare/v1.3.0...v1.4.0) (2026-06-03)
 
 
