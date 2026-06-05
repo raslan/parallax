@@ -1,3 +1,7 @@
+# Portions of this file are derived from Bazarr
+# (https://github.com/morpheus65535/bazarr), copyright morpheus65535 and
+# contributors, licensed under the GNU General Public License v3.0.
+# This file is distributed under the same GPL-3.0 license.
 """Subf2m subtitle scraper — standalone, no subliminal_patch dependency."""
 
 from __future__ import annotations
