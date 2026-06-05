@@ -13,8 +13,6 @@ from app.queue import enqueue
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
 
-_OS_USERNAME_KEY = "opensubtitles_username"
-_OS_PASSWORD_KEY  = "opensubtitles_password"
 _SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
 _SUBTITLE_LANGUAGES_DEFAULT = "en"
 
@@ -59,8 +57,6 @@ async def download_subtitles(body: DownloadRequest, db: Session = Depends(get_db
         raise HTTPException(400, "Path is not a directory")
 
     lang_codes = body.languages or _get_lang_codes(db)
-    os_username = get_setting(db, _OS_USERNAME_KEY, "")
-    os_password = get_setting(db, _OS_PASSWORD_KEY, "")
 
     from app.services.subtitle_service import run_download_job
 
@@ -73,7 +69,7 @@ async def download_subtitles(body: DownloadRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(job)
 
-    await enqueue(job.id, run_download_job, job.id, body.path, lang_codes, os_username, os_password)
+    await enqueue(job.id, run_download_job, job.id, body.path, lang_codes)
 
     return {"job_id": job.id}
 
@@ -83,11 +79,9 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
     lang_codes = body.languages or _get_lang_codes(db)
-    os_username = get_setting(db, _OS_USERNAME_KEY, "")
-    os_password = get_setting(db, _OS_PASSWORD_KEY, "")
     from app.services.subtitle_service import search_file as svc_search
     try:
-        return svc_search(body.file_path, lang_codes, os_username, os_password)
+        return svc_search(body.file_path, lang_codes)
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
@@ -96,11 +90,9 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
 def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
-    os_username = get_setting(db, _OS_USERNAME_KEY, "")
-    os_password = get_setting(db, _OS_PASSWORD_KEY, "")
     from app.services.subtitle_service import download_one as svc_download
     try:
-        ok = svc_download(body.file_path, body.provider, body.subtitle_id, body.language, os_username, os_password)
+        ok = svc_download(body.file_path, body.provider, body.subtitle_id, body.language)
         if not ok:
             raise HTTPException(404, "Subtitle not found or download failed")
         return {"ok": True}

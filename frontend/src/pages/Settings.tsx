@@ -229,8 +229,6 @@ export function Settings() {
   const [videoKeyframesPerVideo, setVideoKeyframesPerVideo] = useState(32);
   const [scanBatchSize, setScanBatchSize]                   = useState(4);
   const [scanPrefetch, setScanPrefetch]                     = useState(4);
-  const [osUsername, setOsUsername]               = useState("");
-  const [osPassword, setOsPassword]               = useState("");
   const [subtitleLangs, setSubtitleLangs]         = useState<string[]>(["en"]);
   const [loading, setLoading]                     = useState(true);
   const [saving, setSaving]                       = useState(false);
@@ -258,8 +256,6 @@ export function Settings() {
         setVideoKeyframesPerVideo(s.video_keyframes_per_video ?? 8);
         setScanBatchSize(s.scan_batch_size ?? 4);
         setScanPrefetch(s.scan_prefetch ?? 4);
-        setOsUsername(s.opensubtitles_username ?? "");
-        setOsPassword(s.opensubtitles_password ?? "");
         setSubtitleLangs((s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean));
         setDownloadDir(s.download_dir ?? "/media/downloads");
         setMaxConcurrentDownloads(s.max_concurrent_downloads ?? 2);
@@ -296,7 +292,7 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, scan_prefetch: scanPrefetch, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(","), download_dir: downloadDir, max_concurrent_downloads: maxConcurrentDownloads, ytdlp_channel: ytdlpChannel });
+      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, scan_prefetch: scanPrefetch, subtitle_languages: subtitleLangs.join(","), download_dir: downloadDir, max_concurrent_downloads: maxConcurrentDownloads, ytdlp_channel: ytdlpChannel });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -469,33 +465,6 @@ export function Settings() {
 
               <Card>
                 <CardContent className="pt-6 space-y-4">
-                  <div>
-                    <p className="text-sm font-medium">OpenSubtitles.org account</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Required for Subtitles. Free account at{" "}
-                      <a href="https://www.opensubtitles.org" target="_blank" rel="noreferrer" className="text-primary underline">
-                        opensubtitles.org
-                      </a>{" "}— 200 downloads/day.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={osUsername}
-                      onChange={(e) => { setOsUsername(e.target.value); markDirty(); }}
-                      placeholder="Username"
-                      autoComplete="off"
-                      className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    <input
-                      type="password"
-                      value={osPassword}
-                      onChange={(e) => { setOsPassword(e.target.value); markDirty(); }}
-                      placeholder="Password"
-                      autoComplete="new-password"
-                      className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground">Default subtitle languages</p>
                     <div className="flex flex-wrap gap-1.5">

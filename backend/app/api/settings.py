@@ -31,8 +31,6 @@ _BATCH_SIZE_KEY = "scan_batch_size"
 _BATCH_SIZE_DEFAULT = "4"
 _PREFETCH_KEY = "scan_prefetch"
 _PREFETCH_DEFAULT = "4"
-_OS_USERNAME_KEY = "opensubtitles_username"
-_OS_PASSWORD_KEY = "opensubtitles_password"
 _SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
 _SUBTITLE_LANGUAGES_DEFAULT = "en"
 _DOWNLOAD_DIR_KEY = "download_dir"
@@ -52,8 +50,6 @@ class SettingsRead(BaseModel):
     video_keyframes_per_video: int
     scan_batch_size: int
     scan_prefetch: int
-    opensubtitles_username: str
-    opensubtitles_password: str
     subtitle_languages: str
     download_dir: str
     max_concurrent_downloads: int
@@ -71,8 +67,6 @@ class SettingsUpdate(BaseModel):
     video_keyframes_per_video: Optional[int] = Field(default=None, ge=1, le=512)
     scan_batch_size: Optional[int] = Field(default=None, ge=1, le=32)
     scan_prefetch: Optional[int] = Field(default=None, ge=1, le=20)
-    opensubtitles_username: Optional[str] = Field(default=None, max_length=128)
-    opensubtitles_password: Optional[str] = Field(default=None, max_length=128)
     subtitle_languages: Optional[str] = Field(default=None, max_length=64)
     download_dir: Optional[str] = Field(default=None, max_length=512)
     max_concurrent_downloads: Optional[int] = Field(default=None, ge=1, le=5)
@@ -90,8 +84,6 @@ def _read_settings(db: Session) -> SettingsRead:
         video_keyframes_per_video=int(get_setting(db, _VIDEO_KEYFRAMES_KEY, _VIDEO_KEYFRAMES_DEFAULT)),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
         scan_prefetch=int(get_setting(db, _PREFETCH_KEY, _PREFETCH_DEFAULT)),
-        opensubtitles_username=get_setting(db, _OS_USERNAME_KEY, ""),
-        opensubtitles_password=get_setting(db, _OS_PASSWORD_KEY, ""),
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
         download_dir=get_setting(db, _DOWNLOAD_DIR_KEY, _DOWNLOAD_DIR_DEFAULT),
         max_concurrent_downloads=int(get_setting(db, _MAX_DOWNLOADS_KEY, _MAX_DOWNLOADS_DEFAULT)),
@@ -151,12 +143,6 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.scan_prefetch is not None:
         set_setting(db, _PREFETCH_KEY, str(body.scan_prefetch))
-
-    if body.opensubtitles_username is not None:
-        set_setting(db, _OS_USERNAME_KEY, body.opensubtitles_username)
-
-    if body.opensubtitles_password is not None:
-        set_setting(db, _OS_PASSWORD_KEY, body.opensubtitles_password)
 
     if body.subtitle_languages is not None:
         set_setting(db, _SUBTITLE_LANGUAGES_KEY, body.subtitle_languages)
