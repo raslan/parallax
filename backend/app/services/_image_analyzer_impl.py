@@ -4,6 +4,7 @@ import threading
 import numpy as np
 import onnxruntime as _ort
 from nudenet import NudeDetector
+from PIL import Image
 
 from app.services.model_manager import (
     CLIP_MODELS,
@@ -20,7 +21,8 @@ def _make_session_options() -> _ort.SessionOptions:
     return opts
 
 
-_GPU_PROVIDERS = ["CUDAExecutionProvider", "ROCMExecutionProvider", "CPUExecutionProvider"]
+_ALL_PROVIDERS = ["CUDAExecutionProvider", "ROCMExecutionProvider", "CPUExecutionProvider"]
+_GPU_PROVIDERS = [p for p in _ALL_PROVIDERS if p in _ort.get_available_providers()]
 
 _CLIP_DEFAULT = "clip-vit-base-patch32"
 _NUDENET_DEFAULT = "320n"
@@ -127,6 +129,44 @@ def encode_image_clip(path: str, model_id: str = _CLIP_DEFAULT) -> list[float]:
     if norm > 0:
         vec = vec / norm
     return vec.tolist()
+
+
+def encode_image_clip_batch_arrays(arrays: list[np.ndarray], model_id: str = _CLIP_DEFAULT) -> list[list[float]]:
+    """CLIP encoding from in-memory RGB numpy arrays (H, W, 3) uint8."""
+    if not arrays:
+        return []
+    session = _get_vision_session(model_id)
+    image_size = CLIP_MODELS.get(model_id, {}).get("image_size", 224)
+    processed = []
+    for arr in arrays:
+        img = Image.fromarray(arr).resize((image_size, image_size), Image.BICUBIC)
+        a = np.array(img, dtype=np.float32) / 255.0
+        a = (a - _CLIP_MEAN) / _CLIP_STD
+        processed.append(a.transpose(2, 0, 1)[np.newaxis])
+    batch = np.concatenate(processed, axis=0)
+    output = session.run(["image_embeds"], {"pixel_values": batch})[0]
+    results = []
+    for vec in output:
+        v = vec.astype(np.float64)
+        norm = np.linalg.norm(v)
+        if norm > 0:
+            v = v / norm
+        results.append(v.tolist())
+    return results
+
+
+def run_nudenet_batch_arrays(arrays: list[np.ndarray], model_id: str = _NUDENET_DEFAULT) -> list[list[dict]]:
+    """NudeNet detection from in-memory RGB numpy arrays. Writes to tmpfs (/tmp) transiently."""
+    if not arrays:
+        return []
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="parallax_nn_") as tmpdir:
+        paths = []
+        for i, arr in enumerate(arrays):
+            p = os.path.join(tmpdir, f"f{i:04d}.jpg")
+            Image.fromarray(arr).save(p, quality=90)
+            paths.append(p)
+        return run_nudenet_batch(paths, model_id)
 
 
 def encode_image_clip_batch(paths: list[str], model_id: str = _CLIP_DEFAULT) -> list[list[float]]:

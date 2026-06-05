@@ -10,9 +10,10 @@ from PIL import Image
 from sqlalchemy import func
 
 from app.database import SessionLocal
-from app.models.file import File
+from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus
 from app.services.common import now
+from app.services.phash_scanner import _extract_phash_frames, _PHASH_FRAMES
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ def _cluster_by_duration(files: list[File], tolerance: float = 2.0) -> list[list
 
 
 def _hamming(a: int, b: int) -> int:
-    return bin(a ^ b).count("1")
+    return bin((a ^ b) & 0xFFFFFFFFFFFFFFFF).count("1")
 
 
 def _frames_distance(frames_a: list[int], frames_b: list[int]) -> float:
@@ -201,6 +202,7 @@ def find_duplicates(
     duration_tolerance: float = 1.0,
     phash_threshold: int = 10,
     phash_mode: str = "all_frames",
+    phash_frames: int = 16,
 ) -> list[DuplicateGroup]:
     db = SessionLocal()
     job = None
@@ -213,6 +215,49 @@ def find_duplicates(
                 db.commit()
 
         _results.pop(library_id, None)
+
+        # Phase 1: extract pHash for files that are missing it or were scanned
+        # with a different frame count than requested.
+        if use_phash:
+            all_candidates = (
+                db.query(File)
+                .filter(
+                    File.library_id == library_id,
+                    File.status.in_([FileStatus.CLEAN, FileStatus.DONE, FileStatus.UNKNOWN]),
+                )
+                .all()
+            )
+
+            def _needs_rescan(f: File) -> bool:
+                if f.phash_scanned_at is None or not f.phash_frames:
+                    return True
+                try:
+                    return len(json.loads(f.phash_frames)) != phash_frames
+                except Exception:
+                    return True
+
+            to_scan = [f for f in all_candidates if _needs_rescan(f)]
+            if to_scan:
+                if job:
+                    job.total_files = len(to_scan)
+                    job.current_file = "Scanning frames…"
+                    db.commit()
+                for idx, f in enumerate(to_scan):
+                    if job:
+                        job.current_file = f.filename
+                        job.processed_files = idx + 1
+                        job.progress = (idx + 1) / len(to_scan) * 50
+                        db.commit()
+                    fname = f.filename
+                    try:
+                        hashes = _extract_phash_frames(f.path, phash_frames)
+                        f.phash = hashes[0]
+                        f.phash_frames = json.dumps(hashes)
+                        f.phash_scanned_at = now()
+                        db.commit()
+                    except Exception as exc:
+                        db.rollback()
+                        logger.warning("pHash extraction failed for %s: %s", fname, exc)
 
         logger.warning("find_duplicates: library=%d use_size=%s use_duration=%s use_phash=%s", library_id, use_size, use_duration, use_phash)
 

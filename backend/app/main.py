@@ -26,6 +26,15 @@ from app.api.downloads import router as downloads_router
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 
 
+def _cleanup_legacy_dirs():
+    """Remove directories that are no longer used after the seek-based keyframe refactor."""
+    import shutil
+    from app.config import DATA_DIR
+    keyframes_dir = os.path.join(DATA_DIR, "video-keyframes")
+    if os.path.isdir(keyframes_dir):
+        shutil.rmtree(keyframes_dir, ignore_errors=True)
+
+
 def _reap_orphaned_downloads():
     """Mark any downloads still running/pending at startup as failed — killed mid-run."""
     from datetime import datetime, timezone
@@ -95,6 +104,7 @@ def _migrate_siglip_to_clip():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _cleanup_legacy_dirs()
     _migrate_siglip_to_clip()
     _migrate_video_columns()
     from app.services.model_manager import migrate_legacy_clip

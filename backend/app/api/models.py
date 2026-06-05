@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -31,6 +32,37 @@ class ModelInfo(BaseModel):
     downloaded: bool
     active: bool
     bundled: bool = False
+
+
+class ActiveDownloadInfo(BaseModel):
+    job_id: int
+    model_type: str
+    model_id: str
+    status: str
+    progress: float
+    current_file: Optional[str]
+
+
+@router.get("/active-download", response_model=Optional[ActiveDownloadInfo])
+def get_active_download(db: Session = Depends(get_db)):
+    """Returns the currently pending/running model download job, if any."""
+    job = db.query(Job).filter(
+        Job.type == JobType.MODEL_DOWNLOAD,
+        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+    ).order_by(Job.id.desc()).first()
+    if not job or not job.settings:
+        return None
+    parts = job.settings.split(":", 1)
+    if len(parts) != 2:
+        return None
+    return ActiveDownloadInfo(
+        job_id=job.id,
+        model_type=parts[0],
+        model_id=parts[1],
+        status=job.status,
+        progress=job.progress,
+        current_file=job.current_file,
+    )
 
 
 @router.get("", response_model=list[ModelInfo])
@@ -79,7 +111,7 @@ async def download_clip_model(model_id: str, db: Session = Depends(get_db)):
     if running:
         raise HTTPException(409, "A model download is already in progress")
 
-    job = Job(type=JobType.MODEL_DOWNLOAD, status=JobStatus.PENDING)
+    job = Job(type=JobType.MODEL_DOWNLOAD, status=JobStatus.PENDING, settings=f"clip:{model_id}")
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -104,7 +136,7 @@ async def download_nudenet_model(model_id: str, db: Session = Depends(get_db)):
     if running:
         raise HTTPException(409, "A model download is already in progress")
 
-    job = Job(type=JobType.MODEL_DOWNLOAD, status=JobStatus.PENDING)
+    job = Job(type=JobType.MODEL_DOWNLOAD, status=JobStatus.PENDING, settings=f"nudenet:{model_id}")
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -159,7 +191,7 @@ async def download_whisper_model(model_id: str, db: Session = Depends(get_db)):
     ).first()
     if running:
         raise HTTPException(409, "A model download is already in progress")
-    job = Job(type=JobType.MODEL_DOWNLOAD, status=JobStatus.PENDING)
+    job = Job(type=JobType.MODEL_DOWNLOAD, status=JobStatus.PENDING, settings=f"whisper:{model_id}")
     db.add(job)
     db.commit()
     db.refresh(job)

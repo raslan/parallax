@@ -1,10 +1,16 @@
-import os
 import json
-from PIL import Image
+import os
+import queue as _queue
+import struct
+import threading
+import numpy as np
+import imagehash
+from PIL import Image, ExifTags
+
 from app.database import SessionLocal, DATA_DIR
 from app.models.image_library import ImageLibrary
 from app.models.image import ImageFile, ImageDetection, ImageStatus
-from app.models.job import Job, JobStatus, JobType
+from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -22,77 +28,98 @@ def collect_image_paths(root: str) -> list[str]:
     return paths
 
 
-def generate_thumbnail(src_path: str, out_path: str) -> None:
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with Image.open(src_path) as raw:
-        img = raw.convert("RGB")
-        if hasattr(raw, "n_frames"):
-            raw.seek(0)
-            img = raw.convert("RGB")
-        img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
-        img.save(out_path, "JPEG", quality=85)
-
-
 def _thumbnail_path(image_id: int) -> str:
     return os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
 
 
-def _process_one(db, library_id: int, path: str,
-                  run_phash: bool, run_nudenet: bool, run_clip: bool,
-                  clip_model_id: str = "clip-vit-base-patch32",
-                  nudenet_model_id: str = "320n") -> ImageFile:
-    from app.services.image_analyzer import (
-        get_image_metadata, compute_phash, run_nudenet as nudenet_detect,
-        encode_image_clip,
-    )
-    meta = get_image_metadata(path)
-    ext = os.path.splitext(path)[1].lower().lstrip(".")
+def _load_image_for_scan(
+    path: str,
+    load_size: int,
+) -> tuple[dict, np.ndarray] | None:
+    """
+    Open image once: extract metadata from header, decode at reduced resolution.
+    Uses PIL draft() for JPEG (DCT-domain downsampling — no full-res decode).
+    Returns (meta_dict, rgb_uint8_array) or None on failure.
+    """
+    try:
+        file_size = os.path.getsize(path)
+        with Image.open(path) as img:
+            if hasattr(img, "n_frames"):
+                img.seek(0)
+            orig_w, orig_h = img.size  # header-only for most formats
 
-    img_obj = ImageFile(
-        library_id=library_id,
-        path=path,
-        filename=os.path.basename(path),
-        extension=ext,
-        size=meta["size"],
-        width=meta["width"],
-        height=meta["height"],
-        exif_date=meta["exif_date"],
-        exif_gps=meta["exif_gps"],
-        exif_camera=meta["exif_camera"],
-        status=ImageStatus.SCANNED,
-        scanned_at=now(),
-    )
+            exif_date = exif_gps = exif_camera = None
+            try:
+                raw_exif = img._getexif()
+                if raw_exif:
+                    tags = {ExifTags.TAGS.get(k, k): v for k, v in raw_exif.items()}
+                    dt_str = tags.get("DateTimeOriginal") or tags.get("DateTime")
+                    if dt_str:
+                        from datetime import datetime
+                        exif_date = datetime.strptime(dt_str, "%Y:%m:%d %H:%M:%S").timestamp()
+                    make       = tags.get("Make", "")
+                    model_name = tags.get("Model", "")
+                    if make or model_name:
+                        exif_camera = f"{make} {model_name}".strip()
+                    gps = tags.get("GPSInfo")
+                    if gps:
+                        exif_gps = json.dumps({"raw": str(gps)})
+            except (AttributeError, ValueError, KeyError, TypeError, struct.error):
+                pass
 
-    if run_phash:
-        img_obj.phash = compute_phash(path)
+            # draft() hints JPEG decoder to produce a reduced-resolution image
+            # without decoding the full pixel grid — same principle as ffmpeg low-res decode.
+            img.draft("RGB", (load_size, load_size))
+            img = img.convert("RGB")
+            img.thumbnail((load_size, load_size), Image.LANCZOS)
+            arr = np.array(img, dtype=np.uint8)
 
-    if run_clip:
-        embedding = encode_image_clip(path, model_id=clip_model_id)
-        img_obj.clip_embedding = json.dumps(embedding)
-
-    db.add(img_obj)
-    db.flush()  # get img_obj.id
-
-    if run_nudenet:
-        detections = nudenet_detect(path, model_id=nudenet_model_id)
-        for d in detections:
-            db.add(ImageDetection(
-                image_id=img_obj.id,
-                label=d["label"],
-                confidence=d["confidence"],
-                bbox_json=d["bbox_json"],
-            ))
-
-    generate_thumbnail(path, _thumbnail_path(img_obj.id))
-    return img_obj
+        return {
+            "width":       orig_w,
+            "height":      orig_h,
+            "size":        file_size,
+            "exif_date":   exif_date,
+            "exif_gps":    exif_gps,
+            "exif_camera": exif_camera,
+        }, arr
+    except Exception:
+        return None
 
 
-def scan_image_library(library_id: int, job_id: int,
-                        run_phash: bool = True,
-                        run_nudenet: bool = True,
-                        run_clip: bool = True,
-                        reset: bool = False) -> None:
+def _phash_from_array(arr: np.ndarray) -> int:
+    val = int(str(imagehash.phash(Image.fromarray(arr))), 16)
+    return val - 2**64 if val >= 2**63 else val
+
+
+def generate_thumbnail(src_path: str, out_path: str) -> None:
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with Image.open(src_path) as raw:
+        if hasattr(raw, "n_frames"):
+            raw.seek(0)
+        img = raw.convert("RGB")
+        img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
+        img.save(out_path, "JPEG", quality=85)
+
+
+def _generate_thumbnail_from_array(arr: np.ndarray, out_path: str) -> None:
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    img = Image.fromarray(arr)
+    img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
+    img.save(out_path, "JPEG", quality=85)
+
+
+def scan_image_library(
+    library_id: int,
+    job_id: int,
+    run_phash: bool = True,
+    run_nudenet: bool = True,
+    run_clip: bool = True,
+    reset: bool = False,
+) -> None:
     from app.models.settings import get_setting
+    from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS
+    from app.services.image_analyzer import encode_image_clip_batch_arrays, run_nudenet_batch_arrays
+
     db = SessionLocal()
     job = None
     try:
@@ -104,9 +131,16 @@ def scan_image_library(library_id: int, job_id: int,
         if not job or job.status == JobStatus.CANCELLED:
             return
 
-        clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
-        nudenet_model_id = get_setting(db, "nudenet_model", "320n")
-        batch_size = int(get_setting(db, "scan_batch_size", "4"))
+        clip_model_id    = get_setting(db, "clip_model",      "clip-vit-base-patch32")
+        nudenet_model_id = get_setting(db, "nudenet_model",   "320n")
+        batch_size       = int(get_setting(db, "scan_batch_size", "4"))
+        prefetch         = int(get_setting(db, "scan_prefetch",   "4"))
+
+        clip_res    = CLIP_MODELS.get(clip_model_id,    {}).get("image_size",           224)
+        nudenet_res = NUDENET_MODELS.get(nudenet_model_id, {}).get("inference_resolution", 320) if run_nudenet else 0
+        extraction_res = max(clip_res, nudenet_res)
+        # Load at max of inference size and thumbnail size so we can serve both from one decode
+        load_size = max(extraction_res, THUMBNAIL_SIZE[0])
 
         job.status = JobStatus.RUNNING
         job.started_at = now()
@@ -127,91 +161,140 @@ def scan_image_library(library_id: int, job_id: int,
         log(db, job_id, f"Scanning image library: {library.path}")
 
         paths = collect_image_paths(library.path)
-        existing_paths = {r[0] for r in db.query(ImageFile.path)
-                          .filter(ImageFile.library_id == library_id).all()}
-
+        existing_paths = {
+            r[0] for r in
+            db.query(ImageFile.path).filter(ImageFile.library_id == library_id).all()
+        }
         new_paths = [p for p in paths if p not in existing_paths]
         total = len(new_paths)
         job.total_files = total
         db.commit()
 
+        if total == 0:
+            log(db, job_id, "No new images to scan")
+            job.status      = JobStatus.COMPLETED
+            job.progress    = 100.0
+            job.finished_at = now()
+            db.commit()
+            return
+
+        log(db, job_id,
+            f"Found {total} new images (load size {load_size}px, "
+            f"batch {batch_size}, prefetch {prefetch})")
         arm_cancel(job_id)
-        succeeded = failed = 0
 
-        from app.services.image_analyzer import (
-            get_image_metadata, compute_phash,
-            encode_image_clip_batch, run_nudenet_batch,
-        )
+        # Queue holds (path, (meta, arr)) or (path, None) per image, then None sentinel.
+        work_q: _queue.Queue = _queue.Queue(maxsize=prefetch)
 
-        for batch_start in range(0, total, batch_size):
+        def producer() -> None:
+            for path in new_paths:
+                if should_cancel(job_id):
+                    break
+                work_q.put((path, _load_image_for_scan(path, load_size)))
+            work_q.put(None)
+
+        prod = threading.Thread(target=producer, daemon=True)
+        prod.start()
+
+        succeeded  = 0
+        failed     = 0
+        processed  = 0
+        done       = False
+
+        while not done:
             if should_cancel(job_id):
-                job.status = JobStatus.CANCELLED
+                job.status      = JobStatus.CANCELLED
                 job.finished_at = now()
                 db.commit()
                 clear_cancel(job_id)
+                prod.join(timeout=30)
                 return
 
-            batch_paths = new_paths[batch_start:batch_start + batch_size]
-            job.current_file = os.path.basename(batch_paths[0])
-            job.progress = batch_start / total * 100 if total else 100
+            # Accumulate up to batch_size images
+            batch: list[tuple[str, dict | None, np.ndarray | None]] = []
+            while len(batch) < batch_size:
+                item = work_q.get()
+                if item is None:
+                    done = True
+                    break
+                path, result = item
+                if result is None:
+                    batch.append((path, None, None))
+                else:
+                    meta, arr = result
+                    batch.append((path, meta, arr))
+
+            if not batch:
+                break
+
+            job.current_file = os.path.basename(batch[0][0])
+            job.progress     = processed / total * 100 if total else 100
             db.commit()
 
-            # Build ImageFile records (metadata + phash) for each path in batch
-            img_objs: list[ImageFile] = []
-            good_paths: list[str] = []  # paths that loaded successfully
-            for path in batch_paths:
-                try:
-                    meta = get_image_metadata(path)
-                    ext = os.path.splitext(path)[1].lower().lstrip(".")
-                    img_obj = ImageFile(
+            # Build ImageFile records; separate good from failed loads
+            img_objs:    list[ImageFile]    = []
+            good_arrays: list[np.ndarray]   = []
+
+            for path, meta, arr in batch:
+                fname = os.path.basename(path)
+                ext   = os.path.splitext(path)[1].lower().lstrip(".")
+                if meta is None:
+                    db.add(ImageFile(
                         library_id=library_id,
                         path=path,
-                        filename=os.path.basename(path),
+                        filename=fname,
                         extension=ext,
-                        size=meta["size"],
-                        width=meta["width"],
-                        height=meta["height"],
-                        exif_date=meta["exif_date"],
-                        exif_gps=meta["exif_gps"],
-                        exif_camera=meta["exif_camera"],
-                        status=ImageStatus.SCANNED,
-                        scanned_at=now(),
-                    )
-                    if run_phash:
-                        img_obj.phash = compute_phash(path)
-                    db.add(img_obj)
-                    img_objs.append(img_obj)
-                    good_paths.append(path)
-                except Exception as e:
-                    err = ImageFile(
-                        library_id=library_id,
-                        path=path,
-                        filename=os.path.basename(path),
-                        extension=os.path.splitext(path)[1].lower().lstrip("."),
                         size=0,
                         status=ImageStatus.FAILED,
-                        scan_error=str(e)[:512],
-                    )
-                    db.add(err)
+                        scan_error="Failed to load image",
+                    ))
                     failed += 1
-                    log(db, job_id, f"Failed: {os.path.basename(path)} — {e}", level="error")
+                    log(db, job_id, f"Failed: {fname} — could not load", level="error")
+                    continue
 
-            db.flush()  # get IDs for all img_objs
+                img_obj = ImageFile(
+                    library_id=library_id,
+                    path=path,
+                    filename=fname,
+                    extension=ext,
+                    size=meta["size"],
+                    width=meta["width"],
+                    height=meta["height"],
+                    exif_date=meta["exif_date"],
+                    exif_gps=meta["exif_gps"],
+                    exif_camera=meta["exif_camera"],
+                    status=ImageStatus.SCANNED,
+                    scanned_at=now(),
+                )
+                if run_phash:
+                    img_obj.phash = _phash_from_array(arr)
+                db.add(img_obj)
+                img_objs.append(img_obj)
+                good_arrays.append(arr)
 
-            # Batch CLIP
-            if run_clip and good_paths:
+            db.flush()  # assign IDs
+
+            # Thumbnails — generated from the already-loaded array, no extra disk read
+            for img_obj, arr in zip(img_objs, good_arrays):
                 try:
-                    embeddings = encode_image_clip_batch(good_paths, model_id=clip_model_id)
+                    _generate_thumbnail_from_array(arr, _thumbnail_path(img_obj.id))
+                except Exception:
+                    pass
+
+            # CLIP
+            if run_clip and good_arrays:
+                try:
+                    embeddings = encode_image_clip_batch_arrays(good_arrays, model_id=clip_model_id)
                     for img_obj, emb in zip(img_objs, embeddings):
                         img_obj.clip_embedding = json.dumps(emb)
                 except Exception as e:
                     log(db, job_id, f"CLIP batch failed — {e}", level="error")
 
-            # Batch NudeNet
-            if run_nudenet and good_paths:
+            # NudeNet
+            if run_nudenet and good_arrays:
                 try:
-                    batch_detections = run_nudenet_batch(good_paths, model_id=nudenet_model_id)
-                    for img_obj, detections in zip(img_objs, batch_detections):
+                    batch_dets = run_nudenet_batch_arrays(good_arrays, model_id=nudenet_model_id)
+                    for img_obj, detections in zip(img_objs, batch_dets):
                         for d in detections:
                             db.add(ImageDetection(
                                 image_id=img_obj.id,
@@ -222,32 +305,27 @@ def scan_image_library(library_id: int, job_id: int,
                 except Exception as e:
                     log(db, job_id, f"NudeNet batch failed — {e}", level="error")
 
-            # Thumbnails (still per-image — can't batch PIL saves meaningfully)
-            for img_obj, path in zip(img_objs, good_paths):
-                try:
-                    generate_thumbnail(path, _thumbnail_path(img_obj.id))
-                except Exception:
-                    pass
-
             db.commit()
-            succeeded += len(img_objs)
-            job.processed_files = min(batch_start + batch_size, total)
+            succeeded  += len(img_objs)
+            processed  += len(batch)
+            job.processed_files = processed
             db.commit()
 
+        prod.join(timeout=30)
         library.last_scanned_at = now()
         db.commit()
 
         clear_cancel(job_id)
-        job.status = JobStatus.COMPLETED
+        job.status      = JobStatus.COMPLETED
+        job.progress    = 100.0
         job.finished_at = now()
-        job.progress = 100.0
         db.commit()
         log(db, job_id, f"Scan complete — {succeeded} scanned, {failed} failed")
 
     except Exception as e:
         if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)
+            job.status      = JobStatus.FAILED
+            job.error       = str(e)
             job.finished_at = now()
             db.commit()
     finally:
