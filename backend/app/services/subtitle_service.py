@@ -337,7 +337,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str], os_username:
                     info = _video_info(video_path)
                     downloaded = False
 
-                    # --- subf2m (primary) ---
+                    # --- subf2m (primary) — one subtitle per requested language ---
                     try:
                         candidates = subf2m.search(
                             video_path=video_path,
@@ -349,17 +349,21 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str], os_username:
                             episode=info["episode"] or 1,
                         )
                         _log(db, job_id, f"  subf2m: {len(candidates)} candidates")
+                        # Group by language; take first (highest-score) candidate per lang
+                        seen_langs: set[str] = set()
+                        base = os.path.splitext(video_path)[0]
                         for candidate in candidates:
+                            lang = candidate["language"]
+                            if lang in seen_langs:
+                                continue
                             content = subf2m.download(candidate["subtitle_id"])
                             if content:
-                                base = os.path.splitext(video_path)[0]
-                                lang = candidate["language"]
                                 out_path = f"{base}.{lang}.srt"
                                 with open(out_path, "wb") as fh:
                                     fh.write(content)
+                                seen_langs.add(lang)
                                 downloaded = True
                                 _log(db, job_id, f"Downloaded via subf2m [{lang}]: {fname}")
-                                break
                     except Exception as sf_err:
                         _log(db, job_id, f"  subf2m: {type(sf_err).__name__} — {sf_err}", level="error")
 
