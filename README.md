@@ -12,7 +12,7 @@ A self-hosted video and image library manager with hardware-accelerated compress
 - **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold (0–100%), first-frame/all-frames comparison mode, and frames-per-video (4–64); scan is self-contained and runs pHash extraction automatically before comparing
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, date, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
-- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; Whisper local speech-to-text generates SRT files from audio with no API key; multiple subtitle tracks shown in the Plyr player with a language picker; powered by OpenSubtitles.org (200 downloads/day free)
+- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); Whisper local speech-to-text generates SRT files from audio with no API key; multiple subtitle tracks shown in the Plyr player with a language picker
 
 ### Images
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
@@ -247,7 +247,7 @@ Requires the NVIDIA driver and container toolkit installed on the host before ru
 
 1. Open [http://localhost:7899](http://localhost:7899)
 2. Go to **Settings → AI Models** to download CLIP and content detection models (required for AI features on both videos and images)
-3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature, and your [OpenSubtitles.org](https://www.opensubtitles.org) credentials to enable subtitle downloads
+3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature — subtitle downloads via subf2m.co need no account or API key
 4. To use the Downloads feature, go to **Settings → Downloads** and click **Install yt-dlp** — choose stable or nightly channel first
 5. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
 6. Run a scan; for video libraries the AI scan extracts frames via fast seeks (no full-video decode) then runs CLIP on 3 midpoint frames and NudeNet on all frames; for image libraries it generates thumbnails and runs the same AI pipeline; duplicate detection on the Duplicates page is self-contained — it extracts pHash automatically before comparing
@@ -280,6 +280,6 @@ Then substitute `parallax:cuda` (etc.) for the `ghcr.io/...` image in the exampl
 
 ## Stack
 
-- **Backend** — Python 3.12, FastAPI, SQLAlchemy, SQLite, ffmpeg, subliminal
+- **Backend** — Python 3.12, FastAPI, SQLAlchemy, SQLite, ffmpeg, babelfish, guessit
 - **Frontend** — React, TypeScript, Vite, shadcn/ui, Tailwind CSS
 - **Container** — multi-stage Docker build (Node → Python), single port, three runtime targets
