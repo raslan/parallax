@@ -87,9 +87,14 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
           </div>
           {job.status === "running" && job.current_file && (
             <p className="text-xs text-muted-foreground truncate" title={job.current_file}>
-              {job.type === "video_scan"
+              {job.type === "video_scan" || job.type === "scan"
                 ? job.current_file
-                : `${job.type === "check" ? "Checking" : "Transcoding"}: ${job.current_file}`}
+                : `${
+                    job.type === "check" ? "Checking"
+                    : job.type === "duplicates" || job.type === "phash_scan" ? "Scanning"
+                    : job.type === "subtitle_scan" || job.type === "whisper" ? "Processing"
+                    : "Transcoding"
+                  }: ${job.current_file}`}
             </p>
           )}
           {job.error && (

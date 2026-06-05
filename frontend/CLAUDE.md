@@ -40,7 +40,7 @@ frontend/src/
 | `Libraries.tsx` | `/` | Video library list |
 | `Files.tsx` | `/libraries/:id` | File browser with thumbnail grid |
 | `Compress.tsx` | `/libraries/:id/compress` | Re-encode files, CRF slider, bulk job |
-| `Duplicates.tsx` | `/libraries/:id/duplicates` | Duplicate detection results |
+| `Duplicates.tsx` | `/libraries/:id/duplicates` | Duplicate detection — criteria card (exact size / duration ± / visual pHash with similarity slider, compare mode, frame count); single "Find Duplicates" button runs pHash extraction then comparison in one job |
 | `Cleanup.tsx` | `/libraries/:id/cleanup` | Bulk delete by filter |
 | `Originals.tsx` | `/libraries/:id/originals` | Browse/restore `_originals/` backups |
 | `Subtitles.tsx` | `/libraries/:id/subtitles` | Subtitle scan + Whisper transcription |

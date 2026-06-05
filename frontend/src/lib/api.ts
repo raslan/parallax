@@ -113,6 +113,7 @@ export interface DuplicateCriteria {
   duration_tolerance: number;
   phash_threshold: number;
   phash_mode: "first_frame" | "all_frames";
+  phash_frames: number;
 }
 
 export interface DuplicateFile {
@@ -249,6 +250,8 @@ export const api = {
   },
   triggerVideoScan: (library_id: number, reset = false) =>
     req<{ job_id: number; message: string }>(`/libraries/${library_id}/video-scan?reset=${reset}`, { method: "POST" }),
+  triggerPhashScan: (library_id: number, reset = false) =>
+    req<{ job_id: number; message: string }>(`/libraries/${library_id}/phash-scan?reset=${reset}`, { method: "POST" }),
 
   // Jobs
   getJobs: (limit = 50) => req<Job[]>(`/jobs?limit=${limit}`),
@@ -295,9 +298,9 @@ export const api = {
   fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number; ytdlp_channel: string }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; whisper_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; opensubtitles_username?: string; opensubtitles_password?: string; subtitle_languages?: string; download_dir?: string; max_concurrent_downloads?: number; ytdlp_channel?: string }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number; ytdlp_channel: string }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; scan_prefetch: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number; ytdlp_channel: string; encoder_family: string; concurrent_limit_hint: number | null }>("/settings"),
+  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; whisper_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; scan_prefetch?: number; opensubtitles_username?: string; opensubtitles_password?: string; subtitle_languages?: string; download_dir?: string; max_concurrent_downloads?: number; ytdlp_channel?: string }) =>
+    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; scan_prefetch: number; opensubtitles_username: string; opensubtitles_password: string; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number; ytdlp_channel: string; encoder_family: string; concurrent_limit_hint: number | null }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
   purgeLibraryData: () => req<void>("/settings/purge-library-data", { method: "POST" }),
 
   // yt-dlp
@@ -547,8 +550,18 @@ export interface ModelInfo {
   bundled: boolean;
 }
 
+export interface ActiveModelDownload {
+  job_id: number;
+  model_type: string;
+  model_id: string;
+  status: string;
+  progress: number;
+  current_file: string | null;
+}
+
 export const modelsApi = {
   listModels: () => req<ModelInfo[]>("/models"),
+  getActiveDownload: () => req<ActiveModelDownload | null>("/models/active-download"),
 
   downloadClip: (model_id: string) =>
     req<{ job_id: number }>(`/models/clip/${model_id}/download`, { method: "POST" }),

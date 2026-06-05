@@ -4,7 +4,8 @@ import { Loader2, Check, Palette, KeyRound, Cpu, Clapperboard, Download, Trash2,
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { api, modelsApi, ModelInfo } from "@/lib/api";
+import { api, modelsApi, ModelInfo, ActiveModelDownload } from "@/lib/api";
+import { toast } from "sonner"; // sonner toast fn works independently of Toaster wrapper
 import { DirPicker } from "@/components/DirPicker";
 import { useTheme } from "@/components/ThemeProvider";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -30,7 +31,11 @@ const TABS = [
 
 type TabId = typeof TABS[number]["id"];
 
-function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void }) {
+function ModelCard({ model, onAction, activeDownload }: {
+  model: ModelInfo;
+  onAction: () => void;
+  activeDownload?: ActiveModelDownload | null;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadJobId, setDownloadJobId] = useState<number | null>(null);
@@ -43,6 +48,22 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+  }, []);
+
+  // Reconnect to an in-progress download after navigation
+  useEffect(() => {
+    if (
+      activeDownload &&
+      activeDownload.model_type === model.type &&
+      activeDownload.model_id === model.id &&
+      !model.downloaded
+    ) {
+      setBusy(true);
+      setJobProgress(activeDownload.progress ?? 0);
+      setJobStatus(activeDownload.current_file ?? activeDownload.status);
+      setDownloadJobId(activeDownload.job_id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -62,6 +83,10 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
           setDownloadJobId(null);
           setBusy(false);
           setError(job.error ?? "Download failed");
+        } else if (job.status === "cancelled") {
+          stopPolling();
+          setDownloadJobId(null);
+          setBusy(false);
         } else {
           setJobStatus(job.current_file ?? job.status);
         }
@@ -109,6 +134,9 @@ function ModelCard({ model, onAction }: { model: ModelInfo; onAction: () => void
     try {
       await (model.type === "clip" ? modelsApi.activateClip(model.id) : model.type === "whisper" ? modelsApi.activateWhisper(model.id) : modelsApi.activateNudenet(model.id));
       onAction();
+      if (model.type === "clip" || model.type === "nudenet") {
+        toast("Model changed — rescan recommended to update keyframe resolution", { duration: 4000 });
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -195,9 +223,12 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   const [maxConcurrent, setMaxConcurrent]         = useState(1);
+  const [encoderFamily, setEncoderFamily]         = useState<string>("software");
+  const [concurrentLimitHint, setConcurrentLimitHint] = useState<number | null>(null);
   const [tmdbKey, setTmdbKey]                     = useState("");
-  const [videoKeyframesPerVideo, setVideoKeyframesPerVideo] = useState(8);
+  const [videoKeyframesPerVideo, setVideoKeyframesPerVideo] = useState(32);
   const [scanBatchSize, setScanBatchSize]                   = useState(4);
+  const [scanPrefetch, setScanPrefetch]                     = useState(4);
   const [osUsername, setOsUsername]               = useState("");
   const [osPassword, setOsPassword]               = useState("");
   const [subtitleLangs, setSubtitleLangs]         = useState<string[]>(["en"]);
@@ -215,14 +246,18 @@ export function Settings() {
 
   const [models, setModels]             = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [activeDownload, setActiveDownload] = useState<ActiveModelDownload | null>(null);
 
   useEffect(() => {
     api.getSettings()
       .then((s) => {
         setMaxConcurrent(s.max_concurrent_transcodes);
+        setEncoderFamily(s.encoder_family ?? "software");
+        setConcurrentLimitHint(s.concurrent_limit_hint ?? null);
         setTmdbKey(s.tmdb_api_key);
         setVideoKeyframesPerVideo(s.video_keyframes_per_video ?? 8);
         setScanBatchSize(s.scan_batch_size ?? 4);
+        setScanPrefetch(s.scan_prefetch ?? 4);
         setOsUsername(s.opensubtitles_username ?? "");
         setOsPassword(s.opensubtitles_password ?? "");
         setSubtitleLangs((s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean));
@@ -241,7 +276,16 @@ export function Settings() {
 
   const reloadModels = useCallback(() => {
     setModelsLoading(true);
-    modelsApi.listModels().then(setModels).catch(() => {}).finally(() => setModelsLoading(false));
+    Promise.all([
+      modelsApi.listModels(),
+      modelsApi.getActiveDownload(),
+    ])
+      .then(([modelList, dl]) => {
+        setModels(modelList);
+        setActiveDownload(dl);
+      })
+      .catch(() => {})
+      .finally(() => setModelsLoading(false));
   }, []);
 
   useEffect(() => { reloadModels(); }, [reloadModels]);
@@ -252,7 +296,7 @@ export function Settings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(","), download_dir: downloadDir, max_concurrent_downloads: maxConcurrentDownloads, ytdlp_channel: ytdlpChannel });
+      await api.updateSettings({ max_concurrent_transcodes: maxConcurrent, tmdb_api_key: tmdbKey, video_keyframes_per_video: videoKeyframesPerVideo, scan_batch_size: scanBatchSize, scan_prefetch: scanPrefetch, opensubtitles_username: osUsername, opensubtitles_password: osPassword, subtitle_languages: subtitleLangs.join(","), download_dir: downloadDir, max_concurrent_downloads: maxConcurrentDownloads, ytdlp_channel: ytdlpChannel });
       setDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -349,8 +393,14 @@ export function Settings() {
                   <div>
                     <p className="text-sm font-medium">Concurrent transcodes</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      How many files to transcode in parallel. Higher values use more CPU/GPU but finish queues faster.
-                      Changes apply to jobs that haven't started yet.
+                      How many files to encode in parallel within a compress job. Each session shares the GPU's fixed encode hardware — setting this above the number of encode engines on your card makes each file take proportionally longer with no improvement in total time.
+                      {encoderFamily === "nvenc"
+                        ? " NVIDIA: RTX 3050/3060 = 1 engine · RTX 3080/3090 = 2 · RTX 4090 = 3."
+                        : encoderFamily === "qsv"
+                        ? " Intel: UHD 630/730 = 1 engine · UHD 770 / Iris Xe / Arc = 2."
+                        : encoderFamily === "amf" || encoderFamily === "vaapi"
+                        ? " AMD: RX 6000 series = 1 engine · RX 7000 high-end = 2."
+                        : " No hardware encoder detected — using CPU software encoding."}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
@@ -490,9 +540,9 @@ export function Settings() {
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div>
-                <p className="text-sm font-medium">Keyframes per video</p>
+                <p className="text-sm font-medium">Max keyframes per video</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  How many frames to extract per video, evenly spaced across its duration. Frames are saved to disk and reused across scans.
+                  How many frames to sample per video for NudeNet content detection. More frames = better coverage across the video. CLIP always uses 3 frames from the midpoint regardless of this setting.
                 </p>
               </div>
               {loading ? (
@@ -504,8 +554,9 @@ export function Settings() {
                   <div className="flex items-center gap-4">
                     <input
                       type="range"
-                      min={1}
-                      max={50}
+                      min={4}
+                      max={64}
+                      step={4}
                       value={videoKeyframesPerVideo}
                       onChange={(e) => { setVideoKeyframesPerVideo(Number(e.target.value)); markDirty(); }}
                       className="w-48 accent-primary"
@@ -513,7 +564,7 @@ export function Settings() {
                     <span className="text-sm font-mono w-12 text-right">{videoKeyframesPerVideo} frames</span>
                   </div>
                   <div className="flex gap-1 flex-wrap">
-                    {[4, 8, 16, 24].map((n) => (
+                    {[8, 16, 24, 32].map((n) => (
                       <button
                         key={n}
                         onClick={() => { setVideoKeyframesPerVideo(n); markDirty(); }}
@@ -580,6 +631,53 @@ export function Settings() {
             </CardContent>
           </Card>
 
+          {/* Scan prefetch */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div>
+                <p className="text-sm font-medium">Scan prefetch</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Videos (or image batches) to pre-load into memory while the AI models process the current one. Overlaps disk reads with GPU inference. Higher values use more RAM but keep the GPU continuously fed.
+                </p>
+              </div>
+              {loading ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />Loading…
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min={1}
+                      max={20}
+                      value={scanPrefetch}
+                      onChange={(e) => { setScanPrefetch(Number(e.target.value)); markDirty(); }}
+                      className="w-48 accent-primary"
+                    />
+                    <span className="text-sm font-mono w-4 text-center">{scanPrefetch}</span>
+                  </div>
+                  <div className="flex gap-1 flex-wrap">
+                    {[2, 4, 8, 16].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => { setScanPrefetch(n); markDirty(); }}
+                        className={`px-3 py-1 rounded text-xs border transition-colors ${
+                          scanPrefetch === n
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border hover:bg-accent"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <SaveButton />
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Model lists */}
           {modelsLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -597,7 +695,7 @@ export function Settings() {
                   </div>
                   <div className="space-y-2">
                     {clipModels.map((m) => (
-                      <ModelCard key={m.id} model={m} onAction={reloadModels} />
+                      <ModelCard key={m.id} model={m} onAction={reloadModels} activeDownload={activeDownload} />
                     ))}
                   </div>
                 </CardContent>
@@ -613,7 +711,7 @@ export function Settings() {
                   </div>
                   <div className="space-y-2">
                     {nudenetModels.map((m) => (
-                      <ModelCard key={m.id} model={m} onAction={reloadModels} />
+                      <ModelCard key={m.id} model={m} onAction={reloadModels} activeDownload={activeDownload} />
                     ))}
                   </div>
                 </CardContent>
@@ -629,7 +727,7 @@ export function Settings() {
                   </div>
                   <div className="space-y-2">
                     {whisperModels.map((m) => (
-                      <ModelCard key={m.id} model={m} onAction={reloadModels} />
+                      <ModelCard key={m.id} model={m} onAction={reloadModels} activeDownload={activeDownload} />
                     ))}
                   </div>
                 </CardContent>
