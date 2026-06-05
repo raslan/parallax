@@ -225,11 +225,11 @@ ports:
 
 Set `--user UID:GID` (or `user:` in Compose) to match your host user so files created by the container are owned correctly. Find your UID/GID with `id`.
 
-### NVIDIA prerequisites
+### NVIDIA prerequisites (Linux only)
 
-Requires the NVIDIA driver and container toolkit installed on the host before running a CUDA build. A convenience setup script for Debian/Ubuntu is at [`scripts/setup-nvidia-docker.sh`](scripts/setup-nvidia-docker.sh).
+Requires the NVIDIA driver and container toolkit installed on the host before running a CUDA build.
 
-#### Manual setup (Debian / Ubuntu)
+#### for Debian / Ubuntu
 
 1. **Install kernel headers and build tools** — required for the driver's DKMS module to compile against your running kernel.
 
