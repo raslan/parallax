@@ -143,12 +143,25 @@ def _build_providers(os_username: str, os_password: str) -> tuple[list[str], dic
         import hashlib
         hashed = hashlib.md5(os_password.encode()).hexdigest()  # noqa: S324 — OpenSubtitles.org XMLRPC requires MD5
         return ["opensubtitles"], {"opensubtitles": {"username": os_username, "password": hashed}}
-    return ["podnapisi"], {}
+    return [], {}
 
 
 def _build_lang_set(lang_codes: list[str]):
     langs = set(filter(None, (_to_language(c) for c in lang_codes)))
     return langs or {_to_language("en")}
+
+
+def _video_info(file_path: str) -> dict:
+    """Extract title/year/season/episode/type from filename via guessit."""
+    from guessit import guessit as _guessit
+    info = _guessit(os.path.basename(file_path))
+    return {
+        "title": str(info.get("title", "")),
+        "year": info.get("year"),
+        "season": info.get("season"),
+        "episode": info.get("episode"),
+        "is_episode": info.get("type") == "episode",
+    }
 
 
 def search_file(file_path: str, lang_codes: list[str], os_username: str = "", os_password: str = "") -> list[dict]:
@@ -158,40 +171,63 @@ def search_file(file_path: str, lang_codes: list[str], os_username: str = "", os
     if not os.path.isfile(file_path):
         raise ValueError("File not found")
 
+    results: list[dict] = []
+
+    # --- subf2m (primary, no account needed) ---
+    try:
+        from app.services.subf2m_provider import Subf2mProvider
+        info = _video_info(file_path)
+        provider = Subf2mProvider()
+        try:
+            subf2m_results = provider.search(
+                video_path=file_path,
+                lang_codes=lang_codes,
+                is_episode=info["is_episode"],
+                title=info["title"],
+                year=info["year"],
+                season=info["season"] or 1,
+                episode=info["episode"] or 1,
+            )
+            logger.info("search_file subf2m: %d candidates for %s", len(subf2m_results), os.path.basename(file_path))
+            results.extend(subf2m_results)
+        finally:
+            provider.close()
+    except Exception as exc:
+        logger.warning("search_file subf2m error: %s: %s", type(exc).__name__, exc)
+
+    # --- OpenSubtitles.org (if credentials provided) ---
     providers, provider_configs = _build_providers(os_username, os_password)
-    lang_set = _build_lang_set(lang_codes)
+    if providers:
+        try:
+            lang_set = _build_lang_set(lang_codes)
+            video = subliminal.scan_video(file_path)
+            video.subtitle_languages = set()
+            with subliminal.core.ProviderPool(providers=providers, provider_configs=provider_configs) as pool:
+                for pname in providers:
+                    try:
+                        p_subs = pool[pname].list_subtitles(video, lang_set)
+                        logger.info("search_file %s: %d candidates", pname, len(p_subs))
+                        for sub in p_subs:
+                            score = subliminal.compute_score(sub, video)
+                            results.append({
+                                "subtitle_id": str(sub.subtitle_id),
+                                "provider": sub.provider_name,
+                                "language": str(sub.language),
+                                "release": (
+                                    getattr(sub, "movie_full_name", None)
+                                    or getattr(sub, "release", None)
+                                    or str(sub.subtitle_id)
+                                ),
+                                "score": score,
+                                "hearing_impaired": bool(getattr(sub, "hearing_impaired", False)),
+                            })
+                    except Exception as exc:
+                        logger.warning("search_file provider error [%s]: %s: %s", pname, type(exc).__name__, exc)
+        except Exception as exc:
+            logger.warning("search_file subliminal error: %s: %s", type(exc).__name__, exc)
 
-    video = subliminal.scan_video(file_path)
-    video.subtitle_languages = set()
-
-    raw: list = []
-    with subliminal.core.ProviderPool(providers=providers, provider_configs=provider_configs) as pool:
-        for pname in providers:
-            try:
-                p_subs = pool[pname].list_subtitles(video, lang_set)
-                logger.warning("search_file %s: %s → %d candidates", os.path.basename(file_path), pname, len(p_subs))
-                raw.extend(p_subs)
-            except Exception as exc:
-                logger.warning("search_file provider error [%s]: %s: %s", pname, type(exc).__name__, exc)
-
-    serialized = []
-    for sub in raw:
-        score = subliminal.compute_score(sub, video)
-        serialized.append({
-            "subtitle_id": str(sub.subtitle_id),
-            "provider": sub.provider_name,
-            "language": str(sub.language),
-            "release": (
-                getattr(sub, "movie_full_name", None)
-                or getattr(sub, "release", None)
-                or str(sub.subtitle_id)
-            ),
-            "score": score,
-            "hearing_impaired": bool(getattr(sub, "hearing_impaired", False)),
-        })
-
-    serialized.sort(key=lambda x: x["score"], reverse=True)
-    return serialized
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results
 
 
 def download_one(
@@ -203,17 +239,29 @@ def download_one(
     os_password: str = "",
 ) -> bool:
     """Download a specific subtitle by provider + subtitle_id and save alongside the video."""
-    import subliminal
-
     if not os.path.isfile(file_path):
         raise ValueError("File not found")
 
+    if provider == "subf2m":
+        from app.services.subf2m_provider import Subf2mProvider
+        p = Subf2mProvider()
+        try:
+            content = p.download(subtitle_id)
+        finally:
+            p.close()
+        if not content:
+            return False
+        base = os.path.splitext(file_path)[0]
+        out_path = f"{base}.{language}.srt"
+        with open(out_path, "wb") as fh:
+            fh.write(content)
+        return True
+
+    import subliminal
     _, provider_configs = _build_providers(os_username, os_password)
     lang_set = _build_lang_set([language])
-
     video = subliminal.scan_video(file_path)
     video.subtitle_languages = set()
-
     with subliminal.core.ProviderPool(providers=[provider], provider_configs=provider_configs) as pool:
         candidates = pool.list_subtitles(video, lang_set)
         match = next((s for s in candidates if str(s.subtitle_id) == subtitle_id), None)
@@ -260,54 +308,96 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str], os_username:
         job.total_files = len(video_paths)
         db.commit()
 
-        providers, provider_configs = _build_providers(os_username, os_password)
+        from app.services.subf2m_provider import Subf2mProvider
+
+        # OpenSubtitles.org via subliminal (only when credentials are set)
+        os_providers, os_provider_configs = _build_providers(os_username, os_password)
         lang_set = _build_lang_set(lang_codes)
 
         found = skipped = failed = 0
+        subf2m = Subf2mProvider()
 
-        for i, video_path in enumerate(video_paths):
-            if db.get(Job, job_id).status == JobStatus.CANCELLED:
-                break
+        try:
+            for i, video_path in enumerate(video_paths):
+                if db.get(Job, job_id).status == JobStatus.CANCELLED:
+                    break
 
-            fname = os.path.basename(video_path)
-            job.current_file = fname
-            job.processed_files = i
-            job.progress = (i / len(video_paths)) * 99
-            db.commit()
+                fname = os.path.basename(video_path)
+                job.current_file = fname
+                job.processed_files = i
+                job.progress = (i / len(video_paths)) * 99
+                db.commit()
 
-            if _has_subtitle(video_path, lang_codes):
-                skipped += 1
-                _log(db, job_id, f"Skipped (subtitle exists): {fname}")
-                continue
+                if _has_subtitle(video_path, lang_codes):
+                    skipped += 1
+                    _log(db, job_id, f"Skipped (subtitle exists): {fname}")
+                    continue
 
-            try:
-                video = subliminal.scan_video(video_path)
-                # Clear detected subtitle languages so check_video() doesn't skip files
-                # with embedded subtitle tracks — we want external .srt files regardless.
-                video.subtitle_languages = set()
-                downloaded_subs = []
-                with subliminal.core.ProviderPool(providers=providers, provider_configs=provider_configs) as pool:
-                    candidates = []
-                    for pname in providers:
+                try:
+                    info = _video_info(video_path)
+                    downloaded = False
+
+                    # --- subf2m (primary) ---
+                    try:
+                        candidates = subf2m.search(
+                            video_path=video_path,
+                            lang_codes=lang_codes,
+                            is_episode=info["is_episode"],
+                            title=info["title"],
+                            year=info["year"],
+                            season=info["season"] or 1,
+                            episode=info["episode"] or 1,
+                        )
+                        _log(db, job_id, f"  subf2m: {len(candidates)} candidates")
+                        for candidate in candidates:
+                            content = subf2m.download(candidate["subtitle_id"])
+                            if content:
+                                base = os.path.splitext(video_path)[0]
+                                lang = candidate["language"]
+                                out_path = f"{base}.{lang}.srt"
+                                with open(out_path, "wb") as fh:
+                                    fh.write(content)
+                                downloaded = True
+                                _log(db, job_id, f"Downloaded via subf2m [{lang}]: {fname}")
+                                break
+                    except Exception as sf_err:
+                        _log(db, job_id, f"  subf2m: {type(sf_err).__name__} — {sf_err}", level="error")
+
+                    # --- OpenSubtitles.org fallback (when credentials set) ---
+                    if not downloaded and os_providers:
                         try:
-                            p_subs = pool[pname].list_subtitles(video, lang_set)
-                            _log(db, job_id, f"  {pname}: {len(p_subs)} candidates")
-                            candidates.extend(p_subs)
-                        except Exception as perr:
-                            _log(db, job_id, f"  {pname}: {type(perr).__name__} — {perr}", level="error")
-                    if candidates:
-                        downloaded_subs = pool.download_best_subtitles(candidates, video, lang_set, min_score=0)
-                if downloaded_subs:
-                    subliminal.save_subtitles(video, downloaded_subs)
-                    found += 1
-                    _log(db, job_id, f"Downloaded: {fname}")
-                else:
+                            video = subliminal.scan_video(video_path)
+                            video.subtitle_languages = set()
+                            downloaded_subs = []
+                            with subliminal.core.ProviderPool(providers=os_providers, provider_configs=os_provider_configs) as pool:
+                                os_candidates = []
+                                for pname in os_providers:
+                                    try:
+                                        p_subs = pool[pname].list_subtitles(video, lang_set)
+                                        _log(db, job_id, f"  {pname}: {len(p_subs)} candidates")
+                                        os_candidates.extend(p_subs)
+                                    except Exception as perr:
+                                        _log(db, job_id, f"  {pname}: {type(perr).__name__} — {perr}", level="error")
+                                if os_candidates:
+                                    downloaded_subs = pool.download_best_subtitles(os_candidates, video, lang_set, min_score=0)
+                            if downloaded_subs:
+                                subliminal.save_subtitles(video, downloaded_subs)
+                                downloaded = True
+                                _log(db, job_id, f"Downloaded via opensubtitles: {fname}")
+                        except Exception as os_err:
+                            _log(db, job_id, f"  opensubtitles: {type(os_err).__name__} — {os_err}", level="error")
+
+                    if downloaded:
+                        found += 1
+                    else:
+                        failed += 1
+                        _log(db, job_id, f"Not found: {fname}", level="warning")
+                except Exception as exc:
                     failed += 1
-                    _log(db, job_id, f"Not found: {fname}", level="warning")
-            except Exception as exc:
-                failed += 1
-                _log(db, job_id, f"Error on {fname}: {exc}", level="error")
-                logger.exception("Subtitle download error for %s", video_path)
+                    _log(db, job_id, f"Error on {fname}: {exc}", level="error")
+                    logger.exception("Subtitle download error for %s", video_path)
+        finally:
+            subf2m.close()
 
         job.processed_files = len(video_paths)
         job.progress = 100.0
