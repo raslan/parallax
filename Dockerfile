@@ -3,6 +3,7 @@
 #   docker build --build-arg RUNTIME=cuda -t parallax:cuda .
 #   docker build --build-arg RUNTIME=rocm -t parallax:rocm .
 ARG RUNTIME=cpu
+ARG APP_VERSION=dev
 
 # Stage 1: build the React frontend
 FROM node:20-alpine AS frontend-builder
@@ -10,7 +11,9 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
-RUN npm run build
+ARG APP_VERSION=dev
+ARG RUNTIME=cpu
+RUN VITE_APP_VERSION=$APP_VERSION VITE_RUNTIME=$RUNTIME npm run build
 
 # Stage 2a: CPU-only base (default)
 FROM python:3.12-slim AS base-cpu

@@ -71,3 +71,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             RUNTIME=${{ matrix.runtime }}
+            APP_VERSION=${{ needs.release-please.outputs.tag_name }}

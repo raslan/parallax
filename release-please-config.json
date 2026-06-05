@@ -2,6 +2,7 @@
   "packages": {
     ".": {
       "release-type": "simple",
+      "extra-files": ["version.txt"],
       "bump-minor-pre-major": false,
       "changelog-sections": [
         { "type": "feat",     "section": "Features" },
