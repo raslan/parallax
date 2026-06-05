@@ -135,7 +135,7 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
             rel_dir = os.path.relpath(dirpath, root_path)
 
             info = _guessit(fname)
-            has_sub = _has_subtitle(full_path, lang_codes)
+            has_sub = len(_missing_lang_codes(full_path, lang_codes)) == 0
 
             results.append({
                 "path": full_path,
