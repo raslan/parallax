@@ -152,6 +152,14 @@ export function Sidebar() {
           <Settings className="h-4 w-4 shrink-0" />
           Settings
         </NavLink>
+        <div className="px-3 pt-2">
+          <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+            {import.meta.env.VITE_APP_VERSION ?? "dev"}
+            {import.meta.env.VITE_RUNTIME && import.meta.env.VITE_RUNTIME !== "cpu"
+              ? `-${import.meta.env.VITE_RUNTIME}`
+              : ""}
+          </span>
+        </div>
       </div>
     </aside>
   );
