@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.6.0](https://github.com/raslan/parallax/compare/v1.5.0...v1.6.0) (2026-06-05)
+
+
+### Features
+
+* **backend:** update scanner logic, watcher, duplicates and CLIP ([7072225](https://github.com/raslan/parallax/commit/70722250bfad192aaff47d34080444a3b7bce838))
+* **frontend:** cleanup various issues, update duplicates view, update settings and model manager ([59210fb](https://github.com/raslan/parallax/commit/59210fb9a350a46d37240b70dd1f1d6224942bd9))
+
 ## [1.5.0](https://github.com/raslan/parallax/compare/v1.4.1...v1.5.0) (2026-06-04)
 
 
