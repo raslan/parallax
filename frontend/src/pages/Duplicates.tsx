@@ -47,7 +47,6 @@ function FileCard({
     <div className={`flex-1 min-w-[180px] max-w-[260px] rounded-lg border p-3 space-y-2 transition-colors ${
       isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
     }`}>
-      {/* Thumbnail */}
       <div className="relative aspect-video w-full rounded overflow-hidden bg-muted group/thumb">
         {file.has_thumbnail ? (
           <img
@@ -60,8 +59,6 @@ function FileCard({
             <Copy className="h-6 w-6 text-muted-foreground" />
           </div>
         )}
-
-        {/* Play overlay */}
         <button
           onClick={onPlay}
           title="Play video"
@@ -69,8 +66,6 @@ function FileCard({
         >
           <Play className="h-6 w-6 text-white fill-white" />
         </button>
-
-        {/* Checkbox top-left */}
         <div
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
           className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors z-10 ${
@@ -81,15 +76,12 @@ function FileCard({
         >
           {isChecked && <Check className="h-3 w-3 text-white" />}
         </div>
-
-        {/* Suggested keep badge top-right */}
         {isSuggested && (
           <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded z-10">
             KEEP
           </div>
         )}
       </div>
-
       <p className="text-xs font-medium truncate" title={file.filename}>{file.filename}</p>
       <p className="text-xs text-muted-foreground truncate" title={file.path}>{file.path}</p>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
@@ -149,9 +141,50 @@ const CRITERIA_KEY = "parallax-dup-criteria";
 function loadCriteria(): DuplicateCriteria {
   try {
     const stored = localStorage.getItem(CRITERIA_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Backfill phash_frames if missing from old saved criteria
+      if (parsed.phash_frames == null) parsed.phash_frames = 16;
+      return parsed;
+    }
   } catch {}
-  return { use_size: true, use_duration: true, use_phash: true, duration_tolerance: 1, phash_threshold: 10, phash_mode: "all_frames" };
+  return {
+    use_size: true,
+    use_duration: true,
+    use_phash: true,
+    duration_tolerance: 1,
+    phash_threshold: 10,
+    phash_mode: "all_frames",
+    phash_frames: 16,
+  };
+}
+
+function CriteriaRow({ label, enabled, onToggle, children }: {
+  label: string;
+  enabled: boolean;
+  onToggle: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-4 py-2.5 border-b border-border/50 last:border-0">
+      <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-[140px]">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={onToggle}
+          className="accent-[var(--px-accent)] h-3.5 w-3.5"
+        />
+        <span className={`text-sm font-medium ${enabled ? "text-foreground" : "text-muted-foreground"}`}>
+          {label}
+        </span>
+      </label>
+      {enabled && children && (
+        <div className="flex items-center gap-4 flex-wrap">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function Duplicates() {
@@ -206,7 +239,7 @@ export function Duplicates() {
     let attempts = 0;
     pollRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > 60) { stopPolling(); setScanning(false); return; }
+      if (attempts > 180) { stopPolling(); setScanning(false); return; }
       try {
         const result = await api.getDuplicates(libraryId);
         setGroups(result);
@@ -262,114 +295,152 @@ export function Duplicates() {
     }
   };
 
+  const set = <K extends keyof DuplicateCriteria>(key: K, val: DuplicateCriteria[K]) =>
+    setCriteria((prev) => ({ ...prev, [key]: val }));
+
+  const similarityPct = Math.round((1 - criteria.phash_threshold / 64) * 100);
+
   const recoverable = groups
     ? groups.reduce((sum, g) =>
         sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0), 0)
     : 0;
 
+  const noCriteria = !criteria.use_size && !criteria.use_duration && !criteria.use_phash;
+
   return (
     <div className="p-8 space-y-6">
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
-            <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Find videos matching the selected criteria. Check files to delete, uncheck to keep.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {libraries.length > 0 && (
-              <LibrarySelector
-                libraries={libraries}
-                selected={selectedId}
-                onChange={(id) => { setSelectedId(id); setGroups(null); setDeleteIds(new Set()); }}
-              />
-            )}
-            <Button
-              onClick={handleScan}
-              disabled={scanning || !selectedId || (!criteria.use_size && !criteria.use_duration && !criteria.use_phash)}
-            >
-              {scanning ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Scanning…</>
-              ) : (
-                <><ShieldCheck className="h-3.5 w-3.5 mr-2" />Scan for Duplicates</>
-              )}
-            </Button>
-          </div>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
+          <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Find videos matching the selected criteria. Check files to delete, uncheck to keep.
+          </p>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {libraries.length > 0 && (
+            <LibrarySelector
+              libraries={libraries}
+              selected={selectedId}
+              onChange={(id) => { setSelectedId(id); setGroups(null); setDeleteIds(new Set()); }}
+            />
+          )}
+          <Button
+            onClick={handleScan}
+            disabled={scanning || !selectedId || noCriteria}
+          >
+            {scanning ? (
+              <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Scanning…</>
+            ) : (
+              <><ShieldCheck className="h-3.5 w-3.5 mr-2" />Find Duplicates</>
+            )}
+          </Button>
+        </div>
+      </div>
 
-        <div className="flex items-center gap-6">
-          <SectionHeader>Match Criteria</SectionHeader>
-          {(
-            [
-              { key: "use_size",     label: "Exact size" },
-              { key: "use_duration", label: "Duration" },
-              { key: "use_phash",    label: "Visual (pHash)" },
-            ] as { key: keyof DuplicateCriteria; label: string }[]
-          ).map(({ key, label }) => (
-            <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={criteria[key] as boolean}
-                onChange={(e) => setCriteria((prev) => ({ ...prev, [key]: e.target.checked }))}
-                className="accent-[var(--px-accent)] h-3.5 w-3.5"
-              />
-              <span className="text-sm text-muted-foreground">{label}</span>
-            </label>
-          ))}
-          {criteria.use_duration && (
-            <label className="flex items-center gap-1.5 select-none">
-              <span className="text-sm text-muted-foreground">±</span>
+      {/* Criteria card */}
+      <Card>
+        <CardHeader className="pb-1 pt-4 px-5">
+          <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            Match Criteria
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-4">
+          {/* Exact size */}
+          <CriteriaRow
+            label="Exact size"
+            enabled={criteria.use_size}
+            onToggle={() => set("use_size", !criteria.use_size)}
+          >
+            <span className="text-xs text-muted-foreground">Files must share the same byte size</span>
+          </CriteriaRow>
+
+          {/* Duration */}
+          <CriteriaRow
+            label="Duration"
+            enabled={criteria.use_duration}
+            onToggle={() => set("use_duration", !criteria.use_duration)}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Tolerance</span>
+              <span className="text-xs text-muted-foreground">±</span>
               <input
                 type="number"
                 min={0}
                 max={60}
                 step={0.5}
                 value={criteria.duration_tolerance}
-                onChange={(e) => setCriteria((prev) => ({ ...prev, duration_tolerance: Math.max(0, Number(e.target.value)) }))}
-                className="w-14 bg-card border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+                onChange={(e) => set("duration_tolerance", Math.max(0, Number(e.target.value)))}
+                className="w-16 bg-muted border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
               />
-              <span className="text-sm text-muted-foreground">s</span>
-            </label>
-          )}
-          {criteria.use_phash && (
-            <>
-              <div className="flex items-center gap-1.5 select-none">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Min similarity</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={Math.round((1 - criteria.phash_threshold / 64) * 100)}
-                  onChange={(e) => setCriteria((prev) => ({
-                    ...prev,
-                    phash_threshold: Math.round((1 - Number(e.target.value) / 100) * 64),
-                  }))}
-                  className="w-24 accent-primary"
-                />
-                <span className="text-xs font-mono text-muted-foreground w-8">
-                  {Math.round((1 - criteria.phash_threshold / 64) * 100)}%
-                </span>
-              </div>
-              <select
-                value={criteria.phash_mode}
-                onChange={(e) => setCriteria((prev) => ({ ...prev, phash_mode: e.target.value as "first_frame" | "all_frames" }))}
-                className="bg-card border border-border text-xs rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="all_frames">All frames</option>
-                <option value="first_frame">First frame only</option>
-              </select>
-            </>
-          )}
-        </div>
-      </div>
+              <span className="text-xs text-muted-foreground">seconds</span>
+            </div>
+          </CriteriaRow>
 
+          {/* Visual / pHash */}
+          <CriteriaRow
+            label="Visual (pHash)"
+            enabled={criteria.use_phash}
+            onToggle={() => set("use_phash", !criteria.use_phash)}
+          >
+            {/* Similarity */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Min similarity</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={similarityPct}
+                onChange={(e) => set("phash_threshold", Math.round((1 - Number(e.target.value) / 100) * 64))}
+                className="w-28 accent-primary"
+              />
+              <span className="text-xs font-mono tabular-nums w-8">{similarityPct}%</span>
+            </div>
+
+            {/* Compare mode */}
+            <div className="flex items-center gap-3">
+              {(["all_frames", "first_frame"] as const).map((mode) => (
+                <label key={mode} className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name="phash_mode"
+                    value={mode}
+                    checked={criteria.phash_mode === mode}
+                    onChange={() => set("phash_mode", mode)}
+                    className="accent-[var(--px-accent)]"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {mode === "all_frames" ? "All frames" : "First frame only"}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {/* Frame count */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Frames per video</span>
+              <input
+                type="number"
+                min={4}
+                max={64}
+                step={1}
+                value={criteria.phash_frames}
+                onChange={(e) => set("phash_frames", Math.min(64, Math.max(4, Number(e.target.value))))}
+                className="w-16 bg-muted border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+              />
+            </div>
+          </CriteriaRow>
+        </CardContent>
+      </Card>
+
+      {/* Results summary + delete bar */}
       {groups !== null && groups.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-sm">
-            <span className="font-semibold tabular-nums font-mono">{groups.length}</span> duplicate group{groups.length !== 1 ? "s" : ""} found
+            <span className="font-semibold tabular-nums font-mono">{groups.length}</span>{" "}
+            duplicate group{groups.length !== 1 ? "s" : ""} found
             {deleteIds.size > 0 && (
               <span className="text-muted-foreground ml-2">
                 · <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span> selected for deletion
@@ -392,12 +463,14 @@ export function Duplicates() {
         </div>
       )}
 
+      {/* Loading */}
       {scanning && (
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
+      {/* No duplicates */}
       {!scanning && groups !== null && groups.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -410,6 +483,7 @@ export function Duplicates() {
         </Card>
       )}
 
+      {/* Groups */}
       {!scanning && groups && groups.length > 0 && (
         <div className="space-y-4">
           {groups.map((group, i) => (
@@ -424,13 +498,14 @@ export function Duplicates() {
         </div>
       )}
 
+      {/* Ready state */}
       {!scanning && groups === null && !initializing && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Copy className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">Ready to scan</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Select a library and click Scan for Duplicates to find matching videos.
+              Configure criteria above and click Find Duplicates.
             </p>
           </CardContent>
         </Card>

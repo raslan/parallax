@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Images, Library, Plus, Trash2, ScanLine, FolderOpen, Loader2, ExternalLink } from "lucide-react";
-import { imageApi, ImageLibrary, ImageScanRequest } from "@/lib/api";
+import { api, imageApi, ImageLibrary, ImageScanRequest, Job } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -316,6 +316,7 @@ export function ImageLibraries() {
   const [scanOptsFor, setScanOptsFor] = useState<number | null>(null);
   const [scanOpts, setScanOpts] = useState<ImageScanRequest>(DEFAULT_SCAN_OPTS);
   const scanOptsRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (scanOptsFor === null) return;
@@ -328,23 +329,34 @@ export function ImageLibraries() {
     return () => document.removeEventListener("mousedown", handler);
   }, [scanOptsFor]);
 
-  const load = () => {
-    setLoading(true);
-    imageApi.listLibraries().then(setLibraries).finally(() => setLoading(false));
-  };
+  const refresh = useCallback(async (showLoader = false) => {
+    if (showLoader) setLoading(true);
+    try {
+      const [libs, jobs] = await Promise.all([imageApi.listLibraries(), api.getJobs(100)]);
+      setLibraries(libs);
+      const active = (jobs as Job[]).filter((j) => j.status === "pending" || j.status === "running");
+      setScanningIds(new Set(
+        active.filter((j) => j.type === "image_scan" && j.library_id != null).map((j) => j.library_id!)
+      ));
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    refresh(true);
+    pollRef.current = setInterval(() => refresh(), 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [refresh]);
 
   const handleScan = async (id: number, reset = false) => {
     setScanOptsFor(null);
-    setScanningIds((s) => new Set(s).add(id));
     try {
       await imageApi.scanLibrary(id, { ...scanOpts, reset });
     } catch (e: unknown) {
       if (!(e instanceof Error && e.message?.includes("409"))) throw e;
-    } finally {
-      setScanningIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
+    refresh();
   };
 
   const handleDelete = (id: number) => {
@@ -389,7 +401,7 @@ export function ImageLibraries() {
         open={deleteAllOpen}
         onClose={() => setDeleteAllOpen(false)}
         libraries={libraries}
-        onDeleted={() => { setLibraries([]); load(); }}
+        onDeleted={() => { setLibraries([]); refresh(true); }}
       />
       <AddImageLibraryDialog
         open={dialogOpen}

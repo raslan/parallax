@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
 import { Layout } from "@/components/layout/Layout";
 import { Libraries } from "@/pages/Libraries";
 import { Files } from "@/pages/Files";
@@ -20,6 +21,7 @@ import { ImageQuarantined } from "@/pages/ImageQuarantined";
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster />
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/libraries" replace />} />

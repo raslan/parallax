@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Library as LibIcon, Loader2, RefreshCw, Trash2, Plus, FolderOpen, ShieldCheck, Brain, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { api, Library } from "@/lib/api";
+import { api, Library, Job } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { DirPicker } from "@/components/DirPicker";
@@ -305,47 +305,50 @@ export function Libraries() {
   const [deletingLib, setDeletingLib] = useState<Library | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    api.getLibraries()
-      .then(setLibraries)
-      .finally(() => setLoading(false));
-  };
+  const refresh = useCallback(async (showLoader = false) => {
+    if (showLoader) setLoading(true);
+    try {
+      const [libs, jobs] = await Promise.all([api.getLibraries(), api.getJobs(100)]);
+      setLibraries(libs);
+      const active = (jobs as Job[]).filter((j) => j.status === "pending" || j.status === "running");
+      const byType = (t: string) => new Set(
+        active.filter((j) => j.type === t && j.library_id != null).map((j) => j.library_id!)
+      );
+      setScanningIds(byType("scan"));
+      setCheckingIds(byType("check"));
+      setAiScanningIds(byType("video_scan"));
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    refresh(true);
+    pollRef.current = setInterval(() => refresh(), 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [refresh]);
 
   const handleScan = async (id: number) => {
-    setScanningIds((s) => new Set(s).add(id));
-    try {
-      await api.scanLibrary(id);
-    } catch (e: any) {
-      if (!e.message?.includes("409")) throw e; // ignore "already running"
-    } finally {
-      setScanningIds((s) => { const n = new Set(s); n.delete(id); return n; });
+    try { await api.scanLibrary(id); } catch (e: any) {
+      if (!e.message?.includes("409")) throw e;
     }
+    refresh();
   };
 
   const handleCheck = async (id: number) => {
-    setCheckingIds((s) => new Set(s).add(id));
-    try {
-      await api.checkLibrary(id);
-    } catch (e: any) {
+    try { await api.checkLibrary(id); } catch (e: any) {
       if (!e.message?.includes("409")) throw e;
-    } finally {
-      setCheckingIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
+    refresh();
   };
 
   const handleAiScan = async (id: number) => {
-    setAiScanningIds((s) => new Set(s).add(id));
-    try {
-      await api.triggerVideoScan(id, true);
-    } catch (e: any) {
+    try { await api.triggerVideoScan(id, true); } catch (e: any) {
       if (!e.message?.includes("409")) throw e;
-    } finally {
-      setAiScanningIds((s) => { const n = new Set(s); n.delete(id); return n; });
     }
+    refresh();
   };
 
   const handleDelete = (id: number) => {
@@ -386,12 +389,12 @@ export function Libraries() {
         open={deleteAllOpen}
         onClose={() => setDeleteAllOpen(false)}
         libraries={libraries}
-        onDeleted={() => { setLibraries([]); load(); }}
+        onDeleted={() => { setLibraries([]); refresh(true); }}
       />
       <AddLibraryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={load}
+        onCreated={() => refresh(true)}
       />
 
       {loading ? (
