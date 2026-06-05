@@ -16,6 +16,7 @@ class JobType:
     SUBTITLE_DOWNLOAD = "subtitle_download"
     WHISPER_TRANSCRIBE = "whisper_transcribe"
     COMPRESS = "compress"
+    PHASH_SCAN = "phash_scan"
 
 
 class JobStatus:

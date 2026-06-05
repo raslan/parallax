@@ -1,7 +1,10 @@
+import concurrent.futures as _cf
 import os
+import queue as _queue
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from typing import Callable
 
@@ -38,28 +41,9 @@ _DEFAULT_CRF: dict[str, int] = {
 
 _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
 
-_av1_encoder: str | None = None
-_av1_checked = False
-
-
 def _get_av1_encoder() -> str | None:
-    global _av1_encoder, _av1_checked
-    if _av1_checked:
-        return _av1_encoder
-    try:
-        result = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-encoders"],
-            capture_output=True, text=True, timeout=10,
-        )
-        stdout = result.stdout
-        if "libsvtav1" in stdout:
-            _av1_encoder = "libsvtav1"
-        elif "libaom-av1" in stdout:
-            _av1_encoder = "libaom-av1"
-    except Exception:
-        pass
-    _av1_checked = True
-    return _av1_encoder
+    enc = _get_encoders().get("av1", "libsvtav1")
+    return enc if enc else None
 
 
 def get_available_codecs() -> list[dict]:
@@ -173,11 +157,12 @@ def _compress_one(
     crf: int,
     speed: str,
     job_id: int,
-    db,
     progress_cb: Callable[[float], None] | None = None,
     keep_original: bool = True,
 ) -> tuple[bool, str | None]:
     """Compress one file in-place. Returns (success, error_msg)."""
+    if should_cancel(job_id):
+        return False, "Cancelled"
     src = file_path
     base, ext = os.path.splitext(src)
     # .m4v uses the restrictive ipod muxer which rejects HEVC/AV1 regardless of tags.
@@ -219,7 +204,6 @@ def _compress_one(
         os.close(err_fd)
         err_fd = -1
 
-        last_commit = time.monotonic()
         for line in iter(proc.stdout.readline, ""):
             if should_cancel(job_id):
                 proc.kill()
@@ -234,10 +218,6 @@ def _compress_one(
                     ms = int(line.split("=")[1])
                     if ms > 0:
                         progress_cb(min(ms / 1_000_000 / duration, 0.99))
-                        t = time.monotonic()
-                        if t - last_commit >= 2.0:
-                            db.commit()
-                            last_commit = t
                 except (ValueError, IndexError):
                     pass
 
@@ -303,6 +283,8 @@ def run_compress_job(
     speed: str,
     keep_original: bool = True,
 ) -> None:
+    from app.models.settings import get_setting
+
     db = SessionLocal()
     job = None
     try:
@@ -316,60 +298,109 @@ def run_compress_job(
         db.commit()
 
         total = len(video_paths)
-        succeeded = 0
+        n_concurrent = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
+
+        # Shared state — accessed from worker threads under lock
+        fracs: dict[str, float] = {}
+        fracs_lock = threading.Lock()
+        log_q: _queue.SimpleQueue = _queue.SimpleQueue()
+        completed = 0
         failed = 0
+        was_cancelled = False
 
         arm_cancel(job_id)
 
-        for i, file_path in enumerate(video_paths):
-            if should_cancel(job_id):
-                job.status = JobStatus.CANCELLED
-                job.finished_at = now()
-                db.commit()
-                log(db, job_id, "Compress cancelled")
-                clear_cancel(job_id)
-                return
+        def make_progress_cb(path: str) -> Callable[[float], None]:
+            def cb(frac: float) -> None:
+                with fracs_lock:
+                    fracs[path] = frac
+            return cb
 
-            fname = os.path.basename(file_path)
-            job.current_file = fname
-            job.progress = max(5.0, (i / total) * 100) if total > 1 else 5.0
-            db.commit()
-            log(db, job_id, f"[{i + 1}/{total}] Compressing: {fname}")
-
-            def make_cb(idx: int, tot: int) -> Callable[[float], None]:
-                def cb(frac: float) -> None:
-                    job.progress = (idx + frac) / tot * 100
-                return cb
-
+        def do_one(path: str) -> tuple[str, bool, str | None]:
+            fname = os.path.basename(path)
+            log_q.put(("info", f"Compressing: {fname}"))
             ok, err = _compress_one(
-                file_path, codec, crf, speed, job_id, db,
-                progress_cb=make_cb(i, total),
+                path, codec, crf, speed, job_id,
+                progress_cb=make_progress_cb(path),
                 keep_original=keep_original,
             )
+            with fracs_lock:
+                fracs.pop(path, None)
+            return path, ok, err
 
-            if ok:
-                succeeded += 1
-                log(db, job_id, f"Done: {fname}")
-            elif not should_cancel(job_id):
-                failed += 1
-                log(db, job_id, f"Failed: {fname} — {err}", level="error")
-
-            job.processed_files = i + 1
-            job.progress = ((i + 1) / total) * 100
+        def flush_to_db() -> None:
+            while not log_q.empty():
+                try:
+                    level, msg = log_q.get_nowait()
+                    log(db, job_id, msg, level)
+                except _queue.Empty:
+                    break
+            with fracs_lock:
+                in_flight = sum(fracs.values())
+                active_names = [os.path.basename(p) for p in fracs.keys()]
+            pct = (completed + in_flight) / total * 100 if total else 100.0
+            job.progress = min(pct, 99.0)
+            job.processed_files = completed
+            job.current_file = " · ".join(active_names) if active_names else None
             db.commit()
+
+        with _cf.ThreadPoolExecutor(max_workers=n_concurrent) as pool:
+            future_map = {pool.submit(do_one, path): path for path in video_paths}
+            pending = set(future_map)
+
+            while pending:
+                done, pending = _cf.wait(pending, timeout=2.0)
+
+                if should_cancel(job_id):
+                    was_cancelled = True
+                    # Cancel futures that haven't started yet
+                    for f in pending:
+                        f.cancel()
+                    # Wait for already-running futures (they kill their ffmpeg process)
+                    _cf.wait(pending)
+                    pending = set()
+
+                for fut in done:
+                    try:
+                        path, ok, err = fut.result()
+                    except _cf.CancelledError:
+                        continue
+                    fname = os.path.basename(path)
+                    if ok:
+                        completed += 1
+                        log_q.put(("info", f"Done: {fname}"))
+                    elif err != "Cancelled":
+                        failed += 1
+                        log_q.put(("error", f"Failed: {fname} — {err}"))
+
+                flush_to_db()
 
         clear_cancel(job_id)
 
+        # Drain any remaining log messages
+        while not log_q.empty():
+            try:
+                level, msg = log_q.get_nowait()
+                log(db, job_id, msg, level)
+            except _queue.Empty:
+                break
+
+        if was_cancelled:
+            job.status = JobStatus.CANCELLED
+            job.finished_at = now()
+            job.current_file = f"{completed}/{total} done before cancel"
+            db.commit()
+            log(db, job_id, f"Compress cancelled — {completed} done, {failed} failed")
+            return
+
         if failed > 0:
             job.error = f"{failed} of {total} file(s) failed"
-        job.status = (
-            JobStatus.FAILED if (failed > 0 and succeeded == 0) else JobStatus.COMPLETED
-        )
+        job.status = JobStatus.FAILED if (failed > 0 and completed == 0) else JobStatus.COMPLETED
         job.progress = 100.0
         job.finished_at = now()
-        job.current_file = f"{succeeded}/{total} compressed"
+        job.current_file = f"{completed}/{total} compressed"
         db.commit()
-        log(db, job_id, f"Compress complete — {succeeded} succeeded, {failed} failed")
+        log(db, job_id, f"Compress complete — {completed} succeeded, {failed} failed")
 
     except Exception as exc:
         if job:

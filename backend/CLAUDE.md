@@ -23,7 +23,9 @@ backend/app/
 | File | Purpose |
 |---|---|
 | `scanner.py` | Basic video library scan (metadata + thumbnails) |
-| `video_scanner.py` | Full video scan: keyframes, pHash, CLIP, content detection |
+| `video_scanner.py` | AI video scan: seek-based keyframes, CLIP (3 midpoint frames) + NudeNet (all frames) |
+| `video_analyzer.py` | ffmpeg frame extraction helpers: `extract_frames_evenly`, `extract_frames_at`, probe/scale/hwaccel utilities |
+| `phash_scanner.py` | pHash extraction for duplicate detection: 16 seek-based frames at 256px, called from within `find_duplicates` |
 | `image_scanner.py` | Image library scan: thumbnails, CLIP, content detection |
 | `image_analyzer.py` | ONNX inference proxy (CLIP + inappropriate content) — manages worker subprocess |
 | `_image_analyzer_impl.py` | Actual ONNX inference code that runs inside the worker process |
@@ -32,7 +34,7 @@ backend/app/
 | `transcoder.py` | ffmpeg transcoding (in-place, saves originals) |
 | `compressor.py` | Compress job runner |
 | `corruption.py` | ffprobe-based corruption checks |
-| `duplicates.py` | Video duplicate detection (size, duration, pHash) |
+| `duplicates.py` | Video duplicate detection (size, duration, pHash); integrates pHash scan phase before comparison |
 | `image_duplicates.py` | Image duplicate detection (pHash) |
 | `subtitle_service.py` | Subtitle scan, OpenSubtitles download, Whisper transcription job |
 | `downloader.py` | yt-dlp download job runner |
@@ -66,13 +68,28 @@ All GPU inference (ONNX and Whisper) runs in an isolated worker subprocess:
 - Explicitly call `release_sessions()` / `release_model()` in the `finally` block of job runners so VRAM is freed immediately on job completion rather than waiting for the idle timer.
 - Proxy modules (`image_analyzer.py`, `whisper_service.py`) manage the worker lifecycle. Impl modules (`_image_analyzer_impl.py`, `_whisper_impl.py`) contain model-loading and inference code.
 
-## Video scan phases
+## Scan pipeline — video and image
 
-`scan_video_library` in `video_scanner.py` runs in three phases:
+Both scanners use a **producer-consumer pipeline** to overlap disk I/O with GPU inference:
 
-1. **Keyframe extraction + pHash** (0–40%) — ffmpeg extracts N frames per video to `data/video-keyframes/{file_id}/`, computes pHash from first frame and all frames.
-2. **CLIP inference** (40–70%) — batched CLIP encoding over all keyframe paths, averaged + L2-normalised per video.
-3. **Content detection** (70–99%) — batched inappropriate content inference.
+- A background producer thread pre-loads the next N items (videos or image batches) into a bounded `queue.Queue(maxsize=scan_prefetch)`.
+- The main thread (consumer) drains the queue: runs CLIP + NudeNet inference, writes to DB, then loops.
+- Producer and consumer use separate hardware: NVDEC/disk I/O vs CUDA compute. The GIL releases during subprocess inference calls, allowing true parallelism.
+- `scan_prefetch` setting (default 4, max 20) controls queue depth — higher = more RAM, GPU stays fully fed between items.
+
+**Video scan** (`video_scanner.py`):
+- Producer runs `extract_frames_evenly` per video: N individual ffmpeg `-ss` seeks, each returning one frame as rawvideo pipe. No full-video decode.
+- Extraction resolution = `max(clip_image_size, nudenet_inference_resolution)` from active model config. `video_keyframes_per_video` default 16, range 4–64.
+- Consumer: CLIP on 3 midpoint frames (indices mid-1, mid, mid+1) averaged + L2-normalised; NudeNet on all frames for full coverage. DB commit per video. No frames written to disk.
+- **Duplicate scan** (`duplicates.py`): phase 1 extracts pHash via `phash_scanner._extract_phash_frames` for files missing it or with stale frame count (0–50% progress); phase 2 runs size/duration/pHash comparison (50–100%). `phash_frames` count configurable from Duplicates page UI; stored frame count (`len(phash_frames JSON)`) determines whether re-extraction is needed. Hamming distance masked to 64 bits: `bin((a ^ b) & 0xFFFFFFFFFFFFFFFF).count("1")`.
+
+**Image scan** (`image_scanner.py`):
+- Producer runs `_load_image_for_scan` per image: single PIL open using `draft()` for JPEG (DCT-domain downsampling, same principle as ffmpeg low-res decode) at `max(clip_res, nudenet_res, 400px)`.
+- One file open per image serves metadata extraction, pHash, thumbnail generation, CLIP, and NudeNet — no repeated disk reads.
+- Consumer accumulates `scan_batch_size` images, runs CLIP + NudeNet on the batch, commits.
+- `scan_batch_size` (default 4) controls inference batch size for images.
+
+Progress runs 0–100% across file/image count.
 
 ## Filesystem watcher
 

@@ -1,22 +1,14 @@
-import os
 import json
-import shutil
+import os
 import subprocess
 import numpy as np
 
-_DEFAULT_KEYFRAMES_PER_VIDEO = 8
-
 
 def get_video_duration(video_path: str) -> float | None:
-    """Return duration in seconds via ffprobe, or None on failure."""
     try:
         result = subprocess.run(
-            [
-                "ffprobe", "-v", "quiet",
-                "-print_format", "json",
-                "-show_entries", "format=duration",
-                video_path,
-            ],
+            ["ffprobe", "-v", "quiet", "-print_format", "json",
+             "-show_entries", "format=duration", video_path],
             capture_output=True, text=True, timeout=30,
         )
         data = json.loads(result.stdout)
@@ -25,101 +17,95 @@ def get_video_duration(video_path: str) -> float | None:
         return None
 
 
-def extract_keyframes(
+def _probe_video_dims(video_path: str) -> tuple[int, int] | None:
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-print_format", "json",
+             "-select_streams", "v:0",
+             "-show_entries", "stream=width,height",
+             video_path],
+            capture_output=True, text=True, timeout=30,
+        )
+        s = json.loads(result.stdout)["streams"][0]
+        return int(s["width"]), int(s["height"])
+    except Exception:
+        return None
+
+
+def _calc_scaled_size(w: int, h: int, max_size: int) -> tuple[int, int]:
+    """Scale so longest dimension ≤ max_size, maintain AR, round to even."""
+    if w <= max_size and h <= max_size:
+        ow, oh = w, h
+    elif w >= h:
+        ow = max_size
+        oh = round(h * max_size / w)
+    else:
+        oh = max_size
+        ow = round(w * max_size / h)
+    return max(2, ow - (ow % 2)), max(2, oh - (oh % 2))
+
+
+def _hwaccel_args() -> list[str]:
+    """Return ffmpeg hwaccel input flags for the detected GPU, or [] for CPU."""
+    try:
+        from app.services.encoder import get_encoder_family
+        family = get_encoder_family()
+    except Exception:
+        return []
+    if family == "nvenc":
+        return ["-hwaccel", "cuda"]
+    if family == "qsv":
+        return ["-hwaccel", "qsv"]
+    if family in ("amf", "vaapi"):
+        return ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
+    return []
+
+
+def extract_frames_evenly(
     video_path: str,
-    num_frames: int = _DEFAULT_KEYFRAMES_PER_VIDEO,
-    dest_dir: str | None = None,
-) -> tuple[str, list[tuple[str, float]]]:
+    n_frames: int = 32,
+    max_resolution: int = 320,
+) -> list[tuple[np.ndarray, float]]:
     """
-    Extract exactly `num_frames` evenly-spaced frames from the video.
-    Writes to `dest_dir` (persistent) or a tempdir if not provided.
-    Returns (frame_dir, [(frame_path, timestamp_secs), ...]).
+    Extract n_frames evenly-spaced frames via individual fast seeks.
+    Each seek decodes only from the nearest keyframe — much faster than
+    full-video decode for any reasonable frame count.
+    Returns (rgb_array, timestamp_secs) pairs. No files written to disk.
     """
-    import tempfile
-
+    dims = _probe_video_dims(video_path)
     duration = get_video_duration(video_path)
-    if not duration or duration <= 0:
-        raise RuntimeError("Could not determine video duration")
+    if not dims or not duration or duration <= 0:
+        raise RuntimeError("Could not probe video dimensions or duration")
 
-    n = max(1, num_frames)
-    # Space timestamps evenly, avoiding the very start/end (use n+1 intervals)
-    timestamps = [duration * (i + 1) / (n + 1) for i in range(n)]
+    out_w, out_h = _calc_scaled_size(dims[0], dims[1], max_resolution)
+    frame_size = out_w * out_h * 3
+    fname = os.path.basename(video_path)
+    print(
+        f"[keyframes] {fname}: source {dims[0]}x{dims[1]} → extract {out_w}x{out_h} "
+        f"({duration:.0f}s, {n_frames} frames)",
+        flush=True,
+    )
 
-    frame_dir = dest_dir or tempfile.mkdtemp(prefix="parallax_vframes_")
-    os.makedirs(frame_dir, exist_ok=True)
+    timestamps = [duration * (i + 1) / (n_frames + 1) for i in range(n_frames)]
+    frames: list[tuple[np.ndarray, float]] = []
 
-    results = []
-    for i, ts in enumerate(timestamps):
-        out_path = os.path.join(frame_dir, f"{i:06d}.jpg")
-        try:
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-ss", str(ts),
-                    "-i", video_path,
-                    "-frames:v", "1",
-                    "-q:v", "5",
-                    out_path,
-                    "-hide_banner", "-loglevel", "error",
-                    "-y",
-                ],
-                timeout=30,
-                check=True,
-            )
-            results.append((out_path, ts))
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            pass  # skip unextractable frames; caller raises if results is empty
+    for ts in timestamps:
+        result = subprocess.run(
+            [
+                "ffmpeg", *_hwaccel_args(),
+                "-ss", str(ts), "-i", video_path,
+                "-frames:v", "1",
+                "-vf", f"scale={out_w}:{out_h}",
+                "-f", "rawvideo", "-pix_fmt", "rgb24",
+                "pipe:1",
+                "-hide_banner", "-loglevel", "error",
+            ],
+            capture_output=True,
+            timeout=30,
+        )
+        if result.returncode == 0 and len(result.stdout) >= frame_size:
+            arr = np.frombuffer(result.stdout[:frame_size], dtype=np.uint8).reshape((out_h, out_w, 3)).copy()
+            frames.append((arr, ts))
 
-    return frame_dir, results
-
-
-def embed_video_clip(
-    frame_paths: list[str],
-    model_id: str = "clip-vit-base-patch32",
-) -> list[float]:
-    """Average CLIP embeddings of all frames → video-level embedding."""
-    from app.services.image_analyzer import encode_image_clip
-
-    vectors = []
-    for path in frame_paths:
-        try:
-            vec = encode_image_clip(path, model_id=model_id)
-            vectors.append(vec)
-        except Exception:
-            continue
-
-    if not vectors:
-        raise ValueError("No frames could be embedded")
-
-    avg = np.mean(np.array(vectors, dtype=np.float64), axis=0)
-    norm = np.linalg.norm(avg)
-    if norm > 0:
-        avg = avg / norm
-    return avg.tolist()
-
-
-def detect_video_nudenet(
-    frames: list[tuple[str, float]],
-    model_id: str = "320n",
-    min_confidence: float = 0.5,
-) -> list[dict]:
-    """
-    Run NudeNet on each frame.
-    Returns list of {timestamp_secs, label, confidence} dicts.
-    """
-    from app.services.image_analyzer import run_nudenet
-
-    results = []
-    for frame_path, timestamp in frames:
-        try:
-            detections = run_nudenet(frame_path, model_id=model_id)
-            for d in detections:
-                if d["confidence"] >= min_confidence:
-                    results.append({
-                        "timestamp_secs": timestamp,
-                        "label": d["label"],
-                        "confidence": d["confidence"],
-                    })
-        except Exception:
-            continue
-    return results
+    print(f"[keyframes] {fname}: extracted {len(frames)}/{n_frames} frames", flush=True)
+    return frames

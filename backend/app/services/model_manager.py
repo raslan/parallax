@@ -106,51 +106,6 @@ def is_whisper_downloaded(model_id: str) -> bool:
     return os.path.isdir(d) and os.path.exists(os.path.join(d, "model.bin"))
 
 
-def download_whisper(model_id: str, job_id: int) -> None:
-    from huggingface_hub import snapshot_download
-    from app.database import SessionLocal
-    from app.models.job import Job, JobStatus
-    from app.services.common import now, log
-
-    meta = WHISPER_MODELS[model_id]
-    target_dir = whisper_model_dir(model_id)
-    os.makedirs(target_dir, exist_ok=True)
-
-    db = SessionLocal()
-    job = None
-    try:
-        job = db.get(Job, job_id)
-        if not job:
-            return
-        job.status = JobStatus.RUNNING
-        job.started_at = now()
-        db.commit()
-        log(db, job_id, f"Downloading {meta['name']} from HuggingFace…")
-        job.progress = 10.0
-        db.commit()
-        snapshot_download(repo_id=meta["hf_repo"], local_dir=target_dir)
-        job.status = JobStatus.COMPLETED
-        job.progress = 100.0
-        job.finished_at = now()
-        job.current_file = None
-        db.commit()
-        log(db, job_id, f"{meta['name']} downloaded successfully.")
-    except Exception as e:
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)[:512]
-            job.finished_at = now()
-            db.commit()
-    finally:
-        db.close()
-
-
-def delete_whisper(model_id: str) -> None:
-    d = whisper_model_dir(model_id)
-    if os.path.isdir(d):
-        shutil.rmtree(d)
-
-
 def clip_dir(model_id: str) -> str:
     return os.path.join(MODELS_DIR, "clip", model_id)
 
@@ -186,6 +141,160 @@ def is_nudenet_downloaded(model_id: str) -> bool:
     return os.path.exists(nudenet_path(model_id))
 
 
+# ---------------------------------------------------------------------------
+# Streaming download helpers
+# ---------------------------------------------------------------------------
+
+class _DownloadCancelled(BaseException):
+    pass
+
+
+def _download_hf_file(
+    repo_id: str,
+    filename: str,
+    dest_path: str,
+    job,
+    db,
+    job_id: int,
+    total_bytes: int,
+    pct_start: float,
+    pct_end: float,
+    label: str,
+    byte_offset: int = 0,
+) -> int:
+    """
+    Stream one file from HuggingFace to dest_path with live progress.
+    Returns number of bytes downloaded.
+    byte_offset: bytes already counted toward progress (for multi-file jobs).
+    """
+    import requests
+    from huggingface_hub import hf_hub_url
+    from app.services.common import should_cancel
+
+    url = hf_hub_url(repo_id=repo_id, filename=filename)
+    _total = max(total_bytes, 1)
+    n = byte_offset
+    last_db_pct = pct_start
+    last_log_pct = pct_start - 5.0
+    downloaded = 0
+
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    with requests.get(url, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(dest_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if should_cancel(job_id):
+                    raise _DownloadCancelled()
+                f.write(chunk)
+                n += len(chunk)
+                downloaded += len(chunk)
+                pct = min(pct_start + (n / _total) * (pct_end - pct_start), pct_end)
+                if pct - last_db_pct >= 1.0:
+                    job.progress = pct
+                    db.commit()
+                    last_db_pct = pct
+                if pct - last_log_pct >= 5.0:
+                    print(
+                        f"[model-download] {label}: "
+                        f"{n // (1024 * 1024)} / {_total // (1024 * 1024)} MB ({pct:.0f}%)",
+                        flush=True,
+                    )
+                    last_log_pct = pct
+    return downloaded
+
+
+# ---------------------------------------------------------------------------
+# Whisper
+# ---------------------------------------------------------------------------
+
+def download_whisper(model_id: str, job_id: int) -> None:
+    from huggingface_hub import list_repo_files
+    from app.database import SessionLocal
+    from app.models.job import Job, JobStatus
+    from app.services.common import now, log, arm_cancel, clear_cancel
+
+    meta = WHISPER_MODELS[model_id]
+    target_dir = whisper_model_dir(model_id)
+    os.makedirs(target_dir, exist_ok=True)
+
+    db = SessionLocal()
+    job = None
+    _cleanup = False
+    try:
+        job = db.get(Job, job_id)
+        if not job:
+            return
+        job.status = JobStatus.RUNNING
+        job.started_at = now()
+        db.commit()
+        arm_cancel(job_id)
+
+        total_bytes = meta["size_mb"] * 1024 * 1024
+        print(f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True)
+        log(db, job_id, f"Downloading {meta['name']} from HuggingFace…")
+        job.progress = 5.0
+        db.commit()
+
+        files = list(list_repo_files(meta["hf_repo"]))
+        byte_offset = 0
+        for filename in files:
+            dest = os.path.join(target_dir, filename)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            if os.path.exists(dest):
+                byte_offset += os.path.getsize(dest)
+                continue
+            byte_offset += _download_hf_file(
+                repo_id=meta["hf_repo"],
+                filename=filename,
+                dest_path=dest,
+                job=job, db=db, job_id=job_id,
+                total_bytes=total_bytes,
+                pct_start=5.0, pct_end=95.0,
+                label=meta["name"],
+                byte_offset=byte_offset,
+            )
+
+        job.status = JobStatus.COMPLETED
+        job.progress = 100.0
+        job.finished_at = now()
+        db.commit()
+        print(f"[model-download] {meta['name']}: download complete", flush=True)
+        log(db, job_id, f"{meta['name']} downloaded successfully.")
+
+    except _DownloadCancelled:
+        _cleanup = True
+        if job:
+            job.status = JobStatus.CANCELLED
+            job.finished_at = now()
+            db.commit()
+        print(f"[model-download] {meta['name']}: cancelled — removing partial files", flush=True)
+
+    except Exception as e:
+        _cleanup = True
+        if job:
+            job.status = JobStatus.FAILED
+            job.error = str(e)[:512]
+            job.finished_at = now()
+            db.commit()
+        print(f"[model-download] {meta['name']}: failed — {e}", flush=True)
+
+    finally:
+        clear_cancel(job_id)
+        if _cleanup:
+            shutil.rmtree(target_dir, ignore_errors=True)
+        db.close()
+
+
+def delete_whisper(model_id: str) -> None:
+    d = whisper_model_dir(model_id)
+    if os.path.isdir(d):
+        shutil.rmtree(d)
+
+
+# ---------------------------------------------------------------------------
+# CLIP
+# ---------------------------------------------------------------------------
+
 def migrate_legacy_clip() -> None:
     """Move pre-subdirectory CLIP files into per-model directory on first startup."""
     legacy_dir = os.path.join(MODELS_DIR, "clip")
@@ -201,18 +310,20 @@ def migrate_legacy_clip() -> None:
 
 
 def download_clip(model_id: str, job_id: int) -> None:
-    """Download CLIP model from HuggingFace. Runs in background job thread."""
-    from huggingface_hub import hf_hub_download
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import now, log
+    from app.services.common import now, log, arm_cancel, clear_cancel
 
     meta = CLIP_MODELS[model_id]
     target_dir = clip_dir(model_id)
     os.makedirs(target_dir, exist_ok=True)
 
+    total_bytes = meta["size_mb"] * 1024 * 1024
+    vision_bytes = int(total_bytes * 0.6)  # vision ~60%, text ~40%
+
     db = SessionLocal()
     job = None
+    _cleanup = False
     try:
         job = db.get(Job, job_id)
         if not job:
@@ -220,56 +331,88 @@ def download_clip(model_id: str, job_id: int) -> None:
         job.status = JobStatus.RUNNING
         job.started_at = now()
         db.commit()
+        arm_cancel(job_id)
+
+        print(f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True)
 
         log(db, job_id, f"Downloading {meta['name']} vision model from HuggingFace…")
         job.current_file = "vision_model.onnx"
-        job.progress = 10.0
+        job.progress = 5.0
         db.commit()
-        src = hf_hub_download(
+        _download_hf_file(
             repo_id=meta["hf_repo"],
             filename=meta["hf_vision_file"],
-            local_dir=target_dir,
+            dest_path=clip_vision_path(model_id),
+            job=job, db=db, job_id=job_id,
+            total_bytes=total_bytes,
+            pct_start=5.0, pct_end=60.0,
+            label=f"{meta['name']} vision",
         )
-        dest = clip_vision_path(model_id)
-        if os.path.abspath(src) != os.path.abspath(dest):
-            shutil.move(src, dest)
 
         log(db, job_id, f"Downloading {meta['name']} text model from HuggingFace…")
         job.current_file = "text_model.onnx"
         job.progress = 60.0
         db.commit()
-        src = hf_hub_download(
+        _download_hf_file(
             repo_id=meta["hf_repo"],
             filename=meta["hf_text_file"],
-            local_dir=target_dir,
+            dest_path=clip_text_path(model_id),
+            job=job, db=db, job_id=job_id,
+            total_bytes=total_bytes,
+            pct_start=60.0, pct_end=95.0,
+            label=f"{meta['name']} text",
+            byte_offset=vision_bytes,
         )
-        dest = clip_text_path(model_id)
-        if os.path.abspath(src) != os.path.abspath(dest):
-            shutil.move(src, dest)
 
         job.status = JobStatus.COMPLETED
         job.progress = 100.0
         job.finished_at = now()
         job.current_file = None
         db.commit()
+        print(f"[model-download] {meta['name']}: download complete", flush=True)
         log(db, job_id, f"{meta['name']} downloaded successfully.")
 
+    except _DownloadCancelled:
+        _cleanup = True
+        if job:
+            job.status = JobStatus.CANCELLED
+            job.finished_at = now()
+            job.current_file = None
+            db.commit()
+        print(f"[model-download] {meta['name']}: cancelled — removing partial files", flush=True)
+
     except Exception as e:
+        _cleanup = True
         if job:
             job.status = JobStatus.FAILED
             job.error = str(e)[:512]
             job.finished_at = now()
+            job.current_file = None
             db.commit()
+        print(f"[model-download] {meta['name']}: failed — {e}", flush=True)
+
     finally:
+        clear_cancel(job_id)
+        if _cleanup:
+            shutil.rmtree(target_dir, ignore_errors=True)
         db.close()
 
 
+def delete_clip(model_id: str) -> None:
+    d = clip_dir(model_id)
+    if os.path.isdir(d):
+        shutil.rmtree(d)
+
+
+# ---------------------------------------------------------------------------
+# NudeNet
+# ---------------------------------------------------------------------------
+
 def download_nudenet(model_id: str, job_id: int) -> None:
-    """Download NudeNet model from GitHub. Runs in background job thread."""
     import requests
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import now, log
+    from app.services.common import now, log, arm_cancel, clear_cancel, should_cancel
 
     meta = NUDENET_MODELS[model_id]
     target = nudenet_path(model_id)
@@ -277,6 +420,7 @@ def download_nudenet(model_id: str, job_id: int) -> None:
 
     db = SessionLocal()
     job = None
+    _cleanup = False
     try:
         job = db.get(Job, job_id)
         if not job:
@@ -284,10 +428,12 @@ def download_nudenet(model_id: str, job_id: int) -> None:
         job.status = JobStatus.RUNNING
         job.started_at = now()
         db.commit()
+        arm_cancel(job_id)
 
+        print(f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True)
         log(db, job_id, f"Downloading {meta['name']} from GitHub…")
         job.current_file = f"{model_id}.onnx"
-        job.progress = 10.0
+        job.progress = 5.0
         db.commit()
 
         headers = {
@@ -306,19 +452,27 @@ def download_nudenet(model_id: str, job_id: int) -> None:
         expected_bytes = meta["size_mb"] * 1024 * 1024
         content_length = int(r.headers.get("Content-Length", 0)) or expected_bytes
         downloaded = 0
-        last_reported = 0
+        last_db_pct = 5.0
+        last_log_pct = 0.0
         with open(target, "wb") as f:
             for chunk in r.iter_content(chunk_size=65536):
+                if should_cancel(job_id):
+                    raise _DownloadCancelled()
                 f.write(chunk)
                 downloaded += len(chunk)
-                pct = 10.0 + (downloaded / content_length) * 85.0
-                if pct - last_reported >= 2.0:
-                    job.progress = min(pct, 95.0)
+                pct = 5.0 + (downloaded / content_length) * 90.0
+                pct = min(pct, 95.0)
+                if pct - last_db_pct >= 1.0:
+                    job.progress = pct
                     db.commit()
-                    last_reported = pct
+                    last_db_pct = pct
+                if pct - last_log_pct >= 5.0:
+                    mb = downloaded // (1024 * 1024)
+                    total_mb = content_length // (1024 * 1024)
+                    print(f"[model-download] {meta['name']}: {mb} MB / {total_mb} MB ({pct:.0f}%)", flush=True)
+                    last_log_pct = pct
 
         if downloaded < expected_bytes * 0.5:
-            os.remove(target)
             raise ValueError(
                 f"Downloaded file too small: {downloaded} bytes "
                 f"(expected ~{expected_bytes} bytes). File may be corrupt."
@@ -329,22 +483,33 @@ def download_nudenet(model_id: str, job_id: int) -> None:
         job.finished_at = now()
         job.current_file = None
         db.commit()
+        print(f"[model-download] {meta['name']}: download complete ({downloaded // (1024 * 1024)} MB)", flush=True)
         log(db, job_id, f"{meta['name']} downloaded successfully ({downloaded // 1024 // 1024} MB).")
 
+    except _DownloadCancelled:
+        _cleanup = True
+        if job:
+            job.status = JobStatus.CANCELLED
+            job.finished_at = now()
+            job.current_file = None
+            db.commit()
+        print(f"[model-download] {meta['name']}: cancelled — removing partial files", flush=True)
+
     except Exception as e:
+        _cleanup = True
         if job:
             job.status = JobStatus.FAILED
             job.error = str(e)[:512]
             job.finished_at = now()
+            job.current_file = None
             db.commit()
+        print(f"[model-download] {meta['name']}: failed — {e}", flush=True)
+
     finally:
+        clear_cancel(job_id)
+        if _cleanup and os.path.exists(target):
+            os.remove(target)
         db.close()
-
-
-def delete_clip(model_id: str) -> None:
-    d = clip_dir(model_id)
-    if os.path.isdir(d):
-        shutil.rmtree(d)
 
 
 def delete_nudenet(model_id: str) -> None:

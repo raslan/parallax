@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.services.video_scanner import delete_keyframes
 from app.models.library import Library
 from app.models.file import File, FileStatus
 from app.models.video import VideoDetection
@@ -77,6 +76,8 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
             fs_watcher.watch_library(lib.id, lib.path, is_image=False)
         return _with_counts(created, db)
     else:
+        if not os.path.isdir(body.path):
+            raise HTTPException(400, "Path does not exist or is not a directory")
         if db.query(Library).filter(Library.path == body.path).first():
             raise HTTPException(400, "A library with this path already exists")
         lib = Library(name=body.name, path=body.path)
@@ -170,6 +171,10 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     ).all()
     for job in active_jobs:
         request_cancel(job.id)
+    # Null out library_id on all job records (FK prevents library delete otherwise)
+    db.query(Job).filter(Job.library_id == library_id).update(
+        {Job.library_id: None}, synchronize_session=False
+    )
     files = db.query(File).filter(File.library_id == library_id).all()
     file_ids = [f.id for f in files]
     # Delete VideoDetection rows first (FK to files.id)
@@ -179,7 +184,6 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
         ).delete(synchronize_session=False)
     # Clean up disk artefacts and file records
     for f in files:
-        delete_keyframes(f.id)
         try:
             os.remove(thumbnail_path(f.id))
         except FileNotFoundError:
@@ -200,7 +204,6 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
             VideoDetection.file_id.in_(lids)
         ).delete(synchronize_session=False)
         for f in lingering:
-            delete_keyframes(f.id)
             try:
                 os.remove(thumbnail_path(f.id))
             except FileNotFoundError:
@@ -330,6 +333,29 @@ async def trigger_video_scan(
     return {"job_id": job.id, "message": "Video AI scan queued"}
 
 
+@router.post("/{library_id}/phash-scan", status_code=202)
+async def trigger_phash_scan(
+    library_id: int,
+    reset: bool = False,
+    db: Session = Depends(get_db),
+):
+    lib = db.get(Library, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
+    if file_count == 0:
+        raise HTTPException(422, "Scan the library first to index its files before running pHash scan")
+    if active_job_exists(db, library_id, JobType.PHASH_SCAN):
+        raise HTTPException(409, "A pHash scan is already running for this library")
+    from app.services.phash_scanner import scan_phash_library
+    job = Job(type=JobType.PHASH_SCAN, status=JobStatus.PENDING, library_id=library_id)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    await enqueue(job.id, scan_phash_library, library_id, job.id, reset)
+    return {"job_id": job.id, "message": "pHash scan queued"}
+
+
 @router.post("/{library_id}/find-duplicates", status_code=202)
 async def find_duplicates_endpoint(
     library_id: int,
@@ -351,7 +377,7 @@ async def find_duplicates_endpoint(
     db.add(job)
     db.commit()
     db.refresh(job)
-    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash, body.duration_tolerance, body.phash_threshold, body.phash_mode)
+    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash, body.duration_tolerance, body.phash_threshold, body.phash_mode, body.phash_frames)
     return {"message": "Duplicate scan queued"}
 
 
@@ -405,7 +431,6 @@ def delete_duplicates_endpoint(
             originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
             os.makedirs(originals_dir, exist_ok=True)
             shutil.move(f.path, os.path.join(originals_dir, f.filename))
-        delete_keyframes(f.id)
         db.query(VideoDetection).filter(VideoDetection.file_id == f.id).delete()
         db.delete(f)
     db.commit()
@@ -517,7 +542,10 @@ def delete_cleanup_files(
                 base, ext = os.path.splitext(f.filename)
                 dest = os.path.join(originals_dir, f"{base}_{f.id}{ext}")
             shutil.move(f.path, dest)
-        delete_keyframes(f.id)
+        try:
+            os.remove(thumbnail_path(f.id))
+        except FileNotFoundError:
+            pass
         db.query(VideoDetection).filter(VideoDetection.file_id == f.id).delete()
         db.delete(f)
     db.commit()

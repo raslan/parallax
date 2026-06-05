@@ -9,6 +9,7 @@ from app.models.image import ImageFile, ImageDetection
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import ImageLibraryCreate, ImageLibraryRead, ImageScanRequest
 from app.services.common import now, request_cancel
+from app.api.utils import active_job_exists
 
 router = APIRouter(prefix="/image-libraries", tags=["image-libraries"])
 
@@ -93,13 +94,16 @@ def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Se
     fs_watcher.unwatch_library(library_id)
 
     active_jobs = db.query(Job).filter(
-        Job.type == JobType.IMAGE_SCAN,
         Job.library_id == library_id,
         Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
     ).all()
     for job in active_jobs:
         request_cancel(job.id)
 
+    # Null out library_id on all job records (FK prevents library delete otherwise)
+    db.query(Job).filter(Job.library_id == library_id).update(
+        {Job.library_id: None}, synchronize_session=False
+    )
     image_ids = [
         row[0] for row in
         db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
@@ -152,12 +156,7 @@ async def scan_image_library(
     if not lib:
         raise HTTPException(404, "Library not found")
 
-    running = db.query(Job).filter(
-        Job.type == JobType.IMAGE_SCAN,
-        Job.library_id == library_id,
-        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
-    ).first()
-    if running:
+    if active_job_exists(db, library_id, JobType.IMAGE_SCAN):
         raise HTTPException(409, "A scan is already running for this library")
 
     job = Job(
