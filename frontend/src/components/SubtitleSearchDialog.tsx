@@ -100,11 +100,8 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
                     isDone ? "border-green-500/30 bg-green-500/5" : "border-border hover:bg-muted/30"
                   )}
                 >
-                  <span className={cn(
-                    "text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0",
-                    c.provider === "opensubtitlescom" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-                  )}>
-                    {c.provider === "opensubtitlescom" ? "OS" : c.provider.slice(0, 4).toUpperCase()}
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 bg-primary/15 text-primary">
+                    {c.provider.slice(0, 4).toUpperCase()}
                   </span>
 
                   <span className="text-xs font-medium shrink-0 w-8 text-muted-foreground">

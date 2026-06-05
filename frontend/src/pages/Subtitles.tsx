@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Captions, FolderOpen, ScanLine, Download, CheckCircle2,
-  XCircle, Loader2, ChevronRight, Film, Globe, Search, Settings, Play, Mic,
+  XCircle, Loader2, ChevronRight, Film, Globe, Search, Play, Mic,
 } from "lucide-react";
 import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DirPicker } from "@/components/DirPicker";
@@ -305,14 +304,7 @@ export function Subtitles() {
         <p className="text-sm text-muted-foreground mt-1">
           Download and match subtitle files for a folder of videos.
         </p>
-        <Link
-          to="/settings?tab=credentials"
-          className="inline-flex items-center gap-1.5 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Settings className="h-3 w-3" />
-          Requires an OpenSubtitles.org account — configure in Settings → Keys &amp; Accounts
-        </Link>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground mt-2">
           <Mic className="h-3 w-3 inline mr-1 opacity-60" />
           Whisper generates subtitles in the video's spoken language regardless of the language selection above. Download uses the selection.
         </p>
