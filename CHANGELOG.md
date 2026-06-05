@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.8.0](https://github.com/raslan/parallax/compare/v1.7.0...v1.8.0) (2026-06-05)
+
+
+### Features
+
+* **subtitles:** replace opensubtitles.org/podnapisi with subf2m scraper ([07db8fc](https://github.com/raslan/parallax/commit/07db8fc1c380887c4be52c242a7aec3c43f451d9))
+
+
+### Bug Fixes
+
+* **subtitles:** download one subtitle per language in bulk job ([d3e1d58](https://github.com/raslan/parallax/commit/d3e1d58e9ad7d988784a05e0918d14f12eacd92c))
+* **subtitles:** scan reports missing when any requested language absent ([fdbdfa8](https://github.com/raslan/parallax/commit/fdbdfa8c599662ef2e93d9bbb1ffeba1e4b52e8a))
+* **subtitles:** skip file only when all requested languages are present ([bd61bed](https://github.com/raslan/parallax/commit/bd61bed05c87975f3479f6b1c900eb81ebb4c235))
+
 ## [1.7.0](https://github.com/raslan/parallax/compare/v1.6.0...v1.7.0) (2026-06-05)
 
 
