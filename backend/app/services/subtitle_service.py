@@ -96,6 +96,7 @@ def _to_language(code: str):
 
 
 def _has_subtitle(video_path: str, lang_codes: list[str]) -> bool:
+    """True if any subtitle file exists alongside the video (used for display)."""
     base = os.path.splitext(video_path)[0]
     for ext in SUBTITLE_EXTENSIONS:
         if os.path.exists(f"{base}{ext}"):
@@ -104,6 +105,19 @@ def _has_subtitle(video_path: str, lang_codes: list[str]) -> bool:
             if os.path.exists(f"{base}.{lang}{ext}"):
                 return True
     return False
+
+
+def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
+    """Return lang_codes that don't have a tagged subtitle file yet."""
+    base = os.path.splitext(video_path)[0]
+    missing = []
+    for lang in lang_codes:
+        found = any(
+            os.path.exists(f"{base}.{lang}{ext}") for ext in SUBTITLE_EXTENSIONS
+        )
+        if not found:
+            missing.append(lang)
+    return missing
 
 
 def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
@@ -328,20 +342,21 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str], os_username:
                 job.progress = (i / len(video_paths)) * 99
                 db.commit()
 
-                if _has_subtitle(video_path, lang_codes):
+                missing = _missing_lang_codes(video_path, lang_codes)
+                if not missing:
                     skipped += 1
-                    _log(db, job_id, f"Skipped (subtitle exists): {fname}")
+                    _log(db, job_id, f"Skipped (all languages present): {fname}")
                     continue
 
                 try:
                     info = _video_info(video_path)
                     downloaded = False
 
-                    # --- subf2m (primary) — one subtitle per requested language ---
+                    # --- subf2m (primary) — one subtitle per missing language ---
                     try:
                         candidates = subf2m.search(
                             video_path=video_path,
-                            lang_codes=lang_codes,
+                            lang_codes=missing,
                             is_episode=info["is_episode"],
                             title=info["title"],
                             year=info["year"],
