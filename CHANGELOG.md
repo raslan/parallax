@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.7.0](https://github.com/raslan/parallax/compare/v1.6.0...v1.7.0) (2026-06-05)
+
+
+### Features
+
+* **frontend:** show build version in sidebar ([f5e5c9b](https://github.com/raslan/parallax/commit/f5e5c9be94770696e4cc25069c4a3e5bf90bcb09))
+
+
+### Bug Fixes
+
+* **frontend:** add vite/client types for import.meta.env ([55da3ac](https://github.com/raslan/parallax/commit/55da3acbf6fcbd35b49d3a3aa2dce09e4b64467e))
+
 ## [1.6.0](https://github.com/raslan/parallax/compare/v1.5.0...v1.6.0) (2026-06-05)
 
 
