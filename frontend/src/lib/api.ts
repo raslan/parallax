@@ -530,8 +530,11 @@ export const imageApi = {
     return req<ImagesResponse>(`/images/detections?${p}`);
   },
 
-  duplicates: (library_id?: number) => {
-    const p = library_id ? `?library_id=${library_id}` : "";
+  duplicates: (library_id?: number, threshold?: number) => {
+    const params = new URLSearchParams();
+    if (library_id != null) params.set("library_id", String(library_id));
+    if (threshold != null) params.set("threshold", String(threshold));
+    const p = params.toString() ? `?${params}` : "";
     return req<number[][]>(`/images/duplicates${p}`);
   },
 };
