@@ -39,6 +39,48 @@ def init_db():
     from app.models import image_library, image  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
+    # Drop stale FK on jobs.library_id — it referenced only `libraries` (video),
+    # breaking image library scan jobs. Recreate table without the constraint.
+    raw = engine.raw_connection()
+    try:
+        cur = raw.cursor()
+        cur.execute("SELECT sql FROM sqlite_master WHERE name='jobs'")
+        jobs_sql = (cur.fetchone() or ("",))[0]
+        if "REFERENCES libraries" in jobs_sql:
+            cur.execute("PRAGMA foreign_keys=OFF")
+            cur.execute("""
+                CREATE TABLE jobs_new (
+                    id INTEGER NOT NULL,
+                    type VARCHAR(32) NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    library_id INTEGER,
+                    progress FLOAT NOT NULL,
+                    total_files INTEGER NOT NULL,
+                    processed_files INTEGER NOT NULL,
+                    settings TEXT,
+                    error TEXT,
+                    created_at DATETIME DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+                    started_at DATETIME,
+                    finished_at DATETIME,
+                    current_file TEXT,
+                    PRIMARY KEY (id)
+                )
+            """)
+            cur.execute("""
+                INSERT INTO jobs_new
+                SELECT id, type, status, library_id, progress, total_files,
+                       processed_files, settings, error, created_at,
+                       started_at, finished_at, current_file
+                FROM jobs
+            """)
+            cur.execute("DROP TABLE jobs")
+            cur.execute("ALTER TABLE jobs_new RENAME TO jobs")
+            raw.commit()
+            cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+    finally:
+        raw.close()
+
     # Lightweight migrations for columns added after initial creation
     with engine.begin() as conn:
         for sql in [
