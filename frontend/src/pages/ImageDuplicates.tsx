@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Check, Copy, FolderX, Loader2 } from "lucide-react";
+import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,12 +125,16 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const [deleteIds, setDeleteIds] = useState<Set<number>>(new Set());
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
+  const [threshold, setThreshold] = useState(10);
+  const [appliedThreshold, setAppliedThreshold] = useState(10);
 
-  const load = async () => {
+  const similarityPct = Math.round((1 - threshold / 64) * 100);
+
+  const load = async (t = appliedThreshold) => {
     setLoading(true);
     try {
       const [clusterData, imageData] = await Promise.all([
-        imageApi.duplicates(libraryId),
+        imageApi.duplicates(libraryId, t),
         imageApi.listImages({ library_id: libraryId, page: 1, page_size: 10000 }),
       ]);
 
@@ -155,7 +159,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     }
   };
 
-  useEffect(() => { load(); }, [libraryId]);
+  useEffect(() => { load(appliedThreshold); }, [libraryId]);
 
   const clusterImages = useMemo(() =>
     clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
@@ -168,6 +172,11 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const handleFind = () => {
+    setAppliedThreshold(threshold);
+    load(threshold);
   };
 
   const handleQuarantine = async () => {
@@ -204,6 +213,31 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
           </Button>
         )}
       </div>
+
+      {/* Criteria card */}
+      <Card>
+        <CardContent className="px-4 py-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Min similarity</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={similarityPct}
+                onChange={(e) => setThreshold(Math.round((1 - Number(e.target.value) / 100) * 64))}
+                className="w-32 accent-primary"
+              />
+              <span className="text-xs font-mono tabular-nums w-8">{similarityPct}%</span>
+            </div>
+            <Button size="sm" onClick={handleFind} disabled={loading}>
+              <ScanSearch className="h-3.5 w-3.5" />
+              Find Duplicates
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {loading && (
         <div className="flex justify-center py-16">
