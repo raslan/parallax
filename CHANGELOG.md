@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.8.1](https://github.com/raslan/parallax/compare/v1.8.0...v1.8.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* **database:** drop stale FK on jobs.library_id to unblock image library scan jobs ([357a4e3](https://github.com/raslan/parallax/commit/357a4e367076a478965b4b703aad1d1351a66971))
+* exclude quarantined images from detections filter, add no-store cache headers, add similarity slider to image duplicates ([afa68b2](https://github.com/raslan/parallax/commit/afa68b23cc5548a1b56efa8df700e00096d88759))
+
 ## [1.8.0](https://github.com/raslan/parallax/compare/v1.7.0...v1.8.0) (2026-06-05)
 
 
