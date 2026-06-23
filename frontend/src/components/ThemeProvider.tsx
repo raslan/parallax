@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "violet" | "cyan" | "amber" | "oled" | "rose" | "emerald" | "indigo";
+type Theme = "violet" | "cyan" | "amber" | "oled" | "emerald";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -18,7 +18,7 @@ export function useTheme() {
 
 function getStoredTheme(): Theme {
   const stored = localStorage.getItem("parallax-theme");
-  const valid = ["violet", "cyan", "amber", "oled", "rose", "emerald", "indigo"];
+  const valid = ["violet", "cyan", "amber", "oled", "emerald"];
   const theme: Theme = (stored && valid.includes(stored)) ? stored as Theme : "violet";
   document.documentElement.setAttribute("data-theme", theme);
   return theme;

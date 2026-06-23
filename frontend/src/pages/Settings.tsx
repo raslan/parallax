@@ -16,9 +16,7 @@ const THEMES = [
   { id: "cyan"    as const, label: "Modern HUD",      accent: "#22d3ee" },
   { id: "amber"   as const, label: "Mission Control", accent: "#f59e0b" },
   { id: "oled"    as const, label: "OLED",            accent: "#ffffff" },
-  { id: "rose"    as const, label: "Crimson Noir",    accent: "#fb7185" },
   { id: "emerald" as const, label: "Neon Grid",       accent: "#34d399" },
-  { id: "indigo"  as const, label: "Midnight Blue",   accent: "#818cf8" },
 ];
 
 const TABS = [
