@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.9.0](https://github.com/raslan/parallax/compare/v1.8.1...v1.9.0) (2026-06-23)
+
+
+### Features
+
+* add tooltip component ([6fac604](https://github.com/raslan/parallax/commit/6fac6044b59042b1c557761308e42391760b535f))
+* updates for themes and cleanup ([4ad715c](https://github.com/raslan/parallax/commit/4ad715c724bcbf8f9ec41f8248b105899d0ef067))
+
 ## [1.8.1](https://github.com/raslan/parallax/compare/v1.8.0...v1.8.1) (2026-06-07)
 
 
