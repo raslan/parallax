@@ -3,7 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   Download, X, Play, StopCircle, Trash2, ChevronDown, ChevronUp,
   Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock, Zap,
-  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe, ShieldCheck,
+  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe, ShieldCheck, ExternalLink,
 } from "lucide-react";
 import { api, DownloadItem, DownloadRequest } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -200,6 +200,10 @@ function DownloadCard({
         </div>
       ) : (
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <a href={item.url} target="_blank" rel="noopener noreferrer" title="Open source URL"
+            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
           {canPlay && (
             <button onClick={() => onPlay(item)} title="Play"
               className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
@@ -783,7 +787,7 @@ export function Downloads() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
 
         {/* Left: URL input + queue */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Link className="h-3.5 w-3.5 text-muted-foreground/50" />

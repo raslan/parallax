@@ -4,6 +4,7 @@ import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const DETECTION_GROUPS = [
   {
@@ -12,7 +13,9 @@ const DETECTION_GROUPS = [
       "FEMALE_BREAST_EXPOSED",
       "FEMALE_GENITALIA_EXPOSED",
       "MALE_GENITALIA_EXPOSED",
+      "MALE_BREAST_EXPOSED",
       "BUTTOCKS_EXPOSED",
+      "ANUS_EXPOSED",
     ],
   },
   {
@@ -22,11 +25,21 @@ const DETECTION_GROUPS = [
       "FEMALE_GENITALIA_COVERED",
       "MALE_GENITALIA_COVERED",
       "BUTTOCKS_COVERED",
+      "ANUS_COVERED",
     ],
   },
   {
     label: "Other",
-    labels: ["BELLY_EXPOSED", "ARMPITS_EXPOSED", "FEET_EXPOSED"],
+    labels: [
+      "BELLY_EXPOSED",
+      "BELLY_COVERED",
+      "ARMPITS_EXPOSED",
+      "ARMPITS_COVERED",
+      "FEET_EXPOSED",
+      "FEET_COVERED",
+      "FACE_FEMALE",
+      "FACE_MALE",
+    ],
   },
 ];
 
@@ -62,9 +75,25 @@ function ImageGrid({
             )}
           </div>
           {img.detections.length > 0 && (
-            <div className="absolute top-1 right-1 rounded bg-destructive/90 px-1 py-0.5 text-[10px] text-white">
-              {img.detections.length}
-            </div>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="absolute top-1 right-1 rounded bg-destructive/90 px-1 py-0.5 text-[10px] text-white cursor-default">
+                    {img.detections.length}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-[220px]">
+                  <div className="space-y-0.5">
+                    {img.detections.map((d) => (
+                      <div key={d.id} className="flex justify-between gap-3">
+                        <span className="text-muted-foreground truncate">{d.label.replace(/_/g, " ").toLowerCase()}</span>
+                        <span className="font-mono tabular-nums shrink-0">{(d.confidence * 100).toFixed(0)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       ))}

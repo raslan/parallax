@@ -8,9 +8,9 @@ import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 
 const NUDENET_GROUPS = [
-  { label: "Exposed", labels: ["FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED", "MALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED"] },
-  { label: "Covered", labels: ["FEMALE_BREAST_COVERED", "FEMALE_GENITALIA_COVERED", "MALE_GENITALIA_COVERED", "BUTTOCKS_COVERED"] },
-  { label: "Other",   labels: ["BELLY_EXPOSED", "ARMPITS_EXPOSED", "FEET_EXPOSED"] },
+  { label: "Exposed", labels: ["FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED", "MALE_GENITALIA_EXPOSED", "MALE_BREAST_EXPOSED", "BUTTOCKS_EXPOSED", "ANUS_EXPOSED"] },
+  { label: "Covered", labels: ["FEMALE_BREAST_COVERED", "FEMALE_GENITALIA_COVERED", "MALE_GENITALIA_COVERED", "BUTTOCKS_COVERED", "ANUS_COVERED"] },
+  { label: "Other",   labels: ["BELLY_EXPOSED", "BELLY_COVERED", "ARMPITS_EXPOSED", "ARMPITS_COVERED", "FEET_EXPOSED", "FEET_COVERED", "FACE_FEMALE", "FACE_MALE"] },
 ];
 
 function LibrarySelector({

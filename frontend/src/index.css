@@ -113,91 +113,58 @@
   /* ── OLED / Vercel Dark ─────────────────────────────────────── */
   [data-theme="oled"] {
     --background:          0 0% 0%;
-    --foreground:          0 0% 91%;
+    --foreground:          0 0% 100%;
     --card:                0 0% 4%;
-    --card-foreground:     0 0% 91%;
+    --card-foreground:     0 0% 100%;
     --popover:             0 0% 4%;
-    --popover-foreground:  0 0% 91%;
+    --popover-foreground:  0 0% 100%;
     --primary:             0 0% 100%;
     --primary-foreground:  0 0% 0%;
     --secondary:           0 0% 9%;
-    --secondary-foreground: 0 0% 75%;
+    --secondary-foreground: 0 0% 93%;
     --muted:               0 0% 8%;
-    --muted-foreground:    0 0% 52%;
+    --muted-foreground:    0 0% 78%;
     --accent:              0 0% 9%;
-    --accent-foreground:   0 0% 91%;
-    --border:              0 0% 12%;
+    --accent-foreground:   0 0% 100%;
+    --border:              0 0% 20%;
     --input:               0 0% 9%;
     --ring:                0 0% 100%;
     --sidebar:             0 0% 0%;
-    --sidebar-foreground:  0 0% 91%;
-    --sidebar-border:      0 0% 10%;
+    --sidebar-foreground:  0 0% 100%;
+    --sidebar-border:      0 0% 18%;
     --sidebar-accent:      0 0% 7%;
 
     --px-accent:           #ffffff;
-    --px-accent-secondary: #a3a3a3;
-    --px-accent-dim:       rgba(255, 255, 255, 0.07);
-    --px-accent-border:    rgba(255, 255, 255, 0.15);
+    --px-accent-secondary: #e5e5e5;
+    --px-accent-dim:       rgba(255, 255, 255, 0.09);
+    --px-accent-border:    rgba(255, 255, 255, 0.25);
     --px-bg-surface:       #050505;
     --px-bg-elevated:      #111111;
-    --px-text-muted:       #737373;
-  }
-
-  /* ── Rose / Crimson Noir ────────────────────────────────────── */
-  [data-theme="rose"] {
-    --background:          350 45% 4%;
-    --foreground:          350 60% 94%;
-    --card:                350 40% 7%;
-    --card-foreground:     350 60% 94%;
-    --popover:             350 40% 7%;
-    --popover-foreground:  350 60% 94%;
-    --primary:             350 80% 65%;
-    --primary-foreground:  350 45% 4%;
-    --secondary:           350 32% 11%;
-    --secondary-foreground: 350 40% 80%;
-    --muted:               350 32% 10%;
-    --muted-foreground:    350 15% 65%;
-    --accent:              350 32% 11%;
-    --accent-foreground:   350 60% 94%;
-    --border:              350 30% 13%;
-    --input:               350 32% 11%;
-    --ring:                350 80% 65%;
-    --sidebar:             350 50% 3%;
-    --sidebar-foreground:  350 60% 94%;
-    --sidebar-border:      350 35% 10%;
-    --sidebar-accent:      350 32% 9%;
-
-    --px-accent:           #fb7185;
-    --px-accent-secondary: #e11d48;
-    --px-accent-dim:       rgba(251, 113, 133, 0.12);
-    --px-accent-border:    rgba(251, 113, 133, 0.25);
-    --px-bg-surface:       #150810;
-    --px-bg-elevated:      #20101a;
-    --px-text-muted:       #c49aaa;
+    --px-text-muted:       #c0c0c0;
   }
 
   /* ── Emerald / Neon Grid ────────────────────────────────────── */
   [data-theme="emerald"] {
     --background:          160 55% 3%;
-    --foreground:          155 70% 93%;
+    --foreground:          155 70% 98%;
     --card:                160 50% 6%;
-    --card-foreground:     155 70% 93%;
+    --card-foreground:     155 70% 98%;
     --popover:             160 50% 6%;
-    --popover-foreground:  155 70% 93%;
+    --popover-foreground:  155 70% 98%;
     --primary:             160 70% 50%;
     --primary-foreground:  160 55% 3%;
     --secondary:           160 42% 10%;
-    --secondary-foreground: 155 40% 78%;
+    --secondary-foreground: 155 40% 90%;
     --muted:               160 42% 9%;
-    --muted-foreground:    160 20% 62%;
+    --muted-foreground:    160 20% 75%;
     --accent:              160 42% 10%;
-    --accent-foreground:   155 70% 93%;
-    --border:              160 38% 12%;
+    --accent-foreground:   155 70% 98%;
+    --border:              160 38% 18%;
     --input:               160 42% 10%;
     --ring:                160 70% 50%;
     --sidebar:             160 60% 2%;
-    --sidebar-foreground:  155 70% 93%;
-    --sidebar-border:      160 45% 9%;
+    --sidebar-foreground:  155 70% 98%;
+    --sidebar-border:      160 45% 15%;
     --sidebar-accent:      160 42% 8%;
 
     --px-accent:           #34d399;
@@ -206,40 +173,7 @@
     --px-accent-border:    rgba(52, 211, 153, 0.25);
     --px-bg-surface:       #030f0a;
     --px-bg-elevated:      #071a10;
-    --px-text-muted:       #6baa8e;
-  }
-
-  /* ── Indigo / Midnight Blue ─────────────────────────────────── */
-  [data-theme="indigo"] {
-    --background:          225 60% 4%;
-    --foreground:          220 70% 93%;
-    --card:                225 55% 7%;
-    --card-foreground:     220 70% 93%;
-    --popover:             225 55% 7%;
-    --popover-foreground:  220 70% 93%;
-    --primary:             225 85% 65%;
-    --primary-foreground:  225 60% 4%;
-    --secondary:           225 48% 11%;
-    --secondary-foreground: 220 40% 78%;
-    --muted:               225 48% 10%;
-    --muted-foreground:    225 20% 64%;
-    --accent:              225 48% 11%;
-    --accent-foreground:   220 70% 93%;
-    --border:              225 42% 13%;
-    --input:               225 48% 11%;
-    --ring:                225 85% 65%;
-    --sidebar:             225 65% 3%;
-    --sidebar-foreground:  220 70% 93%;
-    --sidebar-border:      225 50% 9%;
-    --sidebar-accent:      225 48% 9%;
-
-    --px-accent:           #818cf8;
-    --px-accent-secondary: #4f46e5;
-    --px-accent-dim:       rgba(129, 140, 248, 0.12);
-    --px-accent-border:    rgba(129, 140, 248, 0.25);
-    --px-bg-surface:       #060814;
-    --px-bg-elevated:      #0e1228;
-    --px-text-muted:       #8893c8;
+    --px-text-muted:       #9ecfb8;
   }
 }
 
