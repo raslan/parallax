@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Download, X, Play, StopCircle, Trash2, ChevronDown, ChevronUp,
-  Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock, Zap,
-  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe, ShieldCheck, ExternalLink,
+  Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock,
+  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe, ShieldCheck, ExternalLink, RotateCcw,
 } from "lucide-react";
 import { api, DownloadItem, DownloadRequest } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -70,11 +70,13 @@ function DownloadCard({
   onPlay,
   onClear,
   onDeleteFile,
+  onRetry,
 }: {
   item: DownloadItem;
   onPlay: (item: DownloadItem) => void;
   onClear: (id: number) => void;
   onDeleteFile: (id: number) => void;
+  onRetry: (id: number) => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const [errorExpanded, setErrorExpanded] = useState(false);
@@ -222,6 +224,12 @@ function DownloadCard({
               <X className="h-3.5 w-3.5" />
             </button>
           )}
+          {(item.status === "failed" || item.status === "cancelled") && (
+            <button onClick={() => onRetry(item.id)} title="Retry download"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-primary transition-colors">
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          )}
           {isCompleted && (
             <button
               onClick={handleDeleteFile}
@@ -245,12 +253,14 @@ function PlaylistGroup({
   onPlay,
   onClear,
   onDeleteFile,
+  onRetry,
 }: {
   title: string;
   items: DownloadItem[];
   onPlay: (item: DownloadItem) => void;
   onClear: (id: number) => void;
   onDeleteFile: (id: number) => void;
+  onRetry: (id: number) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -302,6 +312,7 @@ function PlaylistGroup({
               onPlay={onPlay}
               onClear={onClear}
               onDeleteFile={onDeleteFile}
+              onRetry={onRetry}
             />
           ))}
         </div>
@@ -576,6 +587,7 @@ export function Downloads() {
   const [activeCookies, setActiveCookies] = useState(() => sessionStorage.getItem("dl_cookies") ?? "");
   const [showCookiesModal, setShowCookiesModal] = useState(false);
   const [cookiesDraft, setCookiesDraft] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed" | "failed">("all");
   const [dupeUrls, setDupeUrls] = useState<string[]>([]);
   const [opts, setOpts] = useState<DownloadOptions>({
     audioOnly: false,
@@ -724,6 +736,26 @@ export function Downloads() {
     setDupeUrls([]);
   }, []);
 
+  const handleRetry = useCallback(async (id: number) => {
+    const item = downloads.find((d) => d.id === id);
+    if (!item) return;
+    const opts = item.options ? JSON.parse(item.options) : {};
+    await api.enqueueDownloads({
+      urls: [item.url],
+      output_dir: item.output_dir,
+      audio_only: opts.audio_only,
+      quality: opts.quality,
+      codec: opts.codec,
+      trim_start: opts.trim_start,
+      trim_end: opts.trim_end,
+      download_subs: opts.download_subs,
+      sub_langs: opts.sub_langs,
+      extra_args: opts.extra_args,
+      impersonate: opts.impersonate,
+      cookies: activeCookies || undefined,
+    }).catch(() => {});
+  }, [downloads, activeCookies]);
+
   const handleClear = useCallback(async (id: number) => {
     await api.deleteDownload(id).catch(() => {});
     setDownloads((prev) => prev.filter((d) => d.id !== id));
@@ -742,6 +774,12 @@ export function Downloads() {
 
   const hasCompleted = downloads.some((d) => ["completed", "failed", "cancelled"].includes(d.status));
   const activeCount = downloads.filter((d) => d.status === "pending" || d.status === "running").length;
+  const filteredDownloads = downloads.filter((d) => {
+    if (statusFilter === "active") return d.status === "pending" || d.status === "running";
+    if (statusFilter === "completed") return d.status === "completed";
+    if (statusFilter === "failed") return d.status === "failed" || d.status === "cancelled";
+    return true;
+  });
 
   return (
     <div className="p-8 space-y-6">
@@ -838,6 +876,24 @@ export function Downloads() {
                     {activeCount} active
                   </Badge>
                 )}
+                {downloads.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {(["all", "active", "completed", "failed"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setStatusFilter(f)}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-medium transition-colors capitalize",
+                          statusFilter === f
+                            ? "bg-primary/15 text-primary border border-primary/30"
+                            : "text-muted-foreground/50 hover:text-muted-foreground border border-transparent"
+                        )}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 {ytdlpVersion && (
@@ -877,17 +933,21 @@ export function Downloads() {
                     <p className="text-xs text-muted-foreground/50 mt-0.5">Paste a URL above to get started</p>
                   </div>
                 </div>
+              ) : filteredDownloads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                  <p className="text-sm text-muted-foreground/50">No {statusFilter} downloads</p>
+                </div>
               ) : (
                 <div>
                   {(() => {
                     const seen = new Set<string>();
                     const rendered: JSX.Element[] = [];
 
-                    for (const item of downloads) {
+                    for (const item of filteredDownloads) {
                       if (item.playlist_id) {
                         if (seen.has(item.playlist_id)) continue;
                         seen.add(item.playlist_id);
-                        const groupItems = downloads.filter(
+                        const groupItems = filteredDownloads.filter(
                           (d) => d.playlist_id === item.playlist_id
                         );
                         rendered.push(
@@ -898,6 +958,7 @@ export function Downloads() {
                             onPlay={setPlayingItem}
                             onClear={handleClear}
                             onDeleteFile={handleDeleteFile}
+                            onRetry={handleRetry}
                           />
                         );
                       } else {
@@ -908,6 +969,7 @@ export function Downloads() {
                             onPlay={setPlayingItem}
                             onClear={handleClear}
                             onDeleteFile={handleDeleteFile}
+                            onRetry={handleRetry}
                           />
                         );
                       }
