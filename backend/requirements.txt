@@ -6,6 +6,7 @@ imagehash==4.3.1
 Pillow==10.4.0
 requests==2.32.3
 babelfish==0.6.1
+guessit==3.8.0
 nudenet==3.4.2
 transformers==4.47.1
 sentencepiece==0.2.0

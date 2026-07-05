@@ -12,7 +12,9 @@ import re
 import shlex
 import signal
 import subprocess
+import tempfile
 import threading
+import time
 import urllib.request
 from typing import Optional
 
@@ -445,15 +447,29 @@ def _run_download_sync(download_id: int) -> None:
         download.started_at = now()
         db.commit()
 
+        # Build command — write cookies to temp file if provided
+        options = json.loads(download.options or "{}")
+
+        raw_cookies: str = options.pop("cookies", "") or ""
+        if raw_cookies.strip():
+            fd, cookies_tmp = tempfile.mkstemp(prefix="parallax_cookies_", suffix=".txt")
+            try:
+                with os.fdopen(fd, "w") as f:
+                    f.write(raw_cookies)
+            except Exception:
+                cookies_tmp = None
+            else:
+                options["cookies_file"] = cookies_tmp
+
         # Prefetch metadata (best-effort — don't fail if this errors)
         try:
-            meta_result = subprocess.run(
-                [_ytdlp_bin() or "yt-dlp", "--dump-json", "--no-playlist", download.url],
-                capture_output=True, text=True, timeout=30
-            )
+            meta_cmd = [_ytdlp_bin() or "yt-dlp", "--dump-json", "--no-playlist"]
+            if cookies_tmp and os.path.isfile(cookies_tmp):
+                meta_cmd += ["--cookies", cookies_tmp]
+            meta_cmd.append(download.url)
+            meta_result = subprocess.run(meta_cmd, capture_output=True, text=True, timeout=30)
             if meta_result.returncode == 0 and meta_result.stdout.strip():
-                import json as _json
-                meta = _json.loads(meta_result.stdout.strip().splitlines()[0])
+                meta = json.loads(meta_result.stdout.strip().splitlines()[0])
                 download.title = meta.get("title") or meta.get("fulltitle")
                 download.uploader = meta.get("uploader") or meta.get("channel")
                 download.thumbnail_url = meta.get("thumbnail")
@@ -461,9 +477,6 @@ def _run_download_sync(download_id: int) -> None:
                 db.commit()
         except Exception:
             pass  # metadata prefetch failure is non-fatal
-
-        # Build command — write cookies to temp file if provided
-        options = json.loads(download.options or "{}")
 
         # Compute trim duration for ffmpeg progress estimation (trim_end - trim_start in seconds)
         trim_duration_s: Optional[float] = None
@@ -482,18 +495,6 @@ def _run_download_sync(download_id: int) -> None:
             options["_output_title_override"] = unique_title
         elif download.title:
             options["_output_title_override"] = download.title
-        raw_cookies: str = options.pop("cookies", "") or ""
-        if raw_cookies.strip():
-            import tempfile
-            fd, cookies_tmp = tempfile.mkstemp(prefix="parallax_cookies_", suffix=".txt")
-            try:
-                with os.fdopen(fd, "w") as f:
-                    f.write(raw_cookies)
-            except Exception:
-                cookies_tmp = None
-            else:
-                options["cookies_file"] = cookies_tmp
-
         try:
             cmd = build_ytdlp_cmd(download.url, download.output_dir, options)
         except Exception as exc:
@@ -512,74 +513,114 @@ def _run_download_sync(download_id: int) -> None:
             db.commit()
             return
 
-        # Start subprocess in a new session so killpg kills yt-dlp + all children (ffmpeg etc.)
-        try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                start_new_session=True,
-            )
-        except FileNotFoundError:
-            download.status = DownloadStatus.FAILED
-            download.error = "yt-dlp not found. Go to Settings → Downloads and click Install."
-            download.finished_at = now()
-            db.commit()
-            return
+        _MAX_ATTEMPTS = 3
+        _RETRY_DELAYS = [5, 15, 30]  # seconds between attempts
+        # Error patterns that indicate a permanent failure — don't retry these
+        _NO_RETRY_PATTERNS = [
+            "video unavailable", "private video", "has been removed",
+            "not found", "does not exist", "no such file",
+            "unable to extract", "unsupported url",
+        ]
 
-        with _active_procs_lock:
-            _active_procs[download_id] = proc
-
-        last_pct: float = -1.0
+        ytdlp_version = get_ytdlp_info().get("version") or "unknown"
+        last_error: str = ""
+        succeeded = False
         output_path: Optional[str] = None
-        output_lines: list[str] = []
 
-        try:
-            if proc.stdout is None:
-                raise RuntimeError("subprocess stdout is None")
-            for line in iter(proc.stdout.readline, ""):
-                line = line.rstrip("\n")
-                output_lines.append(line)
+        for attempt in range(_MAX_ATTEMPTS):
+            if download_id in _cancel_requested:
+                break
 
-                # Try to extract output path
-                detected_path = _parse_output_path(line)
-                if detected_path:
-                    output_path = detected_path
+            if attempt > 0:
+                delay = _RETRY_DELAYS[attempt - 1]
+                download.error = f"Attempt {attempt}/{_MAX_ATTEMPTS - 1} failed, retrying in {delay}s…\n\n{last_error}"
+                db.commit()
+                time.sleep(delay)
+                if download_id in _cancel_requested:
+                    break
+                download.progress = 0.0
+                download.speed = None
+                download.eta = None
+                db.commit()
 
-                # Parse progress
-                parsed = _parse_progress(line)
-                if parsed:
-                    pct, speed, eta = parsed
-                    # Only commit when progress advances by ≥1 %
-                    if pct - last_pct >= 1.0:
-                        download.progress = pct
-                        download.speed = speed
-                        download.eta = eta
-                        db.commit()
-                        last_pct = pct
-                elif trim_duration_s:
-                    # ffmpeg progress for --download-sections: parse time=HH:MM:SS.ss
-                    m = _FFMPEG_TIME_RE.search(line)
-                    if m:
-                        elapsed = _hhmmss_to_seconds(m.group(1))
-                        if elapsed > 0:
-                            pct = min(elapsed / trim_duration_s * 100.0, 99.0)
-                            if pct - last_pct >= 1.0:
-                                download.progress = pct
-                                db.commit()
-                                last_pct = pct
+            # Start subprocess
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    start_new_session=True,
+                )
+            except FileNotFoundError:
+                download.status = DownloadStatus.FAILED
+                download.error = "yt-dlp not found. Go to Settings → Downloads and click Install."
+                download.finished_at = now()
+                db.commit()
+                return
 
-            proc.wait()
-
-        finally:
             with _active_procs_lock:
-                _active_procs.pop(download_id, None)
+                _active_procs[download_id] = proc
+
+            last_pct: float = -1.0
+            output_lines: list[str] = []
+
+            try:
+                if proc.stdout is None:
+                    raise RuntimeError("subprocess stdout is None")
+                for line in iter(proc.stdout.readline, ""):
+                    line = line.rstrip("\n")
+                    output_lines.append(line)
+
+                    detected_path = _parse_output_path(line)
+                    if detected_path:
+                        output_path = detected_path
+
+                    parsed = _parse_progress(line)
+                    if parsed:
+                        pct, speed, eta = parsed
+                        if pct - last_pct >= 1.0:
+                            download.progress = pct
+                            download.speed = speed
+                            download.eta = eta
+                            db.commit()
+                            last_pct = pct
+                    elif trim_duration_s:
+                        m = _FFMPEG_TIME_RE.search(line)
+                        if m:
+                            elapsed = _hhmmss_to_seconds(m.group(1))
+                            if elapsed > 0:
+                                pct = min(elapsed / trim_duration_s * 100.0, 99.0)
+                                if pct - last_pct >= 1.0:
+                                    download.progress = pct
+                                    db.commit()
+                                    last_pct = pct
+
+                proc.wait()
+
+            finally:
+                with _active_procs_lock:
+                    _active_procs.pop(download_id, None)
+
+            _cancel_requested.discard(download_id)
+
+            if proc.returncode == 0:
+                succeeded = True
+                break
+
+            if download_id in _cancelled_ids or download_id in _cancel_requested:
+                break
+
+            tail = "\n".join(line for line in output_lines[-20:] if line.strip())
+            last_error = f"[yt-dlp {ytdlp_version}] exited with code {proc.returncode}\n\n{tail}"
+
+            # Don't retry permanent errors
+            tail_lower = tail.lower()
+            if any(pat in tail_lower for pat in _NO_RETRY_PATTERNS):
+                break
 
         # Determine final status
-        ytdlp_version = get_ytdlp_info().get("version") or "unknown"
-        _cancel_requested.discard(download_id)
-        if proc.returncode == 0:
+        if succeeded:
             download.status = DownloadStatus.COMPLETED
             download.progress = 100.0
             download.finished_at = now()
@@ -590,12 +631,10 @@ def _run_download_sync(download_id: int) -> None:
             _cancel_requested.discard(download_id)
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
-            # Clean up partial files left by yt-dlp after cancellation
             _cleanup_part_files(download.output_dir, download.title)
         else:
-            tail = "\n".join(line for line in output_lines[-20:] if line.strip())
             download.status = DownloadStatus.FAILED
-            download.error = f"[yt-dlp {ytdlp_version}] exited with code {proc.returncode}\n\n{tail}"
+            download.error = last_error
             download.finished_at = now()
 
         db.commit()
