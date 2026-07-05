@@ -18,7 +18,7 @@ RUN VITE_APP_VERSION=$APP_VERSION VITE_RUNTIME=$RUNTIME npm run build
 # Stage 2a: CPU-only base (default)
 FROM python:3.12-slim AS base-cpu
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get install -y --no-install-recommends ffmpeg unar && \
     rm -rf /var/lib/apt/lists/*
 
 # Stage 2b: NVIDIA CUDA base
@@ -28,7 +28,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg python3.12 python3.12-venv python3.12-dev && \
+    apt-get install -y --no-install-recommends ffmpeg unar python3.12 python3.12-venv python3.12-dev && \
     python3.12 -m ensurepip --upgrade && \
     python3.12 -m pip install --upgrade pip && \
     rm -rf /var/lib/apt/lists/*
@@ -40,7 +40,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg python3.12 python3.12-venv python3.12-dev && \
+    apt-get install -y --no-install-recommends ffmpeg unar python3.12 python3.12-venv python3.12-dev && \
     python3.12 -m ensurepip --upgrade && \
     python3.12 -m pip install --upgrade pip && \
     rm -rf /var/lib/apt/lists/*
