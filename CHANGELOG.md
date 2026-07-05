@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.11.0](https://github.com/raslan/parallax/compare/v1.10.0...v1.11.0) (2026-07-05)
+
+
+### Features
+
+* update dockerfile deps ([21bedde](https://github.com/raslan/parallax/commit/21beddecb730216e551fa1f32e1c9ff33d8a5e50))
+
 ## [1.10.0](https://github.com/raslan/parallax/compare/v1.9.0...v1.10.0) (2026-07-05)
 
 
