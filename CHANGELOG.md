@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.10.0](https://github.com/raslan/parallax/compare/v1.9.0...v1.10.0) (2026-07-05)
+
+
+### Features
+
+* updates to subtitle dependencies and downloader logic ([e7d8f97](https://github.com/raslan/parallax/commit/e7d8f975262e9c332e2d1f6d780e4ec328d93773))
+
 ## [1.9.0](https://github.com/raslan/parallax/compare/v1.8.1...v1.9.0) (2026-06-23)
 
 
