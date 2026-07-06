@@ -14,7 +14,7 @@ from app.models.settings import get_setting
 from app.services.downloader import (
     cancel_download, fetch_playlist_info, get_ytdlp_info,
     install_ytdlp, list_impersonate_targets, run_download,
-    _safe_dirname,
+    _cleanup_part_files, unique_playlist_dir,
 )
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
@@ -94,8 +94,20 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
 
     for url, playlist_info in zip(req.urls, playlist_results):
         if playlist_info:
-            safe_dir = _safe_dirname(playlist_info["playlist_title"])
-            playlist_output_dir = os.path.join(output_dir, safe_dir)
+            # Reuse the same folder if this exact playlist was queued before (continuation);
+            # otherwise pick a fresh, non-colliding name — sites without a real playlist
+            # title all fall back to the same generic "playlist" name otherwise.
+            existing = (
+                db.query(Download)
+                .filter(Download.playlist_id == playlist_info["playlist_id"])
+                .first()
+            )
+            if existing:
+                playlist_output_dir = existing.output_dir
+            else:
+                playlist_output_dir = await asyncio.to_thread(
+                    unique_playlist_dir, output_dir, playlist_info["playlist_title"]
+                )
             await asyncio.to_thread(lambda: os.makedirs(playlist_output_dir, exist_ok=True))
 
             for entry in playlist_info["entries"]:
@@ -132,35 +144,89 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
     return {"ids": created_ids}
 
 
+@router.post("/retry-failed")
+async def retry_all_failed(db: Session = Depends(get_db)):
+    """Re-queue every failed/cancelled download in one shot.
+
+    Copies url/options straight from the old row (no re-probing the URL —
+    it's already a resolved single video, not a playlist), then drops the
+    old row so it doesn't linger alongside the retry.
+    """
+    max_concurrent = int(get_setting(db, "max_concurrent_downloads", "2"))
+    old_rows = db.query(Download).filter(
+        Download.status.in_([DownloadStatus.FAILED, DownloadStatus.CANCELLED])
+    ).all()
+
+    created_ids: list[int] = []
+    for old in old_rows:
+        new = Download(
+            url=old.url,
+            title=old.title,
+            output_dir=old.output_dir,
+            status=DownloadStatus.PENDING,
+            options=old.options,
+            source_url=old.source_url,
+            playlist_id=old.playlist_id,
+            playlist_title=old.playlist_title,
+        )
+        db.add(new)
+        db.flush()
+        created_ids.append(new.id)
+        db.delete(old)
+
+    db.commit()
+
+    for download_id in created_ids:
+        asyncio.create_task(run_download(download_id, max_concurrent))
+
+    return {"ids": created_ids}
+
+
+@router.post("/stop-all")
+def stop_all_downloads(db: Session = Depends(get_db)):
+    """Cancel every pending/running download and drop the rows — not resumable, so stop means stop."""
+    active = db.query(Download).filter(
+        Download.status.in_([DownloadStatus.PENDING, DownloadStatus.RUNNING])
+    ).all()
+
+    for d in active:
+        cancel_download(d.id)
+        _cleanup_part_files(d.output_dir, d.title)
+        db.delete(d)
+
+    db.commit()
+    return {"stopped": len(active)}
+
+
 @router.get("/stream")
 async def stream_downloads():
     """SSE stream pushing all download states every 500ms while any are active."""
 
     async def generate():
-        db = SessionLocal()
-        try:
-            last_payload = None
-            idle_ticks = 0
-            while True:
-                db.expire_all()
+        last_payload = None
+        idle_ticks = 0
+        while True:
+            # Open/close per tick rather than holding one connection for the
+            # whole (potentially indefinite) SSE lifetime — a handful of open
+            # tabs/reconnects would otherwise exhaust the pool.
+            db = SessionLocal()
+            try:
                 downloads = db.query(Download).order_by(Download.created_at.desc()).limit(200).all()
-
                 active_statuses = {DownloadStatus.PENDING, DownloadStatus.RUNNING}
                 any_active = any(d.status in active_statuses for d in downloads)
-
                 payload = json.dumps([_serialize(d) for d in downloads])
+            finally:
+                db.close()
 
-                if payload != last_payload:
-                    yield f"data: {payload}\n\n"
-                    last_payload = payload
-                    idle_ticks = 0
-                else:
-                    idle_ticks += 1
+            if payload != last_payload:
+                yield f"data: {payload}\n\n"
+                last_payload = payload
+                idle_ticks = 0
+            else:
+                idle_ticks += 1
 
-                delay = 0.5 if any_active else min(2.0 + idle_ticks * 0.5, 5.0)
-                await asyncio.sleep(delay)
-        finally:
-            db.close()
+            delay = 0.5 if any_active else min(2.0 + idle_ticks * 0.5, 5.0)
+            await asyncio.sleep(delay)
 
     return StreamingResponse(
         generate(),
@@ -228,7 +294,6 @@ def cancel_download_route(
     # because _run_download_sync will see None from db.get() and return early
     if download.status in (DownloadStatus.PENDING, DownloadStatus.RUNNING):
         cancel_download(download_id)
-        from app.services.downloader import _cleanup_part_files
         _cleanup_part_files(download.output_dir, download.title)
 
     # Optionally delete the file on disk
