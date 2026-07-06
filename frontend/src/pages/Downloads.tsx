@@ -740,7 +740,7 @@ export function Downloads() {
     const item = downloads.find((d) => d.id === id);
     if (!item) return;
     const opts = item.options ? JSON.parse(item.options) : {};
-    await api.enqueueDownloads({
+    const result = await api.enqueueDownloads({
       urls: [item.url],
       output_dir: item.output_dir,
       audio_only: opts.audio_only,
@@ -753,8 +753,16 @@ export function Downloads() {
       extra_args: opts.extra_args,
       impersonate: opts.impersonate,
       cookies: activeCookies || undefined,
-    }).catch(() => {});
+    }).catch(() => null);
+    if (!result) return;
+    // Old failed/cancelled row is superseded by the new one — remove it so it doesn't linger.
+    await api.deleteDownload(id).catch(() => {});
+    setDownloads((prev) => prev.filter((d) => d.id !== id));
   }, [downloads, activeCookies]);
+
+  const handleRetryAllFailed = useCallback(async () => {
+    await api.retryAllFailedDownloads().catch(() => {});
+  }, []);
 
   const handleClear = useCallback(async (id: number) => {
     await api.deleteDownload(id).catch(() => {});
@@ -772,7 +780,13 @@ export function Downloads() {
     setDownloads((prev) => prev.filter((d) => d.status === "pending" || d.status === "running"));
   }, [downloads]);
 
+  const handleStopAll = useCallback(async () => {
+    await api.stopAllDownloads().catch(() => {});
+    setDownloads((prev) => prev.filter((d) => d.status !== "pending" && d.status !== "running"));
+  }, []);
+
   const hasCompleted = downloads.some((d) => ["completed", "failed", "cancelled"].includes(d.status));
+  const hasFailed = downloads.some((d) => d.status === "failed" || d.status === "cancelled");
   const activeCount = downloads.filter((d) => d.status === "pending" || d.status === "running").length;
   const filteredDownloads = downloads.filter((d) => {
     if (statusFilter === "active") return d.status === "pending" || d.status === "running";
@@ -910,6 +924,24 @@ export function Downloads() {
                     : <RefreshCw className="h-3 w-3" />}
                   Update
                 </button>
+                {hasFailed && (
+                  <button
+                    onClick={handleRetryAllFailed}
+                    className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Retry all failed
+                  </button>
+                )}
+                {activeCount > 0 && (
+                  <button
+                    onClick={handleStopAll}
+                    className="text-xs text-muted-foreground/50 hover:text-red-400 transition-colors flex items-center gap-1"
+                  >
+                    <StopCircle className="h-3 w-3" />
+                    Stop all
+                  </button>
+                )}
                 {hasCompleted && (
                   <button
                     onClick={handleClearCompleted}
