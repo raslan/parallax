@@ -11,6 +11,7 @@ from sqlalchemy import text as sa_text
 from app.database import get_db, DATA_DIR
 from app.models.settings import get_setting, set_setting
 from app.queue import update_max_concurrent
+from app.services.downloader import set_max_concurrent as set_max_concurrent_downloads
 from app.services.image_analyzer import release_sessions
 from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS, WHISPER_MODELS, is_clip_downloaded, is_nudenet_downloaded, is_whisper_downloaded
 
@@ -152,6 +153,7 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.max_concurrent_downloads is not None:
         set_setting(db, _MAX_DOWNLOADS_KEY, str(body.max_concurrent_downloads))
+        set_max_concurrent_downloads(body.max_concurrent_downloads)
     if body.ytdlp_channel is not None:
         set_setting(db, _YTDLP_CHANNEL_KEY, body.ytdlp_channel)
 
