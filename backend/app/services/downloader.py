@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 import re
+import select
 import shlex
 import signal
 import subprocess
@@ -29,9 +30,50 @@ from app.services.common import now
 
 _active_procs: dict[int, subprocess.Popen] = {}  # download_id → process
 _active_procs_lock = threading.Lock()
+_STALL_TIMEOUT = 300  # seconds of zero stdout output before a subprocess is considered hung
 _cancelled_ids: set[int] = set()   # cancelled and process killed
 _cancel_requested: set[int] = set()  # cancel requested (may not have proc yet)
-_download_semaphore: Optional[asyncio.Semaphore] = None
+
+
+class _ResizableSemaphore:
+    """asyncio.Semaphore whose concurrency limit can change at runtime.
+
+    Growing releases extra permits immediately. Shrinking swallows any
+    currently-idle permits right away and marks the rest as "pending" so
+    they're removed the next time an in-flight download finishes and
+    releases, instead of going back into the pool.
+    """
+
+    def __init__(self, value: int) -> None:
+        self._sem = asyncio.Semaphore(value)
+        self._limit = value
+        self._pending_shrink = 0
+
+    def resize(self, new_limit: int) -> None:
+        new_limit = max(1, new_limit)
+        diff = new_limit - self._limit
+        self._limit = new_limit
+        if diff > 0:
+            for _ in range(diff):
+                self._sem.release()
+        elif diff < 0:
+            to_remove = -diff
+            while to_remove > 0 and self._sem._value > 0:
+                self._sem._value -= 1
+                to_remove -= 1
+            self._pending_shrink += to_remove
+
+    async def __aenter__(self) -> None:
+        await self._sem.acquire()
+
+    async def __aexit__(self, *exc) -> None:
+        if self._pending_shrink > 0:
+            self._pending_shrink -= 1
+        else:
+            self._sem.release()
+
+
+_download_semaphore: Optional[_ResizableSemaphore] = None
 _semaphore_limit: int = 0
 
 # ---------------------------------------------------------------------------
@@ -164,7 +206,7 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     cmd: list[str] = [_ytdlp_bin() or "yt-dlp"]
 
     # Always-on flags
-    cmd += ["--progress", "--newline", "--no-warnings"]
+    cmd += ["--progress", "--newline", "--no-warnings", "--concurrent-fragments", "4"]
 
     # Output template
     # _output_title_override is injected by _run_download_sync for collision avoidance
@@ -245,6 +287,26 @@ def _safe_dirname(name: str) -> str:
     return name[:100] or "playlist"
 
 
+def unique_playlist_dir(output_dir: str, title: str) -> str:
+    """Return a non-colliding playlist directory path under output_dir for *title*.
+
+    Sites that don't expose a playlist title (flat-playlist dump has no
+    "title"/"uploader") all fall back to the same generic "playlist" name via
+    _safe_dirname — without this, two unrelated playlists would land in and
+    mix files in the same folder.
+    """
+    safe = _safe_dirname(title)
+    candidate = os.path.join(output_dir, safe)
+    if not os.path.exists(candidate):
+        return candidate
+    n = 2
+    while True:
+        numbered = os.path.join(output_dir, f"{safe} ({n})")
+        if not os.path.exists(numbered):
+            return numbered
+        n += 1
+
+
 def fetch_playlist_info(url: str) -> dict | None:
     """Probe *url* to determine if it's a playlist.
 
@@ -309,17 +371,24 @@ def fetch_playlist_info(url: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def get_semaphore(max_concurrent: int) -> asyncio.Semaphore:
-    """Return the module-level download semaphore, creating it once on first call.
+def get_semaphore(max_concurrent: int) -> _ResizableSemaphore:
+    """Return the module-level download semaphore, creating it on first call.
 
-    The initial limit is used for the life of the process — settings changes
-    take effect on next restart.
+    If called with a different limit than currently active, resizes it live.
     """
     global _download_semaphore, _semaphore_limit
     if _download_semaphore is None:
-        _download_semaphore = asyncio.Semaphore(max_concurrent)
+        _download_semaphore = _ResizableSemaphore(max_concurrent)
+        _semaphore_limit = max_concurrent
+    elif max_concurrent != _semaphore_limit:
+        _download_semaphore.resize(max_concurrent)
         _semaphore_limit = max_concurrent
     return _download_semaphore
+
+
+def set_max_concurrent(max_concurrent: int) -> None:
+    """Apply a new concurrency limit immediately, even with no download in flight."""
+    get_semaphore(max_concurrent)
 
 
 # ---------------------------------------------------------------------------
@@ -564,17 +633,39 @@ def _run_download_sync(download_id: int) -> None:
 
             last_pct: float = -1.0
             output_lines: list[str] = []
+            stalled = False
 
             try:
                 if proc.stdout is None:
                     raise RuntimeError("subprocess stdout is None")
-                for line in iter(proc.stdout.readline, ""):
+
+                last_output_time = time.time()
+                while True:
+                    ready, _, _ = select.select([proc.stdout], [], [], 5.0)
+                    if not ready:
+                        if time.time() - last_output_time > _STALL_TIMEOUT:
+                            stalled = True
+                            output_lines.append(
+                                f"[parallax] no output for {_STALL_TIMEOUT}s — killing stalled process"
+                            )
+                            try:
+                                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                            except (ProcessLookupError, OSError):
+                                proc.kill()
+                            break
+                        continue
+
+                    line = proc.stdout.readline()
+                    if line == "":
+                        break  # EOF — process closed stdout
+                    last_output_time = time.time()
                     line = line.rstrip("\n")
                     output_lines.append(line)
 
                     detected_path = _parse_output_path(line)
                     if detected_path:
                         output_path = detected_path
+                        last_pct = -1.0  # new stream (video/audio/merge) — percent resets to 0
 
                     parsed = _parse_progress(line)
                     if parsed:
@@ -596,7 +687,11 @@ def _run_download_sync(download_id: int) -> None:
                                     db.commit()
                                     last_pct = pct
 
-                proc.wait()
+                try:
+                    proc.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=5)
 
             finally:
                 with _active_procs_lock:
@@ -604,7 +699,7 @@ def _run_download_sync(download_id: int) -> None:
 
             _cancel_requested.discard(download_id)
 
-            if proc.returncode == 0:
+            if proc.returncode == 0 and not stalled:
                 succeeded = True
                 break
 
