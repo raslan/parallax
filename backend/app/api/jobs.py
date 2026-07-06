@@ -24,12 +24,14 @@ JOB_TYPE_LABELS = {
 async def stream_jobs():
     """SSE stream that pushes active job state every 500ms until all jobs settle."""
     async def generate():
-        db = SessionLocal()
-        try:
-            last_payload = None
-            idle_ticks = 0
-            while True:
-                db.expire_all()
+        last_payload = None
+        idle_ticks = 0
+        while True:
+            # Open/close per tick rather than holding one connection for the
+            # whole (potentially indefinite) SSE lifetime — a handful of open
+            # tabs/reconnects would otherwise exhaust the pool.
+            db = SessionLocal()
+            try:
                 active = db.query(Job).filter(Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING])).all()
 
                 payload = json.dumps([
@@ -47,19 +49,19 @@ async def stream_jobs():
                     }
                     for j in active
                 ])
+            finally:
+                db.close()
 
-                if payload != last_payload:
-                    yield f"data: {payload}\n\n"
-                    last_payload = payload
-                    idle_ticks = 0
-                else:
-                    idle_ticks += 1
+            if payload != last_payload:
+                yield f"data: {payload}\n\n"
+                last_payload = payload
+                idle_ticks = 0
+            else:
+                idle_ticks += 1
 
-                # Slow down polling when idle; keep fast when jobs are running
-                delay = 0.5 if active else min(2.0 + idle_ticks * 0.5, 10.0)
-                await asyncio.sleep(delay)
-        finally:
-            db.close()
+            # Slow down polling when idle; keep fast when jobs are running
+            delay = 0.5 if active else min(2.0 + idle_ticks * 0.5, 10.0)
+            await asyncio.sleep(delay)
 
     return StreamingResponse(
         generate(),
