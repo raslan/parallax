@@ -1,22 +1,17 @@
-import { useState } from "react";
-import { DndContext, closestCenter, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/core";
+import { useMemo, useState } from "react";
 import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+  DndContext,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+} from "@dnd-kit/core";
+import { ChevronDown, ChevronRight, GripVertical, Film } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Episode } from "@/lib/api";
-
-interface RowData {
-  filePath: string;
-  filename: string;
-  episode: Episode | undefined;
-  mediaType: "movie" | "tv";
-}
+import { placeFile, poolFiles, slotKey } from "@/lib/episodeMatching";
 
 function episodeLabel(episode: Episode, mediaType: "movie" | "tv"): string {
   if (mediaType === "movie") return episode.name;
@@ -25,54 +20,72 @@ function episodeLabel(episode: Episode, mediaType: "movie" | "tv"): string {
   return `S${s}E${e} — ${episode.name}`;
 }
 
-function RowContent({ filePath, filename, episode, mediaType }: RowData) {
+function FileChip({ filePath }: { filePath: string }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: filePath });
+  const filename = filePath.split("/").pop() ?? filePath;
   return (
-    <>
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`flex items-center gap-2 px-2 py-1.5 rounded-md border border-border bg-background cursor-grab active:cursor-grabbing ${
+        isDragging ? "opacity-30" : ""
+      }`}
+    >
       <img
         src={api.identifyThumbnailUrl(filePath)}
         alt=""
-        className="h-9 w-16 object-cover rounded shrink-0 bg-muted"
+        className="h-8 w-14 object-cover rounded shrink-0 bg-muted"
         loading="lazy"
         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
       />
       <span className="flex-1 text-xs font-mono text-muted-foreground truncate" title={filename}>
         {filename}
       </span>
-      <span className="text-muted-foreground text-xs shrink-0">→</span>
-      <span className="flex-1 text-xs truncate">
-        {episode ? (
-          <span className="text-foreground font-medium">{episodeLabel(episode, mediaType)}</span>
-        ) : (
-          <span className="text-muted-foreground italic">unmatched — will not be renamed</span>
-        )}
-      </span>
-    </>
+      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+    </div>
   );
 }
 
-function SortableRow({ filePath, filename, episode, mediaType }: RowData) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: filePath });
-
-  const style = { transform: CSS.Transform.toString(transform), transition };
-
+function SlotRow({ episode, mediaType, filePath }: { episode: Episode; mediaType: "movie" | "tv"; filePath?: string }) {
+  const key = slotKey(episode.season_number, episode.episode_number);
+  const { setNodeRef, isOver } = useDroppable({ id: key });
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-3 py-2 px-2 border-b border-border last:border-0 ${
-        isDragging ? "opacity-30" : ""
-      }`}
+      className={`flex items-center gap-3 px-2 py-2 border-b border-border last:border-0 ${isOver ? "bg-primary/10" : ""}`}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0"
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <RowContent filePath={filePath} filename={filename} episode={episode} mediaType={mediaType} />
+      <span className="flex-1 text-xs truncate text-foreground font-medium">
+        {episodeLabel(episode, mediaType)}
+      </span>
+      <span className="text-muted-foreground text-xs shrink-0">←</span>
+      <div className="flex-1 min-w-0">
+        {filePath ? (
+          <FileChip filePath={filePath} />
+        ) : (
+          <div className="flex items-center px-2 py-1.5 rounded-md border border-dashed border-border text-xs text-muted-foreground italic">
+            drop a file here
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PoolPanel({ files }: { files: string[] }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "__pool__" });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-md border border-dashed border-border p-2 space-y-1.5 min-h-[4rem] ${isOver ? "bg-primary/10" : ""}`}
+    >
+      {files.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic px-1 py-2">
+          All files are placed. Drag a file here to unassign it.
+        </p>
+      ) : (
+        files.map((f) => <FileChip key={f} filePath={f} />)
+      )}
     </div>
   );
 }
@@ -81,10 +94,11 @@ interface FileMatcherProps {
   files: string[];
   episodes: Episode[];
   mediaType: "movie" | "tv";
-  onChange: (reorderedFiles: string[]) => void;
+  assignments: Record<string, string>;
+  onAssignmentsChange: (next: Record<string, string>) => void;
 }
 
-export function FileMatcher({ files, episodes, mediaType, onChange }: FileMatcherProps) {
+export function FileMatcher({ files, episodes, mediaType, assignments, onAssignmentsChange }: FileMatcherProps) {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [activeFile, setActiveFile] = useState<string | null>(null);
 
@@ -103,117 +117,84 @@ export function FileMatcher({ files, episodes, mediaType, onChange }: FileMatche
   function handleDragEnd(event: DragEndEvent) {
     setActiveFile(null);
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIdx = files.indexOf(String(active.id));
-      const newIdx = files.indexOf(String(over.id));
-      if (oldIdx !== -1 && newIdx !== -1) {
-        onChange(arrayMove(files, oldIdx, newIdx));
-      }
-    }
+    if (!over) return;
+    onAssignmentsChange(placeFile(assignments, String(active.id), String(over.id)));
   }
 
-  // Build season groups: ordered list of (seasonNumber, indices into files[])
+  const pool = useMemo(() => poolFiles(files, assignments), [files, assignments]);
+
   const seasonOrder: number[] = [];
-  const seasonIndices: Record<number, number[]> = {};
-  for (let i = 0; i < files.length; i++) {
-    const sn = episodes[i]?.season_number ?? 0;
-    if (!seasonIndices[sn]) {
+  const seasonEpisodes: Record<number, Episode[]> = {};
+  for (const ep of episodes) {
+    const sn = ep.season_number;
+    if (!seasonEpisodes[sn]) {
       seasonOrder.push(sn);
-      seasonIndices[sn] = [];
+      seasonEpisodes[sn] = [];
     }
-    seasonIndices[sn].push(i);
+    seasonEpisodes[sn].push(ep);
   }
 
-  const activeIdx = activeFile ? files.indexOf(activeFile) : -1;
-  const activeEpisode = activeIdx !== -1 ? episodes[activeIdx] : undefined;
   const activeFilename = activeFile ? activeFile.split("/").pop() ?? activeFile : "";
 
   return (
-    <DndContext
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={files} strategy={verticalListSortingStrategy}>
+    <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="space-y-3">
         <div className="space-y-2">
           {mediaType === "movie" ? (
             <div className="rounded-md border border-border overflow-hidden">
-              <div className="flex gap-3 px-2 py-2 border-b border-border bg-muted/30 text-xs text-muted-foreground font-medium">
-                <span className="w-4 shrink-0" />
-                <span className="w-16 shrink-0" />
-                <span className="flex-1">Current filename</span>
-                <span className="w-4 shrink-0" />
-                <span className="flex-1">Will be renamed to</span>
-              </div>
-              {files.map((file, i) => (
-                <SortableRow
-                  key={file}
-                  filePath={file}
-                  filename={file.split("/").pop() ?? file}
-                  episode={episodes[i]}
+              {episodes.map((ep) => (
+                <SlotRow
+                  key={slotKey(ep.season_number, ep.episode_number)}
+                  episode={ep}
                   mediaType="movie"
+                  filePath={assignments[slotKey(ep.season_number, ep.episode_number)]}
                 />
               ))}
             </div>
           ) : (
-            seasonOrder.map((sn, groupIdx) => {
-              const indices = seasonIndices[sn];
+            seasonOrder.map((sn) => {
+              const eps = seasonEpisodes[sn];
               const isOpen = !collapsed.has(sn);
+              const filledCount = eps.filter((ep) => assignments[slotKey(ep.season_number, ep.episode_number)]).length;
               return (
                 <div key={sn} className="rounded-md border border-border overflow-hidden">
                   <button
                     className="w-full flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted/70 text-sm font-medium text-left"
                     onClick={() => toggleSeason(sn)}
                   >
-                    {isOpen
-                      ? <ChevronDown className="h-4 w-4 shrink-0" />
-                      : <ChevronRight className="h-4 w-4 shrink-0" />
-                    }
-                    {sn === 0 ? "Unmatched" : `Season ${String(sn).padStart(2, "0")}`}
+                    {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                    {`Season ${String(sn).padStart(2, "0")}`}
                     <span className="ml-auto text-xs text-muted-foreground font-normal">
-                      {indices.length} file{indices.length !== 1 ? "s" : ""}
+                      {filledCount}/{eps.length} matched
                     </span>
                   </button>
-
-                  {isOpen && (
-                    <>
-                      {groupIdx === 0 && (
-                        <div className="flex gap-3 px-2 py-1.5 border-b border-border bg-muted/10 text-xs text-muted-foreground">
-                          <span className="w-4 shrink-0" />
-                          <span className="w-16 shrink-0" />
-                          <span className="flex-1">Current filename</span>
-                          <span className="w-4 shrink-0" />
-                          <span className="flex-1">Will be renamed to</span>
-                        </div>
-                      )}
-                      {indices.map((fileIdx) => (
-                        <SortableRow
-                          key={files[fileIdx]}
-                          filePath={files[fileIdx]}
-                          filename={files[fileIdx].split("/").pop() ?? files[fileIdx]}
-                          episode={episodes[fileIdx]}
-                          mediaType="tv"
-                        />
-                      ))}
-                    </>
-                  )}
+                  {isOpen && eps.map((ep) => (
+                    <SlotRow
+                      key={slotKey(ep.season_number, ep.episode_number)}
+                      episode={ep}
+                      mediaType="tv"
+                      filePath={assignments[slotKey(ep.season_number, ep.episode_number)]}
+                    />
+                  ))}
                 </div>
               );
             })
           )}
         </div>
-      </SortableContext>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1.5">
+            Unplaced files ({pool.length})
+          </p>
+          <PoolPanel files={pool} />
+        </div>
+      </div>
 
       <DragOverlay>
         {activeFile && (
-          <div className="flex items-center gap-3 py-2 px-2 rounded-md border border-border bg-background shadow-lg opacity-95">
-            <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-            <RowContent
-              filePath={activeFile}
-              filename={activeFilename}
-              episode={activeEpisode}
-              mediaType={mediaType}
-            />
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border bg-background shadow-lg opacity-95">
+            <Film className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-xs font-mono truncate">{activeFilename}</span>
           </div>
         )}
       </DragOverlay>

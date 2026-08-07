@@ -311,7 +311,12 @@ export const api = {
   // Identify
   identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
   identifyFiles: (path: string) =>
-    req<{ path: string; files: string[] }>(`/identify/files?path=${encodeURIComponent(path)}`),
+    req<{
+      path: string;
+      files: string[];
+      guess: { title: string; year: number | null; type: "movie" | "tv" };
+      file_guesses: { file_path: string; season: number | null; episode: number | null }[];
+    }>(`/identify/files?path=${encodeURIComponent(path)}`),
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
   identifyGetAllEpisodes: (tmdb_id: number) =>
@@ -632,7 +637,7 @@ export const subtitlesApi = {
   download: (path: string, languages?: string[]) =>
     req<{ job_id: number }>("/subtitles/download", { method: "POST", body: JSON.stringify({ path, languages }) }),
 
-  searchFile: (file_path: string, languages?: string[], opts?: { query?: string; media_type?: string; season?: number; episode?: number }) =>
+  searchFile: (file_path: string, languages?: string[], opts?: { query?: string; year?: number; media_type?: string; season?: number; episode?: number }) =>
     req<SubtitleCandidate[]>("/subtitles/search-file", { method: "POST", body: JSON.stringify({ file_path, languages, ...opts }) }),
 
   downloadOne: (file_path: string, provider: string, subtitle_id: string, language: string) =>

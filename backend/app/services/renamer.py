@@ -44,6 +44,63 @@ def list_video_files(folder_path: str) -> list[str]:
     return sorted(results, key=lambda p: p.lower())
 
 
+def guess_media(folder_path: str, files: list[str]) -> dict:
+    """Best-effort guess of title/year/type for a folder, to prefill the TMDB
+    search box before the user corrects it. Guesses off the folder name first
+    (usually the cleanest signal — release-group junk lives in filenames, not
+    folder names). If the folder name yields a title but not a TV show indicator,
+    checks the first file's type to see if it's an episode. Falls back to the
+    first video file if the folder name is too generic (e.g. "Season 1", "New folder")."""
+    from guessit import guessit as _guessit
+
+    folder_name = os.path.basename(os.path.normpath(folder_path))
+    info = _guessit(folder_name)
+    # If folder guess isn't marked as episode, check if files are episodes
+    if files and info.get("type") != "episode":
+        file_info = _guessit(os.path.basename(files[0]))
+        if file_info.get("type") == "episode":
+            # Files are episodes but folder name didn't indicate it; use file's type
+            # but preserve folder's title if it exists (it's usually cleaner than filename)
+            info = {**file_info, "title": info.get("title") or file_info.get("title")}
+    # Fallback: if folder name was too generic to yield a title, try the first file
+    if not info.get("title") and files:
+        info = _guessit(os.path.basename(files[0]))
+
+    return {
+        "title": str(info.get("title", "")),
+        "year": info.get("year"),
+        "type": "tv" if info.get("type") == "episode" else "movie",
+    }
+
+
+def guess_file_episodes(files: list[str]) -> list[dict]:
+    """Per-file season/episode guess — unlike guess_media, which only looks at
+    the folder name once, this runs guessit on every individual filename so
+    files can be auto-placed into the correct episode slot regardless of what
+    order they were listed in or what season the folder itself suggests.
+    A file guessit can't confidently parse gets season/episode both None, so
+    the caller can fall back to leaving it for manual placement."""
+    from guessit import guessit as _guessit
+
+    results = []
+    for fp in files:
+        info = _guessit(os.path.basename(fp))
+        season = info.get("season")
+        episode = info.get("episode")
+        # guessit returns a list for multi-episode releases (e.g. "S01E01E02")
+        # instead of a plain int — take the first value rather than choking.
+        if isinstance(season, list):
+            season = season[0] if season else None
+        if isinstance(episode, list):
+            episode = episode[0] if episode else None
+        results.append({
+            "file_path": fp,
+            "season": season,
+            "episode": episode,
+        })
+    return results
+
+
 def find_subtitle_files(video_path: str) -> list[str]:
     """Return subtitle files alongside video_path sharing its base name, e.g.
     "episode1.srt" or "episode1.en.srt" next to "episode1.mp4"."""

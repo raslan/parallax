@@ -147,15 +147,24 @@ class Subf2mProvider:
                 continue
             match_title = m.group(1)
             match_year = m.group(3) or ""
-            similarity = SequenceMatcher(None, title_lc, match_title).ratio()
-            if year_s and match_year and year_s != match_year:
-                similarity -= 0.15  # penalize year mismatch instead of dropping — guessit years are often off by one
             results.append({
                 "href": result.get("href"),
-                "similarity": similarity,
+                "similarity": SequenceMatcher(None, title_lc, match_title).ratio(),
+                "year_match": bool(year_s and match_year and year_s == match_year),
             })
+        if year_s:
+            # An explicit year (TMDB pick or "(YYYY)") is authoritative — if any
+            # candidate actually carries that year, only consider those, rather
+            # than letting a same-titled different-year film outrank it on pure
+            # string similarity (e.g. a 1998 movie sharing a 2012 remake's title).
+            exact = [r for r in results if r["year_match"]]
+            if exact:
+                results = exact
         results.sort(key=lambda x: x["similarity"], reverse=True)
-        return list({r["href"] for r in results[:return_len]})
+        # dict.fromkeys, not set() — a set does not preserve the similarity-sorted
+        # order, so the ranking above would otherwise be silently discarded before
+        # search() picks the first path with results.
+        return list(dict.fromkeys(r["href"] for r in results[:return_len]))
 
     def _search_tv_show_season(self, title: str, season: int, year: Optional[int] = None, return_len: int = 3) -> list[str]:
         try:
@@ -184,7 +193,7 @@ class Subf2mProvider:
                     "similarity": SequenceMatcher(None, title.lower(), match_title).ratio() + plus,
                 })
         results.sort(key=lambda x: x["similarity"], reverse=True)
-        return list({r["href"] for r in results[:return_len]})
+        return list(dict.fromkeys(r["href"] for r in results[:return_len]))
 
     # ------------------------------------------------------------------
     # Subtitle listing helpers
