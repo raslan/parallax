@@ -118,6 +118,12 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-2 py-2">
         <SectionGroup
+          label="Tools"
+          items={toolItems}
+          storageKey="sidebar-tools-open"
+          forceOpen={toolActive}
+        />
+        <SectionGroup
           label="Videos"
           items={videoItems}
           storageKey="sidebar-videos-open"
@@ -128,12 +134,6 @@ export function Sidebar() {
           items={imageItems}
           storageKey="sidebar-images-open"
           forceOpen={imageActive}
-        />
-        <SectionGroup
-          label="Tools"
-          items={toolItems}
-          storageKey="sidebar-tools-open"
-          forceOpen={toolActive}
         />
 
         <div className="px-3 pb-1 pt-3" />

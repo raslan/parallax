@@ -155,23 +155,36 @@ def _video_info(file_path: str) -> dict:
     }
 
 
-def search_file(file_path: str, lang_codes: list[str]) -> list[dict]:
-    """Return subtitle candidates for a single video file via subf2m."""
+def search_file(
+    file_path: str,
+    lang_codes: list[str],
+    query: Optional[str] = None,
+    media_type: Optional[str] = None,
+    season: Optional[int] = None,
+    episode: Optional[int] = None,
+) -> list[dict]:
+    """Return subtitle candidates for a single video file via subf2m.
+
+    query/media_type/season/episode let a caller override the filename-guessed
+    metadata (manual search) instead of trusting guessit, which is often wrong
+    for badly-named files — exactly the files this feature exists to help with.
+    """
     if not os.path.isfile(file_path):
         raise ValueError("File not found")
 
     from app.services.subf2m_provider import Subf2mProvider
     info = _video_info(file_path)
+    is_episode = (media_type == "tv") if media_type else info["is_episode"]
     provider = Subf2mProvider()
     try:
         results = provider.search(
             video_path=file_path,
             lang_codes=lang_codes,
-            is_episode=info["is_episode"],
-            title=info["title"],
+            is_episode=is_episode,
+            title=query.strip() if query and query.strip() else info["title"],
             year=info["year"],
-            season=info["season"] or 1,
-            episode=info["episode"] or 1,
+            season=season or info["season"] or 1,
+            episode=episode or info["episode"] or 1,
         )
         logger.info("search_file subf2m: %d candidates for %s", len(results), os.path.basename(file_path))
     except Exception as exc:
