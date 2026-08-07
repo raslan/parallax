@@ -41,12 +41,12 @@ export function Identify() {
   const [loadingApply, setLoadingApply]       = useState(false);
   const [error, setError]                     = useState("");
 
-  async function loadFiles() {
-    if (!folderPath.trim()) return;
+  async function loadFiles(path: string) {
+    if (!path.trim()) return;
     setLoadingFiles(true);
     setError("");
     try {
-      const res = await api.identifyFiles(folderPath.trim());
+      const res = await api.identifyFiles(path.trim());
       setFiles(res.files);
       setOrderedFiles(res.files);
     } catch (e: any) {
@@ -144,6 +144,8 @@ export function Identify() {
     setPicking(false);
     setFiles([]);
     setOrderedFiles([]);
+    setError("");
+    loadFiles(path);
   }
 
   function reset() {
@@ -219,11 +221,7 @@ export function Identify() {
                   <FolderOpen className="h-4 w-4" />
                   Browse
                 </Button>
-                {folderPath && (
-                  <Button onClick={loadFiles} disabled={loadingFiles} size="sm">
-                    {loadingFiles ? <Loader2 className="h-4 w-4 animate-spin" /> : "Load files"}
-                  </Button>
-                )}
+                {loadingFiles && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
               </div>
               {files.length > 0 && (
                 <p className="text-xs text-muted-foreground">

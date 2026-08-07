@@ -4,6 +4,7 @@ import re
 from app.models.file import File
 from app.models.library import Library
 from app.services.scanner import VIDEO_EXTENSIONS
+from app.services.subtitle_service import SUBTITLE_EXTENSIONS
 
 
 def safe_name(s: str) -> str:
@@ -43,6 +44,40 @@ def list_video_files(folder_path: str) -> list[str]:
     return sorted(results, key=lambda p: p.lower())
 
 
+def find_subtitle_files(video_path: str) -> list[str]:
+    """Return subtitle files alongside video_path sharing its base name, e.g.
+    "episode1.srt" or "episode1.en.srt" next to "episode1.mp4"."""
+    directory = os.path.dirname(video_path)
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    results = []
+    try:
+        for name in os.listdir(directory):
+            if os.path.splitext(name)[1].lower() not in SUBTITLE_EXTENSIONS:
+                continue
+            name_stem = os.path.splitext(name)[0]
+            if name_stem == stem or name_stem.startswith(stem + "."):
+                results.append(os.path.join(directory, name))
+    except (PermissionError, FileNotFoundError, NotADirectoryError):
+        pass
+    return results
+
+
+def _subtitle_ops(fp: str, new_video_path: str) -> list[dict]:
+    """Rename any subtitle files matching fp's base name to follow new_video_path,
+    preserving a language tag suffix (e.g. ".en") if present."""
+    stem = os.path.splitext(os.path.basename(fp))[0]
+    new_stem = os.path.splitext(new_video_path)[0]
+    ops = []
+    for sub_path in find_subtitle_files(fp):
+        sub_ext = os.path.splitext(sub_path)[1]
+        sub_stem = os.path.splitext(os.path.basename(sub_path))[0]
+        suffix = sub_stem[len(stem):]
+        new_sub_path = new_stem + suffix + sub_ext
+        if os.path.abspath(sub_path) != os.path.abspath(new_sub_path):
+            ops.append({"old_path": sub_path, "new_path": new_sub_path})
+    return ops
+
+
 def compute_ops(
     folder_path: str,
     media_type: str,
@@ -74,6 +109,7 @@ def compute_ops(
             new_path = os.path.join(abs_folder, movie_file_name(title, year, ext))
             if os.path.abspath(fp) != os.path.abspath(new_path):
                 file_ops.append({"old_path": fp, "new_path": new_path})
+            file_ops.extend(_subtitle_ops(fp, new_path))
 
         new_folder = os.path.join(parent, movie_folder_name(title, year))
         if abs_folder != os.path.abspath(new_folder):
@@ -92,12 +128,14 @@ def compute_ops(
                 new_path = os.path.join(unmatched_dir, os.path.basename(fp))
                 if os.path.abspath(fp) != os.path.abspath(new_path):
                     file_ops.append({"old_path": fp, "new_path": new_path})
+                file_ops.extend(_subtitle_ops(fp, new_path))
                 continue
             ext = os.path.splitext(fp)[1].lower()
             season_dir = os.path.join(abs_folder, tv_season_folder_name(season))
             new_path = os.path.join(season_dir, tv_file_name(title, season, ep_num, ep_name, ext))
             if os.path.abspath(fp) != os.path.abspath(new_path):
                 file_ops.append({"old_path": fp, "new_path": new_path})
+            file_ops.extend(_subtitle_ops(fp, new_path))
 
         new_folder = os.path.join(parent, safe_name(title))
         if abs_folder != os.path.abspath(new_folder):
