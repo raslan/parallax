@@ -119,7 +119,9 @@ def list_files(path: str = Query(...), db: Session = Depends(get_db)):
     if not os.path.isdir(path):
         raise HTTPException(404, "Path not found or is not a directory")
     files = renamer.list_video_files(path)
-    return {"path": path, "files": files}
+    guess = renamer.guess_media(path, files)
+    file_guesses = renamer.guess_file_episodes(files)
+    return {"path": path, "files": files, "guess": guess, "file_guesses": file_guesses}
 
 
 @router.post("/search", response_model=list[SearchResult])

@@ -35,6 +35,7 @@ class SearchFileRequest(BaseModel):
     file_path: str
     languages: Optional[list[str]] = None
     query: Optional[str] = None
+    year: Optional[int] = None
     media_type: Optional[str] = None
     season: Optional[int] = None
     episode: Optional[int] = None
@@ -87,7 +88,7 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
     try:
         return svc_search(
             body.file_path, lang_codes,
-            query=body.query, media_type=body.media_type,
+            query=body.query, year=body.year, media_type=body.media_type,
             season=body.season, episode=body.episode,
         )
     except Exception as exc:

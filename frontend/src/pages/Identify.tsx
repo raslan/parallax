@@ -7,6 +7,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { FileMatcher } from "@/components/FileMatcher";
 import { DirPicker } from "@/components/DirPicker";
 import { api, type SearchResult, type Episode, type RenameOp, type FileMapping } from "@/lib/api";
+import { type FileGuess, distinctSeasons, buildInitialAssignments, poolFiles, slotKey } from "@/lib/episodeMatching";
 import { Link } from "react-router-dom";
 
 type Step = "search" | "match" | "preview" | "done";
@@ -17,6 +18,7 @@ interface SelectedMedia {
   title: string;
   year: number | null;
   type: MediaType;
+  number_of_seasons: number | null;
 }
 
 export function Identify() {
@@ -28,7 +30,10 @@ export function Identify() {
   const [selected, setSelected]               = useState<SelectedMedia | null>(null);
   const [episodes, setEpisodes]               = useState<Episode[]>([]);
   const [files, setFiles]                     = useState<string[]>([]);
-  const [orderedFiles, setOrderedFiles]       = useState<string[]>([]);
+  const [fileGuesses, setFileGuesses]         = useState<FileGuess[]>([]);
+  const [assignments, setAssignments]         = useState<Record<string, string>>({});
+  const [loadedSeasons, setLoadedSeasons]     = useState<number[]>([]);
+  const [addSeasonInput, setAddSeasonInput]   = useState("");
   const [fileOps, setFileOps]                 = useState<RenameOp[]>([]);
   const [folderOps, setFolderOps]             = useState<RenameOp[]>([]);
   const [applySuccesses, setApplySuccesses]   = useState<string[]>([]);
@@ -37,6 +42,7 @@ export function Identify() {
   const [loadingFiles, setLoadingFiles]       = useState(false);
   const [loadingSearch, setLoadingSearch]     = useState(false);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+  const [loadingAddSeason, setLoadingAddSeason] = useState(false);
   const [loadingPreview, setLoadingPreview]   = useState(false);
   const [loadingApply, setLoadingApply]       = useState(false);
   const [error, setError]                     = useState("");
@@ -48,7 +54,12 @@ export function Identify() {
     try {
       const res = await api.identifyFiles(path.trim());
       setFiles(res.files);
-      setOrderedFiles(res.files);
+      setFileGuesses(res.file_guesses);
+      if (res.guess.title) {
+        setMediaType(res.guess.type);
+        setSearchQuery(res.guess.title);
+        doSearch(res.guess.title, res.guess.type);
+      }
     } catch (e: any) {
       setError(e.message || "Failed to load files");
     } finally {
@@ -56,14 +67,16 @@ export function Identify() {
     }
   }
 
-  async function doSearch() {
-    if (!searchQuery.trim()) return;
+  async function doSearch(queryArg?: string, typeArg?: MediaType) {
+    const query = (queryArg ?? searchQuery).trim();
+    const type = typeArg ?? mediaType;
+    if (!query) return;
     setLoadingSearch(true);
     setError("");
     setSelected(null);
     setEpisodes([]);
     try {
-      const results = await api.identifySearch({ query: searchQuery.trim(), type: mediaType });
+      const results = await api.identifySearch({ query, type });
       setSearchResults(results);
     } catch (e: any) {
       setError(e.message || "Search failed");
@@ -73,21 +86,88 @@ export function Identify() {
   }
 
   async function selectMedia(result: SearchResult) {
-    setSelected({ tmdb_id: result.tmdb_id, title: result.title, year: result.year, type: mediaType });
+    setSelected({
+      tmdb_id: result.tmdb_id,
+      title: result.title,
+      year: result.year,
+      type: mediaType,
+      number_of_seasons: result.number_of_seasons,
+    });
     setEpisodes([]);
+    setAssignments({});
+    setLoadedSeasons([]);
     if (mediaType === "movie") {
-      setEpisodes([{ season_number: 1, episode_number: 1, name: result.title, overview: result.overview }]);
+      const movieEpisode: Episode = { season_number: 1, episode_number: 1, name: result.title, overview: result.overview };
+      setEpisodes([movieEpisode]);
+      if (files.length > 0) {
+        setAssignments({ [slotKey(1, 1)]: files[0] });
+      }
     } else {
       setLoadingEpisodes(true);
       setError("");
       try {
-        const eps = await api.identifyGetAllEpisodes(result.tmdb_id);
+        const detected = distinctSeasons(fileGuesses);
+        const seasonsToLoad = detected.length > 0 ? detected : [1];
+        const seasonResults = await Promise.allSettled(
+          seasonsToLoad.map((sn) => api.identifyGetSeason(result.tmdb_id, sn))
+        );
+        const eps: Episode[] = [];
+        const successfulSeasons: number[] = [];
+        seasonResults.forEach((res, idx) => {
+          if (res.status === "fulfilled") {
+            eps.push(...res.value);
+            successfulSeasons.push(seasonsToLoad[idx]);
+          }
+        });
+        if (successfulSeasons.length === 0) {
+          throw new Error("Failed to load episodes");
+        }
+        eps.sort((a, b) =>
+          a.season_number !== b.season_number
+            ? a.season_number - b.season_number
+            : a.episode_number - b.episode_number
+        );
         setEpisodes(eps);
+        setLoadedSeasons(successfulSeasons);
+        const slotKeys = new Set(eps.map((e) => slotKey(e.season_number, e.episode_number)));
+        setAssignments(buildInitialAssignments(files, fileGuesses, slotKeys));
       } catch (e: any) {
         setError(e.message || "Failed to load episodes");
       } finally {
         setLoadingEpisodes(false);
       }
+    }
+  }
+
+  async function addSeason() {
+    const sn = parseInt(addSeasonInput, 10);
+    if (!selected || !Number.isFinite(sn) || sn < 1) return;
+    if (loadedSeasons.includes(sn)) { setAddSeasonInput(""); return; }
+    if (selected.number_of_seasons != null && sn > selected.number_of_seasons) {
+      setError(`This show only has ${selected.number_of_seasons} season(s).`);
+      return;
+    }
+    setLoadingAddSeason(true);
+    setError("");
+    try {
+      const newEps = await api.identifyGetSeason(selected.tmdb_id, sn);
+      setEpisodes((prev) =>
+        [...prev, ...newEps].sort((a, b) =>
+          a.season_number !== b.season_number
+            ? a.season_number - b.season_number
+            : a.episode_number - b.episode_number
+        )
+      );
+      setLoadedSeasons((prev) => [...prev, sn].sort((a, b) => a - b));
+      const newSlotKeys = new Set(newEps.map((e) => slotKey(e.season_number, e.episode_number)));
+      const stillPooled = poolFiles(files, assignments);
+      const additions = buildInitialAssignments(stillPooled, fileGuesses, newSlotKeys);
+      setAssignments((prev) => ({ ...prev, ...additions }));
+      setAddSeasonInput("");
+    } catch (e: any) {
+      setError(e.message || "Failed to load season");
+    } finally {
+      setLoadingAddSeason(false);
     }
   }
 
@@ -100,12 +180,20 @@ export function Identify() {
     setLoadingPreview(true);
     setError("");
     try {
-      const mappings: FileMapping[] = orderedFiles.map((fp, i) => ({
-        file_path: fp,
-        season_number: episodes[i]?.season_number ?? null,
-        episode_number: episodes[i]?.episode_number ?? null,
-        episode_name: episodes[i]?.name ?? null,
-      }));
+      const fileToSlot = new Map<string, string>();
+      for (const [key, fp] of Object.entries(assignments)) {
+        fileToSlot.set(fp, key);
+      }
+      const mappings: FileMapping[] = files.map((fp) => {
+        const key = fileToSlot.get(fp);
+        const ep = key ? episodes.find((e) => slotKey(e.season_number, e.episode_number) === key) : undefined;
+        return {
+          file_path: fp,
+          season_number: ep?.season_number ?? null,
+          episode_number: ep?.episode_number ?? null,
+          episode_name: ep?.name ?? null,
+        };
+      });
       const res = await api.identifyPreview({
         folder_path: folderPath.trim(),
         type: mediaType,
@@ -143,7 +231,7 @@ export function Identify() {
     setFolderPath(path);
     setPicking(false);
     setFiles([]);
-    setOrderedFiles([]);
+    setFileGuesses([]);
     setError("");
     loadFiles(path);
   }
@@ -156,7 +244,10 @@ export function Identify() {
     setSelected(null);
     setEpisodes([]);
     setFiles([]);
-    setOrderedFiles([]);
+    setFileGuesses([]);
+    setAssignments({});
+    setLoadedSeasons([]);
+    setAddSeasonInput("");
     setFileOps([]);
     setFolderOps([]);
     setApplySuccesses([]);
@@ -258,7 +349,7 @@ export function Identify() {
                   placeholder="Breaking Bad…"
                   className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 />
-                <Button onClick={doSearch} disabled={loadingSearch || !searchQuery.trim()} size="sm">
+                <Button onClick={() => doSearch()} disabled={loadingSearch || !searchQuery.trim()} size="sm">
                   {loadingSearch ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
@@ -311,7 +402,7 @@ export function Identify() {
               {selected && mediaType === "tv" && (
                 <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
                   {loadingEpisodes
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading all episodes…</>
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading episodes…</>
                     : episodes.length > 0 && <span>{episodes.length} episodes across {new Set(episodes.map(e => e.season_number)).size} season(s) loaded</span>
                   }
                 </div>
@@ -341,16 +432,43 @@ export function Identify() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Drag files to reorder them so they line up with the correct{" "}
-                {mediaType === "tv" ? "episode" : "title"} on the right.
-                Files without a match will not be renamed.
+                {mediaType === "tv"
+                  ? "Drag a file onto the episode it belongs to. Empty slots and unplaced files are skipped when renaming."
+                  : "Drag a file onto the movie slot to rename it."}
               </p>
               <FileMatcher
-                files={orderedFiles}
+                files={files}
                 episodes={episodes}
                 mediaType={mediaType}
-                onChange={setOrderedFiles}
+                assignments={assignments}
+                onAssignmentsChange={setAssignments}
               />
+              {mediaType === "tv" && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={selected.number_of_seasons ?? undefined}
+                    value={addSeasonInput}
+                    onChange={(e) => setAddSeasonInput(e.target.value)}
+                    placeholder="Season #"
+                    className="w-24 rounded-md border border-input bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addSeason}
+                    disabled={loadingAddSeason || !addSeasonInput.trim()}
+                  >
+                    {loadingAddSeason ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add season"}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Loaded: {loadedSeasons.length > 0 ? loadedSeasons.join(", ") : "none"}
+                    {selected.number_of_seasons != null && ` of ${selected.number_of_seasons} season(s)`}
+                  </span>
+                </div>
+              )}
             </CardContent>
           </Card>
 

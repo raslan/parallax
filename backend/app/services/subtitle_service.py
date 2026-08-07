@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -10,6 +11,23 @@ SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 
 # Preferred order for browser-renderable subtitles
 _BROWSER_SUB_EXTS = [".srt", ".vtt", ".ass", ".ssa", ".sub"]
+
+_QUERY_YEAR_RE = re.compile(r"[(\[]\s*((?:19|20)\d{2})\s*[)\]]")
+
+
+def _parse_query(query: str) -> tuple[str, Optional[int]]:
+    """Split a typed search query into (title, year). Only a bracketed year
+    like "(2012)" or "[2012]" is treated as a year filter — a bare trailing
+    number is ambiguous with titles like "Blade Runner 2049" or "2012" (the
+    movie), so it's left as part of the title rather than guessed at."""
+    q = re.sub(r"[._]", " ", query).strip()
+    year = None
+    m = _QUERY_YEAR_RE.search(q)
+    if m:
+        year = int(m.group(1))
+        q = q[:m.start()] + q[m.end():]
+    q = re.sub(r"\s+", " ", q).strip(" ()._-")
+    return q, year
 
 
 def _parse_lang(code: str) -> tuple[str, str]:
@@ -159,6 +177,7 @@ def search_file(
     file_path: str,
     lang_codes: list[str],
     query: Optional[str] = None,
+    year: Optional[int] = None,
     media_type: Optional[str] = None,
     season: Optional[int] = None,
     episode: Optional[int] = None,
@@ -168,6 +187,11 @@ def search_file(
     query/media_type/season/episode let a caller override the filename-guessed
     metadata (manual search) instead of trusting guessit, which is often wrong
     for badly-named files — exactly the files this feature exists to help with.
+
+    If `year` is passed explicitly (e.g. from a TMDB pick, which already has an
+    authoritative title + year), it's used as-is and `query` is NOT regex-parsed
+    for a bracketed year — no guessing needed when the caller already knows.
+    Otherwise `query` falls back to `_parse_query`'s "(YYYY)" convention.
     """
     if not os.path.isfile(file_path):
         raise ValueError("File not found")
@@ -175,14 +199,22 @@ def search_file(
     from app.services.subf2m_provider import Subf2mProvider
     info = _video_info(file_path)
     is_episode = (media_type == "tv") if media_type else info["is_episode"]
+
+    if year is not None:
+        title_override, year_override = (query.strip() if query and query.strip() else None), year
+    elif query and query.strip():
+        title_override, year_override = _parse_query(query)
+    else:
+        title_override, year_override = None, None
+
     provider = Subf2mProvider()
     try:
         results = provider.search(
             video_path=file_path,
             lang_codes=lang_codes,
             is_episode=is_episode,
-            title=query.strip() if query and query.strip() else info["title"],
-            year=info["year"],
+            title=title_override or info["title"],
+            year=year_override or info["year"],
             season=season or info["season"] or 1,
             episode=episode or info["episode"] or 1,
         )

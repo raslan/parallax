@@ -75,6 +75,7 @@ def get_season(tmdb_id: int, season_number: int, api_key: str) -> list[dict]:
     r.raise_for_status()
     return [
         {
+            "season_number": season_number,
             "episode_number": ep["episode_number"],
             "name": ep.get("name") or f"Episode {ep['episode_number']}",
             "overview": ep.get("overview", ""),
