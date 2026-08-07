@@ -34,6 +34,10 @@ class DownloadRequest(BaseModel):
 class SearchFileRequest(BaseModel):
     file_path: str
     languages: Optional[list[str]] = None
+    query: Optional[str] = None
+    media_type: Optional[str] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
 
 
 class DownloadOneRequest(BaseModel):
@@ -81,7 +85,11 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
     lang_codes = body.languages or _get_lang_codes(db)
     from app.services.subtitle_service import search_file as svc_search
     try:
-        return svc_search(body.file_path, lang_codes)
+        return svc_search(
+            body.file_path, lang_codes,
+            query=body.query, media_type=body.media_type,
+            season=body.season, episode=body.episode,
+        )
     except Exception as exc:
         raise HTTPException(500, str(exc))
 

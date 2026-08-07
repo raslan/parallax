@@ -147,11 +147,12 @@ class Subf2mProvider:
                 continue
             match_title = m.group(1)
             match_year = m.group(3) or ""
+            similarity = SequenceMatcher(None, title_lc, match_title).ratio()
             if year_s and match_year and year_s != match_year:
-                continue
+                similarity -= 0.15  # penalize year mismatch instead of dropping — guessit years are often off by one
             results.append({
                 "href": result.get("href"),
-                "similarity": SequenceMatcher(None, title_lc, match_title).ratio(),
+                "similarity": similarity,
             })
         results.sort(key=lambda x: x["similarity"], reverse=True)
         return list({r["href"] for r in results[:return_len]})
@@ -166,10 +167,16 @@ class Subf2mProvider:
         for result in self._gen_results(title):
             text = result.text.strip().lower()
             m = _TV_SHOW_TITLE_RE.match(text) or _TV_SHOW_TITLE_ALT_RE.match(text)
-            if not m:
+            if m:
+                match_title = m.group(1).strip()
+                match_season = m.group(2).strip().lower()
+            elif season == 1:
+                # subf2m lists single-season/mini-series without a season suffix at all
+                title_m = _MOVIE_TITLE_RE.match(text)
+                match_title = title_m.group(1) if title_m else text
+                match_season = "1"
+            else:
                 continue
-            match_title = m.group(1).strip()
-            match_season = m.group(2).strip().lower()
             if match_season in season_strs or "complete" in match_season:
                 plus = 0.1 if year and str(year) in text else 0
                 results.append({

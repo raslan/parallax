@@ -632,8 +632,8 @@ export const subtitlesApi = {
   download: (path: string, languages?: string[]) =>
     req<{ job_id: number }>("/subtitles/download", { method: "POST", body: JSON.stringify({ path, languages }) }),
 
-  searchFile: (file_path: string, languages?: string[]) =>
-    req<SubtitleCandidate[]>("/subtitles/search-file", { method: "POST", body: JSON.stringify({ file_path, languages }) }),
+  searchFile: (file_path: string, languages?: string[], opts?: { query?: string; media_type?: string; season?: number; episode?: number }) =>
+    req<SubtitleCandidate[]>("/subtitles/search-file", { method: "POST", body: JSON.stringify({ file_path, languages, ...opts }) }),
 
   downloadOne: (file_path: string, provider: string, subtitle_id: string, language: string) =>
     req<{ ok: boolean }>("/subtitles/download-one", { method: "POST", body: JSON.stringify({ file_path, provider, subtitle_id, language }) }),

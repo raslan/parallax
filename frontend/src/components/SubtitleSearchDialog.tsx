@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { Loader2, Download, CheckCircle2, Volume2, VolumeX } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Download, CheckCircle2, Volume2, VolumeX, Search } from "lucide-react";
 import { subtitlesApi, SubtitleCandidate, SubtitleFile } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const LANG_NAMES: Record<string, string> = {
@@ -35,18 +36,28 @@ interface Props {
 }
 
 export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }: Props) {
-  const [searching, setSearching] = useState(true);
+  const [query, setQuery] = useState(file.title || file.filename.replace(/\.[^.]+$/, ""));
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [candidates, setCandidates] = useState<SubtitleCandidate[]>([]);
   const [error, setError] = useState("");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloaded, setDownloaded] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    subtitlesApi.searchFile(file.path, languages)
+  const runSearch = () => {
+    if (!query.trim()) return;
+    setSearching(true);
+    setError("");
+    subtitlesApi.searchFile(file.path, languages, {
+      query: query.trim(),
+      media_type: file.media_type === "episode" ? "tv" : file.media_type,
+      season: file.season ?? undefined,
+      episode: file.episode ?? undefined,
+    })
       .then(setCandidates)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Search failed"))
-      .finally(() => setSearching(false));
-  }, [file.path, languages]);
+      .finally(() => { setSearching(false); setSearched(true); });
+  };
 
   const handleDownload = async (c: SubtitleCandidate) => {
     const key = `${c.provider}:${c.subtitle_id}`;
@@ -69,21 +80,31 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col" onClose={onClose}>
         <DialogHeader>
           <DialogTitle className="font-mono text-sm truncate pr-6">{file.filename}</DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            {searching ? "Searching…" : `${candidates.length} subtitle${candidates.length !== 1 ? "s" : ""} found`}
-          </p>
+          {searched && (
+            <p className="text-xs text-muted-foreground">
+              {searching ? "Searching…" : `${candidates.length} subtitle${candidates.length !== 1 ? "s" : ""} found`}
+            </p>
+          )}
         </DialogHeader>
 
-        {searching && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Input
+            autoFocus
+            placeholder="Search by title…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && runSearch()}
+            className="text-sm"
+          />
+          <Button onClick={runSearch} disabled={searching || !query.trim()}>
+            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          </Button>
+        </div>
 
         {error && <p className="text-sm text-destructive py-4">{error}</p>}
 
-        {!searching && candidates.length === 0 && !error && (
-          <p className="text-sm text-muted-foreground py-8 text-center">No subtitles found for this file.</p>
+        {searched && !searching && candidates.length === 0 && !error && (
+          <p className="text-sm text-muted-foreground py-8 text-center">No subtitles found — try a different title.</p>
         )}
 
         {candidates.length > 0 && (
