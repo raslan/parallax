@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.13.0](https://github.com/raslan/parallax/compare/v1.12.0...v1.13.0) (2026-08-07)
+
+
+### Features
+
+* revamp identification and subtitle flows ([db550db](https://github.com/raslan/parallax/commit/db550dbf5031fcbe091544c30e3eb28baaf778f3))
+* update subtitle handling and sidebar order ([23ef7f9](https://github.com/raslan/parallax/commit/23ef7f9d2ec3fe0f99cf9c6aedcf94e9d3ee4cdd))
+
 ## [1.12.0](https://github.com/raslan/parallax/compare/v1.11.0...v1.12.0) (2026-08-07)
 
 
