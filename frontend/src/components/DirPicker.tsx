@@ -100,8 +100,8 @@ export function DirPicker({ onSelect, onClose }: DirPickerProps) {
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-        <Button type="button" size="sm" onClick={() => onSelect(currentPath)}>
-          Select "{currentPath.split("/").pop() || "/"}"
+        <Button type="button" size="sm" onClick={() => onSelect(currentPath)} className="max-w-[50%] min-w-0">
+          <span className="truncate min-w-0">Select "{currentPath.split("/").pop() || "/"}"</span>
         </Button>
       </div>
     </div>
