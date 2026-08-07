@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.12.0](https://github.com/raslan/parallax/compare/v1.11.0...v1.12.0) (2026-08-07)
+
+
+### Features
+
+* add more robust controls for failed or stopped downloads ([2602d5c](https://github.com/raslan/parallax/commit/2602d5c3d460e4c0cfc318a99ac5cf8e45fae148))
+* add resizable semaphore support for concurrent download handling ([c603ac3](https://github.com/raslan/parallax/commit/c603ac39b8c24bb60578a52ec6460367fcb495c2))
+* more robust jobs support ([0cc5c9a](https://github.com/raslan/parallax/commit/0cc5c9af2c619377888967b95bd8178d80d668ea))
+* update and cleanup identify flow ([5de3229](https://github.com/raslan/parallax/commit/5de3229525cf42eebc338b144f671f9fccb6849b))
+* update downloader logic ([5f79500](https://github.com/raslan/parallax/commit/5f7950025ce45a072ed9d7414e0ac458a75b633e))
+
 ## [1.11.0](https://github.com/raslan/parallax/compare/v1.10.0...v1.11.0) (2026-07-05)
 
 
