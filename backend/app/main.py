@@ -22,6 +22,7 @@ from app.api.models import router as models_router
 from app.api.subtitles import router as subtitles_router
 from app.api.compress import router as compress_router
 from app.api.downloads import router as downloads_router
+from app.api.toolbox import router as toolbox_router
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 
@@ -153,6 +154,7 @@ app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
 app.include_router(compress_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
+app.include_router(toolbox_router, prefix="/api")
 
 # Serve the built React frontend — must come after all API routes
 if os.path.isdir(STATIC_DIR):
