@@ -4,6 +4,7 @@ import shutil
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc, nullslast
@@ -35,17 +36,20 @@ async def stream_images(library_id: int | None = Query(None)):
     async def generate():
         last_payload = None
         while True:
-            db = SessionLocal()
-            try:
-                q = db.query(
-                    func.count(ImageFile.id), func.max(ImageFile.id), func.max(ImageFile.updated_at)
-                )
-                if library_id is not None:
-                    q = q.filter(ImageFile.library_id == library_id)
-                count, max_id, max_updated = q.one()
-                payload = f"{count}:{max_id}:{max_updated.isoformat() if max_updated else ''}"
-            finally:
-                db.close()
+            def _compute_signature():
+                db = SessionLocal()
+                try:
+                    q = db.query(
+                        func.count(ImageFile.id), func.max(ImageFile.id), func.max(ImageFile.updated_at)
+                    )
+                    if library_id is not None:
+                        q = q.filter(ImageFile.library_id == library_id)
+                    count, max_id, max_updated = q.one()
+                    return f"{count}:{max_id}:{max_updated.isoformat() if max_updated else ''}"
+                finally:
+                    db.close()
+
+            payload = await run_in_threadpool(_compute_signature)
 
             if payload != last_payload:
                 yield f"data: {payload}\n\n"
