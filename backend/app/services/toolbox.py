@@ -80,7 +80,7 @@ def parse_channel_rms(astats_output: str) -> dict[int, float]:
 def detect_louder_channel(path: str) -> str:
     """Run ffmpeg astats on the file's audio, return 'left' or 'right' — whichever channel has higher RMS."""
     proc = subprocess.run(
-        ["ffmpeg", "-i", path, "-filter:a", "astats", "-f", "null", "-"],
+        ["ffmpeg", "-i", path, "-t", "120", "-filter:a", "astats", "-f", "null", "-"],
         capture_output=True, text=True, timeout=60,
     )
     rms = parse_channel_rms(proc.stderr)
@@ -141,10 +141,28 @@ def _toolbox_fix_one(
     if (trim_start > 0 or trim_end > 0) and (duration <= 0 or duration - trim_start - trim_end < 1.0):
         return False, "Could not determine file duration or trim exceeds duration"
 
+    audio_setting = settings.get("audio_channel")
     try:
-        audio_channel = _resolve_audio_channel(src, settings.get("audio_channel"))
+        audio_channel = _resolve_audio_channel(src, audio_setting)
     except Exception:
+        if audio_setting == "auto":
+            return False, "Could not detect louder audio channel"
         audio_channel = None
+
+    if audio_channel == "right":
+        channel_count = 2
+        try:
+            ch_probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "a:0",
+                 "-show_entries", "stream=channels", "-of", "csv=p=0", src],
+                capture_output=True, text=True, timeout=30,
+            )
+            if ch_probe.stdout.strip():
+                channel_count = int(ch_probe.stdout.strip().split("\n")[0])
+        except Exception:
+            pass
+        if channel_count < 2:
+            return False, "Source has no right channel — file is mono"
 
     cmd = _build_toolbox_cmd(
         src, tmp, duration,
