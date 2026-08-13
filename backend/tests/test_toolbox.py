@@ -44,6 +44,49 @@ def test_build_cmd_rotate_forces_video_reencode():
     assert cmd[cmd.index("-vf") + 1] == "transpose=1"
 
 
+def test_build_cmd_force_video_reencode_without_rotate():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        force_video_reencode=True,
+    )
+    assert cmd[cmd.index("-c:v") + 1] != "copy"
+    assert cmd[cmd.index("-ss") + 1] == "3.0"
+    assert cmd[cmd.index("-t") + 1] == "57.0"
+
+
+def test_build_cmd_force_video_reencode_uses_source_codec():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        source_codec="hevc", force_video_reencode=True,
+    )
+    encoder = cmd[cmd.index("-c:v") + 1]
+    from app.services.encoder import encoder_for_codec
+    assert encoder == encoder_for_codec("hevc")
+
+
+def test_build_cmd_no_force_reencode_keeps_copy():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        force_video_reencode=False,
+    )
+    assert cmd[cmd.index("-c:v") + 1] == "copy"
+
+
+def test_build_cmd_force_video_reencode_default_is_false():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+    )
+    assert cmd[cmd.index("-c:v") + 1] == "copy"
+
+
 def test_build_cmd_rotate_270_uses_transpose_2():
     cmd = _build_toolbox_cmd(
         "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,

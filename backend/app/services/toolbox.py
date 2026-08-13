@@ -40,8 +40,9 @@ def _build_toolbox_cmd(
     faststart: bool,
     sync_offset_ms: float | None,
     source_codec: str | None = None,  # e.g. "h264", "hevc", "av1" — used to pick rotate's output codec
+    force_video_reencode: bool = False,
 ) -> list[str]:
-    needs_video_reencode = rotate_deg is not None
+    needs_video_reencode = rotate_deg is not None or force_video_reencode
     needs_audio_reencode = audio_channel is not None or normalize
     has_dual_input = sync_offset_ms is not None
 
@@ -198,6 +199,12 @@ def _toolbox_fix_one(
     if (trim_start > 0 or trim_end > 0) and (duration <= 0 or duration - trim_start - trim_end < 1.0):
         return False, "Could not determine file duration or trim exceeds duration"
 
+    force_video_reencode = False
+    if trim_start > 0:
+        nearest_kf = _nearest_keyframe_at_or_before(src, trim_start)
+        if nearest_kf is None or (trim_start - nearest_kf) > _TRIM_KEYFRAME_TOLERANCE:
+            force_video_reencode = True
+
     audio_setting = settings.get("audio_channel")
     try:
         audio_channel = _resolve_audio_channel(src, audio_setting)
@@ -222,7 +229,7 @@ def _toolbox_fix_one(
             return False, "Source has no right channel — file is mono"
 
     source_codec = None
-    if settings.get("rotate_deg") is not None:
+    if settings.get("rotate_deg") is not None or force_video_reencode:
         try:
             codec_probe = subprocess.run(
                 ["ffprobe", "-v", "error", "-select_streams", "v:0",
@@ -244,6 +251,7 @@ def _toolbox_fix_one(
         faststart=settings.get("faststart", False),
         sync_offset_ms=settings.get("sync_offset_ms"),
         source_codec=source_codec,
+        force_video_reencode=force_video_reencode,
     )
 
     proc = None
