@@ -12,6 +12,7 @@ import { Identify } from "@/pages/Identify";
 import { Subtitles } from "@/pages/Subtitles";
 import { Downloads } from "@/pages/Downloads";
 import { Compress } from "@/pages/Compress";
+import { Toolbox } from "@/pages/Toolbox";
 import { ImageLibraries } from "@/pages/ImageLibraries";
 import { Images } from "@/pages/Images";
 import { ImageDuplicates } from "@/pages/ImageDuplicates";
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/subtitles" element={<Subtitles />} />
           <Route path="/downloads" element={<Downloads />} />
           <Route path="/compress" element={<Compress />} />
+          <Route path="/toolbox" element={<Toolbox />} />
           {/* Image routes */}
           <Route path="/image-libraries" element={<ImageLibraries />} />
           <Route path="/images" element={<Images />} />

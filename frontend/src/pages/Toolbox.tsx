@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  Wrench, X, Loader2, Check, LayoutGrid, List, ArrowUpDown, ArrowUp, ArrowDown, Search,
+  Wrench, X, Loader2, LayoutGrid, List, Search,
   RotateCw, RotateCcw, RefreshCw,
 } from "lucide-react";
 import { toolboxApi, api, VideoFile, Library } from "@/lib/api";
@@ -8,9 +8,7 @@ import { FileGridCard, FileListRow, ColHeader, applySortDir, SortDir } from "@/c
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { formatSize, formatDuration } from "@/lib/format";
 
 type SortKey = "filename" | "codec" | "duration" | "size";
 type RotateDeg = 90 | 180 | 270;

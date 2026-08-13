@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Library, Film, Activity, Settings, Archive, Copy, Scissors, Wand2,
-  Images, ShieldAlert, FolderX, ChevronDown, Captions, Minimize2, Download,
+  Images, ShieldAlert, FolderX, ChevronDown, Captions, Minimize2, Download, Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -14,6 +14,7 @@ const videoItems = [
   { to: "/duplicates", icon: Copy,      label: "Duplicates" },
   { to: "/cleanup",    icon: Scissors,  label: "Cleanup" },
   { to: "/compress",   icon: Minimize2, label: "Compress" },
+  { to: "/toolbox",    icon: Wrench,    label: "Toolbox" },
   { to: "/originals",  icon: Archive,   label: "Originals" },
 ];
 
