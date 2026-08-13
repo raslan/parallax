@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.library import Library
 from app.models.file import File, FileStatus
+from app.services.scanner import rescan_file
 
 router = APIRouter(prefix="/originals", tags=["originals"])
 
@@ -31,6 +32,10 @@ class OriginalsSummary(BaseModel):
 
 class OriginalPathRequest(BaseModel):
     path: str
+
+
+class BulkOriginalPathsRequest(BaseModel):
+    paths: list[str]
 
 
 def _scan_library_originals(library: Library) -> list[OriginalEntry]:
@@ -130,9 +135,13 @@ def delete_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
         pass
 
 
-@router.post("/restore", status_code=200)
-def restore_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
-    path = body.path
+def _restore_one(db: Session, path: str) -> str:
+    """Restore one file from _originals/. Returns the restored path.
+
+    Raises HTTPException on validation failure (bad path, missing file) —
+    callers that loop over many paths should catch HTTPException per item
+    rather than let one bad path abort the whole batch.
+    """
     if "/_originals/" not in path:
         raise HTTPException(400, "Path is not inside an _originals directory")
     if not os.path.isfile(path):
@@ -170,19 +179,40 @@ def restore_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
     except OSError:
         pass
 
-    # Reset the DB record so the file shows as needing repair again
+    # Reset the DB record so the file shows as needing repair again, then
+    # re-probe it immediately — the restored file is real content the user is
+    # about to look at, it shouldn't sit on stale pre-restore metadata until
+    # the filesystem watcher's 30s debounce gets around to it.
     if file_obj:
         file_obj.status = FileStatus.UNKNOWN
         file_obj.transcoded_at = None
         file_obj.path = restore_path
         file_obj.filename = filename
-        try:
-            file_obj.size = os.path.getsize(restore_path)
-        except OSError:
-            pass
         db.commit()
+        rescan_file(db, file_obj)
 
+    return restore_path
+
+
+@router.post("/restore", status_code=200)
+def restore_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
+    restore_path = _restore_one(db, body.path)
     return {"message": "Restored", "path": restore_path}
+
+
+@router.post("/restore-batch", status_code=200)
+def restore_originals_batch(body: BulkOriginalPathsRequest, db: Session = Depends(get_db)):
+    restored = 0
+    failed: list[dict] = []
+    for path in body.paths:
+        try:
+            _restore_one(db, path)
+            restored += 1
+        except HTTPException as e:
+            failed.append({"path": path, "error": e.detail})
+        except Exception as e:
+            failed.append({"path": path, "error": str(e)})
+    return {"restored": restored, "failed": failed}
 
 
 @router.delete("/library/{library_id}", status_code=204)

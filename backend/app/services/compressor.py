@@ -9,9 +9,11 @@ import time
 from typing import Callable
 
 from app.database import SessionLocal
+from app.models.file import File
 from app.models.job import Job, JobStatus, JobType
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 from app.services.encoder import _get_encoders
+from app.services.scanner import rescan_file
 
 _SOURCE_EFFICIENCY: dict[str, float] = {
     "h264": 1.0,
@@ -159,10 +161,15 @@ def _compress_one(
     job_id: int,
     progress_cb: Callable[[float], None] | None = None,
     keep_original: bool = True,
-) -> tuple[bool, str | None]:
-    """Compress one file in-place. Returns (success, error_msg)."""
+) -> tuple[bool, str | None, str | None]:
+    """Compress one file in-place. Returns (success, error_msg, final_path).
+
+    final_path is the file's path after compression — usually unchanged, but
+    differs from the input path when the container changed (e.g. .webm -> .mkv,
+    .m4v -> .mp4 for HEVC/AV1 tagging). None when the compress failed.
+    """
     if should_cancel(job_id):
-        return False, "Cancelled"
+        return False, "Cancelled", None
     src = file_path
     base, ext = os.path.splitext(src)
     # .m4v uses the restrictive ipod muxer which rejects HEVC/AV1 regardless of tags.
@@ -210,7 +217,7 @@ def _compress_one(
                 proc.wait()
                 _cleanup(tmp)
                 _cleanup(err_path)
-                return False, "Cancelled"
+                return False, "Cancelled", None
 
             line = line.strip()
             if line.startswith("out_time_ms=") and duration > 0 and progress_cb:
@@ -226,7 +233,7 @@ def _compress_one(
         if proc.returncode != 0:
             stderr_text = _read_and_remove(err_path)
             _cleanup(tmp)
-            return False, (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}")
+            return False, (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"), None
 
         _cleanup(err_path)
 
@@ -238,7 +245,7 @@ def _compress_one(
             os.remove(src)
 
         shutil.move(tmp, dst)
-        return True, None
+        return True, None, dst
 
     except Exception as e:
         if err_fd != -1:
@@ -254,7 +261,7 @@ def _compress_one(
                 pass
         _cleanup(tmp)
         _cleanup(err_path)
-        return False, str(e)
+        return False, str(e), None
 
 
 def _cleanup(path: str) -> None:
@@ -273,6 +280,31 @@ def _read_and_remove(path: str) -> str:
         return text
     except OSError:
         return ""
+
+
+def _rescan_after_job(original_path: str, final_path: str) -> None:
+    """Re-probe one file right after a successful compress, on its own DB session.
+
+    Called from a worker thread inside the job's thread pool — must not touch the
+    job runner's own `db` session, which is only safe on the main job-loop thread.
+    `final_path` can differ from `original_path` when the compress changed the
+    container (e.g. .webm -> .mkv); the DB row is repointed at the new path first.
+    """
+    rescan_db = SessionLocal()
+    try:
+        file_obj = rescan_db.query(File).filter(File.path == original_path).first()
+        if not file_obj:
+            return
+        if final_path != original_path:
+            file_obj.path = final_path
+            file_obj.filename = os.path.basename(final_path)
+            file_obj.extension = os.path.splitext(final_path)[1].lower().lstrip(".")
+            rescan_db.commit()
+        rescan_file(rescan_db, file_obj)
+    except Exception:
+        pass
+    finally:
+        rescan_db.close()
 
 
 def run_compress_job(
@@ -319,13 +351,15 @@ def run_compress_job(
         def do_one(path: str) -> tuple[str, bool, str | None]:
             fname = os.path.basename(path)
             log_q.put(("info", f"Compressing: {fname}"))
-            ok, err = _compress_one(
+            ok, err, final_path = _compress_one(
                 path, codec, crf, speed, job_id,
                 progress_cb=make_progress_cb(path),
                 keep_original=keep_original,
             )
             with fracs_lock:
                 fracs.pop(path, None)
+            if ok and final_path:
+                _rescan_after_job(path, final_path)
             return path, ok, err
 
         def flush_to_db() -> None:

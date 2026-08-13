@@ -9,10 +9,12 @@ import threading
 from typing import Callable
 
 from app.database import SessionLocal
+from app.models.file import File
 from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 from app.services.compressor import _cleanup, _read_and_remove
 from app.services.encoder import encoder_for_codec
+from app.services.scanner import rescan_file
 
 _HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
 
@@ -258,6 +260,26 @@ def _toolbox_fix_one(
         return False, str(e)
 
 
+def _rescan_after_job(path: str) -> None:
+    """Re-probe one file right after a successful fix, on its own DB session.
+
+    Called from a worker thread inside the job's thread pool — must not touch the
+    job runner's own `db` session, which is only safe on the main job-loop thread.
+    Toolbox fixes never rename the file (unlike Compress, which can change
+    container), so there's no path to repoint — just re-probe in place.
+    """
+    rescan_db = SessionLocal()
+    try:
+        file_obj = rescan_db.query(File).filter(File.path == path).first()
+        if not file_obj:
+            return
+        rescan_file(rescan_db, file_obj)
+    except Exception:
+        pass
+    finally:
+        rescan_db.close()
+
+
 def run_toolbox_job(
     job_id: int,
     video_paths: list[str],
@@ -306,6 +328,8 @@ def run_toolbox_job(
             )
             with fracs_lock:
                 fracs.pop(path, None)
+            if ok:
+                _rescan_after_job(path)
             return path, ok, err
 
         def flush_to_db() -> None:
