@@ -261,6 +261,8 @@ export const api = {
   cancelJob: (id: number) => req<{ message: string }>(`/jobs/${id}/cancel`, { method: "POST" }),
   getJobLogs: (id: number) => req<JobLog[]>(`/jobs/${id}/logs`),
   jobsStreamUrl: () => `/api/jobs/stream`,
+  filesStreamUrl: (library_id?: number | null) =>
+    `/api/files/stream${library_id != null ? `?library_id=${library_id}` : ""}`,
   clearJobHistory: () => req<void>("/jobs/history", { method: "DELETE" }),
 
   // Duplicates
@@ -496,6 +498,8 @@ export const imageApi = {
 
   thumbnailUrl: (id: number) => `/api/images/${id}/thumbnail`,
   fullUrl: (id: number) => `/api/images/${id}/full`,
+  streamUrl: (library_id?: number | null) =>
+    `/api/images/stream${library_id != null ? `?library_id=${library_id}` : ""}`,
 
   quarantineImage: (id: number) =>
     req<{ message: string }>(`/images/${id}/quarantine`, { method: "POST" }),
