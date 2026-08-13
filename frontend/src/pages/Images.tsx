@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatSize } from "@/lib/format";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
+import { useLiveFiles } from "@/lib/useLiveFiles";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
@@ -95,6 +96,8 @@ export function Images() {
       setTotal(r.total);
     }).catch(() => {});
   }, [page, sortBy, sortDir, statusFilter, detectionFilter]);
+
+  useLiveFiles("image", null, load);
 
   useEffect(() => { load(); }, [load]);
 
