@@ -106,13 +106,6 @@ function getCrfTier(codec: string, crf: number): QualityTier {
   return tiers.find((t) => crf <= t.max) ?? tiers[tiers.length - 1];
 }
 
-function getCrfWarnThreshold(codec: string): number {
-  // CRF where noticeable loss begins
-  const tiers = CRF_TIERS[codec] ?? CRF_TIERS.h264;
-  const warn = tiers.find((t) => t.label === "Noticeable loss");
-  return warn ? tiers[tiers.indexOf(warn) - 1].max + 1 : 999;
-}
-
 // ── Sort ──────────────────────────────────────────────────────────────────────
 
 type SortKey = "filename" | "codec" | "duration" | "size" | "savings";
