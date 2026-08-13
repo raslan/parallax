@@ -16,7 +16,7 @@ def _build_toolbox_cmd(
     sync_offset_ms: float | None,
 ) -> list[str]:
     needs_video_reencode = rotate_deg is not None
-    needs_audio_reencode = audio_channel is not None or normalize or sync_offset_ms is not None
+    needs_audio_reencode = audio_channel is not None or normalize
     has_dual_input = sync_offset_ms is not None
 
     ss_args = ["-ss", str(trim_start)] if trim_start > 0 else []

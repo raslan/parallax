@@ -128,6 +128,15 @@ def test_build_cmd_sync_offset_uses_dual_input():
     assert cmd[cmd.index("-map") + 3] == "1:a?"
 
 
+def test_build_cmd_sync_offset_alone_keeps_audio_copy():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=250.0,
+    )
+    assert cmd[cmd.index("-c:a") + 1] == "copy"
+
+
 def test_build_cmd_trim_applies_ss_to_both_inputs_with_sync_offset():
     cmd = _build_toolbox_cmd(
         "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
