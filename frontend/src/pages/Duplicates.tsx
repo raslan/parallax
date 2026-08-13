@@ -7,6 +7,7 @@ import { api, DuplicateGroup, DuplicateFile, Library, DuplicateCriteria } from "
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { useLiveFiles } from "@/lib/useLiveFiles";
 
 function LibrarySelector({
   libraries,
@@ -193,6 +194,7 @@ export function Duplicates() {
   const [initializing, setInitializing] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
+  const [resultsStale, setResultsStale] = useState(false);
   const [deleteIds, setDeleteIds] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
@@ -211,6 +213,8 @@ export function Duplicates() {
     });
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  useLiveFiles("video", selectedId, () => setResultsStale(true));
 
   useEffect(() => {
     if (!selectedId) return;
@@ -260,6 +264,7 @@ export function Duplicates() {
     setScanning(true);
     setGroups(null);
     setDeleteIds(new Set());
+    setResultsStale(false);
     try {
       await api.findDuplicates(selectedId, criteria);
     } catch {
@@ -434,6 +439,14 @@ export function Duplicates() {
           </CriteriaRow>
         </CardContent>
       </Card>
+
+      {/* Stale results banner */}
+      {groups && resultsStale && (
+        <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
+          <span className="text-amber-400">Files changed since this scan ran — results may be out of date.</span>
+          <Button size="sm" variant="outline" onClick={handleScan}>Refresh</Button>
+        </div>
+      )}
 
       {/* Results summary + delete bar */}
       {groups !== null && groups.length > 0 && (

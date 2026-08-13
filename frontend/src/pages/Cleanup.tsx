@@ -6,6 +6,7 @@ import { api, CleanupParams, Library, VideoFile, VideoSearchResult } from "@/lib
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { useLiveFiles } from "@/lib/useLiveFiles";
 
 const NUDENET_GROUPS = [
   { label: "Exposed", labels: ["FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED", "MALE_GENITALIA_EXPOSED", "MALE_BREAST_EXPOSED", "BUTTOCKS_EXPOSED", "ANUS_EXPOSED"] },
@@ -250,6 +251,7 @@ export function Cleanup() {
 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<VideoFile[] | null>(null);
+  const [resultsStale, setResultsStale] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -264,6 +266,8 @@ export function Cleanup() {
       if (libs.length > 0) setSelectedId(libs[0].id);
     });
   }, []);
+
+  useLiveFiles("video", selectedId, () => setResultsStale(true));
 
   const anyStandardFilterEnabled = durationEnabled || fpsEnabled || dateEnabled || heightEnabled;
   const clipActive = clipEnabled && clipQuery.trim().length > 0;
@@ -356,6 +360,7 @@ export function Cleanup() {
     setError(null);
     setResults(null);
     setSelected(new Set());
+    setResultsStale(false);
     try {
       const fileMap = new Map<number, VideoFile>();
       const idSets: Set<number>[] = [];
@@ -755,6 +760,12 @@ export function Cleanup() {
 
       {!loading && sortedResults !== null && sortedResults.length > 0 && (
         <div className="space-y-3">
+          {results && resultsStale && (
+            <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
+              <span className="text-amber-400">Files changed since these results were found — they may be out of date.</span>
+              <Button size="sm" variant="outline" onClick={handleFind}>Refresh</Button>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground tabular-nums font-mono">{sortedResults.length}</span> file{sortedResults.length !== 1 ? "s" : ""} match
