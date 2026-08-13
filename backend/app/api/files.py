@@ -3,6 +3,7 @@ import os
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc, nullslast
 
@@ -28,17 +29,20 @@ async def stream_files(library_id: int | None = Query(None)):
     async def generate():
         last_payload = None
         while True:
-            db = SessionLocal()
-            try:
-                q = db.query(
-                    func.count(File.id), func.max(File.id), func.max(File.updated_at)
-                )
-                if library_id is not None:
-                    q = q.filter(File.library_id == library_id)
-                count, max_id, max_updated = q.one()
-                payload = f"{count}:{max_id}:{max_updated.isoformat() if max_updated else ''}"
-            finally:
-                db.close()
+            def _compute_signature():
+                db = SessionLocal()
+                try:
+                    q = db.query(
+                        func.count(File.id), func.max(File.id), func.max(File.updated_at)
+                    )
+                    if library_id is not None:
+                        q = q.filter(File.library_id == library_id)
+                    count, max_id, max_updated = q.one()
+                    return f"{count}:{max_id}:{max_updated.isoformat() if max_updated else ''}"
+                finally:
+                    db.close()
+
+            payload = await run_in_threadpool(_compute_signature)
 
             if payload != last_payload:
                 yield f"data: {payload}\n\n"
