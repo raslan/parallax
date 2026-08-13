@@ -41,3 +41,4 @@ class File(Base):
     phash: Mapped[int] = mapped_column(Integer, nullable=True)
     phash_frames: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array of ints
     phash_scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
