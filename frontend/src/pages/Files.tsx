@@ -8,6 +8,7 @@ import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { useLiveFiles } from "@/lib/useLiveFiles";
 
 const STATUS_COLORS: Record<string, string> = {
   unknown: "secondary",
@@ -364,7 +365,7 @@ function Breadcrumb({ library, path, onNavigate }: { library: Library; path: str
 // ─── Library browser ──────────────────────────────────────────────────────────
 
 function LibraryBrowser({
-  library, statusFilter, sortBy, sortDir, viewMode, search, onPlay,
+  library, statusFilter, sortBy, sortDir, viewMode, search, onPlay, refreshToken,
 }: {
   library: Library;
   statusFilter: string | undefined;
@@ -373,6 +374,7 @@ function LibraryBrowser({
   viewMode: "grid" | "list";
   search: string;
   onPlay: (f: VideoFile) => void;
+  refreshToken: number;
 }) {
   const [path, setPath] = useState("");
   const [browse, setBrowse] = useState<BrowseResponse | null>(null);
@@ -385,7 +387,7 @@ function LibraryBrowser({
     api.browseLibrary(library.id, path, statusFilter, sortBy, sortDir)
       .then(setBrowse)
       .finally(() => setLoading(false));
-  }, [library.id, path, statusFilter, sortBy, sortDir]);
+  }, [library.id, path, statusFilter, sortBy, sortDir, refreshToken]);
 
   const navigate = (subdir: string) => setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
 
@@ -436,7 +438,7 @@ function LibraryBrowser({
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
 function FlatView({
-  statusFilter, sortBy, sortDir, viewMode, search, onPlay,
+  statusFilter, sortBy, sortDir, viewMode, search, onPlay, refreshToken,
 }: {
   statusFilter: string | undefined;
   sortBy: string;
@@ -444,6 +446,7 @@ function FlatView({
   viewMode: "grid" | "list";
   search: string;
   onPlay: (f: VideoFile) => void;
+  refreshToken: number;
 }) {
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [total, setTotal] = useState(0);
@@ -455,7 +458,7 @@ function FlatView({
     api.getFiles({ status: statusFilter, page, page_size: PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir })
       .then((res) => { setFiles(res.items); setTotal(res.total); })
       .finally(() => setLoading(false));
-  }, [statusFilter, page, sortBy, sortDir]);
+  }, [statusFilter, page, sortBy, sortDir, refreshToken]);
 
   useEffect(() => { setPage(1); }, [statusFilter, sortBy, sortDir]);
   useEffect(() => { load(); }, [load]);
@@ -526,10 +529,13 @@ export function Files() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => { api.getLibraries().then(setLibraries).catch(() => {}); }, []);
 
   const selectedLibrary = libraries.find((l) => l.id === selectedLibraryId) ?? null;
+
+  useLiveFiles("video", selectedLibrary?.id ?? null, () => setRefreshToken((t) => t + 1));
 
   return (
     <div className="p-8 space-y-6">
@@ -609,6 +615,7 @@ export function Files() {
           viewMode={viewMode}
           search={search}
           onPlay={setPlayingFile}
+          refreshToken={refreshToken}
         />
       ) : (
         <FlatView
@@ -618,6 +625,7 @@ export function Files() {
           viewMode={viewMode}
           search={search}
           onPlay={setPlayingFile}
+          refreshToken={refreshToken}
         />
       )}
 
