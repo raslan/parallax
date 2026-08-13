@@ -56,7 +56,7 @@ function LibraryGroup({
     if (!confirm(`Restore all ${entries.length} images in "${libraryName}" to their library?`)) return;
     setRestoringAll(true);
     try {
-      await Promise.all(entries.map((img) => imageApi.restoreImage(img.id).catch(() => {})));
+      await imageApi.restoreBulk(entries.map((img) => img.id));
       onRefresh();
     } finally {
       setRestoringAll(false);
@@ -67,7 +67,7 @@ function LibraryGroup({
     if (!confirm(`Permanently delete all ${entries.length} images in "${libraryName}"? This cannot be undone.`)) return;
     setDeletingAll(true);
     try {
-      await Promise.all(entries.map((img) => imageApi.deleteImage(img.id).catch(() => {})));
+      await imageApi.deleteBulk(entries.map((img) => img.id));
       onRefresh();
     } finally {
       setDeletingAll(false);

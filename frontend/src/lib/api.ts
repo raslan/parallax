@@ -291,6 +291,11 @@ export const api = {
     req<void>("/originals/file", { method: "DELETE", body: JSON.stringify({ path }) }),
   restoreOriginal: (path: string) =>
     req<{ message: string; path: string }>("/originals/restore", { method: "POST", body: JSON.stringify({ path }) }),
+  restoreOriginalsBatch: (paths: string[]) =>
+    req<{ restored: number; failed: { path: string; error: string }[] }>("/originals/restore-batch", {
+      method: "POST",
+      body: JSON.stringify({ paths }),
+    }),
   deleteLibraryOriginals: (library_id: number) =>
     req<void>(`/originals/library/${library_id}`, { method: "DELETE" }),
 
@@ -507,8 +512,20 @@ export const imageApi = {
   restoreImage: (id: number) =>
     req<{ message: string }>(`/images/${id}/restore`, { method: "POST" }),
 
+  restoreBulk: (ids: number[]) =>
+    req<{ restored: number }>("/images/restore-bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+
   deleteImage: (id: number) =>
     req<void>(`/images/${id}`, { method: "DELETE" }),
+
+  deleteBulk: (ids: number[]) =>
+    req<{ deleted: number }>("/images/delete-bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
 
   searchImages: (q: string, opts?: { limit?: number; exclude?: boolean; library_id?: number }) => {
     const p = new URLSearchParams({ q });

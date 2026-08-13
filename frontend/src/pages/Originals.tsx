@@ -81,7 +81,7 @@ function LibraryGroup({
     if (!confirm(`Restore all ${entries.length} originals for "${libraryName}"? All modified files will be replaced.`)) return;
     setRestoringAll(true);
     try {
-      await Promise.all(entries.map((e) => api.restoreOriginal(e.path).catch(() => {})));
+      await api.restoreOriginalsBatch(entries.map((e) => e.path));
       onRefresh();
     } finally {
       setRestoringAll(false);
