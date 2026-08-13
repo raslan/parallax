@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { Scissors, Loader2, Trash2, Search, Play, LayoutGrid, List, ImageOff, Check, ArrowUp, ArrowDown, Brain, ChevronDown } from "lucide-react";
+import { Scissors, Loader2, Trash2, Search, Play, LayoutGrid, List, ImageOff, Check, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, CleanupParams, Library, VideoFile, VideoSearchResult } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { FilterAccordion } from "@/components/FilterAccordion";
 import { useLiveFiles } from "@/lib/useLiveFiles";
 
 const NUDENET_GROUPS = [
@@ -89,63 +90,6 @@ function NumInput({
       disabled={disabled}
       onChange={(e) => onChange(Number(e.target.value))}
     />
-  );
-}
-
-function FilterAccordion({
-  label,
-  summary,
-  enabled,
-  onToggle,
-  badge,
-  children,
-}: {
-  label: string;
-  summary: string | null;
-  enabled: boolean;
-  onToggle: (v: boolean) => void;
-  badge?: string;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(enabled);
-
-  useEffect(() => {
-    if (enabled) setOpen(true);
-  }, [enabled]);
-
-  return (
-    <div>
-      <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-muted/40 transition-colors"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <input
-          type="checkbox"
-          className="accent-primary h-4 w-4 shrink-0"
-          checked={enabled}
-          data-testid={`filter-${label.toLowerCase().replace(/\s+/g, "-")}`}
-          onChange={(e) => { e.stopPropagation(); onToggle(e.target.checked); }}
-          onClick={(e) => e.stopPropagation()}
-        />
-        <span className="text-sm font-medium flex-1">{label}</span>
-        {badge && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-            {badge}
-          </span>
-        )}
-        {summary && (
-          <span className="text-xs text-muted-foreground truncate max-w-[200px]">{summary}</span>
-        )}
-        <ChevronDown
-          className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </div>
-      {open && (
-        <div className="px-4 pb-4 pt-1 bg-muted/20">
-          {children}
-        </div>
-      )}
-    </div>
   );
 }
 
