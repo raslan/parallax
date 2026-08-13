@@ -87,6 +87,58 @@ def thumbnail_path(file_id: int) -> str:
     return os.path.join(THUMBNAILS_DIR, f"{file_id}.jpg")
 
 
+def rescan_file(db, file_obj: File) -> None:
+    """Re-probe metadata and regenerate the thumbnail for one file already in the DB.
+
+    Used right after something changes a file's bytes in place (Compress, Toolbox,
+    restoring from _originals/) so the record reflects the new file immediately
+    instead of waiting on the filesystem watcher's debounce to notice. Does not
+    touch `status` — callers that need to reset it (e.g. restore, which wants the
+    file to show as needing a corruption re-check) do so themselves.
+    """
+    path = file_obj.path
+
+    try:
+        stat = os.stat(path)
+        file_obj.size = stat.st_size
+    except OSError:
+        pass
+
+    data = probe_file(path)
+    if data:
+        fmt = data.get("format", {})
+        streams = data.get("streams", [])
+        if fmt.get("duration"):
+            file_obj.duration = float(fmt["duration"])
+        if fmt.get("size"):
+            file_obj.size = int(fmt["size"])
+        if streams:
+            s = streams[0]
+            if s.get("codec_name"):
+                file_obj.codec_name = s["codec_name"]
+            br = s.get("bit_rate") or fmt.get("bit_rate")
+            if br:
+                try:
+                    file_obj.video_bitrate = int(br)
+                except (ValueError, TypeError):
+                    pass
+
+            file_obj.file_width = s.get("width")
+            file_obj.file_height = s.get("height")
+
+            raw_fps = s.get("r_frame_rate", "")
+            if "/" in raw_fps:
+                num, den = raw_fps.split("/")
+                file_obj.file_fps = round(int(num) / int(den), 3) if int(den) else None
+            else:
+                file_obj.file_fps = float(raw_fps) if raw_fps else None
+
+    file_obj.scanned_at = _now()
+    db.commit()
+
+    generate_thumbnail(path, file_obj.id)
+
+
 def _find_video_files(library_path: str) -> list[str]:
     paths = []
     for root, dirs, files in os.walk(library_path):

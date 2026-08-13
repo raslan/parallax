@@ -237,6 +237,50 @@ def quarantine_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
     return {"moved": moved}
 
 
+@router.post("/restore-bulk", status_code=200)
+def restore_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
+    restored = 0
+    for image_id in body.ids:
+        f = db.get(ImageFile, image_id)
+        if not f or f.status != ImageStatus.QUARANTINED:
+            continue
+        original_dir = os.path.dirname(os.path.dirname(f.path))  # up from _quarantine/
+        dest = os.path.join(original_dir, f.filename)
+        if os.path.exists(dest):
+            continue
+        shutil.move(f.path, dest)
+        f.path = dest
+        f.status = ImageStatus.SCANNED
+        restored += 1
+    db.commit()
+    return {"restored": restored}
+
+
+@router.post("/delete-bulk", status_code=200)
+def delete_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
+    deleted = 0
+    for image_id in body.ids:
+        f = db.get(ImageFile, image_id)
+        if not f:
+            continue
+        parent_dir = os.path.dirname(f.path)
+        if os.path.exists(f.path):
+            os.remove(f.path)
+        thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
+        if os.path.exists(thumb):
+            os.remove(thumb)
+        db.query(ImageDetection).filter(ImageDetection.image_id == image_id).delete()
+        db.delete(f)
+        deleted += 1
+        if os.path.basename(parent_dir) == "_quarantine":
+            try:
+                os.rmdir(parent_dir)
+            except OSError:
+                pass
+    db.commit()
+    return {"deleted": deleted}
+
+
 @router.get("/{image_id}/thumbnail")
 def get_thumbnail(image_id: int, db: Session = Depends(get_db)):
     f = db.get(ImageFile, image_id)
