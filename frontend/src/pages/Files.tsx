@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Film, Loader2, ChevronLeft, ChevronRight, ImageOff, Folder, ChevronRight as Caret, X, ShieldCheck, AlertCircle, ArrowUp, ArrowDown, LayoutGrid, List, Play, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -383,7 +383,7 @@ function LibraryBrowser({
   useEffect(() => { setPath(""); }, [library.id]);
 
   useEffect(() => {
-    setLoading(true);
+    if (!browse) setLoading(true);
     api.browseLibrary(library.id, path, statusFilter, sortBy, sortDir)
       .then(setBrowse)
       .finally(() => setLoading(false));
@@ -452,11 +452,12 @@ function FlatView({
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
 
   const load = useCallback(() => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     api.getFiles({ status: statusFilter, page, page_size: PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir })
-      .then((res) => { setFiles(res.items); setTotal(res.total); })
+      .then((res) => { setFiles(res.items); setTotal(res.total); hasLoadedRef.current = true; })
       .finally(() => setLoading(false));
   }, [statusFilter, page, sortBy, sortDir, refreshToken]);
 
