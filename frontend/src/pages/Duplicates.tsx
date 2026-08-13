@@ -247,6 +247,7 @@ export function Duplicates() {
       try {
         const result = await api.getDuplicates(libraryId);
         setGroups(result);
+        setResultsStale(false);
         const init = new Set<number>();
         result.forEach((g) => g.files.forEach((f) => { if (f.id !== g.keep_id) init.add(f.id); }));
         setDeleteIds(init);
@@ -264,7 +265,6 @@ export function Duplicates() {
     setScanning(true);
     setGroups(null);
     setDeleteIds(new Set());
-    setResultsStale(false);
     try {
       await api.findDuplicates(selectedId, criteria);
     } catch {
@@ -441,7 +441,7 @@ export function Duplicates() {
       </Card>
 
       {/* Stale results banner */}
-      {groups && resultsStale && (
+      {groups && groups.length > 0 && resultsStale && (
         <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
           <span className="text-amber-400">Files changed since this scan ran — results may be out of date.</span>
           <Button size="sm" variant="outline" onClick={handleScan}>Refresh</Button>
