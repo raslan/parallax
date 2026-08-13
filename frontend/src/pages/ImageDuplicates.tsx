@@ -40,7 +40,7 @@ function ImageCard({
     >
       {img.has_thumbnail ? (
         <img
-          src={imageApi.thumbnailUrl(img.id)}
+          src={imageApi.thumbnailUrl(img.id, img.scanned_at ?? undefined)}
           alt={img.filename}
           className="w-full h-full object-cover"
         />

@@ -57,7 +57,7 @@ function ImageGrid({
           }`}
         >
           {img.has_thumbnail ? (
-            <img src={imageApi.thumbnailUrl(img.id)} alt={img.filename}
+            <img src={imageApi.thumbnailUrl(img.id, img.scanned_at ?? undefined)} alt={img.filename}
                  className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-muted" />
