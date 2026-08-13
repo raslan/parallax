@@ -1,5 +1,13 @@
+import subprocess
+
 from app.services.encoder import encoder_for_codec
-from app.services.toolbox import _build_toolbox_cmd, parse_channel_rms, _parse_last_keyframe_at_or_before
+from app.services.toolbox import (
+    _build_toolbox_cmd,
+    parse_channel_rms,
+    _parse_last_keyframe_at_or_before,
+    _nearest_keyframe_at_or_before,
+    _toolbox_fix_one,
+)
 
 
 def test_build_cmd_plain_copy_no_fixes():
@@ -64,8 +72,8 @@ def test_build_cmd_force_video_reencode_uses_source_codec():
         source_codec="hevc", force_video_reencode=True,
     )
     encoder = cmd[cmd.index("-c:v") + 1]
-    from app.services.encoder import encoder_for_codec
     assert encoder == encoder_for_codec("hevc")
+    assert encoder != encoder_for_codec(None)
 
 
 def test_build_cmd_no_force_reencode_keeps_copy():
@@ -309,6 +317,133 @@ def test_parse_last_keyframe_ignores_keyframes_after_target():
 
 def test_parse_last_keyframe_no_keyframe_data_returns_none():
     assert _parse_last_keyframe_at_or_before("", 3.0) is None
+
+
+def test_nearest_keyframe_returns_none_when_ffprobe_missing(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError()))
+    assert _nearest_keyframe_at_or_before("/lib/movie.mp4", 5.0) is None
+
+
+def test_nearest_keyframe_returns_none_on_timeout(monkeypatch):
+    def raise_timeout(*a, **k):
+        raise subprocess.TimeoutExpired(cmd="ffprobe", timeout=30)
+    monkeypatch.setattr(subprocess, "run", raise_timeout)
+    assert _nearest_keyframe_at_or_before("/lib/movie.mp4", 5.0) is None
+
+
+def test_nearest_keyframe_returns_none_on_garbage_output(monkeypatch):
+    class FakeProc:
+        stdout = "not,valid,csv\ngarbage\n"
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
+    assert _nearest_keyframe_at_or_before("/lib/movie.mp4", 5.0) is None
+
+
+class _EmptyReadline:
+    """Stand-in for a Popen.stdout pipe: readline() immediately signals EOF."""
+
+    def readline(self):
+        return ""
+
+
+class _FakePopen:
+    """Stand-in for subprocess.Popen that records the ffmpeg argv and reports
+    instant success, so _toolbox_fix_one's decision logic can be exercised
+    without actually invoking ffmpeg."""
+
+    last_cmd: list[str] | None = None
+
+    def __init__(self, cmd, stdout=None, stderr=None, text=None):
+        _FakePopen.last_cmd = cmd
+        self.stdout = _EmptyReadline()
+        self.returncode = 0
+        with open(cmd[-1], "wb") as f:
+            f.write(b"fake output")
+
+    def wait(self):
+        return 0
+
+    def kill(self):
+        pass
+
+
+def _patch_ffprobe_duration(monkeypatch, duration: float):
+    real_run = subprocess.run
+
+    def fake_run(cmd, *a, **k):
+        if cmd[0] == "ffprobe" and "format=duration" in cmd:
+            class FakeProc:
+                stdout = f"{duration}\n"
+            return FakeProc()
+        return real_run(cmd, *a, **k)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+
+def test_toolbox_fix_one_force_reencode_when_keyframe_far(monkeypatch, tmp_path):
+    src = tmp_path / "movie.mp4"
+    src.write_bytes(b"fake")
+    _patch_ffprobe_duration(monkeypatch, 60.0)
+    monkeypatch.setattr(
+        "app.services.toolbox._nearest_keyframe_at_or_before", lambda path, target: 0.0
+    )
+    monkeypatch.setattr(subprocess, "Popen", _FakePopen)
+
+    notes = []
+    ok, err = _toolbox_fix_one(
+        str(src), {"trim_start": 3.0}, job_id=1, note_cb=notes.append,
+    )
+    assert ok is True
+    assert _FakePopen.last_cmd[_FakePopen.last_cmd.index("-c:v") + 1] != "copy"
+    assert any("re-encoding video" in n for n in notes)
+
+
+def test_toolbox_fix_one_keeps_copy_when_keyframe_near(monkeypatch, tmp_path):
+    src = tmp_path / "movie.mp4"
+    src.write_bytes(b"fake")
+    _patch_ffprobe_duration(monkeypatch, 60.0)
+    monkeypatch.setattr(
+        "app.services.toolbox._nearest_keyframe_at_or_before", lambda path, target: 2.9
+    )
+    monkeypatch.setattr(subprocess, "Popen", _FakePopen)
+
+    notes = []
+    ok, err = _toolbox_fix_one(
+        str(src), {"trim_start": 3.0}, job_id=1, note_cb=notes.append,
+    )
+    assert ok is True
+    assert _FakePopen.last_cmd[_FakePopen.last_cmd.index("-c:v") + 1] == "copy"
+    assert notes == []
+
+
+def test_build_cmd_copy_mode_uses_keyframe_snapped_seek_for_clip_len():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=100.0,
+        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        copy_seek_start=2.9,
+    )
+    assert cmd[cmd.index("-c:v") + 1] == "copy"
+    assert cmd[cmd.index("-t") + 1] == "97.1"
+
+
+def test_build_cmd_force_reencode_ignores_copy_seek_start_for_clip_len():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=100.0,
+        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        force_video_reencode=True, copy_seek_start=0.0,
+    )
+    assert cmd[cmd.index("-t") + 1] == "97.0"
+
+
+def test_build_cmd_webm_force_reencode_uses_vp9_not_hevc():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.webm", "/lib/movie.fixing.webm", duration=60.0,
+        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        source_codec="hevc", force_video_reencode=True,
+    )
+    assert cmd[cmd.index("-c:v") + 1] == "libvpx-vp9"
 
 
 def test_parse_last_keyframe_malformed_lines_are_skipped():
