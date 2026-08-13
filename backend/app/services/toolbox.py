@@ -85,7 +85,11 @@ def _build_toolbox_cmd(
             # WebM's container spec only allows VP8/VP9/AV1 video — muxing the
             # HEVC/H.264 encoder that encoder_for_codec() would otherwise pick
             # fails outright, so force the one video codec the container can hold.
-            cmd += ["-c:v", "libvpx-vp9", "-crf", "18", "-b:v", "0"]
+            # No NVENC/QSV/VAAPI VP9 encode path is wired up (NVENC can't encode
+            # VP9 at all), so this is always libvpx-vp9 software — `-cpu-used 4`
+            # trades a little quality for a large speed win over the (very slow)
+            # default `-cpu-used 0`.
+            cmd += ["-c:v", "libvpx-vp9", "-crf", "18", "-b:v", "0", "-cpu-used", "4", "-deadline", "good"]
         else:
             encoder = encoder_for_codec(source_codec)
             cmd += ["-c:v", encoder, "-crf", "18", "-preset", "medium"]
