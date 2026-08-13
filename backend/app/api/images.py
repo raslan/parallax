@@ -35,6 +35,7 @@ async def stream_images(library_id: int | None = Query(None)):
     """SSE stream — same shape as GET /files/stream, over ImageFile instead."""
     async def generate():
         last_payload = None
+        idle_ticks = 0
         while True:
             def _compute_signature():
                 db = SessionLocal()
@@ -54,6 +55,12 @@ async def stream_images(library_id: int | None = Query(None)):
             if payload != last_payload:
                 yield f"data: {payload}\n\n"
                 last_payload = payload
+                idle_ticks = 0
+            else:
+                idle_ticks += 1
+                if idle_ticks >= 7:
+                    yield ": keepalive\n\n"
+                    idle_ticks = 0
 
             await asyncio.sleep(2.0)
 

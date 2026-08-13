@@ -25,6 +25,7 @@ export function useLiveFiles(
     const url = kind === "video" ? api.filesStreamUrl(libraryId) : imageApi.streamUrl(libraryId);
     const es = new EventSource(url);
     let lastSignature: string | null = null;
+    let lastErrorRefetch = 0;
 
     es.onmessage = (e) => {
       const isFirst = lastSignature === null;
@@ -35,9 +36,15 @@ export function useLiveFiles(
     };
 
     es.onerror = () => {
-      // Connection dropped — the browser auto-reconnects EventSource, but
-      // do one correctness refresh now in case we missed a change while down.
-      onChangeRef.current();
+      // Connection dropped — the browser auto-reconnects EventSource, retrying
+      // roughly every 3s while down, firing onerror on every failed attempt.
+      // Debounce so we do one correctness refresh per disconnect, not one
+      // per retry attempt.
+      const now = Date.now();
+      if (now - lastErrorRefetch > 5000) {
+        lastErrorRefetch = now;
+        onChangeRef.current();
+      }
     };
 
     return () => es.close();
