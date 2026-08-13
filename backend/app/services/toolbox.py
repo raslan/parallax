@@ -25,9 +25,9 @@ def _build_toolbox_cmd(
 
     if has_dual_input:
         cmd += [*ss_args, "-itsoffset", str(sync_offset_ms / 1000), "-i", input_path]
-        cmd += ["-map", "0:v", "-map", "1:a?"]
+        cmd += ["-map", "0:v", "-map", "1:a?", "-map", "0:s?", "-map_chapters", "0"]
     else:
-        cmd += ["-map", "0:v", "-map", "0:a?"]
+        cmd += ["-map", "0:v", "-map", "0:a?", "-map", "0:s?", "-map_chapters", "0"]
 
     if trim_start > 0 or trim_end > 0:
         clip_len = duration - trim_start - trim_end
@@ -56,6 +56,7 @@ def _build_toolbox_cmd(
         cmd += ["-af", ",".join(af_filters)]
 
     cmd += ["-c:a", "aac", "-b:a", "192k"] if needs_audio_reencode else ["-c:a", "copy"]
+    cmd += ["-c:s", "copy"]
 
     out_ext = os.path.splitext(output_path)[1].lower()
     if faststart and out_ext in {".mp4", ".m4v", ".mov"}:

@@ -148,6 +148,28 @@ def test_build_cmd_no_sync_offset_uses_single_input():
     assert cmd[cmd.index("-map") + 3] == "0:a?"
 
 
+def test_build_cmd_maps_subtitles_and_chapters():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+    )
+    assert "0:s?" in cmd
+    assert cmd[cmd.index("-map_chapters") + 1] == "0"
+    assert cmd[cmd.index("-c:s") + 1] == "copy"
+
+
+def test_build_cmd_maps_subtitles_and_chapters_with_dual_input():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=0, trim_end=0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=250.0,
+    )
+    assert "0:s?" in cmd
+    assert cmd[cmd.index("-map_chapters") + 1] == "0"
+    assert cmd[cmd.index("-c:s") + 1] == "copy"
+
+
 def test_parse_channel_rms_two_channels():
     astats_output = """
 [Parsed_astats_0 @ 0x1] Channel: 1
