@@ -1,11 +1,12 @@
 import json
 import os
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc, nullslast
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import FilesResponse, FileRead
@@ -13,6 +14,43 @@ from app.services.scanner import thumbnail_path
 from app.api.utils import active_job_exists
 
 router = APIRouter(prefix="/files", tags=["files"])
+
+
+@router.get("/stream")
+async def stream_files(library_id: int | None = Query(None)):
+    """SSE stream that pushes a cheap signature of `files` state — callers diff
+    it against their last-seen value and refetch their own file list on change.
+    Signature changes on any insert, delete, or update (including in-place
+    field changes like a rescan after Compress/Toolbox/restore), because it's
+    computed from current DB state rather than emitted by whichever endpoint
+    happened to cause the change — no call site anywhere has to remember to
+    signal this stream."""
+    async def generate():
+        last_payload = None
+        while True:
+            db = SessionLocal()
+            try:
+                q = db.query(
+                    func.count(File.id), func.max(File.id), func.max(File.updated_at)
+                )
+                if library_id is not None:
+                    q = q.filter(File.library_id == library_id)
+                count, max_id, max_updated = q.one()
+                payload = f"{count}:{max_id}:{max_updated.isoformat() if max_updated else ''}"
+            finally:
+                db.close()
+
+            if payload != last_payload:
+                yield f"data: {payload}\n\n"
+                last_payload = payload
+
+            await asyncio.sleep(2.0)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def _to_file_read(f: File) -> FileRead:
