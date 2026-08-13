@@ -8,7 +8,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatSize, formatDuration } from "@/lib/format";
+import { formatSize } from "@/lib/format";
 import { FileGridCard, FileListRow, ColHeader, applySortDir, SortDir } from "@/components/FileSelectGrid";
 
 // ── Radio toggle group ────────────────────────────────────────────────────────
