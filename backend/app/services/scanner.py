@@ -134,9 +134,8 @@ def rescan_file(db, file_obj: File) -> None:
                 file_obj.file_fps = float(raw_fps) if raw_fps else None
 
     file_obj.scanned_at = _now()
-    db.commit()
-
     generate_thumbnail(path, file_obj.id)
+    db.commit()
 
 
 def _find_video_files(library_path: str) -> list[str]:
