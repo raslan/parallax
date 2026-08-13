@@ -128,10 +128,12 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
   const [threshold, setThreshold] = useState(10);
   const [appliedThreshold, setAppliedThreshold] = useState(10);
+  const [resultsStale, setResultsStale] = useState(false);
 
   const similarityPct = Math.round((1 - threshold / 64) * 100);
 
   const load = async (t = appliedThreshold) => {
+    setResultsStale(false);
     setLoading(true);
     try {
       const [clusterData, imageData] = await Promise.all([
@@ -160,7 +162,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     }
   };
 
-  useLiveFiles("image", libraryId ?? null, () => load());
+  useLiveFiles("image", libraryId ?? null, () => setResultsStale(true));
 
   useEffect(() => { load(appliedThreshold); }, [libraryId]);
 
@@ -258,6 +260,13 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {clusters.length > 0 && resultsStale && (
+        <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
+          <span className="text-amber-400">Images changed since this scan ran — results may be out of date.</span>
+          <Button size="sm" variant="outline" onClick={handleFind}>Refresh</Button>
+        </div>
       )}
 
       {!loading && clusters.length > 0 && (
