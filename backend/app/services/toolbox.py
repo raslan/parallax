@@ -41,6 +41,7 @@ def _build_toolbox_cmd(
     sync_offset_ms: float | None,
     source_codec: str | None = None,  # e.g. "h264", "hevc", "av1" — used to pick rotate's output codec
     force_video_reencode: bool = False,
+    copy_seek_start: float | None = None,  # actual keyframe-snapped seek point, copy-mode only
 ) -> list[str]:
     needs_video_reencode = rotate_deg is not None or force_video_reencode
     needs_audio_reencode = audio_channel is not None or normalize
@@ -57,7 +58,14 @@ def _build_toolbox_cmd(
         cmd += ["-map", "0:v:0", "-map", "0:a?", "-map", "0:s?", "-map_chapters", "0"]
 
     if trim_start > 0 or trim_end > 0:
-        clip_len = duration - trim_start - trim_end
+        # In copy mode, ffmpeg's `-ss` seek actually lands on `copy_seek_start`
+        # (the nearest preceding keyframe), not on `trim_start` — so the clip
+        # length must be measured from there or the requested tail gets clipped.
+        if copy_seek_start is not None and not needs_video_reencode:
+            seek_start = copy_seek_start
+        else:
+            seek_start = trim_start
+        clip_len = duration - seek_start - trim_end
         cmd += ["-t", str(clip_len)]
 
     vf_filters = []
@@ -73,10 +81,16 @@ def _build_toolbox_cmd(
     out_ext = os.path.splitext(output_path)[1].lower()
 
     if needs_video_reencode:
-        encoder = encoder_for_codec(source_codec)
-        cmd += ["-c:v", encoder, "-crf", "18", "-preset", "medium"]
-        if encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
-            cmd += ["-tag:v", "hvc1"]
+        if out_ext == ".webm":
+            # WebM's container spec only allows VP8/VP9/AV1 video — muxing the
+            # HEVC/H.264 encoder that encoder_for_codec() would otherwise pick
+            # fails outright, so force the one video codec the container can hold.
+            cmd += ["-c:v", "libvpx-vp9", "-crf", "18", "-b:v", "0"]
+        else:
+            encoder = encoder_for_codec(source_codec)
+            cmd += ["-c:v", encoder, "-crf", "18", "-preset", "medium"]
+            if encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
+                cmd += ["-tag:v", "hvc1"]
     else:
         cmd += ["-c:v", "copy"]
 
@@ -135,11 +149,18 @@ def _parse_last_keyframe_at_or_before(csv_output: str, target: float) -> float |
 def _nearest_keyframe_at_or_before(path: str, target: float) -> float | None:
     """Probe the video stream for the last keyframe at or before `target` seconds —
     the point ffmpeg's stream-copy seek will actually land on for `-ss target`."""
+    # Bound the interval's start so ffprobe seeks near `target` instead of
+    # demuxing every packet from the start of the file — an unbounded `%target`
+    # is cheap for early trims but reads the whole prefix (and can time out) on
+    # a deep trim into a long file. Any keyframe outside this window is already
+    # further than _TRIM_KEYFRAME_TOLERANCE away, so it would force a re-encode
+    # regardless — narrowing the window doesn't change the result.
+    window_start = max(0.0, target - 30)
     try:
         proc = subprocess.run(
             ["ffprobe", "-v", "error", "-select_streams", "v:0",
              "-show_entries", "packet=pts_time,flags",
-             "-read_intervals", f"%{target}",
+             "-read_intervals", f"{window_start}%{target}",
              "-of", "csv=p=0", path],
             capture_output=True, text=True, timeout=30,
         )
@@ -171,6 +192,7 @@ def _toolbox_fix_one(
     settings: dict,
     job_id: int,
     progress_cb: Callable[[float], None] | None = None,
+    note_cb: Callable[[str], None] | None = None,
     keep_original: bool = True,
 ) -> tuple[bool, str | None]:
     """Apply the configured fix(es) to one file in-place. Returns (success, error_msg)."""
@@ -200,10 +222,18 @@ def _toolbox_fix_one(
         return False, "Could not determine file duration or trim exceeds duration"
 
     force_video_reencode = False
+    nearest_kf: float | None = None
     if trim_start > 0:
+        if should_cancel(job_id):
+            return False, "Cancelled"
         nearest_kf = _nearest_keyframe_at_or_before(src, trim_start)
         if nearest_kf is None or (trim_start - nearest_kf) > _TRIM_KEYFRAME_TOLERANCE:
             force_video_reencode = True
+            if note_cb:
+                note_cb(
+                    f"Trim: no keyframe within {_TRIM_KEYFRAME_TOLERANCE}s of "
+                    f"{trim_start}s — re-encoding video"
+                )
 
     audio_setting = settings.get("audio_channel")
     try:
@@ -252,6 +282,7 @@ def _toolbox_fix_one(
         sync_offset_ms=settings.get("sync_offset_ms"),
         source_codec=source_codec,
         force_video_reencode=force_video_reencode,
+        copy_seek_start=nearest_kf,
     )
 
     proc = None
@@ -378,6 +409,7 @@ def run_toolbox_job(
             ok, err = _toolbox_fix_one(
                 path, settings, job_id,
                 progress_cb=make_progress_cb(path),
+                note_cb=lambda msg: log_q.put(("info", msg)),
                 keep_original=keep_original,
             )
             with fracs_lock:
