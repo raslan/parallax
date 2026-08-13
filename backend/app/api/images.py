@@ -1,13 +1,14 @@
 import os
 import json
 import shutil
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc, nullslast
 
-from app.database import get_db, DATA_DIR
+from app.database import get_db, DATA_DIR, SessionLocal
 from app.models.image import ImageFile, ImageDetection, ImageStatus
 from app.schemas import ImageRead, ImagesResponse, ImageDetectionRead, ImageSearchResult
 
@@ -26,6 +27,37 @@ _SORT_COLUMNS = {
     "width": ImageFile.width,
     "height": ImageFile.height,
 }
+
+
+@router.get("/stream")
+async def stream_images(library_id: int | None = Query(None)):
+    """SSE stream — same shape as GET /files/stream, over ImageFile instead."""
+    async def generate():
+        last_payload = None
+        while True:
+            db = SessionLocal()
+            try:
+                q = db.query(
+                    func.count(ImageFile.id), func.max(ImageFile.id), func.max(ImageFile.updated_at)
+                )
+                if library_id is not None:
+                    q = q.filter(ImageFile.library_id == library_id)
+                count, max_id, max_updated = q.one()
+                payload = f"{count}:{max_id}:{max_updated.isoformat() if max_updated else ''}"
+            finally:
+                db.close()
+
+            if payload != last_payload:
+                yield f"data: {payload}\n\n"
+                last_payload = payload
+
+            await asyncio.sleep(2.0)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def _detections_for(image_id: int, db: Session) -> list[ImageDetectionRead]:
