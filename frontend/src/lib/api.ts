@@ -228,7 +228,8 @@ export const api = {
     if (params.sort_dir)  q.set("sort_dir",  params.sort_dir);
     return req<FilesResponse>(`/files?${q}`);
   },
-  thumbnailUrl: (id: number) => `${BASE}/files/${id}/thumbnail`,
+  thumbnailUrl: (id: number, version?: string | number | null) =>
+    `${BASE}/files/${id}/thumbnail${version ? `?v=${encodeURIComponent(String(version))}` : ""}`,
   streamUrl: (id: number) => `${BASE}/files/${id}/stream`,
   subtitleTracksUrl: (id: number) => `${BASE}/files/${id}/subtitle-tracks`,
   searchFiles: (q: string, library_id?: number, limit = 50, exclude = false) => {
@@ -496,7 +497,8 @@ export const imageApi = {
     return req<ImagesResponse>(`/images?${p}`);
   },
 
-  thumbnailUrl: (id: number) => `/api/images/${id}/thumbnail`,
+  thumbnailUrl: (id: number, version?: string | number | null) =>
+    `/api/images/${id}/thumbnail${version ? `?v=${encodeURIComponent(String(version))}` : ""}`,
   fullUrl: (id: number) => `/api/images/${id}/full`,
   streamUrl: (library_id?: number | null) =>
     `/api/images/stream${library_id != null ? `?library_id=${library_id}` : ""}`,

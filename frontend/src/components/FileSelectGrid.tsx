@@ -30,7 +30,7 @@ export function FileGridCard({
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
           <img
-            src={api.thumbnailUrl(file.id)}
+            src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
             alt={file.filename}
             className="w-full h-full object-cover"
             onError={() => setImgError(true)}

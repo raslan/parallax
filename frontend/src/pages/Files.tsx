@@ -128,7 +128,7 @@ function ThumbnailCard({
       <div className="aspect-video bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
           <img
-            src={api.thumbnailUrl(file.id)}
+            src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
             alt={file.filename}
             className="w-full h-full object-cover"
             onError={() => setImgError(true)}
@@ -219,7 +219,7 @@ function FileListRow({
         <div className="relative h-8 w-14 shrink-0">
           {file.has_thumbnail && !imgError ? (
             <img
-              src={api.thumbnailUrl(file.id)}
+              src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
               alt={file.filename}
               className="h-8 w-14 object-cover rounded"
               onError={() => setImgError(true)}
