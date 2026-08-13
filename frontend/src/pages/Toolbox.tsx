@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { toolboxApi, api, VideoFile, Library } from "@/lib/api";
 import { FileGridCard, FileListRow, ColHeader, applySortDir, SortDir } from "@/components/FileSelectGrid";
+import { useLiveFiles } from "@/lib/useLiveFiles";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
@@ -126,6 +127,8 @@ export function Toolbox() {
       setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
     }).catch(() => {});
   }, []);
+
+  useLiveFiles("video", libraryId, () => { if (libraryId != null) refreshFiles(libraryId); });
 
   const pollJob = useCallback((id: number, libId: number | null) => {
     stopPoll();

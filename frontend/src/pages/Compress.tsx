@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
 import { FileGridCard, FileListRow, ColHeader, applySortDir, SortDir } from "@/components/FileSelectGrid";
+import { useLiveFiles } from "@/lib/useLiveFiles";
 
 // ── Radio toggle group ────────────────────────────────────────────────────────
 
@@ -267,6 +268,8 @@ export function Compress() {
       setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
     }).catch(() => {});
   }, []);
+
+  useLiveFiles("video", libraryId, () => { if (libraryId != null) refreshFiles(libraryId); });
 
   const pollJob = useCallback((id: number, libId: number | null) => {
     stopPoll();

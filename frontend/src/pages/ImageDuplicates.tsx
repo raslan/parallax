@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { useLiveFiles } from "@/lib/useLiveFiles";
 
 function recommendKeep(images: ImageFile[]): number {
   return images.reduce((best, img) => {
@@ -158,6 +159,8 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
       setLoading(false);
     }
   };
+
+  useLiveFiles("image", libraryId ?? null, () => load());
 
   useEffect(() => { load(appliedThreshold); }, [libraryId]);
 
