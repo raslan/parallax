@@ -31,6 +31,7 @@ class ImageFile(Base):
     scan_error: Mapped[str] = mapped_column(Text, nullable=True)
     scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class ImageDetection(Base):

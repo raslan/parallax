@@ -37,7 +37,7 @@ def get_db():
 
 
 def init_db():
-    from app.models import library, file, job, schedule, settings, download  # noqa: F401
+    from app.models import library, file, job, schedule, settings, download, video  # noqa: F401
     from app.models import image_library, image  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
@@ -98,6 +98,8 @@ def init_db():
             "ALTER TABLE files ADD COLUMN phash INTEGER",
             "ALTER TABLE files ADD COLUMN phash_frames TEXT",
             "ALTER TABLE files ADD COLUMN phash_scanned_at DATETIME",
+            "ALTER TABLE files ADD COLUMN updated_at DATETIME",
+            "ALTER TABLE images ADD COLUMN updated_at DATETIME",
             "ALTER TABLE downloads ADD COLUMN playlist_id TEXT",
             "ALTER TABLE downloads ADD COLUMN playlist_title TEXT",
             "ALTER TABLE downloads ADD COLUMN source_url TEXT",
@@ -106,6 +108,17 @@ def init_db():
                 conn.execute(text(sql))
             except Exception:
                 pass  # column already exists
+
+        # Backfill updated_at for rows that predate the column — safe to run
+        # every startup, only touches rows still NULL.
+        conn.execute(text(
+            "UPDATE files SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
+            "WHERE updated_at IS NULL"
+        ))
+        conn.execute(text(
+            "UPDATE images SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
+            "WHERE updated_at IS NULL"
+        ))
 
         # Remove orphaned records left by prior race conditions. Delete children
         # before parents so FK enforcement (now ON) doesn't reject the deletes.
