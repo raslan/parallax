@@ -17,6 +17,7 @@ class JobType:
     WHISPER_TRANSCRIBE = "whisper_transcribe"
     COMPRESS = "compress"
     PHASH_SCAN = "phash_scan"
+    TOOLBOX_FIX = "toolbox_fix"
 
 
 class JobStatus:
