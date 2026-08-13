@@ -2,6 +2,10 @@ import os
 import re
 import subprocess
 
+from app.services.encoder import encoder_for_codec
+
+_HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
+
 
 def _build_toolbox_cmd(
     input_path: str,
@@ -14,6 +18,7 @@ def _build_toolbox_cmd(
     normalize: bool,
     faststart: bool,
     sync_offset_ms: float | None,
+    source_codec: str | None = None,  # e.g. "h264", "hevc", "av1" — used to pick rotate's output codec
 ) -> list[str]:
     needs_video_reencode = rotate_deg is not None
     needs_audio_reencode = audio_channel is not None or normalize
@@ -25,9 +30,9 @@ def _build_toolbox_cmd(
 
     if has_dual_input:
         cmd += [*ss_args, "-itsoffset", str(sync_offset_ms / 1000), "-i", input_path]
-        cmd += ["-map", "0:v", "-map", "1:a?", "-map", "0:s?", "-map_chapters", "0"]
+        cmd += ["-map", "0:v:0", "-map", "1:a?", "-map", "0:s?", "-map_chapters", "0"]
     else:
-        cmd += ["-map", "0:v", "-map", "0:a?", "-map", "0:s?", "-map_chapters", "0"]
+        cmd += ["-map", "0:v:0", "-map", "0:a?", "-map", "0:s?", "-map_chapters", "0"]
 
     if trim_start > 0 or trim_end > 0:
         clip_len = duration - trim_start - trim_end
@@ -43,7 +48,15 @@ def _build_toolbox_cmd(
     if vf_filters:
         cmd += ["-vf", ",".join(vf_filters)]
 
-    cmd += ["-c:v", "libx264", "-crf", "18", "-preset", "medium"] if needs_video_reencode else ["-c:v", "copy"]
+    out_ext = os.path.splitext(output_path)[1].lower()
+
+    if needs_video_reencode:
+        encoder = encoder_for_codec(source_codec)
+        cmd += ["-c:v", encoder, "-crf", "18", "-preset", "medium"]
+        if encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
+            cmd += ["-tag:v", "hvc1"]
+    else:
+        cmd += ["-c:v", "copy"]
 
     af_filters = []
     if audio_channel == "left":
@@ -58,7 +71,6 @@ def _build_toolbox_cmd(
     cmd += ["-c:a", "aac", "-b:a", "192k"] if needs_audio_reencode else ["-c:a", "copy"]
     cmd += ["-c:s", "copy"]
 
-    out_ext = os.path.splitext(output_path)[1].lower()
     if faststart and out_ext in {".mp4", ".m4v", ".mov"}:
         cmd += ["-movflags", "+faststart"]
 
@@ -164,6 +176,19 @@ def _toolbox_fix_one(
         if channel_count < 2:
             return False, "Source has no right channel — file is mono"
 
+    source_codec = None
+    if settings.get("rotate_deg") is not None:
+        try:
+            codec_probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                 "-show_entries", "stream=codec_name", "-of", "csv=p=0", src],
+                capture_output=True, text=True, timeout=30,
+            )
+            if codec_probe.stdout.strip():
+                source_codec = codec_probe.stdout.strip().split("\n")[0]
+        except Exception:
+            pass
+
     cmd = _build_toolbox_cmd(
         src, tmp, duration,
         trim_start=trim_start,
@@ -173,6 +198,7 @@ def _toolbox_fix_one(
         normalize=settings.get("normalize", False),
         faststart=settings.get("faststart", False),
         sync_offset_ms=settings.get("sync_offset_ms"),
+        source_codec=source_codec,
     )
 
     proc = None

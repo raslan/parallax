@@ -1,3 +1,4 @@
+from app.services.encoder import encoder_for_codec
 from app.services.toolbox import _build_toolbox_cmd, parse_channel_rms
 
 
@@ -37,8 +38,9 @@ def test_build_cmd_rotate_forces_video_reencode():
         "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
         trim_start=0, trim_end=0, audio_channel=None, rotate_deg=90,
         normalize=False, faststart=False, sync_offset_ms=None,
+        source_codec="h264",
     )
-    assert cmd[cmd.index("-c:v") + 1] == "libx264"
+    assert cmd[cmd.index("-c:v") + 1] == encoder_for_codec("h264")
     assert cmd[cmd.index("-vf") + 1] == "transpose=1"
 
 
@@ -47,6 +49,7 @@ def test_build_cmd_rotate_270_uses_transpose_2():
         "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
         trim_start=0, trim_end=0, audio_channel=None, rotate_deg=270,
         normalize=False, faststart=False, sync_offset_ms=None,
+        source_codec="h264",
     )
     assert cmd[cmd.index("-vf") + 1] == "transpose=2"
 
@@ -56,8 +59,38 @@ def test_build_cmd_rotate_180_double_transpose():
         "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
         trim_start=0, trim_end=0, audio_channel=None, rotate_deg=180,
         normalize=False, faststart=False, sync_offset_ms=None,
+        source_codec="h264",
     )
     assert cmd[cmd.index("-vf") + 1] == "transpose=1,transpose=1"
+
+
+def test_build_cmd_rotate_hevc_source_uses_hevc_encoder():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=0, trim_end=0, audio_channel=None, rotate_deg=90,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        source_codec="hevc",
+    )
+    assert cmd[cmd.index("-c:v") + 1] == encoder_for_codec("hevc")
+
+
+def test_build_cmd_rotate_no_source_codec_defaults_to_h264_encoder():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=0, trim_end=0, audio_channel=None, rotate_deg=90,
+        normalize=False, faststart=False, sync_offset_ms=None,
+    )
+    assert cmd[cmd.index("-c:v") + 1] == encoder_for_codec(None)
+
+
+def test_build_cmd_rotate_maps_only_primary_video_stream():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
+        trim_start=0, trim_end=0, audio_channel=None, rotate_deg=90,
+        normalize=False, faststart=False, sync_offset_ms=None,
+        source_codec="h264",
+    )
+    assert cmd[cmd.index("-map") + 1] == "0:v:0"
 
 
 def test_build_cmd_audio_channel_left_forces_audio_reencode():
@@ -124,7 +157,7 @@ def test_build_cmd_sync_offset_uses_dual_input():
     )
     assert cmd.count("-i") == 2
     assert cmd[cmd.index("-itsoffset") + 1] == "0.25"
-    assert cmd[cmd.index("-map") + 1] == "0:v"
+    assert cmd[cmd.index("-map") + 1] == "0:v:0"
     assert cmd[cmd.index("-map") + 3] == "1:a?"
 
 
@@ -153,7 +186,7 @@ def test_build_cmd_no_sync_offset_uses_single_input():
         normalize=False, faststart=False, sync_offset_ms=None,
     )
     assert cmd.count("-i") == 1
-    assert cmd[cmd.index("-map") + 1] == "0:v"
+    assert cmd[cmd.index("-map") + 1] == "0:v:0"
     assert cmd[cmd.index("-map") + 3] == "0:a?"
 
 
