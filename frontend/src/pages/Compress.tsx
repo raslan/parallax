@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  Minimize2, Zap, X, Loader2, ImageOff, Check, Play,
-  CheckSquare, Square, TrendingDown, LayoutGrid, List,
-  ArrowUpDown, ArrowUp, ArrowDown, Search,
+  Zap, X, Loader2, TrendingDown, LayoutGrid, List, Search,
 } from "lucide-react";
 import { compressApi, CompressCodec, VideoFile, Library, api } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatSize, formatDuration } from "@/lib/format";
+import { FileGridCard, FileListRow, ColHeader, applySortDir, SortDir } from "@/components/FileSelectGrid";
 
 // ── Radio toggle group ────────────────────────────────────────────────────────
 
@@ -118,11 +116,6 @@ function getCrfWarnThreshold(codec: string): number {
 // ── Sort ──────────────────────────────────────────────────────────────────────
 
 type SortKey = "filename" | "codec" | "duration" | "size" | "savings";
-type SortDir = "asc" | "desc";
-
-function applySortDir<T>(arr: T[], dir: SortDir): T[] {
-  return dir === "desc" ? [...arr].reverse() : arr;
-}
 
 function sortFiles(files: VideoFile[], key: SortKey, dir: SortDir, codec: string, crf: number, speed: string): VideoFile[] {
   const sorted = [...files].sort((a, b) => {
@@ -137,159 +130,6 @@ function sortFiles(files: VideoFile[], key: SortKey, dir: SortDir, codec: string
     return va < vb ? -1 : va > vb ? 1 : 0;
   });
   return applySortDir(sorted, dir);
-}
-
-// ── Grid card — exact Files.tsx pattern ───────────────────────────────────────
-
-function GridCard({
-  file, selected, onToggle, onPlay, codec, crf, speed,
-}: {
-  file: VideoFile; selected: boolean; onToggle: () => void; onPlay: () => void;
-  codec: string; crf: number; speed: string;
-}) {
-  const [imgError, setImgError] = useState(false);
-  const pct = savingsPct(file, codec, crf, speed);
-  const est = estimateSize(file, codec, crf, speed);
-  const growing = est > file.size;
-
-  return (
-    <Card
-      className={cn(
-        "overflow-hidden cursor-pointer group transition-shadow hover:ring-1",
-        selected ? "ring-2 ring-primary" : "hover:ring-primary"
-      )}
-      onClick={onToggle}
-    >
-      <div className="aspect-video bg-muted relative flex items-center justify-center">
-        {file.has_thumbnail && !imgError ? (
-          <img
-            src={api.thumbnailUrl(file.id)}
-            alt={file.filename}
-            className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-        ) : (
-          <ImageOff className="h-8 w-8 text-muted-foreground/40" />
-        )}
-
-        {/* Checkbox top-left — always visible */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
-          className={cn(
-            "absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
-            selected ? "bg-primary border-primary" : "bg-black/50 border-white/70"
-          )}
-        >
-          {selected && <Check className="h-2.5 w-2.5 text-white" />}
-        </button>
-
-        {/* Savings badge top-right */}
-        <div className="absolute top-1.5 right-1.5">
-          <span className={cn(
-            "text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 font-mono",
-            growing ? "text-red-400" : pct > 0 ? "text-green-400" : "text-muted-foreground/60"
-          )}>
-            {growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—"}
-          </span>
-        </div>
-
-        {/* Play button on hover — bottom-right */}
-        <div className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={(e) => { e.stopPropagation(); onPlay(); }}
-            title="Preview"
-            className="bg-black/60 hover:bg-black/80 rounded p-1"
-          >
-            <Play className="h-3.5 w-3.5 text-white" />
-          </button>
-        </div>
-      </div>
-
-      <div className="px-2 py-1.5 space-y-0.5">
-        <p className="text-xs font-mono truncate text-muted-foreground" title={file.filename}>
-          {file.filename}
-        </p>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
-          {file.codec_name && <span className="uppercase font-mono">{file.codec_name}</span>}
-          <span>{formatSize(file.size)}</span>
-          {file.duration != null && <span>{formatDuration(file.duration)}</span>}
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-// ── Sort column header ────────────────────────────────────────────────────────
-
-function ColHeader({ label, sortKey, current, dir, onSort, className }: {
-  label: string; sortKey: SortKey; current: SortKey; dir: SortDir;
-  onSort: (k: SortKey) => void; className?: string;
-}) {
-  const active = current === sortKey;
-  return (
-    <button
-      onClick={() => onSort(sortKey)}
-      className={cn("flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground transition-colors", className)}
-    >
-      {label}
-      {active
-        ? dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-        : <ArrowUpDown className="h-3 w-3 opacity-30" />}
-    </button>
-  );
-}
-
-// ── List row ──────────────────────────────────────────────────────────────────
-
-function ListRow({ file, selected, onToggle, onPlay, codec, crf, speed }: {
-  file: VideoFile; selected: boolean; onToggle: () => void; onPlay: () => void;
-  codec: string; crf: number; speed: string;
-}) {
-  const est = estimateSize(file, codec, crf, speed);
-  const pct = savingsPct(file, codec, crf, speed);
-  const growing = est > file.size;
-
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none group",
-        selected && "bg-primary/5"
-      )}
-      onClick={onToggle}
-    >
-      <span className="shrink-0">
-        {selected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
-      </span>
-      <span className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0" title={file.path}>
-        {file.filename}
-      </span>
-      {file.codec_name && (
-        <span className="text-xs text-muted-foreground/60 font-mono shrink-0 w-14 text-right uppercase">
-          {file.codec_name}
-        </span>
-      )}
-      <span className="text-xs text-muted-foreground/50 shrink-0 w-14 text-right">
-        {file.duration != null ? formatDuration(file.duration) : "—"}
-      </span>
-      <span className="text-xs text-muted-foreground/70 shrink-0 w-16 text-right font-mono">
-        {formatSize(file.size)}
-      </span>
-      <span className={cn("text-xs shrink-0 w-16 text-right font-mono", growing ? "text-red-400" : "text-muted-foreground/70")}>
-        {formatSize(est)}
-      </span>
-      <span className={cn("text-xs shrink-0 w-14 text-right font-semibold", growing ? "text-red-400" : pct > 0 ? "text-green-400" : "text-muted-foreground/50")}>
-        {growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—"}
-      </span>
-      <button
-        onClick={(e) => { e.stopPropagation(); onPlay(); }}
-        title="Preview"
-        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
-      >
-        <Play className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -791,15 +631,26 @@ export function Compress() {
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {filteredFiles.map((f) => (
-                <GridCard
+                <FileGridCard
                   key={f.id}
                   file={f}
                   selected={selected.has(f.id)}
                   onToggle={() => toggleFile(f.id)}
                   onPlay={() => setPlayingFile(f)}
-                  codec={codec}
-                  crf={crf}
-                  speed={speed}
+                  badge={
+                    <span className={cn(
+                      "text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 font-mono",
+                      estimateSize(f, codec, crf, speed) > f.size ? "text-red-400" :
+                      savingsPct(f, codec, crf, speed) > 0 ? "text-green-400" : "text-muted-foreground/60"
+                    )}>
+                      {(() => {
+                        const est = estimateSize(f, codec, crf, speed);
+                        const pct = savingsPct(f, codec, crf, speed);
+                        const growing = est > f.size;
+                        return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
+                      })()}
+                    </span>
+                  }
                 />
               ))}
             </div>
@@ -817,15 +668,27 @@ export function Compress() {
                 <span className="w-6 shrink-0" />
               </div>
               {filteredFiles.map((f) => (
-                <ListRow
+                <FileListRow
                   key={f.id}
                   file={f}
                   selected={selected.has(f.id)}
                   onToggle={() => toggleFile(f.id)}
                   onPlay={() => setPlayingFile(f)}
-                  codec={codec}
-                  crf={crf}
-                  speed={speed}
+                  trailing={
+                    <>
+                      <span className={cn("text-xs shrink-0 w-16 text-right font-mono", estimateSize(f, codec, crf, speed) > f.size ? "text-red-400" : "text-muted-foreground/70")}>
+                        {formatSize(estimateSize(f, codec, crf, speed))}
+                      </span>
+                      <span className={cn("text-xs shrink-0 w-14 text-right font-semibold", estimateSize(f, codec, crf, speed) > f.size ? "text-red-400" : savingsPct(f, codec, crf, speed) > 0 ? "text-green-400" : "text-muted-foreground/50")}>
+                        {(() => {
+                          const est = estimateSize(f, codec, crf, speed);
+                          const pct = savingsPct(f, codec, crf, speed);
+                          const growing = est > f.size;
+                          return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
+                        })()}
+                      </span>
+                    </>
+                  }
                 />
               ))}
             </div>
