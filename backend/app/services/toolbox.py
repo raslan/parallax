@@ -12,7 +12,7 @@ from app.database import SessionLocal
 from app.models.file import File
 from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
-from app.services.compressor import _cleanup, _read_and_remove
+from app.services.compressor import _cleanup, _read_and_remove, _NEEDS_REMUX
 from app.services.encoder import encoder_for_codec
 from app.services.scanner import rescan_file
 
@@ -42,9 +42,11 @@ def _build_toolbox_cmd(
     source_codec: str | None = None,  # e.g. "h264", "hevc", "av1" — used to pick rotate's output codec
     force_video_reencode: bool = False,
     copy_seek_start: float | None = None,  # actual keyframe-snapped seek point, copy-mode only
+    rebase_pts: bool = False,     # matroska-family output needs pts rezeroed after a trimmed reencode
+    has_audio: bool = True,       # whether asetpts can safely be applied when rebase_pts is set
 ) -> list[str]:
     needs_video_reencode = rotate_deg is not None or force_video_reencode
-    needs_audio_reencode = audio_channel is not None or normalize
+    needs_audio_reencode = audio_channel is not None or normalize or (rebase_pts and has_audio)
     has_dual_input = sync_offset_ms is not None
 
     ss_args = ["-ss", str(trim_start)] if trim_start > 0 else []
@@ -75,26 +77,22 @@ def _build_toolbox_cmd(
         vf_filters.append("transpose=2")
     elif rotate_deg == 180:
         vf_filters.append("transpose=1,transpose=1")
+    if rebase_pts:
+        # Matroska/webm muxing preserves the source's absolute timestamps after a
+        # reencoded `-ss` trim (unlike mp4, which rezeros automatically) — the
+        # container's declared duration ends up wrong (full original length, not
+        # the trimmed length) unless pts is explicitly rebased to start at 0.
+        vf_filters.append("setpts=PTS-STARTPTS")
     if vf_filters:
         cmd += ["-vf", ",".join(vf_filters)]
 
     out_ext = os.path.splitext(output_path)[1].lower()
 
     if needs_video_reencode:
-        if out_ext == ".webm":
-            # WebM's container spec only allows VP8/VP9/AV1 video — muxing the
-            # HEVC/H.264 encoder that encoder_for_codec() would otherwise pick
-            # fails outright, so force the one video codec the container can hold.
-            # No NVENC/QSV/VAAPI VP9 encode path is wired up (NVENC can't encode
-            # VP9 at all), so this is always libvpx-vp9 software — `-cpu-used 4`
-            # trades a little quality for a large speed win over the (very slow)
-            # default `-cpu-used 0`.
-            cmd += ["-c:v", "libvpx-vp9", "-crf", "18", "-b:v", "0", "-cpu-used", "4", "-deadline", "good"]
-        else:
-            encoder = encoder_for_codec(source_codec)
-            cmd += ["-c:v", encoder, "-crf", "18", "-preset", "medium"]
-            if encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
-                cmd += ["-tag:v", "hvc1"]
+        encoder = encoder_for_codec(source_codec)
+        cmd += ["-c:v", encoder, "-crf", "18", "-preset", "medium"]
+        if encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
+            cmd += ["-tag:v", "hvc1"]
     else:
         cmd += ["-c:v", "copy"]
 
@@ -103,6 +101,8 @@ def _build_toolbox_cmd(
         af_filters.append("pan=stereo|c0=c0|c1=c0")
     elif audio_channel == "right":
         af_filters.append("pan=stereo|c0=c1|c1=c1")
+    if rebase_pts and has_audio:
+        af_filters.append("asetpts=PTS-STARTPTS")
     if normalize:
         af_filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
     if af_filters:
@@ -173,6 +173,27 @@ def _nearest_keyframe_at_or_before(path: str, target: float) -> float | None:
     return _parse_last_keyframe_at_or_before(proc.stdout, target)
 
 
+def _has_audio_stream(path: str) -> bool:
+    """Probe whether the file has an audio stream at all.
+
+    Fails safe toward True: if the probe itself is inconclusive, callers use this
+    to decide whether it's safe to also force an audio reencode alongside a video
+    one — wrongly assuming "no audio" would leave a real audio track silently
+    out of sync (stream-copied at the old timestamps against rebased video),
+    while wrongly assuming "has audio" only costs a loud ffmpeg error on an
+    audio-less file, never silent corruption.
+    """
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a:0",
+             "-show_entries", "stream=index", "-of", "csv=p=0", path],
+            capture_output=True, text=True, timeout=30,
+        )
+        return bool(proc.stdout.strip())
+    except Exception:
+        return True
+
+
 def detect_louder_channel(path: str) -> str:
     """Run ffmpeg astats on the file's audio, return 'left' or 'right' — whichever channel has higher RMS."""
     proc = subprocess.run(
@@ -198,14 +219,18 @@ def _toolbox_fix_one(
     progress_cb: Callable[[float], None] | None = None,
     note_cb: Callable[[str], None] | None = None,
     keep_original: bool = True,
-) -> tuple[bool, str | None]:
-    """Apply the configured fix(es) to one file in-place. Returns (success, error_msg)."""
+) -> tuple[bool, str | None, str | None]:
+    """Apply the configured fix(es) to one file in-place.
+
+    Returns (success, error_msg, final_path). final_path is the file's path after
+    the fix — usually unchanged, but differs from the input path when a forced
+    video reencode required remuxing out of a container that can't hold the
+    chosen encoder (e.g. .webm -> .mkv). None when the fix failed.
+    """
     if should_cancel(job_id):
-        return False, "Cancelled"
+        return False, "Cancelled", None
     src = file_path
     base, ext = os.path.splitext(src)
-    tmp = base + ".fixing" + ext
-    dst = src
 
     duration = 0.0
     try:
@@ -223,13 +248,13 @@ def _toolbox_fix_one(
     trim_end = settings.get("trim_end") or 0
 
     if (trim_start > 0 or trim_end > 0) and (duration <= 0 or duration - trim_start - trim_end < 1.0):
-        return False, "Could not determine file duration or trim exceeds duration"
+        return False, "Could not determine file duration or trim exceeds duration", None
 
     force_video_reencode = False
     nearest_kf: float | None = None
     if trim_start > 0:
         if should_cancel(job_id):
-            return False, "Cancelled"
+            return False, "Cancelled", None
         nearest_kf = _nearest_keyframe_at_or_before(src, trim_start)
         if nearest_kf is None or (trim_start - nearest_kf) > _TRIM_KEYFRAME_TOLERANCE:
             force_video_reencode = True
@@ -239,12 +264,28 @@ def _toolbox_fix_one(
                     f"{trim_start}s — re-encoding video"
                 )
 
+    needs_video_reencode = settings.get("rotate_deg") is not None or force_video_reencode
+
+    if needs_video_reencode and ext.lower() in _NEEDS_REMUX:
+        # The chosen hardware/software encoder is almost always H.264/HEVC —
+        # webm/flv/avi/wmv can't hold those, so remux into mkv (same as Compress
+        # does for the identical container set) instead of forcing a slow,
+        # GPU-less codec just to keep the original extension.
+        out_ext = ".mkv"
+    else:
+        out_ext = ext.lower()
+    tmp = base + ".fixing" + out_ext
+    dst = src if out_ext == ext.lower() else (base + out_ext)
+
+    rebase_pts = trim_start > 0 and needs_video_reencode and out_ext in {".mkv", ".webm"}
+    has_audio = _has_audio_stream(src) if rebase_pts else True
+
     audio_setting = settings.get("audio_channel")
     try:
         audio_channel = _resolve_audio_channel(src, audio_setting)
     except Exception:
         if audio_setting == "auto":
-            return False, "Could not detect louder audio channel"
+            return False, "Could not detect louder audio channel", None
         audio_channel = None
 
     if audio_channel == "right":
@@ -260,7 +301,7 @@ def _toolbox_fix_one(
         except Exception:
             pass
         if channel_count < 2:
-            return False, "Source has no right channel — file is mono"
+            return False, "Source has no right channel — file is mono", None
 
     source_codec = None
     if settings.get("rotate_deg") is not None or force_video_reencode:
@@ -287,6 +328,8 @@ def _toolbox_fix_one(
         source_codec=source_codec,
         force_video_reencode=force_video_reencode,
         copy_seek_start=nearest_kf,
+        rebase_pts=rebase_pts,
+        has_audio=has_audio,
     )
 
     proc = None
@@ -302,7 +345,7 @@ def _toolbox_fix_one(
                 proc.wait()
                 _cleanup(tmp)
                 _cleanup(err_path)
-                return False, "Cancelled"
+                return False, "Cancelled", None
 
             line = line.strip()
             if line.startswith("out_time_ms=") and duration > 0 and progress_cb:
@@ -318,7 +361,7 @@ def _toolbox_fix_one(
         if proc.returncode != 0:
             stderr_text = _read_and_remove(err_path)
             _cleanup(tmp)
-            return False, (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}")
+            return False, (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"), None
 
         _cleanup(err_path)
 
@@ -330,7 +373,7 @@ def _toolbox_fix_one(
             os.remove(src)
 
         shutil.move(tmp, dst)
-        return True, None
+        return True, None, dst
 
     except Exception as e:
         if err_fd != -1:
@@ -346,22 +389,28 @@ def _toolbox_fix_one(
                 pass
         _cleanup(tmp)
         _cleanup(err_path)
-        return False, str(e)
+        return False, str(e), None
 
 
-def _rescan_after_job(path: str) -> None:
+def _rescan_after_job(original_path: str, final_path: str) -> None:
     """Re-probe one file right after a successful fix, on its own DB session.
 
     Called from a worker thread inside the job's thread pool — must not touch the
     job runner's own `db` session, which is only safe on the main job-loop thread.
-    Toolbox fixes never rename the file (unlike Compress, which can change
-    container), so there's no path to repoint — just re-probe in place.
+    `final_path` can differ from `original_path` when a forced video reencode
+    required remuxing to a container the chosen encoder can mux into (e.g.
+    .webm -> .mkv); the DB row is repointed at the new path first.
     """
     rescan_db = SessionLocal()
     try:
-        file_obj = rescan_db.query(File).filter(File.path == path).first()
+        file_obj = rescan_db.query(File).filter(File.path == original_path).first()
         if not file_obj:
             return
+        if final_path != original_path:
+            file_obj.path = final_path
+            file_obj.filename = os.path.basename(final_path)
+            file_obj.extension = os.path.splitext(final_path)[1].lower().lstrip(".")
+            rescan_db.commit()
         rescan_file(rescan_db, file_obj)
     except Exception:
         pass
@@ -410,7 +459,7 @@ def run_toolbox_job(
         def do_one(path: str) -> tuple[str, bool, str | None]:
             fname = os.path.basename(path)
             log_q.put(("info", f"Fixing: {fname}"))
-            ok, err = _toolbox_fix_one(
+            ok, err, final_path = _toolbox_fix_one(
                 path, settings, job_id,
                 progress_cb=make_progress_cb(path),
                 note_cb=lambda msg: log_q.put(("info", msg)),
@@ -419,7 +468,7 @@ def run_toolbox_job(
             with fracs_lock:
                 fracs.pop(path, None)
             if ok:
-                _rescan_after_job(path)
+                _rescan_after_job(path, final_path)
             return path, ok, err
 
         def flush_to_db() -> None:
