@@ -1,5 +1,5 @@
 from app.services.encoder import encoder_for_codec
-from app.services.toolbox import _build_toolbox_cmd, parse_channel_rms
+from app.services.toolbox import _build_toolbox_cmd, parse_channel_rms, _parse_last_keyframe_at_or_before
 
 
 def test_build_cmd_plain_copy_no_fixes():
@@ -233,3 +233,47 @@ RMS level dB: -inf
 """
     rms = parse_channel_rms(astats_output)
     assert rms[2] == float("-inf")
+
+
+def test_parse_last_keyframe_finds_last_before_target():
+    csv_output = (
+        "0.000000,K_\n"
+        "0.500000,__\n"
+        "1.000000,__\n"
+        "3.337000,K_\n"
+        "3.500000,__\n"
+        "7.841000,K_\n"
+    )
+    assert _parse_last_keyframe_at_or_before(csv_output, 3.5) == 3.337
+
+
+def test_parse_last_keyframe_only_keyframe_at_zero():
+    csv_output = (
+        "0.000000,K_\n"
+        "0.500000,__\n"
+        "1.000000,__\n"
+    )
+    assert _parse_last_keyframe_at_or_before(csv_output, 1.0) == 0.0
+
+
+def test_parse_last_keyframe_ignores_keyframes_after_target():
+    csv_output = (
+        "0.000000,K_\n"
+        "5.000000,K_\n"
+    )
+    assert _parse_last_keyframe_at_or_before(csv_output, 2.0) == 0.0
+
+
+def test_parse_last_keyframe_no_keyframe_data_returns_none():
+    assert _parse_last_keyframe_at_or_before("", 3.0) is None
+
+
+def test_parse_last_keyframe_malformed_lines_are_skipped():
+    csv_output = (
+        "not,valid,csv,too,many,fields\n"
+        "0.000000,K_\n"
+        "garbage\n"
+        "abc,K_\n"
+        "2.000000,K_\n"
+    )
+    assert _parse_last_keyframe_at_or_before(csv_output, 2.0) == 2.0

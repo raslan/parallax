@@ -18,6 +18,15 @@ from app.services.scanner import rescan_file
 
 _HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
 
+_TRIM_KEYFRAME_TOLERANCE = 0.5  # seconds — how close a preceding keyframe must be
+# to trust a stream-copy trim at trim_start. Beyond this, ffmpeg's copy-mode seek
+# silently snaps back to that earlier keyframe while the requested duration is
+# still computed from the (unreached) target — producing a barely-trimmed or
+# untrimmed output that still reports success. Forcing a re-encode in that case
+# is correct: a single `-ss` before `-i` is frame-accurate once ffmpeg is actually
+# decoding (verified empirically — this is not true in `-c copy` mode, which is
+# exactly why this check exists).
+
 
 def _build_toolbox_cmd(
     input_path: str,
@@ -99,6 +108,43 @@ def parse_channel_rms(astats_output: str) -> dict[int, float]:
     for chan_str, rms_str in _CHANNEL_BLOCK_RE.findall(astats_output):
         result[int(chan_str)] = float("-inf") if rms_str == "-inf" else float(rms_str)
     return result
+
+
+def _parse_last_keyframe_at_or_before(csv_output: str, target: float) -> float | None:
+    """Parse ffprobe `packet=pts_time,flags` CSV output (one `pts,flags` pair per
+    line, flags containing 'K' for a keyframe packet). Returns the pts_time of the
+    last keyframe at or before `target` seconds, or None if none is found."""
+    last_kf: float | None = None
+    for line in csv_output.strip().splitlines():
+        parts = line.split(",")
+        if len(parts) != 2:
+            continue
+        pts_str, flags = parts
+        if "K" not in flags:
+            continue
+        try:
+            pts = float(pts_str)
+        except ValueError:
+            continue
+        if pts <= target and (last_kf is None or pts > last_kf):
+            last_kf = pts
+    return last_kf
+
+
+def _nearest_keyframe_at_or_before(path: str, target: float) -> float | None:
+    """Probe the video stream for the last keyframe at or before `target` seconds —
+    the point ffmpeg's stream-copy seek will actually land on for `-ss target`."""
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "packet=pts_time,flags",
+             "-read_intervals", f"%{target}",
+             "-of", "csv=p=0", path],
+            capture_output=True, text=True, timeout=30,
+        )
+    except Exception:
+        return None
+    return _parse_last_keyframe_at_or_before(proc.stdout, target)
 
 
 def detect_louder_channel(path: str) -> str:
