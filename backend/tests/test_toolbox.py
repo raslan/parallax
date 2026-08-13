@@ -7,7 +7,6 @@ from app.services.toolbox import (
     parse_channel_rms,
     _parse_last_keyframe_at_or_before,
     _nearest_keyframe_at_or_before,
-    _has_audio_stream,
     _toolbox_fix_one,
 )
 
@@ -426,7 +425,6 @@ def test_toolbox_fix_one_remuxes_webm_to_mkv_on_forced_reencode(monkeypatch, tmp
     monkeypatch.setattr(
         "app.services.toolbox._nearest_keyframe_at_or_before", lambda path, target: 0.0
     )
-    monkeypatch.setattr("app.services.toolbox._has_audio_stream", lambda path: True)
     monkeypatch.setattr(subprocess, "Popen", _FakePopen)
 
     ok, err, final_path = _toolbox_fix_one(str(src), {"trim_start": 3.0}, job_id=1)
@@ -444,21 +442,34 @@ def test_toolbox_fix_one_remuxes_webm_to_mkv_on_forced_reencode(monkeypatch, tmp
     assert os.path.exists(expected_dst)
 
 
-def test_toolbox_fix_one_remux_without_audio_keeps_audio_copy(monkeypatch, tmp_path):
+def test_toolbox_fix_one_extensionless_source_defaults_to_mkv(monkeypatch, tmp_path):
+    src = tmp_path / "movie"
+    src.write_bytes(b"fake")
+    _patch_ffprobe_duration(monkeypatch, 60.0)
+    monkeypatch.setattr(subprocess, "Popen", _FakePopen)
+
+    ok, err, final_path = _toolbox_fix_one(str(src), {"rotate_deg": 90}, job_id=1)
+
+    assert ok is True
+    assert final_path == str(tmp_path / "movie.mkv")
+
+
+def test_toolbox_fix_one_rotate_only_remux_no_pts_rebase(monkeypatch, tmp_path):
     src = tmp_path / "movie.webm"
     src.write_bytes(b"fake")
     _patch_ffprobe_duration(monkeypatch, 60.0)
-    monkeypatch.setattr(
-        "app.services.toolbox._nearest_keyframe_at_or_before", lambda path, target: 0.0
-    )
-    monkeypatch.setattr("app.services.toolbox._has_audio_stream", lambda path: False)
     monkeypatch.setattr(subprocess, "Popen", _FakePopen)
 
-    ok, err, final_path = _toolbox_fix_one(str(src), {"trim_start": 3.0}, job_id=1)
+    ok, err, final_path = _toolbox_fix_one(str(src), {"rotate_deg": 90}, job_id=1)
 
     assert ok is True
+    expected_dst = str(tmp_path / "movie.mkv")
+    assert final_path == expected_dst
+    assert _FakePopen.last_cmd[_FakePopen.last_cmd.index("-c:v") + 1] != "copy"
+    vf = _FakePopen.last_cmd[_FakePopen.last_cmd.index("-vf") + 1]
+    assert "transpose=1" in vf
+    assert "setpts" not in vf
     assert _FakePopen.last_cmd[_FakePopen.last_cmd.index("-c:a") + 1] == "copy"
-    assert "-af" not in _FakePopen.last_cmd
 
 
 def test_build_cmd_copy_mode_uses_keyframe_snapped_seek_for_clip_len():
@@ -487,23 +498,11 @@ def test_build_cmd_rebase_pts_adds_setpts_and_forces_audio_reencode():
         "/lib/movie.mkv", "/lib/movie.fixing.mkv", duration=60.0,
         trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
         normalize=False, faststart=False, sync_offset_ms=None,
-        force_video_reencode=True, rebase_pts=True, has_audio=True,
+        force_video_reencode=True, rebase_pts=True,
     )
     assert "setpts=PTS-STARTPTS" in cmd[cmd.index("-vf") + 1]
     assert "asetpts=PTS-STARTPTS" in cmd[cmd.index("-af") + 1]
     assert cmd[cmd.index("-c:a") + 1] == "aac"
-
-
-def test_build_cmd_rebase_pts_without_audio_keeps_copy_and_no_af():
-    cmd = _build_toolbox_cmd(
-        "/lib/movie.mkv", "/lib/movie.fixing.mkv", duration=60.0,
-        trim_start=3.0, trim_end=0, audio_channel=None, rotate_deg=None,
-        normalize=False, faststart=False, sync_offset_ms=None,
-        force_video_reencode=True, rebase_pts=True, has_audio=False,
-    )
-    assert "setpts=PTS-STARTPTS" in cmd[cmd.index("-vf") + 1]
-    assert "-af" not in cmd
-    assert cmd[cmd.index("-c:a") + 1] == "copy"
 
 
 def test_build_cmd_no_rebase_pts_no_setpts():
@@ -514,25 +513,6 @@ def test_build_cmd_no_rebase_pts_no_setpts():
         force_video_reencode=True,
     )
     assert "-vf" not in cmd
-
-
-def test_has_audio_stream_true_when_ffprobe_reports_stream(monkeypatch):
-    class FakeProc:
-        stdout = "0\n"
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
-    assert _has_audio_stream("/lib/movie.mkv") is True
-
-
-def test_has_audio_stream_false_when_ffprobe_reports_nothing(monkeypatch):
-    class FakeProc:
-        stdout = ""
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
-    assert _has_audio_stream("/lib/movie.mkv") is False
-
-
-def test_has_audio_stream_fails_safe_true_on_probe_error(monkeypatch):
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError()))
-    assert _has_audio_stream("/lib/movie.mkv") is True
 
 
 def test_parse_last_keyframe_malformed_lines_are_skipped():

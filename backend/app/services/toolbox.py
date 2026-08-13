@@ -9,12 +9,10 @@ import threading
 from typing import Callable
 
 from app.database import SessionLocal
-from app.models.file import File
 from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
-from app.services.compressor import _cleanup, _read_and_remove, _NEEDS_REMUX
+from app.services.compressor import _cleanup, _read_and_remove, _NEEDS_REMUX, _rescan_after_job
 from app.services.encoder import encoder_for_codec
-from app.services.scanner import rescan_file
 
 _HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
 
@@ -43,10 +41,9 @@ def _build_toolbox_cmd(
     force_video_reencode: bool = False,
     copy_seek_start: float | None = None,  # actual keyframe-snapped seek point, copy-mode only
     rebase_pts: bool = False,     # matroska-family output needs pts rezeroed after a trimmed reencode
-    has_audio: bool = True,       # whether asetpts can safely be applied when rebase_pts is set
 ) -> list[str]:
     needs_video_reencode = rotate_deg is not None or force_video_reencode
-    needs_audio_reencode = audio_channel is not None or normalize or (rebase_pts and has_audio)
+    needs_audio_reencode = audio_channel is not None or normalize or rebase_pts
     has_dual_input = sync_offset_ms is not None
 
     ss_args = ["-ss", str(trim_start)] if trim_start > 0 else []
@@ -101,7 +98,7 @@ def _build_toolbox_cmd(
         af_filters.append("pan=stereo|c0=c0|c1=c0")
     elif audio_channel == "right":
         af_filters.append("pan=stereo|c0=c1|c1=c1")
-    if rebase_pts and has_audio:
+    if rebase_pts:
         af_filters.append("asetpts=PTS-STARTPTS")
     if normalize:
         af_filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
@@ -171,27 +168,6 @@ def _nearest_keyframe_at_or_before(path: str, target: float) -> float | None:
     except Exception:
         return None
     return _parse_last_keyframe_at_or_before(proc.stdout, target)
-
-
-def _has_audio_stream(path: str) -> bool:
-    """Probe whether the file has an audio stream at all.
-
-    Fails safe toward True: if the probe itself is inconclusive, callers use this
-    to decide whether it's safe to also force an audio reencode alongside a video
-    one — wrongly assuming "no audio" would leave a real audio track silently
-    out of sync (stream-copied at the old timestamps against rebased video),
-    while wrongly assuming "has audio" only costs a loud ffmpeg error on an
-    audio-less file, never silent corruption.
-    """
-    try:
-        proc = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "a:0",
-             "-show_entries", "stream=index", "-of", "csv=p=0", path],
-            capture_output=True, text=True, timeout=30,
-        )
-        return bool(proc.stdout.strip())
-    except Exception:
-        return True
 
 
 def detect_louder_channel(path: str) -> str:
@@ -273,12 +249,14 @@ def _toolbox_fix_one(
         # GPU-less codec just to keep the original extension.
         out_ext = ".mkv"
     else:
-        out_ext = ext.lower()
+        out_ext = ext.lower() or ".mkv"
     tmp = base + ".fixing" + out_ext
     dst = src if out_ext == ext.lower() else (base + out_ext)
 
-    rebase_pts = trim_start > 0 and needs_video_reencode and out_ext in {".mkv", ".webm"}
-    has_audio = _has_audio_stream(src) if rebase_pts else True
+    # Matroska (the only remux target, and a source that's already native .mkv)
+    # doesn't auto-rezero timestamps after a reencoded `-ss` trim the way mp4
+    # does — see _build_toolbox_cmd's rebase_pts handling.
+    rebase_pts = trim_start > 0 and needs_video_reencode and out_ext == ".mkv"
 
     audio_setting = settings.get("audio_channel")
     try:
@@ -329,7 +307,6 @@ def _toolbox_fix_one(
         force_video_reencode=force_video_reencode,
         copy_seek_start=nearest_kf,
         rebase_pts=rebase_pts,
-        has_audio=has_audio,
     )
 
     proc = None
@@ -390,32 +367,6 @@ def _toolbox_fix_one(
         _cleanup(tmp)
         _cleanup(err_path)
         return False, str(e), None
-
-
-def _rescan_after_job(original_path: str, final_path: str) -> None:
-    """Re-probe one file right after a successful fix, on its own DB session.
-
-    Called from a worker thread inside the job's thread pool — must not touch the
-    job runner's own `db` session, which is only safe on the main job-loop thread.
-    `final_path` can differ from `original_path` when a forced video reencode
-    required remuxing to a container the chosen encoder can mux into (e.g.
-    .webm -> .mkv); the DB row is repointed at the new path first.
-    """
-    rescan_db = SessionLocal()
-    try:
-        file_obj = rescan_db.query(File).filter(File.path == original_path).first()
-        if not file_obj:
-            return
-        if final_path != original_path:
-            file_obj.path = final_path
-            file_obj.filename = os.path.basename(final_path)
-            file_obj.extension = os.path.splitext(final_path)[1].lower().lstrip(".")
-            rescan_db.commit()
-        rescan_file(rescan_db, file_obj)
-    except Exception:
-        pass
-    finally:
-        rescan_db.close()
 
 
 def run_toolbox_job(
