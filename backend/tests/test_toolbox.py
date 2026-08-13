@@ -23,6 +23,15 @@ def test_build_cmd_trim_both_ends():
     assert cmd[cmd.index("-t") + 1] == "85.0"
 
 
+def test_build_cmd_trim_clip_len_is_plain_subtraction_no_floor():
+    cmd = _build_toolbox_cmd(
+        "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=100.0,
+        trim_start=5.0, trim_end=10.0, audio_channel=None, rotate_deg=None,
+        normalize=False, faststart=False, sync_offset_ms=None,
+    )
+    assert cmd[cmd.index("-t") + 1] == "85.0"
+
+
 def test_build_cmd_rotate_forces_video_reencode():
     cmd = _build_toolbox_cmd(
         "/lib/movie.mp4", "/lib/movie.fixing.mp4", duration=60.0,
