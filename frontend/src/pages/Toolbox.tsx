@@ -8,6 +8,7 @@ import { FileGridCard, FileListRow, ColHeader, applySortDir, SortDir } from "@/c
 import { useLiveFiles } from "@/lib/useLiveFiles";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
+import { FilterAccordion } from "@/components/FilterAccordion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -37,12 +38,14 @@ export function Toolbox() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fix settings
+  const [trimEnabled, setTrimEnabled] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [audioChannel, setAudioChannel] = useState<AudioChannel | null>(null);
   const [rotateDeg, setRotateDeg] = useState<RotateDeg | null>(null);
   const [normalize, setNormalize] = useState(false);
   const [faststart, setFaststart] = useState(false);
+  const [syncEnabled, setSyncEnabled] = useState(false);
   const [syncOffsetMs, setSyncOffsetMs] = useState(0);
   const [keepOriginal, setKeepOriginal] = useState(true);
 
@@ -163,8 +166,8 @@ export function Toolbox() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hasFix = trimStart > 0 || trimEnd > 0 || audioChannel != null || rotateDeg != null
-    || normalize || faststart || syncOffsetMs !== 0;
+  const hasFix = trimEnabled || audioChannel != null || rotateDeg != null
+    || normalize || faststart || syncEnabled;
 
   const handleStart = async () => {
     if (selectedFiles.length === 0 || !hasFix || starting) return;
@@ -173,13 +176,13 @@ export function Toolbox() {
     try {
       const { job_id } = await toolboxApi.start({
         file_ids: selectedFiles.map((f) => f.id),
-        trim_start: trimStart,
-        trim_end: trimEnd,
+        trim_start: trimEnabled ? trimStart : 0,
+        trim_end: trimEnabled ? trimEnd : 0,
         audio_channel: audioChannel,
         rotate_deg: rotateDeg,
         normalize,
         faststart,
-        sync_offset_ms: syncOffsetMs !== 0 ? syncOffsetMs : null,
+        sync_offset_ms: syncEnabled && syncOffsetMs !== 0 ? syncOffsetMs : null,
         keep_original: keepOriginal,
       });
       setJobId(job_id);
@@ -241,128 +244,6 @@ export function Toolbox() {
           </select>
         </div>
 
-        {/* Trim */}
-        <div className="px-5 py-4 flex items-start gap-8">
-          <div className="w-40 shrink-0">
-            <p className="text-xs font-medium text-foreground">Trim</p>
-            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Cut seconds off the start and/or end. Stream-copied — instant.</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              Start
-              <input
-                type="number" min={0} step={0.5} value={trimStart}
-                onChange={(e) => setTrimStart(Math.max(0, Number(e.target.value)))}
-                className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              /> sec
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              End
-              <input
-                type="number" min={0} step={0.5} value={trimEnd}
-                onChange={(e) => setTrimEnd(Math.max(0, Number(e.target.value)))}
-                className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              /> sec
-            </label>
-          </div>
-        </div>
-
-        {/* Audio channel */}
-        <div className="px-5 py-4 flex items-start gap-8">
-          <div className="w-40 shrink-0">
-            <p className="text-xs font-medium text-foreground">Audio Channel</p>
-            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Fix one-ear audio by copying one channel to both.</p>
-          </div>
-          <div className="flex gap-2">
-            {(["off", "auto", "left", "right"] as const).map((opt) => {
-              const value = opt === "off" ? null : opt;
-              const active = audioChannel === value;
-              return (
-                <button
-                  key={opt}
-                  onClick={() => setAudioChannel(value)}
-                  className={cn(
-                    "h-9 px-3 rounded-md border text-sm capitalize transition-colors",
-                    active ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground"
-                  )}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Rotate */}
-        <div className="px-5 py-4 flex items-start gap-8">
-          <div className="w-40 shrink-0">
-            <p className="text-xs font-medium text-foreground">Rotate</p>
-            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Actually rotates pixels — forces a re-encode (near-lossless CRF 18).</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setRotateDeg(rotateDeg === 90 ? null : 90)}
-              className={cn("h-9 px-3 rounded-md border text-sm flex items-center gap-1.5 transition-colors",
-                rotateDeg === 90 ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}
-            >
-              <RotateCw className="h-3.5 w-3.5" /> 90° CW
-            </button>
-            <button
-              onClick={() => setRotateDeg(rotateDeg === 270 ? null : 270)}
-              className={cn("h-9 px-3 rounded-md border text-sm flex items-center gap-1.5 transition-colors",
-                rotateDeg === 270 ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> 90° CCW
-            </button>
-            <button
-              onClick={() => setRotateDeg(rotateDeg === 180 ? null : 180)}
-              className={cn("h-9 px-3 rounded-md border text-sm flex items-center gap-1.5 transition-colors",
-                rotateDeg === 180 ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> 180°
-            </button>
-          </div>
-        </div>
-
-        {/* Normalize + Faststart */}
-        <div className="px-5 py-4 grid grid-cols-2 gap-0 divide-x divide-border/40">
-          <div className="flex items-start gap-8 pr-8">
-            <div className="w-40 shrink-0">
-              <p className="text-xs font-medium text-foreground">Normalize Volume</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">Even out loudness (EBU R128, single-pass).</p>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input type="checkbox" checked={normalize} onChange={(e) => setNormalize(e.target.checked)} className="accent-primary h-4 w-4" />
-              <span className="text-sm text-foreground">Enable</span>
-            </label>
-          </div>
-          <div className="flex items-start gap-8 pl-8">
-            <div className="w-40 shrink-0">
-              <p className="text-xs font-medium text-foreground">Faststart</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">Move moov atom to front — fixes slow-to-seek mp4/m4v/mov.</p>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input type="checkbox" checked={faststart} onChange={(e) => setFaststart(e.target.checked)} className="accent-primary h-4 w-4" />
-              <span className="text-sm text-foreground">Enable</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Sync offset */}
-        <div className="px-5 py-4 flex items-start gap-8">
-          <div className="w-40 shrink-0">
-            <p className="text-xs font-medium text-foreground">A/V Sync Offset</p>
-            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Shift audio relative to video. Positive delays audio, negative advances it.</p>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="number" step={10} value={syncOffsetMs}
-              onChange={(e) => setSyncOffsetMs(Number(e.target.value))}
-              className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            /> ms
-          </label>
-        </div>
-
         {/* Output */}
         <div className="px-5 py-4 flex items-center gap-8">
           <div className="w-40 shrink-0">
@@ -382,6 +263,129 @@ export function Toolbox() {
             </div>
           </label>
         </div>
+      </div>
+
+      {/* Tools — accordion list, room to grow */}
+      <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+
+        <FilterAccordion
+          label="Trim"
+          summary={trimEnabled ? `${trimStart}s start, ${trimEnd}s end` : null}
+          enabled={trimEnabled}
+          onToggle={(v) => { setTrimEnabled(v); if (!v) { setTrimStart(0); setTrimEnd(0); } }}
+        >
+          <p className="text-[11px] text-muted-foreground/60 mb-3">Cut seconds off the start and/or end. Stream-copied — instant.</p>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              Start
+              <input
+                type="number" min={0} step={0.5} value={trimStart}
+                onChange={(e) => setTrimStart(Math.max(0, Number(e.target.value)))}
+                className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              /> sec
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              End
+              <input
+                type="number" min={0} step={0.5} value={trimEnd}
+                onChange={(e) => setTrimEnd(Math.max(0, Number(e.target.value)))}
+                className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              /> sec
+            </label>
+          </div>
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="Audio Channel"
+          summary={audioChannel != null ? audioChannel : null}
+          enabled={audioChannel != null}
+          onToggle={(v) => setAudioChannel(v ? "auto" : null)}
+        >
+          <p className="text-[11px] text-muted-foreground/60 mb-3">Fix one-ear audio by copying one channel to both.</p>
+          <div className="flex gap-2">
+            {(["auto", "left", "right"] as const).map((opt) => {
+              const active = audioChannel === opt;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => setAudioChannel(opt)}
+                  className={cn(
+                    "h-9 px-3 rounded-md border text-sm capitalize transition-colors",
+                    active ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground"
+                  )}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="Rotate"
+          summary={rotateDeg != null ? `${rotateDeg}°` : null}
+          enabled={rotateDeg != null}
+          onToggle={(v) => setRotateDeg(v ? 90 : null)}
+        >
+          <p className="text-[11px] text-muted-foreground/60 mb-3">Actually rotates pixels — forces a re-encode (near-lossless CRF 18).</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setRotateDeg(90)}
+              className={cn("h-9 px-3 rounded-md border text-sm flex items-center gap-1.5 transition-colors",
+                rotateDeg === 90 ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}
+            >
+              <RotateCw className="h-3.5 w-3.5" /> 90° CW
+            </button>
+            <button
+              onClick={() => setRotateDeg(270)}
+              className={cn("h-9 px-3 rounded-md border text-sm flex items-center gap-1.5 transition-colors",
+                rotateDeg === 270 ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> 90° CCW
+            </button>
+            <button
+              onClick={() => setRotateDeg(180)}
+              className={cn("h-9 px-3 rounded-md border text-sm flex items-center gap-1.5 transition-colors",
+                rotateDeg === 180 ? "border-primary/60 bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground")}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> 180°
+            </button>
+          </div>
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="Normalize Volume"
+          summary={null}
+          enabled={normalize}
+          onToggle={setNormalize}
+        >
+          <p className="text-[11px] text-muted-foreground/60">Even out loudness (EBU R128, single-pass).</p>
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="Faststart"
+          summary={null}
+          enabled={faststart}
+          onToggle={setFaststart}
+        >
+          <p className="text-[11px] text-muted-foreground/60">Move moov atom to front — fixes slow-to-seek mp4/m4v/mov.</p>
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="A/V Sync Offset"
+          summary={syncEnabled ? `${syncOffsetMs}ms` : null}
+          enabled={syncEnabled}
+          onToggle={(v) => { setSyncEnabled(v); if (!v) setSyncOffsetMs(0); }}
+        >
+          <p className="text-[11px] text-muted-foreground/60 mb-3">Shift audio relative to video. Positive delays audio, negative advances it.</p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="number" step={10} value={syncOffsetMs}
+              onChange={(e) => setSyncOffsetMs(Number(e.target.value))}
+              className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            /> ms
+          </label>
+        </FilterAccordion>
       </div>
 
       {/* Job progress */}
