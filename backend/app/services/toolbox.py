@@ -1,7 +1,17 @@
+import concurrent.futures as _cf
 import os
+import queue as _queue
 import re
+import shutil
 import subprocess
+import tempfile
+import threading
+from typing import Callable
 
+from app.database import SessionLocal
+from app.models.job import Job, JobStatus
+from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.compressor import _cleanup, _read_and_remove
 from app.services.encoder import encoder_for_codec
 
 _HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
@@ -99,19 +109,6 @@ def detect_louder_channel(path: str) -> str:
     left_db = rms.get(1, float("-inf"))
     right_db = rms.get(2, float("-inf"))
     return "left" if left_db >= right_db else "right"
-
-
-import concurrent.futures as _cf
-import queue as _queue
-import shutil
-import tempfile
-import threading
-from typing import Callable
-
-from app.database import SessionLocal
-from app.models.job import Job, JobStatus
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
-from app.services.compressor import _cleanup, _read_and_remove
 
 
 def _resolve_audio_channel(path: str, audio_channel: str | None) -> str | None:
