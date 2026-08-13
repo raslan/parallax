@@ -30,7 +30,7 @@ def _build_toolbox_cmd(
         cmd += ["-map", "0:v", "-map", "0:a?"]
 
     if trim_start > 0 or trim_end > 0:
-        clip_len = max(duration - trim_start - trim_end, 0.1)
+        clip_len = duration - trim_start - trim_end
         cmd += ["-t", str(clip_len)]
 
     vf_filters = []
@@ -134,6 +134,12 @@ def _toolbox_fix_one(
     except Exception:
         pass
 
+    trim_start = settings.get("trim_start") or 0
+    trim_end = settings.get("trim_end") or 0
+
+    if (trim_start > 0 or trim_end > 0) and (duration <= 0 or duration - trim_start - trim_end < 1.0):
+        return False, "Could not determine file duration or trim exceeds duration"
+
     try:
         audio_channel = _resolve_audio_channel(src, settings.get("audio_channel"))
     except Exception:
@@ -141,8 +147,8 @@ def _toolbox_fix_one(
 
     cmd = _build_toolbox_cmd(
         src, tmp, duration,
-        trim_start=settings.get("trim_start") or 0,
-        trim_end=settings.get("trim_end") or 0,
+        trim_start=trim_start,
+        trim_end=trim_end,
         audio_channel=audio_channel,
         rotate_deg=settings.get("rotate_deg"),
         normalize=settings.get("normalize", False),
