@@ -3,6 +3,54 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.14.0](https://github.com/raslan/parallax/compare/v1.13.0...v1.14.0) (2026-08-14)
+
+
+### Features
+
+* **frontend:** use bulk restore/delete endpoints, not per-item loops ([b232ca5](https://github.com/raslan/parallax/commit/b232ca5ede5b54374393b0f249cae1ee57d3a7b8))
+* **live-refresh:** add GET /files/stream and GET /images/stream ([059ed0d](https://github.com/raslan/parallax/commit/059ed0d0a654274ae1c3e80e75ae9a2fee72d5e3))
+* **live-refresh:** add updated_at to File and ImageFile ([ce591f4](https://github.com/raslan/parallax/commit/ce591f470473ac64266a6353b1595a09450f7e37))
+* **live-refresh:** add useLiveFiles hook and stream URL helpers ([277cb75](https://github.com/raslan/parallax/commit/277cb75606be080b27bac489da2925540fc5ed93))
+* **live-refresh:** auto-refetch file grids on any backend change ([4a34ebf](https://github.com/raslan/parallax/commit/4a34ebf5878af34aeb1301a9cd73d0b845d620be))
+* **live-refresh:** auto-refetch Files.tsx on any backend change ([c3faa14](https://github.com/raslan/parallax/commit/c3faa14006df1734882c2635f4172bb2b028d4ee))
+* **live-refresh:** show stale-results banner on Cleanup and Duplicates ([75c947e](https://github.com/raslan/parallax/commit/75c947e72360c853e4e6586f73cb6316bdb59fb0))
+* live-rescan files after restore/compress/toolbox, add bulk endpoints ([c45acac](https://github.com/raslan/parallax/commit/c45acac2caaeacdb9eaf87ae421d3781588ad486))
+* **toolbox:** add ffmpeg command builder and channel-loudness detector ([d2fec24](https://github.com/raslan/parallax/commit/d2fec24559e729036853d98957a9fb15b9ad3255))
+* **toolbox:** add keyframe-alignment probe for trim ([e807ecc](https://github.com/raslan/parallax/commit/e807ecc492b63b492cfc8cfc07c7d9b5d97feefe))
+* **toolbox:** add per-file fix runner and job orchestration ([39f4144](https://github.com/raslan/parallax/commit/39f414455b3565b7fb7dcd1a59093d1cf52d7ce2))
+* **toolbox:** add POST /toolbox/start endpoint ([071d5b0](https://github.com/raslan/parallax/commit/071d5b0a68e08bc5a070489aaf409dfb47ff05e4))
+* **toolbox:** add Toolbox page ([58d658b](https://github.com/raslan/parallax/commit/58d658b99645f20537d68f4a837a0ff36735e3b3))
+* **toolbox:** add toolbox_fix job type ([5c957a2](https://github.com/raslan/parallax/commit/5c957a25f6c315f50830e83609f80dbe4d355f2e))
+* **toolbox:** add toolboxApi client ([02fde7d](https://github.com/raslan/parallax/commit/02fde7dae7124d27059ae790afde3f3ac2e5cb0d))
+* **toolbox:** collapse tool options into accordions ([70e01d9](https://github.com/raslan/parallax/commit/70e01d9f10136f10209d16f11c027012d82091db))
+* **toolbox:** wire up route, nav, job label, and docs ([5f0ae7c](https://github.com/raslan/parallax/commit/5f0ae7cf9d306ca1e0f5277b81274ab62c9abec6))
+
+
+### Bug Fixes
+
+* **live-refresh:** cache-bust thumbnail urls with scanned_at ([cd8f28f](https://github.com/raslan/parallax/commit/cd8f28fd53c38e46d724bbdf872b0ade967a4188))
+* **live-refresh:** generate thumbnail before commit in rescan_file ([e05205a](https://github.com/raslan/parallax/commit/e05205aad45aea35f1a5ce381c685bfa459afe76))
+* **live-refresh:** reset stale banner on scan results, not kickoff ([0da6f3c](https://github.com/raslan/parallax/commit/0da6f3cb05a9e7a425f9eca2b31fc6b670d4c29a))
+* **live-refresh:** sse keepalive and debounce error refetch ([e487cfd](https://github.com/raslan/parallax/commit/e487cfdbaea481ae49be6943b6b1ac65e773766b))
+* **live-refresh:** stop ImageDuplicates auto-refetch discarding selection ([d86c78d](https://github.com/raslan/parallax/commit/d86c78de503af0d7f35559db8952cd8b2dd61e04))
+* **live-refresh:** stop spinner flash on Files.tsx auto-refetch ([ba1b55d](https://github.com/raslan/parallax/commit/ba1b55d0c84931b0fcf1b0f207da4a445622ccc1))
+* **toolbox:** address trim-keyframe review findings ([edd31f2](https://github.com/raslan/parallax/commit/edd31f202b83036fa61bf039cc0a99f223263f0e))
+* **toolbox:** cap channel-detect window and fail loud on error ([0d69910](https://github.com/raslan/parallax/commit/0d69910424c27bc8a978bee6d6291fe753e8e43a))
+* **toolbox:** keep subtitle and chapter streams in output ([c1e1828](https://github.com/raslan/parallax/commit/c1e18282fd4b4a52364aa49d823cd5bb6fa4e3c7))
+* **toolbox:** prevent trim from destroying media on bad duration ([4e86093](https://github.com/raslan/parallax/commit/4e8609332942785fd65b9282b1b2085aa3108108))
+* **toolbox:** re-encode trim when no keyframe is near the cut point ([0f323bc](https://github.com/raslan/parallax/commit/0f323bc4294d43c1ceb42657f677d0ab73e8cfdf))
+* **toolbox:** remux to mkv + rebase pts for forced-reencode trims ([bbdc700](https://github.com/raslan/parallax/commit/bbdc7007dd8421e0f37a373bd3c70f528482ae7f))
+* **toolbox:** simplify pts-rebase audio handling, dedupe rescan, fix edge cases ([69c5fe8](https://github.com/raslan/parallax/commit/69c5fe8e70ddfba910c0763f26b6d586bbae940e))
+* **toolbox:** stop re-encoding audio for sync-offset-only fixes ([71f8b47](https://github.com/raslan/parallax/commit/71f8b47eb658cc6f3ffa5eb07cd3beabc5878a6b))
+* **toolbox:** use source-aware codec and primary stream for rotate ([3e9f669](https://github.com/raslan/parallax/commit/3e9f66963c1576d5faa189edf27eb57f1c6e993b))
+
+
+### Performance Improvements
+
+* **live-refresh:** index sse signature query, run off event loop ([6705012](https://github.com/raslan/parallax/commit/670501277bab10e52ef6b6994ff327286f7ff6c3))
+* **toolbox:** use libvpx-vp9's fast preset for forced webm re-encodes ([ff65d8d](https://github.com/raslan/parallax/commit/ff65d8db31ae18a4035dec8bb0b3cae9549a9857))
+
 ## [1.13.0](https://github.com/raslan/parallax/compare/v1.12.0...v1.13.0) (2026-08-07)
 
 
