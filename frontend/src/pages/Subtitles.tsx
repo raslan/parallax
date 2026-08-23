@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Captions, FolderOpen, ScanLine, Download, CheckCircle2,
-  XCircle, Loader2, ChevronRight, Film, Globe, Search, Play, Mic,
+  Captions, FolderOpen, ScanLine, Download,
+  Loader2, ChevronRight, Film, Globe, Search, Play, Mic,
 } from "lucide-react";
 import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -34,6 +34,29 @@ function episodeLabel(f: SubtitleFile): string {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
+function LangBadges({ languages }: { languages: Record<string, boolean> }) {
+  const codes = Object.keys(languages);
+  if (codes.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      {codes.map((code) => (
+        <span
+          key={code}
+          title={languages[code] ? `${code}: present` : `${code}: missing`}
+          className={cn(
+            "px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase leading-none",
+            languages[code]
+              ? "bg-green-500/15 text-green-500"
+              : "bg-muted/50 text-muted-foreground/40"
+          )}
+        >
+          {code}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function FileRow({ file, onSearch, onPlay, onGenerate }: {
   file: SubtitleFile;
   onSearch: () => void;
@@ -50,6 +73,7 @@ function FileRow({ file, onSearch, onPlay, onGenerate }: {
       {label && (
         <span className="text-xs text-muted-foreground/60 shrink-0 font-mono">{label}</span>
       )}
+      <LangBadges languages={file.languages} />
       <button
         onClick={onSearch}
         title="Search subtitles"
@@ -64,7 +88,7 @@ function FileRow({ file, onSearch, onPlay, onGenerate }: {
       >
         <Mic className="h-3.5 w-3.5" />
       </button>
-      {file.has_subtitle && (
+      {Object.values(file.languages).some(Boolean) && (
         <button
           onClick={onPlay}
           title="Preview with subtitle"
@@ -72,11 +96,6 @@ function FileRow({ file, onSearch, onPlay, onGenerate }: {
         >
           <Play className="h-3.5 w-3.5" />
         </button>
-      )}
-      {file.has_subtitle ? (
-        <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-      ) : (
-        <XCircle className="h-4 w-4 shrink-0 text-muted-foreground/40" />
       )}
     </div>
   );
@@ -161,7 +180,8 @@ export function Subtitles() {
     if (transcribePollRef.current) { clearInterval(transcribePollRef.current); transcribePollRef.current = null; }
   };
 
-  const pollTranscribeJob = (job_id: number) => {
+  const pollTranscribeJob = (job_id: number, scanPath?: string) => {
+    const target = (scanPath ?? path).trim();
     stopTranscribePolling();
     transcribePollRef.current = setInterval(async () => {
       try {
@@ -174,8 +194,8 @@ export function Subtitles() {
           stopTranscribePolling();
           setTranscribing(false);
           setTranscribeProgress(null);
-          if (path.trim()) {
-            const result = await subtitlesApi.scan(path.trim()).catch(() => null);
+          if (target) {
+            const result = await subtitlesApi.scan(target).catch(() => null);
             if (result) setFiles(result);
           }
         }
@@ -207,7 +227,7 @@ export function Subtitles() {
     setTranscribeStatus("Starting…");
     try {
       const { job_id } = await subtitlesApi.transcribeBulk(path.trim());
-      pollTranscribeJob(job_id);
+      pollTranscribeJob(job_id, path.trim());
     } catch (e: unknown) {
       setTranscribing(false);
       setTranscribeProgress(null);
@@ -215,19 +235,52 @@ export function Subtitles() {
     }
   };
 
-  const handleScan = async () => {
-    if (!path.trim()) return;
+  const handleScan = async (scanPath?: string) => {
+    const target = (scanPath ?? path).trim();
+    if (!target) return;
     setScanning(true);
     setScanError("");
     setFiles(null);
     try {
-      const result = await subtitlesApi.scan(path.trim());
+      const result = await subtitlesApi.scan(target);
       setFiles(result);
     } catch (e: unknown) {
       setScanError(e instanceof Error ? e.message : "Scan failed");
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleFolderSelect = (p: string) => {
+    setPath(p);
+    setPicking(false);
+    handleScan(p);
+  };
+
+  const pollDownloadJob = (job_id: number, scanPath: string) => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const jobs = await api.getJobs();
+        const job = jobs.find((j) => j.id === job_id);
+        if (!job) { stopPolling(); setDownloading(false); return; }
+
+        setJobProgress(job.progress);
+        setJobStatus(job.current_file || job.status);
+
+        if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+          stopPolling();
+          setDownloading(false);
+          setJobProgress(null);
+          // Re-scan to refresh subtitle status
+          const result = await subtitlesApi.scan(scanPath).catch(() => null);
+          if (result) setFiles(result);
+        }
+      } catch {
+        stopPolling();
+        setDownloading(false);
+      }
+    }, 2000);
   };
 
   const handleDownload = async () => {
@@ -238,35 +291,48 @@ export function Subtitles() {
 
     try {
       const { job_id } = await subtitlesApi.download(path.trim(), selectedLangs);
-      stopPolling();
-      pollRef.current = setInterval(async () => {
-        try {
-          const jobs = await api.getJobs();
-          const job = jobs.find((j) => j.id === job_id);
-          if (!job) { stopPolling(); setDownloading(false); return; }
-
-          setJobProgress(job.progress);
-          setJobStatus(job.current_file || job.status);
-
-          if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-            stopPolling();
-            setDownloading(false);
-            setJobProgress(null);
-            // Re-scan to refresh subtitle status
-            const result = await subtitlesApi.scan(path.trim());
-            setFiles(result);
-          }
-        } catch {
-          stopPolling();
-          setDownloading(false);
-        }
-      }, 2000);
+      pollDownloadJob(job_id, path.trim());
     } catch (e: unknown) {
       setDownloading(false);
       setJobProgress(null);
       setScanError(e instanceof Error ? e.message : "Download failed");
     }
   };
+
+  // Resume any active subtitle-download or whisper-transcribe job on mount
+  // (e.g. after a page refresh) so bulk jobs across large folders aren't lost.
+  useEffect(() => {
+    api.getJobs(50).then((jobs) => {
+      const active = jobs.find(
+        (j) =>
+          (j.type === "subtitle_download" || j.type === "whisper_transcribe") &&
+          (j.status === "running" || j.status === "pending")
+      );
+      if (!active) return;
+
+      let jobPath = "";
+      try {
+        jobPath = active.settings ? JSON.parse(active.settings).path ?? "" : "";
+      } catch { /* ignore malformed settings */ }
+      if (!jobPath) return;
+
+      setPath(jobPath);
+      handleScan(jobPath);
+
+      if (active.type === "subtitle_download") {
+        setDownloading(true);
+        setJobProgress(active.progress ?? 0);
+        setJobStatus(active.current_file || active.status);
+        pollDownloadJob(active.id, jobPath);
+      } else {
+        setTranscribing(true);
+        setTranscribeProgress(active.progress ?? 0);
+        setTranscribeStatus(active.current_file || active.status);
+        pollTranscribeJob(active.id, jobPath);
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const groups = files ? groupByDir(files) : null;
   const totalFiles = files?.length ?? 0;
@@ -315,7 +381,7 @@ export function Subtitles() {
         {picking ? (
           <div className="flex-1">
             <DirPicker
-              onSelect={(p) => { setPath(p); setPicking(false); }}
+              onSelect={handleFolderSelect}
               onClose={() => setPicking(false)}
             />
           </div>
@@ -331,11 +397,10 @@ export function Subtitles() {
             <Button variant="outline" size="icon" onClick={() => setPicking(true)} title="Browse">
               <FolderOpen className="h-4 w-4" />
             </Button>
-            <Button onClick={handleScan} disabled={scanning || !path.trim()}>
+            <Button variant="outline" size="icon" onClick={() => handleScan()} disabled={scanning || !path.trim()} title="Rescan">
               {scanning
-                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                : <ScanLine className="h-4 w-4 mr-2" />}
-              Scan
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <ScanLine className="h-4 w-4" />}
             </Button>
           </>
         )}

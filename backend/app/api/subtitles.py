@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Optional
 
@@ -68,7 +69,7 @@ async def download_subtitles(body: DownloadRequest, db: Session = Depends(get_db
     job = Job(
         type=JobType.SUBTITLE_DOWNLOAD,
         status=JobStatus.PENDING,
-        settings=str({"path": body.path, "languages": lang_codes}),
+        settings=json.dumps({"path": body.path, "languages": lang_codes}),
     )
     db.add(job)
     db.commit()
@@ -154,7 +155,11 @@ async def transcribe_bulk(body: TranscribeBulkRequest, db: Session = Depends(get
     missing = [f["path"] for f in scan_result if not f["has_subtitle"]]
     if not missing:
         raise HTTPException(422, "No files missing subtitles")
-    job = Job(type=JobType.WHISPER_TRANSCRIBE, status=JobStatus.PENDING)
+    job = Job(
+        type=JobType.WHISPER_TRANSCRIBE,
+        status=JobStatus.PENDING,
+        settings=json.dumps({"path": body.path}),
+    )
     db.add(job)
     db.commit()
     db.refresh(job)
