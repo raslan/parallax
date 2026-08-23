@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.15.0](https://github.com/raslan/parallax/compare/v1.14.0...v1.15.0) (2026-08-23)
+
+
+### Features
+
+* improve subtitle parallelism ([1ba3dd4](https://github.com/raslan/parallax/commit/1ba3dd4b1a2c7e5749dd2e578a4d8e3c9fcd2baf))
+
 ## [1.14.0](https://github.com/raslan/parallax/compare/v1.13.0...v1.14.0) (2026-08-14)
 
 
