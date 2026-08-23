@@ -80,6 +80,7 @@ export interface Job {
   processed_files: number;
   current_file: string | null;
   error: string | null;
+  settings: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -631,6 +632,7 @@ export interface SubtitleFile {
   filename: string;
   relative_dir: string;
   has_subtitle: boolean;
+  languages: Record<string, boolean>;
   title: string;
   season: number | null;
   episode: number | null;

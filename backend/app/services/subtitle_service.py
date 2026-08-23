@@ -143,13 +143,15 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
             rel_dir = os.path.relpath(dirpath, root_path)
 
             info = _guessit(fname)
-            has_sub = len(_missing_lang_codes(full_path, lang_codes)) == 0
+            missing = set(_missing_lang_codes(full_path, lang_codes))
+            languages = {lang: lang not in missing for lang in lang_codes}
 
             results.append({
                 "path": full_path,
                 "filename": fname,
                 "relative_dir": "" if rel_dir == "." else rel_dir,
-                "has_subtitle": has_sub,
+                "has_subtitle": len(missing) == 0,
+                "languages": languages,
                 "title": str(info.get("title", "")),
                 "season": info.get("season"),
                 "episode": info.get("episode"),

@@ -75,6 +75,7 @@ class JobRead(BaseModel):
     processed_files: int
     current_file: Optional[str] = None
     error: Optional[str] = None
+    settings: Optional[str] = None
     created_at: datetime
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
