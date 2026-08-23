@@ -199,4 +199,5 @@ def stream_by_path(path: str = Query(..., description="Absolute path to video fi
     """Stream a video file at an arbitrary path (for subtitle preview)."""
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
-    return FileResponse(path)
+    from app.services.stream_cache import get_stream_path
+    return FileResponse(get_stream_path(path))

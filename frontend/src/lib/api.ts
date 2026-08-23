@@ -679,6 +679,21 @@ export const subtitlesApi = {
     req<{ job_id: number }>("/subtitles/transcribe-bulk", { method: "POST", body: JSON.stringify({ path, model_id, language }) }),
 };
 
+// ── Stream prep (audio remux for browser playback) ─────────────────────────────
+
+export interface StreamPrepareStatus {
+  status: "ready" | "running" | "error" | "not_started";
+  progress: number;
+  error: string | null;
+}
+
+export const streamApi = {
+  prepare: (path: string) =>
+    req<StreamPrepareStatus>("/stream/prepare", { method: "POST", body: JSON.stringify({ path }) }),
+  status: (path: string) =>
+    req<StreamPrepareStatus>(`/stream/prepare-status?path=${encodeURIComponent(path)}`),
+};
+
 // ── Compression ──────────────────────────────────────────────────────────────
 
 export interface CompressCodec {

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Plyr from "plyr";
 import "plyr/dist/plyr.css";
-import { X } from "lucide-react";
-import { SubtitleTrack } from "@/lib/api";
+import { Loader2, X } from "lucide-react";
+import { SubtitleTrack, streamApi } from "@/lib/api";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 
 interface PlayableFile {
@@ -33,15 +33,56 @@ export function VideoPlayerModal({
   const [tracks, setTracks] = useState<SubtitleTrack[]>([]);
   const [tracksReady, setTracksReady] = useState(false);
 
+  // Some source files carry an audio codec (AC3/DTS/TrueHD 5.1 etc.) the
+  // browser can't decode natively — video plays, audio is silent. The backend
+  // remuxes those to AAC on demand and caches the result; this checks/starts
+  // that before the player opens so playback never silently hangs mid-remux.
+  const [prepStatus, setPrepStatus] = useState<"checking" | "ready" | "running" | "error">("checking");
+  const [prepProgress, setPrepProgress] = useState(0);
+  const [prepError, setPrepError] = useState<string | null>(null);
+  const prepPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const stopPrepPoll = () => {
+      if (prepPollRef.current) { clearInterval(prepPollRef.current); prepPollRef.current = null; }
+    };
+
+    setPrepStatus("checking");
+    setPrepProgress(0);
+    setPrepError(null);
+
+    streamApi.prepare(file.path).then((s) => {
+      if (cancelled) return;
+      if (s.status === "ready") { setPrepStatus("ready"); return; }
+      if (s.status === "error") { setPrepStatus("error"); setPrepError(s.error); return; }
+
+      setPrepStatus("running");
+      setPrepProgress(s.progress);
+      prepPollRef.current = setInterval(async () => {
+        try {
+          const poll = await streamApi.status(file.path);
+          if (cancelled) return;
+          setPrepProgress(poll.progress);
+          if (poll.status === "ready") { stopPrepPoll(); setPrepStatus("ready"); }
+          else if (poll.status === "error") { stopPrepPoll(); setPrepStatus("error"); setPrepError(poll.error); }
+        } catch { /* keep polling — a transient fetch failure isn't fatal */ }
+      }, 1500);
+    }).catch(() => { if (!cancelled) setPrepStatus("ready"); }); // fail open — don't block playback on a broken check
+
+    return () => { cancelled = true; stopPrepPoll(); };
+  }, [file.path]);
+
   // Fetch subtitle tracks before initialising Plyr so <track> elements
   // are in the DOM when Plyr scans them.
   useEffect(() => {
+    if (prepStatus !== "ready" && prepStatus !== "error") return;
     if (!subtitleTracksUrl) {
       setTracksReady(true);
       return;
@@ -50,7 +91,7 @@ export function VideoPlayerModal({
       .then((r) => (r.ok ? r.json() : []))
       .then((t: SubtitleTrack[]) => { setTracks(t); setTracksReady(true); })
       .catch(() => setTracksReady(true));
-  }, [subtitleTracksUrl]);
+  }, [subtitleTracksUrl, prepStatus]);
 
   useEffect(() => {
     if (!tracksReady || !videoRef.current) return;
@@ -95,7 +136,28 @@ export function VideoPlayerModal({
           </button>
         </div>
         <div className="min-h-0 flex-1">
-          {tracksReady && (
+          {(prepStatus === "checking" || prepStatus === "running") && (
+            <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+              <Loader2 className="h-6 w-6 animate-spin text-white/70" />
+              <p className="text-white/80 text-sm max-w-sm">
+                This file's audio isn't supported by your browser — converting it for playback…
+              </p>
+              {prepStatus === "running" && (
+                <div className="w-48 h-1 rounded-full bg-white/15 overflow-hidden">
+                  <div
+                    className="h-full bg-white/70 transition-all"
+                    style={{ width: `${Math.max(2, prepProgress)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          {prepStatus === "error" && (
+            <p className="text-white/60 text-xs text-center py-4" title={prepError ?? undefined}>
+              Couldn't convert this file's audio — playing original (audio may be silent).
+            </p>
+          )}
+          {(prepStatus === "ready" || prepStatus === "error") && tracksReady && (
             isAudio ? (
               <audio
                 ref={videoRef as React.RefObject<HTMLAudioElement>}

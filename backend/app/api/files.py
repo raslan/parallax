@@ -235,7 +235,8 @@ def stream_file(file_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "File not found")
     if not os.path.exists(f.path):
         raise HTTPException(404, "File not found on disk")
-    return FileResponse(f.path, headers={"Cache-Control": "no-store"})
+    from app.services.stream_cache import get_stream_path
+    return FileResponse(get_stream_path(f.path), headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{file_id}/subtitle")
