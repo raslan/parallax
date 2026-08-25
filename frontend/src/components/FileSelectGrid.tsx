@@ -9,7 +9,8 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { VideoFile, api } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { VideoFile } from "@/types/file";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatSize, formatDuration } from "@/lib/format";

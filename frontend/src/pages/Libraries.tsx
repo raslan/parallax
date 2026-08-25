@@ -23,7 +23,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { api, Library, Job } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Library } from "@/types/library";
+import type { Job } from "@/types/job";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { DirPicker } from "@/components/DirPicker";

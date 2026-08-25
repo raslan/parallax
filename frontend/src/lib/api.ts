@@ -1,3 +1,33 @@
+import type { Library, BrowseResponse, Stats } from "@/types/library";
+import type { VideoFile, FilesResponse, VideoSearchResult } from "@/types/file";
+import type { Job, JobLog } from "@/types/job";
+import type { DuplicateCriteria, DuplicateFile, DuplicateGroup } from "@/types/duplicate";
+import type { CleanupParams } from "@/types/cleanup";
+import type { Original, OriginalsSummary } from "@/types/original";
+import type {
+  SearchResult,
+  Episode,
+  FileMapping,
+  RenameOp,
+  PreviewResponse,
+  ApplyResponse,
+} from "@/types/identify";
+import type { Settings, UpdateSettingsBody } from "@/types/settings";
+import type { DownloadItem, DownloadRequest } from "@/types/download";
+import type {
+  ImageLibrary,
+  ImageDetection,
+  ImageFile,
+  ImagesResponse,
+  ImageSearchResult,
+  ImageScanRequest,
+} from "@/types/image";
+import type { ModelInfo, ActiveModelDownload } from "@/types/model";
+import type { SubtitleFile, SubtitleCandidate, SubtitleTrack } from "@/types/subtitle";
+import type { StreamPrepareStatus } from "@/types/stream";
+import type { CompressCodec } from "@/types/compress";
+import type { ToolboxStartRequest } from "@/types/toolbox";
+
 const BASE = "/api";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -12,177 +42,6 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 204) return undefined as T;
   return res.json();
-}
-
-export interface Original {
-  path: string;
-  filename: string;
-  library_id: number;
-  library_name: string;
-  original_size: number;
-  current_path: string | null;
-  current_size: number | null;
-  savings_bytes: number | null;
-}
-
-export interface OriginalsSummary {
-  entries: Original[];
-  total_original_bytes: number;
-  total_current_bytes: number;
-  total_savings_bytes: number;
-}
-
-export interface Library {
-  id: number;
-  name: string;
-  path: string;
-  created_at: string;
-  last_scanned_at: string | null;
-  file_count: number;
-  corrupt_count: number;
-}
-
-export interface VideoFile {
-  id: number;
-  library_id: number;
-  path: string;
-  filename: string;
-  size: number;
-  duration: number | null;
-  codec_name: string | null;
-  video_bitrate: number | null;
-  status: string;
-  scan_error: string | null;
-  scanned_at: string | null;
-  transcoded_at: string | null;
-  created_at: string;
-  has_thumbnail: boolean;
-  file_width: number | null;
-  file_height: number | null;
-  file_fps: number | null;
-  file_date: number | null;
-}
-
-export interface FilesResponse {
-  items: VideoFile[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-export interface Job {
-  id: number;
-  type: string;
-  status: string;
-  library_id: number | null;
-  progress: number;
-  total_files: number;
-  processed_files: number;
-  current_file: string | null;
-  error: string | null;
-  settings: string | null;
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-}
-
-export interface JobLog {
-  message: string;
-  level: string;
-  timestamp: string;
-}
-
-export interface BrowseResponse {
-  path: string;
-  dirs: string[];
-  files: VideoFile[];
-}
-
-export interface Stats {
-  total_libraries: number;
-  total_files: number;
-  corrupt_files: number;
-  transcoded_files: number;
-  total_size_bytes: number;
-  scanning: boolean;
-}
-
-export interface DuplicateCriteria {
-  use_size: boolean;
-  use_duration: boolean;
-  use_phash: boolean;
-  duration_tolerance: number;
-  phash_threshold: number;
-  phash_mode: "first_frame" | "all_frames";
-  phash_frames: number;
-}
-
-export interface DuplicateFile {
-  id: number;
-  library_id: number;
-  path: string;
-  filename: string;
-  size: number;
-  duration: number | null;
-  codec_name: string | null;
-  video_bitrate: number | null;
-  status: string;
-  has_thumbnail: boolean;
-}
-
-export interface DuplicateGroup {
-  files: DuplicateFile[];
-  keep_id: number;
-}
-
-export interface CleanupParams {
-  duration_op?: "lt" | "gt";
-  duration_secs?: number;
-  fps_op?: "lt" | "gt";
-  fps_val?: number;
-  date_op?: "before" | "after";
-  date_ts?: number;
-  height_op?: "lt" | "gt";
-  height_val?: number;
-}
-
-export interface SearchResult {
-  tmdb_id: number;
-  title: string;
-  year: number | null;
-  overview: string;
-  poster_path: string | null;
-  type: string;
-  number_of_seasons: number | null;
-}
-
-export interface Episode {
-  season_number: number;
-  episode_number: number;
-  name: string;
-  overview: string;
-}
-
-export interface FileMapping {
-  file_path: string;
-  season_number: number | null;
-  episode_number: number | null;
-  episode_name: string | null;
-}
-
-export interface RenameOp {
-  old_path: string;
-  new_path: string;
-}
-
-export interface PreviewResponse {
-  file_ops: RenameOp[];
-  folder_ops: RenameOp[];
-}
-
-export interface ApplyResponse {
-  successes: string[];
-  failures: { path: string; error: string }[];
 }
 
 function buildCleanupQuery(params: CleanupParams): string {
@@ -347,53 +206,9 @@ export const api = {
     ),
 
   // Settings
-  getSettings: () =>
-    req<{
-      max_concurrent_transcodes: number;
-      tmdb_api_key: string;
-      clip_model: string;
-      nudenet_model: string;
-      whisper_model: string;
-      video_keyframes_per_video: number;
-      scan_batch_size: number;
-      scan_prefetch: number;
-      subtitle_languages: string;
-      download_dir: string;
-      max_concurrent_downloads: number;
-      ytdlp_channel: string;
-      encoder_family: string;
-      concurrent_limit_hint: number | null;
-    }>("/settings"),
-  updateSettings: (body: {
-    max_concurrent_transcodes?: number;
-    tmdb_api_key?: string;
-    clip_model?: string;
-    nudenet_model?: string;
-    whisper_model?: string;
-    video_keyframes_per_video?: number;
-    scan_batch_size?: number;
-    scan_prefetch?: number;
-    subtitle_languages?: string;
-    download_dir?: string;
-    max_concurrent_downloads?: number;
-    ytdlp_channel?: string;
-  }) =>
-    req<{
-      max_concurrent_transcodes: number;
-      tmdb_api_key: string;
-      clip_model: string;
-      nudenet_model: string;
-      whisper_model: string;
-      video_keyframes_per_video: number;
-      scan_batch_size: number;
-      scan_prefetch: number;
-      subtitle_languages: string;
-      download_dir: string;
-      max_concurrent_downloads: number;
-      ytdlp_channel: string;
-      encoder_family: string;
-      concurrent_limit_hint: number | null;
-    }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () => req<Settings>("/settings"),
+  updateSettings: (body: UpdateSettingsBody) =>
+    req<Settings>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
   purgeLibraryData: () => req<void>("/settings/purge-library-data", { method: "POST" }),
 
   // yt-dlp
@@ -443,109 +258,6 @@ export const api = {
   downloadStreamUrl: (id: number) => `${BASE}/downloads/${id}/stream`,
   downloadsSseUrl: () => `${BASE}/downloads/stream`,
 };
-
-// ── Download types ──────────────────────────────────────────────────────
-
-export interface DownloadItem {
-  id: number;
-  url: string;
-  title: string | null;
-  uploader: string | null;
-  thumbnail_url: string | null;
-  duration: number | null;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
-  progress: number;
-  speed: string | null;
-  eta: string | null;
-  error: string | null;
-  output_path: string | null;
-  output_dir: string;
-  options: string | null;
-  source_url: string | null;
-  playlist_id: string | null;
-  playlist_title: string | null;
-  created_at: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-}
-
-export interface DownloadRequest {
-  urls: string[];
-  output_dir?: string;
-  audio_only?: boolean;
-  quality?: string;
-  codec?: string;
-  trim_start?: string | null;
-  trim_end?: string | null;
-  download_subs?: boolean;
-  sub_langs?: string;
-  extra_args?: string;
-  impersonate?: string | null;
-  cookies?: string;
-}
-
-// ── Image library types ──────────────────────────────────────────────────────
-
-export interface ImageLibrary {
-  id: number;
-  name: string;
-  path: string;
-  created_at: string;
-  last_scanned_at: string | null;
-  image_count: number;
-}
-
-export interface ImageDetection {
-  id: number;
-  image_id: number;
-  label: string;
-  confidence: number;
-  bbox_json: string | null;
-}
-
-export interface ImageFile {
-  id: number;
-  library_id: number;
-  path: string;
-  filename: string;
-  extension: string;
-  size: number;
-  width: number | null;
-  height: number | null;
-  exif_date: number | null;
-  exif_gps: string | null;
-  exif_camera: string | null;
-  status: string;
-  scan_error: string | null;
-  scanned_at: string | null;
-  created_at: string;
-  has_thumbnail: boolean;
-  detections: ImageDetection[];
-}
-
-export interface ImagesResponse {
-  items: ImageFile[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-export interface ImageSearchResult {
-  image: ImageFile;
-  score: number;
-}
-
-export interface VideoSearchResult {
-  file: VideoFile;
-  score: number;
-}
-
-export interface ImageScanRequest {
-  run_phash: boolean;
-  run_nudenet: boolean;
-  run_clip: boolean;
-  reset: boolean;
-}
 
 // ── Image library API ────────────────────────────────────────────────────────
 
@@ -660,27 +372,6 @@ export const imageApi = {
 
 // ── AI model management ──────────────────────────────────────────────────────
 
-export interface ModelInfo {
-  id: string;
-  type: "clip" | "nudenet" | "whisper";
-  name: string;
-  description: string;
-  size_mb: number;
-  quality: string;
-  downloaded: boolean;
-  active: boolean;
-  bundled: boolean;
-}
-
-export interface ActiveModelDownload {
-  job_id: number;
-  model_type: string;
-  model_id: string;
-  status: string;
-  progress: number;
-  current_file: string | null;
-}
-
 export const modelsApi = {
   listModels: () => req<ModelInfo[]>("/models"),
   getActiveDownload: () => req<ActiveModelDownload | null>("/models/active-download"),
@@ -711,34 +402,6 @@ export const modelsApi = {
 };
 
 // ── Subtitles ────────────────────────────────────────────────────────────────
-
-export interface SubtitleFile {
-  path: string;
-  filename: string;
-  relative_dir: string;
-  has_subtitle: boolean;
-  languages: Record<string, boolean>;
-  title: string;
-  season: number | null;
-  episode: number | null;
-  year: number | null;
-  media_type: string;
-}
-
-export interface SubtitleCandidate {
-  subtitle_id: string;
-  provider: string;
-  language: string;
-  release: string;
-  score: number;
-  hearing_impaired: boolean;
-}
-
-export interface SubtitleTrack {
-  label: string;
-  lang: string;
-  url: string;
-}
 
 export const subtitlesApi = {
   scan: (path: string) =>
@@ -792,12 +455,6 @@ export const subtitlesApi = {
 
 // ── Stream prep (audio remux for browser playback) ─────────────────────────────
 
-export interface StreamPrepareStatus {
-  status: "ready" | "running" | "error" | "not_started";
-  progress: number;
-  error: string | null;
-}
-
 export const streamApi = {
   prepare: (path: string) =>
     req<StreamPrepareStatus>("/stream/prepare", { method: "POST", body: JSON.stringify({ path }) }),
@@ -806,16 +463,6 @@ export const streamApi = {
 };
 
 // ── Compression ──────────────────────────────────────────────────────────────
-
-export interface CompressCodec {
-  id: string;
-  label: string;
-  encoder: string;
-  default_crf: number;
-  crf_min: number;
-  crf_max: number;
-  description: string;
-}
 
 export const compressApi = {
   codecs: () => req<CompressCodec[]>("/compress/codecs"),
@@ -833,18 +480,6 @@ export const compressApi = {
 };
 
 // ── Toolbox ───────────────────────────────────────────────────────────────────
-
-export interface ToolboxStartRequest {
-  file_ids: number[];
-  trim_start?: number;
-  trim_end?: number;
-  audio_channel?: "auto" | "left" | "right" | null;
-  rotate_deg?: 90 | 180 | 270 | null;
-  normalize?: boolean;
-  faststart?: boolean;
-  sync_offset_ms?: number | null;
-  keep_original?: boolean;
-}
 
 export const toolboxApi = {
   libraryFiles: compressApi.libraryFiles,

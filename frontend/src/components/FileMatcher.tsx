@@ -10,7 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, GripVertical, Film } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Episode } from "@/lib/api";
+import type { Episode } from "@/types/identify";
 import { placeFile, poolFiles, slotKey } from "@/lib/episodeMatching";
 
 function episodeLabel(episode: Episode, mediaType: "movie" | "tv"): string {

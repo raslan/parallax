@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { SectionHeader } from "@/components/SectionHeader";
 import { FileMatcher } from "@/components/FileMatcher";
 import { DirPicker } from "@/components/DirPicker";
-import { api, type SearchResult, type Episode, type RenameOp, type FileMapping } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { SearchResult, Episode, RenameOp, FileMapping } from "@/types/identify";
 import {
   type FileGuess,
   distinctSeasons,

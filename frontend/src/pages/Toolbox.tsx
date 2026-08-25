@@ -10,7 +10,9 @@ import {
   RotateCcw,
   RefreshCw,
 } from "lucide-react";
-import { toolboxApi, api, VideoFile, Library } from "@/lib/api";
+import { toolboxApi, api } from "@/lib/api";
+import type { VideoFile } from "@/types/file";
+import type { Library } from "@/types/library";
 import {
   FileGridCard,
   FileListRow,

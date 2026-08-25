@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Plyr from "plyr";
 import "plyr/dist/plyr.css";
 import { Loader2, X } from "lucide-react";
-import { SubtitleTrack, streamApi } from "@/lib/api";
+import { streamApi } from "@/lib/api";
+import type { SubtitleTrack } from "@/types/subtitle";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 
 interface PlayableFile {

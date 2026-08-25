@@ -10,7 +10,9 @@ import {
   Loader2,
   ExternalLink,
 } from "lucide-react";
-import { api, imageApi, ImageLibrary, ImageScanRequest, Job } from "@/lib/api";
+import { api, imageApi } from "@/lib/api";
+import type { ImageLibrary, ImageScanRequest } from "@/types/image";
+import type { Job } from "@/types/job";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
