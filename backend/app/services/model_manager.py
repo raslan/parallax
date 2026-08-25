@@ -34,7 +34,10 @@ CLIP_MODELS: dict[str, dict] = {
         "id": "clip-vit-large-patch14-336",
         "type": "clip",
         "name": "CLIP ViT-L/14@336px",
-        "description": "Best accuracy. Trained at 336px for sharper detail. ~1.6 GB.",
+        "description": (
+            "Best accuracy. Same as L/14 but trained at 336px — sharper detail. "
+            "~1.6 GB download."
+        ),
         "hf_repo": "Xenova/clip-vit-large-patch14-336",
         "hf_vision_file": "onnx/vision_model.onnx",
         "hf_text_file": "onnx/text_model.onnx",

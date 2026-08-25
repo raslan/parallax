@@ -673,7 +673,10 @@ def _run_download_sync(download_id: int) -> None:
                     if not ready:
                         if time.time() - last_output_time > _STALL_TIMEOUT:
                             stalled = True
-                            msg = f"[parallax] no output for {_STALL_TIMEOUT}s — killing process"
+                            msg = (
+                                f"[parallax] no output for {_STALL_TIMEOUT}s — "
+                                "killing stalled process"
+                            )
                             output_lines.append(msg)
                             try:
                                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
