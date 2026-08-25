@@ -7,8 +7,8 @@ export default {
     const relative = absolutePaths.map((p) => path.relative(frontendDir, p));
     const quoted = relative.map((p) => JSON.stringify(p)).join(" ");
     return [
-      `cd frontend && npx eslint --fix ${quoted}`,
-      `cd frontend && npx prettier --write ${quoted}`,
+      `sh -c "cd frontend && npx eslint --fix ${quoted}"`,
+      `sh -c "cd frontend && npx prettier --write ${quoted}"`,
     ];
   },
   "backend/**/*.py": (absolutePaths) => {
