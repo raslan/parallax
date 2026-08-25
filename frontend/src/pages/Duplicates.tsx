@@ -7,7 +7,7 @@ import { api, DuplicateGroup, DuplicateFile, Library, DuplicateCriteria } from "
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
-import { useLiveFiles } from "@/lib/useLiveFiles";
+import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 function LibrarySelector({
   libraries,
@@ -282,6 +282,8 @@ export function Duplicates() {
 
   useEffect(() => {
     if (!selectedId) return;
+    // Initialize duplicate scan state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInitializing(true);
     api
       .getJobs()

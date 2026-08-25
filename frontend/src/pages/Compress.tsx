@@ -14,7 +14,7 @@ import {
   applySortDir,
   SortDir,
 } from "@/components/FileSelectGrid";
-import { useLiveFiles } from "@/lib/useLiveFiles";
+import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 // ── Radio toggle group ────────────────────────────────────────────────────────
 
@@ -228,6 +228,8 @@ export function Compress() {
 
   useEffect(() => {
     if (libraryId == null) return;
+    // Initialize file loading state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingFiles(true);
     setLoadError(null);
     setFiles(null);
