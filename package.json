@@ -1,11 +1,24 @@
 {
   "name": "parallax",
+  "version": "1.14.0",
   "private": true,
-  "devDependencies": {
-    "husky": "^9.1.7",
-    "lint-staged": "^15.5.2"
+  "description": "A self-hosted video and image library manager with transcoding, AI scanning, duplicate detection, and media identification. Runs in Docker, accessible from any browser.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
   },
   "scripts": {
+    "generate:site": "node scripts/build-landing.js",
+    "generate:image": "node scripts/screenshot-og.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "playwright": "^1.60.0"
   }
 }
