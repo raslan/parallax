@@ -1,5 +1,15 @@
 import { useEffect, useState, useRef } from "react";
-import { Activity, Loader2, CheckCircle2, XCircle, Clock, RefreshCw, Square, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Activity,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  RefreshCw,
+  Square,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +41,10 @@ const TYPE_LABEL: Record<string, string> = {
 function ProgressBar({ value }: { value: number }) {
   return (
     <div className="w-24 shrink-0">
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--px-bg-elevated)" }}>
+      <div
+        className="h-1.5 rounded-full overflow-hidden"
+        style={{ background: "var(--px-bg-elevated)" }}
+      >
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{
@@ -46,7 +59,8 @@ function ProgressBar({ value }: { value: number }) {
 
 function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }) {
   const canCancel = (job.status === "running" || job.status === "pending") && onCancel;
-  const isFinished = job.status === "completed" || job.status === "failed" || job.status === "cancelled";
+  const isFinished =
+    job.status === "completed" || job.status === "failed" || job.status === "cancelled";
   const [logsOpen, setLogsOpen] = useState(job.status === "failed");
   const [logs, setLogs] = useState<JobLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -54,7 +68,8 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
   useEffect(() => {
     if (logsOpen && logs.length === 0) {
       setLogsLoading(true);
-      api.getJobLogs(job.id)
+      api
+        .getJobLogs(job.id)
         .then(setLogs)
         .catch(() => {})
         .finally(() => setLogsLoading(false));
@@ -70,7 +85,9 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium">{TYPE_LABEL[job.type] ?? job.type}</span>
-            <Badge variant="secondary" className="text-xs capitalize">{job.status}</Badge>
+            <Badge variant="secondary" className="text-xs capitalize">
+              {job.status}
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             {job.status === "running" ? (
@@ -91,15 +108,20 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
               {job.type === "video_scan" || job.type === "scan"
                 ? job.current_file
                 : `${
-                    job.type === "check" ? "Checking"
-                    : job.type === "duplicates" || job.type === "phash_scan" ? "Scanning"
-                    : job.type === "subtitle_scan" || job.type === "whisper" ? "Processing"
-                    : "Transcoding"
+                    job.type === "check"
+                      ? "Checking"
+                      : job.type === "duplicates" || job.type === "phash_scan"
+                        ? "Scanning"
+                        : job.type === "subtitle_scan" || job.type === "whisper"
+                          ? "Processing"
+                          : "Transcoding"
                   }: ${job.current_file}`}
             </p>
           )}
           {job.error && (
-            <p className="text-xs text-destructive truncate" title={job.error}>{job.error}</p>
+            <p className="text-xs text-destructive truncate" title={job.error}>
+              {job.error}
+            </p>
           )}
         </div>
 
@@ -125,9 +147,11 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
             title="Show log"
             onClick={toggleLogs}
           >
-            {logsOpen
-              ? <ChevronDown className="h-3.5 w-3.5" />
-              : <ChevronRight className="h-3.5 w-3.5" />}
+            {logsOpen ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
           </Button>
         )}
 
@@ -145,7 +169,10 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
           ) : (
             <div className="divide-y divide-border">
               {logs.map((l, i) => (
-                <div key={`${l.timestamp}-${i}`} className={`px-3 py-1.5 ${l.level === "warning" ? "text-amber-400" : l.level === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                <div
+                  key={`${l.timestamp}-${i}`}
+                  className={`px-3 py-1.5 ${l.level === "warning" ? "text-amber-400" : l.level === "error" ? "text-destructive" : "text-muted-foreground"}`}
+                >
                   {l.message}
                 </div>
               ))}
@@ -165,13 +192,16 @@ export function Jobs() {
   const esRef = useRef<EventSource | null>(null);
 
   const loadAll = () =>
-    api.getJobs().then(setJobs).finally(() => setLoading(false));
+    api
+      .getJobs()
+      .then(setJobs)
+      .finally(() => setLoading(false));
 
   // Merge live updates into the full job list without losing history entries
   const applyLiveUpdate = (liveJobs: Job[]) => {
     setJobs((prev) => {
       const liveMap = new Map(liveJobs.map((j) => [j.id, j]));
-      const merged = prev.map((j) => liveMap.has(j.id) ? { ...j, ...liveMap.get(j.id) } : j);
+      const merged = prev.map((j) => (liveMap.has(j.id) ? { ...j, ...liveMap.get(j.id) } : j));
       // Add any brand-new jobs not yet in the list
       for (const lj of liveJobs) {
         if (!merged.find((j) => j.id === lj.id)) merged.unshift(lj);
@@ -198,7 +228,10 @@ export function Jobs() {
       loadAll();
     };
 
-    return () => { es.close(); esRef.current = null; };
+    return () => {
+      es.close();
+      esRef.current = null;
+    };
   }, []);
 
   const handleCancel = async (id: number) => {
@@ -208,7 +241,11 @@ export function Jobs() {
     } catch {
       // ignore
     } finally {
-      setCancellingIds((s) => { const n = new Set(s); n.delete(id); return n; });
+      setCancellingIds((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
     }
   };
 
@@ -292,7 +329,9 @@ export function Jobs() {
             <Card>
               <CardContent className="pt-4 pb-0">
                 <SectionHeader className="mb-2">History</SectionHeader>
-                {history.map((j) => <JobRow key={j.id} job={j} />)}
+                {history.map((j) => (
+                  <JobRow key={j.id} job={j} />
+                ))}
               </CardContent>
             </Card>
           )}

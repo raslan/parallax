@@ -1,9 +1,29 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
-  Download, X, Play, StopCircle, Trash2, ChevronDown, ChevronUp,
-  Loader2, ImageOff, AlertTriangle, CheckCircle2, Clock,
-  Folder, Music, Video, Subtitles, Settings2, Link, RefreshCw, Globe, ShieldCheck, ExternalLink, RotateCcw,
+  Download,
+  X,
+  Play,
+  StopCircle,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  ImageOff,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Folder,
+  Music,
+  Video,
+  Subtitles,
+  Settings2,
+  Link,
+  RefreshCw,
+  Globe,
+  ShieldCheck,
+  ExternalLink,
+  RotateCcw,
 } from "lucide-react";
 import { api, DownloadItem, DownloadRequest } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -18,21 +38,29 @@ import { formatDuration } from "@/lib/format";
 // ── Status helpers ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  pending:   { label: "Pending",   color: "text-muted-foreground",  bg: "bg-muted/40",         icon: Clock },
-  running:   { label: "Running",   color: "text-primary",           bg: "bg-primary/10",        icon: Loader2 },
-  completed: { label: "Done",      color: "text-emerald-400",       bg: "bg-emerald-400/10",    icon: CheckCircle2 },
-  failed:    { label: "Failed",    color: "text-red-400",           bg: "bg-red-400/10",        icon: AlertTriangle },
-  cancelled: { label: "Cancelled", color: "text-muted-foreground",  bg: "bg-muted/20",         icon: X },
+  pending: { label: "Pending", color: "text-muted-foreground", bg: "bg-muted/40", icon: Clock },
+  running: { label: "Running", color: "text-primary", bg: "bg-primary/10", icon: Loader2 },
+  completed: {
+    label: "Done",
+    color: "text-emerald-400",
+    bg: "bg-emerald-400/10",
+    icon: CheckCircle2,
+  },
+  failed: { label: "Failed", color: "text-red-400", bg: "bg-red-400/10", icon: AlertTriangle },
+  cancelled: { label: "Cancelled", color: "text-muted-foreground", bg: "bg-muted/20", icon: X },
 } as const;
 
 function StatusBadge({ status }: { status: DownloadItem["status"] }) {
   const cfg = STATUS_CONFIG[status];
   const Icon = cfg.icon;
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide",
-      cfg.color, cfg.bg
-    )}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide",
+        cfg.color,
+        cfg.bg,
+      )}
+    >
       <Icon className={cn("h-2.5 w-2.5 shrink-0", status === "running" && "animate-spin")} />
       {cfg.label}
     </span>
@@ -46,8 +74,7 @@ function YtdlpBanner({ onDismiss }: { onDismiss: () => void }) {
     <div className="flex items-start gap-3 rounded-md border border-amber-500/40 bg-amber-500/8 px-4 py-3">
       <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
       <p className="text-sm text-amber-200/80 flex-1">
-        <span className="font-semibold text-amber-300">yt-dlp is not installed.</span>{" "}
-        Go to{" "}
+        <span className="font-semibold text-amber-300">yt-dlp is not installed.</span> Go to{" "}
         <RouterLink
           to="/settings?tab=downloads"
           className="underline underline-offset-2 font-medium hover:text-amber-300 transition-colors"
@@ -56,7 +83,10 @@ function YtdlpBanner({ onDismiss }: { onDismiss: () => void }) {
         </RouterLink>{" "}
         to install it.
       </p>
-      <button onClick={onDismiss} className="text-amber-400/60 hover:text-amber-400 transition-colors shrink-0">
+      <button
+        onClick={onDismiss}
+        className="text-amber-400/60 hover:text-amber-400 transition-colors shrink-0"
+      >
         <X className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -122,7 +152,9 @@ function DownloadCard({
       <div className="flex-1 min-w-0 space-y-1 min-h-0">
         <p className="text-sm font-medium truncate leading-tight" title={item.title ?? item.url}>
           {item.title ?? (
-            <span className="font-mono text-muted-foreground text-xs break-all line-clamp-1">{item.url}</span>
+            <span className="font-mono text-muted-foreground text-xs break-all line-clamp-1">
+              {item.url}
+            </span>
           )}
         </p>
         <div className="flex items-center gap-2">
@@ -130,7 +162,9 @@ function DownloadCard({
             <span className="text-xs text-muted-foreground/60 truncate">{item.uploader}</span>
           )}
           {item.duration != null && (
-            <span className="text-xs text-muted-foreground/40 shrink-0">{formatDuration(item.duration)}</span>
+            <span className="text-xs text-muted-foreground/40 shrink-0">
+              {formatDuration(item.duration)}
+            </span>
           )}
         </div>
 
@@ -141,7 +175,9 @@ function DownloadCard({
               <div
                 className={cn(
                   "h-full rounded-full bg-primary transition-all duration-500",
-                  item.status === "running" && item.progress === 0 && "animate-pulse w-full opacity-40"
+                  item.status === "running" &&
+                    item.progress === 0 &&
+                    "animate-pulse w-full opacity-40",
                 )}
                 style={item.progress > 0 ? { width: `${item.progress}%` } : undefined}
               />
@@ -150,11 +186,15 @@ function DownloadCard({
               <span className="text-[10px] text-muted-foreground/50 tabular-nums">
                 {item.progress > 0
                   ? `${Math.round(item.progress)}%`
-                  : item.status === "running" ? "Processing…" : "Waiting…"}
+                  : item.status === "running"
+                    ? "Processing…"
+                    : "Waiting…"}
               </span>
               {(item.speed || item.eta) && (
                 <span className="text-[10px] text-muted-foreground/50 font-mono">
-                  {item.speed}{item.speed && item.eta ? " · " : ""}{item.eta ? `ETA ${item.eta}` : ""}
+                  {item.speed}
+                  {item.speed && item.eta ? " · " : ""}
+                  {item.eta ? `ETA ${item.eta}` : ""}
                 </span>
               )}
             </div>
@@ -165,7 +205,9 @@ function DownloadCard({
         {item.error && (
           <button onClick={() => setErrorExpanded((v) => !v)} className="text-left w-full">
             {errorExpanded ? (
-              <pre className="text-[11px] text-red-400 whitespace-pre-wrap break-all font-mono leading-relaxed">{item.error}</pre>
+              <pre className="text-[11px] text-red-400 whitespace-pre-wrap break-all font-mono leading-relaxed">
+                {item.error}
+              </pre>
             ) : (
               <p className="text-[11px] text-red-400 line-clamp-2">{item.error.split("\n")[0]}</p>
             )}
@@ -174,7 +216,10 @@ function DownloadCard({
 
         {/* Output path */}
         {isCompleted && item.output_path && (
-          <p className="text-[10px] text-muted-foreground/40 font-mono truncate" title={item.output_path}>
+          <p
+            className="text-[10px] text-muted-foreground/40 font-mono truncate"
+            title={item.output_path}
+          >
             {item.output_path}
           </p>
         )}
@@ -188,7 +233,10 @@ function DownloadCard({
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-muted-foreground/70">Delete file?</span>
           <button
-            onClick={() => { setConfirmDelete(false); onDeleteFile(item.id); }}
+            onClick={() => {
+              setConfirmDelete(false);
+              onDeleteFile(item.id);
+            }}
             className="px-2 py-0.5 text-xs rounded bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 transition-colors"
           >
             Yes
@@ -202,31 +250,48 @@ function DownloadCard({
         </div>
       ) : (
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <a href={item.url} target="_blank" rel="noopener noreferrer" title="Open source URL"
-            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open source URL"
+            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+          >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
           {canPlay && (
-            <button onClick={() => onPlay(item)} title="Play"
-              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => onPlay(item)}
+              title="Play"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Play className="h-3.5 w-3.5" />
             </button>
           )}
           {isActive && (
-            <button onClick={() => onClear(item.id)} title="Stop download"
-              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors">
+            <button
+              onClick={() => onClear(item.id)}
+              title="Stop download"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
+            >
               <StopCircle className="h-3.5 w-3.5" />
             </button>
           )}
           {!isActive && (
-            <button onClick={() => onClear(item.id)} title="Remove from list"
-              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => onClear(item.id)}
+              title="Remove from list"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
           {(item.status === "failed" || item.status === "cancelled") && (
-            <button onClick={() => onRetry(item.id)} title="Retry download"
-              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-primary transition-colors">
+            <button
+              onClick={() => onRetry(item.id)}
+              title="Retry download"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-primary transition-colors"
+            >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
           )}
@@ -267,15 +332,12 @@ function PlaylistGroup({
   const total = items.length;
   const done = items.filter((i) => i.status === "completed").length;
   const failed = items.filter((i) => i.status === "failed").length;
-  const active = items.filter(
-    (i) => i.status === "pending" || i.status === "running"
-  ).length;
+  const active = items.filter((i) => i.status === "pending" || i.status === "running").length;
 
   const overallPct =
     total > 0
       ? Math.round(
-          items.reduce((sum, i) => sum + (i.status === "completed" ? 100 : i.progress), 0) /
-            total
+          items.reduce((sum, i) => sum + (i.status === "completed" ? 100 : i.progress), 0) / total,
         )
       : 0;
 
@@ -326,7 +388,7 @@ function PlaylistGroup({
 interface DownloadOptions {
   audioOnly: boolean;
   quality: string;
-  codec: string;       // video: auto/h264/hevc/av1/vp9  audio: mp3/m4a/opus
+  codec: string; // video: auto/h264/hevc/av1/vp9  audio: mp3/m4a/opus
   trimStart: string;
   trimEnd: string;
   outputDir: string;
@@ -337,20 +399,20 @@ interface DownloadOptions {
 }
 
 const VIDEO_QUALITIES = [
-  { id: "best",  label: "Best" },
-  { id: "2160",  label: "4K" },
-  { id: "1080",  label: "1080p" },
-  { id: "720",   label: "720p" },
-  { id: "480",   label: "480p" },
-  { id: "360",   label: "360p" },
+  { id: "best", label: "Best" },
+  { id: "2160", label: "4K" },
+  { id: "1080", label: "1080p" },
+  { id: "720", label: "720p" },
+  { id: "480", label: "480p" },
+  { id: "360", label: "360p" },
 ];
 
 const VIDEO_CODECS = [
-  { id: "auto",  label: "Auto" },
-  { id: "h264",  label: "H.264" },
-  { id: "hevc",  label: "H.265" },
-  { id: "av1",   label: "AV1" },
-  { id: "vp9",   label: "VP9" },
+  { id: "auto", label: "Auto" },
+  { id: "h264", label: "H.264" },
+  { id: "hevc", label: "H.265" },
+  { id: "av1", label: "AV1" },
+  { id: "vp9", label: "VP9" },
 ];
 
 const AUDIO_CODECS = ["mp3", "m4a", "opus"];
@@ -376,11 +438,13 @@ function OptionsPanel({
     <div className="space-y-4">
       {/* Mode */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Mode</p>
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          Mode
+        </p>
         <div className="grid grid-cols-2 gap-1.5">
           {[
             { id: false, label: "Video", Icon: Video },
-            { id: true,  label: "Audio only", Icon: Music },
+            { id: true, label: "Audio only", Icon: Music },
           ].map(({ id, label, Icon }) => (
             <button
               key={String(id)}
@@ -389,7 +453,7 @@ function OptionsPanel({
                 "flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium transition-colors",
                 opts.audioOnly === id
                   ? "border-primary/60 bg-primary/10 text-foreground"
-                  : "border-border/50 bg-background text-muted-foreground hover:border-border hover:text-foreground"
+                  : "border-border/50 bg-background text-muted-foreground hover:border-border hover:text-foreground",
               )}
             >
               <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -402,7 +466,9 @@ function OptionsPanel({
       {/* Quality — only for video */}
       {!opts.audioOnly && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Quality</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+            Quality
+          </p>
           <div className="grid grid-cols-3 gap-1">
             {VIDEO_QUALITIES.map((q) => (
               <button
@@ -412,7 +478,7 @@ function OptionsPanel({
                   "px-2 py-1.5 rounded border text-xs font-medium transition-colors",
                   opts.quality === q.id
                     ? "border-primary/60 bg-primary/10 text-foreground"
-                    : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                    : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
                 )}
               >
                 {q.label}
@@ -429,7 +495,9 @@ function OptionsPanel({
         </p>
         <div className="flex gap-1 flex-wrap">
           {(opts.audioOnly ? AUDIO_CODECS : VIDEO_CODECS.map((c) => c.id)).map((c) => {
-            const label = opts.audioOnly ? c.toUpperCase() : (VIDEO_CODECS.find((v) => v.id === c)?.label ?? c);
+            const label = opts.audioOnly
+              ? c.toUpperCase()
+              : (VIDEO_CODECS.find((v) => v.id === c)?.label ?? c);
             return (
               <button
                 key={c}
@@ -438,7 +506,7 @@ function OptionsPanel({
                   "px-2.5 py-1.5 rounded border text-xs font-medium transition-colors",
                   opts.codec === c
                     ? "border-primary/60 bg-primary/10 text-foreground"
-                    : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                    : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
                 )}
               >
                 {label}
@@ -450,7 +518,9 @@ function OptionsPanel({
 
       {/* Trim */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Trim</p>
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          Trim
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-0.5">
             <label className="text-[10px] text-muted-foreground/50">Start</label>
@@ -477,10 +547,15 @@ function OptionsPanel({
 
       {/* Output directory */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Output directory</p>
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          Output directory
+        </p>
         <div className="flex items-center gap-2 rounded border border-border/50 bg-muted/20 px-3 py-2">
           <Folder className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-          <span className="text-xs font-mono text-muted-foreground truncate flex-1" title={opts.outputDir}>
+          <span
+            className="text-xs font-mono text-muted-foreground truncate flex-1"
+            title={opts.outputDir}
+          >
             {opts.outputDir || "Default"}
           </span>
           <button
@@ -493,7 +568,10 @@ function OptionsPanel({
         {showDirPicker && (
           <div className="rounded border border-border/50 bg-background p-3">
             <DirPicker
-              onSelect={(p) => { onChange({ outputDir: p }); setShowDirPicker(false); }}
+              onSelect={(p) => {
+                onChange({ outputDir: p });
+                setShowDirPicker(false);
+              }}
               onClose={() => setShowDirPicker(false)}
             />
           </div>
@@ -532,7 +610,9 @@ function OptionsPanel({
             <input
               type="checkbox"
               checked={!!opts.impersonate}
-              onChange={(e) => onChange({ impersonate: e.target.checked ? (impersonateTargets[0] ?? "") : "" })}
+              onChange={(e) =>
+                onChange({ impersonate: e.target.checked ? (impersonateTargets[0] ?? "") : "" })
+              }
               className="accent-primary h-3.5 w-3.5"
             />
             <span className="text-xs text-foreground flex items-center gap-1.5">
@@ -547,7 +627,9 @@ function OptionsPanel({
               className="h-8 w-full rounded border border-border/40 bg-transparent px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               {impersonateTargets.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>
+                  {t}
+                </option>
               ))}
             </select>
           )}
@@ -584,10 +666,14 @@ export function Downloads() {
   const [ytdlpVersion, setYtdlpVersion] = useState<string | null>(null);
   const [ytdlpUpdating, setYtdlpUpdating] = useState(false);
   const [impersonateTargets, setImpersonateTargets] = useState<string[]>([]);
-  const [activeCookies, setActiveCookies] = useState(() => sessionStorage.getItem("dl_cookies") ?? "");
+  const [activeCookies, setActiveCookies] = useState(
+    () => sessionStorage.getItem("dl_cookies") ?? "",
+  );
   const [showCookiesModal, setShowCookiesModal] = useState(false);
   const [cookiesDraft, setCookiesDraft] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed" | "failed">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed" | "failed">(
+    "all",
+  );
   const [dupeUrls, setDupeUrls] = useState<string[]>([]);
   const [opts, setOpts] = useState<DownloadOptions>({
     audioOnly: false,
@@ -620,20 +706,29 @@ export function Downloads() {
 
   // Load default output dir from settings
   useEffect(() => {
-    api.getSettings().then((s) => {
-      setOpts((o) => ({ ...o, outputDir: s.download_dir || "/media/downloads" }));
-    }).catch(() => {});
+    api
+      .getSettings()
+      .then((s) => {
+        setOpts((o) => ({ ...o, outputDir: s.download_dir || "/media/downloads" }));
+      })
+      .catch(() => {});
   }, []);
 
   // Check yt-dlp installed + get version
   useEffect(() => {
-    api.ytdlpInfo().then((info) => {
-      if (!info.installed) setYtdlpMissing(true);
-      setYtdlpVersion(info.version ?? null);
-      if (info.installed) {
-        api.ytdlpImpersonateTargets().then((r) => setImpersonateTargets(r.targets)).catch(() => {});
-      }
-    }).catch(() => {});
+    api
+      .ytdlpInfo()
+      .then((info) => {
+        if (!info.installed) setYtdlpMissing(true);
+        setYtdlpVersion(info.version ?? null);
+        if (info.installed) {
+          api
+            .ytdlpImpersonateTargets()
+            .then((r) => setImpersonateTargets(r.targets))
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleYtdlpUpdate = async () => {
@@ -644,9 +739,14 @@ export function Downloads() {
       setYtdlpVersion(info.version ?? null);
       setYtdlpMissing(!info.installed);
       if (info.installed) {
-        api.ytdlpImpersonateTargets().then((r) => setImpersonateTargets(r.targets)).catch(() => {});
+        api
+          .ytdlpImpersonateTargets()
+          .then((r) => setImpersonateTargets(r.targets))
+          .catch(() => {});
       }
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setYtdlpUpdating(false);
     }
   };
@@ -687,39 +787,43 @@ export function Downloads() {
 
   const urlCount = urlInput.split("\n").filter((l) => l.trim()).length;
 
-  const doSubmit = useCallback(async (urls: string[]) => {
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const body: DownloadRequest = {
-        urls,
-        output_dir: opts.outputDir || undefined,
-        audio_only: opts.audioOnly,
-        quality: opts.quality,
-        codec: opts.codec,
-        trim_start: opts.trimStart || null,
-        trim_end: opts.trimEnd || null,
-        download_subs: opts.downloadSubs,
-        sub_langs: opts.downloadSubs ? opts.subLangs : undefined,
-        extra_args: opts.extraArgs || undefined,
-        impersonate: opts.impersonate || null,
-        cookies: activeCookies || undefined,
-      };
-      await api.enqueueDownloads(body);
-      setUrlInput("");
-    } catch (e: unknown) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSubmitting(false);
-    }
-  }, [opts, activeCookies]);
+  const doSubmit = useCallback(
+    async (urls: string[]) => {
+      setSubmitting(true);
+      setSubmitError(null);
+      try {
+        const body: DownloadRequest = {
+          urls,
+          output_dir: opts.outputDir || undefined,
+          audio_only: opts.audioOnly,
+          quality: opts.quality,
+          codec: opts.codec,
+          trim_start: opts.trimStart || null,
+          trim_end: opts.trimEnd || null,
+          download_subs: opts.downloadSubs,
+          sub_langs: opts.downloadSubs ? opts.subLangs : undefined,
+          extra_args: opts.extraArgs || undefined,
+          impersonate: opts.impersonate || null,
+          cookies: activeCookies || undefined,
+        };
+        await api.enqueueDownloads(body);
+        setUrlInput("");
+      } catch (e: unknown) {
+        setSubmitError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [opts, activeCookies],
+  );
 
   const handleSubmit = useCallback(() => {
-    const urls = urlInput.split("\n").map((l) => l.trim()).filter(Boolean);
+    const urls = urlInput
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
     if (!urls.length || submitting) return;
-    const existingSourceUrls = new Set(
-      downloads.map((d) => d.source_url).filter(Boolean)
-    );
+    const existingSourceUrls = new Set(downloads.map((d) => d.source_url).filter(Boolean));
     const dupes = urls.filter((u) => existingSourceUrls.has(u));
     if (dupes.length > 0) {
       setDupeUrls(dupes);
@@ -729,7 +833,10 @@ export function Downloads() {
   }, [urlInput, submitting, downloads, doSubmit]);
 
   const handleDupeConfirm = useCallback(() => {
-    const urls = urlInput.split("\n").map((l) => l.trim()).filter(Boolean);
+    const urls = urlInput
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
     setDupeUrls([]);
     doSubmit(urls);
   }, [urlInput, doSubmit]);
@@ -738,29 +845,34 @@ export function Downloads() {
     setDupeUrls([]);
   }, []);
 
-  const handleRetry = useCallback(async (id: number) => {
-    const item = downloads.find((d) => d.id === id);
-    if (!item) return;
-    const opts = item.options ? JSON.parse(item.options) : {};
-    const result = await api.enqueueDownloads({
-      urls: [item.url],
-      output_dir: item.output_dir,
-      audio_only: opts.audio_only,
-      quality: opts.quality,
-      codec: opts.codec,
-      trim_start: opts.trim_start,
-      trim_end: opts.trim_end,
-      download_subs: opts.download_subs,
-      sub_langs: opts.sub_langs,
-      extra_args: opts.extra_args,
-      impersonate: opts.impersonate,
-      cookies: activeCookies || undefined,
-    }).catch(() => null);
-    if (!result) return;
-    // Old failed/cancelled row is superseded by the new one — remove it so it doesn't linger.
-    await api.deleteDownload(id).catch(() => {});
-    setDownloads((prev) => prev.filter((d) => d.id !== id));
-  }, [downloads, activeCookies]);
+  const handleRetry = useCallback(
+    async (id: number) => {
+      const item = downloads.find((d) => d.id === id);
+      if (!item) return;
+      const opts = item.options ? JSON.parse(item.options) : {};
+      const result = await api
+        .enqueueDownloads({
+          urls: [item.url],
+          output_dir: item.output_dir,
+          audio_only: opts.audio_only,
+          quality: opts.quality,
+          codec: opts.codec,
+          trim_start: opts.trim_start,
+          trim_end: opts.trim_end,
+          download_subs: opts.download_subs,
+          sub_langs: opts.sub_langs,
+          extra_args: opts.extra_args,
+          impersonate: opts.impersonate,
+          cookies: activeCookies || undefined,
+        })
+        .catch(() => null);
+      if (!result) return;
+      // Old failed/cancelled row is superseded by the new one — remove it so it doesn't linger.
+      await api.deleteDownload(id).catch(() => {});
+      setDownloads((prev) => prev.filter((d) => d.id !== id));
+    },
+    [downloads, activeCookies],
+  );
 
   const handleRetryAllFailed = useCallback(async () => {
     await api.retryAllFailedDownloads().catch(() => {});
@@ -777,7 +889,9 @@ export function Downloads() {
   }, []);
 
   const handleClearCompleted = useCallback(async () => {
-    const done = downloads.filter((d) => d.status === "completed" || d.status === "failed" || d.status === "cancelled");
+    const done = downloads.filter(
+      (d) => d.status === "completed" || d.status === "failed" || d.status === "cancelled",
+    );
     await Promise.allSettled(done.map((d) => api.deleteDownload(d.id)));
     setDownloads((prev) => prev.filter((d) => d.status === "pending" || d.status === "running"));
   }, [downloads]);
@@ -787,9 +901,13 @@ export function Downloads() {
     setDownloads((prev) => prev.filter((d) => d.status !== "pending" && d.status !== "running"));
   }, []);
 
-  const hasCompleted = downloads.some((d) => ["completed", "failed", "cancelled"].includes(d.status));
+  const hasCompleted = downloads.some((d) =>
+    ["completed", "failed", "cancelled"].includes(d.status),
+  );
   const hasFailed = downloads.some((d) => d.status === "failed" || d.status === "cancelled");
-  const activeCount = downloads.filter((d) => d.status === "pending" || d.status === "running").length;
+  const activeCount = downloads.filter(
+    (d) => d.status === "pending" || d.status === "running",
+  ).length;
   const filteredDownloads = downloads.filter((d) => {
     if (statusFilter === "active") return d.status === "pending" || d.status === "running";
     if (statusFilter === "completed") return d.status === "completed";
@@ -828,7 +946,8 @@ export function Downloads() {
             className="text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
           >
             1000+ other sites
-          </a>.
+          </a>
+          .
         </p>
       </div>
 
@@ -839,15 +958,17 @@ export function Downloads() {
 
       {/* Two-column layout: left = URL input + queue, right = options */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
-
         {/* Left: URL input + queue */}
         <div className="space-y-4 min-w-0">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Link className="h-3.5 w-3.5 text-muted-foreground/50" />
               <label className="text-xs font-medium text-muted-foreground">
-                URLs{urlCount > 1 && (
-                  <span className="ml-1.5 text-[10px] text-primary/70 font-mono">{urlCount} URLs</span>
+                URLs
+                {urlCount > 1 && (
+                  <span className="ml-1.5 text-[10px] text-primary/70 font-mono">
+                    {urlCount} URLs
+                  </span>
                 )}
               </label>
             </div>
@@ -860,7 +981,9 @@ export function Downloads() {
                   handleSubmit();
                 }
               }}
-              placeholder={"Paste one or more URLs, one per line\nhttps://youtube.com/watch?v=…\nhttps://vimeo.com/…"}
+              placeholder={
+                "Paste one or more URLs, one per line\nhttps://youtube.com/watch?v=…\nhttps://vimeo.com/…"
+              }
               rows={4}
               className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30 placeholder:font-sans"
             />
@@ -871,15 +994,15 @@ export function Downloads() {
               disabled={!urlInput.trim() || submitting}
               className="gap-2"
             >
-              {submitting
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <Download className="h-3.5 w-3.5" />}
+              {submitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
               {submitting ? "Adding…" : urlCount > 1 ? `Add ${urlCount} URLs` : "Add to queue"}
             </Button>
             <span className="text-[10px] text-muted-foreground/40">Ctrl+Enter to submit</span>
-            {submitError && (
-              <span className="text-xs text-red-400 ml-auto">{submitError}</span>
-            )}
+            {submitError && <span className="text-xs text-red-400 ml-auto">{submitError}</span>}
           </div>
 
           {/* Queue */}
@@ -888,7 +1011,10 @@ export function Downloads() {
               <div className="flex items-center gap-3">
                 <SectionHeader>Queue</SectionHeader>
                 {activeCount > 0 && (
-                  <Badge variant="secondary" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20"
+                  >
                     {activeCount} active
                   </Badge>
                 )}
@@ -902,7 +1028,7 @@ export function Downloads() {
                           "px-2 py-0.5 rounded text-[10px] font-medium transition-colors capitalize",
                           statusFilter === f
                             ? "bg-primary/15 text-primary border border-primary/30"
-                            : "text-muted-foreground/50 hover:text-muted-foreground border border-transparent"
+                            : "text-muted-foreground/50 hover:text-muted-foreground border border-transparent",
                         )}
                       >
                         {f}
@@ -913,7 +1039,9 @@ export function Downloads() {
               </div>
               <div className="flex items-center gap-3">
                 {ytdlpVersion && (
-                  <span className="text-[10px] text-muted-foreground/40 font-mono">yt-dlp {ytdlpVersion}</span>
+                  <span className="text-[10px] text-muted-foreground/40 font-mono">
+                    yt-dlp {ytdlpVersion}
+                  </span>
                 )}
                 <button
                   onClick={handleYtdlpUpdate}
@@ -921,9 +1049,11 @@ export function Downloads() {
                   className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
                   title="Update yt-dlp to latest"
                 >
-                  {ytdlpUpdating
-                    ? <Loader2 className="h-3 w-3 animate-spin" />
-                    : <RefreshCw className="h-3 w-3" />}
+                  {ytdlpUpdating ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
                   Update
                 </button>
                 {hasFailed && (
@@ -964,7 +1094,9 @@ export function Downloads() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">No downloads yet</p>
-                    <p className="text-xs text-muted-foreground/50 mt-0.5">Paste a URL above to get started</p>
+                    <p className="text-xs text-muted-foreground/50 mt-0.5">
+                      Paste a URL above to get started
+                    </p>
                   </div>
                 </div>
               ) : filteredDownloads.length === 0 ? (
@@ -982,7 +1114,7 @@ export function Downloads() {
                         if (seen.has(item.playlist_id)) continue;
                         seen.add(item.playlist_id);
                         const groupItems = filteredDownloads.filter(
-                          (d) => d.playlist_id === item.playlist_id
+                          (d) => d.playlist_id === item.playlist_id,
                         );
                         rendered.push(
                           <PlaylistGroup
@@ -993,7 +1125,7 @@ export function Downloads() {
                             onClear={handleClear}
                             onDeleteFile={handleDeleteFile}
                             onRetry={handleRetry}
-                          />
+                          />,
                         );
                       } else {
                         rendered.push(
@@ -1004,7 +1136,7 @@ export function Downloads() {
                             onClear={handleClear}
                             onDeleteFile={handleDeleteFile}
                             onRetry={handleRetry}
-                          />
+                          />,
                         );
                       }
                     }
@@ -1025,18 +1157,23 @@ export function Downloads() {
               Options
             </div>
             <button
-              onClick={() => { setCookiesDraft(activeCookies); setShowCookiesModal(true); }}
+              onClick={() => {
+                setCookiesDraft(activeCookies);
+                setShowCookiesModal(true);
+              }}
               className={cn(
                 "relative flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors",
                 activeCookies
                   ? "border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                  : "border-border/50 text-muted-foreground/60 hover:text-foreground hover:border-border"
+                  : "border-border/50 text-muted-foreground/60 hover:text-foreground hover:border-border",
               )}
             >
               <ShieldCheck className="h-3 w-3" />
               Cookies
               {activeCookies && (
-                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">1</span>
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">
+                  1
+                </span>
               )}
             </button>
           </div>
@@ -1052,16 +1189,26 @@ export function Downloads() {
 
       {/* Cookies modal */}
       {showCookiesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowCookiesModal(false)}>
-          <div className="bg-card border border-border rounded-lg shadow-xl p-5 w-full max-w-lg mx-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowCookiesModal(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-lg shadow-xl p-5 w-full max-w-lg mx-4 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Paste cookies</h3>
-              <button onClick={() => setShowCookiesModal(false)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setShowCookiesModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Paste cookies in Netscape format (exported via a browser extension like "Get cookies.txt"). Active for this session only — navigating away clears them.
+              Paste cookies in Netscape format (exported via a browser extension like "Get
+              cookies.txt"). Active for this session only — navigating away clears them.
             </p>
             <textarea
               value={cookiesDraft}
@@ -1073,17 +1220,27 @@ export function Downloads() {
             <div className="flex gap-2 justify-end">
               {activeCookies && (
                 <button
-                  onClick={() => { setActiveCookies(""); setCookiesDraft(""); setShowCookiesModal(false); }}
+                  onClick={() => {
+                    setActiveCookies("");
+                    setCookiesDraft("");
+                    setShowCookiesModal(false);
+                  }}
                   className="px-3 py-1.5 text-xs text-destructive border border-destructive/30 rounded hover:bg-destructive/10 transition-colors"
                 >
                   Clear cookies
                 </button>
               )}
-              <button onClick={() => setShowCookiesModal(false)} className="px-3 py-1.5 text-xs border border-border rounded hover:bg-accent transition-colors">
+              <button
+                onClick={() => setShowCookiesModal(false)}
+                className="px-3 py-1.5 text-xs border border-border rounded hover:bg-accent transition-colors"
+              >
                 Cancel
               </button>
               <button
-                onClick={() => { setActiveCookies(cookiesDraft.trim()); setShowCookiesModal(false); }}
+                onClick={() => {
+                  setActiveCookies(cookiesDraft.trim());
+                  setShowCookiesModal(false);
+                }}
                 className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
               >
                 Apply
@@ -1110,7 +1267,9 @@ export function Downloads() {
             </div>
             <ul className="space-y-1 max-h-40 overflow-y-auto">
               {dupeUrls.map((u) => (
-                <li key={u} className="text-xs font-mono text-muted-foreground/70 truncate px-1">{u}</li>
+                <li key={u} className="text-xs font-mono text-muted-foreground/70 truncate px-1">
+                  {u}
+                </li>
               ))}
             </ul>
             <div className="flex gap-2 justify-end">
@@ -1130,7 +1289,6 @@ export function Downloads() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

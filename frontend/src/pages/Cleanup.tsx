@@ -1,5 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
-import { Scissors, Loader2, Trash2, Search, Play, LayoutGrid, List, ImageOff, Check, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  Scissors,
+  Loader2,
+  Trash2,
+  Search,
+  Play,
+  LayoutGrid,
+  List,
+  ImageOff,
+  Check,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, CleanupParams, Library, VideoFile, VideoSearchResult } from "@/lib/api";
@@ -10,9 +22,40 @@ import { FilterAccordion } from "@/components/FilterAccordion";
 import { useLiveFiles } from "@/lib/useLiveFiles";
 
 const NUDENET_GROUPS = [
-  { label: "Exposed", labels: ["FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED", "MALE_GENITALIA_EXPOSED", "MALE_BREAST_EXPOSED", "BUTTOCKS_EXPOSED", "ANUS_EXPOSED"] },
-  { label: "Covered", labels: ["FEMALE_BREAST_COVERED", "FEMALE_GENITALIA_COVERED", "MALE_GENITALIA_COVERED", "BUTTOCKS_COVERED", "ANUS_COVERED"] },
-  { label: "Other",   labels: ["BELLY_EXPOSED", "BELLY_COVERED", "ARMPITS_EXPOSED", "ARMPITS_COVERED", "FEET_EXPOSED", "FEET_COVERED", "FACE_FEMALE", "FACE_MALE"] },
+  {
+    label: "Exposed",
+    labels: [
+      "FEMALE_BREAST_EXPOSED",
+      "FEMALE_GENITALIA_EXPOSED",
+      "MALE_GENITALIA_EXPOSED",
+      "MALE_BREAST_EXPOSED",
+      "BUTTOCKS_EXPOSED",
+      "ANUS_EXPOSED",
+    ],
+  },
+  {
+    label: "Covered",
+    labels: [
+      "FEMALE_BREAST_COVERED",
+      "FEMALE_GENITALIA_COVERED",
+      "MALE_GENITALIA_COVERED",
+      "BUTTOCKS_COVERED",
+      "ANUS_COVERED",
+    ],
+  },
+  {
+    label: "Other",
+    labels: [
+      "BELLY_EXPOSED",
+      "BELLY_COVERED",
+      "ARMPITS_EXPOSED",
+      "ARMPITS_COVERED",
+      "FEET_EXPOSED",
+      "FEET_COVERED",
+      "FACE_FEMALE",
+      "FACE_MALE",
+    ],
+  },
 ];
 
 function LibrarySelector({
@@ -31,7 +74,9 @@ function LibrarySelector({
       onChange={(e) => onChange(Number(e.target.value))}
     >
       {libraries.map((lib) => (
-        <option key={lib.id} value={lib.id}>{lib.name}</option>
+        <option key={lib.id} value={lib.id}>
+          {lib.name}
+        </option>
       ))}
     </select>
   );
@@ -56,7 +101,9 @@ function OpSelect({
       disabled={disabled}
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
       ))}
     </select>
   );
@@ -124,14 +171,20 @@ function CleanupCard({
           <ImageOff className="h-8 w-8 text-muted-foreground/40" />
         )}
         <button
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
           title="Toggle selection"
           className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100 bg-primary border-primary" : "opacity-0 group-hover:opacity-100 bg-black/50 border-white/70"}`}
         >
           {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onPlay(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlay();
+          }}
           title="Play video"
           className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto"
         >
@@ -139,12 +192,19 @@ function CleanupCard({
         </button>
       </div>
       <CardContent className="p-2.5 space-y-0.5">
-        <p className="text-xs font-medium truncate" title={file.filename}>{file.filename}</p>
+        <p className="text-xs font-medium truncate" title={file.filename}>
+          {file.filename}
+        </p>
         <p className="text-xs text-muted-foreground">
-          {file.file_width && file.file_height ? <span className="font-mono">{file.file_width}×{file.file_height}</span> : null}
+          {file.file_width && file.file_height ? (
+            <span className="font-mono">
+              {file.file_width}×{file.file_height}
+            </span>
+          ) : null}
           {file.file_width && file.file_height ? " · " : ""}
           <span className="font-mono">{formatDuration(file.duration)}</span>
-          {" · "}<span className="font-mono">{formatSize(file.size)}</span>
+          {" · "}
+          <span className="font-mono">{formatSize(file.size)}</span>
         </p>
       </CardContent>
     </Card>
@@ -176,11 +236,11 @@ export function Cleanup() {
   const [heightVal, setHeightVal] = useState(480);
 
   // Filename filter
-  const [filenameEnabled, setFilenameEnabled]       = useState(false);
-  const [filenameQuery, setFilenameQuery]           = useState("");
-  const [filenameExclude, setFilenameExclude]       = useState(false);
-  const [filenameFuzzy, setFilenameFuzzy]           = useState(false);
-  const [filenameThreshold, setFilenameThreshold]   = useState(0.4);
+  const [filenameEnabled, setFilenameEnabled] = useState(false);
+  const [filenameQuery, setFilenameQuery] = useState("");
+  const [filenameExclude, setFilenameExclude] = useState(false);
+  const [filenameFuzzy, setFilenameFuzzy] = useState(false);
+  const [filenameThreshold, setFilenameThreshold] = useState(0.4);
 
   // AI filters
   const [clipEnabled, setClipEnabled] = useState(false);
@@ -221,11 +281,11 @@ export function Cleanup() {
   const anyFilterActive = anyServerFilterActive || filenameActive;
 
   const SORT_OPTIONS = [
-    { value: "filename",      label: "Name" },
-    { value: "size",          label: "Size" },
-    { value: "duration",      label: "Duration" },
+    { value: "filename", label: "Name" },
+    { value: "size", label: "Size" },
+    { value: "duration", label: "Duration" },
     { value: "video_bitrate", label: "Bitrate" },
-    { value: "file_date",     label: "File date" },
+    { value: "file_date", label: "File date" },
   ] as const;
 
   const sortedResults = useMemo(() => {
@@ -319,32 +379,38 @@ export function Cleanup() {
           api.getCleanupFiles(selectedId, buildParams()).then((files) => {
             files.forEach((f) => fileMap.set(f.id, f));
             idSets.push(new Set(files.map((f) => f.id)));
-          })
+          }),
         );
       }
 
       if (clipActive) {
         tasks.push(
-          api.searchFiles(clipQuery.trim(), selectedId, 10000).then((results: VideoSearchResult[]) => {
-            const filtered = results.filter((r) => clipExclude ? r.score < clipMinScore : r.score >= clipMinScore);
-            filtered.forEach((r) => fileMap.set(r.file.id, r.file));
-            idSets.push(new Set(filtered.map((r) => r.file.id)));
-          })
+          api
+            .searchFiles(clipQuery.trim(), selectedId, 10000)
+            .then((results: VideoSearchResult[]) => {
+              const filtered = results.filter((r) =>
+                clipExclude ? r.score < clipMinScore : r.score >= clipMinScore,
+              );
+              filtered.forEach((r) => fileMap.set(r.file.id, r.file));
+              idSets.push(new Set(filtered.map((r) => r.file.id)));
+            }),
         );
       }
 
       if (nudenetActive) {
         tasks.push(
-          api.filterFilesByDetections({
-            labels: [...checkedLabels],
-            min_confidence: detectionConfidence,
-            exclude: nudenetExclude,
-            library_id: selectedId,
-            page_size: 10000,
-          }).then((res) => {
-            res.items.forEach((f) => fileMap.set(f.id, f));
-            idSets.push(new Set(res.items.map((f) => f.id)));
-          })
+          api
+            .filterFilesByDetections({
+              labels: [...checkedLabels],
+              min_confidence: detectionConfidence,
+              exclude: nudenetExclude,
+              library_id: selectedId,
+              page_size: 10000,
+            })
+            .then((res) => {
+              res.items.forEach((f) => fileMap.set(f.id, f));
+              idSets.push(new Set(res.items.map((f) => f.id)));
+            }),
         );
       }
 
@@ -354,7 +420,7 @@ export function Cleanup() {
           api.getCleanupFiles(selectedId, {}, true).then((files) => {
             files.forEach((f) => fileMap.set(f.id, f));
             idSets.push(new Set(files.map((f) => f.id)));
-          })
+          }),
         );
       }
 
@@ -431,17 +497,25 @@ export function Cleanup() {
             <LibrarySelector
               libraries={libraries}
               selected={selectedId}
-              onChange={(id) => { setSelectedId(id); setResults(null); setSelected(new Set()); }}
+              onChange={(id) => {
+                setSelectedId(id);
+                setResults(null);
+                setSelected(new Set());
+              }}
             />
           )}
-          <Button
-            onClick={handleFind}
-            disabled={!anyFilterActive || !selectedId || loading}
-          >
-            {loading
-              ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Searching…</>
-              : <><Search className="h-3.5 w-3.5 mr-2" />Find Files</>
-            }
+          <Button onClick={handleFind} disabled={!anyFilterActive || !selectedId || loading}>
+            {loading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                Searching…
+              </>
+            ) : (
+              <>
+                <Search className="h-3.5 w-3.5 mr-2" />
+                Find Files
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -450,7 +524,11 @@ export function Cleanup() {
         {/* Duration */}
         <FilterAccordion
           label="Duration"
-          summary={durationEnabled ? `${durationOp === "lt" ? "shorter than" : "longer than"} ${durationH}h ${durationM}m ${durationS}s` : null}
+          summary={
+            durationEnabled
+              ? `${durationOp === "lt" ? "shorter than" : "longer than"} ${durationH}h ${durationM}m ${durationS}s`
+              : null
+          }
           enabled={durationEnabled}
           onToggle={setDurationEnabled}
         >
@@ -458,7 +536,10 @@ export function Cleanup() {
             <OpSelect
               value={durationOp}
               onChange={(v) => setDurationOp(v as "lt" | "gt")}
-              options={[{ value: "lt", label: "Shorter than" }, { value: "gt", label: "Longer than" }]}
+              options={[
+                { value: "lt", label: "Shorter than" },
+                { value: "gt", label: "Longer than" },
+              ]}
               disabled={false}
             />
             <div className="flex items-center gap-1.5">
@@ -483,10 +564,20 @@ export function Cleanup() {
             <OpSelect
               value={fpsOp}
               onChange={(v) => setFpsOp(v as "lt" | "gt")}
-              options={[{ value: "lt", label: "Below" }, { value: "gt", label: "Above" }]}
+              options={[
+                { value: "lt", label: "Below" },
+                { value: "gt", label: "Above" },
+              ]}
               disabled={false}
             />
-            <NumInput value={fpsVal} onChange={setFpsVal} min={1} max={240} step={1} disabled={false} />
+            <NumInput
+              value={fpsVal}
+              onChange={setFpsVal}
+              min={1}
+              max={240}
+              step={1}
+              disabled={false}
+            />
             <span className="text-xs text-muted-foreground">fps</span>
           </div>
         </FilterAccordion>
@@ -494,7 +585,11 @@ export function Cleanup() {
         {/* File date */}
         <FilterAccordion
           label="File date"
-          summary={dateEnabled ? `${dateOp === "before" ? "older than" : "newer than"} ${dateN} ${dateUnit}` : null}
+          summary={
+            dateEnabled
+              ? `${dateOp === "before" ? "older than" : "newer than"} ${dateN} ${dateUnit}`
+              : null
+          }
           enabled={dateEnabled}
           onToggle={setDateEnabled}
         >
@@ -502,14 +597,28 @@ export function Cleanup() {
             <OpSelect
               value={dateOp}
               onChange={(v) => setDateOp(v as "before" | "after")}
-              options={[{ value: "before", label: "Older than" }, { value: "after", label: "Newer than" }]}
+              options={[
+                { value: "before", label: "Older than" },
+                { value: "after", label: "Newer than" },
+              ]}
               disabled={false}
             />
-            <NumInput value={dateN} onChange={setDateN} min={1} max={3650} disabled={false} className="w-16" />
+            <NumInput
+              value={dateN}
+              onChange={setDateN}
+              min={1}
+              max={3650}
+              disabled={false}
+              className="w-16"
+            />
             <OpSelect
               value={dateUnit}
               onChange={(v) => setDateUnit(v as "days" | "weeks" | "months")}
-              options={[{ value: "days", label: "days" }, { value: "weeks", label: "weeks" }, { value: "months", label: "months" }]}
+              options={[
+                { value: "days", label: "days" },
+                { value: "weeks", label: "weeks" },
+                { value: "months", label: "months" },
+              ]}
               disabled={false}
             />
           </div>
@@ -518,7 +627,9 @@ export function Cleanup() {
         {/* Resolution */}
         <FilterAccordion
           label="Resolution"
-          summary={heightEnabled ? `${heightOp === "lt" ? "below" : "above"} ${heightVal}px height` : null}
+          summary={
+            heightEnabled ? `${heightOp === "lt" ? "below" : "above"} ${heightVal}px height` : null
+          }
           enabled={heightEnabled}
           onToggle={setHeightEnabled}
         >
@@ -526,10 +637,20 @@ export function Cleanup() {
             <OpSelect
               value={heightOp}
               onChange={(v) => setHeightOp(v as "lt" | "gt")}
-              options={[{ value: "lt", label: "Below" }, { value: "gt", label: "Above" }]}
+              options={[
+                { value: "lt", label: "Below" },
+                { value: "gt", label: "Above" },
+              ]}
               disabled={false}
             />
-            <NumInput value={heightVal} onChange={setHeightVal} min={1} max={9999} disabled={false} className="w-20" />
+            <NumInput
+              value={heightVal}
+              onChange={setHeightVal}
+              min={1}
+              max={9999}
+              disabled={false}
+              className="w-20"
+            />
             <span className="text-xs text-muted-foreground">px height</span>
           </div>
         </FilterAccordion>
@@ -537,7 +658,11 @@ export function Cleanup() {
         {/* Filename */}
         <FilterAccordion
           label="Filename"
-          summary={filenameActive ? `${filenameExclude ? "not " : ""}${filenameFuzzy ? `~${Math.round(filenameThreshold * 100)}% ` : ""}contains "${filenameQuery}"` : null}
+          summary={
+            filenameActive
+              ? `${filenameExclude ? "not " : ""}${filenameFuzzy ? `~${Math.round(filenameThreshold * 100)}% ` : ""}contains "${filenameQuery}"`
+              : null
+          }
           enabled={filenameEnabled}
           onToggle={setFilenameEnabled}
         >
@@ -571,14 +696,21 @@ export function Cleanup() {
             </label>
             {filenameFuzzy && (
               <div className="flex items-center gap-3 pl-5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Similarity threshold</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Similarity threshold
+                </span>
                 <input
-                  type="range" min="0.1" max="1" step="0.05"
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
                   value={filenameThreshold}
                   onChange={(e) => setFilenameThreshold(Number(e.target.value))}
                   className="w-36 accent-primary"
                 />
-                <span className="text-xs font-mono text-muted-foreground w-8">{Math.round(filenameThreshold * 100)}%</span>
+                <span className="text-xs font-mono text-muted-foreground w-8">
+                  {Math.round(filenameThreshold * 100)}%
+                </span>
               </div>
             )}
           </div>
@@ -588,7 +720,11 @@ export function Cleanup() {
         <FilterAccordion
           label="Semantic search"
           badge="AI"
-          summary={clipEnabled && clipQuery ? `${clipExclude ? "NOT " : ""}"${clipQuery}"${!clipExclude ? ` · ≥${Math.round(clipMinScore * 100)}%` : ""}` : null}
+          summary={
+            clipEnabled && clipQuery
+              ? `${clipExclude ? "NOT " : ""}"${clipQuery}"${!clipExclude ? ` · ≥${Math.round(clipMinScore * 100)}%` : ""}`
+              : null
+          }
           enabled={clipEnabled}
           onToggle={setClipEnabled}
         >
@@ -602,15 +738,22 @@ export function Cleanup() {
               className="w-full max-w-md h-8 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Min similarity score</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Min similarity score
+              </span>
               <input
-                type="range" min="0" max="1" step="0.05"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
                 value={clipMinScore}
                 onChange={(e) => setClipMinScore(Number(e.target.value))}
                 disabled={clipExclude}
                 className="w-36 accent-primary disabled:opacity-40"
               />
-              <span className="text-xs font-mono text-muted-foreground w-8">{Math.round(clipMinScore * 100)}%</span>
+              <span className="text-xs font-mono text-muted-foreground w-8">
+                {Math.round(clipMinScore * 100)}%
+              </span>
             </div>
             <label className="flex items-center gap-2 cursor-pointer w-fit">
               <input
@@ -619,7 +762,9 @@ export function Cleanup() {
                 onChange={(e) => setClipExclude(e.target.checked)}
                 className="accent-primary h-3.5 w-3.5"
               />
-              <span className="text-xs text-muted-foreground">Exclude matches — find files that do <em>not</em> match this query</span>
+              <span className="text-xs text-muted-foreground">
+                Exclude matches — find files that do <em>not</em> match this query
+              </span>
             </label>
           </div>
         </FilterAccordion>
@@ -628,7 +773,11 @@ export function Cleanup() {
         <FilterAccordion
           label="Content detection"
           badge="AI"
-          summary={nudenetEnabled && checkedLabels.size > 0 ? `${nudenetExclude ? "NOT " : ""}${checkedLabels.size} label${checkedLabels.size !== 1 ? "s" : ""} · ≥${Math.round(detectionConfidence * 100)}%` : null}
+          summary={
+            nudenetEnabled && checkedLabels.size > 0
+              ? `${nudenetExclude ? "NOT " : ""}${checkedLabels.size} label${checkedLabels.size !== 1 ? "s" : ""} · ≥${Math.round(detectionConfidence * 100)}%`
+              : null
+          }
           enabled={nudenetEnabled}
           onToggle={setNudenetEnabled}
         >
@@ -636,7 +785,9 @@ export function Cleanup() {
             <div className="space-y-2">
               {NUDENET_GROUPS.map((group) => (
                 <div key={group.label}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">{group.label}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                    {group.label}
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {group.labels.map((label) => (
                       <button
@@ -656,14 +807,21 @@ export function Cleanup() {
               ))}
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Min confidence</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Min confidence
+              </span>
               <input
-                type="range" min="0" max="1" step="0.05"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
                 value={detectionConfidence}
                 onChange={(e) => setDetectionConfidence(Number(e.target.value))}
                 className="w-36 accent-primary"
               />
-              <span className="text-xs font-mono text-muted-foreground w-8">{Math.round(detectionConfidence * 100)}%</span>
+              <span className="text-xs font-mono text-muted-foreground w-8">
+                {Math.round(detectionConfidence * 100)}%
+              </span>
             </div>
             <label className="flex items-center gap-2 cursor-pointer w-fit">
               <input
@@ -672,7 +830,9 @@ export function Cleanup() {
                 onChange={(e) => setNudenetExclude(e.target.checked)}
                 className="accent-primary h-3.5 w-3.5"
               />
-              <span className="text-xs text-muted-foreground">Invert — find files that do <em>not</em> contain these detections</span>
+              <span className="text-xs text-muted-foreground">
+                Invert — find files that do <em>not</em> contain these detections
+              </span>
             </label>
           </div>
         </FilterAccordion>
@@ -692,7 +852,8 @@ export function Cleanup() {
             <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">Ready to search</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Enable one or more filters and click Find Files. All active filters stack — results must match every condition.
+              Enable one or more filters and click Find Files. All active filters stack — results
+              must match every condition.
             </p>
           </CardContent>
         </Card>
@@ -712,13 +873,20 @@ export function Cleanup() {
         <div className="space-y-3">
           {results && resultsStale && (
             <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
-              <span className="text-amber-400">Files changed since these results were found — they may be out of date.</span>
-              <Button size="sm" variant="outline" onClick={handleFind}>Refresh</Button>
+              <span className="text-amber-400">
+                Files changed since these results were found — they may be out of date.
+              </span>
+              <Button size="sm" variant="outline" onClick={handleFind}>
+                Refresh
+              </Button>
             </div>
           )}
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums font-mono">{sortedResults.length}</span> file{sortedResults.length !== 1 ? "s" : ""} match
+              <span className="font-semibold text-foreground tabular-nums font-mono">
+                {sortedResults.length}
+              </span>{" "}
+              file{sortedResults.length !== 1 ? "s" : ""} match
             </p>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -736,15 +904,21 @@ export function Cleanup() {
                 onChange={(e) => setSortBy(e.target.value)}
               >
                 {SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
               <button
-                onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+                onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                 className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title={sortDir === "asc" ? "Ascending" : "Descending"}
               >
-                {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                {sortDir === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ArrowDown className="h-3.5 w-3.5" />
+                )}
               </button>
               <div className="flex items-center rounded-md border border-input overflow-hidden">
                 <button
@@ -770,10 +944,17 @@ export function Cleanup() {
                 disabled={selected.size === 0 || deleting}
                 onClick={handleDelete}
               >
-                {deleting
-                  ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Deleting…</>
-                  : <><Trash2 className="h-3.5 w-3.5 mr-2" />Delete Selected ({selected.size})</>
-                }
+                {deleting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Delete Selected ({selected.size})
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -812,7 +993,10 @@ export function Cleanup() {
                       <td className="px-2 py-1">
                         <button
                           className="relative group/thumb h-8 w-14 shrink-0"
-                          onClick={(e) => { e.stopPropagation(); setPlayingFile(f); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPlayingFile(f);
+                          }}
                           title="Play video"
                         >
                           {f.has_thumbnail ? (
@@ -830,8 +1014,12 @@ export function Cleanup() {
                         </button>
                       </td>
                       <td className="px-3 py-2 max-w-xs">
-                        <p className="truncate font-medium" title={f.filename}>{f.filename}</p>
-                        <p className="truncate text-xs text-muted-foreground" title={f.path}>{f.path}</p>
+                        <p className="truncate font-medium" title={f.filename}>
+                          {f.filename}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground" title={f.path}>
+                          {f.path}
+                        </p>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
                         {f.file_width && f.file_height ? `${f.file_width}×${f.file_height}` : "—"}

@@ -1,12 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Images, Library, Plus, Trash2, ScanLine, FolderOpen, Loader2, ExternalLink } from "lucide-react";
+import {
+  Images,
+  Library,
+  Plus,
+  Trash2,
+  ScanLine,
+  FolderOpen,
+  Loader2,
+  ExternalLink,
+} from "lucide-react";
 import { api, imageApi, ImageLibrary, ImageScanRequest, Job } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { SectionHeader } from "@/components/SectionHeader";
 import { DirPicker } from "@/components/DirPicker";
 import { formatDate } from "@/lib/format";
@@ -18,9 +33,18 @@ const DEFAULT_SCAN_OPTS: ImageScanRequest = {
   reset: false,
 };
 
-interface Leftovers { has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }
+interface Leftovers {
+  has_leftovers: boolean;
+  dir_name: string;
+  count: number;
+  total_bytes: number;
+}
 
-function DeleteImageLibraryDialog({ lib, onClose, onDeleted }: {
+function DeleteImageLibraryDialog({
+  lib,
+  onClose,
+  onDeleted,
+}: {
   lib: ImageLibrary | null;
   onClose: () => void;
   onDeleted: (id: number) => void;
@@ -30,8 +54,14 @@ function DeleteImageLibraryDialog({ lib, onClose, onDeleted }: {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!lib) { setLeftovers(null); return; }
-    imageApi.libraryLeftovers(lib.id).then(setLeftovers).catch(() => setLeftovers(null));
+    if (!lib) {
+      setLeftovers(null);
+      return;
+    }
+    imageApi
+      .libraryLeftovers(lib.id)
+      .then(setLeftovers)
+      .catch(() => setLeftovers(null));
   }, [lib]);
 
   const doDelete = async (deleteLeftovers: boolean) => {
@@ -54,15 +84,18 @@ function DeleteImageLibraryDialog({ lib, onClose, onDeleted }: {
         </DialogHeader>
         <div className="space-y-3 py-1">
           <p className="text-sm text-muted-foreground">
-            Remove <span className="font-medium text-foreground">{lib?.name || lib?.path}</span> and all its image records from Parallax. Files on disk are not touched.
+            Remove <span className="font-medium text-foreground">{lib?.name || lib?.path}</span> and
+            all its image records from Parallax. Files on disk are not touched.
           </p>
           {leftovers?.has_leftovers && (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-1">
               <p className="text-sm font-medium text-amber-400">
-                {leftovers.count} file{leftovers.count !== 1 ? "s" : ""} in <code className="font-mono text-xs">_quarantine/</code>
+                {leftovers.count} file{leftovers.count !== 1 ? "s" : ""} in{" "}
+                <code className="font-mono text-xs">_quarantine/</code>
               </p>
               <p className="text-xs text-muted-foreground">
-                {(leftovers.total_bytes / 1024 ** 3).toFixed(2)} GB of quarantined images found. What should happen to them?
+                {(leftovers.total_bytes / 1024 ** 3).toFixed(2)} GB of quarantined images found.
+                What should happen to them?
               </p>
             </div>
           )}
@@ -70,25 +103,57 @@ function DeleteImageLibraryDialog({ lib, onClose, onDeleted }: {
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           {leftovers?.has_leftovers ? (
             <>
-              <Button variant="destructive" onClick={() => doDelete(true)} disabled={deleting} className="w-full justify-start">
-                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              <Button
+                variant="destructive"
+                onClick={() => doDelete(true)}
+                disabled={deleting}
+                className="w-full justify-start"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
                 Delete library and quarantined files
               </Button>
-              <Button variant="outline" onClick={() => { onClose(); navigate("/image-quarantined"); }} className="w-full justify-start">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onClose();
+                  navigate("/image-quarantined");
+                }}
+                className="w-full justify-start"
+              >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Review quarantine first
               </Button>
-              <Button variant="outline" onClick={() => doDelete(false)} disabled={deleting} className="w-full justify-start">
+              <Button
+                variant="outline"
+                onClick={() => doDelete(false)}
+                disabled={deleting}
+                className="w-full justify-start"
+              >
                 Keep quarantined files on disk
               </Button>
             </>
           ) : (
             <>
-              <Button variant="destructive" onClick={() => doDelete(false)} disabled={deleting} className="w-full">
-                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              <Button
+                variant="destructive"
+                onClick={() => doDelete(false)}
+                disabled={deleting}
+                className="w-full"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
                 Delete library
               </Button>
-              <Button variant="outline" onClick={onClose} className="w-full">Cancel</Button>
+              <Button variant="outline" onClick={onClose} className="w-full">
+                Cancel
+              </Button>
             </>
           )}
         </DialogFooter>
@@ -97,7 +162,12 @@ function DeleteImageLibraryDialog({ lib, onClose, onDeleted }: {
   );
 }
 
-function DeleteAllImageLibrariesDialog({ open, onClose, libraries, onDeleted }: {
+function DeleteAllImageLibrariesDialog({
+  open,
+  onClose,
+  libraries,
+  onDeleted,
+}: {
   open: boolean;
   onClose: () => void;
   libraries: ImageLibrary[];
@@ -110,7 +180,11 @@ function DeleteAllImageLibrariesDialog({ open, onClose, libraries, onDeleted }: 
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!open || libraries.length === 0) { setTotalCount(0); setTotalBytes(0); return; }
+    if (!open || libraries.length === 0) {
+      setTotalCount(0);
+      setTotalBytes(0);
+      return;
+    }
     setChecking(true);
     Promise.all(libraries.map((l) => imageApi.libraryLeftovers(l.id).catch(() => null)))
       .then((results) => {
@@ -123,7 +197,9 @@ function DeleteAllImageLibrariesDialog({ open, onClose, libraries, onDeleted }: 
   const doDeleteAll = async (deleteLeftovers: boolean) => {
     setDeleting(true);
     try {
-      await Promise.all(libraries.map((l) => imageApi.deleteLibrary(l.id, deleteLeftovers).catch(() => {})));
+      await Promise.all(
+        libraries.map((l) => imageApi.deleteLibrary(l.id, deleteLeftovers).catch(() => {})),
+      );
       onDeleted();
       onClose();
     } finally {
@@ -141,16 +217,19 @@ function DeleteAllImageLibrariesDialog({ open, onClose, libraries, onDeleted }: 
         </DialogHeader>
         <div className="space-y-3 py-1">
           <p className="text-sm text-muted-foreground">
-            Remove all <span className="font-medium text-foreground">{libraries.length}</span> libraries and their image records from Parallax. Files on disk are not touched.
+            Remove all <span className="font-medium text-foreground">{libraries.length}</span>{" "}
+            libraries and their image records from Parallax. Files on disk are not touched.
           </p>
           {checking && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           {!checking && hasLeftovers && (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-1">
               <p className="text-sm font-medium text-amber-400">
-                {totalCount} file{totalCount !== 1 ? "s" : ""} in <code className="font-mono text-xs">_quarantine/</code>
+                {totalCount} file{totalCount !== 1 ? "s" : ""} in{" "}
+                <code className="font-mono text-xs">_quarantine/</code>
               </p>
               <p className="text-xs text-muted-foreground">
-                {(totalBytes / 1024 ** 3).toFixed(2)} GB of quarantined images found across libraries. What should happen to them?
+                {(totalBytes / 1024 ** 3).toFixed(2)} GB of quarantined images found across
+                libraries. What should happen to them?
               </p>
             </div>
           )}
@@ -158,25 +237,57 @@ function DeleteAllImageLibrariesDialog({ open, onClose, libraries, onDeleted }: 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           {!checking && hasLeftovers ? (
             <>
-              <Button variant="destructive" onClick={() => doDeleteAll(true)} disabled={deleting} className="w-full justify-start">
-                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              <Button
+                variant="destructive"
+                onClick={() => doDeleteAll(true)}
+                disabled={deleting}
+                className="w-full justify-start"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
                 Delete all libraries and quarantined files
               </Button>
-              <Button variant="outline" onClick={() => { onClose(); navigate("/image-quarantined"); }} className="w-full justify-start">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onClose();
+                  navigate("/image-quarantined");
+                }}
+                className="w-full justify-start"
+              >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Review quarantine first
               </Button>
-              <Button variant="outline" onClick={() => doDeleteAll(false)} disabled={deleting} className="w-full justify-start">
+              <Button
+                variant="outline"
+                onClick={() => doDeleteAll(false)}
+                disabled={deleting}
+                className="w-full justify-start"
+              >
                 Keep quarantined files on disk
               </Button>
             </>
           ) : (
             <>
-              <Button variant="destructive" onClick={() => doDeleteAll(false)} disabled={deleting || checking} className="w-full">
-                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              <Button
+                variant="destructive"
+                onClick={() => doDeleteAll(false)}
+                disabled={deleting || checking}
+                className="w-full"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
                 Delete all libraries
               </Button>
-              <Button variant="outline" onClick={onClose} className="w-full">Cancel</Button>
+              <Button variant="outline" onClick={onClose} className="w-full">
+                Cancel
+              </Button>
             </>
           )}
         </DialogFooter>
@@ -202,8 +313,11 @@ function AddImageLibraryDialog({
   const [error, setError] = useState("");
 
   const reset = () => {
-    setPath(""); setScanOpts(DEFAULT_SCAN_OPTS); setAutoScan(true);
-    setPicking(false); setError("");
+    setPath("");
+    setScanOpts(DEFAULT_SCAN_OPTS);
+    setAutoScan(true);
+    setPicking(false);
+    setError("");
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -227,14 +341,23 @@ function AddImageLibraryDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) reset();
+        onOpenChange(v);
+      }}
+    >
       <DialogContent onClose={() => onOpenChange(false)}>
         <DialogHeader>
           <DialogTitle>Add Image Library</DialogTitle>
         </DialogHeader>
         {picking ? (
           <DirPicker
-            onSelect={(p) => { setPath(p); setPicking(false); }}
+            onSelect={(p) => {
+              setPath(p);
+              setPicking(false);
+            }}
             onClose={() => setPicking(false)}
           />
         ) : (
@@ -249,7 +372,13 @@ function AddImageLibraryDialog({
                   className="font-mono text-sm"
                   required
                 />
-                <Button type="button" variant="outline" size="icon" onClick={() => setPicking(true)} title="Browse">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setPicking(true)}
+                  title="Browse"
+                >
                   <FolderOpen className="h-4 w-4" />
                 </Button>
               </div>
@@ -257,11 +386,13 @@ function AddImageLibraryDialog({
 
             <div className="space-y-2">
               <Label>Scan options</Label>
-              {([
-                ["run_phash", "Duplicates (pHash)"],
-                ["run_nudenet", "Content review (NudeNet)"],
-                ["run_clip", "Semantic search (CLIP)"],
-              ] as const).map(([key, label]) => (
+              {(
+                [
+                  ["run_phash", "Duplicates (pHash)"],
+                  ["run_nudenet", "Content review (NudeNet)"],
+                  ["run_clip", "Semantic search (CLIP)"],
+                ] as const
+              ).map(([key, label]) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -292,7 +423,9 @@ function AddImageLibraryDialog({
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={loading || !path.trim()}>
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Add Library
@@ -334,10 +467,16 @@ export function ImageLibraries() {
     try {
       const [libs, jobs] = await Promise.all([imageApi.listLibraries(), api.getJobs(100)]);
       setLibraries(libs);
-      const active = (jobs as Job[]).filter((j) => j.status === "pending" || j.status === "running");
-      setScanningIds(new Set(
-        active.filter((j) => j.type === "image_scan" && j.library_id != null).map((j) => j.library_id!)
-      ));
+      const active = (jobs as Job[]).filter(
+        (j) => j.status === "pending" || j.status === "running",
+      );
+      setScanningIds(
+        new Set(
+          active
+            .filter((j) => j.type === "image_scan" && j.library_id != null)
+            .map((j) => j.library_id!),
+        ),
+      );
     } finally {
       if (showLoader) setLoading(false);
     }
@@ -346,7 +485,9 @@ export function ImageLibraries() {
   useEffect(() => {
     refresh(true);
     pollRef.current = setInterval(() => refresh(), 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [refresh]);
 
   const handleScan = async (id: number, reset = false) => {
@@ -401,7 +542,10 @@ export function ImageLibraries() {
         open={deleteAllOpen}
         onClose={() => setDeleteAllOpen(false)}
         libraries={libraries}
-        onDeleted={() => { setLibraries([]); refresh(true); }}
+        onDeleted={() => {
+          setLibraries([]);
+          refresh(true);
+        }}
       />
       <AddImageLibraryDialog
         open={dialogOpen}
@@ -431,29 +575,41 @@ export function ImageLibraries() {
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base leading-tight">{lib.name}</CardTitle>
                   <div className="flex gap-1 shrink-0 items-center relative">
-                    <div className="relative" ref={scanOptsFor === lib.id ? scanOptsRef : undefined}>
+                    <div
+                      className="relative"
+                      ref={scanOptsFor === lib.id ? scanOptsRef : undefined}
+                    >
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
                         disabled={scanningIds.has(lib.id)}
                         title="Scan for images"
-                        onClick={() => setScanOptsFor((v) => v === lib.id ? null : lib.id)}
+                        onClick={() => setScanOptsFor((v) => (v === lib.id ? null : lib.id))}
                       >
-                        <ScanLine className={`h-3.5 w-3.5 ${scanningIds.has(lib.id) ? "text-primary animate-pulse" : ""}`} />
+                        <ScanLine
+                          className={`h-3.5 w-3.5 ${scanningIds.has(lib.id) ? "text-primary animate-pulse" : ""}`}
+                        />
                       </Button>
                       {scanOptsFor === lib.id && (
                         <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-[210px]">
-                          {([
-                            ["run_phash", "Duplicates (pHash)"],
-                            ["run_nudenet", "Content review (NudeNet)"],
-                            ["run_clip", "Semantic search (CLIP)"],
-                          ] as const).map(([key, label]) => (
-                            <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
+                          {(
+                            [
+                              ["run_phash", "Duplicates (pHash)"],
+                              ["run_nudenet", "Content review (NudeNet)"],
+                              ["run_clip", "Semantic search (CLIP)"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <label
+                              key={key}
+                              className="flex items-center gap-2 cursor-pointer select-none"
+                            >
                               <input
                                 type="checkbox"
                                 checked={scanOpts[key]}
-                                onChange={(e) => setScanOpts((o) => ({ ...o, [key]: e.target.checked }))}
+                                onChange={(e) =>
+                                  setScanOpts((o) => ({ ...o, [key]: e.target.checked }))
+                                }
                                 className="h-3.5 w-3.5 accent-primary"
                               />
                               <span className="text-xs">{label}</span>
@@ -467,7 +623,11 @@ export function ImageLibraries() {
                               size="sm"
                               variant="destructive"
                               onClick={() => {
-                                if (confirm("Delete all existing image records for this library and rescan from scratch? Thumbnails will be removed.")) {
+                                if (
+                                  confirm(
+                                    "Delete all existing image records for this library and rescan from scratch? Thumbnails will be removed.",
+                                  )
+                                ) {
                                   handleScan(lib.id, true);
                                 }
                               }}
@@ -499,9 +659,13 @@ export function ImageLibraries() {
                 <div className="flex items-center gap-1.5">
                   <Library className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-xs text-muted-foreground">
-                    {lib.image_count > 0
-                      ? <><span className="font-mono">{lib.image_count.toLocaleString()}</span> images</>
-                      : "No images indexed"}
+                    {lib.image_count > 0 ? (
+                      <>
+                        <span className="font-mono">{lib.image_count.toLocaleString()}</span> images
+                      </>
+                    ) : (
+                      "No images indexed"
+                    )}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">

@@ -19,7 +19,7 @@ export function useTheme() {
 function getStoredTheme(): Theme {
   const stored = localStorage.getItem("parallax-theme");
   const valid = ["violet", "cyan", "amber", "oled", "emerald"];
-  const theme: Theme = (stored && valid.includes(stored)) ? stored as Theme : "violet";
+  const theme: Theme = stored && valid.includes(stored) ? (stored as Theme) : "violet";
   document.documentElement.setAttribute("data-theme", theme);
   return theme;
 }
@@ -36,9 +36,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(t);
   }
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
 }

@@ -4,4 +4,4 @@ export const PRESETS = [
   { value: "low", label: "Low", shortLabel: "L", title: "Low quality (CRF 28)" },
 ] as const;
 
-export type Preset = typeof PRESETS[number]["value"];
+export type Preset = (typeof PRESETS)[number]["value"];

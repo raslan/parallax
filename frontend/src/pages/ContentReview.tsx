@@ -44,8 +44,16 @@ const DETECTION_GROUPS = [
 ];
 
 function ImageGrid({
-  images, selectedIds, onToggle, onOpen,
-}: { images: ImageFile[]; selectedIds: Set<number>; onToggle: (id: number) => void; onOpen: (img: ImageFile) => void }) {
+  images,
+  selectedIds,
+  onToggle,
+  onOpen,
+}: {
+  images: ImageFile[];
+  selectedIds: Set<number>;
+  onToggle: (id: number) => void;
+  onOpen: (img: ImageFile) => void;
+}) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
       {images.map((img) => (
@@ -57,13 +65,19 @@ function ImageGrid({
           }`}
         >
           {img.has_thumbnail ? (
-            <img src={imageApi.thumbnailUrl(img.id, img.scanned_at ?? undefined)} alt={img.filename}
-                 className="w-full h-full object-cover" />
+            <img
+              src={imageApi.thumbnailUrl(img.id, img.scanned_at ?? undefined)}
+              alt={img.filename}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="w-full h-full bg-muted" />
           )}
           <div
-            onClick={(e) => { e.stopPropagation(); onToggle(img.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(img.id);
+            }}
             className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer ${
               selectedIds.has(img.id)
                 ? "bg-primary border-primary"
@@ -86,8 +100,12 @@ function ImageGrid({
                   <div className="space-y-0.5">
                     {img.detections.map((d) => (
                       <div key={d.id} className="flex justify-between gap-3">
-                        <span className="text-muted-foreground truncate">{d.label.replace(/_/g, " ").toLowerCase()}</span>
-                        <span className="font-mono tabular-nums shrink-0">{(d.confidence * 100).toFixed(0)}%</span>
+                        <span className="text-muted-foreground truncate">
+                          {d.label.replace(/_/g, " ").toLowerCase()}
+                        </span>
+                        <span className="font-mono tabular-nums shrink-0">
+                          {(d.confidence * 100).toFixed(0)}%
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -105,10 +123,14 @@ type CombineMode = "union" | "intersection";
 
 export function ContentReview() {
   const [detectionEnabled, setDetectionEnabled] = useState(true);
-  const [checkedLabels, setCheckedLabels] = useState<Set<string>>(new Set([
-    "FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED",
-    "MALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED",
-  ]));
+  const [checkedLabels, setCheckedLabels] = useState<Set<string>>(
+    new Set([
+      "FEMALE_BREAST_EXPOSED",
+      "FEMALE_GENITALIA_EXPOSED",
+      "MALE_GENITALIA_EXPOSED",
+      "BUTTOCKS_EXPOSED",
+    ]),
+  );
   const [confidence, setConfidence] = useState(0.7);
   const [invertDetection, setInvertDetection] = useState(false);
 
@@ -127,10 +149,11 @@ export function ContentReview() {
   const [hasRun, setHasRun] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
-  const bothActive = detectionEnabled && checkedLabels.size > 0 && searchEnabled && searchQuery.trim().length > 0;
+  const bothActive =
+    detectionEnabled && checkedLabels.size > 0 && searchEnabled && searchQuery.trim().length > 0;
 
   const filteredSearchImages = searchResults
-    .filter((r) => invertSearch ? r.score < minScore : r.score >= minScore)
+    .filter((r) => (invertSearch ? r.score < minScore : r.score >= minScore))
     .map((r) => r.image);
 
   const allResults = (() => {
@@ -180,19 +203,20 @@ export function ContentReview() {
 
       if (detectionEnabled && checkedLabels.size > 0) {
         promises.push(
-          imageApi.filterByDetections({
-            labels: [...checkedLabels],
-            min_confidence: confidence,
-            exclude: invertDetection,
-            page_size: 10000,
-          }).then((r) => setDetectionResults(r.items))
+          imageApi
+            .filterByDetections({
+              labels: [...checkedLabels],
+              min_confidence: confidence,
+              exclude: invertDetection,
+              page_size: 10000,
+            })
+            .then((r) => setDetectionResults(r.items)),
         );
       }
 
       if (searchEnabled && searchQuery.trim()) {
         promises.push(
-          imageApi.searchImages(searchQuery.trim(), { limit: 10000 })
-            .then(setSearchResults)
+          imageApi.searchImages(searchQuery.trim(), { limit: 10000 }).then(setSearchResults),
         );
       }
 
@@ -232,7 +256,9 @@ export function ContentReview() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Detection panel */}
-        <div className={`rounded-lg border bg-card p-4 transition-opacity ${detectionEnabled ? "border-border" : "border-border opacity-50"}`}>
+        <div
+          className={`rounded-lg border bg-card p-4 transition-opacity ${detectionEnabled ? "border-border" : "border-border opacity-50"}`}
+        >
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Detection Labels
@@ -248,7 +274,9 @@ export function ContentReview() {
             </label>
           </div>
 
-          <div className={`mb-4 flex flex-col gap-3 ${!detectionEnabled ? "pointer-events-none" : ""}`}>
+          <div
+            className={`mb-4 flex flex-col gap-3 ${!detectionEnabled ? "pointer-events-none" : ""}`}
+          >
             {DETECTION_GROUPS.map((group) => (
               <div key={group.label}>
                 <p className="mb-1.5 text-xs text-muted-foreground">{group.label}</p>
@@ -287,11 +315,19 @@ export function ContentReview() {
 
             <div className="flex items-center gap-4">
               <Button
-                size="sm" variant="outline" className="text-xs"
-                onClick={() => setCheckedLabels(new Set([
-                  "FEMALE_BREAST_EXPOSED", "FEMALE_GENITALIA_EXPOSED",
-                  "MALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED",
-                ]))}
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() =>
+                  setCheckedLabels(
+                    new Set([
+                      "FEMALE_BREAST_EXPOSED",
+                      "FEMALE_GENITALIA_EXPOSED",
+                      "MALE_GENITALIA_EXPOSED",
+                      "BUTTOCKS_EXPOSED",
+                    ]),
+                  )
+                }
               >
                 Exposed Only
               </Button>
@@ -309,7 +345,9 @@ export function ContentReview() {
         </div>
 
         {/* Search panel */}
-        <div className={`rounded-lg border bg-card p-4 transition-opacity ${searchEnabled ? "border-border" : "border-border opacity-50"}`}>
+        <div
+          className={`rounded-lg border bg-card p-4 transition-opacity ${searchEnabled ? "border-border" : "border-border opacity-50"}`}
+        >
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Semantic Search
@@ -343,7 +381,9 @@ export function ContentReview() {
               disabled={!searchEnabled}
               className="h-4 w-4 rounded border-border accent-primary"
             />
-            <span className="text-xs text-muted-foreground">Exclude matches (show images that do not match)</span>
+            <span className="text-xs text-muted-foreground">
+              Exclude matches (show images that do not match)
+            </span>
           </label>
           <div className={`mt-3 ${!searchEnabled ? "pointer-events-none opacity-50" : ""}`}>
             <p className="mb-1 text-xs text-muted-foreground">
@@ -403,7 +443,10 @@ export function ContentReview() {
                 {selectedIds.size > 0 && (
                   <>
                     <span className="text-muted-foreground">·</span>
-                    <button onClick={() => setSelectedIds(new Set())} className="text-muted-foreground hover:underline">
+                    <button
+                      onClick={() => setSelectedIds(new Set())}
+                      className="text-muted-foreground hover:underline"
+                    >
                       None
                     </button>
                   </>
@@ -411,13 +454,23 @@ export function ContentReview() {
               </div>
             </div>
             {selectedIds.size > 0 && (
-              <Button size="sm" variant="destructive" disabled={quarantining} onClick={quarantineSelected}>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={quarantining}
+                onClick={quarantineSelected}
+              >
                 <FolderX className="h-3.5 w-3.5" />
                 Quarantine {selectedIds.size}
               </Button>
             )}
           </div>
-          <ImageGrid images={allResults} selectedIds={selectedIds} onToggle={toggleId} onOpen={setViewingImg} />
+          <ImageGrid
+            images={allResults}
+            selectedIds={selectedIds}
+            onToggle={toggleId}
+            onOpen={setViewingImg}
+          />
         </>
       )}
 
@@ -427,9 +480,7 @@ export function ContentReview() {
         </p>
       )}
 
-      {viewingImg && (
-        <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />
-      )}
+      {viewingImg && <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />}
     </div>
   );
 }

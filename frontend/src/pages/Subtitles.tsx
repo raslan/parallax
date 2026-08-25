@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Captions, FolderOpen, ScanLine, Download,
-  Loader2, ChevronRight, Film, Globe, Search, Play, Mic,
+  Captions,
+  FolderOpen,
+  ScanLine,
+  Download,
+  Loader2,
+  ChevronRight,
+  Film,
+  Globe,
+  Search,
+  Play,
+  Mic,
 } from "lucide-react";
 import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -47,7 +56,7 @@ function LangBadges({ languages }: { languages: Record<string, boolean> }) {
             "px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase leading-none",
             languages[code]
               ? "bg-green-500/15 text-green-500"
-              : "bg-muted/50 text-muted-foreground/40"
+              : "bg-muted/50 text-muted-foreground/40",
           )}
         >
           {code}
@@ -57,7 +66,12 @@ function LangBadges({ languages }: { languages: Record<string, boolean> }) {
   );
 }
 
-function FileRow({ file, onSearch, onPlay, onGenerate }: {
+function FileRow({
+  file,
+  onSearch,
+  onPlay,
+  onGenerate,
+}: {
   file: SubtitleFile;
   onSearch: () => void;
   onPlay: () => void;
@@ -67,7 +81,10 @@ function FileRow({ file, onSearch, onPlay, onGenerate }: {
   return (
     <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
       <Film className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-      <span className="flex-1 text-sm font-mono truncate text-muted-foreground" title={file.filename}>
+      <span
+        className="flex-1 text-sm font-mono truncate text-muted-foreground"
+        title={file.filename}
+      >
         {file.filename}
       </span>
       {label && (
@@ -101,7 +118,19 @@ function FileRow({ file, onSearch, onPlay, onGenerate }: {
   );
 }
 
-function DirGroup({ dir, files, onSearch, onPlay, onGenerate }: { dir: string; files: SubtitleFile[]; onSearch: (f: SubtitleFile) => void; onPlay: (f: SubtitleFile) => void; onGenerate: (f: SubtitleFile) => void }) {
+function DirGroup({
+  dir,
+  files,
+  onSearch,
+  onPlay,
+  onGenerate,
+}: {
+  dir: string;
+  files: SubtitleFile[];
+  onSearch: (f: SubtitleFile) => void;
+  onPlay: (f: SubtitleFile) => void;
+  onGenerate: (f: SubtitleFile) => void;
+}) {
   const [open, setOpen] = useState(true);
   const withSub = files.filter((f) => f.has_subtitle).length;
 
@@ -111,19 +140,38 @@ function DirGroup({ dir, files, onSearch, onPlay, onGenerate }: { dir: string; f
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2.5 px-4 py-2.5 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
       >
-        <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <ChevronRight
+          className={cn(
+            "h-3.5 w-3.5 text-muted-foreground transition-transform",
+            open && "rotate-90",
+          )}
+        />
         <FolderOpen className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
         <span className="flex-1 text-sm font-mono truncate">{dir}</span>
-        <span className={cn(
-          "text-xs shrink-0 font-medium",
-          withSub === files.length ? "text-green-500" : withSub === 0 ? "text-muted-foreground/50" : "text-amber-500"
-        )}>
+        <span
+          className={cn(
+            "text-xs shrink-0 font-medium",
+            withSub === files.length
+              ? "text-green-500"
+              : withSub === 0
+                ? "text-muted-foreground/50"
+                : "text-amber-500",
+          )}
+        >
           {withSub}/{files.length}
         </span>
       </button>
       {open && (
         <div>
-          {files.map((f) => <FileRow key={f.path} file={f} onSearch={() => onSearch(f)} onPlay={() => onPlay(f)} onGenerate={() => onGenerate(f)} />)}
+          {files.map((f) => (
+            <FileRow
+              key={f.path}
+              file={f}
+              onSearch={() => onSearch(f)}
+              onPlay={() => onPlay(f)}
+              onGenerate={() => onGenerate(f)}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -153,31 +201,48 @@ export function Subtitles() {
 
   // Load default languages from settings
   useEffect(() => {
-    api.getSettings().then((s) => {
-      const codes = (s.subtitle_languages || "en").split(",").map((c) => c.trim()).filter(Boolean);
-      setSelectedLangs(codes);
-    }).catch(() => {});
+    api
+      .getSettings()
+      .then((s) => {
+        const codes = (s.subtitle_languages || "en")
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean);
+        setSelectedLangs(codes);
+      })
+      .catch(() => {});
   }, []);
 
-  useEffect(() => () => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    if (transcribePollRef.current) clearInterval(transcribePollRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (transcribePollRef.current) clearInterval(transcribePollRef.current);
+    },
+    [],
+  );
 
   const toggleLang = (code: string) => {
     setSelectedLangs((prev) =>
       prev.includes(code)
-        ? prev.length > 1 ? prev.filter((c) => c !== code) : prev // keep at least one
-        : [...prev, code]
+        ? prev.length > 1
+          ? prev.filter((c) => c !== code)
+          : prev // keep at least one
+        : [...prev, code],
     );
   };
 
   const stopPolling = () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   };
 
   const stopTranscribePolling = () => {
-    if (transcribePollRef.current) { clearInterval(transcribePollRef.current); transcribePollRef.current = null; }
+    if (transcribePollRef.current) {
+      clearInterval(transcribePollRef.current);
+      transcribePollRef.current = null;
+    }
   };
 
   const pollTranscribeJob = (job_id: number, scanPath?: string) => {
@@ -187,7 +252,11 @@ export function Subtitles() {
       try {
         const jobs = await api.getJobs();
         const job = jobs.find((j) => j.id === job_id);
-        if (!job) { stopTranscribePolling(); setTranscribing(false); return; }
+        if (!job) {
+          stopTranscribePolling();
+          setTranscribing(false);
+          return;
+        }
         setTranscribeProgress(job.progress);
         setTranscribeStatus(job.current_file || job.status);
         if (["completed", "failed", "cancelled"].includes(job.status)) {
@@ -263,7 +332,11 @@ export function Subtitles() {
       try {
         const jobs = await api.getJobs();
         const job = jobs.find((j) => j.id === job_id);
-        if (!job) { stopPolling(); setDownloading(false); return; }
+        if (!job) {
+          stopPolling();
+          setDownloading(false);
+          return;
+        }
 
         setJobProgress(job.progress);
         setJobStatus(job.current_file || job.status);
@@ -302,36 +375,41 @@ export function Subtitles() {
   // Resume any active subtitle-download or whisper-transcribe job on mount
   // (e.g. after a page refresh) so bulk jobs across large folders aren't lost.
   useEffect(() => {
-    api.getJobs(50).then((jobs) => {
-      const active = jobs.find(
-        (j) =>
-          (j.type === "subtitle_download" || j.type === "whisper_transcribe") &&
-          (j.status === "running" || j.status === "pending")
-      );
-      if (!active) return;
+    api
+      .getJobs(50)
+      .then((jobs) => {
+        const active = jobs.find(
+          (j) =>
+            (j.type === "subtitle_download" || j.type === "whisper_transcribe") &&
+            (j.status === "running" || j.status === "pending"),
+        );
+        if (!active) return;
 
-      let jobPath = "";
-      try {
-        jobPath = active.settings ? JSON.parse(active.settings).path ?? "" : "";
-      } catch { /* ignore malformed settings */ }
-      if (!jobPath) return;
+        let jobPath = "";
+        try {
+          jobPath = active.settings ? (JSON.parse(active.settings).path ?? "") : "";
+        } catch {
+          /* ignore malformed settings */
+        }
+        if (!jobPath) return;
 
-      setPath(jobPath);
-      handleScan(jobPath);
+        setPath(jobPath);
+        handleScan(jobPath);
 
-      if (active.type === "subtitle_download") {
-        setDownloading(true);
-        setJobProgress(active.progress ?? 0);
-        setJobStatus(active.current_file || active.status);
-        pollDownloadJob(active.id, jobPath);
-      } else {
-        setTranscribing(true);
-        setTranscribeProgress(active.progress ?? 0);
-        setTranscribeStatus(active.current_file || active.status);
-        pollTranscribeJob(active.id, jobPath);
-      }
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (active.type === "subtitle_download") {
+          setDownloading(true);
+          setJobProgress(active.progress ?? 0);
+          setJobStatus(active.current_file || active.status);
+          pollDownloadJob(active.id, jobPath);
+        } else {
+          setTranscribing(true);
+          setTranscribeProgress(active.progress ?? 0);
+          setTranscribeStatus(active.current_file || active.status);
+          pollTranscribeJob(active.id, jobPath);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const groups = files ? groupByDir(files) : null;
@@ -372,7 +450,8 @@ export function Subtitles() {
         </p>
         <p className="text-xs text-muted-foreground mt-2">
           <Mic className="h-3 w-3 inline mr-1 opacity-60" />
-          Whisper generates subtitles in the video's spoken language regardless of the language selection above. Download uses the selection.
+          Whisper generates subtitles in the video's spoken language regardless of the language
+          selection above. Download uses the selection.
         </p>
       </div>
 
@@ -380,10 +459,7 @@ export function Subtitles() {
       <div className="flex gap-2 max-w-2xl">
         {picking ? (
           <div className="flex-1">
-            <DirPicker
-              onSelect={handleFolderSelect}
-              onClose={() => setPicking(false)}
-            />
+            <DirPicker onSelect={handleFolderSelect} onClose={() => setPicking(false)} />
           </div>
         ) : (
           <>
@@ -397,10 +473,18 @@ export function Subtitles() {
             <Button variant="outline" size="icon" onClick={() => setPicking(true)} title="Browse">
               <FolderOpen className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => handleScan()} disabled={scanning || !path.trim()} title="Rescan">
-              {scanning
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <ScanLine className="h-4 w-4" />}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => handleScan()}
+              disabled={scanning || !path.trim()}
+              title="Rescan"
+            >
+              {scanning ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ScanLine className="h-4 w-4" />
+              )}
             </Button>
           </>
         )}
@@ -410,7 +494,9 @@ export function Subtitles() {
       <div className="space-y-2 max-w-2xl">
         <div className="flex items-center gap-2">
           <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Languages</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Languages
+          </span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {COMMON_LANGS.map(({ code, label }) => {
@@ -423,7 +509,7 @@ export function Subtitles() {
                   "px-2.5 py-1 rounded-md text-xs font-medium transition-colors border",
                   active
                     ? "bg-primary/15 border-primary/40 text-primary"
-                    : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                    : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground",
                 )}
               >
                 {label}
@@ -433,7 +519,10 @@ export function Subtitles() {
         </div>
         {selectedLangs.length > 0 && (
           <p className="text-xs text-muted-foreground">
-            Downloading: {selectedLangs.map((c) => COMMON_LANGS.find((l) => l.code === c)?.label ?? c).join(", ")}
+            Downloading:{" "}
+            {selectedLangs
+              .map((c) => COMMON_LANGS.find((l) => l.code === c)?.label ?? c)
+              .join(", ")}
           </p>
         )}
       </div>
@@ -460,7 +549,7 @@ export function Subtitles() {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
-              {(downloading && jobProgress !== null) && (
+              {downloading && jobProgress !== null && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span className="truncate max-w-xs" title={jobStatus}>
@@ -468,7 +557,7 @@ export function Subtitles() {
                   </span>
                 </div>
               )}
-              {(transcribing && transcribeProgress !== null) && (
+              {transcribing && transcribeProgress !== null && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span className="truncate max-w-xs" title={transcribeStatus}>
@@ -481,9 +570,11 @@ export function Subtitles() {
                 disabled={transcribing || downloading || missing === 0}
                 variant="outline"
               >
-                {transcribing
-                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  : <Mic className="h-4 w-4 mr-2" />}
+                {transcribing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Mic className="h-4 w-4 mr-2" />
+                )}
                 {missing === 0 ? "All subtitles present" : `Generate ${missing} missing`}
               </Button>
               <Button
@@ -491,9 +582,11 @@ export function Subtitles() {
                 disabled={downloading || transcribing || missing === 0}
                 variant={missing === 0 ? "outline" : "default"}
               >
-                {downloading
-                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  : <Download className="h-4 w-4 mr-2" />}
+                {downloading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
                 {missing === 0 ? "All subtitles present" : `Download ${missing} missing`}
               </Button>
             </div>
@@ -503,13 +596,22 @@ export function Subtitles() {
           {groups && groups.size > 0 ? (
             <div className="space-y-2">
               {[...groups.entries()].map(([dir, dirFiles]) => (
-                <DirGroup key={dir} dir={dir} files={dirFiles} onSearch={setSearchFile} onPlay={setPlayingFile} onGenerate={handleGenerateFile} />
+                <DirGroup
+                  key={dir}
+                  dir={dir}
+                  files={dirFiles}
+                  onSearch={setSearchFile}
+                  onPlay={setPlayingFile}
+                  onGenerate={handleGenerateFile}
+                />
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed rounded-lg">
               <Captions className="h-8 w-8 text-muted-foreground/40 mb-3" />
-              <p className="text-sm text-muted-foreground">No video files found in this directory.</p>
+              <p className="text-sm text-muted-foreground">
+                No video files found in this directory.
+              </p>
             </div>
           )}
         </div>
@@ -519,7 +621,9 @@ export function Subtitles() {
       {!files && !scanning && (
         <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed rounded-lg">
           <Captions className="h-10 w-10 text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">Enter a folder path and click Scan to see subtitle status.</p>
+          <p className="text-sm text-muted-foreground">
+            Enter a folder path and click Scan to see subtitle status.
+          </p>
         </div>
       )}
     </div>

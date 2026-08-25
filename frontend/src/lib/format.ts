@@ -29,6 +29,8 @@ export function formatDate(iso: string | null): string {
 export function formatUnixDate(ts: number | null): string {
   if (ts === null) return "—";
   return new Date(ts * 1000).toLocaleDateString(undefined, {
-    year: "numeric", month: "short", day: "numeric",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 }

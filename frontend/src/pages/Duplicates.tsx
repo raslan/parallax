@@ -25,7 +25,9 @@ function LibrarySelector({
       onChange={(e) => onChange(Number(e.target.value))}
     >
       {libraries.map((lib) => (
-        <option key={lib.id} value={lib.id}>{lib.name}</option>
+        <option key={lib.id} value={lib.id}>
+          {lib.name}
+        </option>
       ))}
     </select>
   );
@@ -45,9 +47,11 @@ function FileCard({
   onPlay: () => void;
 }) {
   return (
-    <div className={`flex-1 min-w-[180px] max-w-[260px] rounded-lg border p-3 space-y-2 transition-colors ${
-      isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
-    }`}>
+    <div
+      className={`flex-1 min-w-[180px] max-w-[260px] rounded-lg border p-3 space-y-2 transition-colors ${
+        isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
+      }`}
+    >
       <div className="relative aspect-video w-full rounded overflow-hidden bg-muted group/thumb">
         {file.has_thumbnail ? (
           <img
@@ -68,7 +72,10 @@ function FileCard({
           <Play className="h-6 w-6 text-white fill-white" />
         </button>
         <div
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
           className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors z-10 ${
             isChecked
               ? "bg-destructive border-destructive"
@@ -83,14 +90,24 @@ function FileCard({
           </div>
         )}
       </div>
-      <p className="text-xs font-medium truncate" title={file.filename}>{file.filename}</p>
-      <p className="text-xs text-muted-foreground truncate" title={file.path}>{file.path}</p>
+      <p className="text-xs font-medium truncate" title={file.filename}>
+        {file.filename}
+      </p>
+      <p className="text-xs text-muted-foreground truncate" title={file.path}>
+        {file.path}
+      </p>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
         <span className="font-mono">{formatSize(file.size)}</span>
-        {file.duration != null && <span className="font-mono">{formatDuration(file.duration)}</span>}
-        {file.video_bitrate != null && <span className="font-mono">{formatBitrate(file.video_bitrate)}</span>}
+        {file.duration != null && (
+          <span className="font-mono">{formatDuration(file.duration)}</span>
+        )}
+        {file.video_bitrate != null && (
+          <span className="font-mono">{formatBitrate(file.video_bitrate)}</span>
+        )}
         {file.codec_name && (
-          <Badge variant="secondary" className="text-xs px-1 py-0">{file.codec_name}</Badge>
+          <Badge variant="secondary" className="text-xs px-1 py-0">
+            {file.codec_name}
+          </Badge>
         )}
       </div>
     </div>
@@ -162,7 +179,12 @@ function loadCriteria(): DuplicateCriteria {
   };
 }
 
-function CriteriaRow({ label, enabled, onToggle, children }: {
+function CriteriaRow({
+  label,
+  enabled,
+  onToggle,
+  children,
+}: {
   label: string;
   enabled: boolean;
   onToggle: () => void;
@@ -177,15 +199,13 @@ function CriteriaRow({ label, enabled, onToggle, children }: {
           onChange={onToggle}
           className="accent-[var(--px-accent)] h-3.5 w-3.5"
         />
-        <span className={`text-sm font-medium ${enabled ? "text-foreground" : "text-muted-foreground"}`}>
+        <span
+          className={`text-sm font-medium ${enabled ? "text-foreground" : "text-muted-foreground"}`}
+        >
           {label}
         </span>
       </label>
-      {enabled && children && (
-        <div className="flex items-center gap-4 flex-wrap">
-          {children}
-        </div>
-      )}
+      {enabled && children && <div className="flex items-center gap-4 flex-wrap">{children}</div>}
     </div>
   );
 }
@@ -213,13 +233,18 @@ export function Duplicates() {
       if (libs.length > 0) setSelectedId(libs[0].id);
       else setInitializing(false);
     });
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   useLiveFiles("video", selectedId, () => setResultsStale(true));
 
   const stopPolling = () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   };
 
   const startPolling = (libraryId: number) => {
@@ -227,19 +252,30 @@ export function Duplicates() {
     let attempts = 0;
     pollRef.current = setInterval(async () => {
       attempts++;
-      if (attempts > 180) { stopPolling(); setScanning(false); return; }
+      if (attempts > 180) {
+        stopPolling();
+        setScanning(false);
+        return;
+      }
       try {
         const result = await api.getDuplicates(libraryId);
         setGroups(result);
         setResultsStale(false);
         const init = new Set<number>();
-        result.forEach((g) => g.files.forEach((f) => { if (f.id !== g.keep_id) init.add(f.id); }));
+        result.forEach((g) =>
+          g.files.forEach((f) => {
+            if (f.id !== g.keep_id) init.add(f.id);
+          }),
+        );
         setDeleteIds(init);
         stopPolling();
         setScanning(false);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "";
-        if (!msg.startsWith("404")) { stopPolling(); setScanning(false); }
+        if (!msg.startsWith("404")) {
+          stopPolling();
+          setScanning(false);
+        }
       }
     }, 2000);
   };
@@ -247,19 +283,25 @@ export function Duplicates() {
   useEffect(() => {
     if (!selectedId) return;
     setInitializing(true);
-    api.getJobs().then((jobs) => {
-      const active = jobs.find(
-        (j) => j.type === "duplicates" && j.library_id === selectedId &&
-               (j.status === "running" || j.status === "pending")
-      );
-      if (!active) {
-        stopPolling();
-        setScanning(false);
-      } else {
-        setScanning(true);
-        startPolling(selectedId);
-      }
-    }).catch(() => {}).finally(() => setInitializing(false));
+    api
+      .getJobs()
+      .then((jobs) => {
+        const active = jobs.find(
+          (j) =>
+            j.type === "duplicates" &&
+            j.library_id === selectedId &&
+            (j.status === "running" || j.status === "pending"),
+        );
+        if (!active) {
+          stopPolling();
+          setScanning(false);
+        } else {
+          setScanning(true);
+          startPolling(selectedId);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setInitializing(false));
   }, [selectedId]);
 
   const handleScan = async () => {
@@ -296,10 +338,11 @@ export function Duplicates() {
     const toDelete = new Set(deleteIds);
     try {
       await api.deleteDuplicates(selectedId, [...toDelete]);
-      setGroups((prev) =>
-        prev
-          ?.map((g) => ({ ...g, files: g.files.filter((f) => !toDelete.has(f.id)) }))
-          .filter((g) => g.files.length > 1) ?? []
+      setGroups(
+        (prev) =>
+          prev
+            ?.map((g) => ({ ...g, files: g.files.filter((f) => !toDelete.has(f.id)) }))
+            .filter((g) => g.files.length > 1) ?? [],
       );
       setDeleteIds(new Set());
     } finally {
@@ -313,8 +356,11 @@ export function Duplicates() {
   const similarityPct = Math.round((1 - criteria.phash_threshold / 64) * 100);
 
   const recoverable = groups
-    ? groups.reduce((sum, g) =>
-        sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0), 0)
+    ? groups.reduce(
+        (sum, g) =>
+          sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0),
+        0,
+      )
     : 0;
 
   const noCriteria = !criteria.use_size && !criteria.use_duration && !criteria.use_phash;
@@ -335,17 +381,24 @@ export function Duplicates() {
             <LibrarySelector
               libraries={libraries}
               selected={selectedId}
-              onChange={(id) => { setSelectedId(id); setGroups(null); setDeleteIds(new Set()); }}
+              onChange={(id) => {
+                setSelectedId(id);
+                setGroups(null);
+                setDeleteIds(new Set());
+              }}
             />
           )}
-          <Button
-            onClick={handleScan}
-            disabled={scanning || !selectedId || noCriteria}
-          >
+          <Button onClick={handleScan} disabled={scanning || !selectedId || noCriteria}>
             {scanning ? (
-              <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Scanning…</>
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                Scanning…
+              </>
             ) : (
-              <><ShieldCheck className="h-3.5 w-3.5 mr-2" />Find Duplicates</>
+              <>
+                <ShieldCheck className="h-3.5 w-3.5 mr-2" />
+                Find Duplicates
+              </>
             )}
           </Button>
         </div>
@@ -365,7 +418,9 @@ export function Duplicates() {
             enabled={criteria.use_size}
             onToggle={() => set("use_size", !criteria.use_size)}
           >
-            <span className="text-xs text-muted-foreground">Files must share the same byte size</span>
+            <span className="text-xs text-muted-foreground">
+              Files must share the same byte size
+            </span>
           </CriteriaRow>
 
           {/* Duration */}
@@ -398,14 +453,18 @@ export function Duplicates() {
           >
             {/* Similarity */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Min similarity</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Min similarity
+              </span>
               <input
                 type="range"
                 min={0}
                 max={100}
                 step={1}
                 value={similarityPct}
-                onChange={(e) => set("phash_threshold", Math.round((1 - Number(e.target.value) / 100) * 64))}
+                onChange={(e) =>
+                  set("phash_threshold", Math.round((1 - Number(e.target.value) / 100) * 64))
+                }
                 className="w-28 accent-primary"
               />
               <span className="text-xs font-mono tabular-nums w-8">{similarityPct}%</span>
@@ -432,14 +491,18 @@ export function Duplicates() {
 
             {/* Frame count */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Frames per video</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Frames per video
+              </span>
               <input
                 type="number"
                 min={4}
                 max={64}
                 step={1}
                 value={criteria.phash_frames}
-                onChange={(e) => set("phash_frames", Math.min(64, Math.max(4, Number(e.target.value))))}
+                onChange={(e) =>
+                  set("phash_frames", Math.min(64, Math.max(4, Number(e.target.value))))
+                }
                 className="w-16 bg-muted border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
               />
             </div>
@@ -450,8 +513,12 @@ export function Duplicates() {
       {/* Stale results banner */}
       {groups && groups.length > 0 && resultsStale && (
         <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
-          <span className="text-amber-400">Files changed since this scan ran — results may be out of date.</span>
-          <Button size="sm" variant="outline" onClick={handleScan}>Refresh</Button>
+          <span className="text-amber-400">
+            Files changed since this scan ran — results may be out of date.
+          </span>
+          <Button size="sm" variant="outline" onClick={handleScan}>
+            Refresh
+          </Button>
         </div>
       )}
 
@@ -459,11 +526,12 @@ export function Duplicates() {
       {groups !== null && groups.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-sm">
-            <span className="font-semibold tabular-nums font-mono">{groups.length}</span>{" "}
-            duplicate group{groups.length !== 1 ? "s" : ""} found
+            <span className="font-semibold tabular-nums font-mono">{groups.length}</span> duplicate
+            group{groups.length !== 1 ? "s" : ""} found
             {deleteIds.size > 0 && (
               <span className="text-muted-foreground ml-2">
-                · <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span> selected for deletion
+                · <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span>{" "}
+                selected for deletion
                 {recoverable > 0 && <span> · {formatSize(recoverable)} recoverable</span>}
               </span>
             )}
@@ -475,9 +543,15 @@ export function Duplicates() {
             disabled={deleting || deleteIds.size === 0}
           >
             {deleting ? (
-              <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Deleting…</>
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                Deleting…
+              </>
             ) : (
-              <><Trash2 className="h-3.5 w-3.5 mr-2" />Delete {deleteIds.size > 0 ? deleteIds.size : ""} Selected</>
+              <>
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                Delete {deleteIds.size > 0 ? deleteIds.size : ""} Selected
+              </>
             )}
           </Button>
         </div>
