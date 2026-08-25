@@ -2,15 +2,15 @@ type DotStatus = "scanning" | "running" | "idle" | "error" | "done";
 
 const DOT_LABEL: Record<DotStatus, string> = {
   scanning: "Scanning",
-  running:  "Running",
-  idle:     "Idle",
-  error:    "Error",
-  done:     "Done",
+  running: "Running",
+  idle: "Idle",
+  error: "Error",
+  done: "Done",
 };
 
 export function StatusDot({ status }: { status: DotStatus }) {
   const isPulsing = status === "scanning" || status === "running";
-  const isError   = status === "error";
+  const isError = status === "error";
 
   return (
     <div className="flex items-center gap-1.5">
@@ -27,8 +27,8 @@ export function StatusDot({ status }: { status: DotStatus }) {
             background: isError
               ? "hsl(var(--destructive))"
               : status === "idle"
-              ? "var(--px-text-muted)"
-              : "var(--px-accent)",
+                ? "var(--px-text-muted)"
+                : "var(--px-accent)",
           }}
         />
       </span>
@@ -38,8 +38,8 @@ export function StatusDot({ status }: { status: DotStatus }) {
           color: isError
             ? "hsl(var(--destructive))"
             : status === "idle"
-            ? "var(--px-text-muted)"
-            : "var(--px-accent)",
+              ? "var(--px-text-muted)"
+              : "var(--px-accent)",
         }}
       >
         {DOT_LABEL[status]}

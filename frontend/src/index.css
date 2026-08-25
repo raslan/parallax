@@ -3,177 +3,177 @@
 @tailwind utilities;
 
 :root {
-  --destructive:            0 72% 51%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
-  --radius:                 0.4rem;
+  --radius: 0.4rem;
 }
 
 @layer base {
   /* ── Violet / Deep Space (default) ─────────────────────────── */
   :root,
   [data-theme="violet"] {
-    --background:          258 62% 5%;
-    --foreground:          263 60% 93%;
-    --card:                258 52% 8%;
-    --card-foreground:     263 60% 93%;
-    --popover:             258 52% 8%;
-    --popover-foreground:  263 60% 93%;
-    --primary:             263 87% 76%;
-    --primary-foreground:  0 0% 100%;
-    --secondary:           258 45% 12%;
+    --background: 258 62% 5%;
+    --foreground: 263 60% 93%;
+    --card: 258 52% 8%;
+    --card-foreground: 263 60% 93%;
+    --popover: 258 52% 8%;
+    --popover-foreground: 263 60% 93%;
+    --primary: 263 87% 76%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 258 45% 12%;
     --secondary-foreground: 263 40% 80%;
-    --muted:               258 45% 10%;
-    --muted-foreground:    258 20% 68%;
-    --accent:              258 45% 12%;
-    --accent-foreground:   263 60% 93%;
-    --border:              258 40% 14%;
-    --input:               258 45% 12%;
-    --ring:                263 87% 76%;
-    --sidebar:             258 70% 4%;
-    --sidebar-foreground:  263 60% 93%;
-    --sidebar-border:      258 45% 10%;
-    --sidebar-accent:      258 45% 11%;
+    --muted: 258 45% 10%;
+    --muted-foreground: 258 20% 68%;
+    --accent: 258 45% 12%;
+    --accent-foreground: 263 60% 93%;
+    --border: 258 40% 14%;
+    --input: 258 45% 12%;
+    --ring: 263 87% 76%;
+    --sidebar: 258 70% 4%;
+    --sidebar-foreground: 263 60% 93%;
+    --sidebar-border: 258 45% 10%;
+    --sidebar-accent: 258 45% 11%;
 
     /* Parallax design language tokens */
-    --px-accent:           #a78bfa;
+    --px-accent: #a78bfa;
     --px-accent-secondary: #7c3aed;
-    --px-accent-dim:       rgba(167, 139, 250, 0.12);
-    --px-accent-border:    rgba(167, 139, 250, 0.25);
-    --px-bg-surface:       #0e0a1e;
-    --px-bg-elevated:      #1a1430;
-    --px-text-muted:       #9d93c8;
+    --px-accent-dim: rgba(167, 139, 250, 0.12);
+    --px-accent-border: rgba(167, 139, 250, 0.25);
+    --px-bg-surface: #0e0a1e;
+    --px-bg-elevated: #1a1430;
+    --px-text-muted: #9d93c8;
   }
 
   /* ── Cyan / Modern HUD ──────────────────────────────────────── */
   [data-theme="cyan"] {
-    --background:          210 78% 5%;
-    --foreground:          188 80% 94%;
-    --card:                210 73% 8%;
-    --card-foreground:     188 80% 94%;
-    --popover:             210 73% 8%;
-    --popover-foreground:  188 80% 94%;
-    --primary:             188 83% 53%;
-    --primary-foreground:  210 78% 5%;
-    --secondary:           210 65% 11%;
+    --background: 210 78% 5%;
+    --foreground: 188 80% 94%;
+    --card: 210 73% 8%;
+    --card-foreground: 188 80% 94%;
+    --popover: 210 73% 8%;
+    --popover-foreground: 188 80% 94%;
+    --primary: 188 83% 53%;
+    --primary-foreground: 210 78% 5%;
+    --secondary: 210 65% 11%;
     --secondary-foreground: 188 40% 80%;
-    --muted:               210 65% 11%;
-    --muted-foreground:    210 25% 65%;
-    --accent:              210 65% 11%;
-    --accent-foreground:   188 80% 94%;
-    --border:              210 55% 12%;
-    --input:               210 65% 11%;
-    --ring:                188 83% 53%;
-    --sidebar:             210 80% 4%;
-    --sidebar-foreground:  188 80% 94%;
-    --sidebar-border:      210 60% 10%;
-    --sidebar-accent:      210 65% 9%;
+    --muted: 210 65% 11%;
+    --muted-foreground: 210 25% 65%;
+    --accent: 210 65% 11%;
+    --accent-foreground: 188 80% 94%;
+    --border: 210 55% 12%;
+    --input: 210 65% 11%;
+    --ring: 188 83% 53%;
+    --sidebar: 210 80% 4%;
+    --sidebar-foreground: 188 80% 94%;
+    --sidebar-border: 210 60% 10%;
+    --sidebar-accent: 210 65% 9%;
 
-    --px-accent:           #22d3ee;
+    --px-accent: #22d3ee;
     --px-accent-secondary: #0891b2;
-    --px-accent-dim:       rgba(34, 211, 238, 0.12);
-    --px-accent-border:    rgba(34, 211, 238, 0.25);
-    --px-bg-surface:       #071220;
-    --px-bg-elevated:      #0d1f2d;
-    --px-text-muted:       #7ab0c8;
+    --px-accent-dim: rgba(34, 211, 238, 0.12);
+    --px-accent-border: rgba(34, 211, 238, 0.25);
+    --px-bg-surface: #071220;
+    --px-bg-elevated: #0d1f2d;
+    --px-text-muted: #7ab0c8;
   }
 
   /* ── Amber / Mission Control ────────────────────────────────── */
   [data-theme="amber"] {
-    --background:          240 50% 5%;
-    --foreground:          38 90% 94%;
-    --card:                240 44% 8%;
-    --card-foreground:     38 90% 94%;
-    --popover:             240 44% 8%;
-    --popover-foreground:  38 90% 94%;
-    --primary:             38 92% 50%;
-    --primary-foreground:  240 50% 5%;
-    --secondary:           240 38% 12%;
+    --background: 240 50% 5%;
+    --foreground: 38 90% 94%;
+    --card: 240 44% 8%;
+    --card-foreground: 38 90% 94%;
+    --popover: 240 44% 8%;
+    --popover-foreground: 38 90% 94%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 240 50% 5%;
+    --secondary: 240 38% 12%;
     --secondary-foreground: 38 50% 80%;
-    --muted:               240 38% 12%;
-    --muted-foreground:    0 0% 68%;
-    --accent:              240 38% 12%;
-    --accent-foreground:   38 90% 94%;
-    --border:              240 35% 14%;
-    --input:               240 38% 12%;
-    --ring:                38 92% 50%;
-    --sidebar:             240 55% 4%;
-    --sidebar-foreground:  38 90% 94%;
-    --sidebar-border:      240 40% 11%;
-    --sidebar-accent:      240 38% 10%;
+    --muted: 240 38% 12%;
+    --muted-foreground: 0 0% 68%;
+    --accent: 240 38% 12%;
+    --accent-foreground: 38 90% 94%;
+    --border: 240 35% 14%;
+    --input: 240 38% 12%;
+    --ring: 38 92% 50%;
+    --sidebar: 240 55% 4%;
+    --sidebar-foreground: 38 90% 94%;
+    --sidebar-border: 240 40% 11%;
+    --sidebar-accent: 240 38% 10%;
 
-    --px-accent:           #f59e0b;
+    --px-accent: #f59e0b;
     --px-accent-secondary: #d97706;
-    --px-accent-dim:       rgba(245, 158, 11, 0.12);
-    --px-accent-border:    rgba(245, 158, 11, 0.25);
-    --px-bg-surface:       #0d0d18;
-    --px-bg-elevated:      #1a1a28;
-    --px-text-muted:       #b0a898;
+    --px-accent-dim: rgba(245, 158, 11, 0.12);
+    --px-accent-border: rgba(245, 158, 11, 0.25);
+    --px-bg-surface: #0d0d18;
+    --px-bg-elevated: #1a1a28;
+    --px-text-muted: #b0a898;
   }
 
   /* ── OLED / Vercel Dark ─────────────────────────────────────── */
   [data-theme="oled"] {
-    --background:          0 0% 0%;
-    --foreground:          0 0% 100%;
-    --card:                0 0% 4%;
-    --card-foreground:     0 0% 100%;
-    --popover:             0 0% 4%;
-    --popover-foreground:  0 0% 100%;
-    --primary:             0 0% 100%;
-    --primary-foreground:  0 0% 0%;
-    --secondary:           0 0% 9%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 9%;
     --secondary-foreground: 0 0% 93%;
-    --muted:               0 0% 8%;
-    --muted-foreground:    0 0% 78%;
-    --accent:              0 0% 9%;
-    --accent-foreground:   0 0% 100%;
-    --border:              0 0% 20%;
-    --input:               0 0% 9%;
-    --ring:                0 0% 100%;
-    --sidebar:             0 0% 0%;
-    --sidebar-foreground:  0 0% 100%;
-    --sidebar-border:      0 0% 18%;
-    --sidebar-accent:      0 0% 7%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 78%;
+    --accent: 0 0% 9%;
+    --accent-foreground: 0 0% 100%;
+    --border: 0 0% 20%;
+    --input: 0 0% 9%;
+    --ring: 0 0% 100%;
+    --sidebar: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-accent: 0 0% 7%;
 
-    --px-accent:           #ffffff;
+    --px-accent: #ffffff;
     --px-accent-secondary: #e5e5e5;
-    --px-accent-dim:       rgba(255, 255, 255, 0.09);
-    --px-accent-border:    rgba(255, 255, 255, 0.25);
-    --px-bg-surface:       #050505;
-    --px-bg-elevated:      #111111;
-    --px-text-muted:       #c0c0c0;
+    --px-accent-dim: rgba(255, 255, 255, 0.09);
+    --px-accent-border: rgba(255, 255, 255, 0.25);
+    --px-bg-surface: #050505;
+    --px-bg-elevated: #111111;
+    --px-text-muted: #c0c0c0;
   }
 
   /* ── Emerald / Neon Grid ────────────────────────────────────── */
   [data-theme="emerald"] {
-    --background:          160 55% 3%;
-    --foreground:          155 70% 98%;
-    --card:                160 50% 6%;
-    --card-foreground:     155 70% 98%;
-    --popover:             160 50% 6%;
-    --popover-foreground:  155 70% 98%;
-    --primary:             160 70% 50%;
-    --primary-foreground:  160 55% 3%;
-    --secondary:           160 42% 10%;
+    --background: 160 55% 3%;
+    --foreground: 155 70% 98%;
+    --card: 160 50% 6%;
+    --card-foreground: 155 70% 98%;
+    --popover: 160 50% 6%;
+    --popover-foreground: 155 70% 98%;
+    --primary: 160 70% 50%;
+    --primary-foreground: 160 55% 3%;
+    --secondary: 160 42% 10%;
     --secondary-foreground: 155 40% 90%;
-    --muted:               160 42% 9%;
-    --muted-foreground:    160 20% 75%;
-    --accent:              160 42% 10%;
-    --accent-foreground:   155 70% 98%;
-    --border:              160 38% 18%;
-    --input:               160 42% 10%;
-    --ring:                160 70% 50%;
-    --sidebar:             160 60% 2%;
-    --sidebar-foreground:  155 70% 98%;
-    --sidebar-border:      160 45% 15%;
-    --sidebar-accent:      160 42% 8%;
+    --muted: 160 42% 9%;
+    --muted-foreground: 160 20% 75%;
+    --accent: 160 42% 10%;
+    --accent-foreground: 155 70% 98%;
+    --border: 160 38% 18%;
+    --input: 160 42% 10%;
+    --ring: 160 70% 50%;
+    --sidebar: 160 60% 2%;
+    --sidebar-foreground: 155 70% 98%;
+    --sidebar-border: 160 45% 15%;
+    --sidebar-accent: 160 42% 8%;
 
-    --px-accent:           #34d399;
+    --px-accent: #34d399;
     --px-accent-secondary: #059669;
-    --px-accent-dim:       rgba(52, 211, 153, 0.12);
-    --px-accent-border:    rgba(52, 211, 153, 0.25);
-    --px-bg-surface:       #030f0a;
-    --px-bg-elevated:      #071a10;
-    --px-text-muted:       #9ecfb8;
+    --px-accent-dim: rgba(52, 211, 153, 0.12);
+    --px-accent-border: rgba(52, 211, 153, 0.25);
+    --px-bg-surface: #030f0a;
+    --px-bg-elevated: #071a10;
+    --px-text-muted: #9ecfb8;
   }
 }
 

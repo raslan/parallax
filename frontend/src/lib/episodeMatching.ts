@@ -26,7 +26,7 @@ export function distinctSeasons(fileGuesses: FileGuess[]): number[] {
 export function buildInitialAssignments(
   files: string[],
   fileGuesses: FileGuess[],
-  slotKeys: Set<string>
+  slotKeys: Set<string>,
 ): Record<string, string> {
   const guessByPath = new Map(fileGuesses.map((g) => [g.file_path, g]));
   const assignments: Record<string, string> = {};
@@ -49,7 +49,7 @@ export function poolFiles(files: string[], assignments: Record<string, string>):
 export function placeFile(
   assignments: Record<string, string>,
   filePath: string,
-  target: string
+  target: string,
 ): Record<string, string> {
   const next: Record<string, string> = {};
   for (const [key, value] of Object.entries(assignments)) {
