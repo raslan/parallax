@@ -61,6 +61,8 @@ export function VideoPlayerModal({
       }
     };
 
+    // Initialize prep state at effect start
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrepStatus("checking");
     setPrepProgress(0);
     setPrepError(null);
@@ -114,6 +116,8 @@ export function VideoPlayerModal({
   useEffect(() => {
     if (prepStatus !== "ready" && prepStatus !== "error") return;
     if (!subtitleTracksUrl) {
+      // Mark tracks ready when no URL available
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTracksReady(true);
       return;
     }

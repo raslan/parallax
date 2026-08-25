@@ -51,6 +51,8 @@ function DeleteLibraryDialog({
 
   useEffect(() => {
     if (!lib) {
+      // Intentional setState in effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLeftovers(null);
       return;
     }
@@ -177,6 +179,8 @@ function DeleteAllLibrariesDialog({
 
   useEffect(() => {
     if (!open || libraries.length === 0) {
+      // Intentional setState in effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTotalCount(0);
       setTotalBytes(0);
       return;
@@ -466,6 +470,8 @@ export function Libraries() {
   }, []);
 
   useEffect(() => {
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh(true);
     pollRef.current = setInterval(() => refresh(), 5000);
     return () => {

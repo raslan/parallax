@@ -67,6 +67,8 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
 
   useEffect(() => {
     if (logsOpen && logs.length === 0) {
+      // Intentional setState in effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLogsLoading(true);
       api
         .getJobLogs(job.id)

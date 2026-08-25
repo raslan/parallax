@@ -35,6 +35,8 @@ export function DirPicker({ onSelect, onClose }: DirPickerProps) {
   };
 
   useEffect(() => {
+    // Browse is async and calls setState in callback
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     browse("/media");
   }, []);
 
