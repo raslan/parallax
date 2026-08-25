@@ -66,15 +66,18 @@ function SectionGroup({
   storageKey: string;
   forceOpen: boolean;
 }) {
-  const [userPreferred, setUserPreferred] = useState(() => {
+  const [open, setOpen] = useState(() => {
     const stored = localStorage.getItem(storageKey);
     return stored !== null ? stored === "true" : true;
   });
 
-  const open = forceOpen || userPreferred;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (forceOpen && !open) setOpen(true);
+  }, [forceOpen, open]);
 
   const toggle = () => {
-    setUserPreferred((v) => {
+    setOpen((v) => {
       const next = !v;
       localStorage.setItem(storageKey, String(next));
       return next;
