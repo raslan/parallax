@@ -1,6 +1,8 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Text, func
+
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
+
 from app.database import Base
 
 
@@ -41,4 +43,6 @@ class File(Base):
     phash: Mapped[int] = mapped_column(Integer, nullable=True)
     phash_frames: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array of ints
     phash_scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )

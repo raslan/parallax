@@ -1,4 +1,3 @@
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -7,9 +6,15 @@ from app.database import get_db
 from app.models.job import Job, JobStatus, JobType
 from app.models.settings import get_setting, set_setting
 from app.services.model_manager import (
-    CLIP_MODELS, NUDENET_MODELS, WHISPER_MODELS,
-    is_clip_downloaded, is_nudenet_downloaded, is_whisper_downloaded,
-    delete_clip, delete_nudenet, delete_whisper,
+    CLIP_MODELS,
+    NUDENET_MODELS,
+    WHISPER_MODELS,
+    delete_clip,
+    delete_nudenet,
+    delete_whisper,
+    is_clip_downloaded,
+    is_nudenet_downloaded,
+    is_whisper_downloaded,
 )
 
 router = APIRouter(prefix="/models", tags=["models"])
@@ -24,7 +29,7 @@ _WHISPER_DEFAULT = "small"
 
 class ModelInfo(BaseModel):
     id: str
-    type: str          # "clip" or "nudenet"
+    type: str  # "clip" or "nudenet"
     name: str
     description: str
     size_mb: int
@@ -40,16 +45,21 @@ class ActiveDownloadInfo(BaseModel):
     model_id: str
     status: str
     progress: float
-    current_file: Optional[str]
+    current_file: str | None
 
 
-@router.get("/active-download", response_model=Optional[ActiveDownloadInfo])
+@router.get("/active-download", response_model=ActiveDownloadInfo | None)
 def get_active_download(db: Session = Depends(get_db)):
     """Returns the currently pending/running model download job, if any."""
-    job = db.query(Job).filter(
-        Job.type == JobType.MODEL_DOWNLOAD,
-        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
-    ).order_by(Job.id.desc()).first()
+    job = (
+        db.query(Job)
+        .filter(
+            Job.type == JobType.MODEL_DOWNLOAD,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .order_by(Job.id.desc())
+        .first()
+    )
     if not job or not job.settings:
         return None
     parts = job.settings.split(":", 1)
@@ -73,27 +83,45 @@ def list_models(db: Session = Depends(get_db)):
 
     result: list[ModelInfo] = []
     for m in CLIP_MODELS.values():
-        result.append(ModelInfo(
-            id=m["id"], type="clip", name=m["name"],
-            description=m["description"], size_mb=m["size_mb"],
-            quality=m["quality"], downloaded=is_clip_downloaded(m["id"]),
-            active=(m["id"] == active_clip),
-        ))
+        result.append(
+            ModelInfo(
+                id=m["id"],
+                type="clip",
+                name=m["name"],
+                description=m["description"],
+                size_mb=m["size_mb"],
+                quality=m["quality"],
+                downloaded=is_clip_downloaded(m["id"]),
+                active=(m["id"] == active_clip),
+            )
+        )
     for m in NUDENET_MODELS.values():
-        result.append(ModelInfo(
-            id=m["id"], type="nudenet", name=m["name"],
-            description=m["description"], size_mb=m["size_mb"],
-            quality=m["quality"], downloaded=is_nudenet_downloaded(m["id"]),
-            active=(m["id"] == active_nudenet),
-            bundled=m.get("bundled", False),
-        ))
+        result.append(
+            ModelInfo(
+                id=m["id"],
+                type="nudenet",
+                name=m["name"],
+                description=m["description"],
+                size_mb=m["size_mb"],
+                quality=m["quality"],
+                downloaded=is_nudenet_downloaded(m["id"]),
+                active=(m["id"] == active_nudenet),
+                bundled=m.get("bundled", False),
+            )
+        )
     for m in WHISPER_MODELS.values():
-        result.append(ModelInfo(
-            id=m["id"], type="whisper", name=m["name"],
-            description=m["description"], size_mb=m["size_mb"],
-            quality=m["quality"], downloaded=is_whisper_downloaded(m["id"]),
-            active=(m["id"] == active_whisper),
-        ))
+        result.append(
+            ModelInfo(
+                id=m["id"],
+                type="whisper",
+                name=m["name"],
+                description=m["description"],
+                size_mb=m["size_mb"],
+                quality=m["quality"],
+                downloaded=is_whisper_downloaded(m["id"]),
+                active=(m["id"] == active_whisper),
+            )
+        )
     return result
 
 
@@ -104,10 +132,14 @@ async def download_clip_model(model_id: str, db: Session = Depends(get_db)):
     if is_clip_downloaded(model_id):
         raise HTTPException(409, "Model already downloaded")
 
-    running = db.query(Job).filter(
-        Job.type == JobType.MODEL_DOWNLOAD,
-        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
-    ).first()
+    running = (
+        db.query(Job)
+        .filter(
+            Job.type == JobType.MODEL_DOWNLOAD,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .first()
+    )
     if running:
         raise HTTPException(409, "A model download is already in progress")
 
@@ -116,8 +148,9 @@ async def download_clip_model(model_id: str, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(job)
 
-    from app.services.model_manager import download_clip
     from app.queue import enqueue
+    from app.services.model_manager import download_clip
+
     await enqueue(job.id, download_clip, model_id, job.id)
     return {"job_id": job.id}
 
@@ -129,10 +162,14 @@ async def download_nudenet_model(model_id: str, db: Session = Depends(get_db)):
     if is_nudenet_downloaded(model_id):
         raise HTTPException(409, "Model already downloaded")
 
-    running = db.query(Job).filter(
-        Job.type == JobType.MODEL_DOWNLOAD,
-        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
-    ).first()
+    running = (
+        db.query(Job)
+        .filter(
+            Job.type == JobType.MODEL_DOWNLOAD,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .first()
+    )
     if running:
         raise HTTPException(409, "A model download is already in progress")
 
@@ -141,8 +178,9 @@ async def download_nudenet_model(model_id: str, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(job)
 
-    from app.services.model_manager import download_nudenet
     from app.queue import enqueue
+    from app.services.model_manager import download_nudenet
+
     await enqueue(job.id, download_nudenet, model_id, job.id)
     return {"job_id": job.id}
 
@@ -185,18 +223,23 @@ async def download_whisper_model(model_id: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "Unknown Whisper model")
     if is_whisper_downloaded(model_id):
         raise HTTPException(409, "Model already downloaded")
-    running = db.query(Job).filter(
-        Job.type == JobType.MODEL_DOWNLOAD,
-        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
-    ).first()
+    running = (
+        db.query(Job)
+        .filter(
+            Job.type == JobType.MODEL_DOWNLOAD,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .first()
+    )
     if running:
         raise HTTPException(409, "A model download is already in progress")
     job = Job(type=JobType.MODEL_DOWNLOAD, status=JobStatus.PENDING, settings=f"whisper:{model_id}")
     db.add(job)
     db.commit()
     db.refresh(job)
-    from app.services.model_manager import download_whisper
     from app.queue import enqueue
+    from app.services.model_manager import download_whisper
+
     await enqueue(job.id, download_whisper, model_id, job.id)
     return {"job_id": job.id}
 

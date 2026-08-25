@@ -1,5 +1,6 @@
 import os
 import shutil
+
 from app.database import DATA_DIR
 
 MODELS_DIR = os.path.join(DATA_DIR, "models")
@@ -33,7 +34,7 @@ CLIP_MODELS: dict[str, dict] = {
         "id": "clip-vit-large-patch14-336",
         "type": "clip",
         "name": "CLIP ViT-L/14@336px",
-        "description": "Best accuracy. Same as L/14 but trained at 336px — sharper detail. ~1.6 GB download.",
+        "description": "Best accuracy. Trained at 336px for sharper detail. ~1.6 GB.",
         "hf_repo": "Xenova/clip-vit-large-patch14-336",
         "hf_vision_file": "onnx/vision_model.onnx",
         "hf_text_file": "onnx/text_model.onnx",
@@ -70,29 +71,49 @@ NUDENET_MODELS: dict[str, dict] = {
 
 WHISPER_MODELS: dict[str, dict] = {
     "tiny": {
-        "id": "tiny", "type": "whisper", "name": "Whisper Tiny",
+        "id": "tiny",
+        "type": "whisper",
+        "name": "Whisper Tiny",
         "description": "Fastest, lowest accuracy. ~75 MB.",
-        "hf_repo": "Systran/faster-whisper-tiny", "size_mb": 75, "quality": "fast",
+        "hf_repo": "Systran/faster-whisper-tiny",
+        "size_mb": 75,
+        "quality": "fast",
     },
     "base": {
-        "id": "base", "type": "whisper", "name": "Whisper Base",
+        "id": "base",
+        "type": "whisper",
+        "name": "Whisper Base",
         "description": "Good speed/accuracy balance. ~145 MB.",
-        "hf_repo": "Systran/faster-whisper-base", "size_mb": 145, "quality": "good",
+        "hf_repo": "Systran/faster-whisper-base",
+        "size_mb": 145,
+        "quality": "good",
     },
     "small": {
-        "id": "small", "type": "whisper", "name": "Whisper Small",
+        "id": "small",
+        "type": "whisper",
+        "name": "Whisper Small",
         "description": "Recommended. Strong accuracy, fast enough. ~460 MB.",
-        "hf_repo": "Systran/faster-whisper-small", "size_mb": 460, "quality": "better",
+        "hf_repo": "Systran/faster-whisper-small",
+        "size_mb": 460,
+        "quality": "better",
     },
     "medium": {
-        "id": "medium", "type": "whisper", "name": "Whisper Medium",
+        "id": "medium",
+        "type": "whisper",
+        "name": "Whisper Medium",
         "description": "High accuracy. ~1.4 GB.",
-        "hf_repo": "Systran/faster-whisper-medium", "size_mb": 1400, "quality": "better",
+        "hf_repo": "Systran/faster-whisper-medium",
+        "size_mb": 1400,
+        "quality": "better",
     },
     "large-v3": {
-        "id": "large-v3", "type": "whisper", "name": "Whisper Large v3",
+        "id": "large-v3",
+        "type": "whisper",
+        "name": "Whisper Large v3",
         "description": "Best accuracy. ~3 GB.",
-        "hf_repo": "Systran/faster-whisper-large-v3", "size_mb": 3000, "quality": "best",
+        "hf_repo": "Systran/faster-whisper-large-v3",
+        "size_mb": 3000,
+        "quality": "best",
     },
 }
 
@@ -121,15 +142,13 @@ def clip_text_path(model_id: str) -> str:
 def nudenet_path(model_id: str) -> str:
     if model_id == "320n":
         import nudenet as _pkg
+
         return os.path.join(os.path.dirname(_pkg.__file__), "320n.onnx")
     return os.path.join(MODELS_DIR, "nudenet", f"{model_id}.onnx")
 
 
 def is_clip_downloaded(model_id: str) -> bool:
-    return (
-        os.path.exists(clip_vision_path(model_id))
-        and os.path.exists(clip_text_path(model_id))
-    )
+    return os.path.exists(clip_vision_path(model_id)) and os.path.exists(clip_text_path(model_id))
 
 
 def is_nudenet_downloaded(model_id: str) -> bool:
@@ -144,6 +163,7 @@ def is_nudenet_downloaded(model_id: str) -> bool:
 # ---------------------------------------------------------------------------
 # Streaming download helpers
 # ---------------------------------------------------------------------------
+
 
 class _DownloadCancelled(BaseException):
     pass
@@ -169,6 +189,7 @@ def _download_hf_file(
     """
     import requests
     from huggingface_hub import hf_hub_url
+
     from app.services.common import should_cancel
 
     url = hf_hub_url(repo_id=repo_id, filename=filename)
@@ -207,11 +228,13 @@ def _download_hf_file(
 # Whisper
 # ---------------------------------------------------------------------------
 
+
 def download_whisper(model_id: str, job_id: int) -> None:
     from huggingface_hub import list_repo_files
+
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import now, log, arm_cancel, clear_cancel
+    from app.services.common import arm_cancel, clear_cancel, log, now
 
     meta = WHISPER_MODELS[model_id]
     target_dir = whisper_model_dir(model_id)
@@ -230,7 +253,9 @@ def download_whisper(model_id: str, job_id: int) -> None:
         arm_cancel(job_id)
 
         total_bytes = meta["size_mb"] * 1024 * 1024
-        print(f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True)
+        print(
+            f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True
+        )
         log(db, job_id, f"Downloading {meta['name']} from HuggingFace…")
         job.progress = 5.0
         db.commit()
@@ -247,9 +272,12 @@ def download_whisper(model_id: str, job_id: int) -> None:
                 repo_id=meta["hf_repo"],
                 filename=filename,
                 dest_path=dest,
-                job=job, db=db, job_id=job_id,
+                job=job,
+                db=db,
+                job_id=job_id,
                 total_bytes=total_bytes,
-                pct_start=5.0, pct_end=95.0,
+                pct_start=5.0,
+                pct_end=95.0,
                 label=meta["name"],
                 byte_offset=byte_offset,
             )
@@ -295,6 +323,7 @@ def delete_whisper(model_id: str) -> None:
 # CLIP
 # ---------------------------------------------------------------------------
 
+
 def migrate_legacy_clip() -> None:
     """Move pre-subdirectory CLIP files into per-model directory on first startup."""
     legacy_dir = os.path.join(MODELS_DIR, "clip")
@@ -312,7 +341,7 @@ def migrate_legacy_clip() -> None:
 def download_clip(model_id: str, job_id: int) -> None:
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import now, log, arm_cancel, clear_cancel
+    from app.services.common import arm_cancel, clear_cancel, log, now
 
     meta = CLIP_MODELS[model_id]
     target_dir = clip_dir(model_id)
@@ -333,7 +362,9 @@ def download_clip(model_id: str, job_id: int) -> None:
         db.commit()
         arm_cancel(job_id)
 
-        print(f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True)
+        print(
+            f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True
+        )
 
         log(db, job_id, f"Downloading {meta['name']} vision model from HuggingFace…")
         job.current_file = "vision_model.onnx"
@@ -343,9 +374,12 @@ def download_clip(model_id: str, job_id: int) -> None:
             repo_id=meta["hf_repo"],
             filename=meta["hf_vision_file"],
             dest_path=clip_vision_path(model_id),
-            job=job, db=db, job_id=job_id,
+            job=job,
+            db=db,
+            job_id=job_id,
             total_bytes=total_bytes,
-            pct_start=5.0, pct_end=60.0,
+            pct_start=5.0,
+            pct_end=60.0,
             label=f"{meta['name']} vision",
         )
 
@@ -357,9 +391,12 @@ def download_clip(model_id: str, job_id: int) -> None:
             repo_id=meta["hf_repo"],
             filename=meta["hf_text_file"],
             dest_path=clip_text_path(model_id),
-            job=job, db=db, job_id=job_id,
+            job=job,
+            db=db,
+            job_id=job_id,
             total_bytes=total_bytes,
-            pct_start=60.0, pct_end=95.0,
+            pct_start=60.0,
+            pct_end=95.0,
             label=f"{meta['name']} text",
             byte_offset=vision_bytes,
         )
@@ -408,11 +445,13 @@ def delete_clip(model_id: str) -> None:
 # NudeNet
 # ---------------------------------------------------------------------------
 
+
 def download_nudenet(model_id: str, job_id: int) -> None:
     import requests
+
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import now, log, arm_cancel, clear_cancel, should_cancel
+    from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 
     meta = NUDENET_MODELS[model_id]
     target = nudenet_path(model_id)
@@ -430,7 +469,9 @@ def download_nudenet(model_id: str, job_id: int) -> None:
         db.commit()
         arm_cancel(job_id)
 
-        print(f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True)
+        print(
+            f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True
+        )
         log(db, job_id, f"Downloading {meta['name']} from GitHub…")
         job.current_file = f"{model_id}.onnx"
         job.progress = 5.0
@@ -469,7 +510,10 @@ def download_nudenet(model_id: str, job_id: int) -> None:
                 if pct - last_log_pct >= 5.0:
                     mb = downloaded // (1024 * 1024)
                     total_mb = content_length // (1024 * 1024)
-                    print(f"[model-download] {meta['name']}: {mb} MB / {total_mb} MB ({pct:.0f}%)", flush=True)
+                    print(
+                        f"[model-download] {meta['name']}: {mb} MB / {total_mb} MB ({pct:.0f}%)",
+                        flush=True,
+                    )
                     last_log_pct = pct
 
         if downloaded < expected_bytes * 0.5:
@@ -483,8 +527,14 @@ def download_nudenet(model_id: str, job_id: int) -> None:
         job.finished_at = now()
         job.current_file = None
         db.commit()
-        print(f"[model-download] {meta['name']}: download complete ({downloaded // (1024 * 1024)} MB)", flush=True)
-        log(db, job_id, f"{meta['name']} downloaded successfully ({downloaded // 1024 // 1024} MB).")
+        size_mb = downloaded // (1024 * 1024)
+        print(
+            f"[model-download] {meta['name']}: download complete ({size_mb} MB)",
+            flush=True,
+        )
+        log(
+            db, job_id, f"{meta['name']} downloaded successfully ({downloaded // 1024 // 1024} MB)."
+        )
 
     except _DownloadCancelled:
         _cleanup = True

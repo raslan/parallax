@@ -20,6 +20,7 @@ def prepare_stream(body: PrepareRequest):
     if not os.path.isfile(body.path):
         raise HTTPException(404, "File not found")
     from app.services.stream_cache import start_prepare
+
     return start_prepare(body.path)
 
 
@@ -28,4 +29,5 @@ def prepare_status(path: str = Query(...)):
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
     from app.services.stream_cache import needs_prepare
+
     return needs_prepare(path)

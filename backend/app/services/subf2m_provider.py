@@ -14,7 +14,6 @@ import time
 import urllib.parse
 import zipfile
 from difflib import SequenceMatcher
-from typing import Optional
 
 import rarfile
 import requests
@@ -26,10 +25,26 @@ logger = logging.getLogger(__name__)
 _BASE_URL = "https://subf2m.co"
 
 _SEASONS = (
-    "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh",
-    "Eighth", "Ninth", "Tenth", "Eleventh", "Twelfth", "Thirdteenth",
-    "Fourthteenth", "Fifteenth", "Sixteenth", "Seventeenth", "Eightheenth",
-    "Nineteenth", "Tweentieth",
+    "First",
+    "Second",
+    "Third",
+    "Fourth",
+    "Fifth",
+    "Sixth",
+    "Seventh",
+    "Eighth",
+    "Ninth",
+    "Tenth",
+    "Eleventh",
+    "Twelfth",
+    "Thirdteenth",
+    "Fourthteenth",
+    "Fifteenth",
+    "Sixteenth",
+    "Seventeenth",
+    "Eightheenth",
+    "Nineteenth",
+    "Tweentieth",
 )
 
 _LANGUAGE_MAP = {
@@ -74,7 +89,9 @@ for _path, _alpha2 in _LANGUAGE_MAP.items():
     _LANG_TO_PATH.setdefault(_alpha2, _path)
 
 _DEFAULT_HEADERS = {
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9," "image/avif,image/webp,*/*;q=0.8"
+    ),
     "accept-language": "en-US,en;q=0.9",
     "referer": "https://subf2m.co",
     "sec-fetch-dest": "document",
@@ -88,9 +105,7 @@ _DEFAULT_HEADERS = {
 }
 
 _MOVIE_TITLE_RE = re.compile(r"^(.+?)(\s+\((\d{4})\))?$")
-_TV_SHOW_TITLE_RE = re.compile(
-    r"^(.+?)\s+[-\(]\s?(.*?)\s+(season|series)\)?(\s+\((\d{4})\))?$"
-)
+_TV_SHOW_TITLE_RE = re.compile(r"^(.+?)\s+[-\(]\s?(.*?)\s+(season|series)\)?(\s+\((\d{4})\))?$")
 _TV_SHOW_TITLE_ALT_RE = re.compile(r"(.+)\s(\d{1,2})(?:\s|$)")
 _EPISODE_SPECIAL_RE = re.compile(
     r"(season|s)\s*?(?P<x>\d{,2})\s?[-−]\s?(?P<y>\d{,2})",
@@ -133,10 +148,9 @@ class Subf2mProvider:
         url = f"{_BASE_URL}/subtitles/searchbytitle?query={encoded}&l="
         text = self._get_text(url)
         soup = BeautifulSoup(text, "html.parser")
-        for title in soup.select("li div[class='title'] a"):
-            yield title
+        yield from soup.select("li div[class='title'] a")
 
-    def _search_movie(self, title: str, year: Optional[int], return_len: int = 3) -> list[str]:
+    def _search_movie(self, title: str, year: int | None, return_len: int = 3) -> list[str]:
         title_lc = title.lower()
         year_s = str(year) if year else ""
         results = []
@@ -147,11 +161,13 @@ class Subf2mProvider:
                 continue
             match_title = m.group(1)
             match_year = m.group(3) or ""
-            results.append({
-                "href": result.get("href"),
-                "similarity": SequenceMatcher(None, title_lc, match_title).ratio(),
-                "year_match": bool(year_s and match_year and year_s == match_year),
-            })
+            results.append(
+                {
+                    "href": result.get("href"),
+                    "similarity": SequenceMatcher(None, title_lc, match_title).ratio(),
+                    "year_match": bool(year_s and match_year and year_s == match_year),
+                }
+            )
         if year_s:
             # An explicit year (TMDB pick or "(YYYY)") is authoritative — if any
             # candidate actually carries that year, only consider those, rather
@@ -166,7 +182,9 @@ class Subf2mProvider:
         # search() picks the first path with results.
         return list(dict.fromkeys(r["href"] for r in results[:return_len]))
 
-    def _search_tv_show_season(self, title: str, season: int, year: Optional[int] = None, return_len: int = 3) -> list[str]:
+    def _search_tv_show_season(
+        self, title: str, season: int, year: int | None = None, return_len: int = 3
+    ) -> list[str]:
         try:
             season_strs = (_SEASONS[season - 1].lower(), str(season))
         except IndexError:
@@ -188,10 +206,13 @@ class Subf2mProvider:
                 continue
             if match_season in season_strs or "complete" in match_season:
                 plus = 0.1 if year and str(year) in text else 0
-                results.append({
-                    "href": result.get("href"),
-                    "similarity": SequenceMatcher(None, title.lower(), match_title).ratio() + plus,
-                })
+                results.append(
+                    {
+                        "href": result.get("href"),
+                        "similarity": SequenceMatcher(None, title.lower(), match_title).ratio()
+                        + plus,
+                    }
+                )
         results.sort(key=lambda x: x["similarity"], reverse=True)
         return list(dict.fromkeys(r["href"] for r in results[:return_len]))
 
@@ -213,7 +234,9 @@ class Subf2mProvider:
                 subs.append(sub)
         return subs
 
-    def _find_episode_subtitles(self, path: str, season: int, episode: int, lang_alpha2: str) -> list[dict]:
+    def _find_episode_subtitles(
+        self, path: str, season: int, episode: int, lang_alpha2: str
+    ) -> list[dict]:
         soup = self._get_subtitle_page_soup(path, lang_alpha2)
         subs = []
         for item in soup.select("li.item"):
@@ -239,8 +262,16 @@ class Subf2mProvider:
     # Public API
     # ------------------------------------------------------------------
 
-    def search(self, video_path: str, lang_codes: list[str], is_episode: bool,
-               title: str, year: Optional[int], season: int = 0, episode: int = 0) -> list[dict]:
+    def search(
+        self,
+        video_path: str,
+        lang_codes: list[str],
+        is_episode: bool,
+        title: str,
+        year: int | None,
+        season: int = 0,
+        episode: int = 0,
+    ) -> list[dict]:
         """Return list of subtitle candidate dicts for subtitle_service."""
         if is_episode:
             paths = self._search_tv_show_season(title, season, year)
@@ -262,21 +293,23 @@ class Subf2mProvider:
                     subs = self._find_movie_subtitles(path, lang)
 
                 for sub in subs:
-                    results.append({
-                        "subtitle_id": sub["page_link"],
-                        "provider": "subf2m",
-                        "language": lang,
-                        "release": sub["release_info"],
-                        "score": sub["score"],
-                        "hearing_impaired": False,
-                    })
+                    results.append(
+                        {
+                            "subtitle_id": sub["page_link"],
+                            "provider": "subf2m",
+                            "language": lang,
+                            "release": sub["release_info"],
+                            "score": sub["score"],
+                            "hearing_impaired": False,
+                        }
+                    )
 
             if results:
                 break  # stop at first path that yields results
 
         return results
 
-    def download(self, page_link: str) -> Optional[bytes]:
+    def download(self, page_link: str) -> bytes | None:
         """Fetch subtitle page, find download link, return SRT/ASS bytes or None."""
         text = self._get_text(page_link)
         soup = BeautifulSoup(text, "html.parser")
@@ -298,16 +331,19 @@ class Subf2mProvider:
 _SUBTITLE_EXTS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 
 
-def _extract_from_archive(data: bytes) -> Optional[bytes]:
+def _extract_from_archive(data: bytes) -> bytes | None:
     # Try zip first
     if data[:2] == b"PK":
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                candidates = [n for n in zf.namelist()
-                              if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)]
+                candidates = [
+                    n for n in zf.namelist() if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)
+                ]
                 if candidates:
                     # prefer .srt; else first match
-                    best = next((c for c in candidates if c.lower().endswith(".srt")), candidates[0])
+                    best = next(
+                        (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
+                    )
                     return zf.read(best)
         except zipfile.BadZipFile:
             pass
@@ -316,10 +352,13 @@ def _extract_from_archive(data: bytes) -> Optional[bytes]:
     if data[:4] in (b"Rar!", b"\x52\x61\x72\x21"):
         try:
             with rarfile.RarFile(io.BytesIO(data)) as rf:
-                candidates = [n for n in rf.namelist()
-                              if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)]
+                candidates = [
+                    n for n in rf.namelist() if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)
+                ]
                 if candidates:
-                    best = next((c for c in candidates if c.lower().endswith(".srt")), candidates[0])
+                    best = next(
+                        (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
+                    )
                     return rf.read(best)
         except Exception:
             pass
@@ -336,16 +375,20 @@ def _extract_from_archive(data: bytes) -> Optional[bytes]:
 # Guessit helpers
 # ------------------------------------------------------------------
 
+
 @functools.lru_cache(maxsize=2048)
 def _memoized_episode_guess(content: str) -> dict:
-    return guessit(content, {
-        "type": "episode",
-        "includes": ["season", "episode", "video_codec", "audio_codec"],
-        "enforce_list": True,
-    })
+    return guessit(
+        content,
+        {
+            "type": "episode",
+            "includes": ["season", "episode", "video_codec", "audio_codec"],
+            "enforce_list": True,
+        },
+    )
 
 
-def _episode_from_release(release: str) -> Optional[dict]:
+def _episode_from_release(release: str) -> dict | None:
     m = _EPISODE_SPECIAL_RE.search(release)
     if not m:
         return None
@@ -360,7 +403,8 @@ def _episode_from_release(release: str) -> Optional[dict]:
 # Item parsing
 # ------------------------------------------------------------------
 
-def _subtitle_from_item(item, lang_alpha2: str, episode_number: Optional[int] = None) -> Optional[dict]:
+
+def _subtitle_from_item(item, lang_alpha2: str, episode_number: int | None = None) -> dict | None:
     release_parts = [rel.text.strip() for rel in item.find("ul", {"class": "scrolllist"}) or []]
     try:
         comment = item.find("div", {"class": "comment-col"}).find("p").text

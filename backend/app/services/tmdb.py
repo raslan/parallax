@@ -1,6 +1,7 @@
-import requests
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
+
+import requests
 
 TMDB_BASE = "https://api.themoviedb.org/3"
 
@@ -18,15 +19,17 @@ def search(query: str, media_type: Literal["movie", "tv"], api_key: str) -> list
         title = item.get("title") or item.get("name", "")
         date = item.get("release_date") or item.get("first_air_date", "")
         year = int(date[:4]) if date and len(date) >= 4 else None
-        out.append({
-            "tmdb_id": item["id"],
-            "title": title,
-            "year": year,
-            "overview": item.get("overview", ""),
-            "poster_path": item.get("poster_path"),
-            "type": media_type,
-            "number_of_seasons": item.get("number_of_seasons"),
-        })
+        out.append(
+            {
+                "tmdb_id": item["id"],
+                "title": title,
+                "year": year,
+                "overview": item.get("overview", ""),
+                "poster_path": item.get("poster_path"),
+                "type": media_type,
+                "number_of_seasons": item.get("number_of_seasons"),
+            }
+        )
     return out
 
 

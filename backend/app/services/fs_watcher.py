@@ -6,6 +6,7 @@ Uses watchdog for cross-platform inotify/FSEvents/kqueue support.
 Debounces 30 s so rapid file ops (e.g. a big copy) wait until files settle,
 then passes the exact changed/deleted paths to targeted scan functions.
 """
+
 import logging
 import os
 import threading
@@ -15,8 +16,24 @@ logger = logging.getLogger(__name__)
 
 _DEBOUNCE = 30.0
 
-_VIDEO_EXTS = {".mkv", ".mp4", ".avi", ".mov", ".m4v", ".wmv", ".flv", ".ts", ".m2ts",
-               ".mpg", ".mpeg", ".mts", ".vob", ".3gp", ".ogv", ".divx"}
+_VIDEO_EXTS = {
+    ".mkv",
+    ".mp4",
+    ".avi",
+    ".mov",
+    ".m4v",
+    ".wmv",
+    ".flv",
+    ".ts",
+    ".m2ts",
+    ".mpg",
+    ".mpeg",
+    ".mts",
+    ".vob",
+    ".3gp",
+    ".ogv",
+    ".divx",
+}
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".heic", ".heif"}
 
 _observer = None
@@ -38,6 +55,7 @@ def init() -> None:
     global _observer
     try:
         from watchdog.observers import Observer
+
         _observer = Observer()
         _observer.daemon = True
         _observer.start()
@@ -81,7 +99,7 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
     from app.database import SessionLocal
     from app.models.file import File, FileStatus
     from app.models.library import Library
-    from app.services.scanner import probe_file, generate_thumbnail, thumbnail_path, _now
+    from app.services.scanner import _now, generate_thumbnail, probe_file, thumbnail_path
 
     db = SessionLocal()
     try:
@@ -127,8 +145,8 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
             except OSError:
                 pass
 
-            import json as _json
             from datetime import datetime
+
             data = probe_file(path)
             if data:
                 fmt = data.get("format", {})
@@ -154,7 +172,9 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
                         num, den = raw_fps.split("/")
                         f.file_fps = round(int(num) / int(den), 3) if int(den) else None
 
-            creation_time_str = data.get("format", {}).get("tags", {}).get("creation_time") if data else None
+            creation_time_str = (
+                data.get("format", {}).get("tags", {}).get("creation_time") if data else None
+            )
             if creation_time_str:
                 try:
                     dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))
@@ -170,8 +190,12 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
 
         library.last_scanned_at = _now()
         db.commit()
-        logger.info("Watcher: video library %d — %d changed, %d deleted",
-                    library_id, len(changed), len(deleted))
+        logger.info(
+            "Watcher: video library %d — %d changed, %d deleted",
+            library_id,
+            len(changed),
+            len(deleted),
+        )
     except Exception:
         logger.exception("Watcher: error in video incremental scan for library %d", library_id)
     finally:
@@ -180,14 +204,15 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
 
 def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: frozenset[str]) -> None:
     from app.database import SessionLocal
-    from app.models.image import ImageFile, ImageDetection
+    from app.models.image import ImageDetection, ImageFile
     from app.models.image_library import ImageLibrary
+    from app.services.common import now
+    from app.services.image_scanner import (
+        _thumbnail_path,
+    )
     from app.services.image_scanner import (
         generate_thumbnail as img_thumb,
-        _thumbnail_path,
-        THUMBNAIL_DIR,
     )
-    from app.services.common import now
 
     db = SessionLocal()
     try:
@@ -208,9 +233,10 @@ def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: froz
         db.commit()
 
         # New / modified — basic metadata + thumbnail, no AI
-        from app.services.image_analyzer import get_image_metadata
-        from app.models.image import ImageStatus
         import os as _os
+
+        from app.models.image import ImageStatus
+        from app.services.image_analyzer import get_image_metadata
 
         for path in changed:
             if not _os.path.exists(path):
@@ -254,8 +280,12 @@ def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: froz
                 db.refresh(f)
                 img_thumb(path, _thumbnail_path(f.id))
 
-        logger.info("Watcher: image library %d — %d changed, %d deleted",
-                    library_id, len(changed), len(deleted))
+        logger.info(
+            "Watcher: image library %d — %d changed, %d deleted",
+            library_id,
+            len(changed),
+            len(deleted),
+        )
     except Exception:
         logger.exception("Watcher: error in image incremental scan for library %d", library_id)
     finally:
@@ -339,8 +369,8 @@ def unwatch_library(library_id: int) -> None:
 
 def watch_all_libraries() -> None:
     from app.database import SessionLocal
-    from app.models.library import Library
     from app.models.image_library import ImageLibrary
+    from app.models.library import Library
 
     db = SessionLocal()
     try:

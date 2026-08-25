@@ -3,15 +3,16 @@ import os
 import queue as _queue
 import struct
 import threading
-import numpy as np
-import imagehash
-from PIL import Image, ExifTags
 
-from app.database import SessionLocal, DATA_DIR
+import imagehash
+import numpy as np
+from PIL import ExifTags, Image
+
+from app.database import DATA_DIR, SessionLocal
+from app.models.image import ImageDetection, ImageFile, ImageStatus
 from app.models.image_library import ImageLibrary
-from app.models.image import ImageFile, ImageDetection, ImageStatus
 from app.models.job import Job, JobStatus
-from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
+from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 THUMBNAIL_DIR = os.path.join(DATA_DIR, "image-thumbnails")
@@ -56,8 +57,9 @@ def _load_image_for_scan(
                     dt_str = tags.get("DateTimeOriginal") or tags.get("DateTime")
                     if dt_str:
                         from datetime import datetime
+
                         exif_date = datetime.strptime(dt_str, "%Y:%m:%d %H:%M:%S").timestamp()
-                    make       = tags.get("Make", "")
+                    make = tags.get("Make", "")
                     model_name = tags.get("Model", "")
                     if make or model_name:
                         exif_camera = f"{make} {model_name}".strip()
@@ -75,11 +77,11 @@ def _load_image_for_scan(
             arr = np.array(img, dtype=np.uint8)
 
         return {
-            "width":       orig_w,
-            "height":      orig_h,
-            "size":        file_size,
-            "exif_date":   exif_date,
-            "exif_gps":    exif_gps,
+            "width": orig_w,
+            "height": orig_h,
+            "size": file_size,
+            "exif_date": exif_date,
+            "exif_gps": exif_gps,
             "exif_camera": exif_camera,
         }, arr
     except Exception:
@@ -117,8 +119,8 @@ def scan_image_library(
     reset: bool = False,
 ) -> None:
     from app.models.settings import get_setting
-    from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS
     from app.services.image_analyzer import encode_image_clip_batch_arrays, run_nudenet_batch_arrays
+    from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS
 
     db = SessionLocal()
     job = None
@@ -131,13 +133,17 @@ def scan_image_library(
         if not job or job.status == JobStatus.CANCELLED:
             return
 
-        clip_model_id    = get_setting(db, "clip_model",      "clip-vit-base-patch32")
-        nudenet_model_id = get_setting(db, "nudenet_model",   "320n")
-        batch_size       = int(get_setting(db, "scan_batch_size", "4"))
-        prefetch         = int(get_setting(db, "scan_prefetch",   "4"))
+        clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
+        nudenet_model_id = get_setting(db, "nudenet_model", "320n")
+        batch_size = int(get_setting(db, "scan_batch_size", "4"))
+        prefetch = int(get_setting(db, "scan_prefetch", "4"))
 
-        clip_res    = CLIP_MODELS.get(clip_model_id,    {}).get("image_size",           224)
-        nudenet_res = NUDENET_MODELS.get(nudenet_model_id, {}).get("inference_resolution", 320) if run_nudenet else 0
+        clip_res = CLIP_MODELS.get(clip_model_id, {}).get("image_size", 224)
+        nudenet_res = (
+            NUDENET_MODELS.get(nudenet_model_id, {}).get("inference_resolution", 320)
+            if run_nudenet
+            else 0
+        )
         extraction_res = max(clip_res, nudenet_res)
         # Load at max of inference size and thumbnail size so we can serve both from one decode
         load_size = max(extraction_res, THUMBNAIL_SIZE[0])
@@ -162,8 +168,7 @@ def scan_image_library(
 
         paths = collect_image_paths(library.path)
         existing_paths = {
-            r[0] for r in
-            db.query(ImageFile.path).filter(ImageFile.library_id == library_id).all()
+            r[0] for r in db.query(ImageFile.path).filter(ImageFile.library_id == library_id).all()
         }
         new_paths = [p for p in paths if p not in existing_paths]
         total = len(new_paths)
@@ -172,15 +177,18 @@ def scan_image_library(
 
         if total == 0:
             log(db, job_id, "No new images to scan")
-            job.status      = JobStatus.COMPLETED
-            job.progress    = 100.0
+            job.status = JobStatus.COMPLETED
+            job.progress = 100.0
             job.finished_at = now()
             db.commit()
             return
 
-        log(db, job_id,
+        log(
+            db,
+            job_id,
             f"Found {total} new images (load size {load_size}px, "
-            f"batch {batch_size}, prefetch {prefetch})")
+            f"batch {batch_size}, prefetch {prefetch})",
+        )
         arm_cancel(job_id)
 
         # Queue holds (path, (meta, arr)) or (path, None) per image, then None sentinel.
@@ -196,14 +204,14 @@ def scan_image_library(
         prod = threading.Thread(target=producer, daemon=True)
         prod.start()
 
-        succeeded  = 0
-        failed     = 0
-        processed  = 0
-        done       = False
+        succeeded = 0
+        failed = 0
+        processed = 0
+        done = False
 
         while not done:
             if should_cancel(job_id):
-                job.status      = JobStatus.CANCELLED
+                job.status = JobStatus.CANCELLED
                 job.finished_at = now()
                 db.commit()
                 clear_cancel(job_id)
@@ -228,26 +236,28 @@ def scan_image_library(
                 break
 
             job.current_file = os.path.basename(batch[0][0])
-            job.progress     = processed / total * 100 if total else 100
+            job.progress = processed / total * 100 if total else 100
             db.commit()
 
             # Build ImageFile records; separate good from failed loads
-            img_objs:    list[ImageFile]    = []
-            good_arrays: list[np.ndarray]   = []
+            img_objs: list[ImageFile] = []
+            good_arrays: list[np.ndarray] = []
 
             for path, meta, arr in batch:
                 fname = os.path.basename(path)
-                ext   = os.path.splitext(path)[1].lower().lstrip(".")
+                ext = os.path.splitext(path)[1].lower().lstrip(".")
                 if meta is None:
-                    db.add(ImageFile(
-                        library_id=library_id,
-                        path=path,
-                        filename=fname,
-                        extension=ext,
-                        size=0,
-                        status=ImageStatus.FAILED,
-                        scan_error="Failed to load image",
-                    ))
+                    db.add(
+                        ImageFile(
+                            library_id=library_id,
+                            path=path,
+                            filename=fname,
+                            extension=ext,
+                            size=0,
+                            status=ImageStatus.FAILED,
+                            scan_error="Failed to load image",
+                        )
+                    )
                     failed += 1
                     log(db, job_id, f"Failed: {fname} — could not load", level="error")
                     continue
@@ -296,18 +306,20 @@ def scan_image_library(
                     batch_dets = run_nudenet_batch_arrays(good_arrays, model_id=nudenet_model_id)
                     for img_obj, detections in zip(img_objs, batch_dets):
                         for d in detections:
-                            db.add(ImageDetection(
-                                image_id=img_obj.id,
-                                label=d["label"],
-                                confidence=d["confidence"],
-                                bbox_json=d["bbox_json"],
-                            ))
+                            db.add(
+                                ImageDetection(
+                                    image_id=img_obj.id,
+                                    label=d["label"],
+                                    confidence=d["confidence"],
+                                    bbox_json=d["bbox_json"],
+                                )
+                            )
                 except Exception as e:
                     log(db, job_id, f"NudeNet batch failed — {e}", level="error")
 
             db.commit()
-            succeeded  += len(img_objs)
-            processed  += len(batch)
+            succeeded += len(img_objs)
+            processed += len(batch)
             job.processed_files = processed
             db.commit()
 
@@ -316,19 +328,20 @@ def scan_image_library(
         db.commit()
 
         clear_cancel(job_id)
-        job.status      = JobStatus.COMPLETED
-        job.progress    = 100.0
+        job.status = JobStatus.COMPLETED
+        job.progress = 100.0
         job.finished_at = now()
         db.commit()
         log(db, job_id, f"Scan complete — {succeeded} scanned, {failed} failed")
 
     except Exception as e:
         if job:
-            job.status      = JobStatus.FAILED
-            job.error       = str(e)
+            job.status = JobStatus.FAILED
+            job.error = str(e)
             job.finished_at = now()
             db.commit()
     finally:
         from app.services.image_analyzer import release_sessions
+
         release_sessions()
         db.close()

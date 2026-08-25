@@ -6,12 +6,12 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from app.database import SessionLocal
 from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
-from app.services.compressor import _cleanup, _read_and_remove, _NEEDS_REMUX, _rescan_after_job
+from app.services.compressor import _NEEDS_REMUX, _cleanup, _read_and_remove, _rescan_after_job
 from app.services.encoder import encoder_for_codec
 
 _HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
@@ -32,15 +32,17 @@ def _build_toolbox_cmd(
     duration: float,
     trim_start: float,
     trim_end: float,
-    audio_channel: str | None,   # "left" | "right" | None — already resolved, "auto" is resolved upstream
-    rotate_deg: int | None,      # 90 | 180 | 270 | None
+    audio_channel: str
+    | None,  # "left" | "right" | None — already resolved, "auto" is resolved upstream
+    rotate_deg: int | None,  # 90 | 180 | 270 | None
     normalize: bool,
     faststart: bool,
     sync_offset_ms: float | None,
-    source_codec: str | None = None,  # e.g. "h264", "hevc", "av1" — used to pick rotate's output codec
+    source_codec: str
+    | None = None,  # e.g. "h264", "hevc", "av1" — used to pick rotate's output codec
     force_video_reencode: bool = False,
     copy_seek_start: float | None = None,  # actual keyframe-snapped seek point, copy-mode only
-    rebase_pts: bool = False,     # matroska-family output needs pts rezeroed after a trimmed reencode
+    rebase_pts: bool = False,  # matroska-family output needs pts rezeroed after a trimmed reencode
 ) -> list[str]:
     needs_video_reencode = rotate_deg is not None or force_video_reencode
     needs_audio_reencode = audio_channel is not None or normalize or rebase_pts
@@ -159,11 +161,23 @@ def _nearest_keyframe_at_or_before(path: str, target: float) -> float | None:
     window_start = max(0.0, target - 30)
     try:
         proc = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0",
-             "-show_entries", "packet=pts_time,flags",
-             "-read_intervals", f"{window_start}%{target}",
-             "-of", "csv=p=0", path],
-            capture_output=True, text=True, timeout=30,
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "packet=pts_time,flags",
+                "-read_intervals",
+                f"{window_start}%{target}",
+                "-of",
+                "csv=p=0",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
     except Exception:
         return None
@@ -171,10 +185,12 @@ def _nearest_keyframe_at_or_before(path: str, target: float) -> float | None:
 
 
 def detect_louder_channel(path: str) -> str:
-    """Run ffmpeg astats on the file's audio, return 'left' or 'right' — whichever channel has higher RMS."""
+    """Detect louder audio channel ('left' or 'right') by RMS level."""
     proc = subprocess.run(
         ["ffmpeg", "-i", path, "-t", "120", "-filter:a", "astats", "-f", "null", "-"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
     rms = parse_channel_rms(proc.stderr)
     left_db = rms.get(1, float("-inf"))
@@ -211,9 +227,19 @@ def _toolbox_fix_one(
     duration = 0.0
     try:
         probe = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-print_format", "csv=p=0", src],
-            capture_output=True, text=True, timeout=30,
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-show_entries",
+                "format=duration",
+                "-print_format",
+                "csv=p=0",
+                src,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if probe.stdout.strip():
             duration = float(probe.stdout.strip().split("\n")[0])
@@ -223,7 +249,9 @@ def _toolbox_fix_one(
     trim_start = settings.get("trim_start") or 0
     trim_end = settings.get("trim_end") or 0
 
-    if (trim_start > 0 or trim_end > 0) and (duration <= 0 or duration - trim_start - trim_end < 1.0):
+    if (trim_start > 0 or trim_end > 0) and (
+        duration <= 0 or duration - trim_start - trim_end < 1.0
+    ):
         return False, "Could not determine file duration or trim exceeds duration", None
 
     force_video_reencode = False
@@ -270,9 +298,21 @@ def _toolbox_fix_one(
         channel_count = 2
         try:
             ch_probe = subprocess.run(
-                ["ffprobe", "-v", "error", "-select_streams", "a:0",
-                 "-show_entries", "stream=channels", "-of", "csv=p=0", src],
-                capture_output=True, text=True, timeout=30,
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "a:0",
+                    "-show_entries",
+                    "stream=channels",
+                    "-of",
+                    "csv=p=0",
+                    src,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if ch_probe.stdout.strip():
                 channel_count = int(ch_probe.stdout.strip().split("\n")[0])
@@ -285,9 +325,21 @@ def _toolbox_fix_one(
     if settings.get("rotate_deg") is not None or force_video_reencode:
         try:
             codec_probe = subprocess.run(
-                ["ffprobe", "-v", "error", "-select_streams", "v:0",
-                 "-show_entries", "stream=codec_name", "-of", "csv=p=0", src],
-                capture_output=True, text=True, timeout=30,
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=codec_name",
+                    "-of",
+                    "csv=p=0",
+                    src,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if codec_probe.stdout.strip():
                 source_codec = codec_probe.stdout.strip().split("\n")[0]
@@ -295,7 +347,9 @@ def _toolbox_fix_one(
             pass
 
     cmd = _build_toolbox_cmd(
-        src, tmp, duration,
+        src,
+        tmp,
+        duration,
         trim_start=trim_start,
         trim_end=trim_end,
         audio_channel=audio_channel,
@@ -338,7 +392,11 @@ def _toolbox_fix_one(
         if proc.returncode != 0:
             stderr_text = _read_and_remove(err_path)
             _cleanup(tmp)
-            return False, (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"), None
+            return (
+                False,
+                (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"),
+                None,
+            )
 
         _cleanup(err_path)
 
@@ -405,13 +463,16 @@ def run_toolbox_job(
             def cb(frac: float) -> None:
                 with fracs_lock:
                     fracs[path] = frac
+
             return cb
 
         def do_one(path: str) -> tuple[str, bool, str | None]:
             fname = os.path.basename(path)
             log_q.put(("info", f"Fixing: {fname}"))
             ok, err, final_path = _toolbox_fix_one(
-                path, settings, job_id,
+                path,
+                settings,
+                job_id,
                 progress_cb=make_progress_cb(path),
                 note_cb=lambda msg: log_q.put(("info", msg)),
                 keep_original=keep_original,

@@ -1,10 +1,11 @@
 import asyncio
 import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.database import get_db, SessionLocal
+from app.database import SessionLocal, get_db
 from app.models.job import Job, JobStatus
 from app.schemas import JobRead
 
@@ -23,6 +24,7 @@ JOB_TYPE_LABELS = {
 @router.get("/stream")
 async def stream_jobs():
     """SSE stream that pushes active job state every 500ms until all jobs settle."""
+
     async def generate():
         last_payload = None
         idle_ticks = 0
@@ -32,23 +34,29 @@ async def stream_jobs():
             # tabs/reconnects would otherwise exhaust the pool.
             db = SessionLocal()
             try:
-                active = db.query(Job).filter(Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING])).all()
+                active = (
+                    db.query(Job)
+                    .filter(Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]))
+                    .all()
+                )
 
-                payload = json.dumps([
-                    {
-                        "id": j.id,
-                        "type": j.type,
-                        "status": j.status,
-                        "progress": j.progress,
-                        "processed_files": j.processed_files,
-                        "total_files": j.total_files,
-                        "current_file": j.current_file,
-                        "error": j.error,
-                        "library_id": j.library_id,
-                        "started_at": j.started_at.isoformat() if j.started_at else None,
-                    }
-                    for j in active
-                ])
+                payload = json.dumps(
+                    [
+                        {
+                            "id": j.id,
+                            "type": j.type,
+                            "status": j.status,
+                            "progress": j.progress,
+                            "processed_files": j.processed_files,
+                            "total_files": j.total_files,
+                            "current_file": j.current_file,
+                            "error": j.error,
+                            "library_id": j.library_id,
+                            "started_at": j.started_at.isoformat() if j.started_at else None,
+                        }
+                        for j in active
+                    ]
+                )
             finally:
                 db.close()
 
@@ -89,18 +97,26 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
 @router.get("/{job_id}/logs")
 def get_job_logs(job_id: int, db: Session = Depends(get_db)):
     from app.models.job import JobLog
+
     job = db.get(Job, job_id)
     if not job:
         raise HTTPException(404, "Job not found")
     logs = db.query(JobLog).filter(JobLog.job_id == job_id).order_by(JobLog.timestamp).all()
-    return [{"message": l.message, "level": l.level, "timestamp": l.timestamp.isoformat()} for l in logs]
+    return [
+        {
+            "message": log_entry.message,
+            "level": log_entry.level,
+            "timestamp": log_entry.timestamp.isoformat(),
+        }
+        for log_entry in logs
+    ]
 
 
 @router.post("/{job_id}/cancel", status_code=202)
 def cancel_job(job_id: int, db: Session = Depends(get_db)):
-    from app.services.common import request_cancel, now
     from app.models.file import File, FileStatus
     from app.queue import cancel_pending
+    from app.services.common import now, request_cancel
 
     job = db.get(Job, job_id)
     if not job:
@@ -130,6 +146,7 @@ def cancel_job(job_id: int, db: Session = Depends(get_db)):
 @router.delete("/history", status_code=204)
 def clear_history(db: Session = Depends(get_db)):
     from app.models.job import JobLog
+
     ended = [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]
     job_ids = [j.id for j in db.query(Job.id).filter(Job.status.in_(ended))]
     if job_ids:

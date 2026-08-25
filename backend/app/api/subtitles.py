@@ -1,6 +1,5 @@
 import json
 import os
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response
@@ -29,17 +28,17 @@ class ScanRequest(BaseModel):
 
 class DownloadRequest(BaseModel):
     path: str
-    languages: Optional[list[str]] = None
+    languages: list[str] | None = None
 
 
 class SearchFileRequest(BaseModel):
     file_path: str
-    languages: Optional[list[str]] = None
-    query: Optional[str] = None
-    year: Optional[int] = None
-    media_type: Optional[str] = None
-    season: Optional[int] = None
-    episode: Optional[int] = None
+    languages: list[str] | None = None
+    query: str | None = None
+    year: int | None = None
+    media_type: str | None = None
+    season: int | None = None
+    episode: int | None = None
     provider: str = "subf2m"
 
 
@@ -55,6 +54,7 @@ def scan_path(body: ScanRequest, db: Session = Depends(get_db)):
     if not os.path.isdir(body.path):
         raise HTTPException(400, "Path is not a directory")
     from app.services.subtitle_service import scan_directory
+
     return scan_directory(body.path, _get_lang_codes(db))
 
 
@@ -87,13 +87,19 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
         raise HTTPException(400, "File not found")
     lang_codes = body.languages or _get_lang_codes(db)
     from app.services.subtitle_service import search_file as svc_search
+
     tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip() or None
     try:
         return svc_search(
-            body.file_path, lang_codes,
-            query=body.query, year=body.year, media_type=body.media_type,
-            season=body.season, episode=body.episode,
-            provider=body.provider, tmdb_api_key=tmdb_api_key,
+            body.file_path,
+            lang_codes,
+            query=body.query,
+            year=body.year,
+            media_type=body.media_type,
+            season=body.season,
+            episode=body.episode,
+            provider=body.provider,
+            tmdb_api_key=tmdb_api_key,
         )
     except ValueError as exc:
         raise HTTPException(422, str(exc))
@@ -106,6 +112,7 @@ def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
     from app.services.subtitle_service import download_one as svc_download
+
     try:
         ok = svc_download(body.file_path, body.provider, body.subtitle_id, body.language)
         if not ok:
@@ -119,14 +126,14 @@ def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
 
 class TranscribeFileRequest(BaseModel):
     file_path: str
-    model_id: Optional[str] = None
-    language: Optional[str] = None
+    model_id: str | None = None
+    language: str | None = None
 
 
 class TranscribeBulkRequest(BaseModel):
     path: str
-    model_id: Optional[str] = None
-    language: Optional[str] = None
+    model_id: str | None = None
+    language: str | None = None
 
 
 @router.post("/transcribe-file")
@@ -135,13 +142,17 @@ async def transcribe_file(body: TranscribeFileRequest, db: Session = Depends(get
         raise HTTPException(400, "File not found")
     model_id = body.model_id or get_setting(db, "whisper_model", "small")
     from app.services.model_manager import is_whisper_downloaded
+
     if not is_whisper_downloaded(model_id):
-        raise HTTPException(422, f"Whisper model '{model_id}' not downloaded — get it in Settings → AI Models")
+        raise HTTPException(
+            422, f"Whisper model '{model_id}' not downloaded — get it in Settings → AI Models"
+        )
     job = Job(type=JobType.WHISPER_TRANSCRIBE, status=JobStatus.PENDING)
     db.add(job)
     db.commit()
     db.refresh(job)
     from app.services.subtitle_service import run_transcribe_job
+
     await enqueue(job.id, run_transcribe_job, job.id, [body.file_path], model_id, body.language)
     return {"job_id": job.id}
 
@@ -152,10 +163,14 @@ async def transcribe_bulk(body: TranscribeBulkRequest, db: Session = Depends(get
         raise HTTPException(400, "Path is not a directory")
     model_id = body.model_id or get_setting(db, "whisper_model", "small")
     from app.services.model_manager import is_whisper_downloaded
+
     if not is_whisper_downloaded(model_id):
-        raise HTTPException(422, f"Whisper model '{model_id}' not downloaded — get it in Settings → AI Models")
+        raise HTTPException(
+            422, f"Whisper model '{model_id}' not downloaded — get it in Settings → AI Models"
+        )
     lang_codes = _get_lang_codes(db)
     from app.services.subtitle_service import scan_directory
+
     scan_result = scan_directory(body.path, lang_codes)
     missing = [f["path"] for f in scan_result if not f["has_subtitle"]]
     if not missing:
@@ -169,6 +184,7 @@ async def transcribe_bulk(body: TranscribeBulkRequest, db: Session = Depends(get
     db.commit()
     db.refresh(job)
     from app.services.subtitle_service import run_transcribe_job
+
     await enqueue(job.id, run_transcribe_job, job.id, missing, model_id, body.language)
     return {"job_id": job.id}
 
@@ -179,10 +195,16 @@ def tracks_by_path(path: str = Query(..., description="Absolute path to video fi
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
     from urllib.parse import quote
+
     from app.services.subtitle_service import find_all_subtitle_tracks
+
     tracks = find_all_subtitle_tracks(path)
     return [
-        {"label": t["label"], "lang": t["lang"], "url": f"/api/subtitles/vtt?path={quote(t['path'])}"}
+        {
+            "label": t["label"],
+            "lang": t["lang"],
+            "url": f"/api/subtitles/vtt?path={quote(t['path'])}",
+        }
         for t in tracks
     ]
 
@@ -193,6 +215,7 @@ def serve_vtt_by_path(path: str = Query(..., description="Absolute path to video
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
     from app.services.subtitle_service import find_and_serve_vtt
+
     vtt = find_and_serve_vtt(path)
     if vtt is None:
         raise HTTPException(404, "No subtitle found")
@@ -205,4 +228,5 @@ def stream_by_path(path: str = Query(..., description="Absolute path to video fi
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
     from app.services.stream_cache import get_stream_path
+
     return FileResponse(get_stream_path(path))

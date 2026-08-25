@@ -3,11 +3,11 @@ import json
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from app.api.files import _to_file_read
 from app.database import SessionLocal
 from app.models.file import File
 from app.models.job import Job, JobStatus, JobType
 from app.queue import enqueue
-from app.api.files import _to_file_read
 from app.services.compressor import get_available_codecs, run_compress_job
 
 router = APIRouter()
@@ -31,12 +31,7 @@ def library_files(library_id: int = Query(...)):
     """Return all files in a library, no pagination cap."""
     db = SessionLocal()
     try:
-        files = (
-            db.query(File)
-            .filter(File.library_id == library_id)
-            .order_by(File.filename)
-            .all()
-        )
+        files = db.query(File).filter(File.library_id == library_id).order_by(File.filename).all()
         return [_to_file_read(f) for f in files]
     finally:
         db.close()
@@ -57,12 +52,14 @@ async def start_compress(req: CompressStartRequest):
         # Derive library_id from first file (all files should share one library)
         library_id = files[0].library_id if files else None
 
-        settings = json.dumps({
-            "codec": req.codec,
-            "crf": req.crf,
-            "speed": req.speed,
-            "keep_original": req.keep_original,
-        })
+        settings = json.dumps(
+            {
+                "codec": req.codec,
+                "crf": req.crf,
+                "speed": req.speed,
+                "keep_original": req.keep_original,
+            }
+        )
         job = Job(
             type=JobType.COMPRESS,
             status=JobStatus.PENDING,
@@ -77,6 +74,15 @@ async def start_compress(req: CompressStartRequest):
     finally:
         db.close()
 
-    await enqueue(job_id, run_compress_job, job_id, video_paths, req.codec, req.crf, req.speed, req.keep_original)
+    await enqueue(
+        job_id,
+        run_compress_job,
+        job_id,
+        video_paths,
+        req.codec,
+        req.crf,
+        req.speed,
+        req.keep_original,
+    )
 
     return {"job_id": job_id}

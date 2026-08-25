@@ -1,27 +1,29 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from app.database import get_db, DATA_DIR
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.api.utils import active_job_exists
+from app.database import DATA_DIR, get_db
+from app.models.image import ImageDetection, ImageFile
 from app.models.image_library import ImageLibrary
-from app.models.image import ImageFile, ImageDetection
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import ImageLibraryCreate, ImageLibraryRead, ImageScanRequest
-from app.services.common import now, request_cancel
-from app.api.utils import active_job_exists
+from app.services.common import request_cancel
 
 router = APIRouter(prefix="/image-libraries", tags=["image-libraries"])
 
 
 def _with_counts(libs: list[ImageLibrary], db: Session) -> list[ImageLibraryRead]:
-    ids = [l.id for l in libs]
+    ids = [lib.id for lib in libs]
     if not ids:
         return []
     counts = dict(
         db.query(ImageFile.library_id, func.count(ImageFile.id))
         .filter(ImageFile.library_id.in_(ids))
-        .group_by(ImageFile.library_id).all()
+        .group_by(ImageFile.library_id)
+        .all()
     )
     return [
         ImageLibraryRead(
@@ -59,6 +61,7 @@ def create_image_library(body: ImageLibraryCreate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(lib)
     from app.services import fs_watcher
+
     fs_watcher.watch_library(lib.id, lib.path, is_image=True)
     return _to_read(lib, db)
 
@@ -80,23 +83,35 @@ def image_library_leftovers(library_id: int, db: Session = Depends(get_db)):
                 except OSError:
                     pass
             dirnames.clear()
-    return {"has_leftovers": count > 0, "dir_name": "_quarantine", "count": count, "total_bytes": total_bytes}
+    return {
+        "has_leftovers": count > 0,
+        "dir_name": "_quarantine",
+        "count": count,
+        "total_bytes": total_bytes,
+    }
 
 
 @router.delete("/{library_id}", status_code=204)
-def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Session = Depends(get_db)):
+def delete_image_library(
+    library_id: int, delete_leftovers: bool = False, db: Session = Depends(get_db)
+):
     lib = db.get(ImageLibrary, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
 
     # Stop watcher first so no new image records are inserted while we clean up
     from app.services import fs_watcher
+
     fs_watcher.unwatch_library(library_id)
 
-    active_jobs = db.query(Job).filter(
-        Job.library_id == library_id,
-        Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
-    ).all()
+    active_jobs = (
+        db.query(Job)
+        .filter(
+            Job.library_id == library_id,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .all()
+    )
     for job in active_jobs:
         request_cancel(job.id)
 
@@ -105,13 +120,12 @@ def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Se
         {Job.library_id: None}, synchronize_session=False
     )
     image_ids = [
-        row[0] for row in
-        db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
+        row[0] for row in db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
     ]
     if image_ids:
-        db.query(ImageDetection).filter(
-            ImageDetection.image_id.in_(image_ids)
-        ).delete(synchronize_session=False)
+        db.query(ImageDetection).filter(ImageDetection.image_id.in_(image_ids)).delete(
+            synchronize_session=False
+        )
     db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
     lib_path = lib.path
     db.delete(lib)
@@ -120,19 +134,19 @@ def delete_image_library(library_id: int, delete_leftovers: bool = False, db: Se
     # Belt-and-suspenders: remove any ImageFile records still referencing this
     # library_id (background jobs may have inserted after we started deleting).
     lingering_ids = [
-        row[0] for row in
-        db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
+        row[0] for row in db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
     ]
     if lingering_ids:
-        db.query(ImageDetection).filter(
-            ImageDetection.image_id.in_(lingering_ids)
-        ).delete(synchronize_session=False)
+        db.query(ImageDetection).filter(ImageDetection.image_id.in_(lingering_ids)).delete(
+            synchronize_session=False
+        )
         db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
         db.commit()
         image_ids = image_ids + lingering_ids
 
     if delete_leftovers:
         import shutil
+
         for dirpath, dirnames, _ in os.walk(lib_path):
             if os.path.basename(dirpath) == "_quarantine":
                 shutil.rmtree(dirpath, ignore_errors=True)
@@ -169,10 +183,17 @@ async def scan_image_library(
     db.commit()
     db.refresh(job)
 
-    from app.services.image_scanner import scan_image_library as do_scan
     from app.queue import enqueue
+    from app.services.image_scanner import scan_image_library as do_scan
+
     await enqueue(
-        job.id, do_scan, library_id, job.id,
-        body.run_phash, body.run_nudenet, body.run_clip, body.reset,
+        job.id,
+        do_scan,
+        library_id,
+        job.id,
+        body.run_phash,
+        body.run_nudenet,
+        body.run_clip,
+        body.reset,
     )
     return {"job_id": job.id}

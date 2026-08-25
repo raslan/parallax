@@ -13,24 +13,31 @@ PRESETS: dict[str, int] = {
 _EFFICIENT_CODECS = {"hevc", "av1", "vp9"}
 
 # Priority order for each codec family. First match wins.
-_H264_PRIORITY  = ["h264_nvenc",  "h264_qsv",  "h264_amf",  "h264_vaapi",  "libx264"]
-_HEVC_PRIORITY  = ["hevc_nvenc",  "hevc_qsv",  "hevc_amf",  "hevc_vaapi",  "libx265"]
-_AV1_PRIORITY   = ["av1_nvenc",   "av1_qsv",   "av1_amf",   "libsvtav1",   "libaom-av1"]
+_H264_PRIORITY = ["h264_nvenc", "h264_qsv", "h264_amf", "h264_vaapi", "libx264"]
+_HEVC_PRIORITY = ["hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi", "libx265"]
+_AV1_PRIORITY = ["av1_nvenc", "av1_qsv", "av1_amf", "libsvtav1", "libaom-av1"]
 
 # Map encoder name → family string
 _FAMILY_MAP: dict[str, str] = {
-    "h264_nvenc": "nvenc",  "hevc_nvenc": "nvenc",  "av1_nvenc": "nvenc",
-    "h264_qsv":   "qsv",   "hevc_qsv":   "qsv",   "av1_qsv":   "qsv",
-    "h264_amf":   "amf",   "hevc_amf":   "amf",   "av1_amf":   "amf",
-    "h264_vaapi": "vaapi", "hevc_vaapi": "vaapi",
+    "h264_nvenc": "nvenc",
+    "hevc_nvenc": "nvenc",
+    "av1_nvenc": "nvenc",
+    "h264_qsv": "qsv",
+    "hevc_qsv": "qsv",
+    "av1_qsv": "qsv",
+    "h264_amf": "amf",
+    "hevc_amf": "amf",
+    "av1_amf": "amf",
+    "h264_vaapi": "vaapi",
+    "hevc_vaapi": "vaapi",
 }
 
 # NVIDIA consumer cards cap at 3 simultaneous NVENC sessions on older drivers.
 # QSV/AMF/VAAPI have no known hard session limit.
 _CONCURRENT_HINT: dict[str, int | None] = {
     "nvenc": 3,
-    "qsv":   None,
-    "amf":   None,
+    "qsv": None,
+    "amf": None,
     "vaapi": None,
     "software": None,
 }
@@ -41,12 +48,14 @@ def _probe_encoders() -> dict[str, str]:
     try:
         result = subprocess.run(
             ["ffmpeg", "-hide_banner", "-encoders"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         stdout = result.stdout
         h264 = next((e for e in _H264_PRIORITY if e in stdout), "libx264")
         hevc = next((e for e in _HEVC_PRIORITY if e in stdout), "libx265")
-        av1  = next((e for e in _AV1_PRIORITY  if e in stdout), "libsvtav1")
+        av1 = next((e for e in _AV1_PRIORITY if e in stdout), "libsvtav1")
         return {"h264": h264, "hevc": hevc, "av1": av1}
     except Exception:
         return {"h264": "libx264", "hevc": "libx265", "av1": "libsvtav1"}

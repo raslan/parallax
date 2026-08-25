@@ -1,15 +1,26 @@
 import json
 import os
 import subprocess
+
 import numpy as np
 
 
 def get_video_duration(video_path: str) -> float | None:
     try:
         result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json",
-             "-show_entries", "format=duration", video_path],
-            capture_output=True, text=True, timeout=30,
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_entries",
+                "format=duration",
+                video_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         data = json.loads(result.stdout)
         return float(data["format"]["duration"])
@@ -20,11 +31,21 @@ def get_video_duration(video_path: str) -> float | None:
 def _probe_video_dims(video_path: str) -> tuple[int, int] | None:
     try:
         result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json",
-             "-select_streams", "v:0",
-             "-show_entries", "stream=width,height",
-             video_path],
-            capture_output=True, text=True, timeout=30,
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height",
+                video_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         s = json.loads(result.stdout)["streams"][0]
         return int(s["width"]), int(s["height"])
@@ -49,6 +70,7 @@ def _hwaccel_args() -> list[str]:
     """Return ffmpeg hwaccel input flags for the detected GPU, or [] for CPU."""
     try:
         from app.services.encoder import get_encoder_family
+
         family = get_encoder_family()
     except Exception:
         return []
@@ -92,19 +114,34 @@ def extract_frames_evenly(
     for ts in timestamps:
         result = subprocess.run(
             [
-                "ffmpeg", *_hwaccel_args(),
-                "-ss", str(ts), "-i", video_path,
-                "-frames:v", "1",
-                "-vf", f"scale={out_w}:{out_h}",
-                "-f", "rawvideo", "-pix_fmt", "rgb24",
+                "ffmpeg",
+                *_hwaccel_args(),
+                "-ss",
+                str(ts),
+                "-i",
+                video_path,
+                "-frames:v",
+                "1",
+                "-vf",
+                f"scale={out_w}:{out_h}",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
                 "pipe:1",
-                "-hide_banner", "-loglevel", "error",
+                "-hide_banner",
+                "-loglevel",
+                "error",
             ],
             capture_output=True,
             timeout=30,
         )
         if result.returncode == 0 and len(result.stdout) >= frame_size:
-            arr = np.frombuffer(result.stdout[:frame_size], dtype=np.uint8).reshape((out_h, out_w, 3)).copy()
+            arr = (
+                np.frombuffer(result.stdout[:frame_size], dtype=np.uint8)
+                .reshape((out_h, out_w, 3))
+                .copy()
+            )
             frames.append((arr, ts))
 
     print(f"[keyframes] {fname}: extracted {len(frames)}/{n_frames} frames", flush=True)

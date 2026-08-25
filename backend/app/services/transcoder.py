@@ -3,14 +3,13 @@ import shutil
 import subprocess
 import tempfile
 import time
-from typing import Callable
+from collections.abc import Callable
 
-from app.database import SessionLocal
 from app.models.file import File, FileStatus
-from app.models.job import Job, JobStatus, JobType
+from app.models.job import Job, JobStatus
 from app.models.library import Library
-from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
-from app.services.encoder import encoder_for_codec, PRESETS
+from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.encoder import encoder_for_codec
 
 
 def _build_cmd(
@@ -48,21 +47,25 @@ def _build_cmd(
     audio_args = ["-c:a", "aac", "-b:a", "192k"] if reencode_audio else ["-c:a", "copy"]
 
     return [
-        "ffmpeg", "-y",
-        "-i", input_path,
+        "ffmpeg",
+        "-y",
+        "-i",
+        input_path,
         *video_args,
         *bitrate_args,
         *tag_args,
         *audio_args,
-        "-progress", "pipe:1",
+        "-progress",
+        "pipe:1",
         "-nostats",
         output_path,
     ]
 
 
 def _update_file_metadata(file_obj: File, path: str) -> None:
-    from app.services.scanner import probe_file
     from datetime import datetime
+
+    from app.services.scanner import probe_file
 
     try:
         file_obj.size = os.path.getsize(path)
@@ -147,7 +150,14 @@ def _transcode_one(
     err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="transcode_")
     try:
         proc = subprocess.Popen(
-            _build_cmd(src, tmp, crf, file_obj.codec_name, file_obj.video_bitrate, reencode_audio=changing_container),
+            _build_cmd(
+                src,
+                tmp,
+                crf,
+                file_obj.codec_name,
+                file_obj.video_bitrate,
+                reencode_audio=changing_container,
+            ),
             stdout=subprocess.PIPE,
             stderr=err_fd,
             text=True,
@@ -185,7 +195,9 @@ def _transcode_one(
             stderr_text = _read_and_remove(err_path)
             _cleanup_tmp(tmp)
             file_obj.status = FileStatus.FAILED
-            file_obj.scan_error = stderr_text[-1024:] if stderr_text else f"ffmpeg exit {proc.returncode}"
+            file_obj.scan_error = (
+                stderr_text[-1024:] if stderr_text else f"ffmpeg exit {proc.returncode}"
+            )
             db.commit()
             return False
 
@@ -207,6 +219,7 @@ def _transcode_one(
         db.commit()
 
         from app.services.scanner import generate_thumbnail
+
         generate_thumbnail(dst, file_obj.id)
 
         return True
@@ -295,6 +308,7 @@ def _run_transcode_job(
         def make_cb(idx: int, tot: int) -> Callable[[float], None]:
             def cb(frac: float) -> None:
                 job.progress = (idx + frac) / tot * 100
+
             return cb
 
         ok = _transcode_one(file_obj, crf, job.id, db, progress_cb=make_cb(i, total))
@@ -303,9 +317,12 @@ def _run_transcode_job(
             succeeded += 1
         elif not should_cancel(job.id):
             failed += 1
-            log(db, job.id,
+            log(
+                db,
+                job.id,
                 f"Failed: {file_obj.filename} — {file_obj.scan_error or 'ffmpeg non-zero exit'}",
-                level="error")
+                level="error",
+            )
 
         job.processed_files = i + 1
         job.progress = (i + 1) / total * 100
@@ -319,5 +336,3 @@ def _run_transcode_job(
     job.progress = 100.0
     db.commit()
     log(db, job.id, f"Transcode complete — {succeeded} succeeded, {failed} failed")
-
-

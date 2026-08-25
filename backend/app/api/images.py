@@ -1,21 +1,23 @@
-import os
-import json
-import shutil
 import asyncio
+import json
+import os
+import shutil
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
-from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
+from sqlalchemy import asc, desc, func, nullslast
 from sqlalchemy.orm import Session
-from sqlalchemy import func, asc, desc, nullslast
+from starlette.concurrency import run_in_threadpool
 
-from app.database import get_db, DATA_DIR, SessionLocal
-from app.models.image import ImageFile, ImageDetection, ImageStatus
-from app.schemas import ImageRead, ImagesResponse, ImageDetectionRead, ImageSearchResult
+from app.database import DATA_DIR, SessionLocal, get_db
+from app.models.image import ImageDetection, ImageFile, ImageStatus
+from app.schemas import ImageDetectionRead, ImageRead, ImageSearchResult, ImagesResponse
 
 
 class BulkQuarantineRequest(BaseModel):
     ids: list[int]
+
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -33,15 +35,19 @@ _SORT_COLUMNS = {
 @router.get("/stream")
 async def stream_images(library_id: int | None = Query(None)):
     """SSE stream — same shape as GET /files/stream, over ImageFile instead."""
+
     async def generate():
         last_payload = None
         idle_ticks = 0
         while True:
+
             def _compute_signature():
                 db = SessionLocal()
                 try:
                     q = db.query(
-                        func.count(ImageFile.id), func.max(ImageFile.id), func.max(ImageFile.updated_at)
+                        func.count(ImageFile.id),
+                        func.max(ImageFile.id),
+                        func.max(ImageFile.updated_at),
                     )
                     if library_id is not None:
                         q = q.filter(ImageFile.library_id == library_id)
@@ -73,10 +79,16 @@ async def stream_images(library_id: int | None = Query(None)):
 
 def _detections_for(image_id: int, db: Session) -> list[ImageDetectionRead]:
     rows = db.query(ImageDetection).filter(ImageDetection.image_id == image_id).all()
-    return [ImageDetectionRead(
-        id=r.id, image_id=r.image_id, label=r.label,
-        confidence=r.confidence, bbox_json=r.bbox_json,
-    ) for r in rows]
+    return [
+        ImageDetectionRead(
+            id=r.id,
+            image_id=r.image_id,
+            label=r.label,
+            confidence=r.confidence,
+            bbox_json=r.bbox_json,
+        )
+        for r in rows
+    ]
 
 
 def _to_image_read(f: ImageFile, db: Session) -> ImageRead:
@@ -121,23 +133,23 @@ def list_images(
     else:
         q = q.filter(ImageFile.status != ImageStatus.QUARANTINED)
     if has_detections == "any":
-        q = q.filter(ImageFile.id.in_(
-            db.query(ImageDetection.image_id).distinct()
-        ))
+        q = q.filter(ImageFile.id.in_(db.query(ImageDetection.image_id).distinct()))
     elif has_detections == "exposed":
         exposed_labels = [
-            "FEMALE_BREAST_EXPOSED", "MALE_GENITALIA_EXPOSED",
-            "FEMALE_GENITALIA_EXPOSED", "BUTTOCKS_EXPOSED",
+            "FEMALE_BREAST_EXPOSED",
+            "MALE_GENITALIA_EXPOSED",
+            "FEMALE_GENITALIA_EXPOSED",
+            "BUTTOCKS_EXPOSED",
         ]
-        q = q.filter(ImageFile.id.in_(
-            db.query(ImageDetection.image_id)
-            .filter(ImageDetection.label.in_(exposed_labels))
-            .distinct()
-        ))
+        q = q.filter(
+            ImageFile.id.in_(
+                db.query(ImageDetection.image_id)
+                .filter(ImageDetection.label.in_(exposed_labels))
+                .distinct()
+            )
+        )
     elif has_detections == "none":
-        q = q.filter(~ImageFile.id.in_(
-            db.query(ImageDetection.image_id).distinct()
-        ))
+        q = q.filter(~ImageFile.id.in_(db.query(ImageDetection.image_id).distinct()))
 
     col = _SORT_COLUMNS.get(sort_by, ImageFile.filename)
     order = nullslast(desc(col)) if sort_dir == "desc" else nullslast(asc(col))
@@ -163,7 +175,9 @@ def list_quarantined(
     items = q.order_by(ImageFile.filename).offset((page - 1) * page_size).limit(page_size).all()
     return ImagesResponse(
         items=[_to_image_read(f, db) for f in items],
-        total=total, page=page, page_size=page_size,
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -175,8 +189,8 @@ def search_images(
     library_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    from app.services.image_analyzer import encode_text_clip, cosine_similarity
     from app.models.settings import get_setting
+    from app.services.image_analyzer import cosine_similarity, encode_text_clip
 
     clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
     text_vec = encode_text_clip(q, model_id=clip_model_id)
@@ -215,7 +229,7 @@ def filter_by_detections(
     page_size: int = Query(50, ge=1, le=100000),
     db: Session = Depends(get_db),
 ):
-    label_list = [l.strip() for l in labels.split(",") if l.strip()]
+    label_list = [label.strip() for label in labels.split(",") if label.strip()]
     if not label_list:
         raise HTTPException(400, "At least one label is required")
 
@@ -239,7 +253,9 @@ def filter_by_detections(
 
     return ImagesResponse(
         items=[_to_image_read(f, db) for f in items],
-        total=total, page=page, page_size=page_size,
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -250,6 +266,7 @@ def get_image_duplicates(
     db: Session = Depends(get_db),
 ):
     from app.services.image_duplicates import cluster_by_phash
+
     q = db.query(ImageFile.id, ImageFile.phash).filter(
         ImageFile.phash.isnot(None),
         ImageFile.status == ImageStatus.SCANNED,
@@ -332,8 +349,7 @@ def get_thumbnail(image_id: int, db: Session = Depends(get_db)):
     thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
     if not os.path.exists(thumb):
         raise HTTPException(404, "Thumbnail not available")
-    return FileResponse(thumb, media_type="image/jpeg",
-                        headers={"Cache-Control": "no-store"})
+    return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{image_id}/full")
@@ -377,7 +393,9 @@ def restore_image(image_id: int, db: Session = Depends(get_db)):
     original_dir = os.path.dirname(os.path.dirname(f.path))  # up from _quarantine/
     dest = os.path.join(original_dir, f.filename)
     if os.path.exists(dest):
-        raise HTTPException(409, f"A file named {f.filename} already exists at the original location")
+        raise HTTPException(
+            409, f"A file named {f.filename} already exists at the original location"
+        )
 
     shutil.move(f.path, dest)
     f.path = dest

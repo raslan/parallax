@@ -1,40 +1,50 @@
 import os
 import shutil
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from app.database import get_db
-from app.models.library import Library
-from app.models.file import File, FileStatus
-from app.models.video import VideoDetection
-from app.models.job import Job, JobStatus, JobType
-from app.schemas import (
-    LibraryCreate, LibraryRead, LibraryUpdate, StatsRead,
-    BrowseResponse, FileRead, DuplicateCriteriaRequest,
-    DuplicateGroupRead, DuplicateFileRead, DeleteDuplicatesRequest,
-)
-from app.services.scanner import scan_library, thumbnail_path
-from app.services.corruption import check_library_corruption
-from app.queue import enqueue
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from app.api.utils import active_job_exists
+from app.database import get_db
+from app.models.file import File, FileStatus
+from app.models.job import Job, JobStatus, JobType
+from app.models.library import Library
+from app.models.video import VideoDetection
+from app.queue import enqueue
+from app.schemas import (
+    BrowseResponse,
+    DeleteDuplicatesRequest,
+    DuplicateCriteriaRequest,
+    DuplicateFileRead,
+    DuplicateGroupRead,
+    FileRead,
+    LibraryCreate,
+    LibraryRead,
+    LibraryUpdate,
+    StatsRead,
+)
+from app.services.corruption import check_library_corruption
+from app.services.scanner import scan_library, thumbnail_path
 
 router = APIRouter(prefix="/libraries", tags=["libraries"])
 
 
 def _with_counts(libs: list[Library], db: Session) -> list[LibraryRead]:
-    ids = [l.id for l in libs]
+    ids = [lib.id for lib in libs]
     if not ids:
         return []
     counts = dict(
         db.query(File.library_id, func.count(File.id))
         .filter(File.library_id.in_(ids))
-        .group_by(File.library_id).all()
+        .group_by(File.library_id)
+        .all()
     )
     corrupt = dict(
         db.query(File.library_id, func.count(File.id))
         .filter(File.library_id.in_(ids), File.status == FileStatus.CORRUPT)
-        .group_by(File.library_id).all()
+        .group_by(File.library_id)
+        .all()
     )
     out = []
     for lib in libs:
@@ -56,7 +66,8 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
     if body.split_into_sublibraries:
         try:
             subdirs = sorted(
-                e.path for e in os.scandir(body.path)
+                e.path
+                for e in os.scandir(body.path)
                 if e.is_dir(follow_symlinks=True) and not e.name.startswith(".")
             )
         except (PermissionError, FileNotFoundError, NotADirectoryError) as exc:
@@ -64,6 +75,7 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
         if not subdirs:
             raise HTTPException(422, "No subdirectories found at the selected path")
         from app.services import fs_watcher
+
         created = []
         for subdir in subdirs:
             if db.query(Library).filter(Library.path == subdir).first():
@@ -85,24 +97,30 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(lib)
         from app.services import fs_watcher
+
         fs_watcher.watch_library(lib.id, lib.path, is_image=False)
         return [lib]
 
 
 @router.get("/stats", response_model=StatsRead)
 def get_stats(db: Session = Depends(get_db)):
-    from app.models.job import Job, JobStatus, JobType
     from app.models.file import FileStatus
+    from app.models.job import Job, JobStatus, JobType
 
     total_libraries = db.query(func.count(Library.id)).scalar()
     total_files = db.query(func.count(File.id)).scalar()
     corrupt_files = db.query(func.count(File.id)).filter(File.status == FileStatus.CORRUPT).scalar()
     transcoded_files = db.query(func.count(File.id)).filter(File.status == FileStatus.DONE).scalar()
     total_size = db.query(func.coalesce(func.sum(File.size), 0)).scalar()
-    scanning = db.query(Job).filter(
-        Job.type == JobType.SCAN,
-        Job.status == JobStatus.RUNNING,
-    ).first() is not None
+    scanning = (
+        db.query(Job)
+        .filter(
+            Job.type == JobType.SCAN,
+            Job.status == JobStatus.RUNNING,
+        )
+        .first()
+        is not None
+    )
 
     return StatsRead(
         total_libraries=total_libraries,
@@ -151,24 +169,35 @@ def library_leftovers(library_id: int, db: Session = Depends(get_db)):
                 except OSError:
                     pass
             dirnames.clear()
-    return {"has_leftovers": count > 0, "dir_name": "_originals", "count": count, "total_bytes": total_bytes}
+    return {
+        "has_leftovers": count > 0,
+        "dir_name": "_originals",
+        "count": count,
+        "total_bytes": total_bytes,
+    }
 
 
 @router.delete("/{library_id}", status_code=204)
 def delete_library(library_id: int, delete_leftovers: bool = False, db: Session = Depends(get_db)):
-    from app.services.common import request_cancel
     from app.models.schedule import Schedule
+    from app.services.common import request_cancel
+
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
     # Stop watcher first so no new file records are inserted while we clean up
     from app.services import fs_watcher
+
     fs_watcher.unwatch_library(library_id)
     # Signal any running jobs for this library to stop
-    active_jobs = db.query(Job).filter(
-        Job.library_id == library_id,
-        Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
-    ).all()
+    active_jobs = (
+        db.query(Job)
+        .filter(
+            Job.library_id == library_id,
+            Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
+        )
+        .all()
+    )
     for job in active_jobs:
         request_cancel(job.id)
     # Null out library_id on all job records (FK prevents library delete otherwise)
@@ -179,9 +208,9 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     file_ids = [f.id for f in files]
     # Delete VideoDetection rows first (FK to files.id)
     if file_ids:
-        db.query(VideoDetection).filter(
-            VideoDetection.file_id.in_(file_ids)
-        ).delete(synchronize_session=False)
+        db.query(VideoDetection).filter(VideoDetection.file_id.in_(file_ids)).delete(
+            synchronize_session=False
+        )
     # Clean up disk artefacts and file records
     for f in files:
         try:
@@ -200,9 +229,9 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     lingering = db.query(File).filter(File.library_id == library_id).all()
     if lingering:
         lids = [f.id for f in lingering]
-        db.query(VideoDetection).filter(
-            VideoDetection.file_id.in_(lids)
-        ).delete(synchronize_session=False)
+        db.query(VideoDetection).filter(VideoDetection.file_id.in_(lids)).delete(
+            synchronize_session=False
+        )
         for f in lingering:
             try:
                 os.remove(thumbnail_path(f.id))
@@ -238,19 +267,20 @@ async def trigger_check(library_id: int, db: Session = Depends(get_db)):
         raise HTTPException(409, "A corruption check is already running for this library")
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
-        raise HTTPException(422, "Scan the library first to index its files before checking for corruption")
+        raise HTTPException(
+            422, "Scan the library first to index its files before checking for corruption"
+        )
     await enqueue(None, check_library_corruption, library_id)
     return {"message": "Corruption check queued"}
 
 
-
 _BROWSE_SORT_KEYS = {
-    "filename":      lambda f: (f.filename or "").lower(),
-    "extension":     lambda f: (f.extension or "").lower(),
-    "size":          lambda f: f.size or 0,
-    "duration":      lambda f: f.duration or 0,
+    "filename": lambda f: (f.filename or "").lower(),
+    "extension": lambda f: (f.extension or "").lower(),
+    "size": lambda f: f.size or 0,
+    "duration": lambda f: f.duration or 0,
     "video_bitrate": lambda f: f.video_bitrate or 0,
-    "created_at":    lambda f: f.created_at or "",
+    "created_at": lambda f: f.created_at or "",
 }
 
 
@@ -280,7 +310,7 @@ def browse_library(
     direct_files: list[File] = []
 
     for f in all_files:
-        rel = f.path[len(prefix):]  # relative to current dir, no leading slash
+        rel = f.path[len(prefix) :]  # relative to current dir, no leading slash
         slash = rel.find("/")
         if slash == -1:
             direct_files.append(f)
@@ -289,10 +319,19 @@ def browse_library(
 
     def to_read(f: File) -> FileRead:
         return FileRead(
-            id=f.id, library_id=f.library_id, path=f.path, filename=f.filename,
-            size=f.size, duration=f.duration, codec_name=f.codec_name,
-            video_bitrate=f.video_bitrate, status=f.status, scan_error=f.scan_error,
-            scanned_at=f.scanned_at, transcoded_at=f.transcoded_at, created_at=f.created_at,
+            id=f.id,
+            library_id=f.library_id,
+            path=f.path,
+            filename=f.filename,
+            size=f.size,
+            duration=f.duration,
+            codec_name=f.codec_name,
+            video_bitrate=f.video_bitrate,
+            status=f.status,
+            scan_error=f.scan_error,
+            scanned_at=f.scanned_at,
+            transcoded_at=f.transcoded_at,
+            created_at=f.created_at,
             has_thumbnail=os.path.exists(thumbnail_path(f.id)),
             file_width=f.file_width,
             file_height=f.file_height,
@@ -325,6 +364,7 @@ async def trigger_video_scan(
     if active_job_exists(db, library_id, JobType.VIDEO_SCAN):
         raise HTTPException(409, "A video scan is already running for this library")
     from app.services.video_scanner import scan_video_library
+
     job = Job(type=JobType.VIDEO_SCAN, status=JobStatus.PENDING, library_id=library_id)
     db.add(job)
     db.commit()
@@ -344,10 +384,13 @@ async def trigger_phash_scan(
         raise HTTPException(404, "Library not found")
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
-        raise HTTPException(422, "Scan the library first to index its files before running pHash scan")
+        raise HTTPException(
+            422, "Scan the library first to index its files before running pHash scan"
+        )
     if active_job_exists(db, library_id, JobType.PHASH_SCAN):
         raise HTTPException(409, "A pHash scan is already running for this library")
     from app.services.phash_scanner import scan_phash_library
+
     job = Job(type=JobType.PHASH_SCAN, status=JobStatus.PENDING, library_id=library_id)
     db.add(job)
     db.commit()
@@ -369,15 +412,30 @@ async def find_duplicates_endpoint(
         raise HTTPException(422, "At least one matching criterion must be selected")
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
-        raise HTTPException(422, "Scan the library first to index files before checking for duplicates")
+        raise HTTPException(
+            422, "Scan the library first to index files before checking for duplicates"
+        )
     if active_job_exists(db, library_id, JobType.DUPLICATES):
         raise HTTPException(409, "A duplicate scan is already running for this library")
     from app.services.duplicates import find_duplicates
+
     job = Job(type=JobType.DUPLICATES, status=JobStatus.PENDING, library_id=library_id)
     db.add(job)
     db.commit()
     db.refresh(job)
-    await enqueue(job.id, find_duplicates, library_id, job.id, body.use_size, body.use_duration, body.use_phash, body.duration_tolerance, body.phash_threshold, body.phash_mode, body.phash_frames)
+    await enqueue(
+        job.id,
+        find_duplicates,
+        library_id,
+        job.id,
+        body.use_size,
+        body.use_duration,
+        body.use_phash,
+        body.duration_tolerance,
+        body.phash_threshold,
+        body.phash_mode,
+        body.phash_frames,
+    )
     return {"message": "Duplicate scan queued"}
 
 
@@ -388,9 +446,15 @@ def get_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Library not found")
     from app.services.duplicates import get_cached_results
     from app.services.scanner import thumbnail_path
+
     results = get_cached_results(library_id)
     import logging as _logging
-    _logging.getLogger(__name__).warning("get_duplicates_endpoint: library=%d results=%s", library_id, None if results is None else f"{len(results)} groups")
+
+    _logging.getLogger(__name__).warning(
+        "get_duplicates_endpoint: library=%d results=%s",
+        library_id,
+        None if results is None else f"{len(results)} groups",
+    )
     if results is None:
         raise HTTPException(404, "No duplicate scan has been run for this library yet")
     out = []
@@ -454,12 +518,14 @@ def get_cleanup_files(
     if not lib:
         raise HTTPException(404, "Library not found")
 
-    filters_present = any([
-        duration_op and duration_secs is not None,
-        fps_op and fps_val is not None,
-        date_op and date_ts is not None,
-        height_op and height_val is not None,
-    ])
+    filters_present = any(
+        [
+            duration_op and duration_secs is not None,
+            fps_op and fps_val is not None,
+            date_op and date_ts is not None,
+            height_op and height_val is not None,
+        ]
+    )
     if not filters_present and not fetch_all:
         raise HTTPException(422, "At least one filter must be specified")
 

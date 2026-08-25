@@ -1,12 +1,13 @@
 import os
 import shutil
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.library import Library
 from app.models.file import File, FileStatus
+from app.models.library import Library
 from app.services.scanner import rescan_file
 
 router = APIRouter(prefix="/originals", tags=["originals"])
@@ -79,16 +80,18 @@ def _scan_library_originals(library: Library) -> list[OriginalEntry]:
 
             savings = (original_size - current_size) if current_size is not None else None
 
-            entries.append(OriginalEntry(
-                path=original_path,
-                filename=filename,
-                library_id=library.id,
-                library_name=library.name,
-                original_size=original_size,
-                current_path=current_path if os.path.exists(current_path) else None,
-                current_size=current_size,
-                savings_bytes=savings,
-            ))
+            entries.append(
+                OriginalEntry(
+                    path=original_path,
+                    filename=filename,
+                    library_id=library.id,
+                    library_name=library.name,
+                    original_size=original_size,
+                    current_path=current_path if os.path.exists(current_path) else None,
+                    current_size=current_size,
+                    savings_bytes=savings,
+                )
+            )
 
     return entries
 
@@ -106,8 +109,8 @@ def list_originals(library_id: int | None = None, db: Session = Depends(get_db))
     for lib in libs:
         all_entries.extend(_scan_library_originals(lib))
 
-    total_orig    = sum(e.original_size for e in all_entries)
-    total_current = sum(e.current_size  for e in all_entries if e.current_size is not None)
+    total_orig = sum(e.original_size for e in all_entries)
+    total_current = sum(e.current_size for e in all_entries if e.current_size is not None)
     total_savings = sum(e.savings_bytes for e in all_entries if e.savings_bytes is not None)
 
     return OriginalsSummary(
@@ -148,9 +151,9 @@ def _restore_one(db: Session, path: str) -> str:
         raise HTTPException(404, "Original file not found")
 
     originals_dir = os.path.dirname(path)
-    parent_dir    = os.path.dirname(originals_dir)
-    filename      = os.path.basename(path)
-    restore_path  = os.path.join(parent_dir, filename)
+    parent_dir = os.path.dirname(originals_dir)
+    filename = os.path.basename(path)
+    restore_path = os.path.join(parent_dir, filename)
 
     # Find the DB record — extension may differ if transcode changed the container
     # (e.g. .webm original transcoded to .mkv)
@@ -158,9 +161,7 @@ def _restore_one(db: Session, path: str) -> str:
     if not file_obj:
         stem = os.path.splitext(filename)[0]
         file_obj = (
-            db.query(File)
-            .filter(File.path.like(os.path.join(parent_dir, stem) + ".%"))
-            .first()
+            db.query(File).filter(File.path.like(os.path.join(parent_dir, stem) + ".%")).first()
         )
 
     # Delete the transcoded file (use DB path so we get the right extension)

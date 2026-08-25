@@ -1,8 +1,7 @@
 import logging
 import os
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ _BROWSER_SUB_EXTS = [".srt", ".vtt", ".ass", ".ssa", ".sub"]
 _QUERY_YEAR_RE = re.compile(r"[(\[]\s*((?:19|20)\d{2})\s*[)\]]")
 
 
-def _parse_query(query: str) -> tuple[str, Optional[int]]:
+def _parse_query(query: str) -> tuple[str, int | None]:
     """Split a typed search query into (title, year). Only a bracketed year
     like "(2012)" or "[2012]" is treated as a year filter — a bare trailing
     number is ambiguous with titles like "Blade Runner 2049" or "2012" (the
@@ -25,7 +24,7 @@ def _parse_query(query: str) -> tuple[str, Optional[int]]:
     m = _QUERY_YEAR_RE.search(q)
     if m:
         year = int(m.group(1))
-        q = q[:m.start()] + q[m.end():]
+        q = q[: m.start()] + q[m.end() :]
     q = re.sub(r"\s+", " ", q).strip(" ()._-")
     return q, year
 
@@ -36,6 +35,7 @@ def _parse_lang(code: str) -> tuple[str, str]:
         return "und", "Subtitles"
     try:
         from babelfish import Language
+
         lang = Language.fromalpha2(code) if len(code) == 2 else Language(code)
         return str(lang.alpha2 or code), lang.name
     except Exception:
@@ -45,6 +45,7 @@ def _parse_lang(code: str) -> tuple[str, str]:
 def find_subtitle_path(video_path: str) -> str | None:
     """Return path to the first subtitle file found alongside the video, or None."""
     import glob
+
     base = os.path.splitext(video_path)[0]
     for ext in _BROWSER_SUB_EXTS:
         if os.path.exists(base + ext):
@@ -58,6 +59,7 @@ def find_subtitle_path(video_path: str) -> str | None:
 def find_all_subtitle_tracks(video_path: str) -> list[dict]:
     """Return all subtitle files alongside the video with language metadata."""
     import glob as _glob
+
     base = os.path.splitext(video_path)[0]
     seen: set[str] = set()
     tracks = []
@@ -73,7 +75,7 @@ def find_all_subtitle_tracks(video_path: str) -> list[dict]:
                 continue
             seen.add(m)
             # Extract the part between basename and extension (e.g. "en" from "movie.en.srt")
-            suffix = m[len(base) + 1: -len(ext)]
+            suffix = m[len(base) + 1 : -len(ext)]
             lang, label = _parse_lang(suffix)
             tracks.append({"path": m, "lang": lang, "label": label})
 
@@ -83,6 +85,7 @@ def find_all_subtitle_tracks(video_path: str) -> list[dict]:
 def subtitle_to_vtt(sub_path: str) -> str:
     """Read a subtitle file and return its content as WebVTT."""
     import re
+
     with open(sub_path, encoding="utf-8-sig", errors="replace") as f:
         content = f.read()
     ext = os.path.splitext(sub_path)[1].lower()
@@ -102,7 +105,6 @@ def find_and_serve_vtt(video_path: str) -> str | None:
     return subtitle_to_vtt(sub) if sub else None
 
 
-
 def _has_subtitle(video_path: str, lang_codes: list[str]) -> bool:
     """True if any subtitle file exists alongside the video (used for display)."""
     base = os.path.splitext(video_path)[0]
@@ -120,9 +122,7 @@ def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
     base = os.path.splitext(video_path)[0]
     missing = []
     for lang in lang_codes:
-        found = any(
-            os.path.exists(f"{base}.{lang}{ext}") for ext in SUBTITLE_EXTENSIONS
-        )
+        found = any(os.path.exists(f"{base}.{lang}{ext}") for ext in SUBTITLE_EXTENSIONS)
         if not found:
             missing.append(lang)
     return missing
@@ -146,18 +146,20 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
             missing = set(_missing_lang_codes(full_path, lang_codes))
             languages = {lang: lang not in missing for lang in lang_codes}
 
-            results.append({
-                "path": full_path,
-                "filename": fname,
-                "relative_dir": "" if rel_dir == "." else rel_dir,
-                "has_subtitle": len(missing) == 0,
-                "languages": languages,
-                "title": str(info.get("title", "")),
-                "season": info.get("season"),
-                "episode": info.get("episode"),
-                "year": info.get("year"),
-                "media_type": info.get("type", "unknown"),
-            })
+            results.append(
+                {
+                    "path": full_path,
+                    "filename": fname,
+                    "relative_dir": "" if rel_dir == "." else rel_dir,
+                    "has_subtitle": len(missing) == 0,
+                    "languages": languages,
+                    "title": str(info.get("title", "")),
+                    "season": info.get("season"),
+                    "episode": info.get("episode"),
+                    "year": info.get("year"),
+                    "media_type": info.get("type", "unknown"),
+                }
+            )
 
     return results
 
@@ -165,6 +167,7 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
 def _video_info(file_path: str) -> dict:
     """Extract title/year/season/episode/type from filename via guessit."""
     from guessit import guessit as _guessit
+
     info = _guessit(os.path.basename(file_path))
     return {
         "title": str(info.get("title", "")),
@@ -175,10 +178,11 @@ def _video_info(file_path: str) -> dict:
     }
 
 
-def resolve_imdb_id(title: str, year: Optional[int], media_type: str, tmdb_api_key: str) -> Optional[str]:
+def resolve_imdb_id(title: str, year: int | None, media_type: str, tmdb_api_key: str) -> str | None:
     """Look up an IMDB ID via TMDB — yts-subs has no title-search endpoint of
     its own, so this is required before it can be queried."""
     from app.services import tmdb as tmdb_service
+
     kind = "tv" if media_type == "tv" else "movie"
     results = tmdb_service.search(title, kind, tmdb_api_key)
     if year is not None:
@@ -191,13 +195,13 @@ def resolve_imdb_id(title: str, year: Optional[int], media_type: str, tmdb_api_k
 def search_file(
     file_path: str,
     lang_codes: list[str],
-    query: Optional[str] = None,
-    year: Optional[int] = None,
-    media_type: Optional[str] = None,
-    season: Optional[int] = None,
-    episode: Optional[int] = None,
+    query: str | None = None,
+    year: int | None = None,
+    media_type: str | None = None,
+    season: int | None = None,
+    episode: int | None = None,
     provider: str = "subf2m",
-    tmdb_api_key: Optional[str] = None,
+    tmdb_api_key: str | None = None,
 ) -> list[dict]:
     """Return subtitle candidates for a single video file from the given provider.
 
@@ -230,11 +234,18 @@ def search_file(
         if not tmdb_api_key:
             raise ValueError("TMDB API key required for YTS-Subs")
         from app.services.ytssubs_provider import YtsSubsProvider
-        imdb_id = resolve_imdb_id(title, resolved_year, "tv" if is_episode else "movie", tmdb_api_key)
+
+        imdb_id = resolve_imdb_id(
+            title, resolved_year, "tv" if is_episode else "movie", tmdb_api_key
+        )
         yts = YtsSubsProvider()
         try:
             results = yts.search(imdb_id, lang_codes) if imdb_id else []
-            logger.info("search_file ytssubs: %d candidates for %s", len(results), os.path.basename(file_path))
+            logger.info(
+                "search_file ytssubs: %d candidates for %s",
+                len(results),
+                os.path.basename(file_path),
+            )
         except Exception as exc:
             logger.warning("search_file ytssubs error: %s: %s", type(exc).__name__, exc)
             results = []
@@ -244,6 +255,7 @@ def search_file(
         return results
 
     from app.services.subf2m_provider import Subf2mProvider
+
     sub = Subf2mProvider()
     try:
         results = sub.search(
@@ -255,7 +267,9 @@ def search_file(
             season=season or info["season"] or 1,
             episode=episode or info["episode"] or 1,
         )
-        logger.info("search_file subf2m: %d candidates for %s", len(results), os.path.basename(file_path))
+        logger.info(
+            "search_file subf2m: %d candidates for %s", len(results), os.path.basename(file_path)
+        )
     except Exception as exc:
         logger.warning("search_file subf2m error: %s: %s", type(exc).__name__, exc)
         results = []
@@ -273,9 +287,11 @@ def download_one(file_path: str, provider: str, subtitle_id: str, language: str)
 
     if provider == "ytssubs":
         from app.services.ytssubs_provider import YtsSubsProvider
+
         p = YtsSubsProvider()
     else:
         from app.services.subf2m_provider import Subf2mProvider
+
         p = Subf2mProvider()
     try:
         content = p.download(subtitle_id)
@@ -292,7 +308,7 @@ def download_one(file_path: str, provider: str, subtitle_id: str, language: str)
 
 def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
     from app.database import SessionLocal
-    from app.models.job import Job, JobLog, JobStatus
+    from app.models.job import Job, JobStatus
 
     db = SessionLocal()
     try:
@@ -301,7 +317,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
             return
 
         job.status = JobStatus.RUNNING
-        job.started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        job.started_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
 
         # Collect all video files
@@ -315,7 +331,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
             job.status = JobStatus.COMPLETED
             job.progress = 100.0
             job.current_file = "No video files found"
-            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            job.finished_at = datetime.now(UTC).replace(tzinfo=None)
             db.commit()
             return
 
@@ -332,6 +348,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
         yts = None
         if tmdb_api_key:
             from app.services.ytssubs_provider import YtsSubsProvider
+
             yts = YtsSubsProvider()
 
         try:
@@ -383,14 +400,20 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                 downloaded = True
                                 _log(db, job_id, f"Downloaded via subf2m [{lang}]: {fname}")
                     except Exception as sf_err:
-                        _log(db, job_id, f"  subf2m: {type(sf_err).__name__} — {sf_err}", level="error")
+                        _log(
+                            db,
+                            job_id,
+                            f"  subf2m: {type(sf_err).__name__} — {sf_err}",
+                            level="error",
+                        )
 
                     # --- ytssubs (fallback) — only for languages subf2m didn't find ---
                     still_missing = [lang for lang in missing if lang not in seen_langs]
                     if yts and still_missing:
                         try:
                             imdb_id = resolve_imdb_id(
-                                info["title"], info["year"],
+                                info["title"],
+                                info["year"],
                                 "tv" if info["is_episode"] else "movie",
                                 tmdb_api_key,
                             )
@@ -409,7 +432,12 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                     downloaded = True
                                     _log(db, job_id, f"Downloaded via ytssubs [{lang}]: {fname}")
                         except Exception as yts_err:
-                            _log(db, job_id, f"  ytssubs: {type(yts_err).__name__} — {yts_err}", level="error")
+                            _log(
+                                db,
+                                job_id,
+                                f"  ytssubs: {type(yts_err).__name__} — {yts_err}",
+                                level="error",
+                            )
 
                     if downloaded:
                         found += 1
@@ -429,7 +457,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
         job.progress = 100.0
         job.status = JobStatus.COMPLETED
         job.current_file = f"{found} downloaded, {skipped} skipped, {failed} not found"
-        job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        job.finished_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
 
     except Exception as exc:
@@ -439,7 +467,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
             if job:
                 job.status = JobStatus.FAILED
                 job.error = str(exc)
-                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                job.finished_at = datetime.now(UTC).replace(tzinfo=None)
                 db.commit()
         except Exception:
             pass
@@ -449,11 +477,14 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
 
 def _log(db, job_id: int, message: str, level: str = "info") -> None:
     from app.models.job import JobLog
+
     db.add(JobLog(job_id=job_id, message=message, level=level))
     db.commit()
 
 
-def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, language: Optional[str] = None) -> None:
+def run_transcribe_job(
+    job_id: int, video_paths: list[str], model_id: str, language: str | None = None
+) -> None:
     """Background job: transcribe a list of video files with Whisper and save SRT files."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
@@ -466,14 +497,14 @@ def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, langu
         if not job:
             return
         job.status = JobStatus.RUNNING
-        job.started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        job.started_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
 
         total = len(video_paths)
         succeeded = 0
         for i, path in enumerate(video_paths):
             if db.get(Job, job_id).status == JobStatus.CANCELLED:
-                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                job.finished_at = datetime.now(UTC).replace(tzinfo=None)
                 db.commit()
                 return
 
@@ -497,7 +528,7 @@ def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, langu
 
         job.status = JobStatus.COMPLETED
         job.progress = 100.0
-        job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        job.finished_at = datetime.now(UTC).replace(tzinfo=None)
         job.current_file = f"{succeeded}/{total} transcribed"
         db.commit()
         _log(db, job_id, f"Done: {succeeded}/{total} files transcribed.")
@@ -506,9 +537,10 @@ def run_transcribe_job(job_id: int, video_paths: list[str], model_id: str, langu
         if job:
             job.status = JobStatus.FAILED
             job.error = str(exc)[:512]
-            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            job.finished_at = datetime.now(UTC).replace(tzinfo=None)
             db.commit()
     finally:
         from app.services.whisper_service import release_model
+
         release_model()
         db.close()

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -24,7 +24,7 @@ class LibraryRead(BaseModel):
     name: str
     path: str
     created_at: datetime
-    last_scanned_at: Optional[datetime] = None
+    last_scanned_at: datetime | None = None
     file_count: int = 0
     corrupt_count: int = 0
 
@@ -32,7 +32,7 @@ class LibraryRead(BaseModel):
 
 
 class LibraryUpdate(BaseModel):
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class FileRead(BaseModel):
@@ -41,19 +41,19 @@ class FileRead(BaseModel):
     path: str
     filename: str
     size: int
-    duration: Optional[float] = None
-    codec_name: Optional[str] = None
-    video_bitrate: Optional[int] = None
+    duration: float | None = None
+    codec_name: str | None = None
+    video_bitrate: int | None = None
     status: str
-    scan_error: Optional[str] = None
-    scanned_at: Optional[datetime] = None
-    transcoded_at: Optional[datetime] = None
+    scan_error: str | None = None
+    scanned_at: datetime | None = None
+    transcoded_at: datetime | None = None
     created_at: datetime
     has_thumbnail: bool = False
-    file_width: Optional[int] = None
-    file_height: Optional[int] = None
-    file_fps: Optional[float] = None
-    file_date: Optional[float] = None
+    file_width: int | None = None
+    file_height: int | None = None
+    file_fps: float | None = None
+    file_date: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -69,16 +69,16 @@ class JobRead(BaseModel):
     id: int
     type: str
     status: str
-    library_id: Optional[int] = None
+    library_id: int | None = None
     progress: float
     total_files: int
     processed_files: int
-    current_file: Optional[str] = None
-    error: Optional[str] = None
-    settings: Optional[str] = None
+    current_file: str | None = None
+    error: str | None = None
+    settings: str | None = None
     created_at: datetime
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -104,9 +104,9 @@ class DuplicateFileRead(BaseModel):
     path: str
     filename: str
     size: int
-    duration: Optional[float] = None
-    codec_name: Optional[str] = None
-    video_bitrate: Optional[int] = None
+    duration: float | None = None
+    codec_name: str | None = None
+    video_bitrate: int | None = None
     status: str
     has_thumbnail: bool = False
 
@@ -124,6 +124,7 @@ class DeleteDuplicatesRequest(BaseModel):
 
 # ── Image library schemas ────────────────────────────────────────────────────
 
+
 class ImageLibraryCreate(BaseModel):
     name: str = ""
     path: str
@@ -134,7 +135,7 @@ class ImageLibraryRead(BaseModel):
     name: str
     path: str
     created_at: datetime
-    last_scanned_at: Optional[datetime] = None
+    last_scanned_at: datetime | None = None
     image_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -145,7 +146,7 @@ class ImageDetectionRead(BaseModel):
     image_id: int
     label: str
     confidence: float
-    bbox_json: Optional[str] = None
+    bbox_json: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -157,14 +158,14 @@ class ImageRead(BaseModel):
     filename: str
     extension: str
     size: int
-    width: Optional[int] = None
-    height: Optional[int] = None
-    exif_date: Optional[float] = None
-    exif_gps: Optional[str] = None
-    exif_camera: Optional[str] = None
+    width: int | None = None
+    height: int | None = None
+    exif_date: float | None = None
+    exif_gps: str | None = None
+    exif_camera: str | None = None
     status: str
-    scan_error: Optional[str] = None
-    scanned_at: Optional[datetime] = None
+    scan_error: str | None = None
+    scanned_at: datetime | None = None
     created_at: datetime
     has_thumbnail: bool = False
     detections: list[ImageDetectionRead] = []

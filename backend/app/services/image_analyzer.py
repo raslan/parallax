@@ -4,15 +4,17 @@ subprocess so the CUDA/ROCm context is fully destroyed on idle, freeing VRAM.
 
 Non-GPU helpers (metadata, phash, cosine_similarity) run in-process.
 """
-import os
+
 import json
+import multiprocessing
+import os
 import struct
 import threading
-import multiprocessing
-from concurrent.futures import ProcessPoolExecutor, BrokenExecutor
-import numpy as np
-from PIL import Image, ExifTags
+from concurrent.futures import BrokenExecutor, ProcessPoolExecutor
+
 import imagehash
+import numpy as np
+from PIL import ExifTags, Image
 
 _spawn_ctx = multiprocessing.get_context("spawn")
 _executor: ProcessPoolExecutor | None = None
@@ -71,44 +73,57 @@ def _submit(fn, *args):
 # GPU inference — routed to worker subprocess
 # ---------------------------------------------------------------------------
 
+
 def run_nudenet(path: str, model_id: str = "320n") -> list[dict]:
     from app.services._image_analyzer_impl import run_nudenet as _fn
+
     return _submit(_fn, path, model_id)
 
 
 def run_nudenet_batch(paths: list[str], model_id: str = "320n") -> list[list[dict]]:
     from app.services._image_analyzer_impl import run_nudenet_batch as _fn
+
     return _submit(_fn, paths, model_id)
 
 
 def encode_image_clip(path: str, model_id: str = "clip-vit-base-patch32") -> list[float]:
     from app.services._image_analyzer_impl import encode_image_clip as _fn
+
     return _submit(_fn, path, model_id)
 
 
-def encode_image_clip_batch_arrays(arrays: list, model_id: str = "clip-vit-base-patch32") -> list[list[float]]:
+def encode_image_clip_batch_arrays(
+    arrays: list, model_id: str = "clip-vit-base-patch32"
+) -> list[list[float]]:
     from app.services._image_analyzer_impl import encode_image_clip_batch_arrays as _fn
+
     return _submit(_fn, arrays, model_id)
 
 
 def run_nudenet_batch_arrays(arrays: list, model_id: str = "320n") -> list[list[dict]]:
     from app.services._image_analyzer_impl import run_nudenet_batch_arrays as _fn
+
     return _submit(_fn, arrays, model_id)
 
 
-def encode_image_clip_batch(paths: list[str], model_id: str = "clip-vit-base-patch32") -> list[list[float]]:
+def encode_image_clip_batch(
+    paths: list[str], model_id: str = "clip-vit-base-patch32"
+) -> list[list[float]]:
     from app.services._image_analyzer_impl import encode_image_clip_batch as _fn
+
     return _submit(_fn, paths, model_id)
 
 
 def encode_text_clip(text: str, model_id: str = "clip-vit-base-patch32") -> list[float]:
     from app.services._image_analyzer_impl import encode_text_clip as _fn
+
     return _submit(_fn, text, model_id)
 
 
 # ---------------------------------------------------------------------------
 # Non-GPU helpers — run in main process
 # ---------------------------------------------------------------------------
+
 
 def get_image_metadata(path: str) -> dict:
     img = Image.open(path)
@@ -126,6 +141,7 @@ def get_image_metadata(path: str) -> dict:
             dt_str = tags.get("DateTimeOriginal") or tags.get("DateTime")
             if dt_str:
                 from datetime import datetime
+
                 dt = datetime.strptime(dt_str, "%Y:%m:%d %H:%M:%S")
                 exif_date = dt.timestamp()
             make = tags.get("Make", "")
@@ -137,8 +153,14 @@ def get_image_metadata(path: str) -> dict:
                 exif_gps = json.dumps({"raw": str(gps)})
     except (AttributeError, ValueError, KeyError, TypeError, struct.error):
         pass
-    return {"width": width, "height": height, "size": size,
-            "exif_date": exif_date, "exif_gps": exif_gps, "exif_camera": exif_camera}
+    return {
+        "width": width,
+        "height": height,
+        "size": size,
+        "exif_date": exif_date,
+        "exif_gps": exif_gps,
+        "exif_camera": exif_camera,
+    }
 
 
 def compute_phash(path: str) -> int:

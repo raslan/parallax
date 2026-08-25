@@ -1,6 +1,7 @@
-import os
 import json
+import os
 import threading
+
 import numpy as np
 import onnxruntime as _ort
 from nudenet import NudeDetector
@@ -9,8 +10,8 @@ from PIL import Image
 from app.services.model_manager import (
     CLIP_MODELS,
     NUDENET_MODELS,
-    clip_vision_path,
     clip_text_path,
+    clip_vision_path,
     nudenet_path,
 )
 
@@ -45,7 +46,9 @@ def _get_vision_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
     with _vision_lock:
         if model_id not in _vision_sessions:
             _vision_sessions[model_id] = _ort.InferenceSession(
-                clip_vision_path(model_id), providers=_GPU_PROVIDERS, sess_options=_make_session_options()
+                clip_vision_path(model_id),
+                providers=_GPU_PROVIDERS,
+                sess_options=_make_session_options(),
             )
         return _vision_sessions[model_id]
 
@@ -54,7 +57,9 @@ def _get_text_session(model_id: str = _CLIP_DEFAULT) -> _ort.InferenceSession:
     with _text_lock:
         if model_id not in _text_sessions:
             _text_sessions[model_id] = _ort.InferenceSession(
-                clip_text_path(model_id), providers=_GPU_PROVIDERS, sess_options=_make_session_options()
+                clip_text_path(model_id),
+                providers=_GPU_PROVIDERS,
+                sess_options=_make_session_options(),
             )
         return _text_sessions[model_id]
 
@@ -77,19 +82,20 @@ def _get_tokenizer():
     with _tokenizer_lock:
         if _tokenizer is None:
             from transformers import CLIPTokenizer
+
             _tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
     return _tokenizer
 
 
 def _tokenize(text: str) -> np.ndarray:
     tok = _get_tokenizer()
-    enc = tok(text, return_tensors="np", padding="max_length",
-               max_length=77, truncation=True)
+    enc = tok(text, return_tensors="np", padding="max_length", max_length=77, truncation=True)
     return enc["input_ids"].astype(np.int64)
 
 
 def _preprocess_image(path: str, image_size: int = 224) -> np.ndarray:
     from PIL import Image
+
     img = Image.open(path).convert("RGB")
     if hasattr(img, "n_frames"):
         img.seek(0)
@@ -103,8 +109,10 @@ def _preprocess_image(path: str, image_size: int = 224) -> np.ndarray:
 def run_nudenet(path: str, model_id: str = _NUDENET_DEFAULT) -> list[dict]:
     detector = _get_nudenet_detector(model_id)
     results = detector.detect(path)
-    return [{"label": r["class"], "confidence": r["score"],
-             "bbox_json": json.dumps(r["box"])} for r in results]
+    return [
+        {"label": r["class"], "confidence": r["score"], "bbox_json": json.dumps(r["box"])}
+        for r in results
+    ]
 
 
 def run_nudenet_batch(paths: list[str], model_id: str = _NUDENET_DEFAULT) -> list[list[dict]]:
@@ -113,8 +121,10 @@ def run_nudenet_batch(paths: list[str], model_id: str = _NUDENET_DEFAULT) -> lis
     detector = _get_nudenet_detector(model_id)
     batch_results = detector.detect_batch(paths, batch_size=len(paths))
     return [
-        [{"label": r["class"], "confidence": r["score"], "bbox_json": json.dumps(r["box"])}
-         for r in detections]
+        [
+            {"label": r["class"], "confidence": r["score"], "bbox_json": json.dumps(r["box"])}
+            for r in detections
+        ]
         for detections in batch_results
     ]
 
@@ -131,7 +141,9 @@ def encode_image_clip(path: str, model_id: str = _CLIP_DEFAULT) -> list[float]:
     return vec.tolist()
 
 
-def encode_image_clip_batch_arrays(arrays: list[np.ndarray], model_id: str = _CLIP_DEFAULT) -> list[list[float]]:
+def encode_image_clip_batch_arrays(
+    arrays: list[np.ndarray], model_id: str = _CLIP_DEFAULT
+) -> list[list[float]]:
     """CLIP encoding from in-memory RGB numpy arrays (H, W, 3) uint8."""
     if not arrays:
         return []
@@ -155,11 +167,14 @@ def encode_image_clip_batch_arrays(arrays: list[np.ndarray], model_id: str = _CL
     return results
 
 
-def run_nudenet_batch_arrays(arrays: list[np.ndarray], model_id: str = _NUDENET_DEFAULT) -> list[list[dict]]:
+def run_nudenet_batch_arrays(
+    arrays: list[np.ndarray], model_id: str = _NUDENET_DEFAULT
+) -> list[list[dict]]:
     """NudeNet detection from in-memory RGB numpy arrays. Writes to tmpfs (/tmp) transiently."""
     if not arrays:
         return []
     import tempfile
+
     with tempfile.TemporaryDirectory(prefix="parallax_nn_") as tmpdir:
         paths = []
         for i, arr in enumerate(arrays):

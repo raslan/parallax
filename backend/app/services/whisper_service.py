@@ -3,10 +3,10 @@ Proxy layer for Whisper transcription. Runs inference in an isolated worker
 subprocess (spawn) so the CTranslate2/CUDA context is fully destroyed on idle,
 freeing all VRAM — same pattern as image_analyzer.py for ONNX models.
 """
-import threading
+
 import multiprocessing
-from concurrent.futures import ProcessPoolExecutor, BrokenExecutor
-from typing import Optional
+import threading
+from concurrent.futures import BrokenExecutor, ProcessPoolExecutor
 
 _spawn_ctx = multiprocessing.get_context("spawn")
 _executor: ProcessPoolExecutor | None = None
@@ -48,9 +48,10 @@ def release_model() -> None:
             _executor = None
 
 
-def transcribe(video_path: str, model_id: str, language: Optional[str] = None) -> str:
+def transcribe(video_path: str, model_id: str, language: str | None = None) -> str:
     """Transcribe video audio in a worker subprocess. Returns the SRT file path."""
     from app.services._whisper_impl import transcribe as _fn
+
     try:
         result = _get_executor().submit(_fn, video_path, model_id, language).result()
     except BrokenExecutor:
