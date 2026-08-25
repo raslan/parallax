@@ -232,7 +232,7 @@ export function Settings() {
 
   const [maxConcurrent, setMaxConcurrent]         = useState(1);
   const [encoderFamily, setEncoderFamily]         = useState<string>("software");
-  const [concurrentLimitHint, setConcurrentLimitHint] = useState<number | null>(null);
+  const [_concurrentLimitHint, setConcurrentLimitHint] = useState<number | null>(null);
   const [tmdbKey, setTmdbKey]                     = useState("");
   const [videoKeyframesPerVideo, setVideoKeyframesPerVideo] = useState(32);
   const [scanBatchSize, setScanBatchSize]                   = useState(4);

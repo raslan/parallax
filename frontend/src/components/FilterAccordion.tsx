@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 
 export function FilterAccordion({
@@ -16,14 +16,17 @@ export function FilterAccordion({
   badge?: string;
   children: React.ReactNode;
 }) {
-  const [userToggled, setUserToggled] = useState(false);
-  const open = enabled || userToggled;
+  const [open, setOpen] = useState(enabled);
+
+  useEffect(() => {
+    if (enabled) setOpen(true);
+  }, [enabled]);
 
   return (
     <div>
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-muted/40 transition-colors"
-        onClick={() => setUserToggled((t) => !t)}
+        onClick={() => setOpen((o) => !o)}
       >
         <input
           type="checkbox"
