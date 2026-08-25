@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { api, CleanupParams, Library, VideoFile, VideoSearchResult } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { CleanupParams } from "@/types/cleanup";
+import type { Library } from "@/types/library";
+import type { VideoFile, VideoSearchResult } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";

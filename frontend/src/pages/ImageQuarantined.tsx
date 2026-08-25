@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { FolderX, Loader2, Trash2, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { imageApi, ImageFile, ImageLibrary } from "@/lib/api";
+import { imageApi } from "@/lib/api";
+import type { ImageFile, ImageLibrary } from "@/types/image";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 

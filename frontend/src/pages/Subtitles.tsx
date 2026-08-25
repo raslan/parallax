@@ -12,7 +12,8 @@ import {
   Play,
   Mic,
 } from "lucide-react";
-import { subtitlesApi, SubtitleFile, api } from "@/lib/api";
+import { subtitlesApi, api } from "@/lib/api";
+import type { SubtitleFile } from "@/types/subtitle";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";

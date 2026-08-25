@@ -16,7 +16,8 @@ import {
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { api, modelsApi, ModelInfo, ActiveModelDownload } from "@/lib/api";
+import { api, modelsApi } from "@/lib/api";
+import type { ModelInfo, ActiveModelDownload } from "@/types/model";
 import { toast } from "sonner"; // sonner toast fn works independently of Toaster wrapper
 import { DirPicker } from "@/components/DirPicker";
 import { useTheme } from "@/components/ThemeProvider";

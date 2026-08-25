@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Download, CheckCircle2, Search, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
-import { api, subtitlesApi, SearchResult, SubtitleCandidate, SubtitleFile } from "@/lib/api";
+import { api, subtitlesApi } from "@/lib/api";
+import type { SearchResult } from "@/types/identify";
+import type { SubtitleCandidate, SubtitleFile } from "@/types/subtitle";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

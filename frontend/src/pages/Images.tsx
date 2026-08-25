@@ -9,7 +9,8 @@ import {
   Search,
 } from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
-import { imageApi, ImageFile } from "@/lib/api";
+import { imageApi } from "@/lib/api";
+import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatSize } from "@/lib/format";

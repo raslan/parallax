@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { imageApi, ImageFile } from "@/lib/api";
+import { imageApi } from "@/lib/api";
+import type { ImageFile } from "@/types/image";
 import { formatSize } from "@/lib/format";
 
 export function ImageViewerModal({ img, onClose }: { img: ImageFile; onClose: () => void }) {

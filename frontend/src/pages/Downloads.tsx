@@ -25,7 +25,8 @@ import {
   ExternalLink,
   RotateCcw,
 } from "lucide-react";
-import { api, DownloadItem, DownloadRequest } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { DownloadItem, DownloadRequest } from "@/types/download";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { DirPicker } from "@/components/DirPicker";
 import { SectionHeader } from "@/components/SectionHeader";

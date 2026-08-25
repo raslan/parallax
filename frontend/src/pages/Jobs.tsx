@@ -13,7 +13,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api, Job, JobLog } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Job, JobLog } from "@/types/job";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { StatusDot } from "@/components/StatusDot";

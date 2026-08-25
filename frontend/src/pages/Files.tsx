@@ -21,7 +21,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { VideoFile } from "@/types/file";
+import type { Library, BrowseResponse } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";

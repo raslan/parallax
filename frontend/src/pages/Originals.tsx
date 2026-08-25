@@ -12,7 +12,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { api, Original, OriginalsSummary } from "@/lib/api";
+import { api } from "@/lib/api";
+import type { Original, OriginalsSummary } from "@/types/original";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 

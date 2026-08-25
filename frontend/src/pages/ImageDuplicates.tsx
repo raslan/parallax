@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
-import { imageApi, ImageFile } from "@/lib/api";
+import { imageApi } from "@/lib/api";
+import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";

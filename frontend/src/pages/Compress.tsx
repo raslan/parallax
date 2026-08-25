@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Zap, X, Loader2, TrendingDown, LayoutGrid, List, Search } from "lucide-react";
-import { compressApi, CompressCodec, VideoFile, Library, api } from "@/lib/api";
+import { compressApi, api } from "@/lib/api";
+import type { CompressCodec } from "@/types/compress";
+import type { VideoFile } from "@/types/file";
+import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";

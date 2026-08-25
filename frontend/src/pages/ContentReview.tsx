@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ShieldAlert, Search, FolderX } from "lucide-react";
-import { imageApi, ImageFile } from "@/lib/api";
+import { imageApi } from "@/lib/api";
+import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
