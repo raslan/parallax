@@ -267,7 +267,7 @@ class Subf2mProvider:
                         "provider": "subf2m",
                         "language": lang,
                         "release": sub["release_info"],
-                        "score": 70,  # rough fixed score; no compute_score available
+                        "score": sub["score"],
                         "hearing_impaired": False,
                     })
 
@@ -374,9 +374,25 @@ def _subtitle_from_item(item, lang_alpha2: str, episode_number: Optional[int] = 
     except (AttributeError, KeyError, TypeError):
         return None
 
+    # subf2m has no numeric rating or download count — each item is tagged
+    # with a coarse "rate" widget instead (class is "rate good"/"rate bad"/
+    # "rate not rated", tokenized by BeautifulSoup into separate class names,
+    # not one combined string). Map that to a score comparable to yts-subs'
+    # rating-derived 0-100 scale, rather than the flat constant this used to
+    # return for every result regardless of quality.
+    rate_el = item.find("span", class_="rate")
+    rate_classes = set(rate_el.get("class", [])) if rate_el else set()
+    if "good" in rate_classes:
+        score = 80
+    elif "bad" in rate_classes:
+        score = 20
+    else:
+        score = 50  # not rated, or rate widget absent
+
     return {
         "page_link": _BASE_URL + path,
         "language": lang_alpha2,
         "release_info": release_info,
         "episode_number": episode_number,
+        "score": score,
     }

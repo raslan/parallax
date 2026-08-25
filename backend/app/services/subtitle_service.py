@@ -175,6 +175,19 @@ def _video_info(file_path: str) -> dict:
     }
 
 
+def resolve_imdb_id(title: str, year: Optional[int], media_type: str, tmdb_api_key: str) -> Optional[str]:
+    """Look up an IMDB ID via TMDB — yts-subs has no title-search endpoint of
+    its own, so this is required before it can be queried."""
+    from app.services import tmdb as tmdb_service
+    kind = "tv" if media_type == "tv" else "movie"
+    results = tmdb_service.search(title, kind, tmdb_api_key)
+    if year is not None:
+        results = [r for r in results if r.get("year") == year] or results
+    if not results:
+        return None
+    return tmdb_service.get_imdb_id(results[0]["tmdb_id"], kind, tmdb_api_key)
+
+
 def search_file(
     file_path: str,
     lang_codes: list[str],
@@ -183,8 +196,10 @@ def search_file(
     media_type: Optional[str] = None,
     season: Optional[int] = None,
     episode: Optional[int] = None,
+    provider: str = "subf2m",
+    tmdb_api_key: Optional[str] = None,
 ) -> list[dict]:
-    """Return subtitle candidates for a single video file via subf2m.
+    """Return subtitle candidates for a single video file from the given provider.
 
     query/media_type/season/episode let a caller override the filename-guessed
     metadata (manual search) instead of trusting guessit, which is often wrong
@@ -198,7 +213,6 @@ def search_file(
     if not os.path.isfile(file_path):
         raise ValueError("File not found")
 
-    from app.services.subf2m_provider import Subf2mProvider
     info = _video_info(file_path)
     is_episode = (media_type == "tv") if media_type else info["is_episode"]
 
@@ -209,14 +223,35 @@ def search_file(
     else:
         title_override, year_override = None, None
 
-    provider = Subf2mProvider()
+    title = title_override or info["title"]
+    resolved_year = year_override or info["year"]
+
+    if provider == "ytssubs":
+        if not tmdb_api_key:
+            raise ValueError("TMDB API key required for YTS-Subs")
+        from app.services.ytssubs_provider import YtsSubsProvider
+        imdb_id = resolve_imdb_id(title, resolved_year, "tv" if is_episode else "movie", tmdb_api_key)
+        yts = YtsSubsProvider()
+        try:
+            results = yts.search(imdb_id, lang_codes) if imdb_id else []
+            logger.info("search_file ytssubs: %d candidates for %s", len(results), os.path.basename(file_path))
+        except Exception as exc:
+            logger.warning("search_file ytssubs error: %s: %s", type(exc).__name__, exc)
+            results = []
+        finally:
+            yts.close()
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results
+
+    from app.services.subf2m_provider import Subf2mProvider
+    sub = Subf2mProvider()
     try:
-        results = provider.search(
+        results = sub.search(
             video_path=file_path,
             lang_codes=lang_codes,
             is_episode=is_episode,
-            title=title_override or info["title"],
-            year=year_override or info["year"],
+            title=title,
+            year=resolved_year,
             season=season or info["season"] or 1,
             episode=episode or info["episode"] or 1,
         )
@@ -225,7 +260,7 @@ def search_file(
         logger.warning("search_file subf2m error: %s: %s", type(exc).__name__, exc)
         results = []
     finally:
-        provider.close()
+        sub.close()
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
@@ -236,8 +271,12 @@ def download_one(file_path: str, provider: str, subtitle_id: str, language: str)
     if not os.path.isfile(file_path):
         raise ValueError("File not found")
 
-    from app.services.subf2m_provider import Subf2mProvider
-    p = Subf2mProvider()
+    if provider == "ytssubs":
+        from app.services.ytssubs_provider import YtsSubsProvider
+        p = YtsSubsProvider()
+    else:
+        from app.services.subf2m_provider import Subf2mProvider
+        p = Subf2mProvider()
     try:
         content = p.download(subtitle_id)
     finally:
@@ -283,10 +322,17 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
         job.total_files = len(video_paths)
         db.commit()
 
+        from app.models.settings import get_setting
         from app.services.subf2m_provider import Subf2mProvider
+
+        tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip()
 
         found = skipped = failed = 0
         subf2m = Subf2mProvider()
+        yts = None
+        if tmdb_api_key:
+            from app.services.ytssubs_provider import YtsSubsProvider
+            yts = YtsSubsProvider()
 
         try:
             for i, video_path in enumerate(video_paths):
@@ -308,6 +354,8 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                 try:
                     info = _video_info(video_path)
                     downloaded = False
+                    seen_langs: set[str] = set()
+                    base = os.path.splitext(video_path)[0]
 
                     # --- subf2m (primary) — one subtitle per missing language ---
                     try:
@@ -322,8 +370,6 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                         )
                         _log(db, job_id, f"  subf2m: {len(candidates)} candidates")
                         # Group by language; take first (highest-score) candidate per lang
-                        seen_langs: set[str] = set()
-                        base = os.path.splitext(video_path)[0]
                         for candidate in candidates:
                             lang = candidate["language"]
                             if lang in seen_langs:
@@ -339,6 +385,32 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                     except Exception as sf_err:
                         _log(db, job_id, f"  subf2m: {type(sf_err).__name__} — {sf_err}", level="error")
 
+                    # --- ytssubs (fallback) — only for languages subf2m didn't find ---
+                    still_missing = [lang for lang in missing if lang not in seen_langs]
+                    if yts and still_missing:
+                        try:
+                            imdb_id = resolve_imdb_id(
+                                info["title"], info["year"],
+                                "tv" if info["is_episode"] else "movie",
+                                tmdb_api_key,
+                            )
+                            candidates = yts.search(imdb_id, still_missing) if imdb_id else []
+                            _log(db, job_id, f"  ytssubs: {len(candidates)} candidates")
+                            for candidate in candidates:
+                                lang = candidate["language"]
+                                if lang in seen_langs:
+                                    continue
+                                content = yts.download(candidate["subtitle_id"])
+                                if content:
+                                    out_path = f"{base}.{lang}.srt"
+                                    with open(out_path, "wb") as fh:
+                                        fh.write(content)
+                                    seen_langs.add(lang)
+                                    downloaded = True
+                                    _log(db, job_id, f"Downloaded via ytssubs [{lang}]: {fname}")
+                        except Exception as yts_err:
+                            _log(db, job_id, f"  ytssubs: {type(yts_err).__name__} — {yts_err}", level="error")
+
                     if downloaded:
                         found += 1
                     else:
@@ -350,6 +422,8 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                     logger.exception("Subtitle download error for %s", video_path)
         finally:
             subf2m.close()
+            if yts:
+                yts.close()
 
         job.processed_files = len(video_paths)
         job.progress = 100.0

@@ -30,6 +30,17 @@ def search(query: str, media_type: Literal["movie", "tv"], api_key: str) -> list
     return out
 
 
+def get_imdb_id(tmdb_id: int, media_type: Literal["movie", "tv"], api_key: str) -> str | None:
+    endpoint = "movie" if media_type == "movie" else "tv"
+    r = requests.get(
+        f"{TMDB_BASE}/{endpoint}/{tmdb_id}/external_ids",
+        params={"api_key": api_key},
+        timeout=10,
+    )
+    r.raise_for_status()
+    return r.json().get("imdb_id") or None
+
+
 def get_all_episodes(tmdb_id: int, api_key: str) -> list[dict]:
     """Fetch every episode across all seasons in parallel."""
     r = requests.get(
