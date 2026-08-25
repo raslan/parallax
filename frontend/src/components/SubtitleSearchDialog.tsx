@@ -104,6 +104,8 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
       return;
     }
     if (!query.trim()) {
+      // Clear results when search query is empty
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTmdbResults([]);
       return;
     }

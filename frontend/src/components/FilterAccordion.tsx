@@ -19,6 +19,8 @@ export function FilterAccordion({
   const [open, setOpen] = useState(enabled);
 
   useEffect(() => {
+    // Effect opens accordion when filter enabled
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (enabled) setOpen(true);
   }, [enabled]);
 

@@ -72,6 +72,8 @@ function ModelCard({
       activeDownload.model_id === model.id &&
       !model.downloaded
     ) {
+      // Intentional setState in effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBusy(true);
       setJobProgress(activeDownload.progress ?? 0);
       setJobStatus(activeDownload.current_file ?? activeDownload.status);
@@ -372,6 +374,8 @@ export function Settings() {
   }, []);
 
   useEffect(() => {
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reloadModels();
   }, [reloadModels]);
 

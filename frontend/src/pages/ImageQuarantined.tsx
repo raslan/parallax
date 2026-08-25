@@ -217,6 +217,8 @@ export function ImageQuarantined() {
   }, []);
 
   useEffect(() => {
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
