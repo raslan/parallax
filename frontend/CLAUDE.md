@@ -21,11 +21,12 @@ frontend/src/
     SubtitleSearchDialog.tsx # Per-file Plex-style subtitle search; Source tab (Subf2m / YTS-Subs) — YTS-Subs needs a TMDB key (resolves IMDB ID) and is disabled with a Settings link when none is configured
     ThemeProvider.tsx        # Reads theme setting, applies data-theme to <html>
     VideoPlayerModal.tsx     # Plyr-based video player modal with subtitle tracks; calls POST /api/stream/prepare before opening and polls GET /api/stream/prepare-status, showing a progress overlay while the backend remuxes non-web-safe audio (see backend/CLAUDE.md "Stream playback audio compatibility") — every caller (Files, Duplicates, Cleanup, Compress, Subtitles) gets this for free
+  hooks/
+    useLiveFiles.ts   # Subscribes to GET /files or /images stream, calls back on any DB-side change to that library's files
   lib/
-    api.ts           # All fetch calls and TypeScript types for API responses
+    api/               # Per-domain API client files (cleanup.ts, compress.ts, downloads.ts, etc.) + index.ts barrel
     format.ts        # formatSize, formatDuration, formatBitrate, formatDate
     presets.ts       # Shared transcode quality presets (High/Medium/Low)
-    useLiveFiles.ts   # Shared hook — subscribes to GET /files or /images stream, calls back on any DB-side change to that library's files
     subtitle-langs.ts# ISO language list for subtitle language picker
     utils.ts         # shadcn cn() helper
   pages/             # One file per route (see Pages section below)
@@ -59,7 +60,7 @@ frontend/src/
 
 ### Themes
 
-Seven built-in themes, selected in Settings and persisted to the DB. `ThemeProvider` reads the setting on mount and sets `data-theme` on `<html>`. Theme CSS lives in `index.css` under `[data-theme="..."]` selectors.
+Five built-in themes, selected in Settings and persisted to the DB. `ThemeProvider` reads the setting on mount and sets `data-theme` on `<html>`. Theme CSS lives in `index.css` under `[data-theme="..."]` selectors.
 
 | Key | Name |
 |---|---|
@@ -119,9 +120,9 @@ Pages showing a live file grid (Files, Images, Compress, Toolbox, ImageDuplicate
 
 ## API layer
 
-All server communication goes through `src/lib/api.ts`. The `api` object is the single export — add new endpoints there, not inline in components. The `req<T>()` helper handles JSON headers, error throwing, and 204 responses.
+All server communication goes through `src/lib/api/`, organized as one file per backend resource: `cleanup.ts`, `compress.ts`, `downloads.ts`, etc., each matching `backend/app/api/*.py` naming. `src/lib/api/index.ts` re-exports all client functions and types, so `import { api, subtitlesApi } from "@/lib/api"` keeps working regardless of which domain file a method lives in. The `req<T>()` helper (in `client.ts`) handles JSON headers, error throwing, and 204 responses.
 
-Types for API responses live alongside the fetch calls in `api.ts`. Keep them up to date when the backend schema changes.
+Types for API responses live alongside the fetch calls in their respective domain files. Keep them up to date when the backend schema changes.
 
 ## Adding a new page
 
