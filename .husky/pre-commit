@@ -1,1 +1,12 @@
+# Refuse to commit any staged path that .gitignore says should be excluded
+# (i.e. it was only added via `git add -f`). This repo has deliberately
+# gitignored paths (CLAUDE.md, docs/) that must never be force-added.
+ignored_staged=$(git diff --cached --name-only --diff-filter=A | git check-ignore --stdin || true)
+if [ -n "$ignored_staged" ]; then
+  echo "error: refusing to commit force-added gitignored file(s):"
+  echo "$ignored_staged" | sed 's/^/  /'
+  echo "If this is intentional, add an explicit negation (!path) to .gitignore first."
+  exit 1
+fi
+
 npx lint-staged
