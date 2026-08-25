@@ -214,7 +214,11 @@ export function Compress() {
   const toggleFile = useCallback((id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }, []);
@@ -329,7 +333,11 @@ export function Compress() {
 
   const handleCancel = async () => {
     if (jobId == null) return;
-    try { await api.cancelJob(jobId); } catch {}
+    try {
+      await api.cancelJob(jobId);
+    } catch {
+      // Ignore error when canceling job
+    }
   };
 
   const isRunning = jobStatus === "running" || jobStatus === "pending";

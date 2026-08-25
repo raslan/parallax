@@ -26,14 +26,17 @@ export function DirPicker({ onSelect, onClose }: DirPickerProps) {
       setDirs(res.dirs);
       setParent(res.parent);
       setManualPath("");
-    } catch (e: any) {
-      setError(e.message || "Cannot open directory");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Cannot open directory";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { browse("/media"); }, []);
+  useEffect(() => {
+    browse("/media");
+  }, []);
 
   const handleManualGo = () => {
     if (manualPath.trim()) browse(manualPath.trim());
@@ -52,7 +55,10 @@ export function DirPicker({ onSelect, onClose }: DirPickerProps) {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-mono text-muted-foreground truncate flex-1" title={currentPath}>
+        <span
+          className="text-sm font-mono text-muted-foreground truncate flex-1"
+          title={currentPath}
+        >
           {currentPath}
         </span>
       </div>
@@ -64,24 +70,23 @@ export function DirPicker({ onSelect, onClose }: DirPickerProps) {
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
-          {!loading && error && (
-            <p className="text-xs text-destructive px-3 py-2">{error}</p>
-          )}
+          {!loading && error && <p className="text-xs text-destructive px-3 py-2">{error}</p>}
           {!loading && !error && dirs.length === 0 && (
             <p className="text-xs text-muted-foreground px-3 py-2">No subdirectories</p>
           )}
-          {!loading && dirs.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => browse(`${currentPath}/${d}`)}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted/50 transition-colors text-left"
-            >
-              <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="truncate">{d}</span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
-            </button>
-          ))}
+          {!loading &&
+            dirs.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => browse(`${currentPath}/${d}`)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted/50 transition-colors text-left"
+              >
+                <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{d}</span>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
+              </button>
+            ))}
         </div>
       </div>
 
@@ -90,17 +95,35 @@ export function DirPicker({ onSelect, onClose }: DirPickerProps) {
           placeholder="Or type a path…"
           value={manualPath}
           onChange={(e) => setManualPath(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleManualGo(); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleManualGo();
+            }
+          }}
           className="text-sm font-mono"
         />
-        <Button type="button" variant="outline" size="sm" onClick={handleManualGo} disabled={!manualPath.trim() || loading}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleManualGo}
+          disabled={!manualPath.trim() || loading}
+        >
           Go
         </Button>
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-        <Button type="button" size="sm" onClick={() => onSelect(currentPath)} className="max-w-[50%] min-w-0">
+        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => onSelect(currentPath)}
+          className="max-w-[50%] min-w-0"
+        >
           <span className="truncate min-w-0">Select "{currentPath.split("/").pop() || "/"}"</span>
         </Button>
       </div>

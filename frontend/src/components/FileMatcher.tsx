@@ -37,7 +37,9 @@ function FileChip({ filePath }: { filePath: string }) {
         alt=""
         className="h-8 w-14 object-cover rounded shrink-0 bg-muted"
         loading="lazy"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
       />
       <span className="flex-1 text-xs font-mono text-muted-foreground truncate" title={filename}>
         {filename}
@@ -47,7 +49,15 @@ function FileChip({ filePath }: { filePath: string }) {
   );
 }
 
-function SlotRow({ episode, mediaType, filePath }: { episode: Episode; mediaType: "movie" | "tv"; filePath?: string }) {
+function SlotRow({
+  episode,
+  mediaType,
+  filePath,
+}: {
+  episode: Episode;
+  mediaType: "movie" | "tv";
+  filePath?: string;
+}) {
   const key = slotKey(episode.season_number, episode.episode_number);
   const { setNodeRef, isOver } = useDroppable({ id: key });
   return (
@@ -98,14 +108,24 @@ interface FileMatcherProps {
   onAssignmentsChange: (next: Record<string, string>) => void;
 }
 
-export function FileMatcher({ files, episodes, mediaType, assignments, onAssignmentsChange }: FileMatcherProps) {
+export function FileMatcher({
+  files,
+  episodes,
+  mediaType,
+  assignments,
+  onAssignmentsChange,
+}: FileMatcherProps) {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [activeFile, setActiveFile] = useState<string | null>(null);
 
   function toggleSeason(sn: number) {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      next.has(sn) ? next.delete(sn) : next.add(sn);
+      if (next.has(sn)) {
+        next.delete(sn);
+      } else {
+        next.add(sn);
+      }
       return next;
     });
   }
@@ -134,10 +154,14 @@ export function FileMatcher({ files, episodes, mediaType, assignments, onAssignm
     seasonEpisodes[sn].push(ep);
   }
 
-  const activeFilename = activeFile ? activeFile.split("/").pop() ?? activeFile : "";
+  const activeFilename = activeFile ? (activeFile.split("/").pop() ?? activeFile) : "";
 
   return (
-    <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <div className="space-y-3">
         <div className="space-y-2">
           {mediaType === "movie" ? (
@@ -155,27 +179,34 @@ export function FileMatcher({ files, episodes, mediaType, assignments, onAssignm
             seasonOrder.map((sn) => {
               const eps = seasonEpisodes[sn];
               const isOpen = !collapsed.has(sn);
-              const filledCount = eps.filter((ep) => assignments[slotKey(ep.season_number, ep.episode_number)]).length;
+              const filledCount = eps.filter(
+                (ep) => assignments[slotKey(ep.season_number, ep.episode_number)],
+              ).length;
               return (
                 <div key={sn} className="rounded-md border border-border overflow-hidden">
                   <button
                     className="w-full flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted/70 text-sm font-medium text-left"
                     onClick={() => toggleSeason(sn)}
                   >
-                    {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                    {isOpen ? (
+                      <ChevronDown className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                    )}
                     {`Season ${String(sn).padStart(2, "0")}`}
                     <span className="ml-auto text-xs text-muted-foreground font-normal">
                       {filledCount}/{eps.length} matched
                     </span>
                   </button>
-                  {isOpen && eps.map((ep) => (
-                    <SlotRow
-                      key={slotKey(ep.season_number, ep.episode_number)}
-                      episode={ep}
-                      mediaType="tv"
-                      filePath={assignments[slotKey(ep.season_number, ep.episode_number)]}
-                    />
-                  ))}
+                  {isOpen &&
+                    eps.map((ep) => (
+                      <SlotRow
+                        key={slotKey(ep.season_number, ep.episode_number)}
+                        episode={ep}
+                        mediaType="tv"
+                        filePath={assignments[slotKey(ep.season_number, ep.episode_number)]}
+                      />
+                    ))}
                 </div>
               );
             })

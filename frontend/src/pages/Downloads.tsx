@@ -664,7 +664,9 @@ export function Downloads() {
         try {
           const data: DownloadItem[] = JSON.parse(e.data);
           setDownloads(data);
-        } catch {}
+        } catch {
+          // Ignore malformed SSE messages
+        }
       };
       es.onerror = () => {
         es?.close();
