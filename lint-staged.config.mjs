@@ -1,14 +1,14 @@
 import path from "node:path";
 
-const frontendDir = path.resolve(import.meta.dirname, "frontend");
+const repoRoot = import.meta.dirname;
+const frontendBinDir = path.resolve(repoRoot, "frontend/node_modules/.bin");
 
 export default {
   "frontend/**/*.{ts,tsx}": (absolutePaths) => {
-    const relative = absolutePaths.map((p) => path.relative(frontendDir, p));
-    const quoted = relative.map((p) => JSON.stringify(p)).join(" ");
+    const quoted = absolutePaths.map((p) => JSON.stringify(p)).join(" ");
     return [
-      `sh -c "cd frontend && npx eslint --fix ${quoted}"`,
-      `sh -c "cd frontend && npx prettier --write ${quoted}"`,
+      `${path.join(frontendBinDir, "eslint")} --config frontend/eslint.config.js --fix ${quoted}`,
+      `${path.join(frontendBinDir, "prettier")} --config frontend/.prettierrc.json --write ${quoted}`,
     ];
   },
   "backend/**/*.py": (absolutePaths) => {
