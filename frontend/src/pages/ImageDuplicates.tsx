@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
-import { useLiveFiles } from "@/lib/useLiveFiles";
+import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 function recommendKeep(images: ImageFile[]): number {
   return images.reduce((best, img) => {
@@ -170,6 +170,8 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   useLiveFiles("image", libraryId ?? null, () => setResultsStale(true));
 
   useEffect(() => {
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(appliedThreshold);
   }, [libraryId]);
 

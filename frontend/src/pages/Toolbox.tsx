@@ -18,7 +18,7 @@ import {
   applySortDir,
   SortDir,
 } from "@/components/FileSelectGrid";
-import { useLiveFiles } from "@/lib/useLiveFiles";
+import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { FilterAccordion } from "@/components/FilterAccordion";
@@ -102,6 +102,8 @@ export function Toolbox() {
 
   useEffect(() => {
     if (libraryId == null) return;
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingFiles(true);
     setLoadError(null);
     setFiles(null);

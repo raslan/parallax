@@ -25,7 +25,7 @@ import { api, VideoFile, Library, BrowseResponse } from "@/lib/api";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
-import { useLiveFiles } from "@/lib/useLiveFiles";
+import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 const STATUS_COLORS: Record<string, string> = {
   unknown: "secondary",
@@ -472,10 +472,14 @@ function LibraryBrowser({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPath("");
   }, [library.id]);
 
   useEffect(() => {
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!browse) setLoading(true);
     api
       .browseLibrary(library.id, path, statusFilter, sortBy, sortDir)
@@ -585,6 +589,8 @@ function FlatView({
   }, [statusFilter, page, sortBy, sortDir, refreshToken]);
 
   useEffect(() => {
+    // Intentional setState in effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [statusFilter, sortBy, sortDir]);
   useEffect(() => {

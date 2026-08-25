@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatSize } from "@/lib/format";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
-import { useLiveFiles } from "@/lib/useLiveFiles";
+import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
