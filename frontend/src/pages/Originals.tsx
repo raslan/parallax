@@ -1,5 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
-import { Archive, Loader2, Trash2, RotateCcw, ArrowRight, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import {
+  Archive,
+  Loader2,
+  Trash2,
+  RotateCcw,
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  AlertTriangle,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,14 +22,20 @@ function SavingsBadge({ bytes }: { bytes: number | null }) {
   if (bytes === null) return null;
   if (bytes > 0) {
     return (
-      <Badge variant="secondary" className="text-xs text-primary border-primary/20 bg-primary/10 tabular-nums">
+      <Badge
+        variant="secondary"
+        className="text-xs text-primary border-primary/20 bg-primary/10 tabular-nums"
+      >
         −{formatSize(bytes)}
       </Badge>
     );
   }
   if (bytes < 0) {
     return (
-      <Badge variant="secondary" className="text-xs text-amber-400 border-amber-400/20 bg-amber-400/10 tabular-nums">
+      <Badge
+        variant="secondary"
+        className="text-xs text-amber-400 border-amber-400/20 bg-amber-400/10 tabular-nums"
+      >
         +{formatSize(Math.abs(bytes))}
       </Badge>
     );
@@ -41,27 +56,34 @@ function LibraryGroup({
   entries: Original[];
   onRefresh: () => void;
 }) {
-  const [open, setOpen]           = useState(true);
+  const [open, setOpen] = useState(true);
   const [deletingAll, setDeletingAll] = useState(false);
   const [restoringAll, setRestoringAll] = useState(false);
   const [busyPaths, setBusyPaths] = useState<Set<string>>(new Set());
 
-  const totalSavings  = entries.reduce((s, e) => s + (e.savings_bytes ?? 0), 0);
+  const totalSavings = entries.reduce((s, e) => s + (e.savings_bytes ?? 0), 0);
   const totalOrigSize = entries.reduce((s, e) => s + e.original_size, 0);
 
-  const setPathBusy = (path: string, busy: boolean) =>
+  const setPathBusy = (path: string, busy: boolean) => {
     setBusyPaths((prev) => {
       const next = new Set(prev);
-      busy ? next.add(path) : next.delete(path);
+      if (busy) {
+        next.add(path);
+      } else {
+        next.delete(path);
+      }
       return next;
     });
+  };
 
   const handleDelete = async (path: string) => {
     setPathBusy(path, true);
     try {
       await api.deleteOriginal(path);
       onRefresh();
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setPathBusy(path, false);
     }
   };
@@ -72,13 +94,20 @@ function LibraryGroup({
     try {
       await api.restoreOriginal(path);
       onRefresh();
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setPathBusy(path, false);
     }
   };
 
   const handleRestoreAll = async () => {
-    if (!confirm(`Restore all ${entries.length} originals for "${libraryName}"? All modified files will be replaced.`)) return;
+    if (
+      !confirm(
+        `Restore all ${entries.length} originals for "${libraryName}"? All modified files will be replaced.`,
+      )
+    )
+      return;
     setRestoringAll(true);
     try {
       await api.restoreOriginalsBatch(entries.map((e) => e.path));
@@ -89,12 +118,19 @@ function LibraryGroup({
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm(`Delete all ${entries.length} originals for "${libraryName}"? This cannot be undone.`)) return;
+    if (
+      !confirm(
+        `Delete all ${entries.length} originals for "${libraryName}"? This cannot be undone.`,
+      )
+    )
+      return;
     setDeletingAll(true);
     try {
       await api.deleteLibraryOriginals(libraryId);
       onRefresh();
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setDeletingAll(false);
     }
   };
@@ -106,15 +142,20 @@ function LibraryGroup({
         onClick={() => setOpen((v) => !v)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          {open
-            ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
           <span className="text-sm font-medium truncate">{libraryName}</span>
           <span className="text-xs text-muted-foreground shrink-0">
-            {entries.length} {entries.length === 1 ? "backup" : "backups"} · {formatSize(totalOrigSize)}
+            {entries.length} {entries.length === 1 ? "backup" : "backups"} ·{" "}
+            {formatSize(totalOrigSize)}
           </span>
           {totalSavings > 0 && (
-            <span className="text-xs text-primary shrink-0">· {formatSize(totalSavings)} recoverable</span>
+            <span className="text-xs text-primary shrink-0">
+              · {formatSize(totalSavings)} recoverable
+            </span>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0 ml-4" onClick={(e) => e.stopPropagation()}>
@@ -125,9 +166,11 @@ function LibraryGroup({
             disabled={restoringAll || deletingAll}
             onClick={handleRestoreAll}
           >
-            {restoringAll
-              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              : <RotateCcw className="h-3.5 w-3.5 mr-1.5" />}
+            {restoringAll ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            )}
             Restore all
           </Button>
           <Button
@@ -137,9 +180,11 @@ function LibraryGroup({
             disabled={deletingAll || restoringAll}
             onClick={handleDeleteAll}
           >
-            {deletingAll
-              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+            {deletingAll ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            )}
             Delete all
           </Button>
         </div>
@@ -155,7 +200,9 @@ function LibraryGroup({
                 <div key={entry.path} className="flex items-center gap-4 px-5 py-3">
                   {/* Filename */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate" title={entry.path}>{entry.filename}</p>
+                    <p className="text-sm truncate" title={entry.path}>
+                      {entry.filename}
+                    </p>
                     {missing && (
                       <p className="text-xs text-amber-400 flex items-center gap-1 mt-0.5">
                         <AlertTriangle className="h-3 w-3" /> Modified file missing
@@ -186,7 +233,11 @@ function LibraryGroup({
                       disabled={busy}
                       onClick={() => handleRestore(entry.path)}
                     >
-                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                      {busy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                     <Button
                       size="icon"
@@ -196,7 +247,11 @@ function LibraryGroup({
                       disabled={busy}
                       onClick={() => handleDelete(entry.path)}
                     >
-                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      {busy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -217,24 +272,28 @@ export function Originals() {
 
   const load = useCallback(() => {
     setLoading(true);
-    api.getOriginals()
+    api
+      .getOriginals()
       .then(setSummary)
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Group entries by library
   const byLibrary = summary
     ? Object.values(
         summary.entries.reduce<Record<number, { id: number; name: string; entries: Original[] }>>(
           (acc, e) => {
-            if (!acc[e.library_id]) acc[e.library_id] = { id: e.library_id, name: e.library_name, entries: [] };
+            if (!acc[e.library_id])
+              acc[e.library_id] = { id: e.library_id, name: e.library_name, entries: [] };
             acc[e.library_id].entries.push(e);
             return acc;
           },
-          {}
-        )
+          {},
+        ),
       )
     : [];
 
@@ -248,7 +307,8 @@ export function Originals() {
           <SectionHeader className="mb-1.5">Backups of modified files</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Originals</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Backup files kept from before modifications. Delete once you're happy, or restore to undo.
+            Backup files kept from before modifications. Delete once you're happy, or restore to
+            undo.
           </p>
         </div>
         <button
@@ -264,8 +324,8 @@ export function Originals() {
       {summary && hasEntries && (
         <div className="grid grid-cols-3 border border-border rounded-[0.4rem] overflow-hidden divide-x divide-border">
           {[
-            { label: "Backups",          value: `${summary.entries.length}` },
-            { label: "Backup storage",   value: formatSize(summary.total_original_bytes) },
+            { label: "Backups", value: `${summary.entries.length}` },
+            { label: "Backup storage", value: formatSize(summary.total_original_bytes) },
             {
               label: summary.total_savings_bytes >= 0 ? "Space recoverable" : "Extra space used",
               value: formatSize(Math.abs(summary.total_savings_bytes)),
@@ -274,7 +334,11 @@ export function Originals() {
           ].map(({ label, value, accent }) => (
             <div key={label} className="px-7 py-5">
               <SectionHeader className="mb-2">{label}</SectionHeader>
-              <p className={`text-2xl font-bold font-mono tabular-nums tracking-tight ${accent ? "text-primary" : ""}`}>{value}</p>
+              <p
+                className={`text-2xl font-bold font-mono tabular-nums tracking-tight ${accent ? "text-primary" : ""}`}
+              >
+                {value}
+              </p>
             </div>
           ))}
         </div>
@@ -291,7 +355,8 @@ export function Originals() {
             <Archive className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No originals</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Original files will appear here after modification. They're kept as backups until you delete them.
+              Original files will appear here after modification. They're kept as backups until you
+              delete them.
             </p>
           </CardContent>
         </Card>

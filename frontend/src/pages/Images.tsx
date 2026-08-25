@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { Images as ImagesIcon, FolderX, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Search } from "lucide-react";
+import {
+  Images as ImagesIcon,
+  FolderX,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  Search,
+} from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
 import { imageApi, ImageFile } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -18,7 +26,12 @@ const SORT_OPTIONS = [
 const PAGE_SIZE = 60;
 
 function ImageCard({
-  img, selectionMode, selected, onToggle, onQuarantine, onOpen,
+  img,
+  selectionMode,
+  selected,
+  onToggle,
+  onQuarantine,
+  onOpen,
 }: {
   img: ImageFile;
   selectionMode: boolean;
@@ -32,7 +45,10 @@ function ImageCard({
       className={`relative group rounded-md overflow-hidden border cursor-pointer transition-all ${
         selected ? "ring-2 ring-primary border-primary" : "border-border"
       }`}
-      onClick={() => { if (selectionMode) onToggle(); else onOpen(); }}
+      onClick={() => {
+        if (selectionMode) onToggle();
+        else onOpen();
+      }}
     >
       {img.has_thumbnail ? (
         <img
@@ -47,9 +63,11 @@ function ImageCard({
       )}
 
       {selectionMode && (
-        <div className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center ${
-          selected ? "bg-primary border-primary" : "bg-background/80 border-muted-foreground"
-        }`}>
+        <div
+          className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center ${
+            selected ? "bg-primary border-primary" : "bg-background/80 border-muted-foreground"
+          }`}
+        >
           {selected && <span className="text-[10px] text-primary-foreground font-bold">✓</span>}
         </div>
       )}
@@ -58,7 +76,10 @@ function ImageCard({
         <p className="truncate text-[11px] text-white">{img.filename}</p>
         {!selectionMode && (
           <button
-            onClick={(e) => { e.stopPropagation(); onQuarantine(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuarantine();
+            }}
             className="mt-1 text-[10px] text-white/70 hover:text-white"
           >
             Quarantine
@@ -84,25 +105,41 @@ export function Images() {
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
   const load = useCallback(() => {
-    imageApi.listImages({
-      page,
-      page_size: PAGE_SIZE,
-      sort_by: sortBy,
-      sort_dir: sortDir,
-      ...(statusFilter ? { status: statusFilter } : {}),
-      ...(detectionFilter ? { has_detections: detectionFilter as "any" | "exposed" | "none" } : {}),
-    }).then((r) => {
-      setImages(r.items);
-      setTotal(r.total);
-    }).catch(() => {});
+    imageApi
+      .listImages({
+        page,
+        page_size: PAGE_SIZE,
+        sort_by: sortBy,
+        sort_dir: sortDir,
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(detectionFilter
+          ? { has_detections: detectionFilter as "any" | "exposed" | "none" }
+          : {}),
+      })
+      .then((r) => {
+        setImages(r.items);
+        setTotal(r.total);
+      })
+      .catch(() => {});
   }, [page, sortBy, sortDir, statusFilter, detectionFilter]);
 
   useLiveFiles("image", null, load);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const toggleId = (id: number) =>
-    setSelectedIds((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleId = (id: number) => {
+    setSelectedIds((s) => {
+      const n = new Set(s);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
+  };
 
   const toggleSelectionMode = () => {
     setSelectionMode((m) => !m);
@@ -134,7 +171,9 @@ export function Images() {
       <div>
         <SectionHeader className="mb-1.5">Images</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Images</h1>
-        <p className="text-sm text-muted-foreground mt-1">Browse and manage images across all libraries.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Browse and manage images across all libraries.
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -177,15 +216,21 @@ export function Images() {
             className="h-8 rounded-md border border-input bg-background px-2 text-xs"
           >
             {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
           <button
-            onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+            onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
             className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             title={sortDir === "asc" ? "Ascending" : "Descending"}
           >
-            {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+            {sortDir === "asc" ? (
+              <ArrowUp className="h-3.5 w-3.5" />
+            ) : (
+              <ArrowDown className="h-3.5 w-3.5" />
+            )}
           </button>
           <button
             onClick={toggleSelectionMode}
@@ -202,7 +247,10 @@ export function Images() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-        {(search.trim() ? images.filter((img) => img.filename.toLowerCase().includes(search.toLowerCase())) : images).map((img) => (
+        {(search.trim()
+          ? images.filter((img) => img.filename.toLowerCase().includes(search.toLowerCase()))
+          : images
+        ).map((img) => (
           <ImageCard
             key={img.id}
             img={img}
@@ -220,19 +268,31 @@ export function Images() {
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <ImagesIcon className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No images found</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">Add an image library and run a scan to populate this view.</p>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Add an image library and run a scan to populate this view.
+            </p>
           </CardContent>
         </Card>
       )}
 
       <div className="flex items-center justify-between">
-        <Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page === 1}
+          onClick={() => setPage((p) => p - 1)}
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="text-xs text-muted-foreground">
           Page {page} of {totalPages}
         </span>
-        <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={page >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+        >
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -244,19 +304,24 @@ export function Images() {
           ) : (
             <>
               <span className="text-sm font-medium">{selectedIds.size} selected</span>
-              <Button size="sm" variant="destructive" disabled={quarantining} onClick={quarantineSelected}>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={quarantining}
+                onClick={quarantineSelected}
+              >
                 <FolderX className="h-3.5 w-3.5" />
                 Quarantine
               </Button>
             </>
           )}
-          <Button size="sm" variant="ghost" onClick={toggleSelectionMode}>Cancel</Button>
+          <Button size="sm" variant="ghost" onClick={toggleSelectionMode}>
+            Cancel
+          </Button>
         </div>
       )}
 
-      {viewingImg && (
-        <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />
-      )}
+      {viewingImg && <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />}
     </div>
   );
 }

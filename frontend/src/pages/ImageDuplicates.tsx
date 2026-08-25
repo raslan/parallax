@@ -50,7 +50,10 @@ function ImageCard({
 
       {/* Checkbox top-left */}
       <div
-        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
         className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors z-10 ${
           isChecked
             ? "bg-destructive border-destructive"
@@ -151,7 +154,9 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
         const imgs = ids.map((id) => imgMap.get(id)).filter(Boolean) as ImageFile[];
         const keepId = recommendKeep(imgs);
         newKeepIds[i] = keepId;
-        ids.forEach((id) => { if (id !== keepId) newDeleteIds.add(id); });
+        ids.forEach((id) => {
+          if (id !== keepId) newDeleteIds.add(id);
+        });
       });
       setSuggestedKeepIds(newKeepIds);
       setDeleteIds(newDeleteIds);
@@ -164,17 +169,23 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
 
   useLiveFiles("image", libraryId ?? null, () => setResultsStale(true));
 
-  useEffect(() => { load(appliedThreshold); }, [libraryId]);
+  useEffect(() => {
+    load(appliedThreshold);
+  }, [libraryId]);
 
-  const clusterImages = useMemo(() =>
-    clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
-    [clusters, allImages]
+  const clusterImages = useMemo(
+    () => clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
+    [clusters, allImages],
   );
 
   const toggleDelete = (id: number) => {
     setDeleteIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -224,7 +235,9 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
         <CardContent className="px-4 py-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Min similarity</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Min similarity
+              </span>
               <input
                 type="range"
                 min={0}
@@ -264,8 +277,12 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
 
       {clusters.length > 0 && resultsStale && (
         <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
-          <span className="text-amber-400">Images changed since this scan ran — results may be out of date.</span>
-          <Button size="sm" variant="outline" onClick={handleFind}>Refresh</Button>
+          <span className="text-amber-400">
+            Images changed since this scan ran — results may be out of date.
+          </span>
+          <Button size="sm" variant="outline" onClick={handleFind}>
+            Refresh
+          </Button>
         </div>
       )}
 
@@ -273,10 +290,13 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
         <>
           <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
             <p className="text-sm">
-              <span className="font-semibold tabular-nums font-mono">{clusters.length}</span> duplicate group{clusters.length !== 1 ? "s" : ""} found
+              <span className="font-semibold tabular-nums font-mono">{clusters.length}</span>{" "}
+              duplicate group{clusters.length !== 1 ? "s" : ""} found
               {deleteIds.size > 0 && (
                 <span className="text-muted-foreground ml-2">
-                  · <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span> selected for quarantine
+                  ·{" "}
+                  <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span>{" "}
+                  selected for quarantine
                 </span>
               )}
             </p>
@@ -297,9 +317,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
         </>
       )}
 
-      {viewingImg && (
-        <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />
-      )}
+      {viewingImg && <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />}
     </div>
   );
 }
