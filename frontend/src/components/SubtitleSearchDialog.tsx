@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Download, CheckCircle2, Volume2, VolumeX, Search } from "lucide-react";
+import { Loader2, Download, CheckCircle2, Search, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api, subtitlesApi, SearchResult, SubtitleCandidate, SubtitleFile } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,18 +16,20 @@ const LANG_NAMES: Record<string, string> = {
   fi: "Finnish", nb: "Norwegian", tr: "Turkish",
 };
 
-function ScoreBar({ score, max = 100 }: { score: number; max?: number }) {
-  const pct = Math.min(100, Math.round((score / max) * 100));
+// subf2m only exposes a coarse good/bad/not-rated widget (mapped to a
+// 20/50/80 score server-side); yts-subs has a real 0-5 star rating scaled to
+// 0-100. Neither site publishes an actual download count.
+function MatchPct({ score }: { score: number }) {
+  const pct = Math.min(100, Math.round(score));
   return (
-    <div className="flex items-center gap-1.5 shrink-0">
-      <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
-        <div
-          className={cn("h-full rounded-full", pct >= 70 ? "bg-green-500" : pct >= 40 ? "bg-amber-500" : "bg-muted-foreground/40")}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-[10px] text-muted-foreground w-6 text-right">{pct}</span>
-    </div>
+    <span
+      className={cn(
+        "text-[11px] font-medium tabular-nums shrink-0 w-9 text-right",
+        pct >= 70 ? "text-green-500" : pct >= 40 ? "text-amber-500" : "text-muted-foreground/60"
+      )}
+    >
+      {pct}%
+    </span>
   );
 }
 
@@ -46,6 +49,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
   const [episodeInput, setEpisodeInput] = useState(file.episode != null ? String(file.episode) : "1");
   const [dialogLangs, setDialogLangs] = useState<string[]>(languages);
   const [tmdbAvailable, setTmdbAvailable] = useState<boolean | null>(null);
+  const [searchProvider, setSearchProvider] = useState<"subf2m" | "ytssubs">("subf2m");
 
   const toggleLang = (code: string) => {
     setDialogLangs((prev) =>
@@ -90,6 +94,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
   const runSearch = () => {
     const title = query.trim();
     if (!title) return;
+    if (searchProvider === "ytssubs" && !tmdbAvailable) return;
     const manualYearNum = manualYear.trim() ? parseInt(manualYear, 10) : undefined;
     setSearching(true);
     setError("");
@@ -99,6 +104,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
       media_type: mediaType,
       season: mediaType === "tv" ? (parseInt(seasonInput, 10) || 1) : undefined,
       episode: mediaType === "tv" ? (parseInt(episodeInput, 10) || 1) : undefined,
+      provider: searchProvider,
     })
       .then(setCandidates)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Search failed"))
@@ -125,8 +131,6 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
       setDownloadingId(null);
     }
   };
-
-  const maxScore = candidates.length ? Math.max(...candidates.map((c) => c.score), 1) : 1;
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
@@ -177,7 +181,10 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
                   className="text-sm w-20 shrink-0"
                 />
               )}
-              <Button onClick={() => runSearch()} disabled={searching || !query.trim()}>
+              <Button
+                onClick={() => runSearch()}
+                disabled={searching || !query.trim() || (searchProvider === "ytssubs" && tmdbAvailable === false)}
+              >
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
@@ -188,6 +195,37 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
             )}
             {yearOverride != null && (
               <p className="text-xs text-muted-foreground">Using TMDB match: {query} ({yearOverride})</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Source</span>
+            <div className="flex rounded-md border border-border overflow-hidden w-fit">
+              {([
+                { id: "subf2m" as const, label: "Subf2m" },
+                { id: "ytssubs" as const, label: "YTS-Subs" },
+              ]).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => { setSearchProvider(id); setSearched(false); setCandidates([]); }}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-medium transition-colors",
+                    searchProvider === id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {searchProvider === "ytssubs" && tmdbAvailable === false && (
+              <Link
+                to="/settings?tab=credentials"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Settings className="h-3 w-3" />
+                YTS-Subs needs a TMDB API key to look up the film — configure in Settings → Keys &amp; Accounts
+              </Link>
             )}
           </div>
 
@@ -316,12 +354,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
                     {c.release}
                   </span>
 
-                  {c.hearing_impaired
-                    ? <span title="Hearing impaired"><VolumeX className="h-3 w-3 text-muted-foreground/50 shrink-0" /></span>
-                    : <Volume2 className="h-3 w-3 text-muted-foreground/30 shrink-0" />
-                  }
-
-                  <ScoreBar score={c.score} max={maxScore} />
+                  <MatchPct score={c.score} />
 
                   {isDone ? (
                     <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />

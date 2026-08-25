@@ -40,6 +40,7 @@ class SearchFileRequest(BaseModel):
     media_type: Optional[str] = None
     season: Optional[int] = None
     episode: Optional[int] = None
+    provider: str = "subf2m"
 
 
 class DownloadOneRequest(BaseModel):
@@ -86,12 +87,16 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
         raise HTTPException(400, "File not found")
     lang_codes = body.languages or _get_lang_codes(db)
     from app.services.subtitle_service import search_file as svc_search
+    tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip() or None
     try:
         return svc_search(
             body.file_path, lang_codes,
             query=body.query, year=body.year, media_type=body.media_type,
             season=body.season, episode=body.episode,
+            provider=body.provider, tmdb_api_key=tmdb_api_key,
         )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
