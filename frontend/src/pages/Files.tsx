@@ -113,7 +113,13 @@ function ThumbnailCard({
   const handleCheck = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setChecking(true);
-    try { await api.checkFile(file.id); } catch { } finally { setChecking(false); }
+    try {
+      await api.checkFile(file.id);
+    } catch {
+      // Ignore check errors
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
@@ -139,7 +145,7 @@ function ThumbnailCard({
         )}
 
         <div className="absolute top-1.5 right-1.5">
-          <Badge variant={(STATUS_COLORS[file.status] ?? "secondary") as any} className="text-xs capitalize">
+          <Badge variant={(STATUS_COLORS[file.status] ?? "secondary") as unknown as "default" | "destructive" | "outline" | "secondary" | "success" | "warning" | null | undefined} className="text-xs capitalize">
             {file.status}
           </Badge>
         </div>
@@ -207,7 +213,13 @@ function FileListRow({
   const handleCheck = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setChecking(true);
-    try { await api.checkFile(file.id); } catch { } finally { setChecking(false); }
+    try {
+      await api.checkFile(file.id);
+    } catch {
+      // Ignore check errors
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (

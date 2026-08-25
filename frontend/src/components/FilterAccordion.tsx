@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 export function FilterAccordion({
@@ -16,24 +16,24 @@ export function FilterAccordion({
   badge?: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(enabled);
-
-  useEffect(() => {
-    if (enabled) setOpen(true);
-  }, [enabled]);
+  const [userToggled, setUserToggled] = useState(false);
+  const open = enabled || userToggled;
 
   return (
     <div>
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-muted/40 transition-colors"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setUserToggled((t) => !t)}
       >
         <input
           type="checkbox"
           className="accent-primary h-4 w-4 shrink-0"
           checked={enabled}
           data-testid={`filter-${label.toLowerCase().replace(/\s+/g, "-")}`}
-          onChange={(e) => { e.stopPropagation(); onToggle(e.target.checked); }}
+          onChange={(e) => {
+            e.stopPropagation();
+            onToggle(e.target.checked);
+          }}
           onClick={(e) => e.stopPropagation()}
         />
         <span className="text-sm font-medium flex-1">{label}</span>
@@ -49,11 +49,7 @@ export function FilterAccordion({
           className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </div>
-      {open && (
-        <div className="px-4 pb-4 pt-1 bg-muted/20">
-          {children}
-        </div>
-      )}
+      {open && <div className="px-4 pb-4 pt-1 bg-muted/20">{children}</div>}
     </div>
   );
 }

@@ -148,7 +148,9 @@ function loadCriteria(): DuplicateCriteria {
       if (parsed.phash_frames == null) parsed.phash_frames = 16;
       return parsed;
     }
-  } catch {}
+  } catch {
+    // Return defaults if stored criteria is malformed
+  }
   return {
     use_size: true,
     use_duration: true,
@@ -216,24 +218,6 @@ export function Duplicates() {
 
   useLiveFiles("video", selectedId, () => setResultsStale(true));
 
-  useEffect(() => {
-    if (!selectedId) return;
-    setInitializing(true);
-    api.getJobs().then((jobs) => {
-      const active = jobs.find(
-        (j) => j.type === "duplicates" && j.library_id === selectedId &&
-               (j.status === "running" || j.status === "pending")
-      );
-      if (!active) {
-        stopPolling();
-        setScanning(false);
-      } else {
-        setScanning(true);
-        startPolling(selectedId);
-      }
-    }).catch(() => {}).finally(() => setInitializing(false));
-  }, [selectedId]);
-
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   };
@@ -253,11 +237,30 @@ export function Duplicates() {
         setDeleteIds(init);
         stopPolling();
         setScanning(false);
-      } catch (e: any) {
-        if (!e?.message?.startsWith("404")) { stopPolling(); setScanning(false); }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "";
+        if (!msg.startsWith("404")) { stopPolling(); setScanning(false); }
       }
     }, 2000);
   };
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setInitializing(true);
+    api.getJobs().then((jobs) => {
+      const active = jobs.find(
+        (j) => j.type === "duplicates" && j.library_id === selectedId &&
+               (j.status === "running" || j.status === "pending")
+      );
+      if (!active) {
+        stopPolling();
+        setScanning(false);
+      } else {
+        setScanning(true);
+        startPolling(selectedId);
+      }
+    }).catch(() => {}).finally(() => setInitializing(false));
+  }, [selectedId]);
 
   const handleScan = async () => {
     if (!selectedId) return;
@@ -277,7 +280,11 @@ export function Duplicates() {
   const toggleDelete = (fileId: number) => {
     setDeleteIds((prev) => {
       const next = new Set(prev);
-      next.has(fileId) ? next.delete(fileId) : next.add(fileId);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
       return next;
     });
   };

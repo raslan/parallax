@@ -232,8 +232,8 @@ export function Cleanup() {
     if (!results) return null;
     const dir = sortDir === "asc" ? 1 : -1;
     return [...results].sort((a, b) => {
-      const av = (a as any)[sortBy] ?? "";
-      const bv = (b as any)[sortBy] ?? "";
+      const av = (a[sortBy as keyof VideoFile] ?? "") as unknown;
+      const bv = (b[sortBy as keyof VideoFile] ?? "") as unknown;
       if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
       return String(av).localeCompare(String(bv)) * dir;
     });
@@ -264,7 +264,11 @@ export function Cleanup() {
   const toggleLabel = (label: string) => {
     setCheckedLabels((prev) => {
       const next = new Set(prev);
-      next.has(label) ? next.delete(label) : next.add(label);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
       return next;
     });
   };
@@ -369,8 +373,9 @@ export function Cleanup() {
       }
 
       setResults(finalFiles);
-    } catch (e: any) {
-      setError(e.message || "Failed to fetch results");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to fetch results";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -403,8 +408,9 @@ export function Cleanup() {
       const remaining = results.filter((f) => !selected.has(f.id));
       setResults(remaining);
       setSelected(new Set());
-    } catch (e: any) {
-      setError(e.message || "Delete failed");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Delete failed";
+      setError(message);
     } finally {
       setDeleting(false);
     }

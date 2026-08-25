@@ -214,6 +214,16 @@ function ModelCard({ model, onAction, activeDownload }: {
   );
 }
 
+function SaveButton({ saving, saved, dirty, onSave }: { saving: boolean; saved: boolean; dirty: boolean; onSave: () => void }) {
+  return (
+    <Button onClick={onSave} disabled={saving || !dirty} size="sm">
+      {saving && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
+      {saved  && <Check   className="h-3.5 w-3.5 mr-2 text-green-400" />}
+      {saved ? "Saved" : "Save changes"}
+    </Button>
+  );
+}
+
 export function Settings() {
   const { theme, setTheme } = useTheme();
   const [searchParams] = useSearchParams();
@@ -302,14 +312,6 @@ export function Settings() {
   const clipModels    = models.filter((m) => m.type === "clip");
   const nudenetModels = models.filter((m) => m.type === "nudenet");
   const whisperModels = models.filter((m) => m.type === "whisper");
-
-  const SaveButton = () => (
-    <Button onClick={handleSave} disabled={saving || !dirty} size="sm">
-      {saving && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
-      {saved  && <Check   className="h-3.5 w-3.5 mr-2 text-green-400" />}
-      {saved ? "Saved" : "Save changes"}
-    </Button>
-  );
 
   return (
     <div className="p-8 space-y-6">
@@ -424,7 +426,7 @@ export function Settings() {
                     ))}
                   </div>
                 </div>
-                <SaveButton />
+                <SaveButton saving={saving} saved={saved} dirty={dirty} onSave={handleSave} />
               </>
             )}
           </CardContent>
@@ -494,7 +496,7 @@ export function Settings() {
                 </CardContent>
               </Card>
 
-              <SaveButton />
+              <SaveButton saving={saving} saved={saved} dirty={dirty} onSave={handleSave} />
             </>
           )}
         </div>
@@ -545,7 +547,7 @@ export function Settings() {
                       </button>
                     ))}
                   </div>
-                  <SaveButton />
+                  <SaveButton saving={saving} saved={saved} dirty={dirty} onSave={handleSave} />
                 </>
               )}
             </CardContent>
@@ -592,7 +594,7 @@ export function Settings() {
                       </button>
                     ))}
                   </div>
-                  <SaveButton />
+                  <SaveButton saving={saving} saved={saved} dirty={dirty} onSave={handleSave} />
                 </>
               )}
             </CardContent>
@@ -639,7 +641,7 @@ export function Settings() {
                       </button>
                     ))}
                   </div>
-                  <SaveButton />
+                  <SaveButton saving={saving} saved={saved} dirty={dirty} onSave={handleSave} />
                 </>
               )}
             </CardContent>
@@ -804,7 +806,7 @@ export function Settings() {
               </Button>
             </CardContent>
           </Card>
-          <SaveButton />
+          <SaveButton saving={saving} saved={saved} dirty={dirty} onSave={handleSave} />
         </div>
       )}
 

@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { ImageOff, Check, Play, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  ImageOff,
+  Check,
+  Play,
+  CheckSquare,
+  Square,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import { VideoFile, api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -12,9 +21,16 @@ export function applySortDir<T>(arr: T[], dir: SortDir): T[] {
 }
 
 export function FileGridCard({
-  file, selected, onToggle, onPlay, badge,
+  file,
+  selected,
+  onToggle,
+  onPlay,
+  badge,
 }: {
-  file: VideoFile; selected: boolean; onToggle: () => void; onPlay: () => void;
+  file: VideoFile;
+  selected: boolean;
+  onToggle: () => void;
+  onPlay: () => void;
   badge?: React.ReactNode;
 }) {
   const [imgError, setImgError] = useState(false);
@@ -23,7 +39,7 @@ export function FileGridCard({
     <Card
       className={cn(
         "overflow-hidden cursor-pointer group transition-shadow hover:ring-1",
-        selected ? "ring-2 ring-primary" : "hover:ring-primary"
+        selected ? "ring-2 ring-primary" : "hover:ring-primary",
       )}
       onClick={onToggle}
     >
@@ -41,10 +57,13 @@ export function FileGridCard({
         )}
 
         <button
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
           className={cn(
             "absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
-            selected ? "bg-primary border-primary" : "bg-black/50 border-white/70"
+            selected ? "bg-primary border-primary" : "bg-black/50 border-white/70",
           )}
         >
           {selected && <Check className="h-2.5 w-2.5 text-white" />}
@@ -54,7 +73,10 @@ export function FileGridCard({
 
         <div className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
-            onClick={(e) => { e.stopPropagation(); onPlay(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay();
+            }}
             title="Preview"
             className="bg-black/60 hover:bg-black/80 rounded p-1"
           >
@@ -77,42 +99,76 @@ export function FileGridCard({
   );
 }
 
-export function ColHeader<K extends string>({ label, sortKey, current, dir, onSort, className }: {
-  label: string; sortKey: K; current: K; dir: SortDir;
-  onSort: (k: K) => void; className?: string;
+export function ColHeader<K extends string>({
+  label,
+  sortKey,
+  current,
+  dir,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: K;
+  current: K;
+  dir: SortDir;
+  onSort: (k: K) => void;
+  className?: string;
 }) {
   const active = current === sortKey;
   return (
     <button
       onClick={() => onSort(sortKey)}
-      className={cn("flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground transition-colors", className)}
+      className={cn(
+        "flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground transition-colors",
+        className,
+      )}
     >
       {label}
-      {active
-        ? dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-        : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+      {active ? (
+        dir === "asc" ? (
+          <ArrowUp className="h-3 w-3" />
+        ) : (
+          <ArrowDown className="h-3 w-3" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3 w-3 opacity-30" />
+      )}
     </button>
   );
 }
 
 export function FileListRow({
-  file, selected, onToggle, onPlay, trailing,
+  file,
+  selected,
+  onToggle,
+  onPlay,
+  trailing,
 }: {
-  file: VideoFile; selected: boolean; onToggle: () => void; onPlay: () => void;
+  file: VideoFile;
+  selected: boolean;
+  onToggle: () => void;
+  onPlay: () => void;
   trailing?: React.ReactNode;
 }) {
   return (
     <div
       className={cn(
         "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none group",
-        selected && "bg-primary/5"
+        selected && "bg-primary/5",
       )}
       onClick={onToggle}
     >
       <span className="shrink-0">
-        {selected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
+        {selected ? (
+          <CheckSquare className="h-4 w-4 text-primary" />
+        ) : (
+          <Square className="h-4 w-4 text-muted-foreground" />
+        )}
       </span>
-      <span className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0" title={file.path}>
+      <span
+        className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"
+        title={file.path}
+      >
         {file.filename}
       </span>
       {file.codec_name && (
@@ -128,7 +184,10 @@ export function FileListRow({
       </span>
       {trailing}
       <button
-        onClick={(e) => { e.stopPropagation(); onPlay(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPlay();
+        }}
         title="Preview"
         className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
       >

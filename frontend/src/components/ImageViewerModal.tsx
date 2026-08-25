@@ -5,7 +5,9 @@ import { formatSize } from "@/lib/format";
 
 export function ImageViewerModal({ img, onClose }: { img: ImageFile; onClose: () => void }) {
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);

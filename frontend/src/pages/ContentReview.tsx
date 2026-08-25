@@ -145,11 +145,29 @@ export function ContentReview() {
     return filteredSearchImages.filter((sr) => detectionIds.has(sr.id));
   })();
 
-  const toggleLabel = (label: string) =>
-    setCheckedLabels((s) => { const n = new Set(s); n.has(label) ? n.delete(label) : n.add(label); return n; });
+  const toggleLabel = (label: string) => {
+    setCheckedLabels((s) => {
+      const n = new Set(s);
+      if (n.has(label)) {
+        n.delete(label);
+      } else {
+        n.add(label);
+      }
+      return n;
+    });
+  };
 
-  const toggleId = (id: number) =>
-    setSelectedIds((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleId = (id: number) => {
+    setSelectedIds((s) => {
+      const n = new Set(s);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
+  };
 
   async function runFilters() {
     setLoading(true);

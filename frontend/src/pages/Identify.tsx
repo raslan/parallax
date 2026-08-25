@@ -60,8 +60,9 @@ export function Identify() {
         setSearchQuery(res.guess.title);
         doSearch(res.guess.title, res.guess.type);
       }
-    } catch (e: any) {
-      setError(e.message || "Failed to load files");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "";
+      setError(msg || "Failed to load files");
     } finally {
       setLoadingFiles(false);
     }
@@ -78,8 +79,8 @@ export function Identify() {
     try {
       const results = await api.identifySearch({ query, type });
       setSearchResults(results);
-    } catch (e: any) {
-      setError(e.message || "Search failed");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : ""; setError(msg || "Search failed");
     } finally {
       setLoadingSearch(false);
     }
@@ -131,8 +132,8 @@ export function Identify() {
         setLoadedSeasons(successfulSeasons);
         const slotKeys = new Set(eps.map((e) => slotKey(e.season_number, e.episode_number)));
         setAssignments(buildInitialAssignments(files, fileGuesses, slotKeys));
-      } catch (e: any) {
-        setError(e.message || "Failed to load episodes");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : ""; setError(msg || "Failed to load episodes");
       } finally {
         setLoadingEpisodes(false);
       }
@@ -164,8 +165,8 @@ export function Identify() {
       const additions = buildInitialAssignments(stillPooled, fileGuesses, newSlotKeys);
       setAssignments((prev) => ({ ...prev, ...additions }));
       setAddSeasonInput("");
-    } catch (e: any) {
-      setError(e.message || "Failed to load season");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : ""; setError(msg || "Failed to load season");
     } finally {
       setLoadingAddSeason(false);
     }
@@ -205,8 +206,8 @@ export function Identify() {
       setFileOps(res.file_ops);
       setFolderOps(res.folder_ops);
       setStep("preview");
-    } catch (e: any) {
-      setError(e.message || "Preview failed");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : ""; setError(msg || "Preview failed");
     } finally {
       setLoadingPreview(false);
     }
@@ -220,8 +221,8 @@ export function Identify() {
       setApplySuccesses(res.successes);
       setApplyFailures(res.failures);
       setStep("done");
-    } catch (e: any) {
-      setError(e.message || "Apply failed");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : ""; setError(msg || "Apply failed");
     } finally {
       setLoadingApply(false);
     }

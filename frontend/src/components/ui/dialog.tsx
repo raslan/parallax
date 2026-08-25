@@ -30,8 +30,11 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
   );
 }
 
-function DialogContent({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement> & { onClose?: () => void }) {
-  const { onClose, ...rest } = props as any;
+interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  onClose?: () => void;
+}
+
+function DialogContent({ className, children, onClose, ...rest }: DialogContentProps) {
   return (
     <div
       className={cn(
