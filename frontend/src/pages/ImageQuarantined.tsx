@@ -24,19 +24,26 @@ function LibraryGroup({
 
   const totalSize = entries.reduce((s, e) => s + e.size, 0);
 
-  const setIdBusy = (id: number, busy: boolean) =>
+  const setIdBusy = (id: number, busy: boolean) => {
     setBusyIds((prev) => {
       const next = new Set(prev);
-      busy ? next.add(id) : next.delete(id);
+      if (busy) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
       return next;
     });
+  };
 
   const handleRestore = async (img: ImageFile) => {
     setIdBusy(img.id, true);
     try {
       await imageApi.restoreImage(img.id);
       onRefresh();
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setIdBusy(img.id, false);
     }
   };
@@ -47,13 +54,16 @@ function LibraryGroup({
     try {
       await imageApi.deleteImage(img.id);
       onRefresh();
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setIdBusy(img.id, false);
     }
   };
 
   const handleRestoreAll = async () => {
-    if (!confirm(`Restore all ${entries.length} images in "${libraryName}" to their library?`)) return;
+    if (!confirm(`Restore all ${entries.length} images in "${libraryName}" to their library?`))
+      return;
     setRestoringAll(true);
     try {
       await imageApi.restoreBulk(entries.map((img) => img.id));
@@ -64,7 +74,12 @@ function LibraryGroup({
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm(`Permanently delete all ${entries.length} images in "${libraryName}"? This cannot be undone.`)) return;
+    if (
+      !confirm(
+        `Permanently delete all ${entries.length} images in "${libraryName}"? This cannot be undone.`,
+      )
+    )
+      return;
     setDeletingAll(true);
     try {
       await imageApi.deleteBulk(entries.map((img) => img.id));
@@ -81,9 +96,11 @@ function LibraryGroup({
         onClick={() => setOpen((v) => !v)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          {open
-            ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
           <span className="text-sm font-medium truncate">{libraryName}</span>
           <span className="text-xs text-muted-foreground shrink-0">
             {entries.length} {entries.length === 1 ? "image" : "images"} · {formatSize(totalSize)}
@@ -97,9 +114,11 @@ function LibraryGroup({
             disabled={restoringAll || deletingAll}
             onClick={handleRestoreAll}
           >
-            {restoringAll
-              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              : <RotateCcw className="h-3.5 w-3.5 mr-1.5" />}
+            {restoringAll ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            )}
             Restore all
           </Button>
           <Button
@@ -109,9 +128,11 @@ function LibraryGroup({
             disabled={deletingAll || restoringAll}
             onClick={handleDeleteAll}
           >
-            {deletingAll
-              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+            {deletingAll ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            )}
             Delete all
           </Button>
         </div>
@@ -125,8 +146,12 @@ function LibraryGroup({
               return (
                 <div key={img.id} className="flex items-center gap-4 px-5 py-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate" title={img.path}>{img.filename}</p>
-                    <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{img.path}</p>
+                    <p className="text-sm truncate" title={img.path}>
+                      {img.filename}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">
+                      {img.path}
+                    </p>
                   </div>
 
                   <span className="text-xs text-muted-foreground shrink-0 font-mono tabular-nums">
@@ -142,7 +167,11 @@ function LibraryGroup({
                       disabled={busy}
                       onClick={() => handleRestore(img)}
                     >
-                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                      {busy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                     <Button
                       size="icon"
@@ -152,7 +181,11 @@ function LibraryGroup({
                       disabled={busy}
                       onClick={() => handleDelete(img)}
                     >
-                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      {busy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -174,23 +207,29 @@ export function ImageQuarantined() {
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      imageApi.listQuarantined(1, 10000),
-      imageApi.listLibraries(),
-    ]).then(([r, libs]) => {
-      setImages(r.items);
-      setLibraries(libs);
-    }).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([imageApi.listQuarantined(1, 10000), imageApi.listLibraries()])
+      .then(([r, libs]) => {
+        setImages(r.items);
+        setLibraries(libs);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const byLibrary = (() => {
     const libMap = Object.fromEntries(libraries.map((l) => [l.id, l.name]));
     const acc: Record<number, { id: number; name: string; entries: ImageFile[] }> = {};
     for (const img of images) {
       if (!acc[img.library_id]) {
-        acc[img.library_id] = { id: img.library_id, name: libMap[img.library_id] ?? `Library ${img.library_id}`, entries: [] };
+        acc[img.library_id] = {
+          id: img.library_id,
+          name: libMap[img.library_id] ?? `Library ${img.library_id}`,
+          entries: [],
+        };
       }
       acc[img.library_id].entries.push(img);
     }
@@ -208,7 +247,8 @@ export function ImageQuarantined() {
           <SectionHeader className="mb-1.5">Quarantined images</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Quarantine</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Images moved to quarantine from content review. Restore to return them, or delete permanently.
+            Images moved to quarantine from content review. Restore to return them, or delete
+            permanently.
           </p>
         </div>
         <button
@@ -225,7 +265,7 @@ export function ImageQuarantined() {
         <div className="grid grid-cols-2 border border-border rounded-[0.4rem] overflow-hidden divide-x divide-border">
           {[
             { label: "Quarantined", value: `${images.length}` },
-            { label: "Total size",  value: formatSize(totalSize) },
+            { label: "Total size", value: formatSize(totalSize) },
           ].map(({ label, value }) => (
             <div key={label} className="px-7 py-5">
               <SectionHeader className="mb-2">{label}</SectionHeader>
@@ -246,7 +286,8 @@ export function ImageQuarantined() {
             <FolderX className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No quarantined images</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Images flagged in content review will appear here. You can restore or permanently delete them.
+              Images flagged in content review will appear here. You can restore or permanently
+              delete them.
             </p>
           </CardContent>
         </Card>

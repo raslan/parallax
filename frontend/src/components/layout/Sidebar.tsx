@@ -71,8 +71,9 @@ function SectionGroup({
     return stored !== null ? stored === "true" : true;
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    // Intentionally one-way: forceOpen only opens, never closes
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (forceOpen && !open) setOpen(true);
   }, [forceOpen, open]);
 
