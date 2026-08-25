@@ -187,14 +187,14 @@ export interface ApplyResponse {
 
 function buildCleanupQuery(params: CleanupParams): string {
   const q = new URLSearchParams();
-  if (params.duration_op)                q.set("duration_op",   params.duration_op);
+  if (params.duration_op) q.set("duration_op", params.duration_op);
   if (params.duration_secs !== undefined) q.set("duration_secs", String(params.duration_secs));
-  if (params.fps_op)                     q.set("fps_op",        params.fps_op);
-  if (params.fps_val !== undefined)      q.set("fps_val",       String(params.fps_val));
-  if (params.date_op)                    q.set("date_op",       params.date_op);
-  if (params.date_ts !== undefined)      q.set("date_ts",       String(params.date_ts));
-  if (params.height_op)                  q.set("height_op",     params.height_op);
-  if (params.height_val !== undefined)   q.set("height_val",    String(params.height_val));
+  if (params.fps_op) q.set("fps_op", params.fps_op);
+  if (params.fps_val !== undefined) q.set("fps_val", String(params.fps_val));
+  if (params.date_op) q.set("date_op", params.date_op);
+  if (params.date_ts !== undefined) q.set("date_ts", String(params.date_ts));
+  if (params.height_op) q.set("height_op", params.height_op);
+  if (params.height_val !== undefined) q.set("height_val", String(params.height_val));
   return q.toString();
 }
 
@@ -207,26 +207,43 @@ export const api = {
   deleteLibrary: (id: number, delete_leftovers = false) =>
     req<void>(`/libraries/${id}?delete_leftovers=${delete_leftovers}`, { method: "DELETE" }),
   libraryLeftovers: (id: number) =>
-    req<{ has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }>(`/libraries/${id}/leftovers`),
-  scanLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
-  checkLibrary: (id: number) => req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
-  browseLibrary: (id: number, path: string, status?: string, sort_by?: string, sort_dir?: string) => {
+    req<{ has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }>(
+      `/libraries/${id}/leftovers`,
+    ),
+  scanLibrary: (id: number) =>
+    req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
+  checkLibrary: (id: number) =>
+    req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
+  browseLibrary: (
+    id: number,
+    path: string,
+    status?: string,
+    sort_by?: string,
+    sort_dir?: string,
+  ) => {
     const q = new URLSearchParams({ path });
-    if (status)   q.set("status",   status);
-    if (sort_by)  q.set("sort_by",  sort_by);
+    if (status) q.set("status", status);
+    if (sort_by) q.set("sort_by", sort_by);
     if (sort_dir) q.set("sort_dir", sort_dir);
     return req<BrowseResponse>(`/libraries/${id}/browse?${q}`);
   },
 
   // Files
-  getFiles: (params: { library_id?: number; status?: string; page?: number; page_size?: number; sort_by?: string; sort_dir?: string }) => {
+  getFiles: (params: {
+    library_id?: number;
+    status?: string;
+    page?: number;
+    page_size?: number;
+    sort_by?: string;
+    sort_dir?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params.library_id !== undefined) q.set("library_id", String(params.library_id));
-    if (params.status)    q.set("status",    params.status);
-    if (params.page)      q.set("page",      String(params.page));
+    if (params.status) q.set("status", params.status);
+    if (params.page) q.set("page", String(params.page));
     if (params.page_size) q.set("page_size", String(params.page_size));
-    if (params.sort_by)   q.set("sort_by",   params.sort_by);
-    if (params.sort_dir)  q.set("sort_dir",  params.sort_dir);
+    if (params.sort_by) q.set("sort_by", params.sort_by);
+    if (params.sort_dir) q.set("sort_dir", params.sort_dir);
     return req<FilesResponse>(`/files?${q}`);
   },
   thumbnailUrl: (id: number, version?: string | number | null) =>
@@ -239,7 +256,14 @@ export const api = {
     if (exclude) params.set("exclude", "true");
     return req<VideoSearchResult[]>(`/files/search?${params}`);
   },
-  filterFilesByDetections: (params: { labels: string[]; min_confidence: number; exclude?: boolean; library_id?: number; page?: number; page_size?: number }) => {
+  filterFilesByDetections: (params: {
+    labels: string[];
+    min_confidence: number;
+    exclude?: boolean;
+    library_id?: number;
+    page?: number;
+    page_size?: number;
+  }) => {
     const q = new URLSearchParams({
       labels: params.labels.join(","),
       min_confidence: String(params.min_confidence),
@@ -251,9 +275,13 @@ export const api = {
     return req<FilesResponse>(`/files/detections?${q}`);
   },
   triggerVideoScan: (library_id: number, reset = false) =>
-    req<{ job_id: number; message: string }>(`/libraries/${library_id}/video-scan?reset=${reset}`, { method: "POST" }),
+    req<{ job_id: number; message: string }>(`/libraries/${library_id}/video-scan?reset=${reset}`, {
+      method: "POST",
+    }),
   triggerPhashScan: (library_id: number, reset = false) =>
-    req<{ job_id: number; message: string }>(`/libraries/${library_id}/phash-scan?reset=${reset}`, { method: "POST" }),
+    req<{ job_id: number; message: string }>(`/libraries/${library_id}/phash-scan?reset=${reset}`, {
+      method: "POST",
+    }),
 
   // Jobs
   getJobs: (limit = 50) => req<Job[]>(`/jobs?limit=${limit}`),
@@ -275,7 +303,10 @@ export const api = {
     }),
   getDuplicates: (id: number) => req<DuplicateGroup[]>(`/libraries/${id}/duplicates`),
   deleteDuplicates: (id: number, file_ids: number[]) =>
-    req<void>(`/libraries/${id}/duplicates`, { method: "DELETE", body: JSON.stringify({ file_ids }) }),
+    req<void>(`/libraries/${id}/duplicates`, {
+      method: "DELETE",
+      body: JSON.stringify({ file_ids }),
+    }),
 
   // Cleanup
   getCleanupFiles: (id: number, params: CleanupParams, fetchAll = false) => {
@@ -294,31 +325,88 @@ export const api = {
   deleteOriginal: (path: string) =>
     req<void>("/originals/file", { method: "DELETE", body: JSON.stringify({ path }) }),
   restoreOriginal: (path: string) =>
-    req<{ message: string; path: string }>("/originals/restore", { method: "POST", body: JSON.stringify({ path }) }),
-  restoreOriginalsBatch: (paths: string[]) =>
-    req<{ restored: number; failed: { path: string; error: string }[] }>("/originals/restore-batch", {
+    req<{ message: string; path: string }>("/originals/restore", {
       method: "POST",
-      body: JSON.stringify({ paths }),
+      body: JSON.stringify({ path }),
     }),
+  restoreOriginalsBatch: (paths: string[]) =>
+    req<{ restored: number; failed: { path: string; error: string }[] }>(
+      "/originals/restore-batch",
+      {
+        method: "POST",
+        body: JSON.stringify({ paths }),
+      },
+    ),
   deleteLibraryOriginals: (library_id: number) =>
     req<void>(`/originals/library/${library_id}`, { method: "DELETE" }),
 
   // Filesystem
-  fsBrowse: (path: string) => req<{ path: string; parent: string | null; dirs: string[] }>(`/fs/browse?path=${encodeURIComponent(path)}`),
+  fsBrowse: (path: string) =>
+    req<{ path: string; parent: string | null; dirs: string[] }>(
+      `/fs/browse?path=${encodeURIComponent(path)}`,
+    ),
 
   // Settings
-  getSettings: () => req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; scan_prefetch: number; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number; ytdlp_channel: string; encoder_family: string; concurrent_limit_hint: number | null }>("/settings"),
-  updateSettings: (body: { max_concurrent_transcodes?: number; tmdb_api_key?: string; clip_model?: string; nudenet_model?: string; whisper_model?: string; video_keyframes_per_video?: number; scan_batch_size?: number; scan_prefetch?: number; subtitle_languages?: string; download_dir?: string; max_concurrent_downloads?: number; ytdlp_channel?: string }) =>
-    req<{ max_concurrent_transcodes: number; tmdb_api_key: string; clip_model: string; nudenet_model: string; whisper_model: string; video_keyframes_per_video: number; scan_batch_size: number; scan_prefetch: number; subtitle_languages: string; download_dir: string; max_concurrent_downloads: number; ytdlp_channel: string; encoder_family: string; concurrent_limit_hint: number | null }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
+  getSettings: () =>
+    req<{
+      max_concurrent_transcodes: number;
+      tmdb_api_key: string;
+      clip_model: string;
+      nudenet_model: string;
+      whisper_model: string;
+      video_keyframes_per_video: number;
+      scan_batch_size: number;
+      scan_prefetch: number;
+      subtitle_languages: string;
+      download_dir: string;
+      max_concurrent_downloads: number;
+      ytdlp_channel: string;
+      encoder_family: string;
+      concurrent_limit_hint: number | null;
+    }>("/settings"),
+  updateSettings: (body: {
+    max_concurrent_transcodes?: number;
+    tmdb_api_key?: string;
+    clip_model?: string;
+    nudenet_model?: string;
+    whisper_model?: string;
+    video_keyframes_per_video?: number;
+    scan_batch_size?: number;
+    scan_prefetch?: number;
+    subtitle_languages?: string;
+    download_dir?: string;
+    max_concurrent_downloads?: number;
+    ytdlp_channel?: string;
+  }) =>
+    req<{
+      max_concurrent_transcodes: number;
+      tmdb_api_key: string;
+      clip_model: string;
+      nudenet_model: string;
+      whisper_model: string;
+      video_keyframes_per_video: number;
+      scan_batch_size: number;
+      scan_prefetch: number;
+      subtitle_languages: string;
+      download_dir: string;
+      max_concurrent_downloads: number;
+      ytdlp_channel: string;
+      encoder_family: string;
+      concurrent_limit_hint: number | null;
+    }>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
   purgeLibraryData: () => req<void>("/settings/purge-library-data", { method: "POST" }),
 
   // yt-dlp
-  ytdlpInfo: () => req<{ installed: boolean; version: string | null; path: string | null }>("/downloads/ytdlp/info"),
+  ytdlpInfo: () =>
+    req<{ installed: boolean; version: string | null; path: string | null }>(
+      "/downloads/ytdlp/info",
+    ),
   ytdlpUpdate: () => req<{ message: string }>("/downloads/ytdlp/update", { method: "POST" }),
   ytdlpImpersonateTargets: () => req<{ targets: string[] }>("/downloads/ytdlp/impersonate-targets"),
 
   // Identify
-  identifyThumbnailUrl: (path: string) => `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
+  identifyThumbnailUrl: (path: string) =>
+    `${BASE}/identify/thumbnail?path=${encodeURIComponent(path)}`,
   identifyFiles: (path: string) =>
     req<{
       path: string;
@@ -328,8 +416,7 @@ export const api = {
     }>(`/identify/files?path=${encodeURIComponent(path)}`),
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
-  identifyGetAllEpisodes: (tmdb_id: number) =>
-    req<Episode[]>(`/identify/tv/${tmdb_id}/episodes`),
+  identifyGetAllEpisodes: (tmdb_id: number) => req<Episode[]>(`/identify/tv/${tmdb_id}/episodes`),
   identifyGetSeason: (tmdb_id: number, season_number: number) =>
     req<Episode[]>(`/identify/tv/${tmdb_id}/season/${season_number}`),
   identifyPreview: (body: {
@@ -339,8 +426,7 @@ export const api = {
     year: number | null;
     tmdb_id: number;
     mappings: FileMapping[];
-  }) =>
-    req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
+  }) => req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
   identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[] }) =>
     req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
 
@@ -349,9 +435,11 @@ export const api = {
   enqueueDownloads: (body: DownloadRequest) =>
     req<{ ids: number[] }>("/downloads", { method: "POST", body: JSON.stringify(body) }),
   deleteDownload: (id: number) => req<void>(`/downloads/${id}`, { method: "DELETE" }),
-  retryAllFailedDownloads: () => req<{ ids: number[] }>("/downloads/retry-failed", { method: "POST" }),
+  retryAllFailedDownloads: () =>
+    req<{ ids: number[] }>("/downloads/retry-failed", { method: "POST" }),
   stopAllDownloads: () => req<{ stopped: number }>("/downloads/stop-all", { method: "POST" }),
-  deleteDownloadWithFile: (id: number) => req<void>(`/downloads/${id}?delete_file=true`, { method: "DELETE" }),
+  deleteDownloadWithFile: (id: number) =>
+    req<void>(`/downloads/${id}?delete_file=true`, { method: "DELETE" }),
   downloadStreamUrl: (id: number) => `${BASE}/downloads/${id}/stream`,
   downloadsSseUrl: () => `${BASE}/downloads/stream`,
 };
@@ -462,8 +550,7 @@ export interface ImageScanRequest {
 // ── Image library API ────────────────────────────────────────────────────────
 
 export const imageApi = {
-  listLibraries: () =>
-    req<ImageLibrary[]>("/image-libraries"),
+  listLibraries: () => req<ImageLibrary[]>("/image-libraries"),
 
   createLibrary: (body: { name?: string; path: string }) =>
     req<ImageLibrary>("/image-libraries", {
@@ -474,7 +561,9 @@ export const imageApi = {
   deleteLibrary: (id: number, delete_leftovers = false) =>
     req<void>(`/image-libraries/${id}?delete_leftovers=${delete_leftovers}`, { method: "DELETE" }),
   libraryLeftovers: (id: number) =>
-    req<{ has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }>(`/image-libraries/${id}/leftovers`),
+    req<{ has_leftovers: boolean; dir_name: string; count: number; total_bytes: number }>(
+      `/image-libraries/${id}/leftovers`,
+    ),
 
   scanLibrary: (id: number, opts: ImageScanRequest) =>
     req<{ job_id: number }>(`/image-libraries/${id}/scan`, {
@@ -525,8 +614,7 @@ export const imageApi = {
       body: JSON.stringify({ ids }),
     }),
 
-  deleteImage: (id: number) =>
-    req<void>(`/images/${id}`, { method: "DELETE" }),
+  deleteImage: (id: number) => req<void>(`/images/${id}`, { method: "DELETE" }),
 
   deleteBulk: (ids: number[]) =>
     req<{ deleted: number }>("/images/delete-bulk", {
@@ -603,17 +691,14 @@ export const modelsApi = {
   downloadNudenet: (model_id: string) =>
     req<{ job_id: number }>(`/models/nudenet/${model_id}/download`, { method: "POST" }),
 
-  deleteClip: (model_id: string) =>
-    req<void>(`/models/clip/${model_id}`, { method: "DELETE" }),
+  deleteClip: (model_id: string) => req<void>(`/models/clip/${model_id}`, { method: "DELETE" }),
 
   deleteNudenet: (model_id: string) =>
     req<void>(`/models/nudenet/${model_id}`, { method: "DELETE" }),
 
-  activateClip: (model_id: string) =>
-    api.updateSettings({ clip_model: model_id }),
+  activateClip: (model_id: string) => api.updateSettings({ clip_model: model_id }),
 
-  activateNudenet: (model_id: string) =>
-    api.updateSettings({ nudenet_model: model_id }),
+  activateNudenet: (model_id: string) => api.updateSettings({ nudenet_model: model_id }),
 
   downloadWhisper: (model_id: string) =>
     req<{ job_id: number }>(`/models/whisper/${model_id}/download`, { method: "POST" }),
@@ -660,23 +745,49 @@ export const subtitlesApi = {
     req<SubtitleFile[]>("/subtitles/scan", { method: "POST", body: JSON.stringify({ path }) }),
 
   download: (path: string, languages?: string[]) =>
-    req<{ job_id: number }>("/subtitles/download", { method: "POST", body: JSON.stringify({ path, languages }) }),
+    req<{ job_id: number }>("/subtitles/download", {
+      method: "POST",
+      body: JSON.stringify({ path, languages }),
+    }),
 
-  searchFile: (file_path: string, languages?: string[], opts?: { query?: string; year?: number; media_type?: string; season?: number; episode?: number; provider?: string }) =>
-    req<SubtitleCandidate[]>("/subtitles/search-file", { method: "POST", body: JSON.stringify({ file_path, languages, ...opts }) }),
+  searchFile: (
+    file_path: string,
+    languages?: string[],
+    opts?: {
+      query?: string;
+      year?: number;
+      media_type?: string;
+      season?: number;
+      episode?: number;
+      provider?: string;
+    },
+  ) =>
+    req<SubtitleCandidate[]>("/subtitles/search-file", {
+      method: "POST",
+      body: JSON.stringify({ file_path, languages, ...opts }),
+    }),
 
   downloadOne: (file_path: string, provider: string, subtitle_id: string, language: string) =>
-    req<{ ok: boolean }>("/subtitles/download-one", { method: "POST", body: JSON.stringify({ file_path, provider, subtitle_id, language }) }),
+    req<{ ok: boolean }>("/subtitles/download-one", {
+      method: "POST",
+      body: JSON.stringify({ file_path, provider, subtitle_id, language }),
+    }),
 
   streamUrl: (path: string) => `${BASE}/subtitles/stream?path=${encodeURIComponent(path)}`,
   vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
   tracksUrl: (path: string) => `${BASE}/subtitles/tracks?path=${encodeURIComponent(path)}`,
 
   transcribeFile: (file_path: string, model_id?: string, language?: string) =>
-    req<{ job_id: number }>("/subtitles/transcribe-file", { method: "POST", body: JSON.stringify({ file_path, model_id, language }) }),
+    req<{ job_id: number }>("/subtitles/transcribe-file", {
+      method: "POST",
+      body: JSON.stringify({ file_path, model_id, language }),
+    }),
 
   transcribeBulk: (path: string, model_id?: string, language?: string) =>
-    req<{ job_id: number }>("/subtitles/transcribe-bulk", { method: "POST", body: JSON.stringify({ path, model_id, language }) }),
+    req<{ job_id: number }>("/subtitles/transcribe-bulk", {
+      method: "POST",
+      body: JSON.stringify({ path, model_id, language }),
+    }),
 };
 
 // ── Stream prep (audio remux for browser playback) ─────────────────────────────
