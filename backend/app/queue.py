@@ -5,9 +5,11 @@ Jobs are tracked by job_id so pending ones can be cancelled before they start.
 A semaphore gates how many run concurrently; a single dispatcher pulls from the
 queue and spawns tasks, each of which acquires the semaphore before running.
 """
+
 import asyncio
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Any
+from typing import Any
 
 _queue: asyncio.Queue | None = None
 _pending: set[int] = set()

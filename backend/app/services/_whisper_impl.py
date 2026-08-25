@@ -3,8 +3,8 @@ Whisper transcription implementation — runs inside an isolated worker subproce
 Loaded by whisper_service.py via ProcessPoolExecutor(spawn) so the CTranslate2/CUDA
 context is fully destroyed when the subprocess exits, freeing all VRAM.
 """
+
 import os
-from typing import Optional
 
 _model = None
 _model_id_loaded: str | None = None
@@ -13,6 +13,7 @@ _model_id_loaded: str | None = None
 def _get_model(model_id: str):
     global _model, _model_id_loaded
     from faster_whisper import WhisperModel
+
     from app.services.model_manager import whisper_model_dir
 
     if _model is None or _model_id_loaded != model_id:
@@ -58,7 +59,7 @@ def _segments_to_srt(segments) -> str:
     return "\n\n".join(lines)
 
 
-def transcribe(video_path: str, model_id: str, language: Optional[str] = None) -> str:
+def transcribe(video_path: str, model_id: str, language: str | None = None) -> str:
     """Transcribe video audio and save SRT alongside it. Returns the SRT file path."""
     model = _get_model(model_id)
 

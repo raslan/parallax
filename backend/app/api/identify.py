@@ -1,7 +1,7 @@
 import os
 import subprocess
 import tempfile
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.settings import get_setting
-from app.services import tmdb as tmdb_service
 from app.services import renamer
+from app.services import tmdb as tmdb_service
 
 router = APIRouter(prefix="/identify", tags=["identify"])
 
@@ -26,11 +26,11 @@ class SearchRequest(BaseModel):
 class SearchResult(BaseModel):
     tmdb_id: int
     title: str
-    year: Optional[int] = None
+    year: int | None = None
     overview: str
-    poster_path: Optional[str] = None
+    poster_path: str | None = None
     type: str
-    number_of_seasons: Optional[int] = None
+    number_of_seasons: int | None = None
 
 
 class Episode(BaseModel):
@@ -42,16 +42,16 @@ class Episode(BaseModel):
 
 class FileMapping(BaseModel):
     file_path: str
-    season_number: Optional[int] = None
-    episode_number: Optional[int] = None
-    episode_name: Optional[str] = None
+    season_number: int | None = None
+    episode_number: int | None = None
+    episode_name: str | None = None
 
 
 class PreviewRequest(BaseModel):
     folder_path: str
     type: Literal["movie", "tv"]
     title: str
-    year: Optional[int] = None
+    year: int | None = None
     tmdb_id: int
     mappings: list[FileMapping]
 
@@ -88,15 +88,29 @@ def get_thumbnail(path: str = Query(...)):
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
     if path in _thumb_cache:
-        return Response(_thumb_cache[path], media_type="image/jpeg",
-                        headers={"Cache-Control": "no-store"})
+        return Response(
+            _thumb_cache[path], media_type="image/jpeg", headers={"Cache-Control": "no-store"}
+        )
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
         tmp_path = tmp.name
     try:
         subprocess.run(
-            ["ffmpeg", "-y", "-ss", "00:00:05", "-i", path,
-             "-vframes", "1", "-vf", "scale=160:-1", tmp_path],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15,
+            [
+                "ffmpeg",
+                "-y",
+                "-ss",
+                "00:00:05",
+                "-i",
+                path,
+                "-vframes",
+                "1",
+                "-vf",
+                "scale=160:-1",
+                tmp_path,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
         )
         with open(tmp_path, "rb") as f:
             data = f.read()

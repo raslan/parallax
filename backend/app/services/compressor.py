@@ -5,12 +5,11 @@ import shutil
 import subprocess
 import tempfile
 import threading
-import time
-from typing import Callable
+from collections.abc import Callable
 
 from app.database import SessionLocal
 from app.models.file import File
-from app.models.job import Job, JobStatus, JobType
+from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 from app.services.encoder import _get_encoders
 from app.services.scanner import rescan_file
@@ -43,6 +42,7 @@ _DEFAULT_CRF: dict[str, int] = {
 
 _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
 
+
 def _get_av1_encoder() -> str | None:
     enc = _get_encoders().get("av1", "libsvtav1")
     return enc if enc else None
@@ -72,15 +72,17 @@ def get_available_codecs() -> list[dict]:
     ]
     av1 = _get_av1_encoder()
     if av1:
-        codecs.append({
-            "id": "av1",
-            "label": "AV1",
-            "encoder": av1,
-            "default_crf": 35,
-            "crf_min": 0,
-            "crf_max": 63,
-            "description": "~50-60% smaller than H.264, slower to encode",
-        })
+        codecs.append(
+            {
+                "id": "av1",
+                "label": "AV1",
+                "encoder": av1,
+                "default_crf": 35,
+                "crf_min": 0,
+                "crf_max": 63,
+                "description": "~50-60% smaller than H.264, slower to encode",
+            }
+        )
     return codecs
 
 
@@ -100,7 +102,6 @@ def estimate_size(
     crf_factor = 2 ** (-crf_delta / 6)
     factor = max((tgt_eff / src_eff) * crf_factor, 0.05)
     return int(source_size * factor)
-
 
 
 def _build_compress_cmd(
@@ -142,12 +143,15 @@ def _build_compress_cmd(
     audio_args = ["-c:a", "aac", "-b:a", "192k"] if reencode_audio else ["-c:a", "copy"]
 
     return [
-        "ffmpeg", "-y",
-        "-i", input_path,
+        "ffmpeg",
+        "-y",
+        "-i",
+        input_path,
         *video_args,
         *tag_args,
         *audio_args,
-        "-progress", "pipe:1",
+        "-progress",
+        "pipe:1",
         "-nostats",
         output_path,
     ]
@@ -190,9 +194,19 @@ def _compress_one(
     duration = 0.0
     try:
         probe = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-print_format", "csv=p=0", src],
-            capture_output=True, text=True, timeout=30,
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-show_entries",
+                "format=duration",
+                "-print_format",
+                "csv=p=0",
+                src,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if probe.stdout.strip():
             duration = float(probe.stdout.strip().split("\n")[0])
@@ -233,7 +247,11 @@ def _compress_one(
         if proc.returncode != 0:
             stderr_text = _read_and_remove(err_path)
             _cleanup(tmp)
-            return False, (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"), None
+            return (
+                False,
+                (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"),
+                None,
+            )
 
         _cleanup(err_path)
 
@@ -346,13 +364,18 @@ def run_compress_job(
             def cb(frac: float) -> None:
                 with fracs_lock:
                     fracs[path] = frac
+
             return cb
 
         def do_one(path: str) -> tuple[str, bool, str | None]:
             fname = os.path.basename(path)
             log_q.put(("info", f"Compressing: {fname}"))
             ok, err, final_path = _compress_one(
-                path, codec, crf, speed, job_id,
+                path,
+                codec,
+                crf,
+                speed,
+                job_id,
                 progress_cb=make_progress_cb(path),
                 keep_original=keep_original,
             )

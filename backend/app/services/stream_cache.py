@@ -29,11 +29,21 @@ _state = {"path": None, "status": "idle", "progress": 0.0, "error": None}
 def _probe_audio_codec(video_path: str) -> str | None:
     try:
         result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json",
-             "-select_streams", "a:0",
-             "-show_entries", "stream=codec_name",
-             video_path],
-            capture_output=True, text=True, timeout=30,
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_name",
+                video_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         streams = json.loads(result.stdout).get("streams") or []
         return streams[0]["codec_name"] if streams else None
@@ -90,7 +100,11 @@ def needs_prepare(video_path: str) -> dict:
             os.utime(_CACHE_FILE, None)
             return {"status": "ready", "progress": 100.0, "error": None}
         if _state["path"] == video_path and _state["status"] in ("running", "error"):
-            return {"status": _state["status"], "progress": _state["progress"], "error": _state["error"]}
+            return {
+                "status": _state["status"],
+                "progress": _state["progress"],
+                "error": _state["error"],
+            }
     return {"status": "not_started", "progress": 0.0, "error": None}
 
 
@@ -122,16 +136,36 @@ def _run_remux(video_path: str) -> None:
     proc = None
     try:
         proc = subprocess.Popen(
-            ["ffmpeg", "-y", "-i", video_path,
-             # Explicit map: without it ffmpeg can also grab a subtitle or
-             # attachment stream (fonts etc.) from the source that the mp4
-             # muxer can't hold, failing the whole remux.
-             "-map", "0:v:0", "-map", "0:a:0",
-             "-c:v", "copy", "-c:a", "aac", "-ac", "2",
-             "-movflags", "+faststart", "-f", "mp4",
-             "-progress", "pipe:1", "-nostats",
-             tmp_path],
-            stdout=subprocess.PIPE, stderr=err_fd, text=True,
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                video_path,
+                # Explicit map: without it ffmpeg can also grab a subtitle or
+                # attachment stream (fonts etc.) from the source that the mp4
+                # muxer can't hold, failing the whole remux.
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a:0",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-ac",
+                "2",
+                "-movflags",
+                "+faststart",
+                "-f",
+                "mp4",
+                "-progress",
+                "pipe:1",
+                "-nostats",
+                tmp_path,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=err_fd,
+            text=True,
         )
         os.close(err_fd)
         err_fd = -1

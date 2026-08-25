@@ -1,18 +1,19 @@
+import asyncio
 import json
 import os
-import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from starlette.concurrency import run_in_threadpool
+from sqlalchemy import asc, desc, func, nullslast
 from sqlalchemy.orm import Session
-from sqlalchemy import func, asc, desc, nullslast
+from starlette.concurrency import run_in_threadpool
 
-from app.database import get_db, SessionLocal
-from app.models.file import File, FileStatus
-from app.models.job import Job, JobStatus, JobType
-from app.schemas import FilesResponse, FileRead
-from app.services.scanner import thumbnail_path
 from app.api.utils import active_job_exists
+from app.database import SessionLocal, get_db
+from app.models.file import File
+from app.models.job import JobType
+from app.schemas import FileRead, FilesResponse
+from app.services.scanner import thumbnail_path
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -26,16 +27,16 @@ async def stream_files(library_id: int | None = Query(None)):
     computed from current DB state rather than emitted by whichever endpoint
     happened to cause the change — no call site anywhere has to remember to
     signal this stream."""
+
     async def generate():
         last_payload = None
         idle_ticks = 0
         while True:
+
             def _compute_signature():
                 db = SessionLocal()
                 try:
-                    q = db.query(
-                        func.count(File.id), func.max(File.id), func.max(File.updated_at)
-                    )
+                    q = db.query(func.count(File.id), func.max(File.id), func.max(File.updated_at))
                     if library_id is not None:
                         q = q.filter(File.library_id == library_id)
                     count, max_id, max_updated = q.one()
@@ -89,12 +90,12 @@ def _to_file_read(f: File) -> FileRead:
 
 
 _SORT_COLUMNS = {
-    "filename":      File.filename,
-    "size":          File.size,
-    "duration":      File.duration,
+    "filename": File.filename,
+    "size": File.size,
+    "duration": File.duration,
     "video_bitrate": File.video_bitrate,
-    "created_at":    File.created_at,
-    "extension":     File.extension,
+    "created_at": File.created_at,
+    "extension": File.extension,
 }
 
 
@@ -136,8 +137,8 @@ def search_files(
     exclude: bool = Query(False, description="Return least similar files instead of most similar"),
     db: Session = Depends(get_db),
 ):
-    from app.services.image_analyzer import encode_text_clip, cosine_similarity
     from app.models.settings import get_setting
+    from app.services.image_analyzer import cosine_similarity, encode_text_clip
 
     clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
     text_vec = encode_text_clip(q, model_id=clip_model_id)
@@ -155,10 +156,7 @@ def search_files(
             continue
 
     scored.sort(key=lambda x: x[1], reverse=not exclude)
-    return [
-        {"file": _to_file_read(f), "score": round(score, 4)}
-        for f, score in scored[:limit]
-    ]
+    return [{"file": _to_file_read(f), "score": round(score, 4)} for f, score in scored[:limit]]
 
 
 @router.get("/detections")
@@ -173,7 +171,7 @@ def filter_by_detections(
 ):
     from app.models.video import VideoDetection
 
-    label_list = [l.strip() for l in labels.split(",") if l.strip()]
+    label_list = [label.strip() for label in labels.split(",") if label.strip()]
     if not label_list:
         raise HTTPException(400, "At least one label is required")
 
@@ -221,11 +219,11 @@ async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "File not found")
     if f.library_id and active_job_exists(db, f.library_id, JobType.CHECK):
         raise HTTPException(409, "A check job is already running")
-    from app.services.corruption import check_file
     from app.queue import enqueue
+    from app.services.corruption import check_file
+
     await enqueue(None, check_file, file_id)
     return {"message": "Check queued"}
-
 
 
 @router.get("/{file_id}/stream")
@@ -236,6 +234,7 @@ def stream_file(file_id: int, db: Session = Depends(get_db)):
     if not os.path.exists(f.path):
         raise HTTPException(404, "File not found on disk")
     from app.services.stream_cache import get_stream_path
+
     return FileResponse(get_stream_path(f.path), headers={"Cache-Control": "no-store"})
 
 
@@ -245,6 +244,7 @@ def get_subtitle(file_id: int, db: Session = Depends(get_db)):
     if not f:
         raise HTTPException(404, "File not found")
     from app.services.subtitle_service import find_and_serve_vtt
+
     vtt = find_and_serve_vtt(f.path)
     if vtt is None:
         raise HTTPException(404, "No subtitle found")
@@ -257,9 +257,15 @@ def get_subtitle_tracks(file_id: int, db: Session = Depends(get_db)):
     if not f:
         raise HTTPException(404, "File not found")
     from urllib.parse import quote
+
     from app.services.subtitle_service import find_all_subtitle_tracks
+
     tracks = find_all_subtitle_tracks(f.path)
     return [
-        {"label": t["label"], "lang": t["lang"], "url": f"/api/subtitles/vtt?path={quote(t['path'])}"}
+        {
+            "label": t["label"],
+            "lang": t["lang"],
+            "url": f"/api/subtitles/vtt?path={quote(t['path'])}",
+        }
         for t in tracks
     ]

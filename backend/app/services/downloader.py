@@ -17,7 +17,6 @@ import tempfile
 import threading
 import time
 import urllib.request
-from typing import Optional
 
 from app.config import DATA_DIR
 from app.database import SessionLocal
@@ -31,7 +30,7 @@ from app.services.common import now
 _active_procs: dict[int, subprocess.Popen] = {}  # download_id → process
 _active_procs_lock = threading.Lock()
 _STALL_TIMEOUT = 300  # seconds of zero stdout output before a subprocess is considered hung
-_cancelled_ids: set[int] = set()   # cancelled and process killed
+_cancelled_ids: set[int] = set()  # cancelled and process killed
 _cancel_requested: set[int] = set()  # cancel requested (may not have proc yet)
 
 
@@ -73,7 +72,7 @@ class _ResizableSemaphore:
             self._sem.release()
 
 
-_download_semaphore: Optional[_ResizableSemaphore] = None
+_download_semaphore: _ResizableSemaphore | None = None
 _semaphore_limit: int = 0
 
 # ---------------------------------------------------------------------------
@@ -86,6 +85,7 @@ def _ytdlp_bin() -> str | None:
     if os.path.isfile(_YTDLP_BIN) and os.access(_YTDLP_BIN, os.X_OK):
         return _YTDLP_BIN
     import shutil
+
     return shutil.which("yt-dlp")
 
 
@@ -97,7 +97,9 @@ def get_ytdlp_info() -> dict:
     try:
         result = subprocess.run(
             [path, "--version"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         version = result.stdout.strip() if result.returncode == 0 else None
         return {"installed": True, "version": version, "path": path}
@@ -107,7 +109,7 @@ def get_ytdlp_info() -> dict:
 
 _YTDLP_BIN = os.path.join(DATA_DIR, "yt-dlp")  # stored in data volume, writable by container user
 _YTDLP_URLS = {
-    "stable":  "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux",
+    "stable": "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux",
     "nightly": "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_linux",
 }
 
@@ -137,15 +139,15 @@ def install_ytdlp(channel: str = "stable") -> None:
 
 _CODEC_VCODEC: dict[str, str] = {
     "h264": "avc",
-    "hevc": "hev",   # matches hev1, hevc; hvc1 handled via fallback
-    "av1":  "av01",
-    "vp9":  "vp9",
+    "hevc": "hev",  # matches hev1, hevc; hvc1 handled via fallback
+    "av1": "av01",
+    "vp9": "vp9",
 }
 _CODEC_CONTAINER: dict[str, str] = {
     "h264": "mp4",
     "hevc": "mp4",
-    "av1":  "webm",
-    "vp9":  "webm",
+    "av1": "webm",
+    "vp9": "webm",
     "auto": "mkv",
 }
 _AUDIO_CONTAINERS = {"mp3", "m4a", "opus", "flac", "wav"}
@@ -160,7 +162,7 @@ def _format_selector(quality: str, codec: str) -> tuple[str, str]:
     # Fallback chain priority: preferred codec → any codec (quality preserved) → combined stream
     # This ensures quality is never sacrificed — codec degrades gracefully instead.
     any_at_quality = f"bestvideo{h}+bestaudio"  # no codec filter, respects height limit
-    combined = f"best{h}"                        # last resort: pre-muxed stream
+    combined = f"best{h}"  # last resort: pre-muxed stream
 
     if not vc:  # auto
         fmt = f"{any_at_quality}/{combined}"
@@ -195,13 +197,13 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     audio_only: bool = bool(options.get("audio_only", False))
     quality: str = options.get("quality", "best") or "best"
     codec: str = options.get("codec", "auto") or "auto"
-    trim_start: Optional[str] = options.get("trim_start") or None
-    trim_end: Optional[str] = options.get("trim_end") or None
+    trim_start: str | None = options.get("trim_start") or None
+    trim_end: str | None = options.get("trim_end") or None
     download_subs: bool = bool(options.get("download_subs", False))
     sub_langs: str = options.get("sub_langs") or "en"
     extra_args_str: str = options.get("extra_args") or ""
-    impersonate: Optional[str] = options.get("impersonate") or None
-    cookies_file: Optional[str] = options.get("cookies_file") or None
+    impersonate: str | None = options.get("impersonate") or None
+    cookies_file: str | None = options.get("cookies_file") or None
 
     cmd: list[str] = [_ytdlp_bin() or "yt-dlp"]
 
@@ -262,13 +264,20 @@ def list_impersonate_targets() -> list[str]:
     try:
         result = subprocess.run(
             [bin_path, "--list-impersonate-targets"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         targets = []
         for line in result.stdout.splitlines():
             # Each line: "  chrome-131      curl_cffi"
             stripped = line.strip()
-            if not stripped or stripped.startswith("Available") or stripped.startswith("Target") or set(stripped) <= {"-", "─"}:
+            if (
+                not stripped
+                or stripped.startswith("Available")
+                or stripped.startswith("Target")
+                or set(stripped) <= {"-", "─"}
+            ):
                 continue
             target = stripped.split()[0]
             targets.append(target)
@@ -280,6 +289,7 @@ def list_impersonate_targets() -> list[str]:
 def _safe_dirname(name: str) -> str:
     """Sanitize a string for use as a filesystem directory name."""
     import unicodedata
+
     name = unicodedata.normalize("NFC", name)
     for ch in r'\/:*?"<>|':
         name = name.replace(ch, "_")
@@ -324,7 +334,9 @@ def fetch_playlist_info(url: str) -> dict | None:
     try:
         result = subprocess.run(
             [bin_path, "--dump-single-json", "--flat-playlist", "--no-warnings", url],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     except subprocess.TimeoutExpired:
         return None
@@ -350,11 +362,13 @@ def fetch_playlist_info(url: str) -> dict | None:
         video_url = entry.get("url") or entry.get("webpage_url")
         if not video_url:
             continue
-        entries.append({
-            "url": video_url,
-            "title": entry.get("title"),
-            "index": i + 1,
-        })
+        entries.append(
+            {
+                "url": video_url,
+                "title": entry.get("title"),
+                "index": i + 1,
+            }
+        )
 
     if not entries:
         return None
@@ -395,15 +409,15 @@ def set_max_concurrent(max_concurrent: int) -> None:
 # Progress parsing helpers
 # ---------------------------------------------------------------------------
 
-_PROGRESS_RE = re.compile(
-    r"\[download\]\s+([\d.]+)%.*?at\s+(\S+)\s+ETA\s+(\S+)"
+_PROGRESS_RE = re.compile(r"\[download\]\s+([\d.]+)%.*?at\s+(\S+)\s+ETA\s+(\S+)")
+_DESTINATION_RE = re.compile(
+    r"\[(?:download|ExtractAudio|ffmpeg|Merger|MoveFiles)\] Destination: (.+)$"
 )
-_DESTINATION_RE = re.compile(r"\[(?:download|ExtractAudio|ffmpeg|Merger|MoveFiles)\] Destination: (.+)$")
 _MERGER_RE = re.compile(r'Merging formats into "(.+)"')
 _FFMPEG_TIME_RE = re.compile(r"\btime=(\d+:\d+:\d+\.\d+)")
 
 
-def _parse_progress(line: str) -> Optional[tuple[float, str, str]]:
+def _parse_progress(line: str) -> tuple[float, str, str] | None:
     """Return (pct, speed, eta) if line is a yt-dlp progress line, else None."""
     m = _PROGRESS_RE.search(line)
     if m:
@@ -424,7 +438,7 @@ def _hhmmss_to_seconds(ts: str) -> float:
         return 0.0
 
 
-def _parse_output_path(line: str) -> Optional[str]:
+def _parse_output_path(line: str) -> str | None:
     """Return output file path from destination/merger lines, else None."""
     m = _DESTINATION_RE.search(line)
     if m:
@@ -439,9 +453,11 @@ def _parse_output_path(line: str) -> Optional[str]:
 # Collision-free output title
 # ---------------------------------------------------------------------------
 
+
 def _unique_output_title(output_dir: str, title: str | None) -> str | None:
     """Return title (possibly with ` (N)` suffix) if a file with that title already exists."""
     import unicodedata
+
     if not title or not output_dir or not os.path.isdir(output_dir):
         return title
     try:
@@ -474,18 +490,24 @@ def _unique_output_title(output_dir: str, title: str | None) -> str | None:
 # Part-file cleanup
 # ---------------------------------------------------------------------------
 
+
 def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
     """Delete yt-dlp temp files (.part, .ytdl) belonging to this download."""
     import unicodedata
+
     if not output_dir or not os.path.isdir(output_dir):
         return
-    prefix = unicodedata.normalize("NFC", title).replace("/", "_").replace("\x00", "").strip() if title else None
+    prefix = (
+        unicodedata.normalize("NFC", title).replace("/", "_").replace("\x00", "").strip()
+        if title
+        else None
+    )
     try:
         for fname in os.listdir(output_dir):
             if not (fname.endswith(".part") or fname.endswith(".ytdl")):
                 continue
             if prefix:
-                rest = unicodedata.normalize("NFC", fname)[len(prefix):]
+                rest = unicodedata.normalize("NFC", fname)[len(prefix) :]
                 if not (rest.startswith(".") or rest.startswith(" [")):
                     continue
             try:
@@ -503,8 +525,8 @@ def _cleanup_part_files(output_dir: str, title: str | None = None) -> None:
 
 def _run_download_sync(download_id: int) -> None:
     """Blocking download worker. Intended to be called via asyncio.to_thread."""
-    download: Optional["Download"] = None
-    cookies_tmp: Optional[str] = None
+    download: Download | None = None
+    cookies_tmp: str | None = None
     db = SessionLocal()
     try:
         download = db.get(Download, download_id)
@@ -548,7 +570,7 @@ def _run_download_sync(download_id: int) -> None:
             pass  # metadata prefetch failure is non-fatal
 
         # Compute trim duration for ffmpeg progress estimation (trim_end - trim_start in seconds)
-        trim_duration_s: Optional[float] = None
+        trim_duration_s: float | None = None
         try:
             ts = options.get("trim_start") or "0"
             te = options.get("trim_end")
@@ -586,15 +608,20 @@ def _run_download_sync(download_id: int) -> None:
         _RETRY_DELAYS = [5, 15, 30]  # seconds between attempts
         # Error patterns that indicate a permanent failure — don't retry these
         _NO_RETRY_PATTERNS = [
-            "video unavailable", "private video", "has been removed",
-            "not found", "does not exist", "no such file",
-            "unable to extract", "unsupported url",
+            "video unavailable",
+            "private video",
+            "has been removed",
+            "not found",
+            "does not exist",
+            "no such file",
+            "unable to extract",
+            "unsupported url",
         ]
 
         ytdlp_version = get_ytdlp_info().get("version") or "unknown"
         last_error: str = ""
         succeeded = False
-        output_path: Optional[str] = None
+        output_path: str | None = None
 
         for attempt in range(_MAX_ATTEMPTS):
             if download_id in _cancel_requested:
@@ -602,7 +629,8 @@ def _run_download_sync(download_id: int) -> None:
 
             if attempt > 0:
                 delay = _RETRY_DELAYS[attempt - 1]
-                download.error = f"Attempt {attempt}/{_MAX_ATTEMPTS - 1} failed, retrying in {delay}s…\n\n{last_error}"
+                attempt_str = f"Attempt {attempt}/{_MAX_ATTEMPTS - 1}"
+                download.error = f"{attempt_str} failed, retrying in {delay}s…\n\n{last_error}"
                 db.commit()
                 time.sleep(delay)
                 if download_id in _cancel_requested:
@@ -645,9 +673,8 @@ def _run_download_sync(download_id: int) -> None:
                     if not ready:
                         if time.time() - last_output_time > _STALL_TIMEOUT:
                             stalled = True
-                            output_lines.append(
-                                f"[parallax] no output for {_STALL_TIMEOUT}s — killing stalled process"
-                            )
+                            msg = f"[parallax] no output for {_STALL_TIMEOUT}s — killing process"
+                            output_lines.append(msg)
                             try:
                                 os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                             except (ProcessLookupError, OSError):

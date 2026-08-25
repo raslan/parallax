@@ -1,6 +1,11 @@
-import pytest
+import os
+import tempfile
+
+from PIL import Image
+
+from app.models.image import ImageDetection, ImageFile, ImageStatus
 from app.models.image_library import ImageLibrary
-from app.models.image import ImageFile, ImageDetection, ImageStatus
+from app.schemas import ImageScanRequest
 
 
 def test_image_library_model(db):
@@ -40,13 +45,19 @@ def test_image_detection_model(db):
     lib = ImageLibrary(name="Test2", path="/tmp/test-photos2")
     db.add(lib)
     db.commit()
-    img = ImageFile(library_id=lib.id, path="/tmp/test-photos2/b.jpg",
-                    filename="b.jpg", extension="jpg", size=0,
-                    status=ImageStatus.SCANNED)
+    img = ImageFile(
+        library_id=lib.id,
+        path="/tmp/test-photos2/b.jpg",
+        filename="b.jpg",
+        extension="jpg",
+        size=0,
+        status=ImageStatus.SCANNED,
+    )
     db.add(img)
     db.commit()
-    det = ImageDetection(image_id=img.id, label="FEMALE_BREAST_EXPOSED",
-                         confidence=0.91, bbox_json="[10,20,100,80]")
+    det = ImageDetection(
+        image_id=img.id, label="FEMALE_BREAST_EXPOSED", confidence=0.91, bbox_json="[10,20,100,80]"
+    )
     db.add(det)
     db.commit()
     db.refresh(det)
@@ -54,21 +65,15 @@ def test_image_detection_model(db):
     assert det.confidence == 0.91
 
 
-from app.schemas import ImageLibraryRead, ImageRead, ImageScanRequest
-
 def test_image_schemas():
     req = ImageScanRequest(run_phash=True, run_nudenet=False, run_clip=True)
     assert req.run_nudenet is False
     assert req.run_phash is True
 
 
-import os
-import tempfile
-from PIL import Image
-from unittest.mock import patch, MagicMock
-
 def _make_library_with_images(db):
     from app.models.image_library import ImageLibrary
+
     tmpdir = tempfile.mkdtemp()
     for name in ["a.jpg", "b.png"]:
         img = Image.new("RGB", (10, 10), color=(100, 100, 100))
@@ -86,6 +91,7 @@ def _make_library_with_images(db):
 
 def test_collect_image_paths_excludes_underscore(db):
     from app.services.image_scanner import collect_image_paths
+
     lib, tmpdir = _make_library_with_images(db)
     paths = collect_image_paths(tmpdir)
     assert all("_quarantine" not in p for p in paths)
@@ -94,6 +100,7 @@ def test_collect_image_paths_excludes_underscore(db):
 
 def test_generate_thumbnail(db):
     from app.services.image_scanner import generate_thumbnail
+
     tmpdir = tempfile.mkdtemp()
     img = Image.new("RGB", (800, 600), color=(50, 100, 200))
     src = os.path.join(tmpdir, "test.jpg")

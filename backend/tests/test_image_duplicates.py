@@ -1,10 +1,13 @@
-from app.services.image_duplicates import hamming_distance, cluster_by_phash
+from app.services.image_duplicates import cluster_by_phash, hamming_distance
+
 
 def test_hamming_distance_identical():
     assert hamming_distance(0b1010, 0b1010) == 0
 
+
 def test_hamming_distance_one_bit():
     assert hamming_distance(0b1010, 0b1011) == 1
+
 
 def test_cluster_by_phash_groups_similar():
     images = [
@@ -18,6 +21,7 @@ def test_cluster_by_phash_groups_similar():
     cluster_ids = [sorted(c) for c in clusters]
     assert [1, 2] in cluster_ids
     assert [3, 4] in cluster_ids
+
 
 def test_cluster_by_phash_excludes_none():
     images = [

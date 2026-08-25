@@ -1,6 +1,8 @@
 from datetime import datetime
-from sqlalchemy import String, Float, DateTime, Text, func
+
+from sqlalchemy import DateTime, Float, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
+
 from app.database import Base
 
 
@@ -31,7 +33,8 @@ class Download(Base):
     source_url: Mapped[str] = mapped_column(Text, nullable=True)
     playlist_id: Mapped[str] = mapped_column(String(256), nullable=True)
     playlist_title: Mapped[str] = mapped_column(Text, nullable=True)
-    options: Mapped[str] = mapped_column(Text, nullable=True)  # JSON: {format, quality, audio_only, container, trim_start, trim_end, extra_args, subtitle_langs}
+    # JSON: format, quality, audio_only, container, trim, extra_args, subtitle_langs
+    options: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

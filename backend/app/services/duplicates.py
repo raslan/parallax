@@ -13,7 +13,7 @@ from app.database import SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus
 from app.services.common import now
-from app.services.phash_scanner import _extract_phash_frames, _PHASH_FRAMES
+from app.services.phash_scanner import _extract_phash_frames
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +95,22 @@ def _cluster_by_duration(files: list[File], tolerance: float = 2.0) -> list[list
     """
     sorted_files = sorted(files, key=lambda f: f.duration or 0.0)
     durations = [(f.filename, f.duration) for f in sorted_files[:10]]
-    logger.warning("_cluster_by_duration: %d files, tolerance=%.1f, sample durations: %s", len(sorted_files), tolerance, durations)
+    logger.warning(
+        "_cluster_by_duration: %d files, tolerance=%.1f, sample durations: %s",
+        len(sorted_files),
+        tolerance,
+        durations,
+    )
     groups: list[list[File]] = []
     i = 0
     while i < len(sorted_files):
         anchor_dur = sorted_files[i].duration or 0.0
         group = []
         j = i
-        while j < len(sorted_files) and abs((sorted_files[j].duration or 0.0) - anchor_dur) <= tolerance:
+        while (
+            j < len(sorted_files)
+            and abs((sorted_files[j].duration or 0.0) - anchor_dur) <= tolerance
+        ):
             group.append(sorted_files[j])
             j += 1
         if len(group) > 1:
@@ -137,12 +145,12 @@ def _get_hashes(f: File) -> tuple["imagehash.ImageHash | None", list[int]]:
     if f.phash is not None and not frames:
         frames = [f.phash]
 
-    single: "imagehash.ImageHash | None" = None
+    single: imagehash.ImageHash | None = None
     if f.phash is not None:
         single = imagehash.ImageHash(
-            __import__("numpy").array(
-                [(f.phash >> (63 - i)) & 1 for i in range(64)], dtype=bool
-            ).reshape(8, 8)
+            __import__("numpy")
+            .array([(f.phash >> (63 - i)) & 1 for i in range(64)], dtype=bool)
+            .reshape(8, 8)
         )
     elif not frames:
         single = _extract_phash(f.path)
@@ -152,9 +160,11 @@ def _get_hashes(f: File) -> tuple["imagehash.ImageHash | None", list[int]]:
     return single, frames
 
 
-def _cluster_by_phash(files: list[File], threshold: int = 10, mode: str = "all_frames", on_file=None) -> list[list[File]]:
-    """Group files by pHash similarity. Uses stored multi-frame hashes when available and mode='all_frames'."""
-    entries: list[tuple[File, "imagehash.ImageHash | None", list[int]]] = []
+def _cluster_by_phash(
+    files: list[File], threshold: int = 10, mode: str = "all_frames", on_file=None
+) -> list[list[File]]:
+    """Group files by pHash similarity using multi-frame hashes when available."""
+    entries: list[tuple[File, imagehash.ImageHash | None, list[int]]] = []
     for f in files:
         if on_file:
             on_file()
@@ -259,7 +269,13 @@ def find_duplicates(
                         db.rollback()
                         logger.warning("pHash extraction failed for %s: %s", fname, exc)
 
-        logger.warning("find_duplicates: library=%d use_size=%s use_duration=%s use_phash=%s", library_id, use_size, use_duration, use_phash)
+        logger.warning(
+            "find_duplicates: library=%d use_size=%s use_duration=%s use_phash=%s",
+            library_id,
+            use_size,
+            use_duration,
+            use_phash,
+        )
 
         if use_size:
             dup_sizes = (
@@ -292,7 +308,9 @@ def find_duplicates(
             candidates = db.query(File).filter(File.library_id == library_id).all()
             size_groups = [candidates]
 
-        logger.warning("find_duplicates: %d candidates, %d size_groups", len(candidates), len(size_groups))
+        logger.warning(
+            "find_duplicates: %d candidates, %d size_groups", len(candidates), len(size_groups)
+        )
         total_files = len(candidates)
         processed = [0]
         if job:
@@ -317,22 +335,31 @@ def find_duplicates(
             else:
                 dur_clusters = [size_group]
 
-            logger.warning("find_duplicates: size_group[%d] -> %d dur_clusters", sg_idx, len(dur_clusters))
+            logger.warning(
+                "find_duplicates: size_group[%d] -> %d dur_clusters", sg_idx, len(dur_clusters)
+            )
             for dur_cluster in dur_clusters:
                 if len(dur_cluster) < 2:
                     continue
                 if use_phash:
-                    phash_groups = _cluster_by_phash(dur_cluster, threshold=phash_threshold, mode=phash_mode, on_file=_on_phash_file)
+                    phash_groups = _cluster_by_phash(
+                        dur_cluster,
+                        threshold=phash_threshold,
+                        mode=phash_mode,
+                        on_file=_on_phash_file,
+                    )
                 else:
                     phash_groups = [dur_cluster]
 
                 for group in phash_groups:
                     if len(group) >= 2:
                         cached = [_snapshot(f) for f in group]
-                        confirmed.append(DuplicateGroup(
-                            files=cached,
-                            keep_id=_pick_keep(cached),
-                        ))
+                        confirmed.append(
+                            DuplicateGroup(
+                                files=cached,
+                                keep_id=_pick_keep(cached),
+                            )
+                        )
 
         logger.warning("find_duplicates: %d confirmed duplicate groups", len(confirmed))
         _results[library_id] = confirmed

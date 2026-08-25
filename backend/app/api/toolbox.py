@@ -17,7 +17,7 @@ class ToolboxStartRequest(BaseModel):
     trim_start: float = 0
     trim_end: float = 0
     audio_channel: str | None = None  # "auto" | "left" | "right" | None
-    rotate_deg: int | None = None     # 90 | 180 | 270
+    rotate_deg: int | None = None  # 90 | 180 | 270
     normalize: bool = False
     faststart: bool = False
     sync_offset_ms: float | None = None
@@ -35,7 +35,8 @@ async def start_toolbox(req: ToolboxStartRequest):
         raise HTTPException(422, "rotate_deg must be one of: 90, 180, 270")
 
     has_fix = (
-        req.trim_start > 0 or req.trim_end > 0
+        req.trim_start > 0
+        or req.trim_end > 0
         or req.audio_channel is not None
         or req.rotate_deg is not None
         or req.normalize

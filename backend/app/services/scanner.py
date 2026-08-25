@@ -1,25 +1,39 @@
+import json
 import os
 import subprocess
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.config import THUMBNAILS_DIR
 from app.database import SessionLocal
 from app.models.file import File, FileStatus
-from app.models.job import Job, JobStatus, JobLog, JobType
+from app.models.job import Job, JobLog, JobStatus, JobType
 from app.models.library import Library
-from app.services.common import arm_cancel, should_cancel, clear_cancel
-
+from app.services.common import arm_cancel, clear_cancel, should_cancel
 
 VIDEO_EXTENSIONS = {
-    ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",
-    ".m4v", ".mpg", ".mpeg", ".ts", ".m2ts", ".mts", ".vob",
-    ".3gp", ".ogv", ".rmvb", ".divx",
+    ".mp4",
+    ".mkv",
+    ".avi",
+    ".mov",
+    ".wmv",
+    ".flv",
+    ".webm",
+    ".m4v",
+    ".mpg",
+    ".mpeg",
+    ".ts",
+    ".m2ts",
+    ".mts",
+    ".vob",
+    ".3gp",
+    ".ogv",
+    ".rmvb",
+    ".divx",
 }
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def probe_file(path: str) -> dict:
@@ -27,11 +41,17 @@ def probe_file(path: str) -> dict:
     try:
         result = subprocess.run(
             [
-                "ffprobe", "-v", "error",
-                "-select_streams", "v:0",
-                "-show_entries", "stream=codec_name,codec_type,duration,bit_rate,width,height,r_frame_rate",
-                "-show_entries", "format=size,duration,bit_rate,tags",
-                "-of", "json",
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=codec_name,codec_type,duration,bit_rate,width,height,r_frame_rate",
+                "-show_entries",
+                "format=size,duration,bit_rate,tags",
+                "-of",
+                "json",
                 path,
             ],
             capture_output=True,
@@ -67,12 +87,18 @@ def generate_thumbnail(file_path: str, file_id: int) -> bool:
 
         result = subprocess.run(
             [
-                "ffmpeg", "-y",
-                "-ss", seek,
-                "-i", file_path,
-                "-vframes", "1",
-                "-vf", "scale=320:-1",
-                "-q:v", "5",
+                "ffmpeg",
+                "-y",
+                "-ss",
+                seek,
+                "-i",
+                file_path,
+                "-vframes",
+                "1",
+                "-vf",
+                "scale=320:-1",
+                "-q:v",
+                "5",
                 out_path,
             ],
             capture_output=True,
@@ -268,7 +294,9 @@ def scan_library(library_id: int):
                     else:
                         file_obj.file_fps = float(raw_fps) if raw_fps else None
 
-            creation_time_str = data.get("format", {}).get("tags", {}).get("creation_time") if data else None
+            creation_time_str = (
+                data.get("format", {}).get("tags", {}).get("creation_time") if data else None
+            )
             if creation_time_str:
                 try:
                     dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))

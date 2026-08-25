@@ -93,11 +93,13 @@ def guess_file_episodes(files: list[str]) -> list[dict]:
             season = season[0] if season else None
         if isinstance(episode, list):
             episode = episode[0] if episode else None
-        results.append({
-            "file_path": fp,
-            "season": season,
-            "episode": episode,
-        })
+        results.append(
+            {
+                "file_path": fp,
+                "season": season,
+                "episode": episode,
+            }
+        )
     return results
 
 
@@ -128,7 +130,7 @@ def _subtitle_ops(fp: str, new_video_path: str) -> list[dict]:
     for sub_path in find_subtitle_files(fp):
         sub_ext = os.path.splitext(sub_path)[1]
         sub_stem = os.path.splitext(os.path.basename(sub_path))[0]
-        suffix = sub_stem[len(stem):]
+        suffix = sub_stem[len(stem) :]
         new_sub_path = new_stem + suffix + sub_ext
         if os.path.abspath(sub_path) != os.path.abspath(new_sub_path):
             ops.append({"old_path": sub_path, "new_path": new_sub_path})
@@ -236,7 +238,7 @@ def apply_ops(
             old_prefix = op["old_path"].rstrip("/") + "/"
             new_prefix = op["new_path"].rstrip("/") + "/"
             for f in db.query(File).filter(File.path.like(old_prefix + "%")).all():
-                f.path = new_prefix + f.path[len(old_prefix):]
+                f.path = new_prefix + f.path[len(old_prefix) :]
 
             lib = db.query(Library).filter(Library.path == op["old_path"]).first()
             if lib:

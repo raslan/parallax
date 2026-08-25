@@ -13,6 +13,7 @@ Examples:
     python3 /app/scripts/make_corrupt_video.py /media/test_corrupt.mp4
     python3 /app/scripts/make_corrupt_video.py /media/corrupt_ --count 5
 """
+
 import argparse
 import os
 import random
@@ -25,12 +26,28 @@ import tempfile
 def make_valid_video(path: str, duration: int = 10) -> None:
     result = subprocess.run(
         [
-            "ffmpeg", "-y",
-            "-f", "lavfi", "-i", f"testsrc=duration={duration}:size=1280x720:rate=25",
-            "-f", "lavfi", "-i", f"sine=frequency=440:duration={duration}",
-            "-c:v", "libx264", "-crf", "23", "-preset", "fast",
-            "-c:a", "aac", "-b:a", "128k",
-            "-shortest", path,
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"testsrc=duration={duration}:size=1280x720:rate=25",
+            "-f",
+            "lavfi",
+            "-i",
+            f"sine=frequency=440:duration={duration}",
+            "-c:v",
+            "libx264",
+            "-crf",
+            "23",
+            "-preset",
+            "fast",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-shortest",
+            path,
         ],
         capture_output=True,
         text=True,
@@ -59,7 +76,8 @@ def check_corruption(path: str) -> list[str]:
         text=True,
     )
     return [
-        line for line in result.stderr.splitlines()
+        line
+        for line in result.stderr.splitlines()
         if line.startswith("[") and not line.startswith("[null ")
     ]
 
@@ -85,7 +103,9 @@ def make_one(output: str, seed: int) -> bool:
 
     errors = check_corruption(output)
     if errors:
-        print(f"OK  ({size // 1024:,} KB, {corrupted_bytes} bytes corrupted, {len(errors)} error lines)")
+        size_kb = size // 1024
+        error_count = len(errors)
+        print(f"OK  ({size_kb:,} KB, {corrupted_bytes} bytes corrupted, {error_count} error lines)")
         for e in errors[:2]:
             print(f"         {e.strip()}")
         if len(errors) > 2:
@@ -98,10 +118,15 @@ def make_one(output: str, seed: int) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate corrupt test videos for Refract")
-    parser.add_argument("output", nargs="?", default="/media/corrupt_test.mp4",
-                        help="Output path. With --count, treated as a prefix.")
-    parser.add_argument("--count", type=int, default=1,
-                        help="Number of files to generate (default: 1)")
+    parser.add_argument(
+        "output",
+        nargs="?",
+        default="/media/corrupt_test.mp4",
+        help="Output path. With --count, treated as a prefix.",
+    )
+    parser.add_argument(
+        "--count", type=int, default=1, help="Number of files to generate (default: 1)"
+    )
     args = parser.parse_args()
 
     print(f"Generating {args.count} corrupt video file(s)…\n")

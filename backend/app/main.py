@@ -1,29 +1,33 @@
 import os
 from contextlib import asynccontextmanager
+from datetime import UTC
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.database import init_db
-from app.models import video as _video_models  # noqa: F401 — ensures VideoDetection table is created
-from app.queue import start_worker
-from app.services.encoder import detect_encoder
-from app.api.health import router as health_router
-from app.api.libraries import router as libraries_router
+from app.api.compress import router as compress_router
+from app.api.downloads import router as downloads_router
 from app.api.files import router as files_router
-from app.api.jobs import router as jobs_router
-from app.api.settings import router as settings_router
-from app.api.originals import router as originals_router
+from app.api.health import router as health_router
 from app.api.identify import router as identify_router
 from app.api.image_libraries import router as image_libraries_router
 from app.api.images import router as images_router
+from app.api.jobs import router as jobs_router
+from app.api.libraries import router as libraries_router
 from app.api.models import router as models_router
-from app.api.subtitles import router as subtitles_router
-from app.api.compress import router as compress_router
-from app.api.downloads import router as downloads_router
-from app.api.toolbox import router as toolbox_router
+from app.api.originals import router as originals_router
+from app.api.settings import router as settings_router
 from app.api.stream import router as stream_router
+from app.api.subtitles import router as subtitles_router
+from app.api.toolbox import router as toolbox_router
+from app.database import init_db
+from app.models import (
+    video as _video_models,  # noqa: F401 — ensures VideoDetection table is created
+)
+from app.queue import start_worker
+from app.services.encoder import detect_encoder
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 
@@ -31,7 +35,9 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 def _cleanup_legacy_dirs():
     """Remove directories that are no longer used after the seek-based keyframe refactor."""
     import shutil
+
     from app.config import DATA_DIR
+
     keyframes_dir = os.path.join(DATA_DIR, "video-keyframes")
     if os.path.isdir(keyframes_dir):
         shutil.rmtree(keyframes_dir, ignore_errors=True)
@@ -39,18 +45,22 @@ def _cleanup_legacy_dirs():
 
 def _reap_orphaned_downloads():
     """Mark any downloads still running/pending at startup as failed — killed mid-run."""
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from app.database import SessionLocal
     from app.models.download import Download, DownloadStatus
+
     db = SessionLocal()
     try:
-        orphans = db.query(Download).filter(
-            Download.status.in_([DownloadStatus.RUNNING, DownloadStatus.PENDING])
-        ).all()
+        orphans = (
+            db.query(Download)
+            .filter(Download.status.in_([DownloadStatus.RUNNING, DownloadStatus.PENDING]))
+            .all()
+        )
         for d in orphans:
             d.status = DownloadStatus.FAILED
             d.error = "Interrupted by container restart"
-            d.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            d.finished_at = datetime.now(UTC).replace(tzinfo=None)
         if orphans:
             db.commit()
     finally:
@@ -58,17 +68,19 @@ def _reap_orphaned_downloads():
 
 
 def _reap_orphaned_jobs():
-    """Mark any jobs still 'running' or 'pending' at startup as cancelled — they were killed mid-run."""
-    from datetime import datetime, timezone
+    """Mark orphaned jobs at startup as cancelled (killed mid-run)."""
+    from datetime import datetime
+
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
+
     db = SessionLocal()
     try:
         orphans = db.query(Job).filter(Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING])).all()
         for job in orphans:
             job.status = JobStatus.CANCELLED
             job.error = "Interrupted by container restart"
-            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            job.finished_at = datetime.now(UTC).replace(tzinfo=None)
         if orphans:
             db.commit()
     finally:
@@ -77,8 +89,10 @@ def _reap_orphaned_jobs():
 
 def _migrate_video_columns():
     """Add clip_embedding and video_scanned_at to files table if missing."""
-    from app.database import engine
     import sqlalchemy as sa
+
+    from app.database import engine
+
     with engine.connect() as conn:
         cols = [row[1] for row in conn.execute(sa.text("PRAGMA table_info(files)"))]
         if "clip_embedding" not in cols:
@@ -92,14 +106,18 @@ def _migrate_video_columns():
 def _migrate_siglip_to_clip():
     """One-time column rename: siglip_embedding → clip_embedding (SQLite 3.35+)."""
     from app.database import engine
+
     with engine.connect() as conn:
-        cols = [row[1] for row in conn.execute(
-            __import__("sqlalchemy").text("PRAGMA table_info(images)")
-        )]
+        cols = [
+            row[1]
+            for row in conn.execute(__import__("sqlalchemy").text("PRAGMA table_info(images)"))
+        ]
         if "siglip_embedding" in cols and "clip_embedding" not in cols:
-            conn.execute(__import__("sqlalchemy").text(
-                "ALTER TABLE images RENAME COLUMN siglip_embedding TO clip_embedding"
-            ))
+            conn.execute(
+                __import__("sqlalchemy").text(
+                    "ALTER TABLE images RENAME COLUMN siglip_embedding TO clip_embedding"
+                )
+            )
             conn.commit()
 
 
@@ -110,6 +128,7 @@ async def lifespan(app: FastAPI):
     _migrate_siglip_to_clip()
     _migrate_video_columns()
     from app.services.model_manager import migrate_legacy_clip
+
     migrate_legacy_clip()
     _reap_orphaned_jobs()
     _reap_orphaned_downloads()
@@ -118,6 +137,7 @@ async def lifespan(app: FastAPI):
     from app.database import SessionLocal
     from app.models.settings import get_setting
     from app.queue import init_queue
+
     _db = SessionLocal()
     try:
         n = int(get_setting(_db, "max_concurrent_transcodes", "1"))
@@ -127,6 +147,7 @@ async def lifespan(app: FastAPI):
     await start_worker()
     # Start filesystem watcher for auto-rescan on file changes
     from app.services import fs_watcher
+
     fs_watcher.init()
     fs_watcher.watch_all_libraries()
     yield
@@ -169,6 +190,7 @@ if os.path.isdir(STATIC_DIR):
             return FileResponse(candidate)
         return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 else:
+
     @app.get("/{full_path:path}")
     async def frontend_not_built(full_path: str):
         return JSONResponse(

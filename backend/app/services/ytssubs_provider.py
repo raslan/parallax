@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
@@ -22,7 +21,9 @@ logger = logging.getLogger(__name__)
 _BASE_URL = "https://yts-subs.com"
 
 _DEFAULT_HEADERS = {
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9," "image/avif,image/webp,*/*;q=0.8"
+    ),
     "accept-language": "en-US,en;q=0.9",
     "user-agent": (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -31,9 +32,10 @@ _DEFAULT_HEADERS = {
 }
 
 
-def _lang_name_to_alpha2(name: str) -> Optional[str]:
+def _lang_name_to_alpha2(name: str) -> str | None:
     try:
         from babelfish import Language
+
         return str(Language.fromname(name).alpha2)
     except Exception:
         return None
@@ -91,18 +93,20 @@ class YtsSubsProvider:
             release_el = row.select_one("td:nth-of-type(3)")
             release = release_el.text.strip() if release_el else ""
 
-            results.append({
-                "subtitle_id": link_el["href"],
-                "provider": "ytssubs",
-                "language": lang,
-                "release": release,
-                "score": max(0, rating) * 20,
-                "hearing_impaired": False,
-            })
+            results.append(
+                {
+                    "subtitle_id": link_el["href"],
+                    "provider": "ytssubs",
+                    "language": lang,
+                    "release": release,
+                    "score": max(0, rating) * 20,
+                    "hearing_impaired": False,
+                }
+            )
 
         return results
 
-    def download(self, page_path: str) -> Optional[bytes]:
+    def download(self, page_path: str) -> bytes | None:
         """Fetch subtitle detail page, decode the base64 download link, return
         SRT bytes or None."""
         text = self._get_text(f"{_BASE_URL}{page_path}")

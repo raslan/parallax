@@ -1,14 +1,15 @@
 """Shared state and utilities for background job workers."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def log(db, job_id: int, message: str, level: str = "info") -> None:
     from app.models.job import JobLog
+
     db.add(JobLog(job_id=job_id, message=message, level=level))
     db.commit()
 

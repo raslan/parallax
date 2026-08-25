@@ -1,12 +1,12 @@
 import subprocess
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from app.database import SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobType
 from app.models.library import Library
-from app.services.common import arm_cancel, should_cancel, clear_cancel, now, log
+from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 
 _CANCELLED = "__cancelled__"
 
@@ -45,7 +45,11 @@ def check_corruption(
         # Exclude [null @ ...] lines — those come from the null muxer sink,
         # not from the actual decoders, and produce frequent false positives
         # (e.g. non-monotonic dts warnings on otherwise valid files).
-        error_lines = [l for l in stderr.splitlines() if l.startswith("[") and not l.startswith("[null ")]
+        error_lines = [
+            line
+            for line in stderr.splitlines()
+            if line.startswith("[") and not line.startswith("[null ")
+        ]
         return bool(error_lines), "\n".join(error_lines)
     except Exception as e:
         return True, str(e)
@@ -111,8 +115,13 @@ def _run_check_job(job: Job, files: list[File], db, library_id: int | None = Non
         file_obj.scanned_at = now()
 
         if is_corrupt:
-            error_count = len([l for l in errors.splitlines() if l.startswith("[")])
-            log(db, job.id, f"Corrupt: {file_obj.filename} ({error_count} error line(s))", level="warning")
+            error_count = len([line for line in errors.splitlines() if line.startswith("[")])
+            log(
+                db,
+                job.id,
+                f"Corrupt: {file_obj.filename} ({error_count} error line(s))",
+                level="warning",
+            )
 
         job.processed_files = i + 1
         job.progress = (i + 1) / len(files) * 100

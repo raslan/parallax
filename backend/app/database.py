@@ -1,6 +1,8 @@
 import os
-from sqlalchemy import create_engine, event as _sa_event, text
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+from sqlalchemy import create_engine, text
+from sqlalchemy import event as _sa_event
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -21,6 +23,7 @@ def _set_sqlite_pragma(dbapi_conn, _record):
     cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
 
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -37,8 +40,18 @@ def get_db():
 
 
 def init_db():
-    from app.models import library, file, job, schedule, settings, download, video  # noqa: F401
-    from app.models import image_library, image  # noqa: F401
+    from app.models import (  # noqa: F401  # noqa: F401
+        download,
+        file,
+        image,
+        image_library,
+        job,
+        library,
+        schedule,
+        settings,
+        video,
+    )
+
     Base.metadata.create_all(bind=engine)
 
     # Drop stale FK on jobs.library_id — it referenced only `libraries` (video),
@@ -111,42 +124,54 @@ def init_db():
 
         # Backfill updated_at for rows that predate the column — safe to run
         # every startup, only touches rows still NULL.
-        conn.execute(text(
-            "UPDATE files SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
-            "WHERE updated_at IS NULL"
-        ))
-        conn.execute(text(
-            "UPDATE images SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
-            "WHERE updated_at IS NULL"
-        ))
+        conn.execute(
+            text(
+                "UPDATE files SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
+                "WHERE updated_at IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE images "
+                "SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
+                "WHERE updated_at IS NULL"
+            )
+        )
 
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_files_library_updated ON files(library_id, updated_at)"
-        ))
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_images_library_updated ON images(library_id, updated_at)"
-        ))
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_files_library_updated "
+                "ON files(library_id, updated_at)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_images_library_updated "
+                "ON images(library_id, updated_at)"
+            )
+        )
 
         # Remove orphaned records left by prior race conditions. Delete children
         # before parents so FK enforcement (now ON) doesn't reject the deletes.
-        conn.execute(text("""
+        conn.execute(
+            text("""
             DELETE FROM video_detections
             WHERE file_id IN (
                 SELECT id FROM files
                 WHERE library_id NOT IN (SELECT id FROM libraries)
             )
-        """))
-        conn.execute(text(
-            "DELETE FROM files WHERE library_id NOT IN (SELECT id FROM libraries)"
-        ))
-        conn.execute(text("""
+        """)
+        )
+        conn.execute(text("DELETE FROM files WHERE library_id NOT IN (SELECT id FROM libraries)"))
+        conn.execute(
+            text("""
             DELETE FROM image_detections
             WHERE image_id IN (
                 SELECT id FROM images
                 WHERE library_id NOT IN (SELECT id FROM image_libraries)
             )
-        """))
-        conn.execute(text(
-            "DELETE FROM images WHERE library_id NOT IN (SELECT id FROM image_libraries)"
-        ))
-
+        """)
+        )
+        conn.execute(
+            text("DELETE FROM images WHERE library_id NOT IN (SELECT id FROM image_libraries)")
+        )

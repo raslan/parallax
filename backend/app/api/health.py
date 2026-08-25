@@ -1,8 +1,9 @@
 import os
-from fastapi import APIRouter, HTTPException, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
-from fastapi import Depends
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 
 router = APIRouter(tags=["health"])
@@ -25,7 +26,9 @@ def fs_browse(path: str = Query("/media")):
         raise HTTPException(404, "Not a directory")
     try:
         entries = os.scandir(resolved)
-        dirs = sorted(e.name for e in entries if e.is_dir(follow_symlinks=True) and not e.name.startswith("."))
+        dirs = sorted(
+            e.name for e in entries if e.is_dir(follow_symlinks=True) and not e.name.startswith(".")
+        )
     except PermissionError:
         raise HTTPException(403, "Permission denied")
     parent = str(os.path.dirname(resolved)) if resolved != "/" else None

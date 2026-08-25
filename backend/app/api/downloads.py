@@ -8,13 +8,18 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db, SessionLocal
+from app.database import SessionLocal, get_db
 from app.models.download import Download, DownloadStatus
 from app.models.settings import get_setting
 from app.services.downloader import (
-    cancel_download, fetch_playlist_info, get_ytdlp_info,
-    install_ytdlp, list_impersonate_targets, run_download,
-    _cleanup_part_files, unique_playlist_dir,
+    _cleanup_part_files,
+    cancel_download,
+    fetch_playlist_info,
+    get_ytdlp_info,
+    install_ytdlp,
+    list_impersonate_targets,
+    run_download,
+    unique_playlist_dir,
 )
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
@@ -25,14 +30,14 @@ class DownloadRequest(BaseModel):
     output_dir: str | None = None
     audio_only: bool = False
     quality: str = "best"
-    codec: str = "auto"          # video: auto/h264/hevc/av1/vp9; audio: mp3/m4a/opus
+    codec: str = "auto"  # video: auto/h264/hevc/av1/vp9; audio: mp3/m4a/opus
     trim_start: str | None = None
     trim_end: str | None = None
     download_subs: bool = False
     sub_langs: str = "en"
     extra_args: str = ""
     impersonate: str | None = None
-    cookies: str = ""            # Netscape cookie text, ephemeral
+    cookies: str = ""  # Netscape cookie text, ephemeral
 
 
 def _serialize(d: Download) -> dict:
@@ -153,9 +158,11 @@ async def retry_all_failed(db: Session = Depends(get_db)):
     old row so it doesn't linger alongside the retry.
     """
     max_concurrent = int(get_setting(db, "max_concurrent_downloads", "2"))
-    old_rows = db.query(Download).filter(
-        Download.status.in_([DownloadStatus.FAILED, DownloadStatus.CANCELLED])
-    ).all()
+    old_rows = (
+        db.query(Download)
+        .filter(Download.status.in_([DownloadStatus.FAILED, DownloadStatus.CANCELLED]))
+        .all()
+    )
 
     created_ids: list[int] = []
     for old in old_rows:
@@ -184,10 +191,12 @@ async def retry_all_failed(db: Session = Depends(get_db)):
 
 @router.post("/stop-all")
 def stop_all_downloads(db: Session = Depends(get_db)):
-    """Cancel every pending/running download and drop the rows — not resumable, so stop means stop."""
-    active = db.query(Download).filter(
-        Download.status.in_([DownloadStatus.PENDING, DownloadStatus.RUNNING])
-    ).all()
+    """Cancel all pending/running downloads and drop records (not resumable)."""
+    active = (
+        db.query(Download)
+        .filter(Download.status.in_([DownloadStatus.PENDING, DownloadStatus.RUNNING]))
+        .all()
+    )
 
     for d in active:
         cancel_download(d.id)
@@ -258,16 +267,17 @@ async def thumbnail(download_id: int, db: Session = Depends(get_db)):
     download = db.get(Download, download_id)
     if not download or not download.thumbnail_url:
         raise HTTPException(404, "No thumbnail")
+
     def _fetch():
         req = urllib.request.Request(download.thumbnail_url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.read(), resp.headers.get("Content-Type", "image/jpeg")
+
     try:
         data, content_type = await asyncio.to_thread(_fetch)
     except Exception:
         raise HTTPException(502, "Could not fetch thumbnail")
-    return Response(content=data, media_type=content_type,
-                    headers={"Cache-Control": "no-store"})
+    return Response(content=data, media_type=content_type, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{download_id}/stream")
