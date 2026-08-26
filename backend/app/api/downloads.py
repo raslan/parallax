@@ -263,13 +263,22 @@ async def ytdlp_update(db: Session = Depends(get_db)):
 
 
 @router.get("/{download_id}/thumbnail")
-async def thumbnail(download_id: int, db: Session = Depends(get_db)):
-    download = db.get(Download, download_id)
-    if not download or not download.thumbnail_url:
+async def thumbnail(download_id: int):
+    # Deliberately not Depends(get_db): that would hold a pooled connection
+    # checked out for the whole request, including the blocking CDN fetch
+    # below. A page with many rows fires one thumbnail request per row,
+    # and enough of them in flight exhausts the pool for every other route.
+    db = SessionLocal()
+    try:
+        download = db.get(Download, download_id)
+        thumbnail_url = download.thumbnail_url if download else None
+    finally:
+        db.close()
+    if not thumbnail_url:
         raise HTTPException(404, "No thumbnail")
 
     def _fetch():
-        req = urllib.request.Request(download.thumbnail_url, headers={"User-Agent": "Mozilla/5.0"})
+        req = urllib.request.Request(thumbnail_url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.read(), resp.headers.get("Content-Type", "image/jpeg")
 
