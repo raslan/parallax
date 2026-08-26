@@ -2,7 +2,10 @@
 # (i.e. it was only added via `git add -f`). This repo has deliberately
 # gitignored paths (CLAUDE.md, docs/) that must never be force-added.
 staged_added=$(git diff --cached --name-only --diff-filter=A)
-ignored_staged=$(printf '%s\n' "$staged_added" | git check-ignore --no-index --stdin || true)
+ignored_staged=""
+if [ -n "$staged_added" ]; then
+  ignored_staged=$(printf '%s\n' "$staged_added" | git check-ignore --no-index --stdin || true)
+fi
 if [ -n "$ignored_staged" ]; then
   echo "error: refusing to commit force-added gitignored file(s):"
   echo "$ignored_staged" | sed 's/^/  /'
