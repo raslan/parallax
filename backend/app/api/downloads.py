@@ -189,6 +189,27 @@ async def retry_all_failed(db: Session = Depends(get_db)):
     return {"ids": created_ids}
 
 
+class ClearDownloadsRequest(BaseModel):
+    statuses: list[str]
+
+
+@router.post("/clear")
+def clear_downloads(req: ClearDownloadsRequest, db: Session = Depends(get_db)):
+    """Delete every download row in the given statuses, cleaning up any leftover
+    .part/.ytdl files on disk. Restricted to terminal statuses — active downloads
+    must go through /stop-all so they're cancelled, not just dropped."""
+    allowed = {DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED}
+    statuses = [s for s in req.statuses if s in allowed]
+
+    rows = db.query(Download).filter(Download.status.in_(statuses)).all()
+    for d in rows:
+        _cleanup_part_files(d.output_dir, d.title)
+        db.delete(d)
+
+    db.commit()
+    return {"cleared": len(rows)}
+
+
 @router.post("/stop-all")
 def stop_all_downloads(db: Session = Depends(get_db)):
     """Cancel all pending/running downloads and drop records (not resumable)."""
@@ -309,11 +330,15 @@ def cancel_download_route(
     if not download:
         raise HTTPException(404, "Download not found")
 
-    # Cancel if active and clean up part files — do this before deleting the record
-    # because _run_download_sync will see None from db.get() and return early
+    # Cancel if active — do this before deleting the record because
+    # _run_download_sync will see None from db.get() and return early
     if download.status in (DownloadStatus.PENDING, DownloadStatus.RUNNING):
         cancel_download(download_id)
-        _cleanup_part_files(download.output_dir, download.title)
+
+    # Always sweep .part/.ytdl leftovers, not just for active downloads — a
+    # failed download can leave partial files behind with nothing else to
+    # clean them up, so "remove from list" should mean no trace on disk.
+    _cleanup_part_files(download.output_dir, download.title)
 
     # Optionally delete the file on disk
     if delete_file and download.output_path and os.path.isfile(download.output_path):

@@ -890,19 +890,22 @@ export function Downloads() {
   }, []);
 
   const handleClearCompleted = useCallback(async () => {
-    const done = downloads.filter(
-      (d) => d.status === "completed" || d.status === "failed" || d.status === "cancelled",
-    );
-    await Promise.allSettled(done.map((d) => api.deleteDownload(d.id)));
+    await api.clearDownloads(["completed"]).catch(() => {});
+    setDownloads((prev) => prev.filter((d) => d.status !== "completed"));
+  }, []);
+
+  const handleClearAll = useCallback(async () => {
+    await api.clearDownloads(["completed", "failed", "cancelled"]).catch(() => {});
     setDownloads((prev) => prev.filter((d) => d.status === "pending" || d.status === "running"));
-  }, [downloads]);
+  }, []);
 
   const handleStopAll = useCallback(async () => {
     await api.stopAllDownloads().catch(() => {});
     setDownloads((prev) => prev.filter((d) => d.status !== "pending" && d.status !== "running"));
   }, []);
 
-  const hasCompleted = downloads.some((d) =>
+  const hasCompleted = downloads.some((d) => d.status === "completed");
+  const hasFinished = downloads.some((d) =>
     ["completed", "failed", "cancelled"].includes(d.status),
   );
   const hasFailed = downloads.some((d) => d.status === "failed" || d.status === "cancelled");
@@ -1082,6 +1085,15 @@ export function Downloads() {
                   >
                     <Trash2 className="h-3 w-3" />
                     Clear completed
+                  </button>
+                )}
+                {hasFinished && (
+                  <button
+                    onClick={handleClearAll}
+                    className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Clear all
                   </button>
                 )}
               </div>
