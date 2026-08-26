@@ -761,6 +761,7 @@ def _run_download_sync(download_id: int) -> None:
             download.status = DownloadStatus.FAILED
             download.error = last_error
             download.finished_at = now()
+            _cleanup_part_files(download.output_dir, download.title)
 
         db.commit()
 

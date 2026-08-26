@@ -9,6 +9,11 @@ export const downloadsApi = {
   retryAllFailedDownloads: () =>
     req<{ ids: number[] }>("/downloads/retry-failed", { method: "POST" }),
   stopAllDownloads: () => req<{ stopped: number }>("/downloads/stop-all", { method: "POST" }),
+  clearDownloads: (statuses: string[]) =>
+    req<{ cleared: number }>("/downloads/clear", {
+      method: "POST",
+      body: JSON.stringify({ statuses }),
+    }),
   deleteDownloadWithFile: (id: number) =>
     req<void>(`/downloads/${id}?delete_file=true`, { method: "DELETE" }),
   downloadStreamUrl: (id: number) => `${BASE}/downloads/${id}/stream`,
