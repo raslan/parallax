@@ -25,6 +25,7 @@ import { api } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import type { Library, BrowseResponse } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
@@ -269,32 +270,27 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
   };
 
   return (
-    <tr
-      className={`hover:bg-muted/20 cursor-pointer transition-colors border-b border-border last:border-0 group/row ${isCorrupt ? "text-destructive" : ""}`}
+    <div
+      className={`flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row ${isCorrupt ? "text-destructive" : ""}`}
       onClick={onPlay}
     >
-      <td className="px-2 py-1.5">
-        <div className="relative h-8 w-14 shrink-0">
-          {file.has_thumbnail && !imgError ? (
-            <img
-              src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
-              alt={file.filename}
-              className="h-8 w-14 object-cover rounded"
-              onError={() => setImgError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <div className="h-8 w-14 bg-muted rounded flex items-center justify-center">
-              <ImageOff className="h-3.5 w-3.5 text-muted-foreground/40" />
-            </div>
-          )}
-        </div>
-      </td>
-      <td className="px-3 py-2 max-w-xs">
-        <p
-          className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`}
-          title={file.filename}
-        >
+      <div className="relative h-8 w-14 shrink-0">
+        {file.has_thumbnail && !imgError ? (
+          <img
+            src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
+            alt={file.filename}
+            className="h-8 w-14 object-cover rounded"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <div className="h-8 w-14 bg-muted rounded flex items-center justify-center">
+            <ImageOff className="h-3.5 w-3.5 text-muted-foreground/40" />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`} title={file.filename}>
           {file.filename}
         </p>
         <p className="truncate text-xs text-muted-foreground" title={file.path}>
@@ -311,8 +307,8 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
             Re-encode in Compress →
           </button>
         )}
-      </td>
-      <td className="px-3 py-2">
+      </div>
+      <div className="w-24 shrink-0">
         <Badge
           variant={
             (STATUS_COLORS[file.status] ?? "secondary") as
@@ -322,69 +318,54 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
         >
           {file.status}
         </Badge>
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
-        <span className="font-mono">{file.codec_name ? file.codec_name.toUpperCase() : "—"}</span>
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
-        <span className="font-mono">{formatDuration(file.duration)}</span>
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
-        <span className="font-mono">
-          {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
-        </span>
-      </td>
-      <td className="px-3 py-2 text-right tabular-nums text-xs text-muted-foreground">
+      </div>
+      <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        {file.codec_name ? file.codec_name.toUpperCase() : "—"}
+      </span>
+      <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        {formatDuration(file.duration)}
+      </span>
+      <span className="w-20 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
+      </span>
+      <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
         {formatSize(file.size)}
-      </td>
-      <td className="px-3 py-2 text-right">
-        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onPlay();
-            }}
-            title="Play video"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Play className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={handleCheck}
-            disabled={checking}
-            title="Check for corruption"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <ShieldCheck className={`h-3.5 w-3.5 ${checking ? "animate-pulse" : ""}`} />
-          </button>
-        </div>
-      </td>
-    </tr>
+      </span>
+      <div className="w-14 shrink-0 flex items-center justify-end gap-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlay();
+          }}
+          title="Play video"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Play className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={handleCheck}
+          disabled={checking}
+          title="Check for corruption"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <ShieldCheck className={`h-3.5 w-3.5 ${checking ? "animate-pulse" : ""}`} />
+        </button>
+      </div>
+    </div>
   );
 }
 
-function FileListTable({ files, onPlay }: { files: VideoFile[]; onPlay: (f: VideoFile) => void }) {
+function FileListHeader() {
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
-          <tr>
-            <th className="w-16 px-2 py-2"></th>
-            <th className="px-3 py-2 text-left">Filename</th>
-            <th className="px-3 py-2 text-left">Status</th>
-            <th className="px-3 py-2 text-right">Codec</th>
-            <th className="px-3 py-2 text-right">Duration</th>
-            <th className="px-3 py-2 text-right">Bitrate</th>
-            <th className="px-3 py-2 text-right">Size</th>
-            <th className="w-16 px-3 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {files.map((f) => (
-            <FileListRow key={f.id} file={f} onPlay={() => onPlay(f)} />
-          ))}
-        </tbody>
-      </table>
+    <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg border border-border border-b-0">
+      <div className="w-14 shrink-0" />
+      <div className="flex-1">Filename</div>
+      <div className="w-24 shrink-0">Status</div>
+      <div className="w-16 shrink-0 text-right">Codec</div>
+      <div className="w-16 shrink-0 text-right">Duration</div>
+      <div className="w-20 shrink-0 text-right">Bitrate</div>
+      <div className="w-16 shrink-0 text-right">Size</div>
+      <div className="w-14 shrink-0" />
     </div>
   );
 }
@@ -536,7 +517,16 @@ function LibraryBrowser({
                     ))}
                   </div>
                 ) : (
-                  <FileListTable files={visibleFiles} onPlay={onPlay} />
+                  <div className="rounded-lg border border-border overflow-hidden h-[60vh]">
+                    <FileListHeader />
+                    <VirtualizedGrid
+                      items={visibleFiles}
+                      getKey={(f) => f.id}
+                      mode="list"
+                      itemHeight={52}
+                      renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+                    />
+                  </div>
                 );
               })()}
             </>
@@ -634,7 +624,16 @@ function FlatView({
           ))}
         </div>
       ) : (
-        <FileListTable files={visibleFiles} onPlay={onPlay} />
+        <div className="rounded-lg border border-border overflow-hidden h-[60vh]">
+          <FileListHeader />
+          <VirtualizedGrid
+            items={visibleFiles}
+            getKey={(f) => f.id}
+            mode="list"
+            itemHeight={52}
+            renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+          />
+        </div>
       )}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
