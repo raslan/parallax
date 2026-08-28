@@ -104,7 +104,7 @@ def list_files(
     library_id: int | None = Query(None),
     status: str | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=10000),
     sort_by: str = Query("filename"),
     sort_dir: str = Query("asc"),
     db: Session = Depends(get_db),
