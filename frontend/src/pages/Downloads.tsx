@@ -31,6 +31,7 @@ import type { DownloadItem, DownloadRequest } from "@/types/download";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { DirPicker } from "@/components/DirPicker";
 import { SectionHeader } from "@/components/SectionHeader";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -368,17 +369,22 @@ function PlaylistGroup({
       </button>
 
       {!collapsed && (
-        <div className="pl-4 border-l border-border/30 ml-4">
-          {items.map((item) => (
-            <DownloadCard
-              key={item.id}
-              item={item}
-              onPlay={onPlay}
-              onClear={onClear}
-              onDeleteFile={onDeleteFile}
-              onRetry={onRetry}
-            />
-          ))}
+        <div className="pl-4 border-l border-border/30 ml-4 h-[50vh] max-h-[600px]">
+          <VirtualizedGrid
+            items={items}
+            getKey={(item) => item.id}
+            mode="list"
+            itemHeight={92}
+            renderItem={(item) => (
+              <DownloadCard
+                item={item}
+                onPlay={onPlay}
+                onClear={onClear}
+                onDeleteFile={onDeleteFile}
+                onRetry={onRetry}
+              />
+            )}
+          />
         </div>
       )}
     </div>
@@ -1089,29 +1095,27 @@ export function Downloads() {
               ) : (
                 <div>
                   {(() => {
-                    const seen = new Set<string>();
-                    const rendered: JSX.Element[] = [];
+                    const groups = new Map<string, DownloadItem[]>();
+                    const order: (string | number)[] = []; // playlist_id strings, or item.id numbers for ungrouped
 
                     for (const item of filteredDownloads) {
                       if (item.playlist_id) {
-                        if (seen.has(item.playlist_id)) continue;
-                        seen.add(item.playlist_id);
-                        const groupItems = filteredDownloads.filter(
-                          (d) => d.playlist_id === item.playlist_id,
-                        );
-                        rendered.push(
-                          <PlaylistGroup
-                            key={`playlist-${item.playlist_id}`}
-                            title={item.playlist_title ?? item.playlist_id}
-                            items={groupItems}
-                            onPlay={setPlayingItem}
-                            onClear={handleClear}
-                            onDeleteFile={handleDeleteFile}
-                            onRetry={handleRetry}
-                          />,
-                        );
+                        if (!groups.has(item.playlist_id)) {
+                          groups.set(item.playlist_id, []);
+                          order.push(item.playlist_id);
+                        }
+                        groups.get(item.playlist_id)!.push(item);
                       } else {
-                        rendered.push(
+                        order.push(item.id);
+                      }
+                    }
+
+                    const itemById = new Map(filteredDownloads.map((d) => [d.id, d]));
+
+                    return order.map((key) => {
+                      if (typeof key === "number") {
+                        const item = itemById.get(key)!;
+                        return (
                           <DownloadCard
                             key={item.id}
                             item={item}
@@ -1119,12 +1123,22 @@ export function Downloads() {
                             onClear={handleClear}
                             onDeleteFile={handleDeleteFile}
                             onRetry={handleRetry}
-                          />,
+                          />
                         );
                       }
-                    }
-
-                    return rendered;
+                      const groupItems = groups.get(key)!;
+                      return (
+                        <PlaylistGroup
+                          key={`playlist-${key}`}
+                          title={groupItems[0].playlist_title ?? key}
+                          items={groupItems}
+                          onPlay={setPlayingItem}
+                          onClear={handleClear}
+                          onDeleteFile={handleDeleteFile}
+                          onRetry={handleRetry}
+                        />
+                      );
+                    });
                   })()}
                 </div>
               )}
