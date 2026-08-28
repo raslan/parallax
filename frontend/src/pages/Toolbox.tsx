@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Wrench,
   X,
@@ -18,9 +18,13 @@ import {
   FileListRow,
   ColHeader,
   applySortDir,
+  filterByFilename,
   SortDir,
 } from "@/components/FileSelectGrid";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { useJobPoll } from "@/hooks/useJobPoll";
+import { useSelection } from "@/hooks/useSelection";
+import { useSort } from "@/hooks/useSort";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { FilterAccordion } from "@/components/FilterAccordion";
@@ -76,21 +80,20 @@ export function Toolbox() {
   const [syncOffsetMs, setSyncOffsetMs] = useState(0);
   const [keepOriginal, setKeepOriginal] = useState(true);
 
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const {
+    selected,
+    setSelected,
+    toggle: toggleFile,
+    selectAll: selectAllIds,
+    selectNone,
+  } = useSelection();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortKey, setSortKey] = useState<SortKey>("filename");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const { sortKey, sortDir, toggleSort: handleSort } = useSort<SortKey>("filename");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
   const [search, setSearch] = useState("");
-  const [jobId, setJobId] = useState<number | null>(null);
-  const [jobStatus, setJobStatus] = useState<string | null>(null);
-  const [jobProgress, setJobProgress] = useState(0);
-  const [jobCurrentFile, setJobCurrentFile] = useState<string | null>(null);
-  const [jobError, setJobError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -120,58 +123,23 @@ export function Toolbox() {
         setLoadError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => setLoadingFiles(false));
-  }, [libraryId]);
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  };
+  }, [libraryId, setSelected]);
 
   const displayFiles = useMemo(
     () => (files ? sortFiles(files, sortKey, sortDir) : null),
     [files, sortKey, sortDir],
   );
   const filteredFiles = useMemo(
-    () =>
-      displayFiles
-        ? search.trim()
-          ? displayFiles.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase()))
-          : displayFiles
-        : null,
+    () => (displayFiles ? filterByFilename(displayFiles, search) : null),
     [displayFiles, search],
   );
 
-  const toggleFile = useCallback((id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const selectAll = () => filteredFiles && setSelected(new Set(filteredFiles.map((f) => f.id)));
-  const selectNone = () => setSelected(new Set());
+  const selectAll = () => filteredFiles && selectAllIds(filteredFiles.map((f) => f.id));
 
   const selectedFiles = useMemo(
     () => (filteredFiles ?? []).filter((f) => selected.has(f.id)),
     [filteredFiles, selected],
   );
-
-  const stopPoll = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => stopPoll(), [stopPoll]);
 
   const refreshFiles = useCallback((libId: number) => {
     toolboxApi
@@ -181,49 +149,30 @@ export function Toolbox() {
         setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
       })
       .catch(() => {});
-  }, []);
+  }, [setSelected]);
 
   useLiveFiles("video", libraryId, () => {
     if (libraryId != null) refreshFiles(libraryId);
   });
 
-  const pollJob = useCallback(
-    (id: number, libId: number | null) => {
-      stopPoll();
-      pollRef.current = setInterval(async () => {
-        try {
-          const job = await api.getJob(id);
-          setJobProgress(job.progress ?? 0);
-          setJobCurrentFile(job.current_file ?? null);
-          setJobStatus(job.status);
-          setJobError(job.error ?? null);
-          if (["completed", "failed", "cancelled"].includes(job.status)) {
-            stopPoll();
-            if (job.status === "completed" && libId != null) refreshFiles(libId);
-          }
-        } catch {
-          stopPoll();
-        }
-      }, 1500);
+  const {
+    jobId,
+    status: jobStatus,
+    progress: jobProgress,
+    currentFile: jobCurrentFile,
+    error: jobError,
+    start: startJobPoll,
+    resume: resumeJobPoll,
+  } = useJobPoll({
+    onTerminal: (job) => {
+      if (job.status === "completed" && job.library_id != null) refreshFiles(job.library_id);
     },
-    [stopPoll, refreshFiles],
-  );
+  });
 
   useEffect(() => {
     api
       .getJobs(100)
-      .then((jobs) => {
-        const active = jobs.find(
-          (j) => j.type === "toolbox_fix" && (j.status === "running" || j.status === "pending"),
-        );
-        if (!active) return;
-        setJobId(active.id);
-        setJobStatus(active.status);
-        setJobProgress(active.progress ?? 0);
-        setJobCurrentFile(active.current_file ?? null);
-        setJobError(active.error ?? null);
-        pollJob(active.id, active.library_id);
-      })
+      .then((jobs) => resumeJobPoll(jobs, (j) => j.type === "toolbox_fix"))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -239,7 +188,7 @@ export function Toolbox() {
   const handleStart = async () => {
     if (selectedFiles.length === 0 || !hasFix || starting) return;
     setStarting(true);
-    setJobError(null);
+    setStartError(null);
     try {
       const { job_id } = await toolboxApi.start({
         file_ids: selectedFiles.map((f) => f.id),
@@ -252,13 +201,9 @@ export function Toolbox() {
         sync_offset_ms: syncEnabled && syncOffsetMs !== 0 ? syncOffsetMs : null,
         keep_original: keepOriginal,
       });
-      setJobId(job_id);
-      setJobStatus("pending");
-      setJobProgress(0);
-      setJobCurrentFile(null);
-      pollJob(job_id, libraryId);
+      startJobPoll(job_id);
     } catch (e: unknown) {
-      setJobError(e instanceof Error ? e.message : String(e));
+      setStartError(e instanceof Error ? e.message : String(e));
     } finally {
       setStarting(false);
     }
@@ -555,7 +500,9 @@ export function Toolbox() {
               style={{ width: `${jobProgress}%` }}
             />
           </div>
-          {jobError && <p className="text-xs text-red-400">{jobError}</p>}
+          {(jobError || startError) && (
+            <p className="text-xs text-red-400">{jobError || startError}</p>
+          )}
         </div>
       )}
 

@@ -8,6 +8,7 @@ import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { useSelection } from "@/hooks/useSelection";
 
 function recommendKeep(images: ImageFile[]): number {
   return images.reduce((best, img) => {
@@ -127,7 +128,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const [allImages, setAllImages] = useState<Map<number, ImageFile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [suggestedKeepIds, setSuggestedKeepIds] = useState<Record<number, number>>({});
-  const [deleteIds, setDeleteIds] = useState<Set<number>>(new Set());
+  const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
   const [threshold, setThreshold] = useState(10);
@@ -180,18 +181,6 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     () => clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
     [clusters, allImages],
   );
-
-  const toggleDelete = (id: number) => {
-    setDeleteIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
 
   const handleFind = () => {
     setAppliedThreshold(threshold);

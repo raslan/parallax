@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   Loader2,
@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useEventSource } from "@/hooks/useEventSource";
 import type { Job, JobLog } from "@/types/job";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -192,7 +193,6 @@ export function Jobs() {
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
-  const esRef = useRef<EventSource | null>(null);
 
   const loadAll = () =>
     api
@@ -215,27 +215,20 @@ export function Jobs() {
 
   useEffect(() => {
     loadAll();
+  }, []);
 
-    const es = new EventSource(api.jobsStreamUrl());
-    esRef.current = es;
-
-    es.onmessage = (e) => {
-      const live: Job[] = JSON.parse(e.data);
+  useEventSource<Job[]>(
+    api.jobsStreamUrl(),
+    (live) => {
       applyLiveUpdate(live);
       // When all active jobs settle, do a full refresh to get final DB state
       if (live.length === 0) loadAll();
-    };
-
-    es.onerror = () => {
+    },
+    () => {
       // SSE disconnected — fall back to a one-time refresh
       loadAll();
-    };
-
-    return () => {
-      es.close();
-      esRef.current = null;
-    };
-  }, []);
+    },
+  );
 
   const handleCancel = async (id: number) => {
     setCancellingIds((s) => new Set(s).add(id));

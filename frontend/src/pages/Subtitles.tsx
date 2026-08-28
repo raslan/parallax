@@ -13,6 +13,7 @@ import {
   Mic,
 } from "lucide-react";
 import { subtitlesApi, api } from "@/lib/api";
+import { useJobPoll } from "@/hooks/useJobPoll";
 import type { SubtitleFile } from "@/types/subtitle";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
@@ -193,12 +194,29 @@ export function Subtitles() {
   const [playingFile, setPlayingFile] = useState<SubtitleFile | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [transcribeProgress, setTranscribeProgress] = useState<number | null>(null);
-  const [transcribeStatus, setTranscribeStatus] = useState<string>("");
-  const transcribePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [jobProgress, setJobProgress] = useState<number | null>(null);
-  const [jobStatus, setJobStatus] = useState<string>("");
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const downloadTargetRef = useRef("");
+  const transcribeTargetRef = useRef("");
+
+  const downloadPoll = useJobPoll({
+    intervalMs: 2000,
+    onTerminal: () => {
+      setDownloading(false);
+      const target = downloadTargetRef.current;
+      if (target) subtitlesApi.scan(target).then(setFiles).catch(() => {});
+    },
+  });
+  const transcribePoll = useJobPoll({
+    intervalMs: 2000,
+    onTerminal: () => {
+      setTranscribing(false);
+      const target = transcribeTargetRef.current;
+      if (target) subtitlesApi.scan(target).then(setFiles).catch(() => {});
+    },
+  });
+  const jobProgress = downloadPoll.progress;
+  const jobStatus = downloadPoll.currentFile || downloadPoll.status || "";
+  const transcribeProgress = transcribePoll.progress;
+  const transcribeStatus = transcribePoll.currentFile || transcribePoll.status || "";
 
   // Load default languages from settings
   useEffect(() => {
@@ -214,14 +232,6 @@ export function Subtitles() {
       .catch(() => {});
   }, []);
 
-  useEffect(
-    () => () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      if (transcribePollRef.current) clearInterval(transcribePollRef.current);
-    },
-    [],
-  );
-
   const toggleLang = (code: string) => {
     setSelectedLangs((prev) =>
       prev.includes(code)
@@ -232,60 +242,14 @@ export function Subtitles() {
     );
   };
 
-  const stopPolling = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  };
-
-  const stopTranscribePolling = () => {
-    if (transcribePollRef.current) {
-      clearInterval(transcribePollRef.current);
-      transcribePollRef.current = null;
-    }
-  };
-
-  const pollTranscribeJob = (job_id: number, scanPath?: string) => {
-    const target = (scanPath ?? path).trim();
-    stopTranscribePolling();
-    transcribePollRef.current = setInterval(async () => {
-      try {
-        const jobs = await api.getJobs();
-        const job = jobs.find((j) => j.id === job_id);
-        if (!job) {
-          stopTranscribePolling();
-          setTranscribing(false);
-          return;
-        }
-        setTranscribeProgress(job.progress);
-        setTranscribeStatus(job.current_file || job.status);
-        if (["completed", "failed", "cancelled"].includes(job.status)) {
-          stopTranscribePolling();
-          setTranscribing(false);
-          setTranscribeProgress(null);
-          if (target) {
-            const result = await subtitlesApi.scan(target).catch(() => null);
-            if (result) setFiles(result);
-          }
-        }
-      } catch {
-        stopTranscribePolling();
-        setTranscribing(false);
-      }
-    }, 2000);
-  };
-
   const handleGenerateFile = async (file: SubtitleFile) => {
     setTranscribing(true);
-    setTranscribeProgress(0);
-    setTranscribeStatus("Starting…");
+    transcribeTargetRef.current = path.trim();
     try {
       const { job_id } = await subtitlesApi.transcribeFile(file.path);
-      pollTranscribeJob(job_id);
+      transcribePoll.start(job_id);
     } catch (e: unknown) {
       setTranscribing(false);
-      setTranscribeProgress(null);
       setScanError(e instanceof Error ? e.message : "Transcription failed");
     }
   };
@@ -293,14 +257,12 @@ export function Subtitles() {
   const handleGenerateAll = async () => {
     if (!path.trim()) return;
     setTranscribing(true);
-    setTranscribeProgress(0);
-    setTranscribeStatus("Starting…");
+    transcribeTargetRef.current = path.trim();
     try {
       const { job_id } = await subtitlesApi.transcribeBulk(path.trim());
-      pollTranscribeJob(job_id, path.trim());
+      transcribePoll.start(job_id);
     } catch (e: unknown) {
       setTranscribing(false);
-      setTranscribeProgress(null);
       setScanError(e instanceof Error ? e.message : "Transcription failed");
     }
   };
@@ -327,48 +289,16 @@ export function Subtitles() {
     handleScan(p);
   };
 
-  const pollDownloadJob = (job_id: number, scanPath: string) => {
-    stopPolling();
-    pollRef.current = setInterval(async () => {
-      try {
-        const jobs = await api.getJobs();
-        const job = jobs.find((j) => j.id === job_id);
-        if (!job) {
-          stopPolling();
-          setDownloading(false);
-          return;
-        }
-
-        setJobProgress(job.progress);
-        setJobStatus(job.current_file || job.status);
-
-        if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-          stopPolling();
-          setDownloading(false);
-          setJobProgress(null);
-          // Re-scan to refresh subtitle status
-          const result = await subtitlesApi.scan(scanPath).catch(() => null);
-          if (result) setFiles(result);
-        }
-      } catch {
-        stopPolling();
-        setDownloading(false);
-      }
-    }, 2000);
-  };
-
   const handleDownload = async () => {
     if (!path.trim()) return;
     setDownloading(true);
-    setJobProgress(0);
-    setJobStatus("Starting…");
+    downloadTargetRef.current = path.trim();
 
     try {
       const { job_id } = await subtitlesApi.download(path.trim(), selectedLangs);
-      pollDownloadJob(job_id, path.trim());
+      downloadPoll.start(job_id);
     } catch (e: unknown) {
       setDownloading(false);
-      setJobProgress(null);
       setScanError(e instanceof Error ? e.message : "Download failed");
     }
   };
@@ -399,14 +329,12 @@ export function Subtitles() {
 
         if (active.type === "subtitle_download") {
           setDownloading(true);
-          setJobProgress(active.progress ?? 0);
-          setJobStatus(active.current_file || active.status);
-          pollDownloadJob(active.id, jobPath);
+          downloadTargetRef.current = jobPath;
+          downloadPoll.resume(jobs, (j) => j.id === active.id);
         } else {
           setTranscribing(true);
-          setTranscribeProgress(active.progress ?? 0);
-          setTranscribeStatus(active.current_file || active.status);
-          pollTranscribeJob(active.id, jobPath);
+          transcribeTargetRef.current = jobPath;
+          transcribePoll.resume(jobs, (j) => j.id === active.id);
         }
       })
       .catch(() => {});
