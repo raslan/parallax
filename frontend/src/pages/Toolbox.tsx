@@ -26,6 +26,7 @@ import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { SectionHeader } from "@/components/SectionHeader";
 import { FilterAccordion } from "@/components/FilterAccordion";
 import { Button } from "@/components/ui/button";
@@ -588,16 +589,22 @@ export function Toolbox() {
               {search.trim() ? "No files match your search" : "No files in this library"}
             </div>
           ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {filteredFiles.map((f) => (
-                <FileGridCard
-                  key={f.id}
-                  file={f}
-                  selected={selected.has(f.id)}
-                  onToggle={() => toggleFile(f.id)}
-                  onPlay={() => setPlayingFile(f)}
-                />
-              ))}
+            <div className="h-[70vh]">
+              <VirtualizedGrid
+                items={filteredFiles}
+                getKey={(f) => f.id}
+                mode="grid"
+                itemHeight={180}
+                minColumnWidth={200}
+                renderItem={(f) => (
+                  <FileGridCard
+                    file={f}
+                    selected={selected.has(f.id)}
+                    onToggle={() => toggleFile(f.id)}
+                    onPlay={() => setPlayingFile(f)}
+                  />
+                )}
+              />
             </div>
           ) : (
             <div className="border border-border/50 rounded-lg overflow-hidden">
@@ -637,15 +644,22 @@ export function Toolbox() {
                 />
                 <span className="w-6 shrink-0" />
               </div>
-              {filteredFiles.map((f) => (
-                <FileListRow
-                  key={f.id}
-                  file={f}
-                  selected={selected.has(f.id)}
-                  onToggle={() => toggleFile(f.id)}
-                  onPlay={() => setPlayingFile(f)}
+              <div className="h-[70vh]">
+                <VirtualizedGrid
+                  items={filteredFiles}
+                  getKey={(f) => f.id}
+                  mode="list"
+                  itemHeight={44}
+                  renderItem={(f) => (
+                    <FileListRow
+                      file={f}
+                      selected={selected.has(f.id)}
+                      onToggle={() => toggleFile(f.id)}
+                      onPlay={() => setPlayingFile(f)}
+                    />
+                  )}
                 />
-              ))}
+              </div>
             </div>
           )}
         </div>
