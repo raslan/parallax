@@ -19,7 +19,9 @@ import type { CleanupParams } from "@/types/cleanup";
 import type { Library } from "@/types/library";
 import type { VideoFile, VideoSearchResult } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/SectionHeader";
 import { FilterAccordion } from "@/components/FilterAccordion";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
@@ -213,6 +215,80 @@ function CleanupCard({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+function CleanupListRow({
+  file,
+  selected,
+  onToggle,
+  onPlay,
+}: {
+  file: VideoFile;
+  selected: boolean;
+  onToggle: () => void;
+  onPlay: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 px-3 py-2 border-b border-border/50 last:border-0 hover:bg-muted/20 cursor-pointer transition-colors",
+        selected && "bg-primary/5",
+      )}
+      onClick={onToggle}
+    >
+      <input
+        type="checkbox"
+        className="accent-primary h-4 w-4 shrink-0"
+        checked={selected}
+        onChange={onToggle}
+        onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        className="relative group/thumb h-8 w-14 shrink-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPlay();
+        }}
+        title="Play video"
+      >
+        {file.has_thumbnail ? (
+          <img
+            src={`/api/files/${file.id}/thumbnail`}
+            alt={file.filename}
+            className="h-8 w-14 object-cover rounded"
+          />
+        ) : (
+          <div className="h-8 w-14 bg-muted rounded" />
+        )}
+        <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+          <Play className="h-3.5 w-3.5 text-white fill-white" />
+        </div>
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="truncate font-medium text-sm" title={file.filename}>
+          {file.filename}
+        </p>
+        <p className="truncate text-xs text-muted-foreground" title={file.path}>
+          {file.path}
+        </p>
+      </div>
+      <span className="text-xs text-muted-foreground font-mono w-20 text-right shrink-0">
+        {file.file_width && file.file_height ? `${file.file_width}×${file.file_height}` : "—"}
+      </span>
+      <span className="text-xs text-muted-foreground font-mono w-14 text-right shrink-0">
+        {file.file_fps != null ? file.file_fps.toFixed(2) : "—"}
+      </span>
+      <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
+        {formatDuration(file.duration)}
+      </span>
+      <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
+        {formatUnixDate(file.file_date)}
+      </span>
+      <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
+        {formatSize(file.size)}
+      </span>
+    </div>
   );
 }
 
@@ -956,97 +1032,50 @@ export function Cleanup() {
 
           {viewMode === "list" ? (
             <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
-                  <tr>
-                    <th className="w-8 px-3 py-2"></th>
-                    <th className="w-10 px-2 py-2"></th>
-                    <th className="px-3 py-2 text-left">Filename</th>
-                    <th className="px-3 py-2 text-right">Resolution</th>
-                    <th className="px-3 py-2 text-right">FPS</th>
-                    <th className="px-3 py-2 text-right">Duration</th>
-                    <th className="px-3 py-2 text-right">File date</th>
-                    <th className="px-3 py-2 text-right">Size</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {sortedResults.map((f) => (
-                    <tr
-                      key={f.id}
-                      className={`hover:bg-muted/20 cursor-pointer transition-colors ${selected.has(f.id) ? "bg-primary/5" : ""}`}
-                      onClick={() => toggleOne(f.id)}
-                    >
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          className="accent-primary h-4 w-4"
-                          checked={selected.has(f.id)}
-                          onChange={() => toggleOne(f.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </td>
-                      <td className="px-2 py-1">
-                        <button
-                          className="relative group/thumb h-8 w-14 shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPlayingFile(f);
-                          }}
-                          title="Play video"
-                        >
-                          {f.has_thumbnail ? (
-                            <img
-                              src={`/api/files/${f.id}/thumbnail`}
-                              alt={f.filename}
-                              className="h-8 w-14 object-cover rounded"
-                            />
-                          ) : (
-                            <div className="h-8 w-14 bg-muted rounded" />
-                          )}
-                          <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-                            <Play className="h-3.5 w-3.5 text-white fill-white" />
-                          </div>
-                        </button>
-                      </td>
-                      <td className="px-3 py-2 max-w-xs">
-                        <p className="truncate font-medium" title={f.filename}>
-                          {f.filename}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground" title={f.path}>
-                          {f.path}
-                        </p>
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
-                        {f.file_width && f.file_height ? `${f.file_width}×${f.file_height}` : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
-                        {f.file_fps != null ? f.file_fps.toFixed(2) : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
-                        {formatDuration(f.duration)}
-                      </td>
-                      <td className="px-3 py-2 text-right text-muted-foreground font-mono">
-                        {formatUnixDate(f.file_date)}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground font-mono">
-                        {formatSize(f.size)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
+                <span className="h-4 w-4 shrink-0" />
+                <span className="h-8 w-14 shrink-0" />
+                <span className="flex-1 min-w-0">Filename</span>
+                <span className="w-20 text-right shrink-0">Resolution</span>
+                <span className="w-14 text-right shrink-0">FPS</span>
+                <span className="w-16 text-right shrink-0">Duration</span>
+                <span className="w-24 text-right shrink-0">File date</span>
+                <span className="w-16 text-right shrink-0">Size</span>
+              </div>
+              <div className="h-[70vh]">
+                <VirtualizedGrid
+                  items={sortedResults}
+                  getKey={(f) => f.id}
+                  mode="list"
+                  itemHeight={52}
+                  renderItem={(f) => (
+                    <CleanupListRow
+                      file={f}
+                      selected={selected.has(f.id)}
+                      onToggle={() => toggleOne(f.id)}
+                      onPlay={() => setPlayingFile(f)}
+                    />
+                  )}
+                />
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {sortedResults.map((f) => (
-                <CleanupCard
-                  key={f.id}
-                  file={f}
-                  isSelected={selected.has(f.id)}
-                  onToggle={() => toggleOne(f.id)}
-                  onPlay={() => setPlayingFile(f)}
-                />
-              ))}
+            <div className="h-[70vh]">
+              <VirtualizedGrid
+                items={sortedResults}
+                getKey={(f) => f.id}
+                mode="grid"
+                itemHeight={200}
+                minColumnWidth={180}
+                renderItem={(f) => (
+                  <CleanupCard
+                    file={f}
+                    isSelected={selected.has(f.id)}
+                    onToggle={() => toggleOne(f.id)}
+                    onPlay={() => setPlayingFile(f)}
+                  />
+                )}
+              />
             </div>
           )}
         </div>
