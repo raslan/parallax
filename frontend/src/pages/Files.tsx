@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Film,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   ImageOff,
   Folder,
   ChevronRight as Caret,
@@ -19,7 +17,6 @@ import {
   Search,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
@@ -51,7 +48,7 @@ const ALL_STATUSES = [
   "done",
   "failed",
 ];
-const PAGE_SIZE = 48;
+const FETCH_ALL_PAGE_SIZE = 10000;
 
 const VIDEO_CODECS = ["h264", "hevc", "h265", "mpeg4", "mpeg2", "vp8", "vp9", "av1", "vc1"];
 const AUDIO_CODECS = ["aac", "mp3", "ac3", "opus", "vorbis", "flac", "dts", "eac3", "truehd"];
@@ -559,8 +556,6 @@ function FlatView({
   refreshToken: number;
 }) {
   const [files, setFiles] = useState<VideoFile[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const hasLoadedRef = useRef(false);
 
@@ -569,29 +564,21 @@ function FlatView({
     api
       .getFiles({
         status: statusFilter,
-        page,
-        page_size: PAGE_SIZE,
+        page: 1,
+        page_size: FETCH_ALL_PAGE_SIZE,
         sort_by: sortBy,
         sort_dir: sortDir,
       })
       .then((res) => {
         setFiles(res.items);
-        setTotal(res.total);
         hasLoadedRef.current = true;
       })
       .finally(() => setLoading(false));
-  }, [statusFilter, page, sortBy, sortDir, refreshToken]);
+  }, [statusFilter, sortBy, sortDir, refreshToken]);
 
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1);
-  }, [statusFilter, sortBy, sortDir]);
   useEffect(() => {
     load();
   }, [load]);
-
-  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   if (loading)
     return (
@@ -620,10 +607,15 @@ function FlatView({
   return (
     <>
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {visibleFiles.map((f) => (
-            <ThumbnailCard key={f.id} file={f} onPlay={() => onPlay(f)} />
-          ))}
+        <div className="h-[70vh]">
+          <VirtualizedGrid
+            items={visibleFiles}
+            getKey={(f) => f.id}
+            mode="grid"
+            itemHeight={200}
+            minColumnWidth={180}
+            renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
+          />
         </div>
       ) : (
         <div className="flex flex-col rounded-lg border border-border overflow-hidden h-[60vh]">
@@ -637,29 +629,6 @@ function FlatView({
               renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
             />
           </div>
-        </div>
-      )}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <Button
-            size="icon"
-            variant="outline"
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            size="icon"
-            variant="outline"
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
         </div>
       )}
     </>
