@@ -8,6 +8,7 @@ import type { CompressCodec } from "@/types/compress";
 import type { VideoFile } from "@/types/file";
 import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -773,35 +774,41 @@ export function Compress() {
               {search.trim() ? "No files match your search" : "No files in this library"}
             </div>
           ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {filteredFiles.map((f) => (
-                <FileGridCard
-                  key={f.id}
-                  file={f}
-                  selected={selected.has(f.id)}
-                  onToggle={() => toggleFile(f.id)}
-                  onPlay={() => setPlayingFile(f)}
-                  badge={
-                    <span
-                      className={cn(
-                        "text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 font-mono",
-                        estimateSize(f, codec, crf, speed) > f.size
-                          ? "text-red-400"
-                          : savingsPct(f, codec, crf, speed) > 0
-                            ? "text-green-400"
-                            : "text-muted-foreground/60",
-                      )}
-                    >
-                      {(() => {
-                        const est = estimateSize(f, codec, crf, speed);
-                        const pct = savingsPct(f, codec, crf, speed);
-                        const growing = est > f.size;
-                        return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
-                      })()}
-                    </span>
-                  }
-                />
-              ))}
+            <div className="h-[70vh]">
+              <VirtualizedGrid
+                items={filteredFiles}
+                getKey={(f) => f.id}
+                mode="grid"
+                itemHeight={180}
+                minColumnWidth={200}
+                renderItem={(f) => (
+                  <FileGridCard
+                    file={f}
+                    selected={selected.has(f.id)}
+                    onToggle={() => toggleFile(f.id)}
+                    onPlay={() => setPlayingFile(f)}
+                    badge={
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 font-mono",
+                          estimateSize(f, codec, crf, speed) > f.size
+                            ? "text-red-400"
+                            : savingsPct(f, codec, crf, speed) > 0
+                              ? "text-green-400"
+                              : "text-muted-foreground/60",
+                        )}
+                      >
+                        {(() => {
+                          const est = estimateSize(f, codec, crf, speed);
+                          const pct = savingsPct(f, codec, crf, speed);
+                          const growing = est > f.size;
+                          return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
+                        })()}
+                      </span>
+                    }
+                  />
+                )}
+              />
             </div>
           ) : (
             <div className="border border-border/50 rounded-lg overflow-hidden">
@@ -853,46 +860,53 @@ export function Compress() {
                 />
                 <span className="w-6 shrink-0" />
               </div>
-              {filteredFiles.map((f) => (
-                <FileListRow
-                  key={f.id}
-                  file={f}
-                  selected={selected.has(f.id)}
-                  onToggle={() => toggleFile(f.id)}
-                  onPlay={() => setPlayingFile(f)}
-                  trailing={
-                    <>
-                      <span
-                        className={cn(
-                          "text-xs shrink-0 w-16 text-right font-mono",
-                          estimateSize(f, codec, crf, speed) > f.size
-                            ? "text-red-400"
-                            : "text-muted-foreground/70",
-                        )}
-                      >
-                        {formatSize(estimateSize(f, codec, crf, speed))}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-xs shrink-0 w-14 text-right font-semibold",
-                          estimateSize(f, codec, crf, speed) > f.size
-                            ? "text-red-400"
-                            : savingsPct(f, codec, crf, speed) > 0
-                              ? "text-green-400"
-                              : "text-muted-foreground/50",
-                        )}
-                      >
-                        {(() => {
-                          const est = estimateSize(f, codec, crf, speed);
-                          const pct = savingsPct(f, codec, crf, speed);
-                          const growing = est > f.size;
-                          return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
-                        })()}
-                      </span>
-                    </>
-                  }
+              <div className="h-[70vh]">
+                <VirtualizedGrid
+                  items={filteredFiles}
+                  getKey={(f) => f.id}
+                  mode="list"
+                  itemHeight={44}
+                  renderItem={(f) => (
+                    <FileListRow
+                      file={f}
+                      selected={selected.has(f.id)}
+                      onToggle={() => toggleFile(f.id)}
+                      onPlay={() => setPlayingFile(f)}
+                      trailing={
+                        <>
+                          <span
+                            className={cn(
+                              "text-xs shrink-0 w-16 text-right font-mono",
+                              estimateSize(f, codec, crf, speed) > f.size
+                                ? "text-red-400"
+                                : "text-muted-foreground/70",
+                            )}
+                          >
+                            {formatSize(estimateSize(f, codec, crf, speed))}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-xs shrink-0 w-14 text-right font-semibold",
+                              estimateSize(f, codec, crf, speed) > f.size
+                                ? "text-red-400"
+                                : savingsPct(f, codec, crf, speed) > 0
+                                  ? "text-green-400"
+                                  : "text-muted-foreground/50",
+                            )}
+                          >
+                            {(() => {
+                              const est = estimateSize(f, codec, crf, speed);
+                              const pct = savingsPct(f, codec, crf, speed);
+                              const growing = est > f.size;
+                              return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
+                            })()}
+                          </span>
+                        </>
+                      }
+                    />
+                  )}
                 />
-              ))}
+              </div>
             </div>
           )}
         </div>
