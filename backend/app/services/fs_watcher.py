@@ -140,6 +140,17 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
                 db.commit()
                 db.refresh(f)
 
+            before = (
+                f.size,
+                f.duration,
+                f.codec_name,
+                f.video_bitrate,
+                f.file_width,
+                f.file_height,
+                f.file_fps,
+                f.file_date,
+            )
+
             try:
                 f.size = os.stat(path).st_size
             except OSError:
@@ -184,9 +195,28 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
             else:
                 f.file_date = os.path.getmtime(path)
 
-            f.scanned_at = _now()
-            db.commit()
-            generate_thumbnail(path, f.id)
+            after = (
+                f.size,
+                f.duration,
+                f.codec_name,
+                f.video_bitrate,
+                f.file_width,
+                f.file_height,
+                f.file_fps,
+                f.file_date,
+            )
+
+            if is_new or before != after:
+                f.scanned_at = _now()
+                db.commit()
+                generate_thumbnail(path, f.id)
+            else:
+                # Re-probed values are identical — a spurious fs event (e.g.
+                # another process touching the file's mtime with no real
+                # content change). Discard the no-op assignments so the flush
+                # doesn't bump File.updated_at and falsely signal "changed"
+                # to every page watching this library's SSE stream.
+                db.rollback()
 
         library.last_scanned_at = _now()
         db.commit()
@@ -244,6 +274,7 @@ def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: froz
             f = db.query(ImageFile).filter(ImageFile.path == path).first()
             if f:
                 # Update existing record
+                before = (f.size, f.width, f.height, f.exif_date, f.exif_gps, f.exif_camera)
                 meta = get_image_metadata(path)
                 f.size = meta["size"]
                 f.width = meta["width"]
@@ -251,9 +282,15 @@ def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: froz
                 f.exif_date = meta["exif_date"]
                 f.exif_gps = meta["exif_gps"]
                 f.exif_camera = meta["exif_camera"]
-                f.scanned_at = now()
-                db.commit()
-                img_thumb(path, _thumbnail_path(f.id))
+                after = (f.size, f.width, f.height, f.exif_date, f.exif_gps, f.exif_camera)
+                if before != after:
+                    f.scanned_at = now()
+                    db.commit()
+                    img_thumb(path, _thumbnail_path(f.id))
+                else:
+                    # Spurious fs event, nothing actually changed — don't
+                    # bump ImageFile.updated_at with a no-op write.
+                    db.rollback()
             else:
                 # New file — re-check library still exists before inserting
                 db.expire(library)

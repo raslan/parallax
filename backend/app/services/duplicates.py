@@ -1,3 +1,4 @@
+import concurrent.futures as _cf
 import json
 import logging
 import os
@@ -12,8 +13,9 @@ from sqlalchemy import func
 from app.database import SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus
-from app.services.common import now
-from app.services.phash_scanner import _extract_phash_frames
+from app.models.settings import get_setting
+from app.services.common import arm_cancel, clear_cancel, now, should_cancel
+from app.services.phash_scanner import _Cancelled, _extract_phash_frames
 
 logger = logging.getLogger(__name__)
 
@@ -223,8 +225,10 @@ def find_duplicates(
                 job.status = JobStatus.RUNNING
                 job.started_at = now()
                 db.commit()
+                arm_cancel(job_id)
 
         _results.pop(library_id, None)
+        was_cancelled = False
 
         # Phase 1: extract pHash for files that are missing it or were scanned
         # with a different frame count than requested.
@@ -238,7 +242,16 @@ def find_duplicates(
                 .all()
             )
 
+            # first_frame comparison only ever looks at File.phash (the single
+            # first-frame hash) — extracting the full phash_frames set for it
+            # would burn N-1 throwaway ffmpeg seeks per file for nothing, so
+            # only extract 1 frame in that mode, and only for files that don't
+            # already have a first-frame hash from any prior scan.
+            effective_frames = 1 if phash_mode == "first_frame" else phash_frames
+
             def _needs_rescan(f: File) -> bool:
+                if phash_mode == "first_frame":
+                    return f.phash is None
                 if f.phash_scanned_at is None or not f.phash_frames:
                     return True
                 try:
@@ -248,26 +261,79 @@ def find_duplicates(
 
             to_scan = [f for f in all_candidates if _needs_rescan(f)]
             if to_scan:
+                # Capture plain values before any further db.commit() — SQLAlchemy
+                # expires every loaded attribute on every object in the session
+                # after a commit, and re-reading an expired attribute silently
+                # re-queries through the (shared, NOT thread-safe) session. Worker
+                # threads below must only ever touch these plain values, never
+                # the File ORM objects themselves.
+                by_id = {f.id: f for f in to_scan}
+                to_scan_plain = [(f.id, f.path) for f in to_scan]
+
                 if job:
                     job.total_files = len(to_scan)
                     job.current_file = "Scanning frames…"
                     db.commit()
-                for idx, f in enumerate(to_scan):
-                    if job:
-                        job.current_file = f.filename
-                        job.processed_files = idx + 1
-                        job.progress = (idx + 1) / len(to_scan) * 50
-                        db.commit()
-                    fname = f.filename
+
+                # Extraction is I/O-bound (ffprobe + one ffmpeg seek per file,
+                # no GPU/shared model involved), so it parallelizes cleanly —
+                # reuse scan_prefetch, the same setting the video/image AI
+                # scanners use to bound their own concurrent work-ahead.
+                n_concurrent = max(1, int(get_setting(db, "scan_prefetch", "4")))
+
+                def _extract_one(
+                    file_id: int, path: str
+                ) -> tuple[int, list[int] | None, str | None]:
                     try:
-                        hashes = _extract_phash_frames(f.path, phash_frames)
-                        f.phash = hashes[0]
-                        f.phash_frames = json.dumps(hashes)
-                        f.phash_scanned_at = now()
-                        db.commit()
+                        return file_id, _extract_phash_frames(path, effective_frames, job_id), None
+                    except _Cancelled:
+                        return file_id, None, "cancelled"
                     except Exception as exc:
-                        db.rollback()
-                        logger.warning("pHash extraction failed for %s: %s", fname, exc)
+                        return file_id, None, str(exc)
+
+                completed = 0
+                with _cf.ThreadPoolExecutor(max_workers=n_concurrent) as pool:
+                    pending = {pool.submit(_extract_one, fid, path) for fid, path in to_scan_plain}
+
+                    while pending:
+                        done, pending = _cf.wait(pending, timeout=2.0)
+
+                        if job_id is not None and should_cancel(job_id):
+                            was_cancelled = True
+                            for fut in pending:
+                                fut.cancel()
+                            _cf.wait(pending)
+                            pending = set()
+
+                        for fut in done:
+                            try:
+                                fid, hashes, err = fut.result()
+                            except _cf.CancelledError:
+                                continue
+                            f = by_id[fid]
+                            if hashes:
+                                f.phash = hashes[0]
+                                f.phash_frames = json.dumps(hashes)
+                                f.phash_scanned_at = now()
+                                completed += 1
+                            elif err != "cancelled":
+                                logger.warning(
+                                    "pHash extraction failed for %s: %s", f.filename, err
+                                )
+
+                        db.commit()
+                        if job:
+                            job.processed_files = completed
+                            job.progress = min(50.0, completed / len(to_scan) * 50)
+                            db.commit()
+
+        if was_cancelled:
+            clear_cancel(job_id)
+            if job:
+                job.status = JobStatus.CANCELLED
+                job.finished_at = now()
+                db.commit()
+            return []
 
         logger.warning(
             "find_duplicates: library=%d use_size=%s use_duration=%s use_phash=%s",
@@ -289,6 +355,8 @@ def find_duplicates(
             logger.warning("find_duplicates: %d duplicate sizes found", len(size_values))
             if not size_values:
                 _results[library_id] = []
+                if job_id is not None:
+                    clear_cancel(job_id)
                 if job:
                     job.status = JobStatus.COMPLETED
                     job.finished_at = now()
@@ -364,6 +432,8 @@ def find_duplicates(
         logger.warning("find_duplicates: %d confirmed duplicate groups", len(confirmed))
         _results[library_id] = confirmed
 
+        if job_id is not None:
+            clear_cancel(job_id)
         if job:
             job.status = JobStatus.COMPLETED
             job.finished_at = now()
@@ -374,6 +444,8 @@ def find_duplicates(
         return confirmed
     except Exception as e:
         logger.exception("Duplicate scan failed for library %d: %s", library_id, e)
+        if job_id is not None:
+            clear_cancel(job_id)
         if job:
             job.status = JobStatus.FAILED
             job.error = str(e)

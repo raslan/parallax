@@ -21,6 +21,11 @@ export function applySortDir<T>(arr: T[], dir: SortDir): T[] {
   return dir === "desc" ? [...arr].reverse() : arr;
 }
 
+export function filterByFilename<T extends { filename: string }>(files: T[], search: string): T[] {
+  const q = search.trim().toLowerCase();
+  return q ? files.filter((f) => f.filename.toLowerCase().includes(q)) : files;
+}
+
 export function FileGridCard({
   file,
   selected,

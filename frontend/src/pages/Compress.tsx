@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Zap, X, Loader2, TrendingDown, LayoutGrid, List, Search } from "lucide-react";
 import { compressApi, api } from "@/lib/api";
+import { useJobPoll } from "@/hooks/useJobPoll";
+import { useSelection } from "@/hooks/useSelection";
+import { useSort } from "@/hooks/useSort";
 import type { CompressCodec } from "@/types/compress";
 import type { VideoFile } from "@/types/file";
 import type { Library } from "@/types/library";
@@ -13,6 +16,7 @@ import { formatSize } from "@/lib/format";
 import {
   FileGridCard,
   FileListRow,
+  filterByFilename,
   ColHeader,
   applySortDir,
   SortDir,
@@ -191,21 +195,19 @@ export function Compress() {
   const [speed, setSpeed] = useState("medium");
   const [keepOriginal, setKeepOriginal] = useState(true);
 
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const {
+    selected,
+    setSelected,
+    toggle: toggleFile,
+    selectAll: selectAllIds,
+    selectNone,
+  } = useSelection();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortKey, setSortKey] = useState<SortKey>("filename");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const { sortKey, sortDir, toggleSort: handleSort } = useSort<SortKey>("filename");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
   const [search, setSearch] = useState("");
-  const [jobId, setJobId] = useState<number | null>(null);
-  const [jobStatus, setJobStatus] = useState<string | null>(null);
-  const [jobProgress, setJobProgress] = useState(0);
-  const [jobCurrentFile, setJobCurrentFile] = useState<string | null>(null);
-  const [jobError, setJobError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     api
@@ -247,7 +249,7 @@ export function Compress() {
         setLoadError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => setLoadingFiles(false));
-  }, [libraryId]);
+  }, [libraryId, setSelected]);
 
   const handleCodecChange = (id: string) => {
     setCodec(id);
@@ -260,42 +262,16 @@ export function Compress() {
     return c ? { min: c.crf_min, max: c.crf_max } : { min: 0, max: 51 };
   }, [codec, codecs]);
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  };
-
   const displayFiles = useMemo(
     () => (files ? sortFiles(files, sortKey, sortDir, codec, crf, speed) : null),
     [files, sortKey, sortDir, codec, crf, speed],
   );
   const filteredFiles = useMemo(
-    () =>
-      displayFiles
-        ? search.trim()
-          ? displayFiles.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase()))
-          : displayFiles
-        : null,
+    () => (displayFiles ? filterByFilename(displayFiles, search) : null),
     [displayFiles, search],
   );
 
-  const toggleFile = useCallback((id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const selectAll = () => filteredFiles && setSelected(new Set(filteredFiles.map((f) => f.id)));
-  const selectNone = () => setSelected(new Set());
+  const selectAll = () => filteredFiles && selectAllIds(filteredFiles.map((f) => f.id));
   const selectCandidates = () =>
     filteredFiles &&
     setSelected(
@@ -329,15 +305,6 @@ export function Compress() {
       ? Math.round(((libraryTotalSize - libraryEstSize) / libraryTotalSize) * 100)
       : 0;
 
-  const stopPoll = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => stopPoll(), [stopPoll]);
-
   const refreshFiles = useCallback((libId: number) => {
     compressApi
       .libraryFiles(libId)
@@ -347,59 +314,41 @@ export function Compress() {
         setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
       })
       .catch(() => {});
-  }, []);
+  }, [setSelected]);
 
   useLiveFiles("video", libraryId, () => {
     if (libraryId != null) refreshFiles(libraryId);
   });
 
-  const pollJob = useCallback(
-    (id: number, libId: number | null) => {
-      stopPoll();
-      pollRef.current = setInterval(async () => {
-        try {
-          const job = await api.getJob(id);
-          setJobProgress(job.progress ?? 0);
-          setJobCurrentFile(job.current_file ?? null);
-          setJobStatus(job.status);
-          setJobError(job.error ?? null);
-          if (["completed", "failed", "cancelled"].includes(job.status)) {
-            stopPoll();
-            if (job.status === "completed" && libId != null) refreshFiles(libId);
-          }
-        } catch {
-          stopPoll();
-        }
-      }, 1500);
+  const {
+    jobId,
+    status: jobStatus,
+    progress: jobProgress,
+    currentFile: jobCurrentFile,
+    error: jobError,
+    start: startJobPoll,
+    resume: resumeJobPoll,
+  } = useJobPoll({
+    onTerminal: (job) => {
+      if (job.status === "completed" && job.library_id != null) refreshFiles(job.library_id);
     },
-    [stopPoll, refreshFiles],
-  );
+  });
 
   // Resume polling any active compress job on mount
   useEffect(() => {
     api
       .getJobs(100)
-      .then((jobs) => {
-        const active = jobs.find(
-          (j) => j.type === "compress" && (j.status === "running" || j.status === "pending"),
-        );
-        if (!active) return;
-        setJobId(active.id);
-        setJobStatus(active.status);
-        setJobProgress(active.progress ?? 0);
-        setJobCurrentFile(active.current_file ?? null);
-        setJobError(active.error ?? null);
-        // libraryId may not be set yet — capture via closure at poll time
-        pollJob(active.id, active.library_id);
-      })
+      .then((jobs) => resumeJobPoll(jobs, (j) => j.type === "compress"))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [startError, setStartError] = useState<string | null>(null);
+
   const handleStart = async () => {
     if (selectedFiles.length === 0 || starting) return;
     setStarting(true);
-    setJobError(null);
+    setStartError(null);
     try {
       const { job_id } = await compressApi.start({
         file_ids: selectedFiles.map((f) => f.id),
@@ -408,13 +357,9 @@ export function Compress() {
         speed,
         keep_original: keepOriginal,
       });
-      setJobId(job_id);
-      setJobStatus("pending");
-      setJobProgress(0);
-      setJobCurrentFile(null);
-      pollJob(job_id, libraryId);
+      startJobPoll(job_id);
     } catch (e: unknown) {
-      setJobError(e instanceof Error ? e.message : String(e));
+      setStartError(e instanceof Error ? e.message : String(e));
     } finally {
       setStarting(false);
     }
@@ -704,7 +649,9 @@ export function Compress() {
               style={{ width: `${jobProgress}%` }}
             />
           </div>
-          {jobError && <p className="text-xs text-red-400">{jobError}</p>}
+          {(jobError || startError) && (
+            <p className="text-xs text-red-400">{jobError || startError}</p>
+          )}
         </div>
       )}
 

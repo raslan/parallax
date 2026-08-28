@@ -26,6 +26,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useEventSource } from "@/hooks/useEventSource";
 import type { DownloadItem, DownloadRequest } from "@/types/download";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { DirPicker } from "@/components/DirPicker";
@@ -753,38 +754,7 @@ export function Downloads() {
   };
 
   // SSE connection for live updates
-  useEffect(() => {
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let es: EventSource | null = null;
-    let cancelled = false;
-
-    function connect() {
-      if (cancelled) return;
-      es = new EventSource(api.downloadsSseUrl());
-      es.onmessage = (e) => {
-        try {
-          const data: DownloadItem[] = JSON.parse(e.data);
-          setDownloads(data);
-        } catch {
-          // Ignore malformed SSE messages
-        }
-      };
-      es.onerror = () => {
-        es?.close();
-        if (!cancelled) {
-          reconnectTimer = setTimeout(connect, 3000);
-        }
-      };
-    }
-
-    connect();
-
-    return () => {
-      cancelled = true;
-      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
-      es?.close();
-    };
-  }, []);
+  useEventSource<DownloadItem[]>(api.downloadsSseUrl(), setDownloads);
 
   const urlCount = urlInput.split("\n").filter((l) => l.trim()).length;
 

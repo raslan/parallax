@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { formatSize } from "@/lib/format";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { useSelection } from "@/hooks/useSelection";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
@@ -101,7 +102,7 @@ export function Images() {
   const [detectionFilter, setDetectionFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set<number>());
+  const { selected: selectedIds, setSelected: setSelectedIds, toggle: toggleId } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
@@ -129,18 +130,6 @@ export function Images() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const toggleId = (id: number) => {
-    setSelectedIds((s) => {
-      const n = new Set(s);
-      if (n.has(id)) {
-        n.delete(id);
-      } else {
-        n.add(id);
-      }
-      return n;
-    });
-  };
 
   const toggleSelectionMode = () => {
     setSelectionMode((m) => !m);

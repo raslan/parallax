@@ -5,6 +5,7 @@ import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
+import { useSelection } from "@/hooks/useSelection";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const DETECTION_GROUPS = [
@@ -144,7 +145,7 @@ export function ContentReview() {
 
   const [detectionResults, setDetectionResults] = useState<ImageFile[]>([]);
   const [searchResults, setSearchResults] = useState<{ image: ImageFile; score: number }[]>([]);
-  const [selectedIds, setSelectedIds] = useState(new Set<number>());
+  const { selected: selectedIds, setSelected: setSelectedIds, toggle: toggleId } = useSelection();
   const [loading, setLoading] = useState(false);
   const [quarantining, setQuarantining] = useState(false);
   const [hasRun, setHasRun] = useState(false);
@@ -176,18 +177,6 @@ export function ContentReview() {
         n.delete(label);
       } else {
         n.add(label);
-      }
-      return n;
-    });
-  };
-
-  const toggleId = (id: number) => {
-    setSelectedIds((s) => {
-      const n = new Set(s);
-      if (n.has(id)) {
-        n.delete(id);
-      } else {
-        n.add(id);
       }
       return n;
     });

@@ -26,7 +26,47 @@ def _phash_int(arr: np.ndarray) -> int:
     return val - 2**64 if val >= 2**63 else val
 
 
-def _extract_phash_frames(video_path: str, n_frames: int) -> list[int]:
+class _Cancelled(Exception):
+    pass
+
+
+def _run_capture_cancelable(
+    cmd: list[str], job_id: int | None, timeout: float = 30.0, poll_interval: float = 0.25
+) -> bytes:
+    """subprocess.run() blocks until the process exits or its own timeout fires —
+    there's no way to interrupt it early from outside. When this is called from
+    inside a worker thread of a cancelable job, that means a single in-flight
+    ffmpeg call can hold up cancellation for its entire timeout window. Poll
+    instead, via repeated bounded Popen.communicate() calls (safe to retry per
+    the stdlib docs), so a cancel request can kill the process within one
+    poll_interval instead of waiting out the full timeout.
+    """
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    elapsed = 0.0
+    try:
+        while True:
+            if job_id is not None and should_cancel(job_id):
+                proc.kill()
+                proc.communicate()
+                raise _Cancelled()
+            try:
+                stdout, _ = proc.communicate(timeout=poll_interval)
+                if proc.returncode != 0:
+                    return b""
+                return stdout
+            except subprocess.TimeoutExpired:
+                elapsed += poll_interval
+                if elapsed >= timeout:
+                    proc.kill()
+                    proc.communicate()
+                    return b""
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+
+
+def _extract_phash_frames(video_path: str, n_frames: int, job_id: int | None = None) -> list[int]:
     """
     Fast seeks at n evenly-spaced timestamps (avoiding t=0 and end).
     Capped at 480p — pHash only needs 8x8 DCT, higher res wastes pipe bandwidth.
@@ -43,7 +83,7 @@ def _extract_phash_frames(video_path: str, n_frames: int) -> list[int]:
 
     hashes = []
     for ts in timestamps:
-        result = subprocess.run(
+        stdout = _run_capture_cancelable(
             [
                 "ffmpeg",
                 *_hwaccel_args(),
@@ -64,13 +104,10 @@ def _extract_phash_frames(video_path: str, n_frames: int) -> list[int]:
                 "-loglevel",
                 "error",
             ],
-            capture_output=True,
-            timeout=30,
+            job_id,
         )
-        if result.returncode == 0 and len(result.stdout) >= frame_size:
-            arr = np.frombuffer(result.stdout[:frame_size], dtype=np.uint8).reshape(
-                (out_h, out_w, 3)
-            )
+        if len(stdout) >= frame_size:
+            arr = np.frombuffer(stdout[:frame_size], dtype=np.uint8).reshape((out_h, out_w, 3))
             hashes.append(_phash_int(arr))
 
     if not hashes:

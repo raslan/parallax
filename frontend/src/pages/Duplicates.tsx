@@ -10,6 +10,8 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { useSelection } from "@/hooks/useSelection";
+import { cn } from "@/lib/utils";
 
 function LibrarySelector({
   libraries,
@@ -219,7 +221,7 @@ export function Duplicates() {
   const [scanning, setScanning] = useState(false);
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
   const [resultsStale, setResultsStale] = useState(false);
-  const [deleteIds, setDeleteIds] = useState<Set<number>>(new Set());
+  const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -321,18 +323,6 @@ export function Duplicates() {
       return;
     }
     startPolling(selectedId);
-  };
-
-  const toggleDelete = (fileId: number) => {
-    setDeleteIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(fileId)) {
-        next.delete(fileId);
-      } else {
-        next.add(fileId);
-      }
-      return next;
-    });
   };
 
   const handleDelete = async () => {
@@ -493,8 +483,14 @@ export function Duplicates() {
               ))}
             </div>
 
-            {/* Frame count */}
-            <div className="flex items-center gap-2">
+            {/* Frame count — irrelevant in first-frame mode, which only ever
+                compares File.phash (the single first-frame hash) */}
+            <div
+              className={cn(
+                "flex items-center gap-2",
+                criteria.phash_mode === "first_frame" && "opacity-40",
+              )}
+            >
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 Frames per video
               </span>
@@ -503,11 +499,12 @@ export function Duplicates() {
                 min={4}
                 max={64}
                 step={1}
+                disabled={criteria.phash_mode === "first_frame"}
                 value={criteria.phash_frames}
                 onChange={(e) =>
                   set("phash_frames", Math.min(64, Math.max(4, Number(e.target.value))))
                 }
-                className="w-16 bg-muted border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+                className="w-16 bg-muted border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums disabled:cursor-not-allowed"
               />
             </div>
           </CriteriaRow>

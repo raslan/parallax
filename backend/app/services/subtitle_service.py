@@ -309,6 +309,7 @@ def download_one(file_path: str, provider: str, subtitle_id: str, language: str)
 def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
+    from app.services.common import arm_cancel, clear_cancel, should_cancel
 
     db = SessionLocal()
     try:
@@ -319,6 +320,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
         job.status = JobStatus.RUNNING
         job.started_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
+        arm_cancel(job_id)
 
         # Collect all video files
         video_paths = []
@@ -344,6 +346,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
         tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip()
 
         found = skipped = failed = 0
+        was_cancelled = False
         subf2m = Subf2mProvider()
         yts = None
         if tmdb_api_key:
@@ -353,7 +356,8 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
 
         try:
             for i, video_path in enumerate(video_paths):
-                if db.get(Job, job_id).status == JobStatus.CANCELLED:
+                if should_cancel(job_id):
+                    was_cancelled = True
                     break
 
                 fname = os.path.basename(video_path)
@@ -453,11 +457,18 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
             if yts:
                 yts.close()
 
+        clear_cancel(job_id)
         job.processed_files = len(video_paths)
-        job.progress = 100.0
-        job.status = JobStatus.COMPLETED
-        job.current_file = f"{found} downloaded, {skipped} skipped, {failed} not found"
         job.finished_at = datetime.now(UTC).replace(tzinfo=None)
+        if was_cancelled:
+            job.status = JobStatus.CANCELLED
+            job.current_file = (
+                f"Cancelled — {found} downloaded, {skipped} skipped, {failed} not found"
+            )
+        else:
+            job.progress = 100.0
+            job.status = JobStatus.COMPLETED
+            job.current_file = f"{found} downloaded, {skipped} skipped, {failed} not found"
         db.commit()
 
     except Exception as exc:
@@ -488,6 +499,7 @@ def run_transcribe_job(
     """Background job: transcribe a list of video files with Whisper and save SRT files."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
+    from app.services.common import arm_cancel, clear_cancel, should_cancel
     from app.services.whisper_service import transcribe
 
     db = SessionLocal()
@@ -499,14 +511,15 @@ def run_transcribe_job(
         job.status = JobStatus.RUNNING
         job.started_at = datetime.now(UTC).replace(tzinfo=None)
         db.commit()
+        arm_cancel(job_id)
 
         total = len(video_paths)
         succeeded = 0
+        was_cancelled = False
         for i, path in enumerate(video_paths):
-            if db.get(Job, job_id).status == JobStatus.CANCELLED:
-                job.finished_at = datetime.now(UTC).replace(tzinfo=None)
-                db.commit()
-                return
+            if should_cancel(job_id):
+                was_cancelled = True
+                break
 
             fname = os.path.basename(path)
             job.current_file = fname
@@ -526,10 +539,15 @@ def run_transcribe_job(
             job.progress = ((i + 1) / total) * 100
             db.commit()
 
-        job.status = JobStatus.COMPLETED
-        job.progress = 100.0
+        clear_cancel(job_id)
         job.finished_at = datetime.now(UTC).replace(tzinfo=None)
-        job.current_file = f"{succeeded}/{total} transcribed"
+        if was_cancelled:
+            job.status = JobStatus.CANCELLED
+            job.current_file = f"Cancelled — {succeeded}/{total} transcribed"
+        else:
+            job.status = JobStatus.COMPLETED
+            job.progress = 100.0
+            job.current_file = f"{succeeded}/{total} transcribed"
         db.commit()
         _log(db, job_id, f"Done: {succeeded}/{total} files transcribed.")
 

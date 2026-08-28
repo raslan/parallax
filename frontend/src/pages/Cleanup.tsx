@@ -23,6 +23,8 @@ import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { FilterAccordion } from "@/components/FilterAccordion";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { useSelection } from "@/hooks/useSelection";
+import { useSort } from "@/hooks/useSort";
 
 const NUDENET_GROUPS = [
   {
@@ -259,13 +261,12 @@ export function Cleanup() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<VideoFile[] | null>(null);
   const [resultsStale, setResultsStale] = useState(false);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const { selected, setSelected, toggle: toggleOne, selectAll: selectAllIds } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [sortBy, setSortBy] = useState("filename");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const { sortKey: sortBy, setSortKey: setSortBy, sortDir, setSortDir } = useSort<string>("filename");
 
   useEffect(() => {
     api.getLibraries().then((libs) => {
@@ -455,17 +456,8 @@ export function Cleanup() {
     if (selected.size === results.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(results.map((f) => f.id)));
+      selectAllIds(results.map((f) => f.id));
     }
-  };
-
-  const toggleOne = (id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
 
   const handleDelete = async () => {
