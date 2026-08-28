@@ -517,15 +517,17 @@ function LibraryBrowser({
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-border overflow-hidden h-[60vh]">
+                  <div className="flex flex-col rounded-lg border border-border overflow-hidden h-[60vh]">
                     <FileListHeader />
-                    <VirtualizedGrid
-                      items={visibleFiles}
-                      getKey={(f) => f.id}
-                      mode="list"
-                      itemHeight={52}
-                      renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
-                    />
+                    <div className="flex-1 min-h-0">
+                      <VirtualizedGrid
+                        items={visibleFiles}
+                        getKey={(f) => f.id}
+                        mode="list"
+                        itemHeight={52}
+                        renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+                      />
+                    </div>
                   </div>
                 );
               })()}
@@ -624,15 +626,17 @@ function FlatView({
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden h-[60vh]">
+        <div className="flex flex-col rounded-lg border border-border overflow-hidden h-[60vh]">
           <FileListHeader />
-          <VirtualizedGrid
-            items={visibleFiles}
-            getKey={(f) => f.id}
-            mode="list"
-            itemHeight={52}
-            renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
-          />
+          <div className="flex-1 min-h-0">
+            <VirtualizedGrid
+              items={visibleFiles}
+              getKey={(f) => f.id}
+              mode="list"
+              itemHeight={52}
+              renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+            />
+          </div>
         </div>
       )}
       {totalPages > 1 && (
