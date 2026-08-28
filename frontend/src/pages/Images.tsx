@@ -1,22 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  Images as ImagesIcon,
-  FolderX,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUp,
-  ArrowDown,
-  Search,
-} from "lucide-react";
+import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
 import { imageApi } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatSize } from "@/lib/format";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
+import { useSort } from "@/hooks/useSort";
+import { filterByFilename } from "@/components/FileSelectGrid";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
@@ -25,7 +19,7 @@ const SORT_OPTIONS = [
   { value: "width", label: "Width" },
 ];
 
-const PAGE_SIZE = 60;
+const FETCH_ALL_PAGE_SIZE = 10000;
 
 function ImageCard({
   img,
@@ -94,10 +88,7 @@ function ImageCard({
 
 export function Images() {
   const [images, setImages] = useState<ImageFile[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState("filename");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const { sortKey: sortBy, setSortKey: setSortBy, sortDir, setSortDir } = useSort<string>("filename");
   const [statusFilter, setStatusFilter] = useState("");
   const [detectionFilter, setDetectionFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -109,8 +100,8 @@ export function Images() {
   const load = useCallback(() => {
     imageApi
       .listImages({
-        page,
-        page_size: PAGE_SIZE,
+        page: 1,
+        page_size: FETCH_ALL_PAGE_SIZE,
         sort_by: sortBy,
         sort_dir: sortDir,
         ...(statusFilter ? { status: statusFilter } : {}),
@@ -120,10 +111,9 @@ export function Images() {
       })
       .then((r) => {
         setImages(r.items);
-        setTotal(r.total);
       })
       .catch(() => {});
-  }, [page, sortBy, sortDir, statusFilter, detectionFilter]);
+  }, [sortBy, sortDir, statusFilter, detectionFilter]);
 
   useLiveFiles("image", null, load);
 
@@ -154,7 +144,7 @@ export function Images() {
     load();
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const visibleImages = filterByFilename(images, search);
 
   return (
     <div className="p-8 space-y-6">
@@ -236,21 +226,25 @@ export function Images() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-        {(search.trim()
-          ? images.filter((img) => img.filename.toLowerCase().includes(search.toLowerCase()))
-          : images
-        ).map((img) => (
-          <ImageCard
-            key={img.id}
-            img={img}
-            selectionMode={selectionMode}
-            selected={selectedIds.has(img.id)}
-            onToggle={() => toggleId(img.id)}
-            onQuarantine={() => quarantineOne(img.id)}
-            onOpen={() => setViewingImg(img)}
-          />
-        ))}
+      <div className="h-[70vh]">
+        <VirtualizedGrid
+          items={visibleImages}
+          getKey={(img) => img.id}
+          mode="grid"
+          itemHeight={140}
+          minColumnWidth={140}
+          gap={8}
+          renderItem={(img) => (
+            <ImageCard
+              img={img}
+              selectionMode={selectionMode}
+              selected={selectedIds.has(img.id)}
+              onToggle={() => toggleId(img.id)}
+              onQuarantine={() => quarantineOne(img.id)}
+              onOpen={() => setViewingImg(img)}
+            />
+          )}
+        />
       </div>
 
       {images.length === 0 && (
@@ -264,28 +258,6 @@ export function Images() {
           </CardContent>
         </Card>
       )}
-
-      <div className="flex items-center justify-between">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={page === 1}
-          onClick={() => setPage((p) => p - 1)}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-xs text-muted-foreground">
-          Page {page} of {totalPages}
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={page >= totalPages}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
 
       {selectionMode && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-xl">
