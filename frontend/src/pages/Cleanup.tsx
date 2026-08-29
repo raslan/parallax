@@ -1048,6 +1048,7 @@ export function Cleanup() {
                 mode="list"
                 itemHeight={52}
                 maxHeight="70vh"
+                resetKey={`${selectedId}-${sortBy}-${sortDir}`}
                 renderItem={(f) => (
                   <CleanupListRow
                     file={f}
@@ -1068,6 +1069,7 @@ export function Cleanup() {
               itemChromeHeight={58}
               minColumnWidth={180}
               maxHeight="70vh"
+              resetKey={`${selectedId}-${sortBy}-${sortDir}`}
               renderItem={(f) => (
                 <CleanupCard
                   file={f}

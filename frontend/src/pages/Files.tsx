@@ -357,7 +357,7 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
 
 function FileListHeader() {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg border border-border border-b-0">
+    <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg">
       <div className="w-14 shrink-0" />
       <div className="flex-1">Filename</div>
       <div className="w-24 shrink-0">Status</div>
@@ -511,11 +511,19 @@ function LibraryBrowser({
                     )
                   : browse.files;
                 return viewMode === "grid" ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                    {visibleFiles.map((f) => (
-                      <ThumbnailCard key={f.id} file={f} onPlay={() => onPlay(f)} />
-                    ))}
-                  </div>
+                  <VirtualizedGrid
+                    items={visibleFiles}
+                    getKey={(f) => f.id}
+                    mode="grid"
+                    itemHeight={200}
+                    itemAspectRatio={16 / 9}
+                    itemChromeHeight={58}
+                    dynamicHeight
+                    minColumnWidth={180}
+                    maxHeight="60vh"
+                    resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
+                    renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
+                  />
                 ) : (
                   <div className="flex flex-col rounded-lg border border-border overflow-hidden">
                     <FileListHeader />
@@ -526,6 +534,7 @@ function LibraryBrowser({
                       itemHeight={54}
                       dynamicHeight
                       maxHeight="60vh"
+                      resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
                       renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
                     />
                   </div>
@@ -596,14 +605,16 @@ function FlatView({
     ? files.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase()))
     : files;
 
-  if (files.length === 0)
+  if (visibleFiles.length === 0)
     return (
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
           <Film className="h-10 w-10 text-muted-foreground mb-4" />
           <h3 className="font-semibold text-lg mb-1">No files found</h3>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Add a library and run a scan to populate this view.
+            {search.trim()
+              ? "No files match your search."
+              : "Add a library and run a scan to populate this view."}
           </p>
         </CardContent>
       </Card>
@@ -628,6 +639,7 @@ function FlatView({
           dynamicHeight
           minColumnWidth={180}
           maxHeight="70vh"
+          resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
           renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
         />
       ) : (
@@ -640,6 +652,7 @@ function FlatView({
             itemHeight={54}
             dynamicHeight
             maxHeight="60vh"
+            resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
             renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
           />
         </div>

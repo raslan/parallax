@@ -41,7 +41,13 @@ export interface VirtualizedGridProps<T> {
    * When omitted, the container fills its parent's height.
    */
   maxHeight?: string;
-  className?: string;
+  /**
+   * When this value changes identity, the scroll position resets to the top. Pass
+   * something that changes with the caller's filter/sort/library selection (e.g.
+   * `` `${sortKey}-${sortDir}-${search}` ``) so switching filters doesn't leave the
+   * viewport stranded mid-list against a shorter result set.
+   */
+  resetKey?: string | number;
 }
 
 export function VirtualizedGrid<T>({
@@ -56,7 +62,7 @@ export function VirtualizedGrid<T>({
   mode,
   gap = 12,
   maxHeight,
-  className,
+  resetKey,
 }: VirtualizedGridProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
@@ -111,10 +117,18 @@ export function VirtualizedGrid<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowHeight]);
 
+  // A filter/sort/library change swaps `items` for an unrelated set, but the browser
+  // keeps whatever scrollTop the old, longer list had (just clamped to the new
+  // content height) — so the viewport lands mid-list instead of at the top. Reset
+  // explicitly whenever the caller's resetKey changes.
+  useLayoutEffect(() => {
+    if (resetKey === undefined) return;
+    parentRef.current?.scrollTo({ top: 0 });
+  }, [resetKey]);
+
   return (
     <div
       ref={parentRef}
-      className={className}
       style={maxHeight ? { overflow: "auto", maxHeight } : { overflow: "auto", height: "100%" }}
     >
       <div
