@@ -97,9 +97,19 @@ export function VirtualizedGrid<T>({
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => rowHeight + rowGap,
+    estimateSize: () => rowHeight,
     overscan: 4,
+    gap: rowGap,
   });
+
+  // `estimateSize` isn't itself a measurement-cache dependency inside the virtualizer,
+  // so a `rowHeight` change (e.g. the same column count at a different column width)
+  // wouldn't otherwise invalidate already-cached row measurements. Force a re-measure
+  // whenever the derived height changes.
+  useLayoutEffect(() => {
+    rowVirtualizer.measure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowHeight]);
 
   return (
     <div
