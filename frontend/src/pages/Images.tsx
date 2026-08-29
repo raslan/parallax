@@ -250,6 +250,7 @@ export function Images() {
           minColumnWidth={140}
           gap={8}
           maxHeight="70vh"
+          resetKey={`${statusFilter}-${detectionFilter}-${sortBy}-${sortDir}-${search}`}
           renderItem={(img) => (
             <ImageCard
               img={img}

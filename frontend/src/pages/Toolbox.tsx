@@ -598,6 +598,7 @@ export function Toolbox() {
               itemChromeHeight={48}
               minColumnWidth={200}
               maxHeight="70vh"
+              resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}`}
               renderItem={(f) => (
                 <FileGridCard
                   file={f}
@@ -651,6 +652,7 @@ export function Toolbox() {
                 mode="list"
                 itemHeight={44}
                 maxHeight="70vh"
+                resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}`}
                 renderItem={(f) => (
                   <FileListRow
                     file={f}
