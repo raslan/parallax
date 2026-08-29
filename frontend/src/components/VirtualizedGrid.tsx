@@ -5,10 +5,42 @@ export interface VirtualizedGridProps<T> {
   items: T[];
   getKey: (item: T) => string | number;
   renderItem: (item: T) => React.ReactNode;
+  /**
+   * Fixed row height in px. Always used in `mode: "list"` (rows there are a fixed
+   * height by construction) and used in `mode: "grid"` only as the fallback when
+   * `itemAspectRatio` is not supplied.
+   */
   itemHeight: number;
+  /**
+   * Grid mode only. Width/height ratio of the card's aspect-ratio-constrained media
+   * area (e.g. `1` for `aspect-square`, `16 / 9` for `aspect-video`). When given, the
+   * row height is derived from the ACTUAL computed column width —
+   * `columnWidth / itemAspectRatio + itemChromeHeight` — instead of the flat
+   * `itemHeight`, so cards never outgrow their virtualized row and overlap.
+   */
+  itemAspectRatio?: number;
+  /**
+   * Grid mode only, paired with `itemAspectRatio`. Fixed px height of everything the
+   * card renders outside the aspect-ratio media area (text block, padding, borders).
+   * Defaults to 0.
+   */
+  itemChromeHeight?: number;
+  /**
+   * Opt in to real per-row measurement for rows whose height genuinely varies at
+   * runtime and cannot be derived (e.g. a card that grows a progress bar or an
+   * expandable error block). Costs a ResizeObserver per mounted row — leave off for
+   * fixed-height rows and for grid rows sized via `itemAspectRatio`.
+   */
+  dynamicHeight?: boolean;
   minColumnWidth?: number;
   mode: "grid" | "list";
   gap?: number;
+  /**
+   * When set, the scroll container sizes to its content and is capped at this CSS
+   * length (e.g. `"70vh"`), so a handful of items doesn't leave a large blank area.
+   * When omitted, the container fills its parent's height.
+   */
+  maxHeight?: string;
   className?: string;
 }
 
@@ -17,13 +49,18 @@ export function VirtualizedGrid<T>({
   getKey,
   renderItem,
   itemHeight,
+  itemAspectRatio,
+  itemChromeHeight = 0,
+  dynamicHeight = false,
   minColumnWidth = 200,
   mode,
   gap = 12,
+  maxHeight,
   className,
 }: VirtualizedGridProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
+  const [columnWidth, setColumnWidth] = useState(0);
 
   useLayoutEffect(() => {
     const el = parentRef.current;
@@ -34,7 +71,9 @@ export function VirtualizedGrid<T>({
     }
     const compute = () => {
       const width = el.clientWidth;
-      setColumnCount(Math.max(1, Math.floor((width + gap) / (minColumnWidth + gap))));
+      const cols = Math.max(1, Math.floor((width + gap) / (minColumnWidth + gap)));
+      setColumnCount(cols);
+      setColumnWidth(Math.max(0, (width - gap * (cols - 1)) / cols));
     };
     compute();
     const ro = new ResizeObserver(compute);
@@ -42,17 +81,32 @@ export function VirtualizedGrid<T>({
     return () => ro.disconnect();
   }, [mode, minColumnWidth, gap]);
 
+  // In list mode there's a single column, so `gap` is not spacing between anything —
+  // adding it to the row height would append a dead band under every row.
+  const rowGap = mode === "list" ? 0 : gap;
+
+  // Grid rows derive their height from the real column width whenever the caller told
+  // us the card's aspect ratio; otherwise fall back to the flat itemHeight.
+  const rowHeight =
+    mode === "grid" && itemAspectRatio && columnWidth > 0
+      ? columnWidth / itemAspectRatio + itemChromeHeight
+      : itemHeight;
+
   const rowCount = Math.ceil(items.length / columnCount);
 
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => itemHeight + gap,
+    estimateSize: () => rowHeight + rowGap,
     overscan: 4,
   });
 
   return (
-    <div ref={parentRef} className={className} style={{ overflow: "auto", height: "100%" }}>
+    <div
+      ref={parentRef}
+      className={className}
+      style={maxHeight ? { overflow: "auto", maxHeight } : { overflow: "auto", height: "100%" }}
+    >
       <div
         style={{
           height: rowVirtualizer.getTotalSize(),
@@ -66,16 +120,20 @@ export function VirtualizedGrid<T>({
           return (
             <div
               key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={dynamicHeight ? rowVirtualizer.measureElement : undefined}
               style={{
                 position: "absolute",
                 top: 0,
                 left: 0,
                 width: "100%",
-                height: virtualRow.size,
+                // With dynamic measurement the row must be free to size to its content,
+                // otherwise we'd just be measuring the estimate back again.
+                ...(dynamicHeight ? {} : { height: rowHeight }),
                 transform: `translateY(${virtualRow.start}px)`,
                 display: "grid",
                 gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-                gap,
+                gap: rowGap,
               }}
             >
               {rowItems.map((item) => (
