@@ -369,12 +369,14 @@ function PlaylistGroup({
       </button>
 
       {!collapsed && (
-        <div className="pl-4 border-l border-border/30 ml-4 h-[50vh] max-h-[600px]">
+        <div className="pl-4 border-l border-border/30 ml-4">
           <VirtualizedGrid
             items={items}
             getKey={(item) => item.id}
             mode="list"
             itemHeight={92}
+            dynamicHeight
+            maxHeight="50vh"
             renderItem={(item) => (
               <DownloadCard
                 item={item}

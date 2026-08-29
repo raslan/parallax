@@ -774,14 +774,16 @@ export function Compress() {
               {search.trim() ? "No files match your search" : "No files in this library"}
             </div>
           ) : viewMode === "grid" ? (
-            <div className="h-[70vh]">
-              <VirtualizedGrid
-                items={filteredFiles}
-                getKey={(f) => f.id}
-                mode="grid"
-                itemHeight={180}
-                minColumnWidth={200}
-                renderItem={(f) => (
+            <VirtualizedGrid
+              items={filteredFiles}
+              getKey={(f) => f.id}
+              mode="grid"
+              itemHeight={180}
+              itemAspectRatio={16 / 9}
+              itemChromeHeight={48}
+              minColumnWidth={200}
+              maxHeight="70vh"
+              renderItem={(f) => (
                   <FileGridCard
                     file={f}
                     selected={selected.has(f.id)}
@@ -808,8 +810,7 @@ export function Compress() {
                     }
                   />
                 )}
-              />
-            </div>
+            />
           ) : (
             <div className="border border-border/50 rounded-lg overflow-hidden">
               {/* Headers */}
@@ -860,12 +861,12 @@ export function Compress() {
                 />
                 <span className="w-6 shrink-0" />
               </div>
-              <div className="h-[70vh]">
-                <VirtualizedGrid
+              <VirtualizedGrid
                   items={filteredFiles}
                   getKey={(f) => f.id}
                   mode="list"
                   itemHeight={44}
+                  maxHeight="70vh"
                   renderItem={(f) => (
                     <FileListRow
                       file={f}
@@ -906,7 +907,6 @@ export function Compress() {
                     />
                   )}
                 />
-              </div>
             </div>
           )}
         </div>

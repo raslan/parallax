@@ -88,7 +88,13 @@ function ImageCard({
 
 export function Images() {
   const [images, setImages] = useState<ImageFile[]>([]);
-  const { sortKey: sortBy, setSortKey: setSortBy, sortDir, setSortDir } = useSort<string>("filename");
+  const [total, setTotal] = useState(0);
+  const {
+    sortKey: sortBy,
+    setSortKey: setSortBy,
+    sortDir,
+    setSortDir,
+  } = useSort<string>("filename");
   const [statusFilter, setStatusFilter] = useState("");
   const [detectionFilter, setDetectionFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -111,6 +117,7 @@ export function Images() {
       })
       .then((r) => {
         setImages(r.items);
+        setTotal(r.total);
       })
       .catch(() => {});
   }, [sortBy, sortDir, statusFilter, detectionFilter]);
@@ -226,14 +233,23 @@ export function Images() {
         </div>
       </div>
 
-      <div className="h-[70vh]">
+      {total > images.length && (
+        <p className="text-xs text-muted-foreground">
+          Showing first {images.length.toLocaleString()} of {total.toLocaleString()} images — narrow
+          your filter to see more.
+        </p>
+      )}
+
+      {visibleImages.length > 0 && (
         <VirtualizedGrid
           items={visibleImages}
           getKey={(img) => img.id}
           mode="grid"
           itemHeight={140}
+          itemAspectRatio={1}
           minColumnWidth={140}
           gap={8}
+          maxHeight="70vh"
           renderItem={(img) => (
             <ImageCard
               img={img}
@@ -245,9 +261,9 @@ export function Images() {
             />
           )}
         />
-      </div>
+      )}
 
-      {images.length === 0 && (
+      {visibleImages.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <ImagesIcon className="h-10 w-10 text-muted-foreground mb-4" />

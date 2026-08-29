@@ -1042,41 +1042,41 @@ export function Cleanup() {
                 <span className="w-24 text-right shrink-0">File date</span>
                 <span className="w-16 text-right shrink-0">Size</span>
               </div>
-              <div className="h-[70vh]">
-                <VirtualizedGrid
-                  items={sortedResults}
-                  getKey={(f) => f.id}
-                  mode="list"
-                  itemHeight={52}
-                  renderItem={(f) => (
-                    <CleanupListRow
-                      file={f}
-                      selected={selected.has(f.id)}
-                      onToggle={() => toggleOne(f.id)}
-                      onPlay={() => setPlayingFile(f)}
-                    />
-                  )}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="h-[70vh]">
               <VirtualizedGrid
                 items={sortedResults}
                 getKey={(f) => f.id}
-                mode="grid"
-                itemHeight={200}
-                minColumnWidth={180}
+                mode="list"
+                itemHeight={52}
+                maxHeight="70vh"
                 renderItem={(f) => (
-                  <CleanupCard
+                  <CleanupListRow
                     file={f}
-                    isSelected={selected.has(f.id)}
+                    selected={selected.has(f.id)}
                     onToggle={() => toggleOne(f.id)}
                     onPlay={() => setPlayingFile(f)}
                   />
                 )}
               />
             </div>
+          ) : (
+            <VirtualizedGrid
+              items={sortedResults}
+              getKey={(f) => f.id}
+              mode="grid"
+              itemHeight={200}
+              itemAspectRatio={16 / 9}
+              itemChromeHeight={58}
+              minColumnWidth={180}
+              maxHeight="70vh"
+              renderItem={(f) => (
+                <CleanupCard
+                  file={f}
+                  isSelected={selected.has(f.id)}
+                  onToggle={() => toggleOne(f.id)}
+                  onPlay={() => setPlayingFile(f)}
+                />
+              )}
+            />
           )}
         </div>
       )}

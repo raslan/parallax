@@ -287,7 +287,10 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`} title={file.filename}>
+        <p
+          className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`}
+          title={file.filename}
+        >
           {file.filename}
         </p>
         <p className="truncate text-xs text-muted-foreground" title={file.path}>
@@ -514,17 +517,17 @@ function LibraryBrowser({
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col rounded-lg border border-border overflow-hidden h-[60vh]">
+                  <div className="flex flex-col rounded-lg border border-border overflow-hidden">
                     <FileListHeader />
-                    <div className="flex-1 min-h-0">
-                      <VirtualizedGrid
-                        items={visibleFiles}
-                        getKey={(f) => f.id}
-                        mode="list"
-                        itemHeight={52}
-                        renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
-                      />
-                    </div>
+                    <VirtualizedGrid
+                      items={visibleFiles}
+                      getKey={(f) => f.id}
+                      mode="list"
+                      itemHeight={54}
+                      dynamicHeight
+                      maxHeight="60vh"
+                      renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+                    />
                   </div>
                 );
               })()}
@@ -556,6 +559,7 @@ function FlatView({
   refreshToken: number;
 }) {
   const [files, setFiles] = useState<VideoFile[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const hasLoadedRef = useRef(false);
 
@@ -571,6 +575,7 @@ function FlatView({
       })
       .then((res) => {
         setFiles(res.items);
+        setTotal(res.total);
         hasLoadedRef.current = true;
       })
       .finally(() => setLoading(false));
@@ -606,29 +611,37 @@ function FlatView({
 
   return (
     <>
+      {total > files.length && (
+        <p className="text-xs text-muted-foreground">
+          Showing first {files.length.toLocaleString()} of {total.toLocaleString()} files — narrow
+          your filter to see more.
+        </p>
+      )}
       {viewMode === "grid" ? (
-        <div className="h-[70vh]">
+        <VirtualizedGrid
+          items={visibleFiles}
+          getKey={(f) => f.id}
+          mode="grid"
+          itemHeight={200}
+          itemAspectRatio={16 / 9}
+          itemChromeHeight={58}
+          dynamicHeight
+          minColumnWidth={180}
+          maxHeight="70vh"
+          renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
+        />
+      ) : (
+        <div className="flex flex-col rounded-lg border border-border overflow-hidden">
+          <FileListHeader />
           <VirtualizedGrid
             items={visibleFiles}
             getKey={(f) => f.id}
-            mode="grid"
-            itemHeight={200}
-            minColumnWidth={180}
-            renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
+            mode="list"
+            itemHeight={54}
+            dynamicHeight
+            maxHeight="60vh"
+            renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
           />
-        </div>
-      ) : (
-        <div className="flex flex-col rounded-lg border border-border overflow-hidden h-[60vh]">
-          <FileListHeader />
-          <div className="flex-1 min-h-0">
-            <VirtualizedGrid
-              items={visibleFiles}
-              getKey={(f) => f.id}
-              mode="list"
-              itemHeight={52}
-              renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
-            />
-          </div>
         </div>
       )}
     </>

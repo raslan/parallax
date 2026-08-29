@@ -589,23 +589,24 @@ export function Toolbox() {
               {search.trim() ? "No files match your search" : "No files in this library"}
             </div>
           ) : viewMode === "grid" ? (
-            <div className="h-[70vh]">
-              <VirtualizedGrid
-                items={filteredFiles}
-                getKey={(f) => f.id}
-                mode="grid"
-                itemHeight={180}
-                minColumnWidth={200}
-                renderItem={(f) => (
-                  <FileGridCard
-                    file={f}
-                    selected={selected.has(f.id)}
-                    onToggle={() => toggleFile(f.id)}
-                    onPlay={() => setPlayingFile(f)}
-                  />
-                )}
-              />
-            </div>
+            <VirtualizedGrid
+              items={filteredFiles}
+              getKey={(f) => f.id}
+              mode="grid"
+              itemHeight={180}
+              itemAspectRatio={16 / 9}
+              itemChromeHeight={48}
+              minColumnWidth={200}
+              maxHeight="70vh"
+              renderItem={(f) => (
+                <FileGridCard
+                  file={f}
+                  selected={selected.has(f.id)}
+                  onToggle={() => toggleFile(f.id)}
+                  onPlay={() => setPlayingFile(f)}
+                />
+              )}
+            />
           ) : (
             <div className="border border-border/50 rounded-lg overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border/30 bg-muted/20">
@@ -644,22 +645,21 @@ export function Toolbox() {
                 />
                 <span className="w-6 shrink-0" />
               </div>
-              <div className="h-[70vh]">
-                <VirtualizedGrid
-                  items={filteredFiles}
-                  getKey={(f) => f.id}
-                  mode="list"
-                  itemHeight={44}
-                  renderItem={(f) => (
-                    <FileListRow
-                      file={f}
-                      selected={selected.has(f.id)}
-                      onToggle={() => toggleFile(f.id)}
-                      onPlay={() => setPlayingFile(f)}
-                    />
-                  )}
-                />
-              </div>
+              <VirtualizedGrid
+                items={filteredFiles}
+                getKey={(f) => f.id}
+                mode="list"
+                itemHeight={44}
+                maxHeight="70vh"
+                renderItem={(f) => (
+                  <FileListRow
+                    file={f}
+                    selected={selected.has(f.id)}
+                    onToggle={() => toggleFile(f.id)}
+                    onPlay={() => setPlayingFile(f)}
+                  />
+                )}
+              />
             </div>
           )}
         </div>
