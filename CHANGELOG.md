@@ -3,6 +3,49 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [1.16.0](https://github.com/raslan/parallax/compare/v1.15.0...v1.16.0) (2026-08-31)
+
+
+### Features
+
+* add more progress for video stream playback using plyr ([c3a6ce5](https://github.com/raslan/parallax/commit/c3a6ce564312b4685e18c945657670ebe31e49dc))
+* add yts-subs support for richer subtitle integration in auto and manual ([8601c2a](https://github.com/raslan/parallax/commit/8601c2abdba42030bfec6da065636d7d698cbb94))
+* **frontend:** add VirtualizedGrid windowing component ([4c9488b](https://github.com/raslan/parallax/commit/4c9488b680bb3f7894746a4ae74c29f6bfbe7390))
+* update job logic and majorly rework duplicate scanning pipeline for fun ([d3d37dd](https://github.com/raslan/parallax/commit/d3d37ddade5424bdce032cf925b4ccb5ce5ad4ad))
+
+
+### Bug Fixes
+
+* **backend:** restore user-facing strings and system error messages ([ecd3e28](https://github.com/raslan/parallax/commit/ecd3e287be6309f82147d1fad690db002b484c04))
+* **backend:** stop holding a DB connection during thumbnail fetch ([1443d8a](https://github.com/raslan/parallax/commit/1443d8a49b25e6142ad6fc5ce080b29cdaa7e62c))
+* **downloads:** separate Clear completed from Clear all, sweep leftover files on delete ([e8d30d4](https://github.com/raslan/parallax/commit/e8d30d4794c95b792ffc66b74d56e0120a70d2c5))
+* **files:** raise page_size cap to 10000 to allow fetching a full library in one request ([01afb60](https://github.com/raslan/parallax/commit/01afb6088df693c51eb2aa2dc7207b3d414c9f61))
+* **files:** stop clipping last virtualized list row in Files.tsx ([44ba537](https://github.com/raslan/parallax/commit/44ba537855654f4419d052deb5a28fcdcac267a3))
+* **frontend:** apply prettier formatting missed by initial format run ([ca0c213](https://github.com/raslan/parallax/commit/ca0c213267307e7e49e6bf11ccf39bbed0cfafc8))
+* **frontend:** commit eslint-disable fixes orphaned by concurrent reset ([ff9e12b](https://github.com/raslan/parallax/commit/ff9e12b05ceedd2d02feea421e3eac35ca848144))
+* **frontend:** correct stale references in CLAUDE.md ([5c53cc9](https://github.com/raslan/parallax/commit/5c53cc96826a2555f3f4ca99fbbfb0406568919f))
+* **frontend:** finish virtualized-grid fix wave, dynamic row height for Downloads ([28ebad9](https://github.com/raslan/parallax/commit/28ebad9b4a6e73e8262e6a14c45654fe75b18288))
+* **frontend:** format remaining api.ts file ([07f3e6a](https://github.com/raslan/parallax/commit/07f3e6a4ee5d7c334d7036a9c2c824347c775bf1))
+* **frontend:** invalidate virtualizer measurement cache on row-height change ([0337c6e](https://github.com/raslan/parallax/commit/0337c6e12d3ef4750d32a8a6f2ef63d480cf1569))
+* **frontend:** resolve remaining lint errors and format violations ([51ea55a](https://github.com/raslan/parallax/commit/51ea55a62f77a3ab8c669bc908b3385187ee4d69))
+* **frontend:** resolve remaining virtualized-grid minor findings ([dea0fce](https://github.com/raslan/parallax/commit/dea0fce45a25858891483d41b043ce47cae9c640))
+* **frontend:** revert behavior-changing lint fixes to preserve UX ([17529a1](https://github.com/raslan/parallax/commit/17529a1fc4aa33c2a6252ae040c016c66b93f9a4))
+* **frontend:** upgrade eslint to 10.x, unpin @eslint/js mismatch ([0a08927](https://github.com/raslan/parallax/commit/0a08927536acfd25b694532fc4de8394d174ca08))
+* **lint-staged:** use direct binary paths instead of shell wrapping for correct file scoping ([7b8ba55](https://github.com/raslan/parallax/commit/7b8ba55d2b8244898e5dd04ab829340ab8b68ed0))
+* skip check-ignore when no files were added ([bfc7f69](https://github.com/raslan/parallax/commit/bfc7f695002f00fa70c3ae54645a31fac14490bc))
+* use --no-index in pre-commit force-add guard ([1a91dda](https://github.com/raslan/parallax/commit/1a91ddabe0a446f27f62d52efc732bd218588245))
+* wrap lint-staged commands in sh for proper shell execution ([80d3e70](https://github.com/raslan/parallax/commit/80d3e706551d6043d81c55c4b8982452cb139b12))
+
+
+### Performance Improvements
+
+* **cleanup:** convert list view from table to div-rows and virtualize both view modes ([8f1f14b](https://github.com/raslan/parallax/commit/8f1f14b51e4fe95e352e0fa662772e3c365e8e58))
+* **compress:** virtualize the file grid/list so DOM size no longer scales with library size ([f128185](https://github.com/raslan/parallax/commit/f12818575b65780399956452f9a67a00f4bc5da3))
+* **downloads:** fix O(n^2) playlist grouping and virtualize large playlist groups ([82ce03e](https://github.com/raslan/parallax/commit/82ce03e29d8f1e843a5c9139ed47f00be988cfb8))
+* **files:** fetch the full flat file list in one request instead of paginating, virtualize the render ([9d2e0dc](https://github.com/raslan/parallax/commit/9d2e0dcdc9514369bc19a03256ac9c5c09baaa96))
+* **images:** fetch the full image list in one request instead of paginating, virtualize the grid ([81ca385](https://github.com/raslan/parallax/commit/81ca385c1478bb8a344d192a17491c60bcbc2191))
+* **toolbox:** virtualize the file grid/list ([5365ab8](https://github.com/raslan/parallax/commit/5365ab84c4dc9b5198f27509f5f97c001bd2f0fc))
+
 ## [1.15.0](https://github.com/raslan/parallax/compare/v1.14.0...v1.15.0) (2026-08-23)
 
 
