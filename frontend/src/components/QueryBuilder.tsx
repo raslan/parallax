@@ -8,6 +8,12 @@ const CATEGORY_COLOR: Record<string, string> = {
   search: "#fbbf24",
 };
 
+const CATEGORY_LABEL: Record<string, string> = {
+  numeric: "File Properties",
+  label: "Detection Labels",
+  search: "Search",
+};
+
 const OPERATOR_LABEL: Record<Operator, string> = {
   gt: ">",
   lt: "<",
@@ -262,10 +268,32 @@ export function QueryBuilder<T>({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuFilter, setMenuFilter] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  const sectionColor: Record<string, string> = {};
   const grouped = registry.reduce<Record<string, FieldDef<T>[]>>((acc, f) => {
     if (menuFilter && !f.label.toLowerCase().includes(menuFilter.toLowerCase())) return acc;
-    (acc[f.category] ??= []).push(f);
+    const section = f.group ?? CATEGORY_LABEL[f.category] ?? f.category;
+    sectionColor[section] = CATEGORY_COLOR[f.category];
+    (acc[section] ??= []).push(f);
     return acc;
   }, {});
 
@@ -328,7 +356,7 @@ export function QueryBuilder<T>({
         );
       })}
 
-      <div className="relative">
+      <div className="relative" ref={menuRef}>
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
@@ -339,41 +367,50 @@ export function QueryBuilder<T>({
         </button>
         {menuOpen && (
           <div
-            className="absolute top-full z-20 mt-2 w-64 rounded-md border border-border shadow-xl"
-            style={{
-              background: "var(--px-bg-elevated, #1e1e24)",
-            }}
+            className="absolute top-full z-20 mt-2 w-[560px] max-w-[90vw] rounded-lg border border-border shadow-2xl"
+            style={{ background: "var(--px-bg-elevated, #1e1e24)" }}
           >
-            <div className="border-b p-2">
+            <div className="border-b border-border p-3.5">
               <input
                 autoFocus
                 type="text"
                 placeholder="Search fields…"
                 value={menuFilter}
                 onChange={(e) => setMenuFilter(e.target.value)}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-xs"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"
               />
             </div>
-            {Object.entries(grouped).map(([category, fields]) => (
-              <div key={category}>
-                <p className="px-3 pt-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {category}
-                </p>
-                {fields.map((f) => (
-                  <div
-                    key={f.key}
-                    onClick={() => handleAdd(f.key)}
-                    className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs hover:bg-accent/10"
-                  >
+            <div className="max-h-[380px] overflow-y-auto p-3.5">
+              {Object.entries(grouped).map(([section, fields], idx) => (
+                <div key={section} className={idx > 0 ? "mt-4" : undefined}>
+                  <div className="mb-2 flex items-center gap-2">
                     <span
-                      className="h-2 w-2 shrink-0 rounded-sm"
-                      style={{ background: CATEGORY_COLOR[category] }}
+                      className="h-2 w-2 rounded-sm"
+                      style={{ background: sectionColor[section] }}
                     />
-                    {f.label}
+                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                      {section}
+                    </span>
                   </div>
-                ))}
-              </div>
-            ))}
+                  <div className="grid grid-cols-3 gap-2">
+                    {fields.map((f) => (
+                      <div
+                        key={f.key}
+                        onClick={() => handleAdd(f.key)}
+                        className="flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-2 text-xs font-semibold transition-all hover:-translate-y-px hover:border-primary hover:text-primary"
+                        style={{ background: "var(--px-bg-surface, transparent)" }}
+                      >
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ background: CATEGORY_COLOR[f.category] }}
+                        />
+                        <span className="truncate">{f.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -26,6 +26,7 @@ export type FieldDef<T> = {
   test?: (row: T, operator: Operator, value: unknown) => boolean;
   getRowId?: (row: T) => number;
   showThreshold?: boolean; // for "text" valueType — always show a % threshold input, not only for fuzzy_contains
+  group?: string; // optional sub-heading within a category in the add-filter menu (e.g. "Exposed" within "label")
 };
 
 function hasValue(value: unknown): boolean {
