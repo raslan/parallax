@@ -38,11 +38,12 @@ const LABEL_GROUPS: { label: string; labels: string[] }[] = [
   },
 ];
 
-function labelField(label: string): FieldDef<ImageFile> {
+function labelField(label: string, group: string): FieldDef<ImageFile> {
   return {
     key: `label:${label}`,
     label,
     category: "label",
+    group,
     valueType: "percent",
     operators: ["gte", "lt"],
     defaultOperator: "gte",
@@ -59,7 +60,7 @@ function labelField(label: string): FieldDef<ImageFile> {
 export const CLIP_SEARCH_FIELD_KEY = "clip_search";
 
 export const contentReviewFields: FieldDef<ImageFile>[] = [
-  ...LABEL_GROUPS.flatMap((g) => g.labels.map(labelField)),
+  ...LABEL_GROUPS.flatMap((g) => g.labels.map((label) => labelField(label, g.label))),
   {
     key: CLIP_SEARCH_FIELD_KEY,
     label: "Semantic search",
