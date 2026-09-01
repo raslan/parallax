@@ -142,15 +142,18 @@ export function Toolbox() {
     [filteredFiles, selected],
   );
 
-  const refreshFiles = useCallback((libId: number) => {
-    toolboxApi
-      .libraryFiles(libId)
-      .then((f) => {
-        setFiles(f);
-        setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
-      })
-      .catch(() => {});
-  }, [setSelected]);
+  const refreshFiles = useCallback(
+    (libId: number) => {
+      toolboxApi
+        .libraryFiles(libId)
+        .then((f) => {
+          setFiles(f);
+          setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
+        })
+        .catch(() => {});
+    },
+    [setSelected],
+  );
 
   useLiveFiles("video", libraryId, () => {
     if (libraryId != null) refreshFiles(libraryId);
