@@ -503,63 +503,17 @@ def delete_duplicates_endpoint(
 @router.get("/{library_id}/cleanup", response_model=list[FileRead])
 def get_cleanup_files(
     library_id: int,
-    duration_op: str | None = Query(None),
-    duration_secs: float | None = Query(None),
-    fps_op: str | None = Query(None),
-    fps_val: float | None = Query(None),
-    date_op: str | None = Query(None),
-    date_ts: float | None = Query(None),
-    height_op: str | None = Query(None),
-    height_val: int | None = Query(None),
-    fetch_all: bool = Query(False),
     db: Session = Depends(get_db),
 ):
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
 
-    filters_present = any(
-        [
-            duration_op and duration_secs is not None,
-            fps_op and fps_val is not None,
-            date_op and date_ts is not None,
-            height_op and height_val is not None,
-        ]
-    )
-    if not filters_present and not fetch_all:
-        raise HTTPException(422, "At least one filter must be specified")
-
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
         raise HTTPException(422, "Scan the library first to index files before using cleanup")
 
-    q = db.query(File).filter(File.library_id == library_id)
-
-    if duration_op and duration_secs is not None:
-        if duration_op == "lt":
-            q = q.filter(File.duration.isnot(None), File.duration < duration_secs)
-        else:
-            q = q.filter(File.duration.isnot(None), File.duration > duration_secs)
-
-    if fps_op and fps_val is not None:
-        if fps_op == "lt":
-            q = q.filter(File.file_fps.isnot(None), File.file_fps < fps_val)
-        else:
-            q = q.filter(File.file_fps.isnot(None), File.file_fps > fps_val)
-
-    if date_op and date_ts is not None:
-        if date_op == "before":
-            q = q.filter(File.file_date.isnot(None), File.file_date < date_ts)
-        else:
-            q = q.filter(File.file_date.isnot(None), File.file_date > date_ts)
-
-    if height_op and height_val is not None:
-        if height_op == "lt":
-            q = q.filter(File.file_height.isnot(None), File.file_height < height_val)
-        else:
-            q = q.filter(File.file_height.isnot(None), File.file_height > height_val)
-
-    files = q.order_by(File.filename).all()
+    files = db.query(File).filter(File.library_id == library_id).order_by(File.filename).all()
 
     return [
         FileRead(
