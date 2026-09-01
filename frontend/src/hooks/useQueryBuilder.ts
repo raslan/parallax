@@ -1,14 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 export type Operator =
-  | "gt"
-  | "lt"
-  | "gte"
-  | "lte"
-  | "eq"
-  | "contains"
-  | "not_contains"
-  | "fuzzy_contains";
+  "gt" | "lt" | "gte" | "lte" | "eq" | "contains" | "not_contains" | "fuzzy_contains";
 
 export type ValueType = "number" | "date_offset" | "text" | "percent";
 
@@ -55,7 +48,9 @@ function evaluateOne<T>(
     const map = scoreMaps[clause.id];
     const score = map?.get(field.getRowId(row));
     if (score === undefined) return true; // fail open — not yet resolved / fetch failed
-    return clause.operator === "gte" ? score >= (clause.value as number) : score < (clause.value as number);
+    return clause.operator === "gte"
+      ? score >= (clause.value as number)
+      : score < (clause.value as number);
   }
 
   return true;
@@ -86,19 +81,21 @@ export function useQueryBuilder<T>(registry: FieldDef<T>[]) {
   );
 
   const addClause = useCallback(
-    (fieldKey: string) => {
+    (fieldKey: string): string | null => {
       const field = fieldsByKey[fieldKey];
-      if (!field) return;
+      if (!field) return null;
+      const id = `${fieldKey}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       setClauses((prev) => [
         ...prev,
         {
-          id: `${fieldKey}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id,
           fieldKey,
           operator: field.defaultOperator,
           value: field.defaultValue,
           joinToNext: "AND",
         },
       ]);
+      return id;
     },
     [fieldsByKey],
   );
