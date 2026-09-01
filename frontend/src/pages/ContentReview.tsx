@@ -143,6 +143,7 @@ export function ContentReview() {
     try {
       await imageApi.quarantineBulk([...selectedIds]);
       setSelectedIds(new Set());
+      setAllImages(null); // force a real refetch — GET /images excludes quarantined images
       await runFilters();
     } finally {
       setQuarantining(false);
