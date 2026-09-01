@@ -202,7 +202,11 @@ export function Subtitles() {
     onTerminal: () => {
       setDownloading(false);
       const target = downloadTargetRef.current;
-      if (target) subtitlesApi.scan(target).then(setFiles).catch(() => {});
+      if (target)
+        subtitlesApi
+          .scan(target)
+          .then(setFiles)
+          .catch(() => {});
     },
   });
   const transcribePoll = useJobPoll({
@@ -210,7 +214,11 @@ export function Subtitles() {
     onTerminal: () => {
       setTranscribing(false);
       const target = transcribeTargetRef.current;
-      if (target) subtitlesApi.scan(target).then(setFiles).catch(() => {});
+      if (target)
+        subtitlesApi
+          .scan(target)
+          .then(setFiles)
+          .catch(() => {});
     },
   });
   const jobProgress = downloadPoll.progress;

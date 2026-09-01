@@ -94,7 +94,13 @@ describe("evaluateClauses", () => {
     // false, then that result ORs with the third clause.
     const clauses = [
       clause({ fieldKey: "n", operator: "gt", value: 500, joinToNext: "AND" }),
-      clause({ id: "name2", fieldKey: "name", operator: "contains", value: "nope", joinToNext: "OR" }),
+      clause({
+        id: "name2",
+        fieldKey: "name",
+        operator: "contains",
+        value: "nope",
+        joinToNext: "OR",
+      }),
       clause({ id: "name3", fieldKey: "name", operator: "contains", value: "hello" }),
     ];
     expect(evaluateClauses(clauses, row, fields, {})).toBe(true);
