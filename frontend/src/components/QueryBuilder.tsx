@@ -114,7 +114,7 @@ function ValueEditor<T>({
         onChange={(e) => onChange({ ...v, text: e.target.value })}
         className="w-32 rounded border border-border bg-background px-1.5 py-1 text-xs"
       />
-      {operator === "fuzzy_contains" && (
+      {(operator === "fuzzy_contains" || field.showThreshold) && (
         <>
           <input
             type="number"
