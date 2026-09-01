@@ -25,6 +25,7 @@ export type FieldDef<T> = {
   defaultValue: unknown;
   test?: (row: T, operator: Operator, value: unknown) => boolean;
   getRowId?: (row: T) => number;
+  showThreshold?: boolean; // for "text" valueType — always show a % threshold input, not only for fuzzy_contains
 };
 
 function hasValue(value: unknown): boolean {
@@ -48,9 +49,15 @@ function evaluateOne<T>(
     const map = scoreMaps[clause.id];
     const score = map?.get(field.getRowId(row));
     if (score === undefined) return true; // fail open — not yet resolved / fetch failed
-    return clause.operator === "gte"
-      ? score >= (clause.value as number)
-      : score < (clause.value as number);
+    // Score-map-backed fields normally carry a plain numeric threshold, but a
+    // "text" valueType field (e.g. semantic search) carries { text, threshold }
+    // with threshold expressed as a 0-100 percent — normalise to the score's scale.
+    const raw = clause.value;
+    const threshold =
+      typeof raw === "object" && raw !== null && "threshold" in raw
+        ? ((raw as { threshold?: number }).threshold ?? 0) / 100
+        : (raw as number);
+    return clause.operator === "gte" ? score >= threshold : score < threshold;
   }
 
   return true;
