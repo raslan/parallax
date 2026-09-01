@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ShieldAlert, Search, FolderX } from "lucide-react";
 import { imageApi } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
@@ -96,13 +96,15 @@ export function ContentReview() {
   const [hasRun, setHasRun] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
   const [scoreMaps, setScoreMaps] = useState<Record<string, Map<number, number>>>({});
+  const [error, setError] = useState<string | null>(null);
 
   async function runFilters() {
     setLoading(true);
     setSelectedIds(new Set());
     setHasRun(true);
+    setError(null);
     try {
-      const images = allImages ?? (await imageApi.listImages({ page_size: 100000 })).items;
+      const images = allImages ?? (await imageApi.listImages({ page_size: 10000 })).items;
       setAllImages(images);
 
       // Resolve every semantic-search clause into a score map keyed by clause.id,
@@ -130,21 +132,31 @@ export function ContentReview() {
       );
 
       setScoreMaps(maps);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to run filters";
+      setError(message);
     } finally {
       setLoading(false);
     }
   }
 
-  const allResults = allImages ? allImages.filter((img) => evaluate(img, scoreMaps)) : [];
+  const allResults = useMemo(
+    () => (allImages ? allImages.filter((img) => evaluate(img, scoreMaps)) : []),
+    [allImages, evaluate, scoreMaps],
+  );
 
   async function quarantineSelected() {
     if (!selectedIds.size) return;
     setQuarantining(true);
+    setError(null);
     try {
       await imageApi.quarantineBulk([...selectedIds]);
       setSelectedIds(new Set());
       setAllImages(null); // force a real refetch — GET /images excludes quarantined images
       await runFilters();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to quarantine selected images";
+      setError(message);
     } finally {
       setQuarantining(false);
     }
@@ -180,7 +192,9 @@ export function ContentReview() {
         {loading ? "Running…" : "Run Filters"}
       </Button>
 
-      {allResults.length > 0 && (
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {canRun && allResults.length > 0 && (
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -226,7 +240,7 @@ export function ContentReview() {
         </>
       )}
 
-      {!loading && hasRun && allResults.length === 0 && (
+      {!loading && canRun && hasRun && allResults.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-12">
           No results. Try adjusting filters or search query.
         </p>
