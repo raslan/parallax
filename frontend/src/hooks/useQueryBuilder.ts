@@ -1,3 +1,5 @@
+import { useCallback, useMemo, useState } from "react";
+
 export type Operator =
   | "gt"
   | "lt"
@@ -73,4 +75,47 @@ export function evaluateClauses<T>(
     result = joiner === "AND" ? result && next : result || next;
   }
   return result;
+}
+
+export function useQueryBuilder<T>(registry: FieldDef<T>[]) {
+  const [clauses, setClauses] = useState<Clause[]>([]);
+
+  const fieldsByKey = useMemo(
+    () => Object.fromEntries(registry.map((f) => [f.key, f])) as Record<string, FieldDef<T>>,
+    [registry],
+  );
+
+  const addClause = useCallback(
+    (fieldKey: string) => {
+      const field = fieldsByKey[fieldKey];
+      if (!field) return;
+      setClauses((prev) => [
+        ...prev,
+        {
+          id: `${fieldKey}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          fieldKey,
+          operator: field.defaultOperator,
+          value: field.defaultValue,
+          joinToNext: "AND",
+        },
+      ]);
+    },
+    [fieldsByKey],
+  );
+
+  const removeClause = useCallback((id: string) => {
+    setClauses((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const updateClause = useCallback((id: string, patch: Partial<Clause>) => {
+    setClauses((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }, []);
+
+  const evaluate = useCallback(
+    (row: T, scoreMaps: Record<string, Map<number, number>> = {}) =>
+      evaluateClauses(clauses, row, fieldsByKey, scoreMaps),
+    [clauses, fieldsByKey],
+  );
+
+  return { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate };
 }
