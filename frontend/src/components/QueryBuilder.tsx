@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import type { Clause, FieldDef, Operator } from "@/hooks/useQueryBuilder";
 
@@ -142,15 +142,82 @@ function formatValue<T>(field: FieldDef<T>, operator: Operator, value: unknown):
   return operator === "fuzzy_contains" ? `"${v.text}" ~${v.threshold ?? 40}%` : `"${v.text}"`;
 }
 
+function ExpandedClause<T>({
+  field,
+  clause,
+  onUpdate,
+  onCollapse,
+}: {
+  field: FieldDef<T>;
+  clause: Clause;
+  onUpdate: (id: string, patch: Partial<Clause>) => void;
+  onCollapse: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onCollapse();
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" || e.key === "Enter") {
+        onCollapse();
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onCollapse]);
+
+  return (
+    <div
+      ref={ref}
+      className="flex items-center gap-2 rounded-md border-2 p-2"
+      style={{
+        borderColor: "var(--px-accent)",
+        boxShadow: "0 0 0 4px var(--px-accent-dim, rgba(139,92,246,0.16))",
+      }}
+    >
+      <span className="text-xs font-semibold">{field.label}</span>
+      <OperatorSelect
+        field={field}
+        value={clause.operator}
+        onChange={(op) => onUpdate(clause.id, { operator: op })}
+      />
+      <ValueEditor
+        field={field}
+        operator={clause.operator}
+        value={clause.value}
+        onChange={(v) => onUpdate(clause.id, { value: v })}
+      />
+      <button
+        type="button"
+        onClick={() => onCollapse()}
+        className="rounded px-2 py-1 text-xs font-semibold text-primary-foreground"
+        style={{ background: "var(--px-accent)" }}
+      >
+        Done
+      </button>
+    </div>
+  );
+}
+
 function JoinerSwitch({ value, onToggle }: { value: "AND" | "OR"; onToggle: () => void }) {
   const isOr = value === "OR";
   return (
     <button
       type="button"
       onClick={onToggle}
-      className="relative flex h-[34px] w-[88px] shrink-0 items-center rounded-full border p-[3px]"
+      className="relative flex h-[34px] w-[88px] shrink-0 items-center rounded-full border border-border p-[3px]"
       style={{
-        borderColor: "var(--px-border, #2c2c33)",
         background: "var(--px-bg-elevated, #1e1e24)",
       }}
     >
@@ -218,34 +285,12 @@ export function QueryBuilder<T>({
         return (
           <div key={clause.id} className="flex items-center gap-3">
             {isExpanded ? (
-              <div
-                className="flex items-center gap-2 rounded-md border-2 p-2"
-                style={{
-                  borderColor: "var(--px-accent)",
-                  boxShadow: "0 0 0 4px var(--px-accent-dim, rgba(139,92,246,0.16))",
-                }}
-              >
-                <span className="text-xs font-semibold">{field.label}</span>
-                <OperatorSelect
-                  field={field}
-                  value={clause.operator}
-                  onChange={(op) => onUpdate(clause.id, { operator: op })}
-                />
-                <ValueEditor
-                  field={field}
-                  operator={clause.operator}
-                  value={clause.value}
-                  onChange={(v) => onUpdate(clause.id, { value: v })}
-                />
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(null)}
-                  className="rounded px-2 py-1 text-xs font-semibold text-white"
-                  style={{ background: "var(--px-accent)" }}
-                >
-                  Done
-                </button>
-              </div>
+              <ExpandedClause
+                field={field}
+                clause={clause}
+                onUpdate={onUpdate}
+                onCollapse={() => setExpandedId(null)}
+              />
             ) : (
               <div
                 onClick={() => setExpandedId(clause.id)}
@@ -287,18 +332,16 @@ export function QueryBuilder<T>({
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex items-center gap-1.5 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground hover:border-solid"
-          style={{ borderColor: "var(--px-border, #2c2c33)" }}
+          className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:border-solid"
         >
           <Plus className="h-3.5 w-3.5" />
           Add filter
         </button>
         {menuOpen && (
           <div
-            className="absolute top-full z-20 mt-2 w-64 rounded-md border shadow-xl"
+            className="absolute top-full z-20 mt-2 w-64 rounded-md border border-border shadow-xl"
             style={{
               background: "var(--px-bg-elevated, #1e1e24)",
-              borderColor: "var(--px-border, #2c2c33)",
             }}
           >
             <div className="border-b p-2">
