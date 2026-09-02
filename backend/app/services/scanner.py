@@ -66,9 +66,21 @@ def probe_file(path: str) -> dict:
 
 
 def generate_thumbnail(file_path: str, file_id: int) -> bool:
-    """Extract a single frame at 10% into the video. Returns True on success."""
+    """Extract a single frame at 10% into the video. Returns True on success.
+
+    Removes any existing file at the target path first: `file_id` values get
+    reused (SQLite rowid reuse after a delete), and `ffmpeg -y` only
+    overwrites on a successful run — a failed extraction (e.g. a corrupt or
+    fake video) would otherwise leave a stale thumbnail from a previously
+    deleted, unrelated file sitting there and served under the new file's
+    identity.
+    """
     os.makedirs(THUMBNAILS_DIR, exist_ok=True)
     out_path = os.path.join(THUMBNAILS_DIR, f"{file_id}.jpg")
+    try:
+        os.remove(out_path)
+    except FileNotFoundError:
+        pass
 
     try:
         # Get duration first
@@ -320,6 +332,10 @@ def scan_library(library_id: int):
         # Remove DB records for files no longer on disk
         for path, file_obj in existing.items():
             if not os.path.exists(path):
+                try:
+                    os.remove(thumbnail_path(file_obj.id))
+                except FileNotFoundError:
+                    pass
                 db.delete(file_obj)
         db.commit()
 

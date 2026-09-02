@@ -434,6 +434,10 @@ def delete_duplicates_endpoint(
             originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
             os.makedirs(originals_dir, exist_ok=True)
             shutil.move(f.path, os.path.join(originals_dir, f.filename))
+        try:
+            os.remove(thumbnail_path(f.id))
+        except FileNotFoundError:
+            pass
         db.delete(f)
     db.commit()
 
