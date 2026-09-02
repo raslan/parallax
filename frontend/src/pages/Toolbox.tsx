@@ -27,6 +27,8 @@ import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { GridSizeControl } from "@/components/GridSizeControl";
+import { useGridSize } from "@/hooks/useGridSize";
 import { CollapsibleControls } from "@/components/CollapsibleControls";
 import { SectionHeader } from "@/components/SectionHeader";
 import { FilterAccordion } from "@/components/FilterAccordion";
@@ -90,6 +92,7 @@ export function Toolbox() {
     selectNone,
   } = useSelection();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [gridSize, setGridSize] = useGridSize(200);
   const { sortKey, sortDir, toggleSort: handleSort } = useSort<SortKey>("filename");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
@@ -598,6 +601,8 @@ export function Toolbox() {
               </button>
             </div>
 
+            {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
+
             <Button
               onClick={handleStart}
               disabled={selected.size === 0 || !hasFix || isRunning || starting}
@@ -624,10 +629,10 @@ export function Toolbox() {
                 getKey={(f) => f.id}
                 mode="grid"
                 itemHeight={180}
-                itemAspectRatio={16 / 9}
+                itemAspectRatio={4 / 3}
                 itemChromeHeight={48}
-                minColumnWidth={200}
-                resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}`}
+                minColumnWidth={gridSize}
+                resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}-${gridSize}`}
                 renderItem={(f) => (
                   <FileGridCard
                     file={f}

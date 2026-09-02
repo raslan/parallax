@@ -19,8 +19,10 @@ import type { VideoFile } from "@/types/file";
 import type { Library, BrowseResponse } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
-import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
+import { formatSize, formatDuration, formatBitrate, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { GridSizeControl } from "@/components/GridSizeControl";
+import { useGridSize } from "@/hooks/useGridSize";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -44,7 +46,7 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
       className="overflow-hidden cursor-pointer group transition-shadow hover:ring-1 hover:ring-primary"
       onClick={onPlay}
     >
-      <div className="aspect-video bg-muted relative flex items-center justify-center">
+      <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
           <img
             src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
@@ -76,7 +78,10 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
           </Badge>
         </div>
       </div>
-      <CardContent className="p-2.5 space-y-0.5">
+      <CardContent
+        className="p-2.5 space-y-0.5 border-t border-border"
+        style={{ background: "var(--px-bg-elevated)" }}
+      >
         <p className="text-xs font-medium truncate" title={file.filename}>
           {file.filename}
         </p>
@@ -144,6 +149,12 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
       <span className="w-20 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
         {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
       </span>
+      <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        {formatUnixDate(file.file_date)}
+      </span>
+      <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        {formatUnixDate(file.file_mtime)}
+      </span>
       <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
         {formatSize(file.size)}
       </span>
@@ -172,6 +183,8 @@ function FileListHeader() {
       <div className="w-16 shrink-0 text-right">Codec</div>
       <div className="w-16 shrink-0 text-right">Duration</div>
       <div className="w-20 shrink-0 text-right">Bitrate</div>
+      <div className="w-24 shrink-0 text-right">Content date</div>
+      <div className="w-24 shrink-0 text-right">File added</div>
       <div className="w-16 shrink-0 text-right">Size</div>
       <div className="w-14 shrink-0" />
     </div>
@@ -245,6 +258,7 @@ function LibraryBrowser({
   sortBy,
   sortDir,
   viewMode,
+  gridSize,
   search,
   onPlay,
   refreshToken,
@@ -254,6 +268,7 @@ function LibraryBrowser({
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  gridSize: number;
   search: string;
   onPlay: (f: VideoFile) => void;
   refreshToken: number;
@@ -325,11 +340,11 @@ function LibraryBrowser({
                       getKey={(f) => f.id}
                       mode="grid"
                       itemHeight={200}
-                      itemAspectRatio={16 / 9}
+                      itemAspectRatio={4 / 3}
                       itemChromeHeight={58}
                       dynamicHeight
-                      minColumnWidth={180}
-                      resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
+                      minColumnWidth={gridSize}
+                      resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}-${gridSize}`}
                       renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
                     />
                   </div>
@@ -365,6 +380,7 @@ function FlatView({
   sortBy,
   sortDir,
   viewMode,
+  gridSize,
   search,
   onPlay,
   refreshToken,
@@ -373,6 +389,7 @@ function FlatView({
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  gridSize: number;
   search: string;
   onPlay: (f: VideoFile) => void;
   refreshToken: number;
@@ -445,11 +462,11 @@ function FlatView({
             getKey={(f) => f.id}
             mode="grid"
             itemHeight={200}
-            itemAspectRatio={16 / 9}
+            itemAspectRatio={4 / 3}
             itemChromeHeight={58}
             dynamicHeight
-            minColumnWidth={180}
-            resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
+            minColumnWidth={gridSize}
+            resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}-${gridSize}`}
             renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
           />
         </div>
@@ -494,6 +511,7 @@ export function Files() {
   const [sortBy, setSortBy] = useState("filename");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [gridSize, setGridSize] = useGridSize(180);
   const [search, setSearch] = useState("");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -595,6 +613,7 @@ export function Files() {
               <List className="h-3.5 w-3.5" />
             </button>
           </div>
+          {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
         </div>
       </div>
 
@@ -606,6 +625,7 @@ export function Files() {
             sortBy={sortBy}
             sortDir={sortDir}
             viewMode={viewMode}
+            gridSize={gridSize}
             search={search}
             onPlay={setPlayingFile}
             refreshToken={refreshToken}
@@ -616,6 +636,7 @@ export function Files() {
             sortBy={sortBy}
             sortDir={sortDir}
             viewMode={viewMode}
+            gridSize={gridSize}
             search={search}
             onPlay={setPlayingFile}
             refreshToken={refreshToken}

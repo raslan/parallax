@@ -18,6 +18,8 @@ import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { GridSizeControl } from "@/components/GridSizeControl";
+import { useGridSize } from "@/hooks/useGridSize";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -70,7 +72,7 @@ function CleanupCard({
       className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isSelected ? "ring-1 ring-primary" : "hover:ring-primary/60"}`}
       onClick={onToggle}
     >
-      <div className="aspect-video bg-muted relative flex items-center justify-center">
+      <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
           <img
             src={`/api/files/${file.id}/thumbnail`}
@@ -103,7 +105,10 @@ function CleanupCard({
           <Play className="h-8 w-8 text-white fill-white" />
         </button>
       </div>
-      <CardContent className="p-2.5 space-y-0.5">
+      <CardContent
+        className="p-2.5 space-y-0.5 border-t border-border"
+        style={{ background: "var(--px-bg-elevated)" }}
+      >
         <p className="text-xs font-medium truncate" title={file.filename}>
           {file.filename}
         </p>
@@ -190,6 +195,9 @@ function CleanupListRow({
       <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
         {formatUnixDate(file.file_date)}
       </span>
+      <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
+        {formatUnixDate(file.file_mtime)}
+      </span>
       <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
         {formatSize(file.size)}
       </span>
@@ -211,6 +219,7 @@ export function Cleanup() {
   const [error, setError] = useState<string | null>(null);
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [gridSize, setGridSize] = useGridSize(180);
   const {
     sortKey: sortBy,
     setSortKey: setSortBy,
@@ -253,7 +262,7 @@ export function Cleanup() {
     { value: "size", label: "Size" },
     { value: "duration", label: "Duration" },
     { value: "video_bitrate", label: "Bitrate" },
-    { value: "file_date", label: "File date" },
+    { value: "file_date", label: "Content date" },
   ] as const;
 
   const filteredResults = useMemo(() => {
@@ -422,6 +431,9 @@ export function Cleanup() {
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </button>
               </div>
+              {viewMode === "grid" && (
+                <GridSizeControl value={gridSize} onChange={setGridSize} />
+              )}
               <Button
                 variant="destructive"
                 size="sm"
@@ -452,7 +464,8 @@ export function Cleanup() {
                 <span className="w-20 text-right shrink-0">Resolution</span>
                 <span className="w-14 text-right shrink-0">FPS</span>
                 <span className="w-16 text-right shrink-0">Duration</span>
-                <span className="w-24 text-right shrink-0">File date</span>
+                <span className="w-24 text-right shrink-0">Content date</span>
+                <span className="w-24 text-right shrink-0">File added</span>
                 <span className="w-16 text-right shrink-0">Size</span>
               </div>
               <div className="flex-1 min-h-0">
@@ -480,10 +493,10 @@ export function Cleanup() {
                 getKey={(f) => f.id}
                 mode="grid"
                 itemHeight={200}
-                itemAspectRatio={16 / 9}
+                itemAspectRatio={4 / 3}
                 itemChromeHeight={58}
-                minColumnWidth={180}
-                resetKey={`${selectedId}-${sortBy}-${sortDir}`}
+                minColumnWidth={gridSize}
+                resetKey={`${selectedId}-${sortBy}-${sortDir}-${gridSize}`}
                 renderItem={(f) => (
                   <CleanupCard
                     file={f}
