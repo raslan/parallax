@@ -25,9 +25,9 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { formatSize } from "@/lib/format";
 
 const THEMES = [
+  { id: "amber" as const, label: "Mission Control", accent: "#f59e0b" },
   { id: "violet" as const, label: "Deep Space", accent: "#a78bfa" },
   { id: "cyan" as const, label: "Modern HUD", accent: "#22d3ee" },
-  { id: "amber" as const, label: "Mission Control", accent: "#f59e0b" },
   { id: "oled" as const, label: "OLED", accent: "#ffffff" },
   { id: "emerald" as const, label: "Neon Grid", accent: "#34d399" },
 ];
