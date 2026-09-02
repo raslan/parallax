@@ -278,10 +278,6 @@ export function Compress() {
     setSelected(
       new Set(filteredFiles.filter((f) => f.codec_name?.toLowerCase() !== codec).map((f) => f.id)),
     );
-  const selectCorrupt = () =>
-    filteredFiles &&
-    setSelected(new Set(filteredFiles.filter((f) => f.status === "corrupt").map((f) => f.id)));
-
   const selectedFiles = useMemo(
     () => (filteredFiles ?? []).filter((f) => selected.has(f.id)),
     [filteredFiles, selected],
@@ -693,13 +689,6 @@ export function Compress() {
               title={`Select files not already ${selectedCodec?.label ?? codec}`}
             >
               Non-{selectedCodec?.label ?? codec.toUpperCase()}
-            </button>
-            <button
-              onClick={selectCorrupt}
-              className="text-xs text-destructive/70 hover:text-destructive transition-colors underline underline-offset-2"
-              title="Select all corrupt files"
-            >
-              Corrupt
             </button>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />

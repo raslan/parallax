@@ -30,7 +30,6 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 const TYPE_LABEL: Record<string, string> = {
   scan: "Scan",
-  check: "Corruption check",
   transcode: "Transcode",
   duplicates: "Duplicate scan",
   subtitle_download: "Subtitle download",
@@ -109,16 +108,14 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
           </div>
           {job.status === "running" && job.current_file && (
             <p className="text-xs text-muted-foreground truncate" title={job.current_file}>
-              {job.type === "video_scan" || job.type === "scan"
+              {job.type === "scan"
                 ? job.current_file
                 : `${
-                    job.type === "check"
-                      ? "Checking"
-                      : job.type === "duplicates" || job.type === "phash_scan"
-                        ? "Scanning"
-                        : job.type === "subtitle_scan" || job.type === "whisper"
-                          ? "Processing"
-                          : "Transcoding"
+                    job.type === "duplicates" || job.type === "phash_scan"
+                      ? "Scanning"
+                      : job.type === "subtitle_scan" || job.type === "whisper"
+                        ? "Processing"
+                        : "Transcoding"
                   }: ${job.current_file}`}
             </p>
           )}
@@ -265,7 +262,7 @@ export function Jobs() {
           <SectionHeader className="mb-1.5">Active &amp; recent jobs</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Monitor scan, corruption-check, and transcode jobs.
+            Monitor scan and transcode jobs.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -301,7 +298,7 @@ export function Jobs() {
             <Activity className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No jobs yet</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Trigger a scan or corruption check from the Libraries page.
+              Trigger a scan from the Libraries page.
             </p>
           </CardContent>
         </Card>
