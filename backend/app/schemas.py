@@ -184,8 +184,3 @@ class ImageScanRequest(BaseModel):
     run_phash: bool = True
     run_nudenet: bool = True
     reset: bool = False
-
-
-class ImageSearchResult(BaseModel):
-    image: ImageRead
-    score: float
