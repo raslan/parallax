@@ -99,7 +99,7 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
     from app.database import SessionLocal
     from app.models.file import File, FileStatus
     from app.models.library import Library
-    from app.services.scanner import _now, generate_thumbnail, probe_file, thumbnail_path
+    from app.services.scanner import _now, _probe_metadata, generate_thumbnail, thumbnail_path
 
     db = SessionLocal()
     try:
@@ -118,27 +118,47 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
                 db.delete(f)
         db.commit()
 
-        # New / modified
-        for path in changed:
-            if not os.path.exists(path):
-                continue
-            f = db.query(File).filter(File.path == path).first()
-            is_new = f is None
-            if is_new:
-                # Re-check library still exists before inserting
-                db.expire(library)
-                if db.get(Library, library_id) is None:
-                    return
-                f = File(
+        # New / modified — batch-insert every genuinely-new path in one shot
+        # (one query + one commit for the whole set) instead of a round-trip
+        # per file; a big folder copy can land hundreds of "changed" paths in
+        # a single debounced batch.
+        existing_changed = {
+            f.path: f
+            for f in db.query(File)
+            .filter(File.library_id == library_id, File.path.in_(changed))
+            .all()
+        }
+        new_paths = [p for p in changed if p not in existing_changed and os.path.exists(p)]
+        new_path_set = set(new_paths)
+        if new_paths:
+            db.expire(library)
+            if db.get(Library, library_id) is None:
+                return
+            new_objs = [
+                File(
                     library_id=library_id,
                     path=path,
                     filename=os.path.basename(path),
                     extension=os.path.splitext(path)[1].lower().lstrip("."),
                     status=FileStatus.UNKNOWN,
                 )
-                db.add(f)
-                db.commit()
-                db.refresh(f)
+                for path in new_paths
+            ]
+            db.add_all(new_objs)
+            db.commit()
+            for obj in new_objs:
+                existing_changed[obj.path] = obj
+
+        for path in changed:
+            if not os.path.exists(path):
+                continue
+            f = existing_changed.get(path)
+            if f is None:
+                # Existed neither in the DB nor at the batch-insert check above
+                # (e.g. it appeared between the two os.path.exists calls) —
+                # skip for now, the next debounce cycle will pick it up.
+                continue
+            is_new = path in new_path_set
 
             before = (
                 f.size,
@@ -149,51 +169,24 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
                 f.file_height,
                 f.file_fps,
                 f.file_date,
+                f.file_mtime,
             )
 
-            try:
-                f.size = os.stat(path).st_size
-            except OSError:
-                pass
-
-            from datetime import datetime
-
-            data = probe_file(path)
-            if data:
-                fmt = data.get("format", {})
-                streams = data.get("streams", [])
-                if fmt.get("duration"):
-                    f.duration = float(fmt["duration"])
-                if fmt.get("size"):
-                    f.size = int(fmt["size"])
-                if streams:
-                    s = streams[0]
-                    if s.get("codec_name"):
-                        f.codec_name = s["codec_name"]
-                    br = s.get("bit_rate") or fmt.get("bit_rate")
-                    if br:
-                        try:
-                            f.video_bitrate = int(br)
-                        except (ValueError, TypeError):
-                            pass
-                    f.file_width = s.get("width")
-                    f.file_height = s.get("height")
-                    raw_fps = s.get("r_frame_rate", "")
-                    if "/" in raw_fps:
-                        num, den = raw_fps.split("/")
-                        f.file_fps = round(int(num) / int(den), 3) if int(den) else None
-
-            creation_time_str = (
-                data.get("format", {}).get("tags", {}).get("creation_time") if data else None
-            )
-            if creation_time_str:
-                try:
-                    dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))
-                    f.file_date = dt.timestamp()
-                except (ValueError, TypeError):
-                    f.file_date = os.path.getmtime(path)
-            else:
-                f.file_date = os.path.getmtime(path)
+            meta = _probe_metadata(path)
+            if meta["size"] is not None:
+                f.size = meta["size"]
+            if meta["probe_ok"]:
+                for key in (
+                    "duration",
+                    "codec_name",
+                    "video_bitrate",
+                    "file_width",
+                    "file_height",
+                    "file_fps",
+                ):
+                    setattr(f, key, meta[key])
+            f.file_mtime = meta["file_mtime"]
+            f.file_date = meta["file_date"]
 
             after = (
                 f.size,
@@ -204,12 +197,13 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
                 f.file_height,
                 f.file_fps,
                 f.file_date,
+                f.file_mtime,
             )
 
             if is_new or before != after:
                 f.scanned_at = _now()
                 db.commit()
-                generate_thumbnail(path, f.id)
+                generate_thumbnail(path, f.id, duration=meta["duration"])
             else:
                 # Re-probed values are identical — a spurious fs event (e.g.
                 # another process touching the file's mtime with no real
