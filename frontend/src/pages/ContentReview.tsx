@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ShieldAlert, Search, FolderX } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ShieldAlert, FolderX } from "lucide-react";
 import { imageApi } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { useSelection } from "@/hooks/useSelection";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { QueryBuilder } from "@/components/QueryBuilder";
-import { contentReviewFields, CLIP_SEARCH_FIELD_KEY } from "@/lib/contentReviewFields";
+import { contentReviewFields } from "@/lib/contentReviewFields";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function ImageGrid({
@@ -93,56 +93,31 @@ export function ContentReview() {
   const { selected: selectedIds, setSelected: setSelectedIds, toggle: toggleId } = useSelection();
   const [loading, setLoading] = useState(false);
   const [quarantining, setQuarantining] = useState(false);
-  const [hasRun, setHasRun] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
-  const [scoreMaps, setScoreMaps] = useState<Record<string, Map<number, number>>>({});
   const [error, setError] = useState<string | null>(null);
 
-  async function runFilters() {
+  async function fetchImages() {
     setLoading(true);
-    setSelectedIds(new Set());
-    setHasRun(true);
     setError(null);
     try {
-      const images = allImages ?? (await imageApi.listImages({ page_size: 10000 })).items;
+      const images = (await imageApi.listImages({ page_size: 10000 })).items;
       setAllImages(images);
-
-      // Resolve every semantic-search clause into a score map keyed by clause.id,
-      // deduped by query text so identical queries across clauses share one call.
-      const searchClauses = clauses.filter((c) => c.fieldKey === CLIP_SEARCH_FIELD_KEY);
-      const textToClauseIds = new Map<string, string[]>();
-      for (const c of searchClauses) {
-        const text = (c.value as { text: string }).text.trim();
-        if (!text) continue;
-        textToClauseIds.set(text, [...(textToClauseIds.get(text) ?? []), c.id]);
-      }
-
-      const maps: Record<string, Map<number, number>> = {};
-      await Promise.all(
-        [...textToClauseIds.entries()].map(async ([text, clauseIds]) => {
-          try {
-            const results = await imageApi.searchImages(text, { limit: 100000 });
-            const scoreMap = new Map(results.map((r) => [r.image.id, r.score]));
-            for (const id of clauseIds) maps[id] = scoreMap;
-          } catch {
-            // fail open — leave no entry for these clause ids, evaluateClauses
-            // treats a missing score map as always-true for that clause.
-          }
-        }),
-      );
-
-      setScoreMaps(maps);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to run filters";
+      const message = e instanceof Error ? e.message : "Failed to load images";
       setError(message);
     } finally {
       setLoading(false);
     }
   }
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchImages();
+  }, []);
+
   const allResults = useMemo(
-    () => (allImages ? allImages.filter((img) => evaluate(img, scoreMaps)) : []),
-    [allImages, evaluate, scoreMaps],
+    () => (allImages ? allImages.filter((img) => evaluate(img)) : []),
+    [allImages, evaluate],
   );
 
   async function quarantineSelected() {
@@ -152,8 +127,7 @@ export function ContentReview() {
     try {
       await imageApi.quarantineBulk([...selectedIds]);
       setSelectedIds(new Set());
-      setAllImages(null); // force a real refetch — GET /images excludes quarantined images
-      await runFilters();
+      await fetchImages(); // GET /images excludes quarantined images
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to quarantine selected images";
       setError(message);
@@ -171,7 +145,7 @@ export function ContentReview() {
         <div>
           <h1 className="text-lg font-semibold">Content Review</h1>
           <p className="text-xs text-muted-foreground">
-            Compose a query from detection labels and semantic search.
+            Compose a query from detection labels. Results update live as you build it.
           </p>
         </div>
       </div>
@@ -187,12 +161,11 @@ export function ContentReview() {
         />
       </div>
 
-      <Button onClick={runFilters} disabled={loading || !canRun} className="w-full sm:w-auto">
-        <Search className="h-4 w-4" />
-        {loading ? "Running…" : "Run Filters"}
-      </Button>
-
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {loading && !allImages && (
+        <p className="text-center text-sm text-muted-foreground py-12">Loading images…</p>
+      )}
 
       {canRun && allResults.length > 0 && (
         <>
@@ -240,9 +213,9 @@ export function ContentReview() {
         </>
       )}
 
-      {!loading && canRun && hasRun && allResults.length === 0 && (
+      {!loading && canRun && allImages && allResults.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-12">
-          No results. Try adjusting filters or search query.
+          No results. Try adjusting your filters.
         </p>
       )}
 
