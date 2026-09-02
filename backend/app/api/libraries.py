@@ -300,6 +300,7 @@ def browse_library(
             file_height=f.file_height,
             file_fps=f.file_fps,
             file_date=f.file_date,
+            file_mtime=f.file_mtime,
         )
 
     sort_key = _BROWSE_SORT_KEYS.get(sort_by, _BROWSE_SORT_KEYS["filename"])
@@ -477,6 +478,7 @@ def get_cleanup_files(
             file_height=f.file_height,
             file_fps=f.file_fps,
             file_date=f.file_date,
+            file_mtime=f.file_mtime,
         )
         for f in files
         if os.path.exists(f.path)

@@ -83,6 +83,7 @@ def _to_file_read(f: File) -> FileRead:
         file_height=f.file_height,
         file_fps=f.file_fps,
         file_date=f.file_date,
+        file_mtime=f.file_mtime,
     )
 
 
