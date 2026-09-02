@@ -120,11 +120,9 @@ function ModelCard({
     setJobProgress(0);
     setJobStatus("Starting…");
     try {
-      const res = await (model.type === "clip"
-        ? modelsApi.downloadClip(model.id)
-        : model.type === "whisper"
-          ? modelsApi.downloadWhisper(model.id)
-          : modelsApi.downloadNudenet(model.id));
+      const res = await (model.type === "whisper"
+        ? modelsApi.downloadWhisper(model.id)
+        : modelsApi.downloadNudenet(model.id));
       setDownloadJobId(res.job_id);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -136,11 +134,9 @@ function ModelCard({
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "clip"
-        ? modelsApi.deleteClip(model.id)
-        : model.type === "whisper"
-          ? modelsApi.deleteWhisper(model.id)
-          : modelsApi.deleteNudenet(model.id));
+      await (model.type === "whisper"
+        ? modelsApi.deleteWhisper(model.id)
+        : modelsApi.deleteNudenet(model.id));
       onAction();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -153,13 +149,11 @@ function ModelCard({
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "clip"
-        ? modelsApi.activateClip(model.id)
-        : model.type === "whisper"
-          ? modelsApi.activateWhisper(model.id)
-          : modelsApi.activateNudenet(model.id));
+      await (model.type === "whisper"
+        ? modelsApi.activateWhisper(model.id)
+        : modelsApi.activateNudenet(model.id));
       onAction();
-      if (model.type === "clip" || model.type === "nudenet") {
+      if (model.type === "nudenet") {
         toast("Model changed — rescan recommended to update keyframe resolution", {
           duration: 4000,
         });
@@ -411,7 +405,6 @@ export function Settings() {
     }
   };
 
-  const clipModels = models.filter((m) => m.type === "clip");
   const nudenetModels = models.filter((m) => m.type === "nudenet");
   const whisperModels = models.filter((m) => m.type === "whisper");
 
@@ -636,8 +629,7 @@ export function Settings() {
                 <p className="text-sm font-medium">Max keyframes per video</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   How many frames to sample per video for NudeNet content detection. More frames =
-                  better coverage across the video. CLIP always uses 3 frames from the midpoint
-                  regardless of this setting.
+                  better coverage across the video.
                 </p>
               </div>
               {loading ? (
@@ -694,7 +686,7 @@ export function Settings() {
               <div>
                 <p className="text-sm font-medium">Scan batch size</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  How many images (or video keyframes) to process in a single CLIP/NudeNet inference
+                  How many images (or video keyframes) to process in a single NudeNet inference
                   pass. Higher values use more VRAM but scan faster.
                 </p>
               </div>
@@ -809,28 +801,6 @@ export function Settings() {
             </div>
           ) : (
             <>
-              <Card>
-                <CardContent className="pt-6 space-y-3">
-                  <div>
-                    <p className="text-sm font-medium">Semantic Search (CLIP)</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Used when scanning images and videos. Larger models improve accuracy but
-                      require more RAM.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    {clipModels.map((m) => (
-                      <ModelCard
-                        key={m.id}
-                        model={m}
-                        onAction={reloadModels}
-                        activeDownload={activeDownload}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardContent className="pt-6 space-y-3">
                   <div>
