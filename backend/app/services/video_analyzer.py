@@ -1,8 +1,5 @@
 import json
-import os
 import subprocess
-
-import numpy as np
 
 
 def get_video_duration(video_path: str) -> float | None:
@@ -81,68 +78,3 @@ def _hwaccel_args() -> list[str]:
     if family in ("amf", "vaapi"):
         return ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
     return []
-
-
-def extract_frames_evenly(
-    video_path: str,
-    n_frames: int = 32,
-    max_resolution: int = 320,
-) -> list[tuple[np.ndarray, float]]:
-    """
-    Extract n_frames evenly-spaced frames via individual fast seeks.
-    Each seek decodes only from the nearest keyframe — much faster than
-    full-video decode for any reasonable frame count.
-    Returns (rgb_array, timestamp_secs) pairs. No files written to disk.
-    """
-    dims = _probe_video_dims(video_path)
-    duration = get_video_duration(video_path)
-    if not dims or not duration or duration <= 0:
-        raise RuntimeError("Could not probe video dimensions or duration")
-
-    out_w, out_h = _calc_scaled_size(dims[0], dims[1], max_resolution)
-    frame_size = out_w * out_h * 3
-    fname = os.path.basename(video_path)
-    print(
-        f"[keyframes] {fname}: source {dims[0]}x{dims[1]} → extract {out_w}x{out_h} "
-        f"({duration:.0f}s, {n_frames} frames)",
-        flush=True,
-    )
-
-    timestamps = [duration * (i + 1) / (n_frames + 1) for i in range(n_frames)]
-    frames: list[tuple[np.ndarray, float]] = []
-
-    for ts in timestamps:
-        result = subprocess.run(
-            [
-                "ffmpeg",
-                *_hwaccel_args(),
-                "-ss",
-                str(ts),
-                "-i",
-                video_path,
-                "-frames:v",
-                "1",
-                "-vf",
-                f"scale={out_w}:{out_h}",
-                "-f",
-                "rawvideo",
-                "-pix_fmt",
-                "rgb24",
-                "pipe:1",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-            ],
-            capture_output=True,
-            timeout=30,
-        )
-        if result.returncode == 0 and len(result.stdout) >= frame_size:
-            arr = (
-                np.frombuffer(result.stdout[:frame_size], dtype=np.uint8)
-                .reshape((out_h, out_w, 3))
-                .copy()
-            )
-            frames.append((arr, ts))
-
-    print(f"[keyframes] {fname}: extracted {len(frames)}/{n_frames} frames", flush=True)
-    return frames

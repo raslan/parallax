@@ -1,14 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Film,
   Loader2,
   ImageOff,
   Folder,
   ChevronRight as Caret,
-  X,
-  ShieldCheck,
-  AlertCircle,
   ArrowUp,
   ArrowDown,
   LayoutGrid,
@@ -23,143 +19,34 @@ import type { VideoFile } from "@/types/file";
 import type { Library, BrowseResponse } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
-import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
+import { formatSize, formatDuration, formatBitrate, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { GridSizeControl } from "@/components/GridSizeControl";
+import { useGridSize } from "@/hooks/useGridSize";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 const STATUS_COLORS: Record<string, string> = {
   unknown: "secondary",
-  scanning: "secondary",
-  clean: "default",
-  corrupt: "destructive",
   queued: "secondary",
   transcoding: "secondary",
   done: "default",
   failed: "destructive",
 };
 
-const ALL_STATUSES = [
-  "unknown",
-  "scanning",
-  "clean",
-  "corrupt",
-  "queued",
-  "transcoding",
-  "done",
-  "failed",
-];
+const ALL_STATUSES = ["unknown", "queued", "transcoding", "done", "failed"];
 const FETCH_ALL_PAGE_SIZE = 10000;
-
-const VIDEO_CODECS = ["h264", "hevc", "h265", "mpeg4", "mpeg2", "vp8", "vp9", "av1", "vc1"];
-const AUDIO_CODECS = ["aac", "mp3", "ac3", "opus", "vorbis", "flac", "dts", "eac3", "truehd"];
-
-function parseErrorLines(errorText: string) {
-  const lines = errorText.split("\n").filter((l) => l.startsWith("["));
-  const cats: Record<string, number> = {};
-  for (const line of lines) {
-    const m = line.match(/^\[([^\s@\]]+)/);
-    const codec = m ? m[1].toLowerCase() : "";
-    let cat = "Container / other";
-    if (VIDEO_CODECS.some((c) => codec.includes(c))) cat = "Video decode errors";
-    else if (AUDIO_CODECS.some((c) => codec.includes(c))) cat = "Audio decode errors";
-    cats[cat] = (cats[cat] ?? 0) + 1;
-  }
-  return { lines, summary: Object.entries(cats) };
-}
-
-function CorruptionDetailModal({ file, onClose }: { file: VideoFile; onClose: () => void }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
-
-  const { lines, summary } = parseErrorLines(file.scan_error ?? "");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="fixed inset-0 bg-black/70" />
-      <div
-        className="relative z-10 w-full max-w-2xl mx-4 bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[80vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 p-4 border-b border-border">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-              <h2 className="font-semibold text-sm">Corruption details</h2>
-            </div>
-            <p className="text-xs text-muted-foreground truncate" title={file.path}>
-              {file.filename}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {summary.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1">
-            {summary.map(([cat, count]) => (
-              <div
-                key={cat}
-                className="flex items-center gap-1.5 rounded-md bg-destructive/10 border border-destructive/20 px-2.5 py-1"
-              >
-                <span className="text-destructive text-xs font-medium">{count}</span>
-                <span className="text-xs text-muted-foreground">{cat}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="overflow-auto flex-1 p-4">
-          {lines.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No detailed error output available.</p>
-          ) : (
-            <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-all leading-relaxed">
-              {lines.join("\n")}
-            </pre>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
 
 function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
-  const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [errorOpen, setErrorOpen] = useState(false);
-  const isCorrupt = file.status === "corrupt";
-
-  const handleCheck = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setChecking(true);
-    try {
-      await api.checkFile(file.id);
-    } catch {
-      // Ignore check errors
-    } finally {
-      setChecking(false);
-    }
-  };
 
   return (
     <Card
-      className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${
-        isCorrupt ? "ring-1 ring-destructive/60 hover:ring-destructive" : "hover:ring-primary"
-      }`}
+      className="overflow-hidden cursor-pointer group transition-shadow hover:ring-1 hover:ring-primary"
       onClick={onPlay}
     >
-      <div className="aspect-video bg-muted relative flex items-center justify-center">
+      <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
           <img
             src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
@@ -190,36 +77,12 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
             {file.status}
           </Badge>
         </div>
-
-        {/* Hover action buttons */}
-        <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isCorrupt && file.scan_error && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setErrorOpen(true);
-              }}
-              title="View corruption details"
-              className="bg-black/60 hover:bg-black/80 rounded p-1"
-            >
-              <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-            </button>
-          )}
-          <button
-            onClick={handleCheck}
-            disabled={checking}
-            title="Check for corruption"
-            className="bg-black/60 hover:bg-black/80 rounded p-1"
-          >
-            <ShieldCheck className={`h-3.5 w-3.5 text-white ${checking ? "animate-pulse" : ""}`} />
-          </button>
-        </div>
       </div>
-      <CardContent className="p-2.5 space-y-0.5">
-        <p
-          className={`text-xs font-medium truncate ${isCorrupt ? "text-destructive" : ""}`}
-          title={file.filename}
-        >
+      <CardContent
+        className="p-2.5 space-y-0.5 border-t border-border"
+        style={{ background: "var(--px-bg-elevated)" }}
+      >
+        <p className="text-xs font-medium truncate" title={file.filename}>
           {file.filename}
         </p>
         <p className="text-xs text-muted-foreground">
@@ -228,20 +91,7 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
           {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
           {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
         </p>
-        {isCorrupt && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate("/compress");
-            }}
-            className="text-xs text-destructive/70 hover:text-destructive transition-colors"
-          >
-            Re-encode in Compress →
-          </button>
-        )}
       </CardContent>
-
-      {errorOpen && <CorruptionDetailModal file={file} onClose={() => setErrorOpen(false)} />}
     </Card>
   );
 }
@@ -249,26 +99,11 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
 // ─── List row ────────────────────────────────────────────────────────────────
 
 function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
-  const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const isCorrupt = file.status === "corrupt";
-
-  const handleCheck = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setChecking(true);
-    try {
-      await api.checkFile(file.id);
-    } catch {
-      // Ignore check errors
-    } finally {
-      setChecking(false);
-    }
-  };
 
   return (
     <div
-      className={`flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row ${isCorrupt ? "text-destructive" : ""}`}
+      className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row"
       onClick={onPlay}
     >
       <div className="relative h-8 w-14 shrink-0">
@@ -287,26 +122,12 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p
-          className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`}
-          title={file.filename}
-        >
+        <p className="truncate text-sm font-medium" title={file.filename}>
           {file.filename}
         </p>
         <p className="truncate text-xs text-muted-foreground" title={file.path}>
           {file.path}
         </p>
-        {isCorrupt && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate("/compress");
-            }}
-            className="text-xs text-destructive/70 hover:text-destructive transition-colors"
-          >
-            Re-encode in Compress →
-          </button>
-        )}
       </div>
       <div className="w-24 shrink-0">
         <Badge
@@ -328,6 +149,12 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
       <span className="w-20 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
         {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
       </span>
+      <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        {formatUnixDate(file.file_date)}
+      </span>
+      <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        {formatUnixDate(file.file_mtime)}
+      </span>
       <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
         {formatSize(file.size)}
       </span>
@@ -341,14 +168,6 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
           className="text-muted-foreground hover:text-foreground"
         >
           <Play className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={handleCheck}
-          disabled={checking}
-          title="Check for corruption"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <ShieldCheck className={`h-3.5 w-3.5 ${checking ? "animate-pulse" : ""}`} />
         </button>
       </div>
     </div>
@@ -364,6 +183,8 @@ function FileListHeader() {
       <div className="w-16 shrink-0 text-right">Codec</div>
       <div className="w-16 shrink-0 text-right">Duration</div>
       <div className="w-20 shrink-0 text-right">Bitrate</div>
+      <div className="w-24 shrink-0 text-right">Content date</div>
+      <div className="w-24 shrink-0 text-right">File added</div>
       <div className="w-16 shrink-0 text-right">Size</div>
       <div className="w-14 shrink-0" />
     </div>
@@ -437,6 +258,7 @@ function LibraryBrowser({
   sortBy,
   sortDir,
   viewMode,
+  gridSize,
   search,
   onPlay,
   refreshToken,
@@ -446,6 +268,7 @@ function LibraryBrowser({
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  gridSize: number;
   search: string;
   onPlay: (f: VideoFile) => void;
   refreshToken: number;
@@ -473,7 +296,7 @@ function LibraryBrowser({
   const navigate = (subdir: string) => setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col gap-4">
       <Breadcrumb library={library} path={path} onNavigate={setPath} />
       {loading ? (
         <div className="flex justify-center py-16">
@@ -489,18 +312,18 @@ function LibraryBrowser({
           </CardContent>
         </Card>
       ) : (
-        <>
+        <div className="flex-1 min-h-0 flex flex-col gap-4">
           {browse.dirs.length > 0 && (
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 shrink-0">
               {browse.dirs.map((dir) => (
                 <DirCard key={dir} name={dir} onClick={() => navigate(dir)} />
               ))}
             </div>
           )}
           {browse.files.length > 0 && (
-            <>
+            <div className="flex-1 min-h-0 flex flex-col gap-4">
               {browse.dirs.length > 0 && (
-                <div className="border-t pt-4">
+                <div className="border-t pt-4 shrink-0">
                   <SectionHeader>Files in this folder</SectionHeader>
                 </div>
               )}
@@ -511,38 +334,40 @@ function LibraryBrowser({
                     )
                   : browse.files;
                 return viewMode === "grid" ? (
-                  <VirtualizedGrid
-                    items={visibleFiles}
-                    getKey={(f) => f.id}
-                    mode="grid"
-                    itemHeight={200}
-                    itemAspectRatio={16 / 9}
-                    itemChromeHeight={58}
-                    dynamicHeight
-                    minColumnWidth={180}
-                    maxHeight="60vh"
-                    resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
-                    renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
-                  />
-                ) : (
-                  <div className="flex flex-col rounded-lg border border-border overflow-hidden">
-                    <FileListHeader />
+                  <div className="flex-1 min-h-0">
                     <VirtualizedGrid
                       items={visibleFiles}
                       getKey={(f) => f.id}
-                      mode="list"
-                      itemHeight={54}
+                      mode="grid"
+                      itemHeight={200}
+                      itemAspectRatio={4 / 3}
+                      itemChromeHeight={58}
                       dynamicHeight
-                      maxHeight="60vh"
-                      resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
-                      renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+                      minColumnWidth={gridSize}
+                      resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}-${gridSize}`}
+                      renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
                     />
+                  </div>
+                ) : (
+                  <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
+                    <FileListHeader />
+                    <div className="flex-1 min-h-0">
+                      <VirtualizedGrid
+                        items={visibleFiles}
+                        getKey={(f) => f.id}
+                        mode="list"
+                        itemHeight={54}
+                        dynamicHeight
+                        resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
+                        renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+                      />
+                    </div>
                   </div>
                 );
               })()}
-            </>
+            </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -555,6 +380,7 @@ function FlatView({
   sortBy,
   sortDir,
   viewMode,
+  gridSize,
   search,
   onPlay,
   refreshToken,
@@ -563,6 +389,7 @@ function FlatView({
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
+  gridSize: number;
   search: string;
   onPlay: (f: VideoFile) => void;
   refreshToken: number;
@@ -621,43 +448,45 @@ function FlatView({
     );
 
   return (
-    <>
+    <div className="h-full flex flex-col gap-3">
       {total > files.length && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground shrink-0">
           Showing first {files.length.toLocaleString()} of {total.toLocaleString()} files — narrow
           your filter to see more.
         </p>
       )}
       {viewMode === "grid" ? (
-        <VirtualizedGrid
-          items={visibleFiles}
-          getKey={(f) => f.id}
-          mode="grid"
-          itemHeight={200}
-          itemAspectRatio={16 / 9}
-          itemChromeHeight={58}
-          dynamicHeight
-          minColumnWidth={180}
-          maxHeight="70vh"
-          resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
-          renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
-        />
-      ) : (
-        <div className="flex flex-col rounded-lg border border-border overflow-hidden">
-          <FileListHeader />
+        <div className="flex-1 min-h-0">
           <VirtualizedGrid
             items={visibleFiles}
             getKey={(f) => f.id}
-            mode="list"
-            itemHeight={54}
+            mode="grid"
+            itemHeight={200}
+            itemAspectRatio={4 / 3}
+            itemChromeHeight={58}
             dynamicHeight
-            maxHeight="60vh"
-            resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
-            renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+            minColumnWidth={gridSize}
+            resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}-${gridSize}`}
+            renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
           />
         </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
+          <FileListHeader />
+          <div className="flex-1 min-h-0">
+            <VirtualizedGrid
+              items={visibleFiles}
+              getKey={(f) => f.id}
+              mode="list"
+              itemHeight={54}
+              dynamicHeight
+              resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
+              renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+            />
+          </div>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -682,6 +511,7 @@ export function Files() {
   const [sortBy, setSortBy] = useState("filename");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [gridSize, setGridSize] = useGridSize(180);
   const [search, setSearch] = useState("");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -698,8 +528,8 @@ export function Files() {
   useLiveFiles("video", selectedLibrary?.id ?? null, () => setRefreshToken((t) => t + 1));
 
   return (
-    <div className="p-8 space-y-6">
-      <div>
+    <div className="p-8 space-y-6 h-full flex flex-col">
+      <div className="shrink-0">
         <SectionHeader className="mb-1.5">Indexed media</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -707,7 +537,7 @@ export function Files() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         <select
           className={selectCls}
           value={selectedLibraryId}
@@ -783,31 +613,36 @@ export function Files() {
               <List className="h-3.5 w-3.5" />
             </button>
           </div>
+          {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
         </div>
       </div>
 
-      {selectedLibrary ? (
-        <LibraryBrowser
-          library={selectedLibrary}
-          statusFilter={selectedStatus}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          viewMode={viewMode}
-          search={search}
-          onPlay={setPlayingFile}
-          refreshToken={refreshToken}
-        />
-      ) : (
-        <FlatView
-          statusFilter={selectedStatus}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          viewMode={viewMode}
-          search={search}
-          onPlay={setPlayingFile}
-          refreshToken={refreshToken}
-        />
-      )}
+      <div className="flex-1 min-h-0">
+        {selectedLibrary ? (
+          <LibraryBrowser
+            library={selectedLibrary}
+            statusFilter={selectedStatus}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            viewMode={viewMode}
+            gridSize={gridSize}
+            search={search}
+            onPlay={setPlayingFile}
+            refreshToken={refreshToken}
+          />
+        ) : (
+          <FlatView
+            statusFilter={selectedStatus}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            viewMode={viewMode}
+            gridSize={gridSize}
+            search={search}
+            onPlay={setPlayingFile}
+            refreshToken={refreshToken}
+          />
+        )}
+      </div>
 
       {playingFile && (
         <VideoPlayerModal

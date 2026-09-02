@@ -23,9 +23,6 @@ from app.api.stream import router as stream_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
 from app.database import init_db
-from app.models import (
-    video as _video_models,  # noqa: F401 — ensures VideoDetection table is created
-)
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
 
@@ -41,6 +38,57 @@ def _cleanup_legacy_dirs():
     keyframes_dir = os.path.join(DATA_DIR, "video-keyframes")
     if os.path.isdir(keyframes_dir):
         shutil.rmtree(keyframes_dir, ignore_errors=True)
+
+
+def _cleanup_clip_models():
+    """One-time: CLIP was removed from the app — delete any downloaded CLIP
+    model files left on disk. Single-user app, no prompt needed. Safe to
+    delete this function in a future release once confirmed run."""
+    import shutil
+
+    from app.services.model_manager import MODELS_DIR
+
+    clip_dir = os.path.join(MODELS_DIR, "clip")
+    if os.path.isdir(clip_dir):
+        shutil.rmtree(clip_dir, ignore_errors=True)
+        print("[startup] Removed leftover CLIP model files", flush=True)
+
+
+def _sweep_orphaned_thumbnails():
+    """Delete thumbnail files whose file_id no longer has a matching `File` row.
+
+    File IDs get reused (SQLite rowid reuse after a delete), and a handful of
+    code paths used to delete `File` rows without removing the matching
+    thumbnail — those stale files would then get served under a later,
+    unrelated file that reused the same id. Runs every startup (cheap: a
+    directory listing plus a set diff) as defense-in-depth against any path
+    that still misses cleanup, not just to migrate pre-fix leftovers.
+    """
+    from app.config import THUMBNAILS_DIR
+    from app.database import SessionLocal
+    from app.models.file import File
+
+    if not os.path.isdir(THUMBNAILS_DIR):
+        return
+
+    db = SessionLocal()
+    try:
+        live_ids = {str(fid) for (fid,) in db.query(File.id).all()}
+    finally:
+        db.close()
+
+    removed = 0
+    for name in os.listdir(THUMBNAILS_DIR):
+        stem, ext = os.path.splitext(name)
+        if ext != ".jpg" or stem in live_ids:
+            continue
+        try:
+            os.remove(os.path.join(THUMBNAILS_DIR, name))
+            removed += 1
+        except FileNotFoundError:
+            pass
+    if removed:
+        print(f"[startup] Removed {removed} orphaned thumbnail file(s)", flush=True)
 
 
 def _reap_orphaned_downloads():
@@ -88,7 +136,7 @@ def _reap_orphaned_jobs():
 
 
 def _migrate_video_columns():
-    """Add clip_embedding and video_scanned_at to files table if missing."""
+    """Add clip_embedding to files table if missing."""
     import sqlalchemy as sa
 
     from app.database import engine
@@ -97,9 +145,6 @@ def _migrate_video_columns():
         cols = [row[1] for row in conn.execute(sa.text("PRAGMA table_info(files)"))]
         if "clip_embedding" not in cols:
             conn.execute(sa.text("ALTER TABLE files ADD COLUMN clip_embedding TEXT"))
-            conn.commit()
-        if "video_scanned_at" not in cols:
-            conn.execute(sa.text("ALTER TABLE files ADD COLUMN video_scanned_at DATETIME"))
             conn.commit()
 
 
@@ -127,9 +172,8 @@ async def lifespan(app: FastAPI):
     _cleanup_legacy_dirs()
     _migrate_siglip_to_clip()
     _migrate_video_columns()
-    from app.services.model_manager import migrate_legacy_clip
-
-    migrate_legacy_clip()
+    _cleanup_clip_models()
+    _sweep_orphaned_thumbnails()
     _reap_orphaned_jobs()
     _reap_orphaned_downloads()
     detect_encoder()

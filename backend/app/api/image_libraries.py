@@ -177,7 +177,7 @@ async def scan_image_library(
         type=JobType.IMAGE_SCAN,
         status=JobStatus.PENDING,
         library_id=library_id,
-        settings=f"phash={body.run_phash},nudenet={body.run_nudenet},clip={body.run_clip},reset={body.reset}",
+        settings=f"phash={body.run_phash},nudenet={body.run_nudenet},reset={body.reset}",
     )
     db.add(job)
     db.commit()
@@ -193,7 +193,6 @@ async def scan_image_library(
         job.id,
         body.run_phash,
         body.run_nudenet,
-        body.run_clip,
         body.reset,
     )
     return {"job_id": job.id}

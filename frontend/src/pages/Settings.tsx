@@ -120,11 +120,9 @@ function ModelCard({
     setJobProgress(0);
     setJobStatus("Starting…");
     try {
-      const res = await (model.type === "clip"
-        ? modelsApi.downloadClip(model.id)
-        : model.type === "whisper"
-          ? modelsApi.downloadWhisper(model.id)
-          : modelsApi.downloadNudenet(model.id));
+      const res = await (model.type === "whisper"
+        ? modelsApi.downloadWhisper(model.id)
+        : modelsApi.downloadNudenet(model.id));
       setDownloadJobId(res.job_id);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -136,11 +134,9 @@ function ModelCard({
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "clip"
-        ? modelsApi.deleteClip(model.id)
-        : model.type === "whisper"
-          ? modelsApi.deleteWhisper(model.id)
-          : modelsApi.deleteNudenet(model.id));
+      await (model.type === "whisper"
+        ? modelsApi.deleteWhisper(model.id)
+        : modelsApi.deleteNudenet(model.id));
       onAction();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -153,13 +149,11 @@ function ModelCard({
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "clip"
-        ? modelsApi.activateClip(model.id)
-        : model.type === "whisper"
-          ? modelsApi.activateWhisper(model.id)
-          : modelsApi.activateNudenet(model.id));
+      await (model.type === "whisper"
+        ? modelsApi.activateWhisper(model.id)
+        : modelsApi.activateNudenet(model.id));
       onAction();
-      if (model.type === "clip" || model.type === "nudenet") {
+      if (model.type === "nudenet") {
         toast("Model changed — rescan recommended to update keyframe resolution", {
           duration: 4000,
         });
@@ -304,7 +298,6 @@ export function Settings() {
   const [encoderFamily, setEncoderFamily] = useState<string>("software");
   const [_concurrentLimitHint, setConcurrentLimitHint] = useState<number | null>(null);
   const [tmdbKey, setTmdbKey] = useState("");
-  const [videoKeyframesPerVideo, setVideoKeyframesPerVideo] = useState(32);
   const [scanBatchSize, setScanBatchSize] = useState(4);
   const [scanPrefetch, setScanPrefetch] = useState(4);
   const [subtitleLangs, setSubtitleLangs] = useState<string[]>(["en"]);
@@ -336,7 +329,6 @@ export function Settings() {
         setEncoderFamily(s.encoder_family ?? "software");
         setConcurrentLimitHint(s.concurrent_limit_hint ?? null);
         setTmdbKey(s.tmdb_api_key);
-        setVideoKeyframesPerVideo(s.video_keyframes_per_video ?? 8);
         setScanBatchSize(s.scan_batch_size ?? 4);
         setScanPrefetch(s.scan_prefetch ?? 4);
         setSubtitleLangs(
@@ -395,7 +387,6 @@ export function Settings() {
       await api.updateSettings({
         max_concurrent_transcodes: maxConcurrent,
         tmdb_api_key: tmdbKey,
-        video_keyframes_per_video: videoKeyframesPerVideo,
         scan_batch_size: scanBatchSize,
         scan_prefetch: scanPrefetch,
         subtitle_languages: subtitleLangs.join(","),
@@ -411,7 +402,6 @@ export function Settings() {
     }
   };
 
-  const clipModels = models.filter((m) => m.type === "clip");
   const nudenetModels = models.filter((m) => m.type === "nudenet");
   const whisperModels = models.filter((m) => m.type === "whisper");
 
@@ -629,73 +619,14 @@ export function Settings() {
       {/* AI Models */}
       {activeTab === "ai" && (
         <div className="space-y-6">
-          {/* Keyframes per video */}
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <div>
-                <p className="text-sm font-medium">Max keyframes per video</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  How many frames to sample per video for NudeNet content detection. More frames =
-                  better coverage across the video. CLIP always uses 3 frames from the midpoint
-                  regardless of this setting.
-                </p>
-              </div>
-              {loading ? (
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading…
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="range"
-                      min={4}
-                      max={64}
-                      step={4}
-                      value={videoKeyframesPerVideo}
-                      onChange={(e) => {
-                        setVideoKeyframesPerVideo(Number(e.target.value));
-                        markDirty();
-                      }}
-                      className="w-48 accent-primary"
-                    />
-                    <span className="text-sm font-mono w-12 text-right">
-                      {videoKeyframesPerVideo} frames
-                    </span>
-                  </div>
-                  <div className="flex gap-1 flex-wrap">
-                    {[8, 16, 24, 32].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => {
-                          setVideoKeyframesPerVideo(n);
-                          markDirty();
-                        }}
-                        className={`px-3 py-1 rounded text-xs border transition-colors ${
-                          videoKeyframesPerVideo === n
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-border hover:bg-accent"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                  <SaveButton saving={saving} saved={saved} dirty={dirty} onSave={handleSave} />
-                </>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Scan batch size */}
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div>
                 <p className="text-sm font-medium">Scan batch size</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  How many images (or video keyframes) to process in a single CLIP/NudeNet inference
-                  pass. Higher values use more VRAM but scan faster.
+                  How many images to process in a single NudeNet inference pass. Higher values use
+                  more VRAM but scan faster.
                 </p>
               </div>
               {loading ? (
@@ -751,9 +682,9 @@ export function Settings() {
               <div>
                 <p className="text-sm font-medium">Scan prefetch</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Videos (or image batches) to pre-load into memory while the AI models process the
-                  current one. Overlaps disk reads with GPU inference. Higher values use more RAM
-                  but keep the GPU continuously fed.
+                  Image batches to pre-load into memory while the AI models process the current one.
+                  Overlaps disk reads with GPU inference. Higher values use more RAM but keep the
+                  GPU continuously fed.
                 </p>
               </div>
               {loading ? (
@@ -812,32 +743,10 @@ export function Settings() {
               <Card>
                 <CardContent className="pt-6 space-y-3">
                   <div>
-                    <p className="text-sm font-medium">Semantic Search (CLIP)</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Used when scanning images and videos. Larger models improve accuracy but
-                      require more RAM.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    {clipModels.map((m) => (
-                      <ModelCard
-                        key={m.id}
-                        model={m}
-                        onAction={reloadModels}
-                        activeDownload={activeDownload}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6 space-y-3">
-                  <div>
                     <p className="text-sm font-medium">Content Detection (NudeNet)</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Used when scanning images and videos. Higher resolution models catch smaller
-                      or partial detections.
+                      Used when scanning images. Higher resolution models catch smaller or partial
+                      detections.
                     </p>
                   </div>
                   <div className="space-y-2">

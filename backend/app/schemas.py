@@ -26,7 +26,6 @@ class LibraryRead(BaseModel):
     created_at: datetime
     last_scanned_at: datetime | None = None
     file_count: int = 0
-    corrupt_count: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -54,6 +53,7 @@ class FileRead(BaseModel):
     file_height: int | None = None
     file_fps: float | None = None
     file_date: float | None = None
+    file_mtime: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -92,7 +92,6 @@ class BrowseResponse(BaseModel):
 class StatsRead(BaseModel):
     total_libraries: int
     total_files: int
-    corrupt_files: int
     transcoded_files: int
     total_size_bytes: int
     scanning: bool
@@ -163,6 +162,7 @@ class ImageRead(BaseModel):
     exif_date: float | None = None
     exif_gps: str | None = None
     exif_camera: str | None = None
+    file_mtime: float | None = None
     status: str
     scan_error: str | None = None
     scanned_at: datetime | None = None
@@ -183,10 +183,4 @@ class ImagesResponse(BaseModel):
 class ImageScanRequest(BaseModel):
     run_phash: bool = True
     run_nudenet: bool = True
-    run_clip: bool = True
     reset: bool = False
-
-
-class ImageSearchResult(BaseModel):
-    image: ImageRead
-    score: float

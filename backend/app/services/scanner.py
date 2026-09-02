@@ -66,9 +66,21 @@ def probe_file(path: str) -> dict:
 
 
 def generate_thumbnail(file_path: str, file_id: int) -> bool:
-    """Extract a single frame at 10% into the video. Returns True on success."""
+    """Extract a single frame at 10% into the video. Returns True on success.
+
+    Removes any existing file at the target path first: `file_id` values get
+    reused (SQLite rowid reuse after a delete), and `ffmpeg -y` only
+    overwrites on a successful run — a failed extraction (e.g. a corrupt or
+    fake video) would otherwise leave a stale thumbnail from a previously
+    deleted, unrelated file sitting there and served under the new file's
+    identity.
+    """
     os.makedirs(THUMBNAILS_DIR, exist_ok=True)
     out_path = os.path.join(THUMBNAILS_DIR, f"{file_id}.jpg")
+    try:
+        os.remove(out_path)
+    except FileNotFoundError:
+        pass
 
     try:
         # Get duration first
@@ -119,8 +131,8 @@ def rescan_file(db, file_obj: File) -> None:
     Used right after something changes a file's bytes in place (Compress, Toolbox,
     restoring from _originals/) so the record reflects the new file immediately
     instead of waiting on the filesystem watcher's debounce to notice. Does not
-    touch `status` — callers that need to reset it (e.g. restore, which wants the
-    file to show as needing a corruption re-check) do so themselves.
+    touch `status` — callers that need to reset it (e.g. restore) do so
+    themselves.
     """
     path = file_obj.path
 
@@ -297,14 +309,15 @@ def scan_library(library_id: int):
             creation_time_str = (
                 data.get("format", {}).get("tags", {}).get("creation_time") if data else None
             )
+            file_obj.file_mtime = os.path.getmtime(path)
             if creation_time_str:
                 try:
                     dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))
                     file_obj.file_date = dt.timestamp()
                 except (ValueError, TypeError):
-                    file_obj.file_date = os.path.getmtime(path)
+                    file_obj.file_date = file_obj.file_mtime
             else:
-                file_obj.file_date = os.path.getmtime(path)
+                file_obj.file_date = file_obj.file_mtime
 
             file_obj.scanned_at = _now()
             db.commit()
@@ -320,6 +333,10 @@ def scan_library(library_id: int):
         # Remove DB records for files no longer on disk
         for path, file_obj in existing.items():
             if not os.path.exists(path):
+                try:
+                    os.remove(thumbnail_path(file_obj.id))
+                except FileNotFoundError:
+                    pass
                 db.delete(file_obj)
         db.commit()
 

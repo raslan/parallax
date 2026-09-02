@@ -66,7 +66,7 @@ def test_image_detection_model(db):
 
 
 def test_image_schemas():
-    req = ImageScanRequest(run_phash=True, run_nudenet=False, run_clip=True)
+    req = ImageScanRequest(run_phash=True, run_nudenet=False)
     assert req.run_nudenet is False
     assert req.run_phash is True
 

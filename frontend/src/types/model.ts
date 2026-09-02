@@ -1,6 +1,6 @@
 export interface ModelInfo {
   id: string;
-  type: "clip" | "nudenet" | "whisper";
+  type: "nudenet" | "whisper";
   name: string;
   description: string;
   size_mb: number;

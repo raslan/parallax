@@ -8,9 +8,6 @@ from app.database import Base
 
 class FileStatus:
     UNKNOWN = "unknown"
-    SCANNING = "scanning"
-    CLEAN = "clean"
-    CORRUPT = "corrupt"
     QUEUED = "queued"
     TRANSCODING = "transcoding"
     DONE = "done"
@@ -37,9 +34,9 @@ class File(Base):
     file_height: Mapped[int] = mapped_column(Integer, nullable=True)
     file_fps: Mapped[float] = mapped_column(Float, nullable=True)
     file_date: Mapped[float] = mapped_column(Float, nullable=True)
+    file_mtime: Mapped[float] = mapped_column(Float, nullable=True)
     extension: Mapped[str] = mapped_column(String(16), nullable=True)
     clip_embedding: Mapped[str] = mapped_column(Text, nullable=True)
-    video_scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     phash: Mapped[int] = mapped_column(Integer, nullable=True)
     phash_frames: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array of ints
     phash_scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

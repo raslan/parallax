@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,10 +7,8 @@ from sqlalchemy import asc, desc, func, nullslast
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.api.utils import active_job_exists
 from app.database import SessionLocal, get_db
 from app.models.file import File
-from app.models.job import JobType
 from app.schemas import FileRead, FilesResponse
 from app.services.scanner import thumbnail_path
 
@@ -129,78 +126,6 @@ def list_files(
     )
 
 
-@router.get("/search")
-def search_files(
-    q: str = Query(..., min_length=1),
-    library_id: int | None = Query(None),
-    limit: int = Query(50, ge=1, le=100000),
-    exclude: bool = Query(False, description="Return least similar files instead of most similar"),
-    db: Session = Depends(get_db),
-):
-    from app.models.settings import get_setting
-    from app.services.image_analyzer import cosine_similarity, encode_text_clip
-
-    clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
-    text_vec = encode_text_clip(q, model_id=clip_model_id)
-
-    query = db.query(File).filter(File.clip_embedding.isnot(None))
-    if library_id is not None:
-        query = query.filter(File.library_id == library_id)
-
-    scored = []
-    for f in query.all():
-        try:
-            score = cosine_similarity(text_vec, json.loads(f.clip_embedding))
-            scored.append((f, score))
-        except Exception:
-            continue
-
-    scored.sort(key=lambda x: x[1], reverse=not exclude)
-    return [{"file": _to_file_read(f), "score": round(score, 4)} for f, score in scored[:limit]]
-
-
-@router.get("/detections")
-def filter_by_detections(
-    labels: str = Query(..., description="Comma-separated NudeNet labels"),
-    min_confidence: float = Query(0.5, ge=0.0, le=1.0),
-    exclude: bool = Query(False, description="Return files that do NOT match the criteria"),
-    library_id: int | None = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100000),
-    db: Session = Depends(get_db),
-):
-    from app.models.video import VideoDetection
-
-    label_list = [label.strip() for label in labels.split(",") if label.strip()]
-    if not label_list:
-        raise HTTPException(400, "At least one label is required")
-
-    matching_ids = (
-        db.query(VideoDetection.file_id)
-        .filter(
-            VideoDetection.label.in_(label_list),
-            VideoDetection.confidence >= min_confidence,
-        )
-        .distinct()
-        .subquery()
-    )
-
-    id_filter = File.id.notin_(matching_ids) if exclude else File.id.in_(matching_ids)
-    q = db.query(File).filter(id_filter)
-    if library_id is not None:
-        q = q.filter(File.library_id == library_id)
-
-    total = q.with_entities(func.count(File.id)).scalar()
-    items = q.order_by(File.filename).offset((page - 1) * page_size).limit(page_size).all()
-
-    return FilesResponse(
-        items=[_to_file_read(f) for f in items],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
-
-
 @router.get("/{file_id}/thumbnail")
 def get_thumbnail(file_id: int, db: Session = Depends(get_db)):
     f = db.get(File, file_id)
@@ -210,20 +135,6 @@ def get_thumbnail(file_id: int, db: Session = Depends(get_db)):
     if not os.path.exists(thumb):
         raise HTTPException(404, "Thumbnail not available")
     return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
-
-
-@router.post("/{file_id}/check", status_code=202)
-async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
-    f = db.get(File, file_id)
-    if not f:
-        raise HTTPException(404, "File not found")
-    if f.library_id and active_job_exists(db, f.library_id, JobType.CHECK):
-        raise HTTPException(409, "A check job is already running")
-    from app.queue import enqueue
-    from app.services.corruption import check_file
-
-    await enqueue(None, check_file, file_id)
-    return {"message": "Check queued"}
 
 
 @router.get("/{file_id}/stream")

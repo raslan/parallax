@@ -1,10 +1,5 @@
 import { req } from "./client";
-import type {
-  ImageLibrary,
-  ImagesResponse,
-  ImageSearchResult,
-  ImageScanRequest,
-} from "@/types/image";
+import type { ImageLibrary, ImagesResponse, ImageScanRequest } from "@/types/image";
 
 export const imageApi = {
   listLibraries: () => req<ImageLibrary[]>("/image-libraries"),
@@ -78,14 +73,6 @@ export const imageApi = {
       method: "POST",
       body: JSON.stringify({ ids }),
     }),
-
-  searchImages: (q: string, opts?: { limit?: number; exclude?: boolean; library_id?: number }) => {
-    const p = new URLSearchParams({ q });
-    if (opts?.limit) p.set("limit", String(opts.limit));
-    if (opts?.exclude) p.set("exclude", "true");
-    if (opts?.library_id) p.set("library_id", String(opts.library_id));
-    return req<ImageSearchResult[]>(`/images/search?${p}`);
-  },
 
   filterByDetections: (params: {
     labels: string[];

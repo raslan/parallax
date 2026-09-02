@@ -14,8 +14,6 @@ export const librariesApi = {
     ),
   scanLibrary: (id: number) =>
     req<{ message: string }>(`/libraries/${id}/scan`, { method: "POST" }),
-  checkLibrary: (id: number) =>
-    req<{ message: string }>(`/libraries/${id}/check`, { method: "POST" }),
   browseLibrary: (
     id: number,
     path: string,

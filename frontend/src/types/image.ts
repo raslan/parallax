@@ -27,6 +27,7 @@ export interface ImageFile {
   exif_date: number | null;
   exif_gps: string | null;
   exif_camera: string | null;
+  file_mtime: number | null;
   status: string;
   scan_error: string | null;
   scanned_at: string | null;
@@ -42,14 +43,8 @@ export interface ImagesResponse {
   page_size: number;
 }
 
-export interface ImageSearchResult {
-  image: ImageFile;
-  score: number;
-}
-
 export interface ImageScanRequest {
   run_phash: boolean;
   run_nudenet: boolean;
-  run_clip: boolean;
   reset: boolean;
 }
