@@ -26,8 +26,6 @@ _NUDENET_MODEL_KEY = "nudenet_model"
 _NUDENET_MODEL_DEFAULT = "320n"
 _WHISPER_MODEL_KEY = "whisper_model"
 _WHISPER_MODEL_DEFAULT = "small"
-_VIDEO_KEYFRAMES_KEY = "video_keyframes_per_video"
-_VIDEO_KEYFRAMES_DEFAULT = "32"
 _BATCH_SIZE_KEY = "scan_batch_size"
 _BATCH_SIZE_DEFAULT = "4"
 _PREFETCH_KEY = "scan_prefetch"
@@ -47,7 +45,6 @@ class SettingsRead(BaseModel):
     tmdb_api_key: str
     nudenet_model: str
     whisper_model: str
-    video_keyframes_per_video: int
     scan_batch_size: int
     scan_prefetch: int
     subtitle_languages: str
@@ -63,7 +60,6 @@ class SettingsUpdate(BaseModel):
     tmdb_api_key: str | None = Field(default=None, max_length=128)
     nudenet_model: str | None = None
     whisper_model: str | None = None
-    video_keyframes_per_video: int | None = Field(default=None, ge=1, le=512)
     scan_batch_size: int | None = Field(default=None, ge=1, le=32)
     scan_prefetch: int | None = Field(default=None, ge=1, le=20)
     subtitle_languages: str | None = Field(default=None, max_length=64)
@@ -80,9 +76,6 @@ def _read_settings(db: Session) -> SettingsRead:
         tmdb_api_key=get_setting(db, _TMDB_KEY, ""),
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
         whisper_model=get_setting(db, _WHISPER_MODEL_KEY, _WHISPER_MODEL_DEFAULT),
-        video_keyframes_per_video=int(
-            get_setting(db, _VIDEO_KEYFRAMES_KEY, _VIDEO_KEYFRAMES_DEFAULT)
-        ),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
         scan_prefetch=int(get_setting(db, _PREFETCH_KEY, _PREFETCH_DEFAULT)),
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
@@ -128,9 +121,6 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
     if body.tmdb_api_key is not None:
         set_setting(db, _TMDB_KEY, body.tmdb_api_key)
 
-    if body.video_keyframes_per_video is not None:
-        set_setting(db, _VIDEO_KEYFRAMES_KEY, str(body.video_keyframes_per_video))
-
     if body.scan_batch_size is not None:
         set_setting(db, _BATCH_SIZE_KEY, str(body.scan_batch_size))
 
@@ -163,20 +153,14 @@ def purge_library_data(db: Session = Depends(get_db)):
     from app.models.image_library import ImageLibrary
     from app.models.library import Library
     from app.models.schedule import Schedule
-    from app.models.video import VideoDetection
     from app.services import fs_watcher
 
     # Stop all watchers first
     fs_watcher.shutdown()
     fs_watcher.init()
 
-    # Video: delete VideoDetection, thumbnails, files, schedules, libraries
+    # Video: delete thumbnails, files, schedules, libraries
     all_files = db.query(File).all()
-    file_ids = [f.id for f in all_files]
-    if file_ids:
-        db.query(VideoDetection).filter(VideoDetection.file_id.in_(file_ids)).delete(
-            synchronize_session=False
-        )
     for f in all_files:
         thumb = os.path.join(DATA_DIR, "thumbnails", f"{f.id}.jpg")
         try:

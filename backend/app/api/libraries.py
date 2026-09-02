@@ -10,7 +10,6 @@ from app.database import get_db
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus, JobType
 from app.models.library import Library
-from app.models.video import VideoDetection
 from app.queue import enqueue
 from app.schemas import (
     BrowseResponse,
@@ -205,12 +204,6 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
         {Job.library_id: None}, synchronize_session=False
     )
     files = db.query(File).filter(File.library_id == library_id).all()
-    file_ids = [f.id for f in files]
-    # Delete VideoDetection rows first (FK to files.id)
-    if file_ids:
-        db.query(VideoDetection).filter(VideoDetection.file_id.in_(file_ids)).delete(
-            synchronize_session=False
-        )
     # Clean up disk artefacts and file records
     for f in files:
         try:
@@ -228,10 +221,6 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     # library_id (background jobs may have inserted after we started deleting).
     lingering = db.query(File).filter(File.library_id == library_id).all()
     if lingering:
-        lids = [f.id for f in lingering]
-        db.query(VideoDetection).filter(VideoDetection.file_id.in_(lids)).delete(
-            synchronize_session=False
-        )
         for f in lingering:
             try:
                 os.remove(thumbnail_path(f.id))
@@ -347,30 +336,6 @@ def browse_library(
         dirs=sorted(dirs),
         files=[to_read(f) for f in sorted_files],
     )
-
-
-@router.post("/{library_id}/video-scan", status_code=202)
-async def trigger_video_scan(
-    library_id: int,
-    reset: bool = False,
-    db: Session = Depends(get_db),
-):
-    lib = db.get(Library, library_id)
-    if not lib:
-        raise HTTPException(404, "Library not found")
-    file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
-    if file_count == 0:
-        raise HTTPException(422, "Scan the library first to index its files before running AI scan")
-    if active_job_exists(db, library_id, JobType.VIDEO_SCAN):
-        raise HTTPException(409, "A video scan is already running for this library")
-    from app.services.video_scanner import scan_video_library
-
-    job = Job(type=JobType.VIDEO_SCAN, status=JobStatus.PENDING, library_id=library_id)
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-    await enqueue(job.id, scan_video_library, library_id, job.id, True, reset)
-    return {"job_id": job.id, "message": "Video AI scan queued"}
 
 
 @router.post("/{library_id}/phash-scan", status_code=202)
@@ -495,7 +460,6 @@ def delete_duplicates_endpoint(
             originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
             os.makedirs(originals_dir, exist_ok=True)
             shutil.move(f.path, os.path.join(originals_dir, f.filename))
-        db.query(VideoDetection).filter(VideoDetection.file_id == f.id).delete()
         db.delete(f)
     db.commit()
 
@@ -566,6 +530,5 @@ def delete_cleanup_files(
             os.remove(thumbnail_path(f.id))
         except FileNotFoundError:
             pass
-        db.query(VideoDetection).filter(VideoDetection.file_id == f.id).delete()
         db.delete(f)
     db.commit()

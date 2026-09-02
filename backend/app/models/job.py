@@ -12,7 +12,6 @@ class JobType:
     TRANSCODE = "transcode"
     DUPLICATES = "duplicates"
     IMAGE_SCAN = "image_scan"
-    VIDEO_SCAN = "video_scan"
     MODEL_DOWNLOAD = "model_download"
     SUBTITLE_DOWNLOAD = "subtitle_download"
     WHISPER_TRANSCRIBE = "whisper_transcribe"
