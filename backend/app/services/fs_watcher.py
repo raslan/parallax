@@ -99,7 +99,12 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
     from app.database import SessionLocal
     from app.models.file import File, FileStatus
     from app.models.library import Library
-    from app.services.scanner import _now, _probe_metadata, generate_thumbnail, thumbnail_path
+    from app.services.scanner import (
+        _now,
+        _probe_metadata,
+        clear_thumbnail_failed_marker,
+        thumbnail_path,
+    )
 
     db = SessionLocal()
     try:
@@ -115,6 +120,7 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
                     os.remove(thumbnail_path(f.id))
                 except FileNotFoundError:
                     pass
+                clear_thumbnail_failed_marker(f.id)
                 db.delete(f)
         db.commit()
 
@@ -203,7 +209,17 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
             if is_new or before != after:
                 f.scanned_at = _now()
                 db.commit()
-                generate_thumbnail(path, f.id, duration=meta["duration"])
+                if not is_new:
+                    # Content genuinely changed under an existing path (e.g. a
+                    # file replaced outside Parallax) — the old thumbnail is
+                    # now stale. Remove it so the next view lazily regenerates
+                    # from the new bytes instead of serving the old ones
+                    # forever (get_or_create_thumbnail only fills in misses).
+                    try:
+                        os.remove(thumbnail_path(f.id))
+                    except FileNotFoundError:
+                        pass
+                clear_thumbnail_failed_marker(f.id)
             else:
                 # Re-probed values are identical — a spurious fs event (e.g.
                 # another process touching the file's mtime with no real
