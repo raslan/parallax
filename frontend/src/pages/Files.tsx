@@ -25,15 +25,13 @@ import { useLiveFiles } from "@/hooks/useLiveFiles";
 
 const STATUS_COLORS: Record<string, string> = {
   unknown: "secondary",
-  scanning: "secondary",
-  clean: "default",
   queued: "secondary",
   transcoding: "secondary",
   done: "default",
   failed: "destructive",
 };
 
-const ALL_STATUSES = ["unknown", "scanning", "clean", "queued", "transcoding", "done", "failed"];
+const ALL_STATUSES = ["unknown", "queued", "transcoding", "done", "failed"];
 const FETCH_ALL_PAGE_SIZE = 10000;
 
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
