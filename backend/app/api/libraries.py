@@ -23,7 +23,7 @@ from app.schemas import (
     LibraryUpdate,
     StatsRead,
 )
-from app.services.scanner import scan_library, thumbnail_path
+from app.services.scanner import clear_thumbnail_failed_marker, scan_library, thumbnail_path
 
 router = APIRouter(prefix="/libraries", tags=["libraries"])
 
@@ -200,6 +200,7 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
             os.remove(thumbnail_path(f.id))
         except FileNotFoundError:
             pass
+        clear_thumbnail_failed_marker(f.id)
         db.delete(f)
     # Delete scheduled jobs for this library
     db.query(Schedule).filter(Schedule.library_id == library_id).delete(synchronize_session=False)
@@ -216,6 +217,7 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
                 os.remove(thumbnail_path(f.id))
             except FileNotFoundError:
                 pass
+            clear_thumbnail_failed_marker(f.id)
             db.delete(f)
         db.commit()
 
@@ -439,6 +441,7 @@ def delete_duplicates_endpoint(
             os.remove(thumbnail_path(f.id))
         except FileNotFoundError:
             pass
+        clear_thumbnail_failed_marker(f.id)
         db.delete(f)
     db.commit()
 
@@ -510,5 +513,6 @@ def delete_cleanup_files(
             os.remove(thumbnail_path(f.id))
         except FileNotFoundError:
             pass
+        clear_thumbnail_failed_marker(f.id)
         db.delete(f)
     db.commit()
