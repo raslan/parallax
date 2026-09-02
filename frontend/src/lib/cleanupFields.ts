@@ -36,6 +36,7 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
     operators: ["gt", "lt"],
     defaultOperator: "lt",
     defaultValue: 30,
+    unitLabel: "seconds",
     test: (row, operator, value) => {
       if (row.duration == null) return false;
       const v = value as number;
@@ -50,6 +51,7 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
     operators: ["gt", "lt"],
     defaultOperator: "lt",
     defaultValue: 24,
+    unitLabel: "fps",
     test: (row, operator, value) => {
       if (row.file_fps == null) return false;
       const v = value as number;
@@ -79,6 +81,7 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
     operators: ["gt", "lt"],
     defaultOperator: "lt",
     defaultValue: 480,
+    unitLabel: "px height",
     presets: [
       { label: "4K/UHD", value: 2160 },
       { label: "1440p", value: 1440 },

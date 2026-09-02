@@ -28,6 +28,7 @@ export type FieldDef<T> = {
   showThreshold?: boolean; // for "text" valueType — always show a % threshold input, not only for fuzzy_contains
   group?: string; // optional sub-heading within a category in the add-filter menu (e.g. "Exposed" within "label")
   presets?: { label: string; value: unknown }[]; // quick-set chips shown above the value editor (e.g. resolution tiers)
+  unitLabel?: string; // short unit hint shown beside a "number" valueType input (e.g. "seconds", "fps", "px")
 };
 
 function hasValue(value: unknown): boolean {
