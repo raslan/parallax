@@ -1,5 +1,5 @@
 import { BASE, req } from "./client";
-import type { FilesResponse, VideoSearchResult } from "@/types/file";
+import type { FilesResponse } from "@/types/file";
 
 export const filesApi = {
   getFiles: (params: {
@@ -23,12 +23,6 @@ export const filesApi = {
     `${BASE}/files/${id}/thumbnail${version ? `?v=${encodeURIComponent(String(version))}` : ""}`,
   streamUrl: (id: number) => `${BASE}/files/${id}/stream`,
   subtitleTracksUrl: (id: number) => `${BASE}/files/${id}/subtitle-tracks`,
-  searchFiles: (q: string, library_id?: number, limit = 50, exclude = false) => {
-    const params = new URLSearchParams({ q, limit: String(limit) });
-    if (library_id !== undefined) params.set("library_id", String(library_id));
-    if (exclude) params.set("exclude", "true");
-    return req<VideoSearchResult[]>(`/files/search?${params}`);
-  },
   filterFilesByDetections: (params: {
     labels: string[];
     min_confidence: number;

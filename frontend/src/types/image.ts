@@ -42,14 +42,8 @@ export interface ImagesResponse {
   page_size: number;
 }
 
-export interface ImageSearchResult {
-  image: ImageFile;
-  score: number;
-}
-
 export interface ImageScanRequest {
   run_phash: boolean;
   run_nudenet: boolean;
-  run_clip: boolean;
   reset: boolean;
 }
