@@ -49,7 +49,6 @@ def init_db():
         library,
         schedule,
         settings,
-        video,
     )
 
     Base.metadata.create_all(bind=engine)
@@ -153,15 +152,20 @@ def init_db():
 
         # Remove orphaned records left by prior race conditions. Delete children
         # before parents so FK enforcement (now ON) doesn't reject the deletes.
-        conn.execute(
-            text("""
-            DELETE FROM video_detections
-            WHERE file_id IN (
-                SELECT id FROM files
-                WHERE library_id NOT IN (SELECT id FROM libraries)
+        # video_detections is dead schema (video AI scan removed) — only cleaned up
+        # on installs where the table still exists from before the removal.
+        try:
+            conn.execute(
+                text("""
+                DELETE FROM video_detections
+                WHERE file_id IN (
+                    SELECT id FROM files
+                    WHERE library_id NOT IN (SELECT id FROM libraries)
+                )
+            """)
             )
-        """)
-        )
+        except Exception:
+            pass  # table doesn't exist on fresh installs
         conn.execute(text("DELETE FROM files WHERE library_id NOT IN (SELECT id FROM libraries)"))
         conn.execute(
             text("""
