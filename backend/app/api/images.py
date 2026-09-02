@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import shutil
 
@@ -12,7 +11,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.database import DATA_DIR, SessionLocal, get_db
 from app.models.image import ImageDetection, ImageFile, ImageStatus
-from app.schemas import ImageDetectionRead, ImageRead, ImageSearchResult, ImagesResponse
+from app.schemas import ImageDetectionRead, ImageRead, ImagesResponse
 
 
 class BulkQuarantineRequest(BaseModel):
@@ -179,44 +178,6 @@ def list_quarantined(
         page=page,
         page_size=page_size,
     )
-
-
-@router.get("/search", response_model=list[ImageSearchResult])
-def search_images(
-    q: str = Query(..., min_length=1),
-    limit: int = Query(50, ge=1, le=100000),
-    exclude: bool = Query(False, description="Return least similar images instead of most similar"),
-    library_id: int | None = Query(None),
-    db: Session = Depends(get_db),
-):
-    from app.models.settings import get_setting
-    from app.services.image_analyzer import cosine_similarity, encode_text_clip
-
-    clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
-    text_vec = encode_text_clip(q, model_id=clip_model_id)
-
-    query = db.query(ImageFile).filter(
-        ImageFile.clip_embedding.isnot(None),
-        ImageFile.status != ImageStatus.QUARANTINED,
-    )
-    if library_id is not None:
-        query = query.filter(ImageFile.library_id == library_id)
-
-    candidates = query.all()
-    scored = []
-    for f in candidates:
-        try:
-            img_vec = json.loads(f.clip_embedding)
-            score = cosine_similarity(text_vec, img_vec)
-            scored.append((f, score))
-        except Exception:
-            continue
-
-    scored.sort(key=lambda x: x[1], reverse=not exclude)
-    return [
-        ImageSearchResult(image=_to_image_read(f, db), score=round(score, 4))
-        for f, score in scored[:limit]
-    ]
 
 
 @router.get("/detections", response_model=ImagesResponse)

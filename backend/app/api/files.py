@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -127,36 +126,6 @@ def list_files(
         page=page,
         page_size=page_size,
     )
-
-
-@router.get("/search")
-def search_files(
-    q: str = Query(..., min_length=1),
-    library_id: int | None = Query(None),
-    limit: int = Query(50, ge=1, le=100000),
-    exclude: bool = Query(False, description="Return least similar files instead of most similar"),
-    db: Session = Depends(get_db),
-):
-    from app.models.settings import get_setting
-    from app.services.image_analyzer import cosine_similarity, encode_text_clip
-
-    clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
-    text_vec = encode_text_clip(q, model_id=clip_model_id)
-
-    query = db.query(File).filter(File.clip_embedding.isnot(None))
-    if library_id is not None:
-        query = query.filter(File.library_id == library_id)
-
-    scored = []
-    for f in query.all():
-        try:
-            score = cosine_similarity(text_vec, json.loads(f.clip_embedding))
-            scored.append((f, score))
-        except Exception:
-            continue
-
-    scored.sort(key=lambda x: x[1], reverse=not exclude)
-    return [{"file": _to_file_read(f), "score": round(score, 4)} for f, score in scored[:limit]]
 
 
 @router.get("/detections")

@@ -11,10 +11,8 @@ from app.queue import update_max_concurrent
 from app.services.downloader import set_max_concurrent as set_max_concurrent_downloads
 from app.services.image_analyzer import release_sessions
 from app.services.model_manager import (
-    CLIP_MODELS,
     NUDENET_MODELS,
     WHISPER_MODELS,
-    is_clip_downloaded,
     is_nudenet_downloaded,
     is_whisper_downloaded,
 )
@@ -24,8 +22,6 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 _CONCURRENT_KEY = "max_concurrent_transcodes"
 _CONCURRENT_DEFAULT = "1"
 _TMDB_KEY = "tmdb_api_key"
-_CLIP_MODEL_KEY = "clip_model"
-_CLIP_MODEL_DEFAULT = "clip-vit-base-patch32"
 _NUDENET_MODEL_KEY = "nudenet_model"
 _NUDENET_MODEL_DEFAULT = "320n"
 _WHISPER_MODEL_KEY = "whisper_model"
@@ -49,7 +45,6 @@ _YTDLP_CHANNEL_DEFAULT = "stable"
 class SettingsRead(BaseModel):
     max_concurrent_transcodes: int
     tmdb_api_key: str
-    clip_model: str
     nudenet_model: str
     whisper_model: str
     video_keyframes_per_video: int
@@ -66,7 +61,6 @@ class SettingsRead(BaseModel):
 class SettingsUpdate(BaseModel):
     max_concurrent_transcodes: int | None = Field(default=None, ge=1, le=8)
     tmdb_api_key: str | None = Field(default=None, max_length=128)
-    clip_model: str | None = None
     nudenet_model: str | None = None
     whisper_model: str | None = None
     video_keyframes_per_video: int | None = Field(default=None, ge=1, le=512)
@@ -84,7 +78,6 @@ def _read_settings(db: Session) -> SettingsRead:
     return SettingsRead(
         max_concurrent_transcodes=int(get_setting(db, _CONCURRENT_KEY, _CONCURRENT_DEFAULT)),
         tmdb_api_key=get_setting(db, _TMDB_KEY, ""),
-        clip_model=get_setting(db, _CLIP_MODEL_KEY, _CLIP_MODEL_DEFAULT),
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
         whisper_model=get_setting(db, _WHISPER_MODEL_KEY, _WHISPER_MODEL_DEFAULT),
         video_keyframes_per_video=int(
@@ -109,14 +102,6 @@ def get_settings(db: Session = Depends(get_db)):
 @router.patch("", response_model=SettingsRead)
 def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
     model_changed = False
-
-    if body.clip_model is not None:
-        if body.clip_model not in CLIP_MODELS:
-            raise HTTPException(400, f"Unknown CLIP model: {body.clip_model}")
-        if not is_clip_downloaded(body.clip_model):
-            raise HTTPException(422, f"CLIP model '{body.clip_model}' is not downloaded yet")
-        set_setting(db, _CLIP_MODEL_KEY, body.clip_model)
-        model_changed = True
 
     if body.nudenet_model is not None:
         if body.nudenet_model not in NUDENET_MODELS:
