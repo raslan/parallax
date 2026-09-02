@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import type { Clause, FieldDef, Operator } from "@/hooks/useQueryBuilder";
+import { cn } from "@/lib/utils";
 
 const CATEGORY_COLOR: Record<string, string> = {
   numeric: "#38bdf8",
@@ -49,6 +50,67 @@ function OperatorSelect<T>({
   );
 }
 
+function PercentSlider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex w-full min-w-[220px] flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <span className="text-xs font-mono font-semibold" style={{ color: "var(--px-accent)" }}>
+          {value}%
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-primary"
+      />
+    </div>
+  );
+}
+
+function PresetChips<T>({
+  field,
+  value,
+  onChange,
+}: {
+  field: FieldDef<T>;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  if (!field.presets) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {field.presets.map((p) => (
+        <button
+          key={p.label}
+          type="button"
+          onClick={() => onChange(p.value)}
+          className={cn(
+            "rounded px-2 py-0.5 text-[11px] font-medium transition-colors border",
+            value === p.value
+              ? "border-primary bg-primary/15 text-primary"
+              : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+          )}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ValueEditor<T>({
   field,
   operator,
@@ -62,28 +124,19 @@ function ValueEditor<T>({
 }) {
   if (field.valueType === "number") {
     return (
-      <input
-        type="number"
-        value={(value as number) ?? ""}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-20 rounded border border-border bg-background px-1.5 py-1 text-xs"
-      />
+      <div className="flex flex-col gap-1.5">
+        <PresetChips field={field} value={value} onChange={onChange} />
+        <input
+          type="number"
+          value={(value as number) ?? ""}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-20 rounded border border-border bg-background px-1.5 py-1 text-xs"
+        />
+      </div>
     );
   }
   if (field.valueType === "percent") {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          type="number"
-          min={0}
-          max={100}
-          value={(value as number) ?? ""}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="w-16 rounded border border-border bg-background px-1.5 py-1 text-xs"
-        />
-        <span className="text-xs text-muted-foreground">%</span>
-      </div>
-    );
+    return <PercentSlider label="Threshold" value={(value as number) ?? 0} onChange={onChange} />;
   }
   if (field.valueType === "date_offset") {
     const v = (value as { n: number; unit: "days" | "weeks" | "months" }) ?? {
@@ -113,25 +166,19 @@ function ValueEditor<T>({
   // "text"
   const v = (value as { text: string; threshold?: number }) ?? { text: "" };
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-col gap-2">
       <input
         type="text"
         value={v.text}
         onChange={(e) => onChange({ ...v, text: e.target.value })}
-        className="w-32 rounded border border-border bg-background px-1.5 py-1 text-xs"
+        className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs"
       />
       {(operator === "fuzzy_contains" || field.showThreshold) && (
-        <>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={v.threshold ?? 40}
-            onChange={(e) => onChange({ ...v, threshold: Number(e.target.value) })}
-            className="w-14 rounded border border-border bg-background px-1.5 py-1 text-xs"
-          />
-          <span className="text-xs text-muted-foreground">%</span>
-        </>
+        <PercentSlider
+          label="Similarity"
+          value={v.threshold ?? 40}
+          onChange={(threshold) => onChange({ ...v, threshold })}
+        />
       )}
     </div>
   );
@@ -186,32 +233,36 @@ function ExpandedClause<T>({
   return (
     <div
       ref={ref}
-      className="flex items-center gap-2 rounded-md border-2 p-2"
+      className="flex min-w-[240px] flex-col gap-2.5 rounded-md border-2 p-3"
       style={{
         borderColor: "var(--px-accent)",
         boxShadow: "0 0 0 4px var(--px-accent-dim, rgba(139,92,246,0.16))",
       }}
     >
-      <span className="text-xs font-semibold">{field.label}</span>
-      <OperatorSelect
-        field={field}
-        value={clause.operator}
-        onChange={(op) => onUpdate(clause.id, { operator: op })}
-      />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold">{field.label}</span>
+        <div className="flex items-center gap-1.5">
+          <OperatorSelect
+            field={field}
+            value={clause.operator}
+            onChange={(op) => onUpdate(clause.id, { operator: op })}
+          />
+          <button
+            type="button"
+            onClick={() => onCollapse()}
+            className="rounded px-2 py-1 text-xs font-semibold text-primary-foreground"
+            style={{ background: "var(--px-accent)" }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
       <ValueEditor
         field={field}
         operator={clause.operator}
         value={clause.value}
         onChange={(v) => onUpdate(clause.id, { value: v })}
       />
-      <button
-        type="button"
-        onClick={() => onCollapse()}
-        className="rounded px-2 py-1 text-xs font-semibold text-primary-foreground"
-        style={{ background: "var(--px-accent)" }}
-      >
-        Done
-      </button>
     </div>
   );
 }
