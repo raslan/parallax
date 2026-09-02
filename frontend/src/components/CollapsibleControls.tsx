@@ -58,19 +58,19 @@ export function CollapsibleControls({
     <div ref={rootRef} className="relative shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 rounded-lg border border-border/50 bg-muted/10 px-4 py-2.5 text-left hover:border-border transition-colors"
+        className="w-full flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-left hover:border-primary/50 hover:bg-primary/15 transition-colors"
       >
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+            "h-3.5 w-3.5 shrink-0 text-primary transition-transform",
             open && "-rotate-180",
           )}
         />
-        <div className="flex-1 min-w-0 text-xs text-muted-foreground truncate">{summary}</div>
+        <div className="flex-1 min-w-0 text-xs font-medium text-foreground truncate">{summary}</div>
       </button>
 
       {open && (
-        <div className="absolute top-full inset-x-0 z-20 mt-2 max-h-[75vh] overflow-y-auto rounded-lg border border-border bg-card shadow-2xl">
+        <div className="absolute top-full inset-x-0 z-20 mt-2 max-h-[75vh] overflow-y-auto rounded-lg border border-border bg-card/95 backdrop-blur-sm shadow-2xl">
           {children}
         </div>
       )}
