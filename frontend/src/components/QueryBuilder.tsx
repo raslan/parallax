@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import type { Clause, FieldDef, Operator } from "@/hooks/useQueryBuilder";
 import { cn } from "@/lib/utils";
 
@@ -26,44 +26,75 @@ const OPERATOR_LABEL: Record<Operator, string> = {
   fuzzy_contains: "~contains",
 };
 
-function OperatorSelect<T>({
+// Word phrasing for the expanded editor, so operator + value read as one
+// sentence ("is under 2160"). Fields with a different real-world meaning
+// for gt/lt (e.g. date offsets) pass their own override map.
+const OPERATOR_PHRASE: Record<Operator, string> = {
+  gt: "is over",
+  lt: "is under",
+  gte: "is at least",
+  lte: "is at most",
+  eq: "is",
+  contains: "contains",
+  not_contains: "doesn't contain",
+  fuzzy_contains: "roughly matches",
+};
+
+const DATE_OPERATOR_PHRASE: Partial<Record<Operator, string>> = {
+  gt: "is after",
+  lt: "is before",
+};
+
+function PhraseOperatorSelect<T>({
   field,
   value,
   onChange,
+  phraseMap,
 }: {
   field: FieldDef<T>;
   value: Operator;
   onChange: (op: Operator) => void;
+  phraseMap?: Partial<Record<Operator, string>>;
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value as Operator)}
-      className="rounded border border-border bg-background px-1.5 py-1 text-xs"
-    >
-      {field.operators.map((op) => (
-        <option key={op} value={op}>
-          {OPERATOR_LABEL[op]}
-        </option>
-      ))}
-    </select>
+    <div className="relative inline-flex shrink-0 items-center">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as Operator)}
+        className="cursor-pointer appearance-none rounded-md bg-transparent py-1 pl-0 pr-5 text-sm font-medium hover:text-primary focus:outline-none"
+        style={{ color: "var(--px-accent)" }}
+      >
+        {field.operators.map((op) => (
+          <option key={op} value={op} className="text-foreground">
+            {phraseMap?.[op] ?? OPERATOR_PHRASE[op]}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-0 h-3.5 w-3.5"
+        style={{ color: "var(--px-accent)" }}
+      />
+    </div>
   );
 }
 
 function PercentSlider({
-  label,
+  leading,
   value,
   onChange,
 }: {
-  label: string;
+  leading: React.ReactNode;
   value: number;
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex w-full min-w-[220px] flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">{label}</span>
-        <span className="text-xs font-mono font-semibold" style={{ color: "var(--px-accent)" }}>
+    <div className="flex w-full min-w-[260px] flex-col gap-2">
+      <div className="flex items-center justify-between text-sm">
+        {leading}
+        <span
+          className="rounded-md bg-primary/10 px-2 py-0.5 font-mono font-semibold"
+          style={{ color: "var(--px-accent)" }}
+        >
           {value}%
         </span>
       </div>
@@ -74,7 +105,7 @@ function PercentSlider({
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-primary"
+        className="h-1.5 w-full accent-primary"
       />
     </div>
   );
@@ -91,14 +122,14 @@ function PresetChips<T>({
 }) {
   if (!field.presets) return null;
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1.5">
       {field.presets.map((p) => (
         <button
           key={p.label}
           type="button"
           onClick={() => onChange(p.value)}
           className={cn(
-            "rounded px-2 py-0.5 text-[11px] font-medium transition-colors border",
+            "rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors",
             value === p.value
               ? "border-primary bg-primary/15 text-primary"
               : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
@@ -116,27 +147,43 @@ function ValueEditor<T>({
   operator,
   value,
   onChange,
+  onOperatorChange,
 }: {
   field: FieldDef<T>;
   operator: Operator;
   value: unknown;
   onChange: (v: unknown) => void;
+  onOperatorChange: (op: Operator) => void;
 }) {
   if (field.valueType === "number") {
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <PhraseOperatorSelect field={field} value={operator} onChange={onOperatorChange} />
+          <input
+            type="number"
+            value={(value as number) ?? ""}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="h-8 w-20 rounded-md border border-border bg-background px-2 text-sm font-mono"
+          />
+          {field.unitLabel && (
+            <span className="text-xs text-muted-foreground">{field.unitLabel}</span>
+          )}
+        </div>
         <PresetChips field={field} value={value} onChange={onChange} />
-        <input
-          type="number"
-          value={(value as number) ?? ""}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="w-20 rounded border border-border bg-background px-1.5 py-1 text-xs"
-        />
       </div>
     );
   }
   if (field.valueType === "percent") {
-    return <PercentSlider label="Threshold" value={(value as number) ?? 0} onChange={onChange} />;
+    return (
+      <PercentSlider
+        leading={
+          <PhraseOperatorSelect field={field} value={operator} onChange={onOperatorChange} />
+        }
+        value={(value as number) ?? 0}
+        onChange={onChange}
+      />
+    );
   }
   if (field.valueType === "date_offset") {
     const v = (value as { n: number; unit: "days" | "weeks" | "months" }) ?? {
@@ -144,38 +191,59 @@ function ValueEditor<T>({
       unit: "days",
     };
     return (
-      <div className="flex items-center gap-1">
-        <input
-          type="number"
-          value={v.n}
-          onChange={(e) => onChange({ ...v, n: Number(e.target.value) })}
-          className="w-14 rounded border border-border bg-background px-1.5 py-1 text-xs"
-        />
-        <select
-          value={v.unit}
-          onChange={(e) => onChange({ ...v, unit: e.target.value })}
-          className="rounded border border-border bg-background px-1.5 py-1 text-xs"
-        >
-          <option value="days">days</option>
-          <option value="weeks">weeks</option>
-          <option value="months">months</option>
-        </select>
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <PhraseOperatorSelect
+            field={field}
+            value={operator}
+            onChange={onOperatorChange}
+            phraseMap={DATE_OPERATOR_PHRASE}
+          />
+          <input
+            type="number"
+            value={v.n}
+            onChange={(e) => onChange({ ...v, n: Number(e.target.value) })}
+            className="h-8 w-16 rounded-md border border-border bg-background px-2 text-sm font-mono"
+          />
+          <span className="text-xs text-muted-foreground">ago</span>
+        </div>
+        <div className="flex gap-1.5">
+          {(["days", "weeks", "months"] as const).map((unit) => (
+            <button
+              key={unit}
+              type="button"
+              onClick={() => onChange({ ...v, unit })}
+              className={cn(
+                "flex-1 rounded-md border px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                v.unit === unit
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+              )}
+            >
+              {unit}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
   // "text"
   const v = (value as { text: string; threshold?: number }) ?? { text: "" };
   return (
-    <div className="flex flex-col gap-2">
-      <input
-        type="text"
-        value={v.text}
-        onChange={(e) => onChange({ ...v, text: e.target.value })}
-        className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs"
-      />
+    <div className="flex flex-col gap-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <PhraseOperatorSelect field={field} value={operator} onChange={onOperatorChange} />
+        <input
+          type="text"
+          value={v.text}
+          onChange={(e) => onChange({ ...v, text: e.target.value })}
+          className="h-8 min-w-[160px] flex-1 rounded-md border border-border bg-background px-2 text-sm"
+          placeholder="Type to match…"
+        />
+      </div>
       {(operator === "fuzzy_contains" || field.showThreshold) && (
         <PercentSlider
-          label="Similarity"
+          leading={<span className="text-xs font-medium text-muted-foreground">Similarity</span>}
           value={v.threshold ?? 40}
           onChange={(threshold) => onChange({ ...v, threshold })}
         />
@@ -233,35 +301,35 @@ function ExpandedClause<T>({
   return (
     <div
       ref={ref}
-      className="flex min-w-[240px] flex-col gap-2.5 rounded-md border-2 p-3"
+      className="flex w-fit min-w-[240px] max-w-[380px] flex-col gap-3 rounded-lg border-2 p-3.5"
       style={{
         borderColor: "var(--px-accent)",
         boxShadow: "0 0 0 4px var(--px-accent-dim, rgba(139,92,246,0.16))",
+        background: "var(--px-bg-elevated, #1e1e24)",
       }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold">{field.label}</span>
-        <div className="flex items-center gap-1.5">
-          <OperatorSelect
-            field={field}
-            value={clause.operator}
-            onChange={(op) => onUpdate(clause.id, { operator: op })}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ background: CATEGORY_COLOR[field.category] }}
           />
-          <button
-            type="button"
-            onClick={() => onCollapse()}
-            className="rounded px-2 py-1 text-xs font-semibold text-primary-foreground"
-            style={{ background: "var(--px-accent)" }}
-          >
-            Done
-          </button>
+          <span className="text-sm font-semibold">{field.label}</span>
         </div>
+        <button
+          type="button"
+          onClick={() => onCollapse()}
+          className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
       <ValueEditor
         field={field}
         operator={clause.operator}
         value={clause.value}
         onChange={(v) => onUpdate(clause.id, { value: v })}
+        onOperatorChange={(op) => onUpdate(clause.id, { operator: op })}
       />
     </div>
   );
@@ -418,10 +486,10 @@ export function QueryBuilder<T>({
         </button>
         {menuOpen && (
           <div
-            className="absolute top-full z-20 mt-2 w-[560px] max-w-[90vw] rounded-lg border border-border shadow-2xl"
+            className="absolute top-full z-20 mt-2 w-[720px] max-w-[92vw] rounded-lg border border-border shadow-2xl"
             style={{ background: "var(--px-bg-elevated, #1e1e24)" }}
           >
-            <div className="border-b border-border p-3.5">
+            <div className="border-b border-border p-4">
               <input
                 autoFocus
                 type="text"
@@ -431,10 +499,10 @@ export function QueryBuilder<T>({
                 className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"
               />
             </div>
-            <div className="max-h-[380px] overflow-y-auto p-3.5">
+            <div className="max-h-[440px] overflow-y-auto p-4">
               {Object.entries(grouped).map(([section, fields], idx) => (
-                <div key={section} className={idx > 0 ? "mt-4" : undefined}>
-                  <div className="mb-2 flex items-center gap-2">
+                <div key={section} className={idx > 0 ? "mt-5" : undefined}>
+                  <div className="mb-2.5 flex items-center gap-2">
                     <span
                       className="h-2 w-2 rounded-sm"
                       style={{ background: sectionColor[section] }}
@@ -443,19 +511,19 @@ export function QueryBuilder<T>({
                       {section}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {fields.map((f) => (
                       <div
                         key={f.key}
                         onClick={() => handleAdd(f.key)}
-                        className="flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-2 text-xs font-semibold transition-all hover:-translate-y-px hover:border-primary hover:text-primary"
+                        className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2.5 text-xs font-semibold transition-all hover:-translate-y-px hover:border-primary hover:text-primary"
                         style={{ background: "var(--px-bg-surface, transparent)" }}
                       >
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full"
                           style={{ background: CATEGORY_COLOR[f.category] }}
                         />
-                        <span className="truncate">{f.label}</span>
+                        <span>{f.label}</span>
                       </div>
                     ))}
                   </div>
