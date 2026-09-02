@@ -26,7 +26,6 @@ class LibraryRead(BaseModel):
     created_at: datetime
     last_scanned_at: datetime | None = None
     file_count: int = 0
-    corrupt_count: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -92,7 +91,6 @@ class BrowseResponse(BaseModel):
 class StatsRead(BaseModel):
     total_libraries: int
     total_files: int
-    corrupt_files: int
     transcoded_files: int
     total_size_bytes: int
     scanning: bool
