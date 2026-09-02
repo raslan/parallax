@@ -11,18 +11,16 @@ A self-hosted video and image library manager with hardware-accelerated compress
 - **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC"); cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Toolbox** — bulk file-repair utilities in collapsible tool sections: trim start/end (stream-copy when a keyframe is near the cut point, falls back to hardware-accelerated re-encode otherwise), audio channel isolation (left/right → stereo), rotate, normalize volume, faststart (move moov atom for web playback), and A/V sync offset; cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold (0–100%), first-frame/all-frames comparison mode, and frames-per-video (4–64); scan is self-contained and runs pHash extraction automatically before comparing
-- **Cleanup** — filter and bulk-delete by duration, resolution, FPS, content date, file-added date, file size, orientation, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack with invert/exclude support
+- **Cleanup** — filter and bulk-delete by duration, resolution, FPS, content date, file-added date, file size, orientation, filename (exact or fuzzy), or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
 - **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); Whisper local speech-to-text generates SRT files from audio with no API key; multiple subtitle tracks shown in the Plyr player with a language picker
 
 ### Images
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
 - **Duplicate detection** — find duplicate images by perceptual hash with configurable similarity threshold
-- **Semantic search** — CLIP-powered natural language search across your entire image library
-- **Content review** — filter by semantic similarity, content detections, file size, orientation, dates, or "no detections at all"; bulk quarantine flagged images; restore or permanently delete from quarantine
+- **Content review** — filter by content detections, file size, orientation, dates, or "no detections at all"; bulk quarantine flagged images; restore or permanently delete from quarantine
 
 ### AI
-- **Semantic search** — natural language search across image and video libraries using CLIP; describe a scene or subject and find matching files instantly
 - **Content detection** — flag inappropriate content with configurable confidence thresholds; review, quarantine, or bulk-delete flagged files
 - **Local speech-to-text** — generate subtitle files from audio with Whisper; no API key or cloud upload required; auto-detects spoken language; five model sizes (tiny → large-v3)
 - **GPU-accelerated** — CUDA and ROCm backends; inference runs in isolated subprocesses so VRAM is fully freed when idle; batch size tunable per your hardware
@@ -42,7 +40,7 @@ A self-hosted video and image library manager with hardware-accelerated compress
 ### General
 - **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
 - **Library delete safety** — when deleting a library that has `_originals/` or `_quarantine/` leftovers, prompts to delete them, review them, or keep them on disk
-- **Five themes** — violet (Deep Space, default), cyan (Modern HUD), amber (Mission Control), OLED, emerald (Neon Grid) — selectable in Settings → General
+- **Five themes** — violet (Deep Space), cyan (Modern HUD), amber (Mission Control, default), OLED, emerald (Neon Grid) — selectable in Settings → General
 - **Grid size control** — every card grid (Files, Cleanup, Compress, Toolbox, Images) has a slider for card size, persisted globally across all pages
 
 ---
@@ -248,7 +246,7 @@ Requires the NVIDIA driver and container toolkit installed on the host before ru
 ## First run
 
 1. Open [http://localhost:7899](http://localhost:7899)
-2. Go to **Settings → AI Models** to download CLIP and content detection models (required for AI features on both videos and images)
+2. Go to **Settings → AI Models** to download the content detection model (required for AI content scanning on images)
 3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature — subtitle downloads via subf2m.co need no account or API key
 4. To use the Downloads feature, go to **Settings → Downloads** and click **Install yt-dlp** — choose stable or nightly channel first
 5. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
