@@ -53,6 +53,7 @@ class FileRead(BaseModel):
     file_height: int | None = None
     file_fps: float | None = None
     file_date: float | None = None
+    file_mtime: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -161,6 +162,7 @@ class ImageRead(BaseModel):
     exif_date: float | None = None
     exif_gps: str | None = None
     exif_camera: str | None = None
+    file_mtime: float | None = None
     status: str
     scan_error: str | None = None
     scanned_at: datetime | None = None

@@ -309,14 +309,15 @@ def scan_library(library_id: int):
             creation_time_str = (
                 data.get("format", {}).get("tags", {}).get("creation_time") if data else None
             )
+            file_obj.file_mtime = os.path.getmtime(path)
             if creation_time_str:
                 try:
                     dt = datetime.fromisoformat(creation_time_str.replace("Z", "+00:00"))
                     file_obj.file_date = dt.timestamp()
                 except (ValueError, TypeError):
-                    file_obj.file_date = os.path.getmtime(path)
+                    file_obj.file_date = file_obj.file_mtime
             else:
-                file_obj.file_date = os.path.getmtime(path)
+                file_obj.file_date = file_obj.file_mtime
 
             file_obj.scanned_at = _now()
             db.commit()

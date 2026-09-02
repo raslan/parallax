@@ -115,6 +115,8 @@ def init_db():
             "ALTER TABLE downloads ADD COLUMN playlist_id TEXT",
             "ALTER TABLE downloads ADD COLUMN playlist_title TEXT",
             "ALTER TABLE downloads ADD COLUMN source_url TEXT",
+            "ALTER TABLE files ADD COLUMN file_mtime REAL",
+            "ALTER TABLE images ADD COLUMN file_mtime REAL",
         ]:
             try:
                 conn.execute(text(sql))

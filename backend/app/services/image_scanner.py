@@ -83,6 +83,7 @@ def _load_image_for_scan(
             "exif_date": exif_date,
             "exif_gps": exif_gps,
             "exif_camera": exif_camera,
+            "file_mtime": os.path.getmtime(path),
         }, arr
     except Exception:
         return None
@@ -266,6 +267,7 @@ def scan_image_library(
                     exif_date=meta["exif_date"],
                     exif_gps=meta["exif_gps"],
                     exif_camera=meta["exif_camera"],
+                    file_mtime=meta["file_mtime"],
                     status=ImageStatus.SCANNED,
                     scanned_at=now(),
                 )
