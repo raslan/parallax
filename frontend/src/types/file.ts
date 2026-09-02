@@ -16,6 +16,7 @@ export interface VideoFile {
   file_height: number | null;
   file_fps: number | null;
   file_date: number | null;
+  file_mtime: number | null;
 }
 
 export interface FilesResponse {

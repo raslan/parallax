@@ -56,6 +56,13 @@ function PhraseOperatorSelect<T>({
   onChange: (op: Operator) => void;
   phraseMap?: Partial<Record<Operator, string>>;
 }) {
+  if (field.operators.length <= 1) {
+    return (
+      <span className="text-sm font-medium" style={{ color: "var(--px-accent)" }}>
+        {phraseMap?.[value] ?? OPERATOR_PHRASE[value]}
+      </span>
+    );
+  }
   return (
     <div className="relative inline-flex shrink-0 items-center">
       <select
@@ -227,6 +234,30 @@ function ValueEditor<T>({
       </div>
     );
   }
+  if (field.valueType === "select") {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {field.options?.map((opt) => (
+          <button
+            key={String(opt.value)}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+              value === opt.value
+                ? "border-primary bg-primary/15 text-primary"
+                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (field.valueType === "boolean") {
+    return null;
+  }
   // "text"
   const v = (value as { text: string; threshold?: number }) ?? { text: "" };
   return (
@@ -259,6 +290,10 @@ function formatValue<T>(field: FieldDef<T>, operator: Operator, value: unknown):
     const v = value as { n: number; unit: string };
     return `${v.n} ${v.unit}`;
   }
+  if (field.valueType === "select") {
+    return field.options?.find((o) => o.value === value)?.label ?? String(value);
+  }
+  if (field.valueType === "boolean") return "";
   const v = value as { text: string; threshold?: number };
   return operator === "fuzzy_contains" ? `"${v.text}" ~${v.threshold ?? 40}%` : `"${v.text}"`;
 }
@@ -445,12 +480,16 @@ export function QueryBuilder<T>({
                 style={{ borderLeft: `3px solid ${CATEGORY_COLOR[field.category]}` }}
               >
                 <span className="px-3 py-2 font-semibold">{field.label}</span>
-                <span className="border-l px-3 py-2 text-muted-foreground">
-                  {OPERATOR_LABEL[clause.operator]}
-                </span>
-                <span className="border-l px-3 py-2 font-mono">
-                  {formatValue(field, clause.operator, clause.value)}
-                </span>
+                {field.valueType !== "boolean" && (
+                  <>
+                    <span className="border-l px-3 py-2 text-muted-foreground">
+                      {OPERATOR_LABEL[clause.operator]}
+                    </span>
+                    <span className="border-l px-3 py-2 font-mono">
+                      {formatValue(field, clause.operator, clause.value)}
+                    </span>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {

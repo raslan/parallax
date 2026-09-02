@@ -60,7 +60,7 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
   },
   {
     key: "date",
-    label: "Date added",
+    label: "Content date",
     category: "numeric",
     valueType: "date_offset",
     operators: ["gt", "lt"], // gt = after, lt = before
@@ -71,6 +71,66 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
       const v = value as { n: number; unit: string };
       const cutoff = Date.now() / 1000 - v.n * (DATE_UNIT_SECONDS[v.unit] ?? 86400);
       return operator === "gt" ? row.file_date > cutoff : row.file_date < cutoff;
+    },
+  },
+  {
+    key: "file_added",
+    label: "File added",
+    category: "numeric",
+    valueType: "date_offset",
+    operators: ["gt", "lt"], // gt = after, lt = before
+    defaultOperator: "lt",
+    defaultValue: { n: 30, unit: "days" },
+    test: (row, operator, value) => {
+      if (row.file_mtime == null) return false;
+      const v = value as { n: number; unit: string };
+      const cutoff = Date.now() / 1000 - v.n * (DATE_UNIT_SECONDS[v.unit] ?? 86400);
+      return operator === "gt" ? row.file_mtime > cutoff : row.file_mtime < cutoff;
+    },
+  },
+  {
+    key: "size",
+    label: "File size",
+    category: "numeric",
+    valueType: "number",
+    operators: ["gt", "lt"],
+    defaultOperator: "gt",
+    defaultValue: 500,
+    unitLabel: "MB",
+    presets: [
+      { label: "100 MB", value: 100 },
+      { label: "500 MB", value: 500 },
+      { label: "1 GB", value: 1000 },
+      { label: "2 GB", value: 2000 },
+    ],
+    test: (row, operator, value) => {
+      const mb = row.size / (1024 * 1024);
+      const v = value as number;
+      return operator === "gt" ? mb > v : mb < v;
+    },
+  },
+  {
+    key: "orientation",
+    label: "Orientation",
+    category: "numeric",
+    valueType: "select",
+    operators: ["eq"],
+    defaultOperator: "eq",
+    defaultValue: "portrait",
+    options: [
+      { label: "Portrait", value: "portrait" },
+      { label: "Landscape", value: "landscape" },
+      { label: "Square", value: "square" },
+    ],
+    test: (row, _operator, value) => {
+      if (row.file_width == null || row.file_height == null) return false;
+      const orientation =
+        row.file_width === row.file_height
+          ? "square"
+          : row.file_width > row.file_height
+            ? "landscape"
+            : "portrait";
+      return orientation === value;
     },
   },
   {

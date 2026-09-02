@@ -27,6 +27,7 @@ export interface ImageFile {
   exif_date: number | null;
   exif_gps: string | null;
   exif_camera: string | null;
+  file_mtime: number | null;
   status: string;
   scan_error: string | null;
   scanned_at: string | null;
