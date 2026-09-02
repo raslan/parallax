@@ -8,7 +8,6 @@ export interface VideoFile {
   codec_name: string | null;
   video_bitrate: number | null;
   status: string;
-  scan_error: string | null;
   scanned_at: string | null;
   transcoded_at: string | null;
   created_at: string;

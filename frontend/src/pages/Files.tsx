@@ -1,14 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Film,
   Loader2,
   ImageOff,
   Folder,
   ChevronRight as Caret,
-  X,
-  ShieldCheck,
-  AlertCircle,
   ArrowUp,
   ArrowDown,
   LayoutGrid,
@@ -31,132 +27,23 @@ const STATUS_COLORS: Record<string, string> = {
   unknown: "secondary",
   scanning: "secondary",
   clean: "default",
-  corrupt: "destructive",
   queued: "secondary",
   transcoding: "secondary",
   done: "default",
   failed: "destructive",
 };
 
-const ALL_STATUSES = [
-  "unknown",
-  "scanning",
-  "clean",
-  "corrupt",
-  "queued",
-  "transcoding",
-  "done",
-  "failed",
-];
+const ALL_STATUSES = ["unknown", "scanning", "clean", "queued", "transcoding", "done", "failed"];
 const FETCH_ALL_PAGE_SIZE = 10000;
-
-const VIDEO_CODECS = ["h264", "hevc", "h265", "mpeg4", "mpeg2", "vp8", "vp9", "av1", "vc1"];
-const AUDIO_CODECS = ["aac", "mp3", "ac3", "opus", "vorbis", "flac", "dts", "eac3", "truehd"];
-
-function parseErrorLines(errorText: string) {
-  const lines = errorText.split("\n").filter((l) => l.startsWith("["));
-  const cats: Record<string, number> = {};
-  for (const line of lines) {
-    const m = line.match(/^\[([^\s@\]]+)/);
-    const codec = m ? m[1].toLowerCase() : "";
-    let cat = "Container / other";
-    if (VIDEO_CODECS.some((c) => codec.includes(c))) cat = "Video decode errors";
-    else if (AUDIO_CODECS.some((c) => codec.includes(c))) cat = "Audio decode errors";
-    cats[cat] = (cats[cat] ?? 0) + 1;
-  }
-  return { lines, summary: Object.entries(cats) };
-}
-
-function CorruptionDetailModal({ file, onClose }: { file: VideoFile; onClose: () => void }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
-
-  const { lines, summary } = parseErrorLines(file.scan_error ?? "");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="fixed inset-0 bg-black/70" />
-      <div
-        className="relative z-10 w-full max-w-2xl mx-4 bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[80vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 p-4 border-b border-border">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-              <h2 className="font-semibold text-sm">Corruption details</h2>
-            </div>
-            <p className="text-xs text-muted-foreground truncate" title={file.path}>
-              {file.filename}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {summary.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1">
-            {summary.map(([cat, count]) => (
-              <div
-                key={cat}
-                className="flex items-center gap-1.5 rounded-md bg-destructive/10 border border-destructive/20 px-2.5 py-1"
-              >
-                <span className="text-destructive text-xs font-medium">{count}</span>
-                <span className="text-xs text-muted-foreground">{cat}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="overflow-auto flex-1 p-4">
-          {lines.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No detailed error output available.</p>
-          ) : (
-            <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-all leading-relaxed">
-              {lines.join("\n")}
-            </pre>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
 
 function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
-  const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [errorOpen, setErrorOpen] = useState(false);
-  const isCorrupt = file.status === "corrupt";
-
-  const handleCheck = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setChecking(true);
-    try {
-      await api.checkFile(file.id);
-    } catch {
-      // Ignore check errors
-    } finally {
-      setChecking(false);
-    }
-  };
 
   return (
     <Card
-      className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${
-        isCorrupt ? "ring-1 ring-destructive/60 hover:ring-destructive" : "hover:ring-primary"
-      }`}
+      className="overflow-hidden cursor-pointer group transition-shadow hover:ring-1 hover:ring-primary"
       onClick={onPlay}
     >
       <div className="aspect-video bg-muted relative flex items-center justify-center">
@@ -190,36 +77,9 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
             {file.status}
           </Badge>
         </div>
-
-        {/* Hover action buttons */}
-        <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isCorrupt && file.scan_error && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setErrorOpen(true);
-              }}
-              title="View corruption details"
-              className="bg-black/60 hover:bg-black/80 rounded p-1"
-            >
-              <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-            </button>
-          )}
-          <button
-            onClick={handleCheck}
-            disabled={checking}
-            title="Check for corruption"
-            className="bg-black/60 hover:bg-black/80 rounded p-1"
-          >
-            <ShieldCheck className={`h-3.5 w-3.5 text-white ${checking ? "animate-pulse" : ""}`} />
-          </button>
-        </div>
       </div>
       <CardContent className="p-2.5 space-y-0.5">
-        <p
-          className={`text-xs font-medium truncate ${isCorrupt ? "text-destructive" : ""}`}
-          title={file.filename}
-        >
+        <p className="text-xs font-medium truncate" title={file.filename}>
           {file.filename}
         </p>
         <p className="text-xs text-muted-foreground">
@@ -228,20 +88,7 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
           {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
           {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
         </p>
-        {isCorrupt && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate("/compress");
-            }}
-            className="text-xs text-destructive/70 hover:text-destructive transition-colors"
-          >
-            Re-encode in Compress →
-          </button>
-        )}
       </CardContent>
-
-      {errorOpen && <CorruptionDetailModal file={file} onClose={() => setErrorOpen(false)} />}
     </Card>
   );
 }
@@ -249,26 +96,11 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
 // ─── List row ────────────────────────────────────────────────────────────────
 
 function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
-  const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const isCorrupt = file.status === "corrupt";
-
-  const handleCheck = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setChecking(true);
-    try {
-      await api.checkFile(file.id);
-    } catch {
-      // Ignore check errors
-    } finally {
-      setChecking(false);
-    }
-  };
 
   return (
     <div
-      className={`flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row ${isCorrupt ? "text-destructive" : ""}`}
+      className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row"
       onClick={onPlay}
     >
       <div className="relative h-8 w-14 shrink-0">
@@ -287,26 +119,12 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p
-          className={`truncate text-sm font-medium ${isCorrupt ? "text-destructive" : ""}`}
-          title={file.filename}
-        >
+        <p className="truncate text-sm font-medium" title={file.filename}>
           {file.filename}
         </p>
         <p className="truncate text-xs text-muted-foreground" title={file.path}>
           {file.path}
         </p>
-        {isCorrupt && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate("/compress");
-            }}
-            className="text-xs text-destructive/70 hover:text-destructive transition-colors"
-          >
-            Re-encode in Compress →
-          </button>
-        )}
       </div>
       <div className="w-24 shrink-0">
         <Badge
@@ -341,14 +159,6 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
           className="text-muted-foreground hover:text-foreground"
         >
           <Play className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={handleCheck}
-          disabled={checking}
-          title="Check for corruption"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <ShieldCheck className={`h-3.5 w-3.5 ${checking ? "animate-pulse" : ""}`} />
         </button>
       </div>
     </div>
