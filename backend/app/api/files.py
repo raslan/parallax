@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from app.database import SessionLocal, get_db
 from app.models.file import File
 from app.schemas import FileRead, FilesResponse
-from app.services.scanner import thumbnail_path
+from app.services.scanner import get_or_create_thumbnail, thumbnail_path
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -128,12 +128,25 @@ def list_files(
 
 
 @router.get("/{file_id}/thumbnail")
-def get_thumbnail(file_id: int, db: Session = Depends(get_db)):
-    f = db.get(File, file_id)
-    if not f:
-        raise HTTPException(404, "File not found")
-    thumb = thumbnail_path(file_id)
-    if not os.path.exists(thumb):
+async def get_thumbnail(file_id: int):
+    # Deliberately no Depends(get_db) here: generation (below) can take up to
+    # the ffmpeg timeout on a cache miss, and holding a pooled connection for
+    # that whole span while a page fires one thumbnail request per row is how
+    # the connection pool (size 5 + overflow 10) gets exhausted, 504'ing every
+    # other route in the app until it frees up. Grab just the path from a
+    # short-lived session, close it, then do the blocking work with no
+    # connection held.
+    db = SessionLocal()
+    try:
+        f = db.get(File, file_id)
+        if not f:
+            raise HTTPException(404, "File not found")
+        path = f.path
+    finally:
+        db.close()
+
+    thumb = await run_in_threadpool(get_or_create_thumbnail, file_id, path)
+    if thumb is None:
         raise HTTPException(404, "Thumbnail not available")
     return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 

@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Film,
   Loader2,
-  ImageOff,
   Folder,
   ChevronRight as Caret,
   ArrowUp,
@@ -17,6 +16,7 @@ import { api } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import type { Library, BrowseResponse } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { formatSize, formatDuration, formatBitrate, formatUnixDate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -29,25 +29,18 @@ const FETCH_ALL_PAGE_SIZE = 10000;
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
 
 function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
-  const [imgError, setImgError] = useState(false);
-
   return (
     <Card
       className="overflow-hidden cursor-pointer group transition-shadow hover:ring-1 hover:ring-primary"
       onClick={onPlay}
     >
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
-        {file.has_thumbnail && !imgError ? (
-          <img
-            src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
-            alt={file.filename}
-            className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-        ) : (
-          <ImageOff className="h-8 w-8 text-muted-foreground/40" />
-        )}
+        <VideoThumbnail
+          fileId={file.id}
+          scannedAt={file.scanned_at}
+          alt={file.filename}
+          imgClassName="w-full h-full object-cover"
+        />
       </div>
       <CardContent
         className="p-2.5 space-y-0.5 border-t border-border"
@@ -70,27 +63,20 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
 // ─── List row ────────────────────────────────────────────────────────────────
 
 function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
-  const [imgError, setImgError] = useState(false);
-
   return (
     <div
       className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row"
       onClick={onPlay}
     >
-      <div className="relative h-8 w-14 shrink-0">
-        {file.has_thumbnail && !imgError ? (
-          <img
-            src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
-            alt={file.filename}
-            className="h-8 w-14 object-cover rounded"
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-        ) : (
-          <div className="h-8 w-14 bg-muted rounded flex items-center justify-center">
-            <ImageOff className="h-3.5 w-3.5 text-muted-foreground/40" />
-          </div>
-        )}
+      <div className="relative h-8 w-14 shrink-0 bg-muted rounded overflow-hidden">
+        <VideoThumbnail
+          fileId={file.id}
+          scannedAt={file.scanned_at}
+          alt={file.filename}
+          imgClassName="h-8 w-14 object-cover rounded"
+          iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
+          fallbackClassName="h-8 w-14"
+        />
       </div>
       <div className="flex-1 min-w-0">
         <p className="truncate text-sm font-medium" title={file.filename}>

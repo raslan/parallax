@@ -2,6 +2,7 @@ import concurrent.futures as _cf
 import json
 import os
 import subprocess
+import threading
 from datetime import UTC, datetime
 
 from app.config import THUMBNAILS_DIR
@@ -130,6 +131,80 @@ def thumbnail_path(file_id: int) -> str:
     return os.path.join(THUMBNAILS_DIR, f"{file_id}.jpg")
 
 
+def _thumbnail_failed_marker_path(file_id: int) -> str:
+    return os.path.join(THUMBNAILS_DIR, f"{file_id}.jpg.failed")
+
+
+_thumb_locks: dict[int, threading.Lock] = {}
+_thumb_locks_guard = threading.Lock()
+
+# Caps how many on-demand thumbnail generations run at once. Without this, a
+# grid page renders a screenful of cards on mount — each mounts its own
+# <img>, each fires its own request — and every one of them would spawn a
+# concurrent ffmpeg process with no limit at all. On a 4-core box that's
+# dozens of ffmpeg processes fighting over 4 cores, each taking dramatically
+# longer than it would alone, which is what "no thumbnails for a minute, then
+# a slow trickle" looks like. Leaves one core free for the API/event loop.
+_THUMBNAIL_GEN_LIMIT = max(1, (os.cpu_count() or 4) - 1)
+_thumbnail_gen_semaphore = threading.Semaphore(_THUMBNAIL_GEN_LIMIT)
+
+
+def _lock_for_thumbnail(file_id: int) -> threading.Lock:
+    with _thumb_locks_guard:
+        lock = _thumb_locks.get(file_id)
+        if lock is None:
+            lock = threading.Lock()
+            _thumb_locks[file_id] = lock
+        return lock
+
+
+def clear_thumbnail_failed_marker(file_id: int) -> None:
+    """Clear a prior generation-failure marker — call this whenever a file's
+    bytes actually change (rescan_file, watcher) so a fixed/replaced file
+    gets a fresh attempt instead of staying permanently skipped."""
+    try:
+        os.remove(_thumbnail_failed_marker_path(file_id))
+    except FileNotFoundError:
+        pass
+
+
+def get_or_create_thumbnail(
+    file_id: int, file_path: str, duration: float | None = None
+) -> str | None:
+    """Return the on-disk thumbnail path for a file, generating it on first
+    request if it doesn't exist yet. Returns None if generation is known to
+    have failed (a `.failed` marker is present) or fails now — callers should
+    treat None as "no thumbnail available," same as a missing file today.
+
+    Thumbnail generation at scan time is deliberately skipped for video (see
+    scan_library) since it's the heaviest per-file step and isn't needed
+    until something actually looks at the file; this is where it happens
+    instead, on first view. A per-file lock prevents two concurrent requests
+    for the same missing thumbnail from spawning duplicate ffmpeg calls.
+    """
+    out_path = thumbnail_path(file_id)
+    if os.path.exists(out_path):
+        return out_path
+    if os.path.exists(_thumbnail_failed_marker_path(file_id)):
+        return None
+
+    with _lock_for_thumbnail(file_id):
+        # Re-check after acquiring the lock — another thread may have just
+        # finished (or failed) generating this exact thumbnail.
+        if os.path.exists(out_path):
+            return out_path
+        if os.path.exists(_thumbnail_failed_marker_path(file_id)):
+            return None
+
+        with _thumbnail_gen_semaphore:
+            if generate_thumbnail(file_path, file_id, duration=duration):
+                return out_path
+
+            os.makedirs(THUMBNAILS_DIR, exist_ok=True)
+            open(_thumbnail_failed_marker_path(file_id), "a").close()
+            return None
+
+
 def _probe_metadata(path: str) -> dict:
     """Probe a video file and return a flat dict of File-column values.
 
@@ -234,6 +309,7 @@ def rescan_file(db, file_obj: File) -> None:
             setattr(file_obj, key, meta[key])
 
     file_obj.scanned_at = _now()
+    clear_thumbnail_failed_marker(file_obj.id)
     generate_thumbnail(path, file_obj.id, duration=meta["duration"])
     db.commit()
 
@@ -346,18 +422,20 @@ def scan_library(library_id: int):
 
         by_id: dict[int, File] = {existing[p].id: existing[p] for p in video_paths}
 
-        # Phase 2 (parallel, I/O-bound): ffprobe + ffmpeg thumbnail extraction
-        # per file. subprocess.run releases the GIL while ffmpeg/ffprobe are
-        # running, so a small thread pool parallelizes real wall-clock work —
-        # same pattern (and same setting) as duplicates.py's pHash extraction.
+        # Phase 2 (parallel, I/O-bound): ffprobe metadata per file. Thumbnail
+        # generation deliberately does NOT happen here — it's the heaviest
+        # per-file step (a real ffmpeg seek+decode) and isn't needed until
+        # something actually looks at the file, so it's deferred to first
+        # request (see get_or_create_thumbnail, used by GET /files/{id}/thumbnail).
+        # subprocess.run releases the GIL while ffprobe is running, so a small
+        # thread pool still parallelizes real wall-clock work — same pattern
+        # (and same setting) as duplicates.py's pHash extraction.
         work_items = [(fid, f.path) for fid, f in by_id.items()]
         n_concurrent = max(1, int(get_setting(db, "scan_prefetch", "4")))
 
         def _scan_one(file_id: int, path: str) -> tuple[int, dict | None, str | None]:
             try:
-                meta = _probe_metadata(path)
-                generate_thumbnail(path, file_id, duration=meta["duration"])
-                return file_id, meta, None
+                return file_id, _probe_metadata(path), None
             except Exception as exc:
                 return file_id, None, str(exc)
 
@@ -423,6 +501,7 @@ def scan_library(library_id: int):
                     os.remove(thumbnail_path(file_obj.id))
                 except FileNotFoundError:
                     pass
+                clear_thumbnail_failed_marker(file_obj.id)
                 db.delete(file_obj)
         db.commit()
 

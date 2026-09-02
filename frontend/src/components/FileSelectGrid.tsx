@@ -1,17 +1,7 @@
-import { useState } from "react";
-import {
-  ImageOff,
-  Check,
-  Play,
-  CheckSquare,
-  Square,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-} from "lucide-react";
-import { api } from "@/lib/api";
+import { Check, Play, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { VideoFile } from "@/types/file";
 import { Card } from "@/components/ui/card";
+import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { cn } from "@/lib/utils";
 import { formatSize, formatDuration } from "@/lib/format";
 
@@ -39,8 +29,6 @@ export function FileGridCard({
   onPlay: () => void;
   badge?: React.ReactNode;
 }) {
-  const [imgError, setImgError] = useState(false);
-
   return (
     <Card
       className={cn(
@@ -50,17 +38,12 @@ export function FileGridCard({
       onClick={onToggle}
     >
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
-        {file.has_thumbnail && !imgError ? (
-          <img
-            src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
-            alt={file.filename}
-            className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-        ) : (
-          <ImageOff className="h-8 w-8 text-muted-foreground/40" />
-        )}
+        <VideoThumbnail
+          fileId={file.id}
+          scannedAt={file.scanned_at}
+          alt={file.filename}
+          imgClassName="w-full h-full object-cover"
+        />
 
         <button
           onClick={(e) => {

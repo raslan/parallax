@@ -6,7 +6,6 @@ import {
   Play,
   LayoutGrid,
   List,
-  ImageOff,
   Check,
   ArrowUp,
   ArrowDown,
@@ -17,6 +16,7 @@ import { api } from "@/lib/api";
 import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
@@ -65,25 +65,18 @@ function CleanupCard({
   onToggle: () => void;
   onPlay: () => void;
 }) {
-  const [imgError, setImgError] = useState(false);
-
   return (
     <Card
       className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isSelected ? "ring-1 ring-primary" : "hover:ring-primary/60"}`}
       onClick={onToggle}
     >
       <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
-        {file.has_thumbnail && !imgError ? (
-          <img
-            src={`/api/files/${file.id}/thumbnail`}
-            alt={file.filename}
-            className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-        ) : (
-          <ImageOff className="h-8 w-8 text-muted-foreground/40" />
-        )}
+        <VideoThumbnail
+          fileId={file.id}
+          scannedAt={file.scanned_at}
+          alt={file.filename}
+          imgClassName="w-full h-full object-cover"
+        />
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -162,15 +155,14 @@ function CleanupListRow({
         }}
         title="Play video"
       >
-        {file.has_thumbnail ? (
-          <img
-            src={`/api/files/${file.id}/thumbnail`}
-            alt={file.filename}
-            className="h-8 w-14 object-cover rounded"
-          />
-        ) : (
-          <div className="h-8 w-14 bg-muted rounded" />
-        )}
+        <VideoThumbnail
+          fileId={file.id}
+          scannedAt={file.scanned_at}
+          alt={file.filename}
+          imgClassName="h-8 w-14 object-cover rounded"
+          iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
+          fallbackClassName="h-8 w-14 bg-muted rounded"
+        />
         <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
           <Play className="h-3.5 w-3.5 text-white fill-white" />
         </div>
