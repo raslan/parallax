@@ -57,19 +57,6 @@ function labelField(label: string, group: string): FieldDef<ImageFile> {
   };
 }
 
-export const CLIP_SEARCH_FIELD_KEY = "clip_search";
-
 export const contentReviewFields: FieldDef<ImageFile>[] = [
   ...LABEL_GROUPS.flatMap((g) => g.labels.map((label) => labelField(label, g.label))),
-  {
-    key: CLIP_SEARCH_FIELD_KEY,
-    label: "Semantic search",
-    category: "search",
-    valueType: "text",
-    operators: ["gte", "lt"],
-    defaultOperator: "gte",
-    defaultValue: { text: "", threshold: 20 },
-    getRowId: (row) => row.id,
-    showThreshold: true,
-  },
 ];
