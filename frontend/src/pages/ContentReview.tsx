@@ -136,8 +136,6 @@ export function ContentReview() {
     }
   }
 
-  const canRun = clauses.length > 0;
-
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-3">
@@ -167,7 +165,7 @@ export function ContentReview() {
         <p className="text-center text-sm text-muted-foreground py-12">Loading images…</p>
       )}
 
-      {canRun && allResults.length > 0 && (
+      {allImages && allResults.length > 0 && (
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -213,7 +211,7 @@ export function ContentReview() {
         </>
       )}
 
-      {!loading && canRun && allImages && allResults.length === 0 && (
+      {!loading && allImages && allResults.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-12">
           No results. Try adjusting your filters.
         </p>
