@@ -128,48 +128,6 @@ def list_files(
     )
 
 
-@router.get("/detections")
-def filter_by_detections(
-    labels: str = Query(..., description="Comma-separated NudeNet labels"),
-    min_confidence: float = Query(0.5, ge=0.0, le=1.0),
-    exclude: bool = Query(False, description="Return files that do NOT match the criteria"),
-    library_id: int | None = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=100000),
-    db: Session = Depends(get_db),
-):
-    from app.models.video import VideoDetection
-
-    label_list = [label.strip() for label in labels.split(",") if label.strip()]
-    if not label_list:
-        raise HTTPException(400, "At least one label is required")
-
-    matching_ids = (
-        db.query(VideoDetection.file_id)
-        .filter(
-            VideoDetection.label.in_(label_list),
-            VideoDetection.confidence >= min_confidence,
-        )
-        .distinct()
-        .subquery()
-    )
-
-    id_filter = File.id.notin_(matching_ids) if exclude else File.id.in_(matching_ids)
-    q = db.query(File).filter(id_filter)
-    if library_id is not None:
-        q = q.filter(File.library_id == library_id)
-
-    total = q.with_entities(func.count(File.id)).scalar()
-    items = q.order_by(File.filename).offset((page - 1) * page_size).limit(page_size).all()
-
-    return FilesResponse(
-        items=[_to_file_read(f) for f in items],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
-
-
 @router.get("/{file_id}/thumbnail")
 def get_thumbnail(file_id: int, db: Session = Depends(get_db)):
     f = db.get(File, file_id)

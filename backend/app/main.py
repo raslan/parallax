@@ -23,9 +23,6 @@ from app.api.stream import router as stream_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
 from app.database import init_db
-from app.models import (
-    video as _video_models,  # noqa: F401 — ensures VideoDetection table is created
-)
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
 
@@ -102,7 +99,7 @@ def _reap_orphaned_jobs():
 
 
 def _migrate_video_columns():
-    """Add clip_embedding and video_scanned_at to files table if missing."""
+    """Add clip_embedding to files table if missing."""
     import sqlalchemy as sa
 
     from app.database import engine
@@ -111,9 +108,6 @@ def _migrate_video_columns():
         cols = [row[1] for row in conn.execute(sa.text("PRAGMA table_info(files)"))]
         if "clip_embedding" not in cols:
             conn.execute(sa.text("ALTER TABLE files ADD COLUMN clip_embedding TEXT"))
-            conn.commit()
-        if "video_scanned_at" not in cols:
-            conn.execute(sa.text("ALTER TABLE files ADD COLUMN video_scanned_at DATETIME"))
             conn.commit()
 
 
