@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 export type Operator =
   "gt" | "lt" | "gte" | "lte" | "eq" | "contains" | "not_contains" | "fuzzy_contains";
 
-export type ValueType = "number" | "date_offset" | "text" | "percent";
+export type ValueType = "number" | "date_offset" | "text" | "percent" | "select" | "boolean";
 
 export type FieldCategory = "numeric" | "label" | "search";
 
@@ -29,6 +29,7 @@ export type FieldDef<T> = {
   group?: string; // optional sub-heading within a category in the add-filter menu (e.g. "Exposed" within "label")
   presets?: { label: string; value: unknown }[]; // quick-set chips shown above the value editor (e.g. resolution tiers)
   unitLabel?: string; // short unit hint shown beside a "number" valueType input (e.g. "seconds", "fps", "px")
+  options?: { label: string; value: unknown }[]; // fixed choices for a "select" valueType field (e.g. orientation)
 };
 
 function hasValue(value: unknown): boolean {
