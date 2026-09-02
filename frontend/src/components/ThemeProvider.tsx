@@ -8,7 +8,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "violet",
+  theme: "amber",
   setTheme: () => {},
 });
 
@@ -19,7 +19,7 @@ export function useTheme() {
 function getStoredTheme(): Theme {
   const stored = localStorage.getItem("parallax-theme");
   const valid = ["violet", "cyan", "amber", "oled", "emerald"];
-  const theme: Theme = stored && valid.includes(stored) ? (stored as Theme) : "violet";
+  const theme: Theme = stored && valid.includes(stored) ? (stored as Theme) : "amber";
   document.documentElement.setAttribute("data-theme", theme);
   return theme;
 }
