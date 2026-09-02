@@ -9,6 +9,8 @@ import type { VideoFile } from "@/types/file";
 import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { GridSizeControl } from "@/components/GridSizeControl";
+import { useGridSize } from "@/hooks/useGridSize";
 import { CollapsibleControls } from "@/components/CollapsibleControls";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
@@ -205,6 +207,7 @@ export function Compress() {
     selectNone,
   } = useSelection();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [gridSize, setGridSize] = useGridSize(200);
   const { sortKey, sortDir, toggleSort: handleSort } = useSort<SortKey>("filename");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
 
@@ -764,6 +767,8 @@ export function Compress() {
               </button>
             </div>
 
+            {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
+
             <Button onClick={handleStart} disabled={selected.size === 0 || isRunning || starting}>
               {starting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -786,10 +791,10 @@ export function Compress() {
                 getKey={(f) => f.id}
                 mode="grid"
                 itemHeight={180}
-                itemAspectRatio={16 / 9}
+                itemAspectRatio={4 / 3}
                 itemChromeHeight={48}
-                minColumnWidth={200}
-                resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}`}
+                minColumnWidth={gridSize}
+                resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}-${gridSize}`}
                 renderItem={(f) => (
                   <FileGridCard
                     file={f}

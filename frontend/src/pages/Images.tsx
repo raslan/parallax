@@ -11,6 +11,8 @@ import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { filterByFilename } from "@/components/FileSelectGrid";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { GridSizeControl } from "@/components/GridSizeControl";
+import { useGridSize } from "@/hooks/useGridSize";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
@@ -89,6 +91,7 @@ function ImageCard({
 export function Images() {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [total, setTotal] = useState(0);
+  const [gridSize, setGridSize] = useGridSize(140);
   const {
     sortKey: sortBy,
     setSortKey: setSortBy,
@@ -230,6 +233,7 @@ export function Images() {
             <FolderX className="h-3.5 w-3.5" />
             Select
           </button>
+          <GridSizeControl value={gridSize} onChange={setGridSize} />
         </div>
       </div>
 
@@ -248,9 +252,9 @@ export function Images() {
             mode="grid"
             itemHeight={140}
             itemAspectRatio={1}
-            minColumnWidth={140}
+            minColumnWidth={gridSize}
             gap={8}
-            resetKey={`${statusFilter}-${detectionFilter}-${sortBy}-${sortDir}-${search}`}
+            resetKey={`${statusFilter}-${detectionFilter}-${sortBy}-${sortDir}-${search}-${gridSize}`}
             renderItem={(img) => (
               <ImageCard
                 img={img}
