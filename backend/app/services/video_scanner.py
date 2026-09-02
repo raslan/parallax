@@ -1,8 +1,5 @@
-import json
 import queue as _queue
 import threading
-
-import numpy as np
 
 from app.database import SessionLocal
 from app.models.file import File, FileStatus
@@ -15,13 +12,12 @@ from app.services.common import arm_cancel, clear_cancel, log, now, should_cance
 def scan_video_library(
     library_id: int,
     job_id: int,
-    run_clip: bool = True,
     run_nudenet: bool = True,
     reset: bool = False,
 ) -> None:
     from app.models.settings import get_setting
-    from app.services.image_analyzer import encode_image_clip_batch_arrays, run_nudenet_batch_arrays
-    from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS
+    from app.services.image_analyzer import run_nudenet_batch_arrays
+    from app.services.model_manager import NUDENET_MODELS
     from app.services.video_analyzer import extract_frames_evenly
 
     db = SessionLocal()
@@ -35,19 +31,13 @@ def scan_video_library(
         if not job or job.status == JobStatus.CANCELLED:
             return
 
-        clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
         nudenet_model_id = get_setting(db, "nudenet_model", "320n")
         max_frames = int(get_setting(db, "video_keyframes_per_video", "16"))
         batch_size = int(get_setting(db, "scan_batch_size", "4"))
         prefetch = int(get_setting(db, "scan_prefetch", "4"))
 
-        clip_res = CLIP_MODELS.get(clip_model_id, {}).get("image_size", 224)
-        nudenet_res = (
-            NUDENET_MODELS.get(nudenet_model_id, {}).get("inference_resolution", 320)
-            if run_nudenet
-            else 0
-        )
-        extraction_resolution = max(clip_res, nudenet_res)
+        nudenet_res = NUDENET_MODELS.get(nudenet_model_id, {}).get("inference_resolution", 320)
+        extraction_resolution = nudenet_res
 
         job.status = JobStatus.RUNNING
         job.started_at = now()
@@ -56,7 +46,6 @@ def scan_video_library(
         if reset:
             files = db.query(File).filter(File.library_id == library_id).all()
             for f in files:
-                f.clip_embedding = None
                 f.video_scanned_at = None
                 db.query(VideoDetection).filter(VideoDetection.file_id == f.id).delete()
             db.commit()
@@ -156,26 +145,6 @@ def scan_video_library(
             try:
                 arrays = [arr for arr, _ in frames]
                 timestamps = [ts for _, ts in frames]
-
-                # CLIP — 3 frames centred on the video midpoint.
-                # Averaging across all frames dilutes the embedding for diverse content;
-                # the middle region is most representative for uniform/tutorial/talking-head video.
-                if run_clip:
-                    mid = len(arrays) // 2
-                    clip_arrays = arrays[max(0, mid - 1) : mid + 2]
-                    all_embs: list[list[float]] = []
-                    for s in range(0, len(clip_arrays), batch_size):
-                        all_embs.extend(
-                            encode_image_clip_batch_arrays(
-                                clip_arrays[s : s + batch_size], model_id=clip_model_id
-                            )
-                        )
-                    if all_embs:
-                        avg = np.mean(np.array(all_embs, dtype=np.float64), axis=0)
-                        norm = np.linalg.norm(avg)
-                        if norm > 0:
-                            avg = avg / norm
-                        file_obj.clip_embedding = json.dumps(avg.tolist())
 
                 # NudeNet — full frame spread for maximum coverage across the video
                 if run_nudenet:

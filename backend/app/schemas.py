@@ -183,7 +183,6 @@ class ImagesResponse(BaseModel):
 class ImageScanRequest(BaseModel):
     run_phash: bool = True
     run_nudenet: bool = True
-    run_clip: bool = True
     reset: bool = False
 
 

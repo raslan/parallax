@@ -369,7 +369,7 @@ async def trigger_video_scan(
     db.add(job)
     db.commit()
     db.refresh(job)
-    await enqueue(job.id, scan_video_library, library_id, job.id, True, True, reset)
+    await enqueue(job.id, scan_video_library, library_id, job.id, True, reset)
     return {"job_id": job.id, "message": "Video AI scan queued"}
 
 
