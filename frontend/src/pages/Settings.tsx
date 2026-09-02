@@ -625,7 +625,8 @@ export function Settings() {
               <div>
                 <p className="text-sm font-medium">Scan batch size</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  How many images to process in a single NudeNet inference pass. Higher values use more VRAM but scan faster.
+                  How many images to process in a single NudeNet inference pass. Higher values use
+                  more VRAM but scan faster.
                 </p>
               </div>
               {loading ? (
@@ -681,7 +682,9 @@ export function Settings() {
               <div>
                 <p className="text-sm font-medium">Scan prefetch</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Image batches to pre-load into memory while the AI models process the current one. Overlaps disk reads with GPU inference. Higher values use more RAM but keep the GPU continuously fed.
+                  Image batches to pre-load into memory while the AI models process the current one.
+                  Overlaps disk reads with GPU inference. Higher values use more RAM but keep the
+                  GPU continuously fed.
                 </p>
               </div>
               {loading ? (
@@ -742,7 +745,8 @@ export function Settings() {
                   <div>
                     <p className="text-sm font-medium">Content Detection (NudeNet)</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Used when scanning images. Higher resolution models catch smaller or partial detections.
+                      Used when scanning images. Higher resolution models catch smaller or partial
+                      detections.
                     </p>
                   </div>
                   <div className="space-y-2">

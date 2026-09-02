@@ -261,9 +261,7 @@ export function Jobs() {
         <div>
           <SectionHeader className="mb-1.5">Active &amp; recent jobs</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Monitor scan and transcode jobs.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Monitor scan and transcode jobs.</p>
         </div>
         <div className="flex items-center gap-2">
           {history.length > 0 && (
