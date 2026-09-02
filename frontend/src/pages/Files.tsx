@@ -13,7 +13,6 @@ import {
   Search,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import type { Library, BrowseResponse } from "@/types/library";
@@ -25,15 +24,6 @@ import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 
-const STATUS_COLORS: Record<string, string> = {
-  unknown: "secondary",
-  queued: "secondary",
-  transcoding: "secondary",
-  done: "default",
-  failed: "destructive",
-};
-
-const ALL_STATUSES = ["unknown", "queued", "transcoding", "done", "failed"];
 const FETCH_ALL_PAGE_SIZE = 10000;
 
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
@@ -58,25 +48,6 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
         ) : (
           <ImageOff className="h-8 w-8 text-muted-foreground/40" />
         )}
-
-        <div className="absolute top-1.5 right-1.5">
-          <Badge
-            variant={
-              (STATUS_COLORS[file.status] ?? "secondary") as unknown as
-                | "default"
-                | "destructive"
-                | "outline"
-                | "secondary"
-                | "success"
-                | "warning"
-                | null
-                | undefined
-            }
-            className="text-xs capitalize"
-          >
-            {file.status}
-          </Badge>
-        </div>
       </div>
       <CardContent
         className="p-2.5 space-y-0.5 border-t border-border"
@@ -129,17 +100,6 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
           {file.path}
         </p>
       </div>
-      <div className="w-24 shrink-0">
-        <Badge
-          variant={
-            (STATUS_COLORS[file.status] ?? "secondary") as
-              "default" | "destructive" | "outline" | "secondary" | "success" | "warning"
-          }
-          className="text-xs capitalize"
-        >
-          {file.status}
-        </Badge>
-      </div>
       <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
         {file.codec_name ? file.codec_name.toUpperCase() : "—"}
       </span>
@@ -179,7 +139,6 @@ function FileListHeader() {
     <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg">
       <div className="w-14 shrink-0" />
       <div className="flex-1">Filename</div>
-      <div className="w-24 shrink-0">Status</div>
       <div className="w-16 shrink-0 text-right">Codec</div>
       <div className="w-16 shrink-0 text-right">Duration</div>
       <div className="w-20 shrink-0 text-right">Bitrate</div>
@@ -254,7 +213,6 @@ function Breadcrumb({
 
 function LibraryBrowser({
   library,
-  statusFilter,
   sortBy,
   sortDir,
   viewMode,
@@ -264,7 +222,6 @@ function LibraryBrowser({
   refreshToken,
 }: {
   library: Library;
-  statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
@@ -288,10 +245,10 @@ function LibraryBrowser({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!browse) setLoading(true);
     api
-      .browseLibrary(library.id, path, statusFilter, sortBy, sortDir)
+      .browseLibrary(library.id, path, undefined, sortBy, sortDir)
       .then(setBrowse)
       .finally(() => setLoading(false));
-  }, [library.id, path, statusFilter, sortBy, sortDir, refreshToken]);
+  }, [library.id, path, sortBy, sortDir, refreshToken]);
 
   const navigate = (subdir: string) => setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
 
@@ -306,9 +263,7 @@ function LibraryBrowser({
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Film className="h-8 w-8 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">
-              {statusFilter ? "No files match this filter here." : "No files in this folder."}
-            </p>
+            <p className="text-sm text-muted-foreground">No files in this folder.</p>
           </CardContent>
         </Card>
       ) : (
@@ -344,7 +299,7 @@ function LibraryBrowser({
                       itemChromeHeight={58}
                       dynamicHeight
                       minColumnWidth={gridSize}
-                      resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}-${gridSize}`}
+                      resetKey={`${library.id}-${path}-${sortBy}-${sortDir}-${search}-${gridSize}`}
                       renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
                     />
                   </div>
@@ -358,7 +313,7 @@ function LibraryBrowser({
                         mode="list"
                         itemHeight={54}
                         dynamicHeight
-                        resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
+                        resetKey={`${library.id}-${path}-${sortBy}-${sortDir}-${search}`}
                         renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
                       />
                     </div>
@@ -376,7 +331,6 @@ function LibraryBrowser({
 // ─── Flat all-libraries view ──────────────────────────────────────────────────
 
 function FlatView({
-  statusFilter,
   sortBy,
   sortDir,
   viewMode,
@@ -385,7 +339,6 @@ function FlatView({
   onPlay,
   refreshToken,
 }: {
-  statusFilter: string | undefined;
   sortBy: string;
   sortDir: string;
   viewMode: "grid" | "list";
@@ -403,7 +356,6 @@ function FlatView({
     if (!hasLoadedRef.current) setLoading(true);
     api
       .getFiles({
-        status: statusFilter,
         page: 1,
         page_size: FETCH_ALL_PAGE_SIZE,
         sort_by: sortBy,
@@ -415,7 +367,7 @@ function FlatView({
         hasLoadedRef.current = true;
       })
       .finally(() => setLoading(false));
-  }, [statusFilter, sortBy, sortDir, refreshToken]);
+  }, [sortBy, sortDir, refreshToken]);
 
   useEffect(() => {
     load();
@@ -466,7 +418,7 @@ function FlatView({
             itemChromeHeight={58}
             dynamicHeight
             minColumnWidth={gridSize}
-            resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}-${gridSize}`}
+            resetKey={`${sortBy}-${sortDir}-${search}-${gridSize}`}
             renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
           />
         </div>
@@ -480,7 +432,7 @@ function FlatView({
               mode="list"
               itemHeight={54}
               dynamicHeight
-              resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
+              resetKey={`${sortBy}-${sortDir}-${search}`}
               renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
             />
           </div>
@@ -507,7 +459,6 @@ const selectCls =
 export function Files() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [selectedLibraryId, setSelectedLibraryId] = useState<number | "all">("all");
-  const [selectedStatus, setSelectedStatus] = useState<string | undefined>();
   const [sortBy, setSortBy] = useState("filename");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -549,19 +500,6 @@ export function Files() {
           {libraries.map((l) => (
             <option key={l.id} value={l.id}>
               {l.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className={selectCls}
-          value={selectedStatus ?? ""}
-          onChange={(e) => setSelectedStatus(e.target.value || undefined)}
-        >
-          <option value="">All statuses</option>
-          {ALL_STATUSES.map((s) => (
-            <option key={s} value={s} className="capitalize">
-              {s}
             </option>
           ))}
         </select>
@@ -621,7 +559,6 @@ export function Files() {
         {selectedLibrary ? (
           <LibraryBrowser
             library={selectedLibrary}
-            statusFilter={selectedStatus}
             sortBy={sortBy}
             sortDir={sortDir}
             viewMode={viewMode}
@@ -632,7 +569,6 @@ export function Files() {
           />
         ) : (
           <FlatView
-            statusFilter={selectedStatus}
             sortBy={sortBy}
             sortDir={sortDir}
             viewMode={viewMode}
