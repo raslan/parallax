@@ -618,7 +618,7 @@ export function Libraries() {
                         title={
                           notIndexed
                             ? "Scan the library first before running AI scan"
-                            : "Run CLIP + NudeNet AI scan on video keyframes"
+                            : "Run NudeNet AI scan on video keyframes"
                         }
                       >
                         <Brain
