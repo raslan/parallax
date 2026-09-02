@@ -7,10 +7,8 @@ from sqlalchemy import asc, desc, func, nullslast
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.api.utils import active_job_exists
 from app.database import SessionLocal, get_db
 from app.models.file import File
-from app.models.job import JobType
 from app.schemas import FileRead, FilesResponse
 from app.services.scanner import thumbnail_path
 
@@ -137,20 +135,6 @@ def get_thumbnail(file_id: int, db: Session = Depends(get_db)):
     if not os.path.exists(thumb):
         raise HTTPException(404, "Thumbnail not available")
     return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
-
-
-@router.post("/{file_id}/check", status_code=202)
-async def check_file_endpoint(file_id: int, db: Session = Depends(get_db)):
-    f = db.get(File, file_id)
-    if not f:
-        raise HTTPException(404, "File not found")
-    if f.library_id and active_job_exists(db, f.library_id, JobType.CHECK):
-        raise HTTPException(409, "A check job is already running")
-    from app.queue import enqueue
-    from app.services.corruption import check_file
-
-    await enqueue(None, check_file, file_id)
-    return {"message": "Check queued"}
 
 
 @router.get("/{file_id}/stream")

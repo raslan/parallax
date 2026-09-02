@@ -119,8 +119,8 @@ def rescan_file(db, file_obj: File) -> None:
     Used right after something changes a file's bytes in place (Compress, Toolbox,
     restoring from _originals/) so the record reflects the new file immediately
     instead of waiting on the filesystem watcher's debounce to notice. Does not
-    touch `status` — callers that need to reset it (e.g. restore, which wants the
-    file to show as needing a corruption re-check) do so themselves.
+    touch `status` — callers that need to reset it (e.g. restore) do so
+    themselves.
     """
     path = file_obj.path
 

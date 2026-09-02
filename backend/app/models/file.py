@@ -8,9 +8,6 @@ from app.database import Base
 
 class FileStatus:
     UNKNOWN = "unknown"
-    SCANNING = "scanning"
-    CLEAN = "clean"
-    CORRUPT = "corrupt"
     QUEUED = "queued"
     TRANSCODING = "transcoding"
     DONE = "done"
