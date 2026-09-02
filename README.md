@@ -8,7 +8,7 @@ A self-hosted video and image library manager with hardware-accelerated compress
 
 ### Videos
 - **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries; libraries auto-rescan when files change on disk
-- **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC") or corruption status; cancelable bulk job with per-file progress; originals preserved in `_originals/`
+- **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC"); cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Toolbox** — bulk file-repair utilities in collapsible tool sections: trim start/end (stream-copy when a keyframe is near the cut point, falls back to hardware-accelerated re-encode otherwise), audio channel isolation (left/right → stereo), rotate, normalize volume, faststart (move moov atom for web playback), and A/V sync offset; cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold (0–100%), first-frame/all-frames comparison mode, and frames-per-video (4–64); scan is self-contained and runs pHash extraction automatically before comparing
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, date, filename (exact or fuzzy), CLIP semantic match, or content detections; all filters stack with invert/exclude support
@@ -251,7 +251,7 @@ Requires the NVIDIA driver and container toolkit installed on the host before ru
 3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature — subtitle downloads via subf2m.co need no account or API key
 4. To use the Downloads feature, go to **Settings → Downloads** and click **Install yt-dlp** — choose stable or nightly channel first
 5. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
-6. Run a scan; for video libraries the AI scan extracts frames via fast seeks (no full-video decode) then runs CLIP on 3 midpoint frames and NudeNet on all frames; for image libraries it generates thumbnails and runs the same AI pipeline; duplicate detection on the Duplicates page is self-contained — it extracts pHash automatically before comparing
+6. Run a scan; for image libraries it generates thumbnails and runs the AI pipeline; duplicate detection on the Duplicates page is self-contained — it extracts pHash automatically before comparing
 
 ---
 
