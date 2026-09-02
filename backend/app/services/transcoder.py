@@ -218,8 +218,9 @@ def _transcode_one(
         _update_file_metadata(file_obj, dst)
         db.commit()
 
-        from app.services.scanner import generate_thumbnail
+        from app.services.scanner import clear_thumbnail_failed_marker, generate_thumbnail
 
+        clear_thumbnail_failed_marker(file_obj.id)
         generate_thumbnail(dst, file_obj.id)
 
         return True
