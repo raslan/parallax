@@ -1,10 +1,8 @@
 export interface Settings {
   max_concurrent_transcodes: number;
   tmdb_api_key: string;
-  clip_model: string;
   nudenet_model: string;
   whisper_model: string;
-  video_keyframes_per_video: number;
   scan_batch_size: number;
   scan_prefetch: number;
   subtitle_languages: string;
@@ -18,10 +16,8 @@ export interface Settings {
 export interface UpdateSettingsBody {
   max_concurrent_transcodes?: number;
   tmdb_api_key?: string;
-  clip_model?: string;
   nudenet_model?: string;
   whisper_model?: string;
-  video_keyframes_per_video?: number;
   scan_batch_size?: number;
   scan_prefetch?: number;
   subtitle_languages?: string;

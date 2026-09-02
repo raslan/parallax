@@ -8,7 +8,6 @@ export interface VideoFile {
   codec_name: string | null;
   video_bitrate: number | null;
   status: string;
-  scan_error: string | null;
   scanned_at: string | null;
   transcoded_at: string | null;
   created_at: string;
@@ -17,6 +16,7 @@ export interface VideoFile {
   file_height: number | null;
   file_fps: number | null;
   file_date: number | null;
+  file_mtime: number | null;
 }
 
 export interface FilesResponse {
@@ -24,9 +24,4 @@ export interface FilesResponse {
   total: number;
   page: number;
   page_size: number;
-}
-
-export interface VideoSearchResult {
-  file: VideoFile;
-  score: number;
 }

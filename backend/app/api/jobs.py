@@ -14,7 +14,6 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 # Map job types to display labels
 JOB_TYPE_LABELS = {
     "scan": "Scan",
-    "check": "Corruption check",
     "transcode": "Transcode",
     "duplicates": "Duplicate scan",
     "image_scan": "Image Scan",
@@ -114,7 +113,6 @@ def get_job_logs(job_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{job_id}/cancel", status_code=202)
 def cancel_job(job_id: int, db: Session = Depends(get_db)):
-    from app.models.file import File, FileStatus
     from app.queue import cancel_pending
     from app.services.common import now, request_cancel
 
@@ -130,13 +128,6 @@ def cancel_job(job_id: int, db: Session = Depends(get_db)):
         job.error = "Cancelled by user"
         job.finished_at = now()
         db.commit()
-        # Restore any files that were set to QUEUED for this job
-        if job.library_id:
-            db.query(File).filter(
-                File.library_id == job.library_id,
-                File.status == FileStatus.QUEUED,
-            ).update({"status": FileStatus.CORRUPT})
-            db.commit()
     else:
         request_cancel(job_id)
 

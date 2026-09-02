@@ -31,7 +31,6 @@ import { formatDate } from "@/lib/format";
 const DEFAULT_SCAN_OPTS: ImageScanRequest = {
   run_phash: true,
   run_nudenet: true,
-  run_clip: true,
   reset: false,
 };
 
@@ -396,7 +395,6 @@ function AddImageLibraryDialog({
                 [
                   ["run_phash", "Duplicates (pHash)"],
                   ["run_nudenet", "Content review (NudeNet)"],
-                  ["run_clip", "Semantic search (CLIP)"],
                 ] as const
               ).map(([key, label]) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
@@ -605,7 +603,6 @@ export function ImageLibraries() {
                             [
                               ["run_phash", "Duplicates (pHash)"],
                               ["run_nudenet", "Content review (NudeNet)"],
-                              ["run_clip", "Semantic search (CLIP)"],
                             ] as const
                           ).map(([key, label]) => (
                             <label

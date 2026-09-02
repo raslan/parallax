@@ -86,38 +86,10 @@ def run_nudenet_batch(paths: list[str], model_id: str = "320n") -> list[list[dic
     return _submit(_fn, paths, model_id)
 
 
-def encode_image_clip(path: str, model_id: str = "clip-vit-base-patch32") -> list[float]:
-    from app.services._image_analyzer_impl import encode_image_clip as _fn
-
-    return _submit(_fn, path, model_id)
-
-
-def encode_image_clip_batch_arrays(
-    arrays: list, model_id: str = "clip-vit-base-patch32"
-) -> list[list[float]]:
-    from app.services._image_analyzer_impl import encode_image_clip_batch_arrays as _fn
-
-    return _submit(_fn, arrays, model_id)
-
-
 def run_nudenet_batch_arrays(arrays: list, model_id: str = "320n") -> list[list[dict]]:
     from app.services._image_analyzer_impl import run_nudenet_batch_arrays as _fn
 
     return _submit(_fn, arrays, model_id)
-
-
-def encode_image_clip_batch(
-    paths: list[str], model_id: str = "clip-vit-base-patch32"
-) -> list[list[float]]:
-    from app.services._image_analyzer_impl import encode_image_clip_batch as _fn
-
-    return _submit(_fn, paths, model_id)
-
-
-def encode_text_clip(text: str, model_id: str = "clip-vit-base-patch32") -> list[float]:
-    from app.services._image_analyzer_impl import encode_text_clip as _fn
-
-    return _submit(_fn, text, model_id)
 
 
 # ---------------------------------------------------------------------------

@@ -148,7 +148,7 @@ def scan_phash_library(
             db.query(File)
             .filter(
                 File.library_id == library_id,
-                File.status.in_([FileStatus.CLEAN, FileStatus.DONE, FileStatus.UNKNOWN]),
+                File.status.in_([FileStatus.DONE, FileStatus.UNKNOWN]),
                 File.phash_scanned_at.is_(None),
             )
             .all()

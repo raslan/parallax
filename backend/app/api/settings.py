@@ -11,10 +11,8 @@ from app.queue import update_max_concurrent
 from app.services.downloader import set_max_concurrent as set_max_concurrent_downloads
 from app.services.image_analyzer import release_sessions
 from app.services.model_manager import (
-    CLIP_MODELS,
     NUDENET_MODELS,
     WHISPER_MODELS,
-    is_clip_downloaded,
     is_nudenet_downloaded,
     is_whisper_downloaded,
 )
@@ -24,14 +22,10 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 _CONCURRENT_KEY = "max_concurrent_transcodes"
 _CONCURRENT_DEFAULT = "1"
 _TMDB_KEY = "tmdb_api_key"
-_CLIP_MODEL_KEY = "clip_model"
-_CLIP_MODEL_DEFAULT = "clip-vit-base-patch32"
 _NUDENET_MODEL_KEY = "nudenet_model"
 _NUDENET_MODEL_DEFAULT = "320n"
 _WHISPER_MODEL_KEY = "whisper_model"
 _WHISPER_MODEL_DEFAULT = "small"
-_VIDEO_KEYFRAMES_KEY = "video_keyframes_per_video"
-_VIDEO_KEYFRAMES_DEFAULT = "32"
 _BATCH_SIZE_KEY = "scan_batch_size"
 _BATCH_SIZE_DEFAULT = "4"
 _PREFETCH_KEY = "scan_prefetch"
@@ -49,10 +43,8 @@ _YTDLP_CHANNEL_DEFAULT = "stable"
 class SettingsRead(BaseModel):
     max_concurrent_transcodes: int
     tmdb_api_key: str
-    clip_model: str
     nudenet_model: str
     whisper_model: str
-    video_keyframes_per_video: int
     scan_batch_size: int
     scan_prefetch: int
     subtitle_languages: str
@@ -66,10 +58,8 @@ class SettingsRead(BaseModel):
 class SettingsUpdate(BaseModel):
     max_concurrent_transcodes: int | None = Field(default=None, ge=1, le=8)
     tmdb_api_key: str | None = Field(default=None, max_length=128)
-    clip_model: str | None = None
     nudenet_model: str | None = None
     whisper_model: str | None = None
-    video_keyframes_per_video: int | None = Field(default=None, ge=1, le=512)
     scan_batch_size: int | None = Field(default=None, ge=1, le=32)
     scan_prefetch: int | None = Field(default=None, ge=1, le=20)
     subtitle_languages: str | None = Field(default=None, max_length=64)
@@ -84,12 +74,8 @@ def _read_settings(db: Session) -> SettingsRead:
     return SettingsRead(
         max_concurrent_transcodes=int(get_setting(db, _CONCURRENT_KEY, _CONCURRENT_DEFAULT)),
         tmdb_api_key=get_setting(db, _TMDB_KEY, ""),
-        clip_model=get_setting(db, _CLIP_MODEL_KEY, _CLIP_MODEL_DEFAULT),
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
         whisper_model=get_setting(db, _WHISPER_MODEL_KEY, _WHISPER_MODEL_DEFAULT),
-        video_keyframes_per_video=int(
-            get_setting(db, _VIDEO_KEYFRAMES_KEY, _VIDEO_KEYFRAMES_DEFAULT)
-        ),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
         scan_prefetch=int(get_setting(db, _PREFETCH_KEY, _PREFETCH_DEFAULT)),
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
@@ -109,14 +95,6 @@ def get_settings(db: Session = Depends(get_db)):
 @router.patch("", response_model=SettingsRead)
 def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
     model_changed = False
-
-    if body.clip_model is not None:
-        if body.clip_model not in CLIP_MODELS:
-            raise HTTPException(400, f"Unknown CLIP model: {body.clip_model}")
-        if not is_clip_downloaded(body.clip_model):
-            raise HTTPException(422, f"CLIP model '{body.clip_model}' is not downloaded yet")
-        set_setting(db, _CLIP_MODEL_KEY, body.clip_model)
-        model_changed = True
 
     if body.nudenet_model is not None:
         if body.nudenet_model not in NUDENET_MODELS:
@@ -142,9 +120,6 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.tmdb_api_key is not None:
         set_setting(db, _TMDB_KEY, body.tmdb_api_key)
-
-    if body.video_keyframes_per_video is not None:
-        set_setting(db, _VIDEO_KEYFRAMES_KEY, str(body.video_keyframes_per_video))
 
     if body.scan_batch_size is not None:
         set_setting(db, _BATCH_SIZE_KEY, str(body.scan_batch_size))
@@ -178,20 +153,14 @@ def purge_library_data(db: Session = Depends(get_db)):
     from app.models.image_library import ImageLibrary
     from app.models.library import Library
     from app.models.schedule import Schedule
-    from app.models.video import VideoDetection
     from app.services import fs_watcher
 
     # Stop all watchers first
     fs_watcher.shutdown()
     fs_watcher.init()
 
-    # Video: delete VideoDetection, thumbnails, files, schedules, libraries
+    # Video: delete thumbnails, files, schedules, libraries
     all_files = db.query(File).all()
-    file_ids = [f.id for f in all_files]
-    if file_ids:
-        db.query(VideoDetection).filter(VideoDetection.file_id.in_(file_ids)).delete(
-            synchronize_session=False
-        )
     for f in all_files:
         thumb = os.path.join(DATA_DIR, "thumbnails", f"{f.id}.jpg")
         try:

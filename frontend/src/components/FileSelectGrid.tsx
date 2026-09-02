@@ -49,7 +49,7 @@ export function FileGridCard({
       )}
       onClick={onToggle}
     >
-      <div className="aspect-video bg-muted relative flex items-center justify-center">
+      <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
         {file.has_thumbnail && !imgError ? (
           <img
             src={api.thumbnailUrl(file.id, file.scanned_at ?? undefined)}
@@ -91,11 +91,14 @@ export function FileGridCard({
         </div>
       </div>
 
-      <div className="px-2 py-1.5 space-y-0.5">
-        <p className="text-xs font-mono truncate text-muted-foreground" title={file.filename}>
+      <div
+        className="px-2 py-1.5 space-y-0.5 border-t border-border"
+        style={{ background: "var(--px-bg-elevated)" }}
+      >
+        <p className="text-xs font-mono truncate text-foreground/90" title={file.filename}>
           {file.filename}
         </p>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           {file.codec_name && <span className="uppercase font-mono">{file.codec_name}</span>}
           <span>{formatSize(file.size)}</span>
           {file.duration != null && <span>{formatDuration(file.duration)}</span>}

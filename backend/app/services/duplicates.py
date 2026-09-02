@@ -237,7 +237,7 @@ def find_duplicates(
                 db.query(File)
                 .filter(
                     File.library_id == library_id,
-                    File.status.in_([FileStatus.CLEAN, FileStatus.DONE, FileStatus.UNKNOWN]),
+                    File.status.in_([FileStatus.DONE, FileStatus.UNKNOWN]),
                 )
                 .all()
             )

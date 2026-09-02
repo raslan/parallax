@@ -7,8 +7,6 @@ import {
   Trash2,
   Plus,
   FolderOpen,
-  ShieldCheck,
-  Brain,
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -443,8 +441,6 @@ export function Libraries() {
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
-  const [checkingIds, setCheckingIds] = useState<Set<number>>(new Set());
-  const [aiScanningIds, setAiScanningIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [deletingLib, setDeletingLib] = useState<Library | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -464,8 +460,6 @@ export function Libraries() {
           active.filter((j) => j.type === t && j.library_id != null).map((j) => j.library_id!),
         );
       setScanningIds(byType("scan"));
-      setCheckingIds(byType("check"));
-      setAiScanningIds(byType("video_scan"));
     } finally {
       if (showLoader) setLoading(false);
     }
@@ -484,26 +478,6 @@ export function Libraries() {
   const handleScan = async (id: number) => {
     try {
       await api.scanLibrary(id);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "";
-      if (!msg.includes("409")) throw e;
-    }
-    refresh();
-  };
-
-  const handleCheck = async (id: number) => {
-    try {
-      await api.checkLibrary(id);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "";
-      if (!msg.includes("409")) throw e;
-    }
-    refresh();
-  };
-
-  const handleAiScan = async (id: number) => {
-    try {
-      await api.triggerVideoScan(id, true);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "";
       if (!msg.includes("409")) throw e;
@@ -575,12 +549,8 @@ export function Libraries() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {libraries.map((lib) => {
-            const notIndexed = lib.file_count === 0;
-            const checkTitle = notIndexed
-              ? "Scan the library first to index files before checking for corruption"
-              : "Check all indexed files for corruption";
             return (
-              <Card key={lib.id} className={lib.corrupt_count > 0 ? "border-destructive/40" : ""}>
+              <Card key={lib.id}>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-base leading-tight">{lib.name}</CardTitle>
@@ -595,34 +565,6 @@ export function Libraries() {
                       >
                         <RefreshCw
                           className={`h-3.5 w-3.5 ${scanningIds.has(lib.id) ? "animate-spin" : ""}`}
-                        />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => handleCheck(lib.id)}
-                        disabled={checkingIds.has(lib.id) || notIndexed}
-                        title={checkTitle}
-                      >
-                        <ShieldCheck
-                          className={`h-3.5 w-3.5 ${checkingIds.has(lib.id) ? "text-primary" : notIndexed ? "opacity-30" : ""}`}
-                        />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => handleAiScan(lib.id)}
-                        disabled={aiScanningIds.has(lib.id) || notIndexed}
-                        title={
-                          notIndexed
-                            ? "Scan the library first before running AI scan"
-                            : "Run CLIP + NudeNet AI scan on video keyframes"
-                        }
-                      >
-                        <Brain
-                          className={`h-3.5 w-3.5 ${aiScanningIds.has(lib.id) ? "text-primary animate-pulse" : notIndexed ? "opacity-30" : ""}`}
                         />
                       </Button>
                       <Button
@@ -647,16 +589,11 @@ export function Libraries() {
                     {lib.file_count > 0 && (
                       <span className="text-xs text-muted-foreground">
                         <span className="font-mono">{lib.file_count.toLocaleString()}</span> files
-                        {lib.corrupt_count > 0 && (
-                          <span className="text-destructive ml-1">
-                            · <span className="font-mono">{lib.corrupt_count}</span> corrupt
-                          </span>
-                        )}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {notIndexed
+                    {lib.file_count === 0
                       ? "Not yet scanned — click the refresh icon to index files"
                       : `Last scanned: ${formatDate(lib.last_scanned_at)}`}
                   </p>

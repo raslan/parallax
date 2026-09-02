@@ -5,48 +5,6 @@ from app.database import DATA_DIR
 
 MODELS_DIR = os.path.join(DATA_DIR, "models")
 
-CLIP_MODELS: dict[str, dict] = {
-    "clip-vit-base-patch32": {
-        "id": "clip-vit-base-patch32",
-        "type": "clip",
-        "name": "CLIP ViT-B/32",
-        "description": "Balanced speed and accuracy. Default.",
-        "hf_repo": "Xenova/clip-vit-base-patch32",
-        "hf_vision_file": "onnx/vision_model.onnx",
-        "hf_text_file": "onnx/text_model.onnx",
-        "size_mb": 350,
-        "quality": "good",
-        "image_size": 224,
-    },
-    "clip-vit-large-patch14": {
-        "id": "clip-vit-large-patch14",
-        "type": "clip",
-        "name": "CLIP ViT-L/14",
-        "description": "High accuracy. ~1.6 GB download.",
-        "hf_repo": "Xenova/clip-vit-large-patch14",
-        "hf_vision_file": "onnx/vision_model.onnx",
-        "hf_text_file": "onnx/text_model.onnx",
-        "size_mb": 1600,
-        "quality": "better",
-        "image_size": 224,
-    },
-    "clip-vit-large-patch14-336": {
-        "id": "clip-vit-large-patch14-336",
-        "type": "clip",
-        "name": "CLIP ViT-L/14@336px",
-        "description": (
-            "Best accuracy. Same as L/14 but trained at 336px — sharper detail. "
-            "~1.6 GB download."
-        ),
-        "hf_repo": "Xenova/clip-vit-large-patch14-336",
-        "hf_vision_file": "onnx/vision_model.onnx",
-        "hf_text_file": "onnx/text_model.onnx",
-        "size_mb": 1600,
-        "quality": "best",
-        "image_size": 336,
-    },
-}
-
 NUDENET_MODELS: dict[str, dict] = {
     "320n": {
         "id": "320n",
@@ -130,28 +88,12 @@ def is_whisper_downloaded(model_id: str) -> bool:
     return os.path.isdir(d) and os.path.exists(os.path.join(d, "model.bin"))
 
 
-def clip_dir(model_id: str) -> str:
-    return os.path.join(MODELS_DIR, "clip", model_id)
-
-
-def clip_vision_path(model_id: str) -> str:
-    return os.path.join(clip_dir(model_id), "vision.onnx")
-
-
-def clip_text_path(model_id: str) -> str:
-    return os.path.join(clip_dir(model_id), "text.onnx")
-
-
 def nudenet_path(model_id: str) -> str:
     if model_id == "320n":
         import nudenet as _pkg
 
         return os.path.join(os.path.dirname(_pkg.__file__), "320n.onnx")
     return os.path.join(MODELS_DIR, "nudenet", f"{model_id}.onnx")
-
-
-def is_clip_downloaded(model_id: str) -> bool:
-    return os.path.exists(clip_vision_path(model_id)) and os.path.exists(clip_text_path(model_id))
 
 
 def is_nudenet_downloaded(model_id: str) -> bool:
@@ -318,128 +260,6 @@ def download_whisper(model_id: str, job_id: int) -> None:
 
 def delete_whisper(model_id: str) -> None:
     d = whisper_model_dir(model_id)
-    if os.path.isdir(d):
-        shutil.rmtree(d)
-
-
-# ---------------------------------------------------------------------------
-# CLIP
-# ---------------------------------------------------------------------------
-
-
-def migrate_legacy_clip() -> None:
-    """Move pre-subdirectory CLIP files into per-model directory on first startup."""
-    legacy_dir = os.path.join(MODELS_DIR, "clip")
-    legacy_vision = os.path.join(legacy_dir, "vision.onnx")
-    legacy_text = os.path.join(legacy_dir, "text.onnx")
-    target = "clip-vit-base-patch32"
-    if os.path.exists(legacy_vision) and not os.path.exists(clip_vision_path(target)):
-        os.makedirs(clip_dir(target), exist_ok=True)
-        shutil.move(legacy_vision, clip_vision_path(target))
-    if os.path.exists(legacy_text) and not os.path.exists(clip_text_path(target)):
-        os.makedirs(clip_dir(target), exist_ok=True)
-        shutil.move(legacy_text, clip_text_path(target))
-
-
-def download_clip(model_id: str, job_id: int) -> None:
-    from app.database import SessionLocal
-    from app.models.job import Job, JobStatus
-    from app.services.common import arm_cancel, clear_cancel, log, now
-
-    meta = CLIP_MODELS[model_id]
-    target_dir = clip_dir(model_id)
-    os.makedirs(target_dir, exist_ok=True)
-
-    total_bytes = meta["size_mb"] * 1024 * 1024
-    vision_bytes = int(total_bytes * 0.6)  # vision ~60%, text ~40%
-
-    db = SessionLocal()
-    job = None
-    _cleanup = False
-    try:
-        job = db.get(Job, job_id)
-        if not job:
-            return
-        job.status = JobStatus.RUNNING
-        job.started_at = now()
-        db.commit()
-        arm_cancel(job_id)
-
-        print(
-            f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True
-        )
-
-        log(db, job_id, f"Downloading {meta['name']} vision model from HuggingFace…")
-        job.current_file = "vision_model.onnx"
-        job.progress = 5.0
-        db.commit()
-        _download_hf_file(
-            repo_id=meta["hf_repo"],
-            filename=meta["hf_vision_file"],
-            dest_path=clip_vision_path(model_id),
-            job=job,
-            db=db,
-            job_id=job_id,
-            total_bytes=total_bytes,
-            pct_start=5.0,
-            pct_end=60.0,
-            label=f"{meta['name']} vision",
-        )
-
-        log(db, job_id, f"Downloading {meta['name']} text model from HuggingFace…")
-        job.current_file = "text_model.onnx"
-        job.progress = 60.0
-        db.commit()
-        _download_hf_file(
-            repo_id=meta["hf_repo"],
-            filename=meta["hf_text_file"],
-            dest_path=clip_text_path(model_id),
-            job=job,
-            db=db,
-            job_id=job_id,
-            total_bytes=total_bytes,
-            pct_start=60.0,
-            pct_end=95.0,
-            label=f"{meta['name']} text",
-            byte_offset=vision_bytes,
-        )
-
-        job.status = JobStatus.COMPLETED
-        job.progress = 100.0
-        job.finished_at = now()
-        job.current_file = None
-        db.commit()
-        print(f"[model-download] {meta['name']}: download complete", flush=True)
-        log(db, job_id, f"{meta['name']} downloaded successfully.")
-
-    except _DownloadCancelled:
-        _cleanup = True
-        if job:
-            job.status = JobStatus.CANCELLED
-            job.finished_at = now()
-            job.current_file = None
-            db.commit()
-        print(f"[model-download] {meta['name']}: cancelled — removing partial files", flush=True)
-
-    except Exception as e:
-        _cleanup = True
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)[:512]
-            job.finished_at = now()
-            job.current_file = None
-            db.commit()
-        print(f"[model-download] {meta['name']}: failed — {e}", flush=True)
-
-    finally:
-        clear_cancel(job_id)
-        if _cleanup:
-            shutil.rmtree(target_dir, ignore_errors=True)
-        db.close()
-
-
-def delete_clip(model_id: str) -> None:
-    d = clip_dir(model_id)
     if os.path.isdir(d):
         shutil.rmtree(d)
 

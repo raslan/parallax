@@ -83,6 +83,7 @@ def _load_image_for_scan(
             "exif_date": exif_date,
             "exif_gps": exif_gps,
             "exif_camera": exif_camera,
+            "file_mtime": os.path.getmtime(path),
         }, arr
     except Exception:
         return None
@@ -115,12 +116,11 @@ def scan_image_library(
     job_id: int,
     run_phash: bool = True,
     run_nudenet: bool = True,
-    run_clip: bool = True,
     reset: bool = False,
 ) -> None:
     from app.models.settings import get_setting
-    from app.services.image_analyzer import encode_image_clip_batch_arrays, run_nudenet_batch_arrays
-    from app.services.model_manager import CLIP_MODELS, NUDENET_MODELS
+    from app.services.image_analyzer import run_nudenet_batch_arrays
+    from app.services.model_manager import NUDENET_MODELS
 
     db = SessionLocal()
     job = None
@@ -133,18 +133,12 @@ def scan_image_library(
         if not job or job.status == JobStatus.CANCELLED:
             return
 
-        clip_model_id = get_setting(db, "clip_model", "clip-vit-base-patch32")
         nudenet_model_id = get_setting(db, "nudenet_model", "320n")
         batch_size = int(get_setting(db, "scan_batch_size", "4"))
         prefetch = int(get_setting(db, "scan_prefetch", "4"))
 
-        clip_res = CLIP_MODELS.get(clip_model_id, {}).get("image_size", 224)
-        nudenet_res = (
-            NUDENET_MODELS.get(nudenet_model_id, {}).get("inference_resolution", 320)
-            if run_nudenet
-            else 0
-        )
-        extraction_res = max(clip_res, nudenet_res)
+        nudenet_res = NUDENET_MODELS.get(nudenet_model_id, {}).get("inference_resolution", 320)
+        extraction_res = max(nudenet_res, 400)
         # Load at max of inference size and thumbnail size so we can serve both from one decode
         load_size = max(extraction_res, THUMBNAIL_SIZE[0])
 
@@ -273,6 +267,7 @@ def scan_image_library(
                     exif_date=meta["exif_date"],
                     exif_gps=meta["exif_gps"],
                     exif_camera=meta["exif_camera"],
+                    file_mtime=meta["file_mtime"],
                     status=ImageStatus.SCANNED,
                     scanned_at=now(),
                 )
@@ -290,15 +285,6 @@ def scan_image_library(
                     _generate_thumbnail_from_array(arr, _thumbnail_path(img_obj.id))
                 except Exception:
                     pass
-
-            # CLIP
-            if run_clip and good_arrays:
-                try:
-                    embeddings = encode_image_clip_batch_arrays(good_arrays, model_id=clip_model_id)
-                    for img_obj, emb in zip(img_objs, embeddings):
-                        img_obj.clip_embedding = json.dumps(emb)
-                except Exception as e:
-                    log(db, job_id, f"CLIP batch failed — {e}", level="error")
 
             # NudeNet
             if run_nudenet and good_arrays:

@@ -25,6 +25,7 @@ class ImageFile(Base):
     width: Mapped[int] = mapped_column(Integer, nullable=True)
     height: Mapped[int] = mapped_column(Integer, nullable=True)
     exif_date: Mapped[float] = mapped_column(Float, nullable=True)
+    file_mtime: Mapped[float] = mapped_column(Float, nullable=True)
     exif_gps: Mapped[str] = mapped_column(Text, nullable=True)
     exif_camera: Mapped[str] = mapped_column(String(256), nullable=True)
     phash: Mapped[int] = mapped_column(Integer, nullable=True)
