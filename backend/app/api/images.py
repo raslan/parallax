@@ -104,6 +104,7 @@ def _to_image_read(f: ImageFile, db: Session) -> ImageRead:
         exif_date=f.exif_date,
         exif_gps=f.exif_gps,
         exif_camera=f.exif_camera,
+        file_mtime=f.file_mtime,
         status=f.status,
         scan_error=f.scan_error,
         scanned_at=f.scanned_at,
