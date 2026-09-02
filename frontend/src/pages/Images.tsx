@@ -154,8 +154,8 @@ export function Images() {
   const visibleImages = filterByFilename(images, search);
 
   return (
-    <div className="p-8 space-y-6">
-      <div>
+    <div className="p-8 space-y-6 h-full flex flex-col">
+      <div className="shrink-0">
         <SectionHeader className="mb-1.5">Images</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Images</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -163,7 +163,7 @@ export function Images() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         <select
           value={statusFilter || "all"}
           onChange={(e) => setStatusFilter(e.target.value === "all" ? "" : e.target.value)}
@@ -234,34 +234,35 @@ export function Images() {
       </div>
 
       {total > images.length && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground shrink-0">
           Showing first {images.length.toLocaleString()} of {total.toLocaleString()} images — narrow
           your filter to see more.
         </p>
       )}
 
       {visibleImages.length > 0 && (
-        <VirtualizedGrid
-          items={visibleImages}
-          getKey={(img) => img.id}
-          mode="grid"
-          itemHeight={140}
-          itemAspectRatio={1}
-          minColumnWidth={140}
-          gap={8}
-          maxHeight="70vh"
-          resetKey={`${statusFilter}-${detectionFilter}-${sortBy}-${sortDir}-${search}`}
-          renderItem={(img) => (
-            <ImageCard
-              img={img}
-              selectionMode={selectionMode}
-              selected={selectedIds.has(img.id)}
-              onToggle={() => toggleId(img.id)}
-              onQuarantine={() => quarantineOne(img.id)}
-              onOpen={() => setViewingImg(img)}
-            />
-          )}
-        />
+        <div className="flex-1 min-h-0">
+          <VirtualizedGrid
+            items={visibleImages}
+            getKey={(img) => img.id}
+            mode="grid"
+            itemHeight={140}
+            itemAspectRatio={1}
+            minColumnWidth={140}
+            gap={8}
+            resetKey={`${statusFilter}-${detectionFilter}-${sortBy}-${sortDir}-${search}`}
+            renderItem={(img) => (
+              <ImageCard
+                img={img}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(img.id)}
+                onToggle={() => toggleId(img.id)}
+                onQuarantine={() => quarantineOne(img.id)}
+                onOpen={() => setViewingImg(img)}
+              />
+            )}
+          />
+        </div>
       )}
 
       {visibleImages.length === 0 && (

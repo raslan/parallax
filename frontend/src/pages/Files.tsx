@@ -281,7 +281,7 @@ function LibraryBrowser({
   const navigate = (subdir: string) => setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col gap-4">
       <Breadcrumb library={library} path={path} onNavigate={setPath} />
       {loading ? (
         <div className="flex justify-center py-16">
@@ -297,18 +297,18 @@ function LibraryBrowser({
           </CardContent>
         </Card>
       ) : (
-        <>
+        <div className="flex-1 min-h-0 flex flex-col gap-4">
           {browse.dirs.length > 0 && (
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 shrink-0">
               {browse.dirs.map((dir) => (
                 <DirCard key={dir} name={dir} onClick={() => navigate(dir)} />
               ))}
             </div>
           )}
           {browse.files.length > 0 && (
-            <>
+            <div className="flex-1 min-h-0 flex flex-col gap-4">
               {browse.dirs.length > 0 && (
-                <div className="border-t pt-4">
+                <div className="border-t pt-4 shrink-0">
                   <SectionHeader>Files in this folder</SectionHeader>
                 </div>
               )}
@@ -319,38 +319,40 @@ function LibraryBrowser({
                     )
                   : browse.files;
                 return viewMode === "grid" ? (
-                  <VirtualizedGrid
-                    items={visibleFiles}
-                    getKey={(f) => f.id}
-                    mode="grid"
-                    itemHeight={200}
-                    itemAspectRatio={16 / 9}
-                    itemChromeHeight={58}
-                    dynamicHeight
-                    minColumnWidth={180}
-                    maxHeight="60vh"
-                    resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
-                    renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
-                  />
-                ) : (
-                  <div className="flex flex-col rounded-lg border border-border overflow-hidden">
-                    <FileListHeader />
+                  <div className="flex-1 min-h-0">
                     <VirtualizedGrid
                       items={visibleFiles}
                       getKey={(f) => f.id}
-                      mode="list"
-                      itemHeight={54}
+                      mode="grid"
+                      itemHeight={200}
+                      itemAspectRatio={16 / 9}
+                      itemChromeHeight={58}
                       dynamicHeight
-                      maxHeight="60vh"
+                      minColumnWidth={180}
                       resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
-                      renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+                      renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
                     />
+                  </div>
+                ) : (
+                  <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
+                    <FileListHeader />
+                    <div className="flex-1 min-h-0">
+                      <VirtualizedGrid
+                        items={visibleFiles}
+                        getKey={(f) => f.id}
+                        mode="list"
+                        itemHeight={54}
+                        dynamicHeight
+                        resetKey={`${library.id}-${path}-${statusFilter}-${sortBy}-${sortDir}-${search}`}
+                        renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+                      />
+                    </div>
                   </div>
                 );
               })()}
-            </>
+            </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -429,43 +431,45 @@ function FlatView({
     );
 
   return (
-    <>
+    <div className="h-full flex flex-col gap-3">
       {total > files.length && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground shrink-0">
           Showing first {files.length.toLocaleString()} of {total.toLocaleString()} files — narrow
           your filter to see more.
         </p>
       )}
       {viewMode === "grid" ? (
-        <VirtualizedGrid
-          items={visibleFiles}
-          getKey={(f) => f.id}
-          mode="grid"
-          itemHeight={200}
-          itemAspectRatio={16 / 9}
-          itemChromeHeight={58}
-          dynamicHeight
-          minColumnWidth={180}
-          maxHeight="70vh"
-          resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
-          renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
-        />
-      ) : (
-        <div className="flex flex-col rounded-lg border border-border overflow-hidden">
-          <FileListHeader />
+        <div className="flex-1 min-h-0">
           <VirtualizedGrid
             items={visibleFiles}
             getKey={(f) => f.id}
-            mode="list"
-            itemHeight={54}
+            mode="grid"
+            itemHeight={200}
+            itemAspectRatio={16 / 9}
+            itemChromeHeight={58}
             dynamicHeight
-            maxHeight="60vh"
+            minColumnWidth={180}
             resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
-            renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+            renderItem={(f) => <ThumbnailCard file={f} onPlay={() => onPlay(f)} />}
           />
         </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
+          <FileListHeader />
+          <div className="flex-1 min-h-0">
+            <VirtualizedGrid
+              items={visibleFiles}
+              getKey={(f) => f.id}
+              mode="list"
+              itemHeight={54}
+              dynamicHeight
+              resetKey={`${statusFilter}-${sortBy}-${sortDir}-${search}`}
+              renderItem={(f) => <FileListRow file={f} onPlay={() => onPlay(f)} />}
+            />
+          </div>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -506,8 +510,8 @@ export function Files() {
   useLiveFiles("video", selectedLibrary?.id ?? null, () => setRefreshToken((t) => t + 1));
 
   return (
-    <div className="p-8 space-y-6">
-      <div>
+    <div className="p-8 space-y-6 h-full flex flex-col">
+      <div className="shrink-0">
         <SectionHeader className="mb-1.5">Indexed media</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -515,7 +519,7 @@ export function Files() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         <select
           className={selectCls}
           value={selectedLibraryId}
@@ -594,28 +598,30 @@ export function Files() {
         </div>
       </div>
 
-      {selectedLibrary ? (
-        <LibraryBrowser
-          library={selectedLibrary}
-          statusFilter={selectedStatus}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          viewMode={viewMode}
-          search={search}
-          onPlay={setPlayingFile}
-          refreshToken={refreshToken}
-        />
-      ) : (
-        <FlatView
-          statusFilter={selectedStatus}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          viewMode={viewMode}
-          search={search}
-          onPlay={setPlayingFile}
-          refreshToken={refreshToken}
-        />
-      )}
+      <div className="flex-1 min-h-0">
+        {selectedLibrary ? (
+          <LibraryBrowser
+            library={selectedLibrary}
+            statusFilter={selectedStatus}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            viewMode={viewMode}
+            search={search}
+            onPlay={setPlayingFile}
+            refreshToken={refreshToken}
+          />
+        ) : (
+          <FlatView
+            statusFilter={selectedStatus}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            viewMode={viewMode}
+            search={search}
+            onPlay={setPlayingFile}
+            refreshToken={refreshToken}
+          />
+        )}
+      </div>
 
       {playingFile && (
         <VideoPlayerModal

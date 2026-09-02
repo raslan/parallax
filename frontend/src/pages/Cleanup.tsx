@@ -298,8 +298,8 @@ export function Cleanup() {
   };
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="p-8 space-y-6 h-full flex flex-col">
+      <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
           <SectionHeader className="mb-1.5">Library maintenance</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Cleanup</h1>
@@ -321,7 +321,7 @@ export function Cleanup() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-lg border bg-card p-4 shrink-0">
         <QueryBuilder
           registry={cleanupFields}
           clauses={clauses}
@@ -364,8 +364,8 @@ export function Cleanup() {
       )}
 
       {!loading && sortedResults !== null && sortedResults.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="flex-1 min-h-0 flex flex-col gap-3">
+          <div className="flex items-center justify-between shrink-0">
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground tabular-nums font-mono">
                 {sortedResults.length}
@@ -444,8 +444,8 @@ export function Cleanup() {
           </div>
 
           {viewMode === "list" ? (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
+            <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
+              <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider shrink-0">
                 <span className="h-4 w-4 shrink-0" />
                 <span className="h-8 w-14 shrink-0" />
                 <span className="flex-1 min-w-0">Filename</span>
@@ -455,43 +455,45 @@ export function Cleanup() {
                 <span className="w-24 text-right shrink-0">File date</span>
                 <span className="w-16 text-right shrink-0">Size</span>
               </div>
+              <div className="flex-1 min-h-0">
+                <VirtualizedGrid
+                  items={sortedResults}
+                  getKey={(f) => f.id}
+                  mode="list"
+                  itemHeight={52}
+                  resetKey={`${selectedId}-${sortBy}-${sortDir}`}
+                  renderItem={(f) => (
+                    <CleanupListRow
+                      file={f}
+                      selected={selected.has(f.id)}
+                      onToggle={() => toggleOne(f.id)}
+                      onPlay={() => setPlayingFile(f)}
+                    />
+                  )}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0">
               <VirtualizedGrid
                 items={sortedResults}
                 getKey={(f) => f.id}
-                mode="list"
-                itemHeight={52}
-                maxHeight="70vh"
+                mode="grid"
+                itemHeight={200}
+                itemAspectRatio={16 / 9}
+                itemChromeHeight={58}
+                minColumnWidth={180}
                 resetKey={`${selectedId}-${sortBy}-${sortDir}`}
                 renderItem={(f) => (
-                  <CleanupListRow
+                  <CleanupCard
                     file={f}
-                    selected={selected.has(f.id)}
+                    isSelected={selected.has(f.id)}
                     onToggle={() => toggleOne(f.id)}
                     onPlay={() => setPlayingFile(f)}
                   />
                 )}
               />
             </div>
-          ) : (
-            <VirtualizedGrid
-              items={sortedResults}
-              getKey={(f) => f.id}
-              mode="grid"
-              itemHeight={200}
-              itemAspectRatio={16 / 9}
-              itemChromeHeight={58}
-              minColumnWidth={180}
-              maxHeight="70vh"
-              resetKey={`${selectedId}-${sortBy}-${sortDir}`}
-              renderItem={(f) => (
-                <CleanupCard
-                  file={f}
-                  isSelected={selected.has(f.id)}
-                  onToggle={() => toggleOne(f.id)}
-                  onPlay={() => setPlayingFile(f)}
-                />
-              )}
-            />
           )}
         </div>
       )}
