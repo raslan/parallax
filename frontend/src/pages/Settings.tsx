@@ -13,10 +13,11 @@ import {
   OctagonAlert,
   FolderOpen,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { api, modelsApi } from "@/lib/api";
+import { api, modelsApi, qk } from "@/lib/api";
 import type { ModelInfo, ActiveModelDownload } from "@/types/model";
 import { toast } from "sonner"; // sonner toast fn works independently of Toaster wrapper
 import { DirPicker } from "@/components/DirPicker";
@@ -301,7 +302,6 @@ export function Settings() {
   const [scanBatchSize, setScanBatchSize] = useState(4);
   const [scanPrefetch, setScanPrefetch] = useState(4);
   const [subtitleLangs, setSubtitleLangs] = useState<string[]>(["en"]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -309,68 +309,57 @@ export function Settings() {
   const [downloadDir, setDownloadDir] = useState("/media/downloads");
   const [maxConcurrentDownloads, setMaxConcurrentDownloads] = useState(2);
   const [ytdlpChannel, setYtdlpChannel] = useState<"stable" | "nightly">("stable");
-  const [ytdlpInfo, setYtdlpInfo] = useState<{
-    installed: boolean;
-    version: string | null;
-    path: string | null;
-  } | null>(null);
   const [ytdlpUpdating, setYtdlpUpdating] = useState(false);
   const [showDirPicker, setShowDirPicker] = useState(false);
 
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [modelsLoading, setModelsLoading] = useState(true);
-  const [activeDownload, setActiveDownload] = useState<ActiveModelDownload | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    api
-      .getSettings()
-      .then((s) => {
-        setMaxConcurrent(s.max_concurrent_transcodes);
-        setEncoderFamily(s.encoder_family ?? "software");
-        setConcurrentLimitHint(s.concurrent_limit_hint ?? null);
-        setTmdbKey(s.tmdb_api_key);
-        setScanBatchSize(s.scan_batch_size ?? 4);
-        setScanPrefetch(s.scan_prefetch ?? 4);
-        setSubtitleLangs(
-          (s.subtitle_languages || "en")
-            .split(",")
-            .map((c) => c.trim())
-            .filter(Boolean),
-        );
-        setDownloadDir(s.download_dir ?? "/media/downloads");
-        setMaxConcurrentDownloads(s.max_concurrent_downloads ?? 2);
-        setYtdlpChannel(
-          (s.ytdlp_channel === "nightly" ? "nightly" : "stable") as "stable" | "nightly",
-        );
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: settings, isLoading: loading } = useQuery({
+    queryKey: qk.settings(),
+    queryFn: () => api.getSettings(),
+  });
 
+  const { data: ytdlpInfo } = useQuery({
+    queryKey: qk.ytdlpInfo(),
+    queryFn: () => api.ytdlpInfo(),
+    enabled: activeTab === "downloads",
+  });
+
+  const { data: models = [], isLoading: modelsLoading } = useQuery({
+    queryKey: qk.models(),
+    queryFn: () => modelsApi.listModels(),
+  });
+  const { data: activeDownload = null } = useQuery({
+    queryKey: qk.modelActiveDownload(),
+    queryFn: () => modelsApi.getActiveDownload(),
+  });
+
+  // Seed the editable form fields from fetched settings. Phase 5 replaces this
+  // with react-hook-form; until then this is a legit fetch→form sync.
   useEffect(() => {
-    if (activeTab === "downloads") {
-      api
-        .ytdlpInfo()
-        .then(setYtdlpInfo)
-        .catch(() => {});
-    }
-  }, [activeTab]);
+    if (!settings) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMaxConcurrent(settings.max_concurrent_transcodes);
+    setEncoderFamily(settings.encoder_family ?? "software");
+    setConcurrentLimitHint(settings.concurrent_limit_hint ?? null);
+    setTmdbKey(settings.tmdb_api_key);
+    setScanBatchSize(settings.scan_batch_size ?? 4);
+    setScanPrefetch(settings.scan_prefetch ?? 4);
+    setSubtitleLangs(
+      (settings.subtitle_languages || "en")
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean),
+    );
+    setDownloadDir(settings.download_dir ?? "/media/downloads");
+    setMaxConcurrentDownloads(settings.max_concurrent_downloads ?? 2);
+    setYtdlpChannel(settings.ytdlp_channel === "nightly" ? "nightly" : "stable");
+  }, [settings]);
 
   const reloadModels = useCallback(() => {
-    setModelsLoading(true);
-    Promise.all([modelsApi.listModels(), modelsApi.getActiveDownload()])
-      .then(([modelList, dl]) => {
-        setModels(modelList);
-        setActiveDownload(dl);
-      })
-      .catch(() => {})
-      .finally(() => setModelsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    reloadModels();
-  }, [reloadModels]);
+    queryClient.invalidateQueries({ queryKey: qk.models() });
+    queryClient.invalidateQueries({ queryKey: qk.modelActiveDownload() });
+  }, [queryClient]);
 
   const markDirty = () => {
     setDirty(true);
@@ -849,7 +838,7 @@ export function Settings() {
           <Card>
             <CardContent className="pt-6 space-y-3">
               <p className="text-sm font-medium">yt-dlp</p>
-              {ytdlpInfo === null ? (
+              {!ytdlpInfo ? (
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading…
@@ -900,8 +889,7 @@ export function Settings() {
                   setYtdlpUpdating(true);
                   try {
                     await api.ytdlpUpdate();
-                    const info = await api.ytdlpInfo();
-                    setYtdlpInfo(info);
+                    await queryClient.invalidateQueries({ queryKey: qk.ytdlpInfo() });
                   } catch {
                     /* ignore */
                   } finally {
