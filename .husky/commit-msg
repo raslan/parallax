@@ -1,0 +1,50 @@
+#!/usr/bin/env sh
+# commit-msg — enforce Conventional Commits, strip the body, block force-added
+# gitignored paths. Installed by install-git-hooks.sh; edit there, not here.
+
+msg_file="$1"
+
+# 1. block gitignored paths that were force-staged (git add -f).
+#    --no-index is required: a path already in the index is otherwise
+#    reported as not-ignored by plain check-ignore.
+staged=$(git diff --cached --name-only --diff-filter=AM)
+if [ -n "$staged" ]; then
+  ignored=$(printf '%s\n' "$staged" | git check-ignore --no-index --stdin || true)
+  if [ -n "$ignored" ]; then
+    echo "commit-msg: refusing to commit gitignored path(s) staged with 'git add -f':" >&2
+    printf '%s\n' "$ignored" | sed 's/^/  /' >&2
+    echo "" >&2
+    echo "  mistake?    git restore --staged <path>" >&2
+    echo "  deliberate? add a negation rule (!<path>) to .gitignore first" >&2
+    exit 1
+  fi
+fi
+
+# 2. subject = first non-comment, non-blank line
+subject=$(grep -m1 -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$msg_file" || true)
+
+# let git's own housekeeping commits through untouched
+case "$subject" in
+  "Merge "*|"Revert "*|"fixup! "*|"squash! "*|"amend! "*)
+    printf '%s\n' "$subject" > "$msg_file"; exit 0 ;;
+esac
+
+# 3. Conventional Commits: <type>[(scope)][!]: <description>
+types='feat|fix|refactor|perf|style|docs|chore|test|build|ci|revert'
+if ! printf '%s' "$subject" | grep -Eq "^(${types})(\([a-z0-9._/-]+\))?!?: .+"; then
+  echo "commit-msg: not a Conventional Commit subject." >&2
+  echo "  got:   ${subject:-<empty>}" >&2
+  echo "  want:  <type>[(scope)][!]: <description>" >&2
+  echo "  types: ${types}" >&2
+  exit 1
+fi
+
+len=$(printf '%s' "$subject" | wc -c | tr -d ' ')
+if [ "$len" -gt 72 ]; then
+  echo "commit-msg: subject is ${len} chars, max 72:" >&2
+  echo "  ${subject}" >&2
+  exit 1
+fi
+
+# 4. strip body: keep the subject only
+printf '%s\n' "$subject" > "$msg_file"
