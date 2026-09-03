@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Library as LibIcon,
   Loader2,
@@ -13,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { api } from "@/lib/api";
+import { api, qk } from "@/lib/api";
 import type { Library } from "@/types/library";
 import type { Job } from "@/types/job";
 import { formatDate } from "@/lib/format";
@@ -45,22 +45,13 @@ function DeleteLibraryDialog({
   onDeleted: (id: number) => void;
 }) {
   const navigate = useNavigate();
-  const [leftovers, setLeftovers] = useState<Leftovers | null>(null);
-  const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (!lib) {
-      // Intentional setState in effect
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLeftovers(null);
-      return;
-    }
-    api
-      .libraryLeftovers(lib.id)
-      .then(setLeftovers)
-      .catch(() => setLeftovers(null));
-  }, [lib]);
+  const { data: leftovers } = useQuery<Leftovers>({
+    queryKey: lib ? qk.libraryLeftovers(lib.id) : ["libraries", "none", "leftovers"],
+    queryFn: () => api.libraryLeftovers(lib!.id),
+    enabled: !!lib,
+  });
 
   const doDelete = async (deleteLeftovers: boolean) => {
     if (!lib) return;
@@ -172,27 +163,23 @@ function DeleteAllLibrariesDialog({
   onDeleted: () => void;
 }) {
   const navigate = useNavigate();
-  const [checking, setChecking] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalBytes, setTotalBytes] = useState(0);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (!open || libraries.length === 0) {
-      // Intentional setState in effect
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTotalCount(0);
-      setTotalBytes(0);
-      return;
-    }
-    setChecking(true);
-    Promise.all(libraries.map((l) => api.libraryLeftovers(l.id).catch(() => null)))
-      .then((results) => {
-        setTotalCount(results.reduce((s, r) => s + (r?.has_leftovers ? r.count : 0), 0));
-        setTotalBytes(results.reduce((s, r) => s + (r?.has_leftovers ? r.total_bytes : 0), 0));
-      })
-      .finally(() => setChecking(false));
-  }, [open, libraries]);
+  const { data: totals, isFetching: checking } = useQuery({
+    queryKey: ["libraries", "leftovers-all", libraries.map((l) => l.id).sort()],
+    queryFn: async () => {
+      const results = await Promise.all(
+        libraries.map((l) => api.libraryLeftovers(l.id).catch(() => null)),
+      );
+      return {
+        count: results.reduce((s, r) => s + (r?.has_leftovers ? r.count : 0), 0),
+        bytes: results.reduce((s, r) => s + (r?.has_leftovers ? r.total_bytes : 0), 0),
+      };
+    },
+    enabled: open && libraries.length > 0,
+  });
+  const totalCount = totals?.count ?? 0;
+  const totalBytes = totals?.bytes ?? 0;
 
   const doDeleteAll = async (deleteLeftovers: boolean) => {
     setDeleting(true);
@@ -438,42 +425,33 @@ function AddLibraryDialog({
 }
 
 export function Libraries() {
-  const [libraries, setLibraries] = useState<Library[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
-  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const queryClient = useQueryClient();
   const [deletingLib, setDeletingLib] = useState<Library | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const refresh = useCallback(async (showLoader = false) => {
-    if (showLoader) setLoading(true);
-    try {
-      const [libs, jobs] = await Promise.all([api.getLibraries(), api.getJobs(100)]);
-      setLibraries(libs);
-      const active = (jobs as Job[]).filter(
-        (j) => j.status === "pending" || j.status === "running",
-      );
-      const byType = (t: string) =>
-        new Set(
-          active.filter((j) => j.type === t && j.library_id != null).map((j) => j.library_id!),
-        );
-      setScanningIds(byType("scan"));
-    } finally {
-      if (showLoader) setLoading(false);
-    }
-  }, []);
+  const { data: libraries = [], isLoading: loading } = useQuery<Library[]>({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+    refetchInterval: 5000,
+  });
+  const { data: jobs = [] } = useQuery<Job[]>({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchInterval: 5000,
+  });
 
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refresh(true);
-    pollRef.current = setInterval(() => refresh(), 5000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [refresh]);
+  const scanningIds = useMemo(() => {
+    const active = jobs.filter((j) => j.status === "pending" || j.status === "running");
+    return new Set(
+      active.filter((j) => j.type === "scan" && j.library_id != null).map((j) => j.library_id!),
+    );
+  }, [jobs]);
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: qk.libraries() });
+    queryClient.invalidateQueries({ queryKey: qk.jobs() });
+  };
 
   const handleScan = async (id: number) => {
     try {
@@ -515,21 +493,18 @@ export function Libraries() {
       <DeleteLibraryDialog
         lib={deletingLib}
         onClose={() => setDeletingLib(null)}
-        onDeleted={(id) => setLibraries((prev) => prev.filter((l) => l.id !== id))}
+        onDeleted={() => refresh()}
       />
       <DeleteAllLibrariesDialog
         open={deleteAllOpen}
         onClose={() => setDeleteAllOpen(false)}
         libraries={libraries}
-        onDeleted={() => {
-          setLibraries([]);
-          refresh(true);
-        }}
+        onDeleted={() => refresh()}
       />
       <AddLibraryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={() => refresh(true)}
+        onCreated={() => refresh()}
       />
 
       {loading ? (
@@ -572,7 +547,6 @@ export function Libraries() {
                         variant="ghost"
                         className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => handleDelete(lib.id)}
-                        disabled={deletingIds.has(lib.id)}
                         title="Delete library"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
