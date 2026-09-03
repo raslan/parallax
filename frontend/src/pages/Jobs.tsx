@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Loader2,
@@ -13,7 +14,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { api, qk } from "@/lib/api";
 import { useEventSource } from "@/hooks/useEventSource";
 import type { Job, JobLog } from "@/types/job";
 import { formatDate } from "@/lib/format";
@@ -63,21 +64,12 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
   const isFinished =
     job.status === "completed" || job.status === "failed" || job.status === "cancelled";
   const [logsOpen, setLogsOpen] = useState(job.status === "failed");
-  const [logs, setLogs] = useState<JobLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
 
-  useEffect(() => {
-    if (logsOpen && logs.length === 0) {
-      // Intentional setState in effect
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLogsLoading(true);
-      api
-        .getJobLogs(job.id)
-        .then(setLogs)
-        .catch(() => {})
-        .finally(() => setLogsLoading(false));
-    }
-  }, [logsOpen, job.id]);
+  const { data: logs = [], isLoading: logsLoading } = useQuery<JobLog[]>({
+    queryKey: qk.jobLogs(job.id),
+    queryFn: () => api.getJobLogs(job.id),
+    enabled: logsOpen,
+  });
 
   const toggleLogs = () => setLogsOpen((v) => !v);
 
@@ -186,20 +178,20 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
 }
 
 export function Jobs() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [clearing, setClearing] = useState(false);
   const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
 
-  const loadAll = () =>
-    api
-      .getJobs()
-      .then(setJobs)
-      .finally(() => setLoading(false));
+  const { data: jobs = [], isLoading: loading } = useQuery<Job[]>({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(),
+  });
 
-  // Merge live updates into the full job list without losing history entries
+  const loadAll = () => queryClient.invalidateQueries({ queryKey: qk.jobs() });
+
+  // Merge live SSE updates into the cached job list without losing history entries
   const applyLiveUpdate = (liveJobs: Job[]) => {
-    setJobs((prev) => {
+    queryClient.setQueryData<Job[]>(qk.jobs(), (prev = []) => {
       const liveMap = new Map(liveJobs.map((j) => [j.id, j]));
       const merged = prev.map((j) => (liveMap.has(j.id) ? { ...j, ...liveMap.get(j.id) } : j));
       // Add any brand-new jobs not yet in the list
@@ -209,10 +201,6 @@ export function Jobs() {
       return merged;
     });
   };
-
-  useEffect(() => {
-    loadAll();
-  }, []);
 
   useEventSource<Job[]>(
     api.jobsStreamUrl(),
