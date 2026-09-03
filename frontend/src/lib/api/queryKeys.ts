@@ -22,15 +22,13 @@ export const qk = {
   files: (params?: unknown) =>
     params === undefined ? (["files"] as const) : (["files", params] as const),
 
-  images: (libraryId: number, params?: unknown) =>
-    params === undefined
-      ? (["images", libraryId] as const)
-      : (["images", libraryId, params] as const),
-  imageQuarantined: (libraryId: number) => ["images", libraryId, "quarantined"] as const,
+  images: (params?: unknown) =>
+    params === undefined ? (["images"] as const) : (["images", params] as const),
+  imageQuarantined: () => ["images", "quarantined"] as const,
   imageDuplicates: (libraryId: number, params?: unknown) =>
     params === undefined
-      ? (["images", libraryId, "duplicates"] as const)
-      : (["images", libraryId, "duplicates", params] as const),
+      ? (["image-duplicates", libraryId] as const)
+      : (["image-duplicates", libraryId, params] as const),
 
   jobs: () => ["jobs"] as const,
   job: (id: number) => ["jobs", id] as const,

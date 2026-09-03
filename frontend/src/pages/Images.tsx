@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
-import { imageApi } from "@/lib/api";
+import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -89,8 +90,7 @@ function ImageCard({
 }
 
 export function Images() {
-  const [images, setImages] = useState<ImageFile[]>([]);
-  const [total, setTotal] = useState(0);
+  const queryClient = useQueryClient();
   const [gridSize, setGridSize] = useGridSize(140);
   const {
     sortKey: sortBy,
@@ -106,9 +106,10 @@ export function Images() {
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
-  const load = useCallback(() => {
-    imageApi
-      .listImages({
+  const { data } = useQuery({
+    queryKey: qk.images({ sortBy, sortDir, statusFilter, detectionFilter }),
+    queryFn: () =>
+      imageApi.listImages({
         page: 1,
         page_size: FETCH_ALL_PAGE_SIZE,
         sort_by: sortBy,
@@ -117,19 +118,14 @@ export function Images() {
         ...(detectionFilter
           ? { has_detections: detectionFilter as "any" | "exposed" | "none" }
           : {}),
-      })
-      .then((r) => {
-        setImages(r.items);
-        setTotal(r.total);
-      })
-      .catch(() => {});
-  }, [sortBy, sortDir, statusFilter, detectionFilter]);
+      }),
+  });
+  const images = data?.items ?? [];
+  const total = data?.total ?? 0;
 
-  useLiveFiles("image", null, load);
+  const reload = () => queryClient.invalidateQueries({ queryKey: qk.images() });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useLiveFiles("image", null, reload);
 
   const toggleSelectionMode = () => {
     setSelectionMode((m) => !m);
@@ -143,7 +139,7 @@ export function Images() {
       await imageApi.quarantineBulk([...selectedIds]);
       setSelectedIds(new Set());
       setSelectionMode(false);
-      load();
+      reload();
     } finally {
       setQuarantining(false);
     }
@@ -151,7 +147,7 @@ export function Images() {
 
   async function quarantineOne(id: number) {
     await imageApi.quarantineImage(id).catch(() => {});
-    load();
+    reload();
   }
 
   const visibleImages = filterByFilename(images, search);
