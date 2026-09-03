@@ -12,7 +12,8 @@ import {
   Play,
   Mic,
 } from "lucide-react";
-import { subtitlesApi, api } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { subtitlesApi, api, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import type { SubtitleFile } from "@/types/subtitle";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -227,18 +228,20 @@ export function Subtitles() {
   const transcribeStatus = transcribePoll.currentFile || transcribePoll.status || "";
 
   // Load default languages from settings
+  const { data: settings } = useQuery({
+    queryKey: qk.settings(),
+    queryFn: () => api.getSettings(),
+  });
   useEffect(() => {
-    api
-      .getSettings()
-      .then((s) => {
-        const codes = (s.subtitle_languages || "en")
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean);
-        setSelectedLangs(codes);
-      })
-      .catch(() => {});
-  }, []);
+    if (!settings) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedLangs(
+      (settings.subtitle_languages || "en")
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean),
+    );
+  }, [settings]);
 
   const toggleLang = (code: string) => {
     setSelectedLangs((prev) =>
