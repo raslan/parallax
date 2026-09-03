@@ -10,9 +10,10 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { api, qk } from "@/lib/api";
 import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -198,14 +199,12 @@ function CleanupListRow({
 }
 
 export function Cleanup() {
-  const [libraries, setLibraries] = useState<Library[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
 
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(cleanupFields);
 
-  const [loading, setLoading] = useState(false);
-  const [allFiles, setAllFiles] = useState<VideoFile[] | null>(null);
   const { selected, setSelected, toggle: toggleOne, selectAll: selectAllIds } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,33 +218,34 @@ export function Cleanup() {
     setSortDir,
   } = useSort<string>("filename");
 
-  useEffect(() => {
-    api.getLibraries().then((libs) => {
-      setLibraries(libs);
-      if (libs.length > 0) setSelectedId(libs[0].id);
-    });
-  }, []);
+  const { data: libraries = [] } = useQuery({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+  });
 
+  // Default to the first library once they load.
   useEffect(() => {
-    if (selectedId == null) {
+    if (selectedId == null && libraries.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAllFiles(null);
-      return;
+      setSelectedId(libraries[0].id);
     }
-    setLoading(true);
-    setError(null);
-    api
-      .getCleanupFiles(selectedId)
-      .then((files) => {
-        setAllFiles(files);
-      })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
-  }, [selectedId]);
+  }, [libraries, selectedId]);
+
+  const {
+    data: allFilesData,
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: qk.cleanupFiles(selectedId ?? -1),
+    queryFn: () => api.getCleanupFiles(selectedId as number),
+    enabled: selectedId != null,
+  });
+  const allFiles = selectedId == null ? null : (allFilesData ?? null);
+  const displayError = error ?? (fetchError ? String(fetchError) : null);
 
   useLiveFiles("video", selectedId, () => {
     if (selectedId != null) {
-      api.getCleanupFiles(selectedId).then(setAllFiles);
+      queryClient.invalidateQueries({ queryKey: qk.cleanupFiles(selectedId) });
     }
   });
 
@@ -288,7 +288,9 @@ export function Cleanup() {
     setDeleting(true);
     try {
       await api.deleteCleanupFiles(selectedId, [...selected]);
-      setAllFiles(allFiles.filter((f) => !selected.has(f.id)));
+      queryClient.setQueryData<VideoFile[]>(qk.cleanupFiles(selectedId), (prev) =>
+        prev ? prev.filter((f) => !selected.has(f.id)) : prev,
+      );
       setSelected(new Set());
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Delete failed";
@@ -316,6 +318,7 @@ export function Cleanup() {
               onChange={(id) => {
                 setSelectedId(id);
                 setSelected(new Set());
+                setError(null);
               }}
             />
           )}
@@ -333,7 +336,7 @@ export function Cleanup() {
         />
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {displayError && <p className="text-sm text-destructive">{displayError}</p>}
 
       {loading && (
         <div className="flex justify-center py-16">
@@ -341,7 +344,7 @@ export function Cleanup() {
         </div>
       )}
 
-      {!loading && allFiles === null && !error && (
+      {!loading && allFiles === null && !displayError && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
@@ -423,9 +426,7 @@ export function Cleanup() {
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {viewMode === "grid" && (
-                <GridSizeControl value={gridSize} onChange={setGridSize} />
-              )}
+              {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
               <Button
                 variant="destructive"
                 size="sm"
