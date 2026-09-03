@@ -3,6 +3,62 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.0.0](https://github.com/raslan/parallax/compare/v1.16.0...v2.0.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove corrupt-file smart-select and stale job-type labels
+* remove Max keyframes per video setting
+* remove corruption UI from Files page
+* remove AI-scan and corruption-check buttons from Libraries page
+* remove corruption detection
+* remove video AI scan (NudeNet-on-video)
+
+### Features
+
+* **backend:** one-time cleanup of leftover CLIP model files on startup ([cabbc9c](https://github.com/raslan/parallax/commit/cabbc9c7ba633a0284b18513e0b9dc3ec5560bfb))
+* **backend:** track filesystem mtime separately from content date ([2dd73b5](https://github.com/raslan/parallax/commit/2dd73b5a402c1f83db226887d46b195ea0ea8fad))
+* **frontend:** add composable clause evaluator with tests ([deb6a31](https://github.com/raslan/parallax/commit/deb6a3120ce8a62624794f032ce715d31c307053))
+* **frontend:** add QueryBuilder clause-pill UI component ([e9e27e9](https://github.com/raslan/parallax/commit/e9e27e906951892ec0e1410a304fe7803e3fdb3d))
+* **frontend:** add size/orientation/date/no-detections filters ([3c53869](https://github.com/raslan/parallax/commit/3c538692af3de0d2c3147ff248c019d29e0f57ae))
+* **frontend:** add useQueryBuilder hook for clause CRUD state ([760f205](https://github.com/raslan/parallax/commit/760f205476b72db97ed2ab2960382cdce32ff547))
+* **frontend:** grid size control, content/file-added date columns, card contrast ([d8b9821](https://github.com/raslan/parallax/commit/d8b9821aceeb2f92ed44e79faa1fb286559620e9))
+* **frontend:** rebuild Cleanup filtering as a composable query ([8c72796](https://github.com/raslan/parallax/commit/8c72796322e41ec25aaa6ef5e7c9d66547c45217))
+* **frontend:** rebuild Content Review filtering as a composable query ([f9611ec](https://github.com/raslan/parallax/commit/f9611ec6ccc7e7ee88ad03ed510ac238325c0db0))
+* **frontend:** redesign add-filter menu as a wider grouped popover ([df94580](https://github.com/raslan/parallax/commit/df94580c20c86839bcaebd4bf42a350e29e70ede))
+* **frontend:** sliders and presets in the query-builder editor ([88b9835](https://github.com/raslan/parallax/commit/88b9835d9328d6fc6b8c808ef1e31195c87dfd9a))
+* remove AI-scan and corruption-check buttons from Libraries page ([2d64fe8](https://github.com/raslan/parallax/commit/2d64fe80c946f72f52676793b7759ab23272f7e7))
+* remove corrupt-file smart-select and stale job-type labels ([d4c2904](https://github.com/raslan/parallax/commit/d4c29048783e9d308cc521b07774b2f746adbc26))
+* remove corruption detection ([7102329](https://github.com/raslan/parallax/commit/7102329e20db60b100ed4495a4af3b256a8b56b0))
+* remove corruption UI from Files page ([a53536b](https://github.com/raslan/parallax/commit/a53536b39d1dc28b12845dfd06647081833bf57d))
+* remove Max keyframes per video setting ([f26c4d8](https://github.com/raslan/parallax/commit/f26c4d85c9e7bf61dd28f34612e5e0793cb0492a))
+* remove video AI scan (NudeNet-on-video) ([c7e75f6](https://github.com/raslan/parallax/commit/c7e75f68638bfbf2e7c5d87f20f89d64ea1e78e5))
+* **settings:** make mission control the default theme ([1d68e6a](https://github.com/raslan/parallax/commit/1d68e6ae1b72d9e7ecc827b86770edb77583ad44))
+* **video:** generate thumbnails lazily on first request ([736badd](https://github.com/raslan/parallax/commit/736badd6e8b7c51df9a8a15d82763cbecbe8daa4))
+
+
+### Bug Fixes
+
+* **backend:** remove CLIP from scan pipeline, fix extraction-resolution floor ([7dd27c6](https://github.com/raslan/parallax/commit/7dd27c6ddeb0c0996772eb6b9aa277c59e3b6d14))
+* **backend:** remove CLIP tests and orphaned schema left over from removal ([3c7770a](https://github.com/raslan/parallax/commit/3c7770a21a681f47a1c49c8d9eb569caa709340d))
+* **backend:** remove stale video model import and guard dead-table cleanup in init_db ([ed3b3e0](https://github.com/raslan/parallax/commit/ed3b3e09f65bd4be3b4b3437c00c401ad1a8ec75))
+* **backend:** serialize file_mtime in file/image list endpoints ([c645e9f](https://github.com/raslan/parallax/commit/c645e9f1f3ad05802ed648aaa9675be19b538e89))
+* **backend:** stop serving stale thumbnails from deleted files ([edac912](https://github.com/raslan/parallax/commit/edac912c7bfb8ac19220cfa1d26cdea5aea44076))
+* **frontend:** collapsible floating controls on Compress/Toolbox ([84fa2eb](https://github.com/raslan/parallax/commit/84fa2ebabbf5fd38f31c66a681c357268e93735c))
+* **frontend:** drop dead scanning/clean status-filter options ([331a61b](https://github.com/raslan/parallax/commit/331a61b33ddd395ed9eb4ddebfa71afbc4971bc2))
+* **frontend:** force image refetch after quarantine in Content Review ([560b90e](https://github.com/raslan/parallax/commit/560b90e44deb1838fc9981c1482091d752fd5a5c))
+* **frontend:** resolve final-review findings in Content Review (422, error handling, memoization, empty-clause state, docs) ([807c455](https://github.com/raslan/parallax/commit/807c4550233d709ded445228c07ee1694d0fbe2d))
+* **frontend:** resolve QueryBuilder theme and interaction review findings ([74e1b01](https://github.com/raslan/parallax/commit/74e1b01c38df661b6e53f0411cd97062278d671f))
+* **frontend:** show whole library on Content Review with no filters ([eb2240d](https://github.com/raslan/parallax/commit/eb2240d81451fca30b5cf644604a0762143d6901))
+* **frontend:** virtualized grids fill remaining viewport height ([6bb8d60](https://github.com/raslan/parallax/commit/6bb8d6069260ef7c406e718bd4a39ff8d2aa7075))
+* **video:** clear thumbnail-failed marker on every file deletion ([ba8e572](https://github.com/raslan/parallax/commit/ba8e5726732e71e53e34a7eb964481abf3b4d1c8))
+
+
+### Performance Improvements
+
+* **backend:** parallelize video scan and batch DB writes ([0a2bc31](https://github.com/raslan/parallax/commit/0a2bc3131f49ae3a33e76d2bcbea1d733b0f07a0))
+
 ## [1.16.0](https://github.com/raslan/parallax/compare/v1.15.0...v1.16.0) (2026-08-31)
 
 
