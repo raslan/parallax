@@ -173,13 +173,11 @@ export function Toolbox() {
     },
   });
 
+  const { data: allJobs } = useQuery({ queryKey: qk.jobs(), queryFn: () => api.getJobs(100) });
   useEffect(() => {
-    api
-      .getJobs(100)
-      .then((jobs) => resumeJobPoll(jobs, (j) => j.type === "toolbox_fix"))
-      .catch(() => {});
+    if (allJobs) resumeJobPoll(allJobs, (j) => j.type === "toolbox_fix");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [allJobs]);
 
   const hasFix =
     trimEnabled ||

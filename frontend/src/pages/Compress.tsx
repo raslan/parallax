@@ -254,13 +254,11 @@ export function Compress() {
   });
 
   // Resume polling any active compress job on mount
+  const { data: allJobs } = useQuery({ queryKey: qk.jobs(), queryFn: () => api.getJobs(100) });
   useEffect(() => {
-    api
-      .getJobs(100)
-      .then((jobs) => resumeJobPoll(jobs, (j) => j.type === "compress"))
-      .catch(() => {});
+    if (allJobs) resumeJobPoll(allJobs, (j) => j.type === "compress");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [allJobs]);
 
   const [startError, setStartError] = useState<string | null>(null);
 

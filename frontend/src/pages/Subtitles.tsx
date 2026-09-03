@@ -316,41 +316,39 @@ export function Subtitles() {
 
   // Resume any active subtitle-download or whisper-transcribe job on mount
   // (e.g. after a page refresh) so bulk jobs across large folders aren't lost.
+  const { data: allJobs } = useQuery({ queryKey: qk.jobs(), queryFn: () => api.getJobs(50) });
   useEffect(() => {
-    api
-      .getJobs(50)
-      .then((jobs) => {
-        const active = jobs.find(
-          (j) =>
-            (j.type === "subtitle_download" || j.type === "whisper_transcribe") &&
-            (j.status === "running" || j.status === "pending"),
-        );
-        if (!active) return;
+    if (!allJobs) return;
+    const active = allJobs.find(
+      (j) =>
+        (j.type === "subtitle_download" || j.type === "whisper_transcribe") &&
+        (j.status === "running" || j.status === "pending"),
+    );
+    if (!active) return;
 
-        let jobPath = "";
-        try {
-          jobPath = active.settings ? (JSON.parse(active.settings).path ?? "") : "";
-        } catch {
-          /* ignore malformed settings */
-        }
-        if (!jobPath) return;
+    let jobPath = "";
+    try {
+      jobPath = active.settings ? (JSON.parse(active.settings).path ?? "") : "";
+    } catch {
+      /* ignore malformed settings */
+    }
+    if (!jobPath) return;
 
-        setPath(jobPath);
-        handleScan(jobPath);
-
-        if (active.type === "subtitle_download") {
-          setDownloading(true);
-          downloadTargetRef.current = jobPath;
-          downloadPoll.resume(jobs, (j) => j.id === active.id);
-        } else {
-          setTranscribing(true);
-          transcribeTargetRef.current = jobPath;
-          transcribePoll.resume(jobs, (j) => j.id === active.id);
-        }
-      })
-      .catch(() => {});
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setPath(jobPath);
+    handleScan(jobPath);
+    if (active.type === "subtitle_download") {
+      setDownloading(true);
+      downloadTargetRef.current = jobPath;
+      downloadPoll.resume(allJobs, (j) => j.id === active.id);
+    } else {
+      setTranscribing(true);
+      transcribeTargetRef.current = jobPath;
+      transcribePoll.resume(allJobs, (j) => j.id === active.id);
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [allJobs]);
 
   const groups = files ? groupByDir(files) : null;
   const totalFiles = files?.length ?? 0;
