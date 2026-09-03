@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { FolderOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DirPicker } from "@/components/DirPicker";
+import { zodResolver } from "@/lib/zodResolver";
+import { addLibrarySchema, type AddLibraryForm } from "@/lib/schemas/library";
 
 /**
  * Shared "Add library" dialog shell. The path input, dir picker, "scan after
@@ -18,6 +21,9 @@ import { DirPicker } from "@/components/DirPicker";
  * libraries; the middle section (`renderExtra`) and the create/scan call
  * (`onSubmit`) are passed in. `E` is the extra per-kind form state (video: the
  * split toggle, image: the scan-options object).
+ *
+ * `path` + `autoScan` are a react-hook-form form validated by `addLibrarySchema`
+ * (zod); `extra` stays plain state since it's generic per kind.
  */
 export function AddLibraryDialog<E>({
   open,
@@ -42,37 +48,38 @@ export function AddLibraryDialog<E>({
   submitLabel: (extra: E) => string;
   onSubmit: (args: { path: string; extra: E; autoScan: boolean }) => Promise<void>;
 }) {
-  const [path, setPath] = useState("");
+  const {
+    register,
+    handleSubmit,
+    reset: resetForm,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<AddLibraryForm>({
+    resolver: zodResolver(addLibrarySchema),
+    defaultValues: { path: "", autoScan: true },
+  });
   const [extra, setExtra] = useState<E>(extraDefault);
-  const [autoScan, setAutoScan] = useState(true);
   const [picking, setPicking] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
   const reset = () => {
-    setPath("");
+    resetForm({ path: "", autoScan: true });
     setExtra(extraDefault);
-    setAutoScan(true);
     setPicking(false);
-    setError("");
+    setSubmitError("");
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!path.trim()) return;
-    setLoading(true);
-    setError("");
+  const submit = handleSubmit(async ({ path, autoScan }) => {
+    setSubmitError("");
     try {
       await onSubmit({ path: path.trim(), extra, autoScan });
       reset();
       onOpenChange(false);
       onCreated();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create library");
-    } finally {
-      setLoading(false);
+      setSubmitError(err instanceof Error ? err.message : "Failed to create library");
     }
-  };
+  });
 
   return (
     <Dialog
@@ -89,7 +96,7 @@ export function AddLibraryDialog<E>({
         {picking ? (
           <DirPicker
             onSelect={(p) => {
-              setPath(p);
+              setValue("path", p, { shouldValidate: true });
               setPicking(false);
             }}
             onClose={() => setPicking(false)}
@@ -101,10 +108,8 @@ export function AddLibraryDialog<E>({
               <div className="flex gap-2">
                 <Input
                   placeholder={placeholder}
-                  value={path}
-                  onChange={(e) => setPath(e.target.value)}
+                  {...register("path")}
                   className="font-mono text-sm"
-                  required
                 />
                 <Button
                   type="button"
@@ -116,13 +121,13 @@ export function AddLibraryDialog<E>({
                   <FolderOpen className="h-4 w-4" />
                 </Button>
               </div>
+              {errors.path && <p className="text-sm text-destructive">{errors.path.message}</p>}
             </div>
             {renderExtra?.(extra, setExtra)}
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={autoScan}
-                onChange={(e) => setAutoScan(e.target.checked)}
+                {...register("autoScan")}
                 className="accent-primary h-4 w-4 mt-0.5 shrink-0"
               />
               <div>
@@ -130,13 +135,13 @@ export function AddLibraryDialog<E>({
                 <p className="text-xs text-muted-foreground mt-0.5">{autoScanHint}</p>
               </div>
             </label>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {submitError && <p className="text-sm text-destructive">{submitError}</p>}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || !path.trim()}>
-                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {submitLabel(extra)}
               </Button>
             </DialogFooter>
