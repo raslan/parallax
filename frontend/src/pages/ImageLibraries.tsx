@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Images,
   Library,
@@ -10,7 +11,7 @@ import {
   Loader2,
   ExternalLink,
 } from "lucide-react";
-import { api, imageApi } from "@/lib/api";
+import { api, imageApi, qk } from "@/lib/api";
 import type { ImageLibrary, ImageScanRequest } from "@/types/image";
 import type { Job } from "@/types/job";
 import { Button } from "@/components/ui/button";
@@ -51,21 +52,13 @@ function DeleteImageLibraryDialog({
   onDeleted: (id: number) => void;
 }) {
   const navigate = useNavigate();
-  const [leftovers, setLeftovers] = useState<Leftovers | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (!lib) {
-      // Intentional setState in effect
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLeftovers(null);
-      return;
-    }
-    imageApi
-      .libraryLeftovers(lib.id)
-      .then(setLeftovers)
-      .catch(() => setLeftovers(null));
-  }, [lib]);
+  const { data: leftovers } = useQuery<Leftovers>({
+    queryKey: lib ? qk.imageLibraryLeftovers(lib.id) : ["image-libraries", "none", "leftovers"],
+    queryFn: () => imageApi.libraryLeftovers(lib!.id),
+    enabled: !!lib,
+  });
 
   const doDelete = async (deleteLeftovers: boolean) => {
     if (!lib) return;
@@ -177,27 +170,23 @@ function DeleteAllImageLibrariesDialog({
   onDeleted: () => void;
 }) {
   const navigate = useNavigate();
-  const [checking, setChecking] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalBytes, setTotalBytes] = useState(0);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (!open || libraries.length === 0) {
-      // Intentional setState in effect
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTotalCount(0);
-      setTotalBytes(0);
-      return;
-    }
-    setChecking(true);
-    Promise.all(libraries.map((l) => imageApi.libraryLeftovers(l.id).catch(() => null)))
-      .then((results) => {
-        setTotalCount(results.reduce((s, r) => s + (r?.has_leftovers ? r.count : 0), 0));
-        setTotalBytes(results.reduce((s, r) => s + (r?.has_leftovers ? r.total_bytes : 0), 0));
-      })
-      .finally(() => setChecking(false));
-  }, [open, libraries]);
+  const { data: totals, isFetching: checking } = useQuery({
+    queryKey: ["image-libraries", "leftovers-all", libraries.map((l) => l.id).sort()],
+    queryFn: async () => {
+      const results = await Promise.all(
+        libraries.map((l) => imageApi.libraryLeftovers(l.id).catch(() => null)),
+      );
+      return {
+        count: results.reduce((s, r) => s + (r?.has_leftovers ? r.count : 0), 0),
+        bytes: results.reduce((s, r) => s + (r?.has_leftovers ? r.total_bytes : 0), 0),
+      };
+    },
+    enabled: open && libraries.length > 0,
+  });
+  const totalCount = totals?.count ?? 0;
+  const totalBytes = totals?.bytes ?? 0;
 
   const doDeleteAll = async (deleteLeftovers: boolean) => {
     setDeleting(true);
@@ -443,17 +432,13 @@ function AddImageLibraryDialog({
 }
 
 export function ImageLibraries() {
-  const [libraries, setLibraries] = useState<ImageLibrary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [scanningIds, setScanningIds] = useState<Set<number>>(new Set());
-  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const queryClient = useQueryClient();
   const [deletingLib, setDeletingLib] = useState<ImageLibrary | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [scanOptsFor, setScanOptsFor] = useState<number | null>(null);
   const [scanOpts, setScanOpts] = useState<ImageScanRequest>(DEFAULT_SCAN_OPTS);
   const scanOptsRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (scanOptsFor === null) return;
@@ -466,35 +451,30 @@ export function ImageLibraries() {
     return () => document.removeEventListener("mousedown", handler);
   }, [scanOptsFor]);
 
-  const refresh = useCallback(async (showLoader = false) => {
-    if (showLoader) setLoading(true);
-    try {
-      const [libs, jobs] = await Promise.all([imageApi.listLibraries(), api.getJobs(100)]);
-      setLibraries(libs);
-      const active = (jobs as Job[]).filter(
-        (j) => j.status === "pending" || j.status === "running",
-      );
-      setScanningIds(
-        new Set(
-          active
-            .filter((j) => j.type === "image_scan" && j.library_id != null)
-            .map((j) => j.library_id!),
-        ),
-      );
-    } finally {
-      if (showLoader) setLoading(false);
-    }
-  }, []);
+  const { data: libraries = [], isLoading: loading } = useQuery<ImageLibrary[]>({
+    queryKey: qk.imageLibraries(),
+    queryFn: () => imageApi.listLibraries(),
+    refetchInterval: 5000,
+  });
+  const { data: jobs = [] } = useQuery<Job[]>({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchInterval: 5000,
+  });
 
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refresh(true);
-    pollRef.current = setInterval(() => refresh(), 5000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [refresh]);
+  const scanningIds = useMemo(() => {
+    const active = jobs.filter((j) => j.status === "pending" || j.status === "running");
+    return new Set(
+      active
+        .filter((j) => j.type === "image_scan" && j.library_id != null)
+        .map((j) => j.library_id!),
+    );
+  }, [jobs]);
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: qk.imageLibraries() });
+    queryClient.invalidateQueries({ queryKey: qk.jobs() });
+  };
 
   const handleScan = async (id: number, reset = false) => {
     setScanOptsFor(null);
@@ -542,21 +522,18 @@ export function ImageLibraries() {
       <DeleteImageLibraryDialog
         lib={deletingLib}
         onClose={() => setDeletingLib(null)}
-        onDeleted={(id) => setLibraries((prev) => prev.filter((l) => l.id !== id))}
+        onDeleted={() => refresh()}
       />
       <DeleteAllImageLibrariesDialog
         open={deleteAllOpen}
         onClose={() => setDeleteAllOpen(false)}
         libraries={libraries}
-        onDeleted={() => {
-          setLibraries([]);
-          refresh(true);
-        }}
+        onDeleted={() => refresh()}
       />
       <AddImageLibraryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={(lib) => setLibraries((prev) => [...prev, lib])}
+        onCreated={() => refresh()}
       />
 
       {loading ? (
@@ -647,7 +624,6 @@ export function ImageLibraries() {
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7 text-destructive hover:text-destructive"
-                      disabled={deletingIds.has(lib.id)}
                       title="Delete library"
                       onClick={() => handleDelete(lib.id)}
                     >
