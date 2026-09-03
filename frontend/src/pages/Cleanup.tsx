@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, qk } from "@/lib/api";
+import { getErrorMessage } from "@/lib/api/client";
 import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -241,7 +242,7 @@ export function Cleanup() {
     enabled: selectedId != null,
   });
   const allFiles = selectedId == null ? null : (allFilesData ?? null);
-  const displayError = error ?? (fetchError ? String(fetchError) : null);
+  const displayError = error ?? (fetchError ? getErrorMessage(fetchError) : null);
 
   useLiveFiles("video", selectedId, () => {
     if (selectedId != null) {
@@ -286,6 +287,7 @@ export function Cleanup() {
     if (!selectedId || selected.size === 0 || !allFiles) return;
     if (!confirm(`Move ${selected.size} file(s) to _originals/ and remove from library?`)) return;
     setDeleting(true);
+    setError(null);
     try {
       await api.deleteCleanupFiles(selectedId, [...selected]);
       queryClient.setQueryData<VideoFile[]>(qk.cleanupFiles(selectedId), (prev) =>
@@ -293,8 +295,7 @@ export function Cleanup() {
       );
       setSelected(new Set());
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Delete failed";
-      setError(message);
+      setError(getErrorMessage(e, "Delete failed"));
     } finally {
       setDeleting(false);
     }

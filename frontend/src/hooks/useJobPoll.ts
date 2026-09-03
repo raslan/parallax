@@ -27,11 +27,12 @@ export function useJobPoll(options: UseJobPollOptions = {}) {
   });
   const firedTerminalFor = useRef<number | null>(null);
 
-  const { data: job } = useQuery({
+  const { data: job, isError } = useQuery({
     queryKey: qk.job(jobId ?? -1),
     queryFn: () => api.getJob(jobId as number),
     enabled: jobId != null,
     refetchInterval: (query) => {
+      if (query.state.status === "error") return false;
       const status = query.state.data?.status;
       return status && TERMINAL_STATUSES.includes(status) ? false : intervalMs;
     },
@@ -45,6 +46,13 @@ export function useJobPoll(options: UseJobPollOptions = {}) {
       onTerminalRef.current?.(job);
     }
   }, [job, jobId]);
+
+  // Poll lost the job (row cleared from the Jobs page, backend restart): stop
+  // instead of retrying forever — matches the old `catch { stop() }` behaviour.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isError && jobId != null) setJobId(null);
+  }, [isError, jobId]);
 
   const start = useCallback((id: number) => {
     firedTerminalFor.current = null;

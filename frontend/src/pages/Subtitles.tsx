@@ -316,7 +316,11 @@ export function Subtitles() {
 
   // Resume any active subtitle-download or whisper-transcribe job on mount
   // (e.g. after a page refresh) so bulk jobs across large folders aren't lost.
-  const { data: allJobs } = useQuery({ queryKey: qk.jobs(), queryFn: () => api.getJobs(50) });
+  const { data: allJobs } = useQuery({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchOnMount: "always",
+  });
   useEffect(() => {
     if (!allJobs) return;
     const active = allJobs.find(

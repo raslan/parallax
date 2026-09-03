@@ -22,15 +22,15 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
 
-  const { data: libraries = [], isLoading: loading } = useQuery<T[]>({
-    queryKey: kind.listKey(),
-    queryFn: () => kind.list(),
-    refetchInterval: 5000,
-  });
+  // Poll the job list only while something is actually running; an idle
+  // library page shouldn't hammer two endpoints every 5s forever.
   const { data: jobs = [] } = useQuery<Job[]>({
     queryKey: qk.jobs(),
     queryFn: () => api.getJobs(100),
-    refetchInterval: 5000,
+    refetchInterval: (q) =>
+      (q.state.data ?? []).some((j) => j.status === "pending" || j.status === "running")
+        ? 5000
+        : false,
   });
 
   const scanningIds = useMemo(() => {
@@ -41,6 +41,12 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
         .map((j) => j.library_id!),
     );
   }, [jobs, kind.jobType]);
+
+  const { data: libraries = [], isLoading: loading } = useQuery<T[]>({
+    queryKey: kind.listKey(),
+    queryFn: () => kind.list(),
+    refetchInterval: scanningIds.size > 0 ? 5000 : false,
+  });
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: kind.listKey() });

@@ -148,7 +148,9 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
       ]);
       return { clusters: clusterData, images: imageData.items };
     },
-    staleTime: Infinity,
+    // "Find Duplicates" is an explicit rescan request — re-selecting a
+    // previously-used threshold must hit the network, not serve a cached cluster.
+    staleTime: 0,
   });
 
   const clusters = useMemo(() => data?.clusters ?? [], [data]);

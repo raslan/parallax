@@ -3,6 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useTheme } from "@/components/ThemeProvider";
 import { DangerZone } from "./DangerZone";
 
+// ponytail: hex literals are intentional here — each swatch previews a theme
+// that is NOT active, so it can't read that theme's `--px-accent` var. Keep in
+// sync with the `--px-accent` values in index.css if a theme is retuned.
 const THEMES = [
   { id: "amber" as const, label: "Mission Control", accent: "#f59e0b" },
   { id: "violet" as const, label: "Deep Space", accent: "#a78bfa" },

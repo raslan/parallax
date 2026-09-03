@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle, Download, Loader2, Trash2 } from "lucide-react";
-import { api, modelsApi } from "@/lib/api";
+import { modelsApi } from "@/lib/api";
 import type { ActiveModelDownload, ModelInfo } from "@/types/model";
 import { toast } from "sonner"; // sonner toast fn works independently of Toaster wrapper
 import { Button } from "@/components/ui/button";
 import { formatSize } from "@/lib/format";
+import { useJobPoll } from "@/hooks/useJobPoll";
 
 export function ModelCard({
   model,
@@ -17,17 +18,21 @@ export function ModelCard({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [downloadJobId, setDownloadJobId] = useState<number | null>(null);
-  const [jobProgress, setJobProgress] = useState<number>(0);
-  const [jobStatus, setJobStatus] = useState<string>("");
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
+  const {
+    jobId,
+    progress: jobProgress,
+    currentFile,
+    status: pollStatus,
+    start: startPoll,
+  } = useJobPoll({
+    onTerminal: (job) => {
+      setBusy(false);
+      if (job.status === "completed") onAction();
+      else if (job.status === "failed") setError(job.error ?? "Download failed");
+    },
+  });
+  const jobStatus = currentFile ?? pollStatus ?? "";
 
   // Reconnect to an in-progress download after navigation
   useEffect(() => {
@@ -37,57 +42,21 @@ export function ModelCard({
       activeDownload.model_id === model.id &&
       !model.downloaded
     ) {
-      // Intentional setState in effect
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBusy(true);
-      setJobProgress(activeDownload.progress ?? 0);
-      setJobStatus(activeDownload.current_file ?? activeDownload.status);
-      setDownloadJobId(activeDownload.job_id);
+      startPoll(activeDownload.job_id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (downloadJobId === null) return;
-    stopPolling();
-    pollRef.current = setInterval(async () => {
-      try {
-        const job = await api.getJob(downloadJobId);
-        setJobProgress(job.progress ?? 0);
-        if (job.status === "completed") {
-          stopPolling();
-          setDownloadJobId(null);
-          setBusy(false);
-          onAction();
-        } else if (job.status === "failed") {
-          stopPolling();
-          setDownloadJobId(null);
-          setBusy(false);
-          setError(job.error ?? "Download failed");
-        } else if (job.status === "cancelled") {
-          stopPolling();
-          setDownloadJobId(null);
-          setBusy(false);
-        } else {
-          setJobStatus(job.current_file ?? job.status);
-        }
-      } catch {
-        // transient error — keep polling
-      }
-    }, 1500);
-    return stopPolling;
-  }, [downloadJobId, onAction, stopPolling]);
-
   const download = async () => {
     setBusy(true);
     setError(null);
-    setJobProgress(0);
-    setJobStatus("Starting…");
     try {
       const res = await (model.type === "whisper"
         ? modelsApi.downloadWhisper(model.id)
         : modelsApi.downloadNudenet(model.id));
-      setDownloadJobId(res.job_id);
+      startPoll(res.job_id);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -129,7 +98,7 @@ export function ModelCard({
     }
   };
 
-  const downloading = busy && downloadJobId !== null;
+  const downloading = busy && jobId != null;
 
   return (
     <div

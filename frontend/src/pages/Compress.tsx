@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Zap, Loader2, TrendingDown, LayoutGrid, List, Search } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { compressApi, api, qk } from "@/lib/api";
@@ -147,11 +147,14 @@ export function Compress() {
     }
   }, [libraries, libraryId]);
 
-  // Seed codec + CRF from the codec list (prefers hevc).
+  // Seed codec + CRF from the codec list once (prefers hevc). A `useQuery`
+  // refetch changes the array identity — guard so it doesn't clobber the
+  // user's later codec/CRF choice.
+  const codecSeeded = useRef(false);
   useEffect(() => {
-    if (codecs.length === 0) return;
+    if (codecs.length === 0 || codecSeeded.current) return;
+    codecSeeded.current = true;
     const first = codecs.find((x) => x.id === "hevc") ?? codecs[0]!;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCodec(first.id);
     setCrf(first.default_crf);
   }, [codecs]);
@@ -254,7 +257,11 @@ export function Compress() {
   });
 
   // Resume polling any active compress job on mount
-  const { data: allJobs } = useQuery({ queryKey: qk.jobs(), queryFn: () => api.getJobs(100) });
+  const { data: allJobs } = useQuery({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchOnMount: "always",
+  });
   useEffect(() => {
     if (allJobs) resumeJobPoll(allJobs, (j) => j.type === "compress");
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -173,7 +173,11 @@ export function Toolbox() {
     },
   });
 
-  const { data: allJobs } = useQuery({ queryKey: qk.jobs(), queryFn: () => api.getJobs(100) });
+  const { data: allJobs } = useQuery({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchOnMount: "always",
+  });
   useEffect(() => {
     if (allJobs) resumeJobPoll(allJobs, (j) => j.type === "toolbox_fix");
     // eslint-disable-next-line react-hooks/exhaustive-deps

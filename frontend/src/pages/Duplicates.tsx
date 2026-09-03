@@ -231,8 +231,12 @@ export function Duplicates() {
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
   const [criteria, setCriteria] = useState<DuplicateCriteria>(loadCriteria);
 
-  const { data: allJobs } = useQuery({ queryKey: qk.jobs(), queryFn: () => api.getJobs() });
-  const initializing = allJobs === undefined;
+  const { data: allJobs, isLoading: jobsLoading } = useQuery({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchOnMount: "always",
+  });
+  const initializing = jobsLoading;
 
   useEffect(() => {
     localStorage.setItem(CRITERIA_KEY, JSON.stringify(criteria));
