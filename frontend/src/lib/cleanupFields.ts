@@ -1,7 +1,7 @@
 import type { FieldDef } from "@/hooks/useQueryBuilder";
 import type { VideoFile } from "@/types/file";
 
-function bigramSimilarity(a: string, b: string): number {
+export function bigramSimilarity(a: string, b: string): number {
   const s = a.toLowerCase();
   const t = b.toLowerCase();
   if (t.length === 0) return 1;

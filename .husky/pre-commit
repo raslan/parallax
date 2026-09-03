@@ -15,10 +15,14 @@ fi
 
 npx lint-staged
 
-# Dead-code gate: run knip when frontend TS/TSX is staged (project-wide, ~1s).
+# Frontend gates when frontend TS/TSX is staged (both project-wide, ~1-2s each).
 if git diff --cached --name-only | grep -q '^frontend/src/.*\.tsx\?$'; then
   (cd frontend && npx knip) || {
     echo "error: knip found unused files/exports/deps — fix or adjust frontend/knip.json"
+    exit 1
+  }
+  (cd frontend && npm test --silent) || {
+    echo "error: frontend unit tests failed (npm test in frontend/)"
     exit 1
   }
 fi
