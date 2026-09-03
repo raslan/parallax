@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ShieldAlert, FolderX } from "lucide-react";
-import { imageApi } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
@@ -87,33 +88,31 @@ function ImageGrid({
 }
 
 export function ContentReview() {
-  const [allImages, setAllImages] = useState<ImageFile[] | null>(null);
+  const queryClient = useQueryClient();
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(contentReviewFields);
   const { selected: selectedIds, setSelected: setSelectedIds, toggle: toggleId } = useSelection();
-  const [loading, setLoading] = useState(false);
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchImages() {
-    setLoading(true);
-    setError(null);
-    try {
-      const images = (await imageApi.listImages({ page_size: 10000 })).items;
-      setAllImages(images);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to load images";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchImages();
-  }, []);
+  const imagesParams = { page_size: 10000 };
+  const {
+    data: listData,
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: qk.images(imagesParams),
+    queryFn: () => imageApi.listImages(imagesParams),
+  });
+  const allImages = listData?.items ?? null;
+  const displayError =
+    error ??
+    (fetchError
+      ? fetchError instanceof Error
+        ? fetchError.message
+        : "Failed to load images"
+      : null);
 
   const allResults = useMemo(
     () => (allImages ? allImages.filter((img) => evaluate(img)) : []),
@@ -127,7 +126,8 @@ export function ContentReview() {
     try {
       await imageApi.quarantineBulk([...selectedIds]);
       setSelectedIds(new Set());
-      await fetchImages(); // GET /images excludes quarantined images
+      // GET /images excludes quarantined images
+      await queryClient.invalidateQueries({ queryKey: qk.images() });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to quarantine selected images";
       setError(message);
@@ -159,7 +159,7 @@ export function ContentReview() {
         />
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {displayError && <p className="text-sm text-destructive">{displayError}</p>}
 
       {loading && !allImages && (
         <p className="text-center text-sm text-muted-foreground py-12">Loading images…</p>
