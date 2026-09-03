@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Zap, X, Loader2, TrendingDown, LayoutGrid, List, Search } from "lucide-react";
-import { compressApi, api } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { compressApi, api, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
-import type { CompressCodec } from "@/types/compress";
 import type { VideoFile } from "@/types/file";
-import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { GridSizeControl } from "@/components/GridSizeControl";
@@ -187,13 +186,9 @@ function sortFiles(
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function Compress() {
-  const [libraries, setLibraries] = useState<Library[]>([]);
+  const queryClient = useQueryClient();
   const [libraryId, setLibraryId] = useState<number | null>(null);
-  const [loadingFiles, setLoadingFiles] = useState(false);
-  const [files, setFiles] = useState<VideoFile[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [codecs, setCodecs] = useState<CompressCodec[]>([]);
   const [codec, setCodec] = useState("hevc");
   const [crf, setCrf] = useState(28);
   const [speed, setSpeed] = useState("medium");
@@ -214,47 +209,56 @@ export function Compress() {
   const [search, setSearch] = useState("");
   const [starting, setStarting] = useState(false);
 
-  useEffect(() => {
-    api
-      .getLibraries()
-      .then((libs) => {
-        setLibraries(libs);
-        if (libs.length > 0) setLibraryId(libs[0].id);
-      })
-      .catch(() => {});
-    compressApi
-      .codecs()
-      .then((c) => {
-        setCodecs(c);
-        const hevc = c.find((x) => x.id === "hevc");
-        const first = hevc ?? c[0];
-        if (first) {
-          setCodec(first.id);
-          setCrf(first.default_crf);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const { data: libraries = [] } = useQuery({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+  });
+  const { data: codecs = [] } = useQuery({
+    queryKey: qk.compressCodecs(),
+    queryFn: () => compressApi.codecs(),
+  });
 
+  // Default to the first library once they load.
   useEffect(() => {
-    if (libraryId == null) return;
-    // Initialize file loading state
+    if (libraryId == null && libraries.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLibraryId(libraries[0].id);
+    }
+  }, [libraries, libraryId]);
+
+  // Seed codec + CRF from the codec list (prefers hevc).
+  useEffect(() => {
+    if (codecs.length === 0) return;
+    const first = codecs.find((x) => x.id === "hevc") ?? codecs[0];
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingFiles(true);
-    setLoadError(null);
-    setFiles(null);
+    setCodec(first.id);
+    setCrf(first.default_crf);
+  }, [codecs]);
+
+  const {
+    data: files = null,
+    isLoading: loadingFiles,
+    error: filesError,
+  } = useQuery({
+    queryKey: qk.compressFiles(libraryId ?? -1),
+    queryFn: () => compressApi.libraryFiles(libraryId as number),
+    enabled: libraryId != null,
+  });
+  const loadError = filesError ? String(filesError) : null;
+
+  // Clear selection when switching libraries.
+  useEffect(() => {
     setSelected(new Set());
-    compressApi
-      .libraryFiles(libraryId)
-      .then((f) => {
-        setFiles(f);
-        setSelected(new Set());
-      })
-      .catch((e: unknown) => {
-        setLoadError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => setLoadingFiles(false));
   }, [libraryId, setSelected]);
+
+  // Prune selection to still-existing files after a live refetch.
+  useEffect(() => {
+    if (!files) return;
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((id) => files.some((f) => f.id === id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [files, setSelected]);
 
   const handleCodecChange = (id: string) => {
     setCodec(id);
@@ -306,22 +310,10 @@ export function Compress() {
       ? Math.round(((libraryTotalSize - libraryEstSize) / libraryTotalSize) * 100)
       : 0;
 
-  const refreshFiles = useCallback(
-    (libId: number) => {
-      compressApi
-        .libraryFiles(libId)
-        .then((f) => {
-          setFiles(f);
-          // Preserve existing selection where possible; newly compressed files stay selected
-          setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
-        })
-        .catch(() => {});
-    },
-    [setSelected],
-  );
-
   useLiveFiles("video", libraryId, () => {
-    if (libraryId != null) refreshFiles(libraryId);
+    if (libraryId != null) {
+      queryClient.invalidateQueries({ queryKey: qk.compressFiles(libraryId) });
+    }
   });
 
   const {
@@ -334,7 +326,9 @@ export function Compress() {
     resume: resumeJobPoll,
   } = useJobPoll({
     onTerminal: (job) => {
-      if (job.status === "completed" && job.library_id != null) refreshFiles(job.library_id);
+      if (job.status === "completed" && job.library_id != null) {
+        queryClient.invalidateQueries({ queryKey: qk.compressFiles(job.library_id) });
+      }
     },
   });
 
