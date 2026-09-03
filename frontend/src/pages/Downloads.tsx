@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import {
   Download,
@@ -21,7 +22,9 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { DownloadCard } from "@/components/downloads/DownloadCard";
 import { PlaylistGroup } from "@/components/downloads/PlaylistGroup";
-import { OptionsPanel, type DownloadOptions } from "@/components/downloads/OptionsPanel";
+import { OptionsPanel } from "@/components/downloads/OptionsPanel";
+import { downloadOptionsSchema, type DownloadOptions } from "@/lib/schemas/download";
+import { zodResolver } from "@/lib/zodResolver";
 import { YtdlpBanner } from "@/components/downloads/YtdlpBanner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,34 +52,37 @@ export function Downloads() {
     "all",
   );
   const [dupeUrls, setDupeUrls] = useState<string[]>([]);
-  const [opts, setOpts] = useState<DownloadOptions>({
-    audioOnly: false,
-    quality: "best",
-    codec: "auto",
-    trimStart: "",
-    trimEnd: "",
-    outputDir: "",
-    downloadSubs: false,
-    subLangs: "en",
-    extraArgs: sessionStorage.getItem("dl_extra_args") ?? "",
-    impersonate: sessionStorage.getItem("dl_impersonate") ?? "",
+  const optsForm = useForm<DownloadOptions>({
+    resolver: zodResolver(downloadOptionsSchema),
+    defaultValues: {
+      audioOnly: false,
+      quality: "best",
+      codec: "auto",
+      trimStart: "",
+      trimEnd: "",
+      outputDir: "",
+      downloadSubs: false,
+      subLangs: "en",
+      extraArgs: sessionStorage.getItem("dl_extra_args") ?? "",
+      impersonate: sessionStorage.getItem("dl_impersonate") ?? "",
+    },
   });
-
-  // Persist cookies + impersonate to sessionStorage
+  // Persist cookies to sessionStorage
   useEffect(() => {
     if (activeCookies) sessionStorage.setItem("dl_cookies", activeCookies);
     else sessionStorage.removeItem("dl_cookies");
   }, [activeCookies]);
 
+  // Persist impersonate + extra args as they change (survives a page refresh)
   useEffect(() => {
-    if (opts.impersonate) sessionStorage.setItem("dl_impersonate", opts.impersonate);
-    else sessionStorage.removeItem("dl_impersonate");
-  }, [opts.impersonate]);
-
-  useEffect(() => {
-    if (opts.extraArgs) sessionStorage.setItem("dl_extra_args", opts.extraArgs);
-    else sessionStorage.removeItem("dl_extra_args");
-  }, [opts.extraArgs]);
+    const sub = optsForm.watch((v) => {
+      const put = (k: string, val: string | undefined) =>
+        val ? sessionStorage.setItem(k, val) : sessionStorage.removeItem(k);
+      put("dl_impersonate", v.impersonate);
+      put("dl_extra_args", v.extraArgs);
+    });
+    return () => sub.unsubscribe();
+  }, [optsForm]);
 
   // Load default output dir from settings (one-time seed of the form field)
   const { data: settings } = useQuery({
@@ -84,14 +90,12 @@ export function Downloads() {
     queryFn: () => api.getSettings(),
   });
   useEffect(() => {
-    if (!settings) return;
-    // One-time seed of the output-dir field from saved settings; the `|| o.outputDir`
-    // guard keeps a user edit from being clobbered on a settings refetch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOpts((o) => ({
-      ...o,
-      outputDir: o.outputDir || settings.download_dir || "/media/downloads",
-    }));
+    // One-time seed of the output-dir field from saved settings; the empty-check
+    // keeps a user edit from being clobbered on a settings refetch.
+    if (settings && !optsForm.getValues("outputDir")) {
+      optsForm.setValue("outputDir", settings.download_dir || "/media/downloads");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
   // SSE connection for live updates
@@ -104,6 +108,7 @@ export function Downloads() {
       setSubmitting(true);
       setSubmitError(null);
       try {
+        const opts = optsForm.getValues();
         const body: DownloadRequest = {
           urls,
           output_dir: opts.outputDir || undefined,
@@ -126,7 +131,7 @@ export function Downloads() {
         setSubmitting(false);
       }
     },
-    [opts, activeCookies],
+    [optsForm, activeCookies],
   );
 
   const handleSubmit = useCallback(() => {
@@ -510,11 +515,7 @@ export function Downloads() {
             </button>
           </div>
           <div className="px-4 pb-4 pt-3">
-            <OptionsPanel
-              opts={opts}
-              onChange={(updates) => setOpts((o) => ({ ...o, ...updates }))}
-              impersonateTargets={ytdlp.impersonateTargets}
-            />
+            <OptionsPanel form={optsForm} impersonateTargets={ytdlp.impersonateTargets} />
           </div>
         </Card>
       </div>

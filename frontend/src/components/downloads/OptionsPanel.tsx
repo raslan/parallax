@@ -1,20 +1,11 @@
 import { useState } from "react";
+import type { UseFormReturn } from "react-hook-form";
 import { Folder, Globe, Music, Subtitles, Video } from "lucide-react";
 import { DirPicker } from "@/components/DirPicker";
 import { cn } from "@/lib/utils";
+import type { DownloadOptions } from "@/lib/schemas/download";
 
-export interface DownloadOptions {
-  audioOnly: boolean;
-  quality: string;
-  codec: string; // video: auto/h264/hevc/av1/vp9  audio: mp3/m4a/opus
-  trimStart: string;
-  trimEnd: string;
-  outputDir: string;
-  downloadSubs: boolean;
-  subLangs: string;
-  extraArgs: string;
-  impersonate: string;
-}
+export type { DownloadOptions };
 
 const VIDEO_QUALITIES = [
   { id: "best", label: "Best" },
@@ -36,20 +27,21 @@ const VIDEO_CODECS = [
 const AUDIO_CODECS = ["mp3", "m4a", "opus"];
 
 export function OptionsPanel({
-  opts,
-  onChange,
+  form,
   impersonateTargets,
 }: {
-  opts: DownloadOptions;
-  onChange: (updates: Partial<DownloadOptions>) => void;
+  form: UseFormReturn<DownloadOptions>;
   impersonateTargets: string[];
 }) {
   const [showDirPicker, setShowDirPicker] = useState(false);
+  const { register, setValue, watch } = form;
+  const opts = watch();
+  const set = <K extends keyof DownloadOptions>(key: K, value: DownloadOptions[K]) =>
+    setValue(key, value as never, { shouldDirty: true });
 
   const handleModeToggle = (audioOnly: boolean) => {
-    // Reset codec to sensible default when switching modes
-    const codec = audioOnly ? "mp3" : "auto";
-    onChange({ audioOnly, codec });
+    set("audioOnly", audioOnly);
+    set("codec", audioOnly ? "mp3" : "auto"); // sensible default per mode
   };
 
   return (
@@ -66,6 +58,7 @@ export function OptionsPanel({
           ].map(({ id, label, Icon }) => (
             <button
               key={String(id)}
+              type="button"
               onClick={() => handleModeToggle(id)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium transition-colors",
@@ -91,7 +84,8 @@ export function OptionsPanel({
             {VIDEO_QUALITIES.map((q) => (
               <button
                 key={q.id}
-                onClick={() => onChange({ quality: q.id })}
+                type="button"
+                onClick={() => set("quality", q.id)}
                 className={cn(
                   "px-2 py-1.5 rounded border text-xs font-medium transition-colors",
                   opts.quality === q.id
@@ -119,7 +113,8 @@ export function OptionsPanel({
             return (
               <button
                 key={c}
-                onClick={() => onChange({ codec: c })}
+                type="button"
+                onClick={() => set("codec", c)}
                 className={cn(
                   "px-2.5 py-1.5 rounded border text-xs font-medium transition-colors",
                   opts.codec === c
@@ -145,8 +140,7 @@ export function OptionsPanel({
             <input
               type="text"
               placeholder="HH:MM:SS"
-              value={opts.trimStart}
-              onChange={(e) => onChange({ trimStart: e.target.value })}
+              {...register("trimStart")}
               className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
@@ -155,8 +149,7 @@ export function OptionsPanel({
             <input
               type="text"
               placeholder="HH:MM:SS"
-              value={opts.trimEnd}
-              onChange={(e) => onChange({ trimEnd: e.target.value })}
+              {...register("trimEnd")}
               className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
@@ -177,6 +170,7 @@ export function OptionsPanel({
             {opts.outputDir || "Default"}
           </span>
           <button
+            type="button"
             onClick={() => setShowDirPicker(!showDirPicker)}
             className="text-[10px] text-primary/70 hover:text-primary transition-colors shrink-0 underline underline-offset-2"
           >
@@ -187,7 +181,7 @@ export function OptionsPanel({
           <div className="rounded border border-border/50 bg-background p-3">
             <DirPicker
               onSelect={(p) => {
-                onChange({ outputDir: p });
+                set("outputDir", p);
                 setShowDirPicker(false);
               }}
               onClose={() => setShowDirPicker(false)}
@@ -201,8 +195,7 @@ export function OptionsPanel({
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
-            checked={opts.downloadSubs}
-            onChange={(e) => onChange({ downloadSubs: e.target.checked })}
+            {...register("downloadSubs")}
             className="accent-primary h-3.5 w-3.5"
           />
           <span className="text-xs text-foreground flex items-center gap-1.5">
@@ -214,8 +207,7 @@ export function OptionsPanel({
           <input
             type="text"
             placeholder="Languages (e.g. en,fr)"
-            value={opts.subLangs}
-            onChange={(e) => onChange({ subLangs: e.target.value })}
+            {...register("subLangs")}
             className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         )}
@@ -229,7 +221,7 @@ export function OptionsPanel({
               type="checkbox"
               checked={!!opts.impersonate}
               onChange={(e) =>
-                onChange({ impersonate: e.target.checked ? (impersonateTargets[0] ?? "") : "" })
+                set("impersonate", e.target.checked ? (impersonateTargets[0] ?? "") : "")
               }
               className="accent-primary h-3.5 w-3.5"
             />
@@ -241,7 +233,7 @@ export function OptionsPanel({
           {opts.impersonate && (
             <select
               value={opts.impersonate}
-              onChange={(e) => onChange({ impersonate: e.target.value })}
+              onChange={(e) => set("impersonate", e.target.value)}
               className="h-8 w-full rounded border border-border/40 bg-transparent px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               {impersonateTargets.map((t) => (
@@ -262,8 +254,7 @@ export function OptionsPanel({
         <textarea
           rows={3}
           placeholder="--no-playlist --write-thumbnail"
-          value={opts.extraArgs}
-          onChange={(e) => onChange({ extraArgs: e.target.value })}
+          {...register("extraArgs")}
           className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
         />
       </div>
