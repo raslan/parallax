@@ -41,7 +41,8 @@ export const qk = {
 
   cleanupFiles: (libraryId: number) => ["cleanup", libraryId] as const,
 
-  originals: (libraryId: number) => ["originals", libraryId] as const,
+  originals: (libraryId?: number) =>
+    libraryId === undefined ? (["originals"] as const) : (["originals", libraryId] as const),
 
   downloads: () => ["downloads"] as const,
 
