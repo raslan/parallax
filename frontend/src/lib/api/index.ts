@@ -24,6 +24,7 @@ export const api = {
   ...downloadsApi,
 };
 
+export { qk } from "./queryKeys";
 export { imageApi } from "./images";
 export { modelsApi } from "./models";
 export { subtitlesApi } from "./subtitles";
