@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Film,
   Loader2,
@@ -12,7 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { api, qk } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import type { Library, BrowseResponse } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -205,7 +206,6 @@ function LibraryBrowser({
   gridSize,
   search,
   onPlay,
-  refreshToken,
 }: {
   library: Library;
   sortBy: string;
@@ -214,27 +214,19 @@ function LibraryBrowser({
   gridSize: number;
   search: string;
   onPlay: (f: VideoFile) => void;
-  refreshToken: number;
 }) {
   const [path, setPath] = useState("");
-  const [browse, setBrowse] = useState<BrowseResponse | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Intentional setState in effect
+    // Prop-sync reset: clear the sub-path when the selected library changes
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPath("");
   }, [library.id]);
 
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!browse) setLoading(true);
-    api
-      .browseLibrary(library.id, path, undefined, sortBy, sortDir)
-      .then(setBrowse)
-      .finally(() => setLoading(false));
-  }, [library.id, path, sortBy, sortDir, refreshToken]);
+  const { data: browse, isLoading: loading } = useQuery<BrowseResponse>({
+    queryKey: qk.libraryBrowse(library.id, path, sortBy, sortDir),
+    queryFn: () => api.browseLibrary(library.id, path, undefined, sortBy, sortDir),
+  });
 
   const navigate = (subdir: string) => setPath(subdir ? (path ? `${path}/${subdir}` : subdir) : "");
 
@@ -323,7 +315,6 @@ function FlatView({
   gridSize,
   search,
   onPlay,
-  refreshToken,
 }: {
   sortBy: string;
   sortDir: string;
@@ -331,33 +322,19 @@ function FlatView({
   gridSize: number;
   search: string;
   onPlay: (f: VideoFile) => void;
-  refreshToken: number;
 }) {
-  const [files, setFiles] = useState<VideoFile[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const hasLoadedRef = useRef(false);
-
-  const load = useCallback(() => {
-    if (!hasLoadedRef.current) setLoading(true);
-    api
-      .getFiles({
+  const { data, isLoading: loading } = useQuery({
+    queryKey: qk.files({ sortBy, sortDir }),
+    queryFn: () =>
+      api.getFiles({
         page: 1,
         page_size: FETCH_ALL_PAGE_SIZE,
         sort_by: sortBy,
         sort_dir: sortDir,
-      })
-      .then((res) => {
-        setFiles(res.items);
-        setTotal(res.total);
-        hasLoadedRef.current = true;
-      })
-      .finally(() => setLoading(false));
-  }, [sortBy, sortDir, refreshToken]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+      }),
+  });
+  const files = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   if (loading)
     return (
@@ -443,7 +420,7 @@ const selectCls =
   "h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring";
 
 export function Files() {
-  const [libraries, setLibraries] = useState<Library[]>([]);
+  const queryClient = useQueryClient();
   const [selectedLibraryId, setSelectedLibraryId] = useState<number | "all">("all");
   const [sortBy, setSortBy] = useState("filename");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -451,18 +428,20 @@ export function Files() {
   const [gridSize, setGridSize] = useGridSize(180);
   const [search, setSearch] = useState("");
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
-  const [refreshToken, setRefreshToken] = useState(0);
 
-  useEffect(() => {
-    api
-      .getLibraries()
-      .then(setLibraries)
-      .catch(() => {});
-  }, []);
+  const { data: libraries = [] } = useQuery<Library[]>({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+  });
 
   const selectedLibrary = libraries.find((l) => l.id === selectedLibraryId) ?? null;
 
-  useLiveFiles("video", selectedLibrary?.id ?? null, () => setRefreshToken((t) => t + 1));
+  useLiveFiles("video", selectedLibrary?.id ?? null, () => {
+    queryClient.invalidateQueries({ queryKey: qk.files() });
+    if (selectedLibrary) {
+      queryClient.invalidateQueries({ queryKey: ["libraries", selectedLibrary.id, "browse"] });
+    }
+  });
 
   return (
     <div className="p-8 space-y-6 h-full flex flex-col">
@@ -551,7 +530,6 @@ export function Files() {
             gridSize={gridSize}
             search={search}
             onPlay={setPlayingFile}
-            refreshToken={refreshToken}
           />
         ) : (
           <FlatView
@@ -561,7 +539,6 @@ export function Files() {
             gridSize={gridSize}
             search={search}
             onPlay={setPlayingFile}
-            refreshToken={refreshToken}
           />
         )}
       </div>

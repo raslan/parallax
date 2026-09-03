@@ -13,7 +13,8 @@ export const qk = {
   libraries: () => ["libraries"] as const,
   libraryStats: () => ["libraries", "stats"] as const,
   libraryLeftovers: (id: number) => ["libraries", id, "leftovers"] as const,
-  libraryBrowse: (id: number, path?: string) => ["libraries", id, "browse", path ?? null] as const,
+  libraryBrowse: (id: number, path = "", sortBy = "", sortDir = "") =>
+    ["libraries", id, "browse", path, sortBy, sortDir] as const,
 
   imageLibraries: () => ["image-libraries"] as const,
   imageLibraryLeftovers: (id: number) => ["image-libraries", id, "leftovers"] as const,
