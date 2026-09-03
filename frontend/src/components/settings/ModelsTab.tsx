@@ -1,37 +1,89 @@
+import { Controller } from "react-hook-form";
 import { Loader2 } from "lucide-react";
-import type { ActiveModelDownload, ModelInfo } from "@/types/model";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { modelsApi, qk } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
-import { SaveButton, type SaveState } from "./SaveButton";
+import { aiModelsSchema, seedAiModels } from "@/lib/schemas/settings";
+import { SaveButton } from "./SaveButton";
+import { useSettingsForm } from "./useSettingsForm";
 import { ModelCard } from "./ModelCard";
 
-export function ModelsTab({
-  loading,
-  modelsLoading,
-  scanBatchSize,
-  onScanBatchSizeChange,
-  scanPrefetch,
-  onScanPrefetchChange,
-  nudenetModels,
-  whisperModels,
-  activeDownload,
-  reloadModels,
-  save,
+function SliderRow({
+  value,
+  onChange,
+  min,
+  max,
+  presets,
+  unit,
 }: {
-  loading: boolean;
-  modelsLoading: boolean;
-  scanBatchSize: number;
-  onScanBatchSizeChange: (n: number) => void;
-  scanPrefetch: number;
-  onScanPrefetchChange: (n: number) => void;
-  nudenetModels: ModelInfo[];
-  whisperModels: ModelInfo[];
-  activeDownload: ActiveModelDownload | null;
-  reloadModels: () => void;
-  save: SaveState;
+  value: number;
+  onChange: (n: number) => void;
+  min: number;
+  max: number;
+  presets: number[];
+  unit?: string;
 }) {
   return (
+    <>
+      <div className="flex items-center gap-4">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={value ?? min}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-48 accent-primary"
+        />
+        <span className={`text-sm font-mono ${unit ? "w-16 text-right" : "w-4 text-center"}`}>
+          {value}
+          {unit ? ` ${unit}` : ""}
+        </span>
+      </div>
+      <div className="flex gap-1 flex-wrap">
+        {presets.map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            className={`px-3 py-1 rounded text-xs border transition-colors ${
+              value === n
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border hover:bg-accent"
+            }`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+export function ModelsTab() {
+  const { form, isLoading, save } = useSettingsForm(aiModelsSchema, seedAiModels, (v) => ({
+    scan_batch_size: v.scanBatchSize,
+    scan_prefetch: v.scanPrefetch,
+  }));
+
+  const qc = useQueryClient();
+  const { data: models = [], isLoading: modelsLoading } = useQuery({
+    queryKey: qk.models(),
+    queryFn: () => modelsApi.listModels(),
+  });
+  const { data: activeDownload = null } = useQuery({
+    queryKey: qk.modelActiveDownload(),
+    queryFn: () => modelsApi.getActiveDownload(),
+  });
+  const reloadModels = () => {
+    qc.invalidateQueries({ queryKey: qk.models() });
+    qc.invalidateQueries({ queryKey: qk.modelActiveDownload() });
+  };
+
+  const nudenetModels = models.filter((m) => m.type === "nudenet");
+  const whisperModels = models.filter((m) => m.type === "whisper");
+
+  return (
     <div className="space-y-6">
-      {/* Scan batch size */}
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div>
@@ -41,46 +93,33 @@ export function ModelsTab({
               VRAM but scan faster.
             </p>
           </div>
-          {loading ? (
+          {isLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading…
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min={1}
-                  max={32}
-                  value={scanBatchSize}
-                  onChange={(e) => onScanBatchSizeChange(Number(e.target.value))}
-                  className="w-48 accent-primary"
-                />
-                <span className="text-sm font-mono w-16 text-right">{scanBatchSize} images</span>
-              </div>
-              <div className="flex gap-1 flex-wrap">
-                {[1, 4, 8, 16].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => onScanBatchSizeChange(n)}
-                    className={`px-3 py-1 rounded text-xs border transition-colors ${
-                      scanBatchSize === n
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border hover:bg-accent"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
+              <Controller
+                control={form.control}
+                name="scanBatchSize"
+                render={({ field }) => (
+                  <SliderRow
+                    value={field.value}
+                    onChange={field.onChange}
+                    min={1}
+                    max={32}
+                    presets={[1, 4, 8, 16]}
+                    unit="images"
+                  />
+                )}
+              />
               <SaveButton {...save} />
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Scan prefetch */}
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div>
@@ -91,46 +130,32 @@ export function ModelsTab({
               continuously fed.
             </p>
           </div>
-          {loading ? (
+          {isLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading…
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min={1}
-                  max={20}
-                  value={scanPrefetch}
-                  onChange={(e) => onScanPrefetchChange(Number(e.target.value))}
-                  className="w-48 accent-primary"
-                />
-                <span className="text-sm font-mono w-4 text-center">{scanPrefetch}</span>
-              </div>
-              <div className="flex gap-1 flex-wrap">
-                {[2, 4, 8, 16].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => onScanPrefetchChange(n)}
-                    className={`px-3 py-1 rounded text-xs border transition-colors ${
-                      scanPrefetch === n
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border hover:bg-accent"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
+              <Controller
+                control={form.control}
+                name="scanPrefetch"
+                render={({ field }) => (
+                  <SliderRow
+                    value={field.value}
+                    onChange={field.onChange}
+                    min={1}
+                    max={20}
+                    presets={[2, 4, 8, 16]}
+                  />
+                )}
+              />
               <SaveButton {...save} />
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Model lists */}
       {modelsLoading ? (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />

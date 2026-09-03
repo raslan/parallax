@@ -1,26 +1,20 @@
+import { Controller } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
-import { SaveButton, type SaveState } from "./SaveButton";
+import { credentialsSchema, seedCredentials } from "@/lib/schemas/settings";
+import { SaveButton } from "./SaveButton";
+import { useSettingsForm } from "./useSettingsForm";
 
-export function CredentialsTab({
-  loading,
-  tmdbKey,
-  onTmdbKeyChange,
-  subtitleLangs,
-  onToggleLang,
-  save,
-}: {
-  loading: boolean;
-  tmdbKey: string;
-  onTmdbKeyChange: (v: string) => void;
-  subtitleLangs: string[];
-  onToggleLang: (code: string) => void;
-  save: SaveState;
-}) {
+export function CredentialsTab() {
+  const { form, isLoading, save } = useSettingsForm(credentialsSchema, seedCredentials, (v) => ({
+    tmdb_api_key: v.tmdbKey,
+    subtitle_languages: v.subtitleLangs.join(","),
+  }));
+
   return (
     <div className="space-y-4">
-      {loading ? (
+      {isLoading ? (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading…
@@ -46,8 +40,7 @@ export function CredentialsTab({
               </div>
               <input
                 type="password"
-                value={tmdbKey}
-                onChange={(e) => onTmdbKeyChange(e.target.value)}
+                {...form.register("tmdbKey")}
                 placeholder="Paste your TMDB API key…"
                 className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -60,24 +53,45 @@ export function CredentialsTab({
                 <p className="text-xs font-medium text-muted-foreground">
                   Default subtitle languages
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {COMMON_LANGS.map(({ code, label }) => {
-                    const active = subtitleLangs.includes(code);
+                <Controller
+                  control={form.control}
+                  name="subtitleLangs"
+                  render={({ field, fieldState }) => {
+                    const toggle = (code: string) => {
+                      const has = field.value.includes(code);
+                      if (has && field.value.length === 1) return;
+                      field.onChange(
+                        has ? field.value.filter((c) => c !== code) : [...field.value, code],
+                      );
+                    };
                     return (
-                      <button
-                        key={code}
-                        onClick={() => onToggleLang(code)}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
-                          active
-                            ? "bg-primary/15 border-primary/40 text-primary"
-                            : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
-                        }`}
-                      >
-                        {label}
-                      </button>
+                      <>
+                        <div className="flex flex-wrap gap-1.5">
+                          {COMMON_LANGS.map(({ code, label }) => {
+                            const active = field.value?.includes(code);
+                            return (
+                              <button
+                                key={code}
+                                type="button"
+                                onClick={() => toggle(code)}
+                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+                                  active
+                                    ? "bg-primary/15 border-primary/40 text-primary"
+                                    : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {fieldState.error && (
+                          <p className="text-xs text-destructive">{fieldState.error.message}</p>
+                        )}
+                      </>
                     );
-                  })}
-                </div>
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
