@@ -3,9 +3,9 @@ import { useCallback, useMemo, useState } from "react";
 export type Operator =
   "gt" | "lt" | "gte" | "lte" | "eq" | "contains" | "not_contains" | "fuzzy_contains";
 
-export type ValueType = "number" | "date_offset" | "text" | "percent" | "select" | "boolean";
+type ValueType = "number" | "date_offset" | "text" | "percent" | "select" | "boolean";
 
-export type FieldCategory = "numeric" | "label" | "search";
+type FieldCategory = "numeric" | "label" | "search";
 
 export type Clause = {
   id: string;

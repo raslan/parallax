@@ -7,6 +7,7 @@ import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { StatPanel } from "@/components/StatPanel";
 
 // ── Per-library group ─────────────────────────────────────────────────────────
 
@@ -265,17 +266,12 @@ export function ImageQuarantined() {
 
       {/* Summary stats */}
       {hasEntries && (
-        <div className="grid grid-cols-2 border border-border rounded-[0.4rem] overflow-hidden divide-x divide-border">
-          {[
+        <StatPanel
+          stats={[
             { label: "Quarantined", value: `${images.length}` },
             { label: "Total size", value: formatSize(totalSize) },
-          ].map(({ label, value }) => (
-            <div key={label} className="px-7 py-5">
-              <SectionHeader className="mb-2">{label}</SectionHeader>
-              <p className="text-2xl font-bold font-mono tabular-nums tracking-tight">{value}</p>
-            </div>
-          ))}
-        </div>
+          ]}
+        />
       )}
 
       {/* Content */}

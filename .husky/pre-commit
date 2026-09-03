@@ -14,3 +14,11 @@ if [ -n "$ignored_staged" ]; then
 fi
 
 npx lint-staged
+
+# Dead-code gate: run knip when frontend TS/TSX is staged (project-wide, ~1s).
+if git diff --cached --name-only | grep -q '^frontend/src/.*\.tsx\?$'; then
+  (cd frontend && npx knip) || {
+    echo "error: knip found unused files/exports/deps — fix or adjust frontend/knip.json"
+    exit 1
+  }
+fi
