@@ -1,5 +1,12 @@
 export const BASE = "/api";
 
+/** Pull a displayable message off an unknown thrown value. */
+export function getErrorMessage(e: unknown, fallback = "Something went wrong"): string {
+  if (e instanceof Error && e.message) return e.message;
+  if (typeof e === "string" && e) return e;
+  return fallback;
+}
+
 export async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     cache: "no-store",
