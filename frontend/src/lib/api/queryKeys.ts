@@ -57,6 +57,8 @@ export const qk = {
   compressCodecs: () => ["compress", "codecs"] as const,
   compressFiles: (libraryId: number) => ["compress", "files", libraryId] as const,
 
+  toolboxFiles: (libraryId: number) => ["toolbox", "files", libraryId] as const,
+
   subtitleScan: (libraryId: number, params?: unknown) =>
     params === undefined
       ? (["subtitles", "scan", libraryId] as const)
