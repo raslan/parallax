@@ -51,6 +51,7 @@ export const qk = {
   modelActiveDownload: () => ["models", "active-download"] as const,
 
   ytdlpInfo: () => ["ytdlp", "info"] as const,
+  ytdlpImpersonateTargets: () => ["ytdlp", "impersonate-targets"] as const,
 
   compressCodecs: () => ["compress", "codecs"] as const,
   compressFiles: (libraryId: number) => ["compress", "files", libraryId] as const,

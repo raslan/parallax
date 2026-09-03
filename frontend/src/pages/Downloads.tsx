@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Download,
@@ -25,7 +26,7 @@ import {
   ExternalLink,
   RotateCcw,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, qk } from "@/lib/api";
 import { useEventSource } from "@/hooks/useEventSource";
 import type { DownloadItem, DownloadRequest } from "@/types/download";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -671,11 +672,23 @@ export function Downloads() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [playingItem, setPlayingItem] = useState<DownloadItem | null>(null);
-  const [ytdlpMissing, setYtdlpMissing] = useState(false);
   const [ytdlpBannerDismissed, setYtdlpBannerDismissed] = useState(false);
-  const [ytdlpVersion, setYtdlpVersion] = useState<string | null>(null);
   const [ytdlpUpdating, setYtdlpUpdating] = useState(false);
-  const [impersonateTargets, setImpersonateTargets] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+
+  const { data: ytdlpInfo } = useQuery({
+    queryKey: qk.ytdlpInfo(),
+    queryFn: () => api.ytdlpInfo(),
+  });
+  const ytdlpMissing = ytdlpInfo ? !ytdlpInfo.installed : false;
+  const ytdlpVersion = ytdlpInfo?.version ?? null;
+
+  const { data: impTargets } = useQuery({
+    queryKey: qk.ytdlpImpersonateTargets(),
+    queryFn: () => api.ytdlpImpersonateTargets(),
+    enabled: !!ytdlpInfo?.installed,
+  });
+  const impersonateTargets = impTargets?.targets ?? [];
   const [activeCookies, setActiveCookies] = useState(
     () => sessionStorage.getItem("dl_cookies") ?? "",
   );
@@ -714,46 +727,28 @@ export function Downloads() {
     else sessionStorage.removeItem("dl_extra_args");
   }, [opts.extraArgs]);
 
-  // Load default output dir from settings
+  // Load default output dir from settings (one-time seed of the form field)
+  const { data: settings } = useQuery({
+    queryKey: qk.settings(),
+    queryFn: () => api.getSettings(),
+  });
   useEffect(() => {
-    api
-      .getSettings()
-      .then((s) => {
-        setOpts((o) => ({ ...o, outputDir: s.download_dir || "/media/downloads" }));
-      })
-      .catch(() => {});
-  }, []);
-
-  // Check yt-dlp installed + get version
-  useEffect(() => {
-    api
-      .ytdlpInfo()
-      .then((info) => {
-        if (!info.installed) setYtdlpMissing(true);
-        setYtdlpVersion(info.version ?? null);
-        if (info.installed) {
-          api
-            .ytdlpImpersonateTargets()
-            .then((r) => setImpersonateTargets(r.targets))
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }, []);
+    if (!settings) return;
+    // One-time seed of the output-dir field from saved settings; the `|| o.outputDir`
+    // guard keeps a user edit from being clobbered on a settings refetch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpts((o) => ({
+      ...o,
+      outputDir: o.outputDir || settings.download_dir || "/media/downloads",
+    }));
+  }, [settings]);
 
   const handleYtdlpUpdate = async () => {
     setYtdlpUpdating(true);
     try {
       await api.ytdlpUpdate();
-      const info = await api.ytdlpInfo();
-      setYtdlpVersion(info.version ?? null);
-      setYtdlpMissing(!info.installed);
-      if (info.installed) {
-        api
-          .ytdlpImpersonateTargets()
-          .then((r) => setImpersonateTargets(r.targets))
-          .catch(() => {});
-      }
+      await queryClient.invalidateQueries({ queryKey: qk.ytdlpInfo() });
+      await queryClient.invalidateQueries({ queryKey: qk.ytdlpImpersonateTargets() });
     } catch {
       /* ignore */
     } finally {
