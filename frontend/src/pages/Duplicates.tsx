@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
+import { api, qk } from "@/lib/api";
 import type { DuplicateGroup, DuplicateFile, DuplicateCriteria } from "@/types/duplicate";
 import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -215,7 +216,10 @@ function CriteriaRow({
 }
 
 export function Duplicates() {
-  const [libraries, setLibraries] = useState<Library[]>([]);
+  const { data: libraries = [], isSuccess: librariesLoaded } = useQuery({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+  });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -231,12 +235,15 @@ export function Duplicates() {
     localStorage.setItem(CRITERIA_KEY, JSON.stringify(criteria));
   }, [criteria]);
 
+  // Default to the first library once they load; if there are none, we're done initializing.
   useEffect(() => {
-    api.getLibraries().then((libs) => {
-      setLibraries(libs);
-      if (libs.length > 0) setSelectedId(libs[0].id);
-      else setInitializing(false);
-    });
+    if (selectedId != null || !librariesLoaded) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (libraries.length > 0) setSelectedId(libraries[0].id);
+    else setInitializing(false);
+  }, [libraries, librariesLoaded, selectedId]);
+
+  useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
