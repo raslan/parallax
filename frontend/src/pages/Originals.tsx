@@ -290,7 +290,7 @@ export function Originals() {
           (acc, e) => {
             if (!acc[e.library_id])
               acc[e.library_id] = { id: e.library_id, name: e.library_name, entries: [] };
-            acc[e.library_id].entries.push(e);
+            acc[e.library_id]!.entries.push(e);
             return acc;
           },
           {},

@@ -106,7 +106,7 @@ export function Toolbox() {
   useEffect(() => {
     if (libraryId == null && libraries.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLibraryId(libraries[0].id);
+      setLibraryId(libraries[0]!.id);
     }
   }, [libraries, libraryId]);
 

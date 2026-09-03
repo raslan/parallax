@@ -470,7 +470,7 @@ export function Downloads() {
                       return (
                         <PlaylistGroup
                           key={`playlist-${key}`}
-                          title={groupItems[0].playlist_title ?? key}
+                          title={groupItems[0]!.playlist_title ?? key}
                           items={groupItems}
                           onPlay={setPlayingItem}
                           onClear={handleClear}

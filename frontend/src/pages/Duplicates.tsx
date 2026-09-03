@@ -135,7 +135,7 @@ function GroupCard({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-muted-foreground font-normal">
-          {group.files.length} copies · {formatSize(group.files[0].size)}
+          {group.files.length} copies · {formatSize(group.files[0]!.size)}
           {checkedCount > 0 && (
             <span className="ml-2 text-destructive">{checkedCount} selected for deletion</span>
           )}
@@ -242,7 +242,7 @@ export function Duplicates() {
   useEffect(() => {
     if (selectedId != null || !librariesLoaded) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (libraries.length > 0) setSelectedId(libraries[0].id);
+    if (libraries.length > 0) setSelectedId(libraries[0]!.id);
   }, [libraries, librariesLoaded, selectedId]);
 
   useLiveFiles("video", selectedId, () => setResultsStale(true));

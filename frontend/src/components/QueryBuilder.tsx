@@ -446,7 +446,7 @@ export function QueryBuilder<T>({
   const grouped = registry.reduce<Record<string, FieldDef<T>[]>>((acc, f) => {
     if (menuFilter && !f.label.toLowerCase().includes(menuFilter.toLowerCase())) return acc;
     const section = f.group ?? CATEGORY_LABEL[f.category] ?? f.category;
-    sectionColor[section] = CATEGORY_COLOR[f.category];
+    sectionColor[section] = CATEGORY_COLOR[f.category] ?? "";
     (acc[section] ??= []).push(f);
     return acc;
   }, {});

@@ -123,7 +123,7 @@ export function Identify() {
       };
       setEpisodes([movieEpisode]);
       if (files.length > 0) {
-        setAssignments({ [slotKey(1, 1)]: files[0] });
+        setAssignments({ [slotKey(1, 1)]: files[0]! });
       }
     } else {
       setLoadingEpisodes(true);
@@ -139,7 +139,7 @@ export function Identify() {
         seasonResults.forEach((res, idx) => {
           if (res.status === "fulfilled") {
             eps.push(...res.value);
-            successfulSeasons.push(seasonsToLoad[idx]);
+            successfulSeasons.push(seasonsToLoad[idx]!);
           }
         });
         if (successfulSeasons.length === 0) {

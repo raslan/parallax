@@ -63,7 +63,7 @@ function VideoAddDialog({ open, onOpenChange, onCreated }: AddDialogProps) {
       )}
       onSubmit={async ({ path, extra, autoScan }) => {
         const parts = path.split("/").filter(Boolean);
-        const derivedName = parts.length > 0 ? parts[parts.length - 1] : "";
+        const derivedName = parts.length > 0 ? parts[parts.length - 1]! : "";
         const created = await api.createLibrary({
           name: derivedName,
           path,

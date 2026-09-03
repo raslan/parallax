@@ -227,7 +227,7 @@ export function Cleanup() {
   useEffect(() => {
     if (selectedId == null && libraries.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedId(libraries[0].id);
+      setSelectedId(libraries[0]!.id);
     }
   }, [libraries, selectedId]);
 

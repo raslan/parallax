@@ -81,8 +81,8 @@ const CRF_TIERS: Record<string, Array<{ max: number } & QualityTier>> = {
 };
 
 function getCrfTier(codec: string, crf: number): QualityTier {
-  const tiers = CRF_TIERS[codec] ?? CRF_TIERS.h264;
-  return tiers.find((t) => crf <= t.max) ?? tiers[tiers.length - 1];
+  const tiers = CRF_TIERS[codec] ?? CRF_TIERS.h264!;
+  return tiers.find((t) => crf <= t.max) ?? tiers[tiers.length - 1]!;
 }
 
 // ── Panel ─────────────────────────────────────────────────────────────────────

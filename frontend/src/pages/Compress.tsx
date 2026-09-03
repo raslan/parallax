@@ -143,14 +143,14 @@ export function Compress() {
   useEffect(() => {
     if (libraryId == null && libraries.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLibraryId(libraries[0].id);
+      setLibraryId(libraries[0]!.id);
     }
   }, [libraries, libraryId]);
 
   // Seed codec + CRF from the codec list (prefers hevc).
   useEffect(() => {
     if (codecs.length === 0) return;
-    const first = codecs.find((x) => x.id === "hevc") ?? codecs[0];
+    const first = codecs.find((x) => x.id === "hevc") ?? codecs[0]!;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCodec(first.id);
     setCrf(first.default_crf);

@@ -235,7 +235,7 @@ export function ImageQuarantined() {
           entries: [],
         };
       }
-      acc[img.library_id].entries.push(img);
+      acc[img.library_id]!.entries.push(img);
     }
     return Object.values(acc);
   })();

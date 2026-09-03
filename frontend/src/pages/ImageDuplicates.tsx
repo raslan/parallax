@@ -307,7 +307,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
               <ClusterCard
                 key={i}
                 images={clusterImages[i] ?? []}
-                suggestedKeepId={suggestedKeepIds[i]}
+                suggestedKeepId={suggestedKeepIds[i]!}
                 deleteIds={deleteIds}
                 onToggle={toggleDelete}
                 onView={setViewingImg}
