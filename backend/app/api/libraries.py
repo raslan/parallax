@@ -387,7 +387,6 @@ def get_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
     if not lib:
         raise HTTPException(404, "Library not found")
     from app.services.duplicates import get_cached_results
-    from app.services.scanner import thumbnail_path
 
     results = get_cached_results(library_id)
     import logging as _logging
@@ -412,7 +411,6 @@ def get_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
                 codec_name=f.codec_name,
                 video_bitrate=f.video_bitrate,
                 status=f.status,
-                has_thumbnail=os.path.exists(thumbnail_path(f.id)),
             )
             for f in group.files
         ]

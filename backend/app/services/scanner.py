@@ -127,6 +127,40 @@ def generate_thumbnail(file_path: str, file_id: int, duration: float | None = No
         return False
 
 
+def _warm_thumbnails(library_id: int) -> None:
+    """Best-effort background thumbnail generation after a scan finishes.
+
+    Scanning deliberately skips thumbnail generation (see scan_library) so the
+    scan itself stays fast — but leaving it purely on-demand meant thumbnails
+    only ever started generating once a user happened to open a page that
+    renders them. This runs the same `get_or_create_thumbnail` a page view
+    would trigger, for every file still missing one, in a thread of its own
+    so it never delays the scan job's completion. It shares
+    `_thumbnail_gen_semaphore` with on-demand requests, so it only ever fills
+    in whatever concurrent-ffmpeg headroom isn't already being used for
+    someone actively browsing — no separate concurrency knob needed.
+    """
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(File.id, File.path, File.duration).filter(File.library_id == library_id).all()
+        )
+    finally:
+        db.close()
+
+    def _one(file_id: int, path: str, duration: float | None) -> None:
+        try:
+            get_or_create_thumbnail(file_id, path, duration=duration)
+        except Exception:
+            pass
+
+    with _cf.ThreadPoolExecutor(
+        max_workers=_THUMBNAIL_GEN_LIMIT, thread_name_prefix="thumb-warm"
+    ) as pool:
+        for file_id, path, duration in rows:
+            pool.submit(_one, file_id, path, duration)
+
+
 def thumbnail_path(file_id: int) -> str:
     return os.path.join(THUMBNAILS_DIR, f"{file_id}.jpg")
 
@@ -511,6 +545,10 @@ def scan_library(library_id: int):
         job.progress = 100.0
         db.commit()
         _log(db, job.id, "Scan complete")
+
+        threading.Thread(
+            target=_warm_thumbnails, args=(library_id,), daemon=True, name="thumb-warm-dispatch"
+        ).start()
 
     except Exception as e:
         if job:

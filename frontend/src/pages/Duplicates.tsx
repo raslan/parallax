@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +10,7 @@ import { api, qk } from "@/lib/api";
 import type { DuplicateGroup, DuplicateFile, DuplicateCriteria } from "@/types/duplicate";
 import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
@@ -58,17 +61,12 @@ function FileCard({
       }`}
     >
       <div className="relative aspect-video w-full rounded overflow-hidden bg-muted group/thumb">
-        {file.has_thumbnail ? (
-          <img
-            src={`/api/files/${file.id}/thumbnail`}
-            alt={file.filename}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Copy className="h-6 w-6 text-muted-foreground" />
-          </div>
-        )}
+        <VideoThumbnail
+          fileId={file.id}
+          alt={file.filename}
+          imgClassName="w-full h-full object-cover"
+          iconClassName="h-6 w-6 text-muted-foreground"
+        />
         <button
           onClick={onPlay}
           title="Play video"
@@ -216,6 +214,7 @@ function CriteriaRow({
 }
 
 export function Duplicates() {
+  const queryClient = useQueryClient();
   const { data: libraries = [], isSuccess: librariesLoaded } = useQuery({
     queryKey: qk.libraries(),
     queryFn: () => api.getLibraries(),
@@ -230,6 +229,11 @@ export function Duplicates() {
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
   const [criteria, setCriteria] = useState<DuplicateCriteria>(loadCriteria);
+  // Criteria that produced the currently-displayed `groups`, from a scan this
+  // session actually ran — null for results loaded from the existing-results
+  // cache on mount, since the backend doesn't record which criteria produced
+  // a past run, so we can't vouch for those matching the current form state.
+  const shownCriteriaRef = useRef<string | null>(null);
 
   const { data: allJobs, isLoading: jobsLoading } = useQuery({
     queryKey: qk.jobs(),
@@ -251,9 +255,50 @@ export function Duplicates() {
 
   useLiveFiles("video", selectedId, () => setResultsStale(true));
 
-  // Resume an already-running duplicates job for the selected library (survives refresh).
+  // Load whatever results already exist for this library — a normal resource
+  // fetch, not gated on a scan being in flight. This is what makes a
+  // completed scan show up on page load / a different device / a different
+  // tab without re-running it: the backend's cached results are already
+  // shared across every client hitting this server, the frontend just needs
+  // to actually ask for them instead of only ever fetching inside the
+  // scan-polling flow below.
+  const { data: existingResults } = useQuery({
+    queryKey: qk.duplicates(selectedId ?? -1),
+    enabled: selectedId != null,
+    staleTime: Infinity, // explicit rescan / library-file changes invalidate this directly
+    queryFn: async () => {
+      try {
+        return await api.getDuplicates(selectedId as number);
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith("404")) return null;
+        throw e;
+      }
+    },
+  });
+
   useEffect(() => {
-    if (!selectedId || !allJobs || scanning) return;
+    if (existingResults == null || groups !== null || scanning) return;
+    const init = new Set<number>();
+    existingResults.forEach((g) =>
+      g.files.forEach((f) => {
+        if (f.id !== g.keep_id) init.add(f.id);
+      }),
+    );
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setGroups(existingResults);
+    setDeleteIds(init);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingResults, groups, scanning]);
+
+  // Resume an already-running duplicates job for the selected library (survives refresh).
+  // Only when nothing is rendered yet — otherwise this refires on every `allJobs`
+  // update (e.g. a job that just completed briefly still showing "running" before
+  // the jobs cache catches up) and yanks a freshly-rendered result back into a
+  // spinner it can never resolve, since the poll query's cached data is already
+  // non-null and won't refetch.
+  useEffect(() => {
+    if (!selectedId || !allJobs || scanning || groups !== null) return;
     const active = allJobs.find(
       (j) =>
         j.type === "duplicates" &&
@@ -266,7 +311,7 @@ export function Duplicates() {
       setScanning(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, allJobs]);
+  }, [selectedId, allJobs, groups]);
 
   // Poll for results while a scan runs. `getDuplicates` 404s until the job
   // finishes; `refetchInterval` stops once results (or a 6-min cap) arrive.
@@ -285,10 +330,40 @@ export function Duplicates() {
     },
     refetchInterval: (query) => {
       if (query.state.data != null) return false;
+      const stillActive = allJobs?.some(
+        (j) =>
+          j.type === "duplicates" &&
+          j.library_id === selectedId &&
+          (j.status === "running" || j.status === "pending"),
+      );
+      // A massive library's scan can run well past any fixed wall-clock cap —
+      // keep polling as long as the job itself is still active. Only fall
+      // back to the cap as a safety net for the brief window before the job
+      // shows up in the jobs list.
+      if (stillActive) return 2000;
       if (Date.now() - scanStartedAt.current > 6 * 60_000) return false;
       return 2000;
     },
   });
+
+  // If the job we were polling for is no longer active but we still have no
+  // results, stop spinning instead of leaving the page stuck in "Scanning…"
+  // forever (e.g. the job failed, or was cancelled from the Jobs page). Keyed
+  // off `groups` (the rendered state), not the poll query's `data` — that can
+  // sit non-null from a prior run even while `scanning` is true again, which
+  // would otherwise permanently disable this bailout.
+  useEffect(() => {
+    if (!scanning || !allJobs || !selectedId || groups !== null) return;
+    if (Date.now() - scanStartedAt.current < 5000) return; // job may not be listed yet
+    const active = allJobs.some(
+      (j) =>
+        j.type === "duplicates" &&
+        j.library_id === selectedId &&
+        (j.status === "running" || j.status === "pending"),
+    );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!active) setScanning(false);
+  }, [allJobs, scanning, selectedId, groups]);
 
   useEffect(() => {
     if (scanResult == null) return;
@@ -304,6 +379,11 @@ export function Duplicates() {
     setDeleteIds(init);
     setScanning(false);
     /* eslint-enable react-hooks/set-state-in-effect */
+    // Keep the plain "existing results" cache entry in sync so a later
+    // library switch back, or another tab/device, doesn't need to re-fetch.
+    if (selectedId != null) {
+      queryClient.setQueryData(qk.duplicates(selectedId), scanResult);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanResult]);
 
@@ -314,14 +394,29 @@ export function Duplicates() {
 
   const handleScan = async () => {
     if (!selectedId) return;
+    const criteriaKey = JSON.stringify(criteria);
+    // Same criteria already showing, nothing's changed on disk since, and
+    // this session is the one that produced them: re-running would just get
+    // the same answer for real cost (a full pHash-comparison job). Skip it.
+    if (groups !== null && !resultsStale && shownCriteriaRef.current === criteriaKey) {
+      toast.info("Results already match these criteria — nothing to rescan");
+      return;
+    }
     setGroups(null);
     setDeleteIds(new Set());
     scanStartedAt.current = Date.now();
     setScanNonce((n) => n + 1); // fresh query key so a prior result isn't reused
     setScanning(true);
+    // Drop the cached "existing results" for this library too — otherwise a
+    // failed findDuplicates() call below flips scanning back to false with
+    // groups still null, and the existing-results effect would repopulate
+    // groups from the now-stale pre-scan cache instead of leaving it empty.
+    queryClient.removeQueries({ queryKey: qk.duplicates(selectedId) });
     try {
       await api.findDuplicates(selectedId, criteria);
-    } catch {
+      shownCriteriaRef.current = criteriaKey;
+    } catch (e) {
+      toast.error(getErrorMessage(e));
       setScanning(false);
     }
   };

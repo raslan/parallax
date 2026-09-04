@@ -107,7 +107,6 @@ class DuplicateFileRead(BaseModel):
     codec_name: str | None = None
     video_bitrate: int | None = None
     status: str
-    has_thumbnail: bool = False
 
     model_config = {"from_attributes": True}
 

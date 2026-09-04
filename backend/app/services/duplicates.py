@@ -163,11 +163,17 @@ def _get_hashes(f: File) -> tuple["imagehash.ImageHash | None", list[int]]:
 
 
 def _cluster_by_phash(
-    files: list[File], threshold: int = 10, mode: str = "all_frames", on_file=None
+    files: list[File],
+    threshold: int = 10,
+    mode: str = "all_frames",
+    on_file=None,
+    job_id: int | None = None,
 ) -> list[list[File]]:
     """Group files by pHash similarity using multi-frame hashes when available."""
     entries: list[tuple[File, imagehash.ImageHash | None, list[int]]] = []
     for f in files:
+        if job_id is not None and should_cancel(job_id):
+            raise _Cancelled
         if on_file:
             on_file()
         if not os.path.exists(f.path):
@@ -394,40 +400,56 @@ def find_duplicates(
             db.commit()
 
         confirmed: list[DuplicateGroup] = []
-        for sg_idx, size_group in enumerate(size_groups):
-            logger.warning("find_duplicates: size_group[%d] has %d files", sg_idx, len(size_group))
-            if len(size_group) < 2:
-                continue
-            if use_duration:
-                dur_clusters = _cluster_by_duration(size_group, tolerance=duration_tolerance)
-            else:
-                dur_clusters = [size_group]
-
-            logger.warning(
-                "find_duplicates: size_group[%d] -> %d dur_clusters", sg_idx, len(dur_clusters)
-            )
-            for dur_cluster in dur_clusters:
-                if len(dur_cluster) < 2:
+        try:
+            for sg_idx, size_group in enumerate(size_groups):
+                if job_id is not None and should_cancel(job_id):
+                    raise _Cancelled
+                logger.warning(
+                    "find_duplicates: size_group[%d] has %d files", sg_idx, len(size_group)
+                )
+                if len(size_group) < 2:
                     continue
-                if use_phash:
-                    phash_groups = _cluster_by_phash(
-                        dur_cluster,
-                        threshold=phash_threshold,
-                        mode=phash_mode,
-                        on_file=_on_phash_file,
-                    )
+                if use_duration:
+                    dur_clusters = _cluster_by_duration(size_group, tolerance=duration_tolerance)
                 else:
-                    phash_groups = [dur_cluster]
+                    dur_clusters = [size_group]
 
-                for group in phash_groups:
-                    if len(group) >= 2:
-                        cached = [_snapshot(f) for f in group]
-                        confirmed.append(
-                            DuplicateGroup(
-                                files=cached,
-                                keep_id=_pick_keep(cached),
-                            )
+                logger.warning(
+                    "find_duplicates: size_group[%d] -> %d dur_clusters", sg_idx, len(dur_clusters)
+                )
+                for dur_cluster in dur_clusters:
+                    if len(dur_cluster) < 2:
+                        continue
+                    if use_phash:
+                        phash_groups = _cluster_by_phash(
+                            dur_cluster,
+                            threshold=phash_threshold,
+                            mode=phash_mode,
+                            on_file=_on_phash_file,
+                            job_id=job_id,
                         )
+                    else:
+                        phash_groups = [dur_cluster]
+
+                    for group in phash_groups:
+                        if len(group) >= 2:
+                            cached = [_snapshot(f) for f in group]
+                            confirmed.append(
+                                DuplicateGroup(
+                                    files=cached,
+                                    keep_id=_pick_keep(cached),
+                                )
+                            )
+        except _Cancelled:
+            was_cancelled = True
+
+        if was_cancelled:
+            clear_cancel(job_id)
+            if job:
+                job.status = JobStatus.CANCELLED
+                job.finished_at = now()
+                db.commit()
+            return []
 
         logger.warning("find_duplicates: %d confirmed duplicate groups", len(confirmed))
         _results[library_id] = confirmed

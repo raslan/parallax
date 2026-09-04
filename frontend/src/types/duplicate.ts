@@ -18,7 +18,6 @@ export interface DuplicateFile {
   codec_name: string | null;
   video_bitrate: number | null;
   status: string;
-  has_thumbnail: boolean;
 }
 
 export interface DuplicateGroup {
