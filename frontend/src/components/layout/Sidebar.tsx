@@ -1,50 +1,7 @@
-import { useState, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import {
-  Library,
-  Film,
-  Activity,
-  Settings,
-  Archive,
-  Copy,
-  Scissors,
-  Wand2,
-  Images,
-  ShieldAlert,
-  FolderX,
-  ChevronDown,
-  Captions,
-  Minimize2,
-  Download,
-  Wrench,
-} from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
-import { ParallaxLogo } from "@/components/ParallaxLogo";
-
-const videoItems = [
-  { to: "/libraries", icon: Library, label: "Libraries" },
-  { to: "/files", icon: Film, label: "Files" },
-  { to: "/duplicates", icon: Copy, label: "Duplicates" },
-  { to: "/cleanup", icon: Scissors, label: "Cleanup" },
-  { to: "/compress", icon: Minimize2, label: "Compress" },
-  { to: "/toolbox", icon: Wrench, label: "Toolbox" },
-  { to: "/originals", icon: Archive, label: "Originals" },
-];
-
-const toolItems = [
-  { to: "/identify", icon: Wand2, label: "Identify" },
-  { to: "/subtitles", icon: Captions, label: "Subtitles" },
-  { to: "/downloads", icon: Download, label: "Downloads" },
-];
-
-const imageItems = [
-  { to: "/image-libraries", icon: Library, label: "Libraries" },
-  { to: "/images", icon: Images, label: "Images" },
-  { to: "/image-duplicates", icon: Copy, label: "Duplicates" },
-  { to: "/content-review", icon: ShieldAlert, label: "Content Review" },
-  { to: "/image-quarantined", icon: FolderX, label: "Quarantined" },
-];
+import { useSectionNav } from "./nav-config";
 
 function navClass(isActive: boolean) {
   return cn(
@@ -55,126 +12,35 @@ function navClass(isActive: boolean) {
   );
 }
 
-function SectionGroup({
-  label,
-  items,
-  storageKey,
-  forceOpen,
-}: {
-  label: string;
-  items: { to: string; icon: React.ElementType; label: string }[];
-  storageKey: string;
-  forceOpen: boolean;
-}) {
-  const [open, setOpen] = useState(() => {
-    const stored = localStorage.getItem(storageKey);
-    return stored !== null ? stored === "true" : true;
-  });
-
-  useEffect(() => {
-    // Intentionally one-way: forceOpen only opens, never closes
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (forceOpen && !open) setOpen(true);
-  }, [forceOpen, open]);
-
-  const toggle = () => {
-    setOpen((v) => {
-      const next = !v;
-      localStorage.setItem(storageKey, String(next));
-      return next;
-    });
-  };
+export function Sidebar({ className }: { className?: string }) {
+  const { section } = useSectionNav();
+  const [listRef] = useAutoAnimate<HTMLDivElement>();
 
   return (
-    <div>
-      <button
-        onClick={toggle}
-        className="flex w-full items-center justify-between px-3 pb-1 pt-3 group"
-      >
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-          {label}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-all",
-            !open && "-rotate-90",
-          )}
-        />
-      </button>
-      {open && (
-        <div className="space-y-0.5">
-          {items.map(({ to, icon: Icon, label: itemLabel }) => (
+    <aside
+      className={cn(
+        "flex h-full w-56 flex-col border-r bg-[hsl(var(--sidebar))] border-[hsl(var(--sidebar-border))]",
+        className,
+      )}
+    >
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <div ref={listRef} className="space-y-0.5">
+          {section.items.map(({ to, icon: Icon, label }) => (
             <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
               <Icon className="h-4 w-4 shrink-0" />
-              {itemLabel}
+              {label}
             </NavLink>
           ))}
         </div>
-      )}
-    </div>
-  );
-}
-
-export function Sidebar() {
-  const { pathname } = useLocation();
-
-  const videoActive = videoItems.some((i) => pathname.startsWith(i.to));
-  const imageActive = imageItems.some((i) => pathname.startsWith(i.to));
-  const toolActive = toolItems.some((i) => pathname.startsWith(i.to));
-
-  return (
-    <aside className="flex h-screen w-56 flex-col border-r bg-[hsl(var(--sidebar))] border-[hsl(var(--sidebar-border))]">
-      <div className="flex items-center gap-2.5 px-4 py-5">
-        <ParallaxLogo className="h-5 w-5 shrink-0" />
-        <span className="text-sm font-semibold tracking-tight text-foreground">Parallax</span>
-      </div>
-
-      <Separator className="bg-[hsl(var(--sidebar-border))]" />
-
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
-        <SectionGroup
-          label="Tools"
-          items={toolItems}
-          storageKey="sidebar-tools-open"
-          forceOpen={toolActive}
-        />
-        <SectionGroup
-          label="Videos"
-          items={videoItems}
-          storageKey="sidebar-videos-open"
-          forceOpen={videoActive}
-        />
-        <SectionGroup
-          label="Images"
-          items={imageItems}
-          storageKey="sidebar-images-open"
-          forceOpen={imageActive}
-        />
-
-        <div className="px-3 pb-1 pt-3" />
-        <div className="space-y-0.5">
-          <NavLink to="/jobs" className={({ isActive }) => navClass(isActive)}>
-            <Activity className="h-4 w-4 shrink-0" />
-            Jobs
-          </NavLink>
-        </div>
       </nav>
 
-      <Separator className="bg-[hsl(var(--sidebar-border))]" />
-
-      <div className="px-2 py-3">
-        <NavLink to="/settings" className={({ isActive }) => navClass(isActive)}>
-          <Settings className="h-4 w-4 shrink-0" />
-          Settings
-        </NavLink>
-        <div className="px-3 pt-2">
-          <span className="text-[10px] text-muted-foreground/40 tabular-nums">
-            {import.meta.env.VITE_APP_VERSION ?? "dev"}
-            {import.meta.env.VITE_RUNTIME && import.meta.env.VITE_RUNTIME !== "cpu"
-              ? `-${import.meta.env.VITE_RUNTIME}`
-              : ""}
-          </span>
-        </div>
+      <div className="px-4 py-3">
+        <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+          {import.meta.env.VITE_APP_VERSION ?? "dev"}
+          {import.meta.env.VITE_RUNTIME && import.meta.env.VITE_RUNTIME !== "cpu"
+            ? `-${import.meta.env.VITE_RUNTIME}`
+            : ""}
+        </span>
       </div>
     </aside>
   );
