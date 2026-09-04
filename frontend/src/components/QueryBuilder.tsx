@@ -85,7 +85,8 @@ function PhraseOperatorSelect<T>({
   );
 }
 
-function PercentSlider({
+/** @knip.tags knip:experimental */
+export function PercentSlider({
   leading,
   value,
   onChange,
