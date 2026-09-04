@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import {
   Activity,
   Loader2,
@@ -15,9 +16,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, qk } from "@/lib/api";
-import { useEventSource } from "@/hooks/useEventSource";
 import type { Job, JobLog } from "@/types/job";
 import { formatDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/SectionHeader";
 import { StatusDot } from "@/components/StatusDot";
 
@@ -59,11 +60,24 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
-function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }) {
+function JobRow({
+  job,
+  onCancel,
+  focused = false,
+}: {
+  job: Job;
+  onCancel?: (id: number) => void;
+  focused?: boolean;
+}) {
   const canCancel = (job.status === "running" || job.status === "pending") && onCancel;
   const isFinished =
     job.status === "completed" || job.status === "failed" || job.status === "cancelled";
-  const [logsOpen, setLogsOpen] = useState(job.status === "failed");
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [logsOpen, setLogsOpen] = useState(job.status === "failed" || focused);
+
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focused]);
 
   const { data: logs = [], isLoading: logsLoading } = useQuery<JobLog[]>({
     queryKey: qk.jobLogs(job.id),
@@ -74,7 +88,14 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
   const toggleLogs = () => setLogsOpen((v) => !v);
 
   return (
-    <div className="border-b last:border-0">
+    <div
+      ref={rowRef}
+      className={cn(
+        "border-b last:border-0",
+        focused &&
+          "rounded-md ring-1 ring-primary ring-offset-2 ring-offset-background animate-pulse-ring",
+      )}
+    >
       <div className="flex items-center gap-4 py-3">
         <div className="shrink-0">{STATUS_ICON[job.status] ?? <Clock className="h-4 w-4" />}</div>
         <div className="flex-1 min-w-0">
@@ -179,6 +200,8 @@ function JobRow({ job, onCancel }: { job: Job; onCancel?: (id: number) => void }
 
 export function Jobs() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const focusId = Number(searchParams.get("focus")) || null;
   const [clearing, setClearing] = useState(false);
   const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
 
@@ -188,32 +211,6 @@ export function Jobs() {
   });
 
   const loadAll = () => queryClient.invalidateQueries({ queryKey: qk.jobs() });
-
-  // Merge live SSE updates into the cached job list without losing history entries
-  const applyLiveUpdate = (liveJobs: Job[]) => {
-    queryClient.setQueryData<Job[]>(qk.jobs(), (prev = []) => {
-      const liveMap = new Map(liveJobs.map((j) => [j.id, j]));
-      const merged = prev.map((j) => (liveMap.has(j.id) ? { ...j, ...liveMap.get(j.id) } : j));
-      // Add any brand-new jobs not yet in the list
-      for (const lj of liveJobs) {
-        if (!merged.find((j) => j.id === lj.id)) merged.unshift(lj);
-      }
-      return merged;
-    });
-  };
-
-  useEventSource<Job[]>(
-    api.jobsStreamUrl(),
-    (live) => {
-      applyLiveUpdate(live);
-      // When all active jobs settle, do a full refresh to get final DB state
-      if (live.length === 0) loadAll();
-    },
-    () => {
-      // SSE disconnected — fall back to a one-time refresh
-      loadAll();
-    },
-  );
 
   const handleCancel = async (id: number) => {
     setCancellingIds((s) => new Set(s).add(id));
@@ -298,6 +295,7 @@ export function Jobs() {
                   <JobRow
                     key={j.id}
                     job={j}
+                    focused={j.id === focusId}
                     onCancel={cancellingIds.has(j.id) ? undefined : handleCancel}
                   />
                 ))}
@@ -309,7 +307,7 @@ export function Jobs() {
               <CardContent className="pt-4 pb-0">
                 <SectionHeader className="mb-2">History</SectionHeader>
                 {history.map((j) => (
-                  <JobRow key={j.id} job={j} />
+                  <JobRow key={j.id} job={j} focused={j.id === focusId} />
                 ))}
               </CardContent>
             </Card>
