@@ -210,7 +210,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>

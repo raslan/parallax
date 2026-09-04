@@ -303,7 +303,7 @@ export function Compress() {
   const selectedCodec = codecs.find((c) => c.id === codec);
 
   return (
-    <div className="p-8 space-y-6 h-full flex flex-col">
+    <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       {playingFile && (
         <VideoPlayerModal
           file={playingFile}

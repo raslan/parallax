@@ -241,7 +241,7 @@ export function Jobs() {
   const history = jobs.filter((j) => j.status !== "running" && j.status !== "pending");
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <SectionHeader className="mb-1.5">Active &amp; recent jobs</SectionHeader>

@@ -236,7 +236,7 @@ export function Downloads() {
   });
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Player modal */}
       {playingItem && playingItem.output_path && (
         <VideoPlayerModal
@@ -327,7 +327,7 @@ export function Downloads() {
 
           {/* Queue */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 <SectionHeader>Queue</SectionHeader>
                 {activeCount > 0 && (

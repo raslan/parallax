@@ -366,7 +366,7 @@ export function Subtitles() {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {searchFile && (
         <SubtitleSearchDialog
           file={searchFile}

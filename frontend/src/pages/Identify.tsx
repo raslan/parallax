@@ -295,7 +295,7 @@ export function Identify() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-4xl">
+    <div className="p-4 md:p-8 space-y-6 max-w-4xl">
       <div>
         <SectionHeader className="mb-1.5">Media management</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Identify & Rename</h1>

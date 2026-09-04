@@ -236,7 +236,7 @@ export function Toolbox() {
   const isDone = jobStatus === "completed" || jobStatus === "failed" || jobStatus === "cancelled";
 
   return (
-    <div className="p-8 space-y-6 h-full flex flex-col">
+    <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       {playingFile && (
         <VideoPlayerModal
           file={playingFile}

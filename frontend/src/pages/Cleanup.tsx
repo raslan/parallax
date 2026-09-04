@@ -302,7 +302,7 @@ export function Cleanup() {
   };
 
   return (
-    <div className="p-8 space-y-6 h-full flex flex-col">
+    <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
           <SectionHeader className="mb-1.5">Library maintenance</SectionHeader>
@@ -377,7 +377,7 @@ export function Cleanup() {
               </span>{" "}
               file{sortedResults.length !== 1 ? "s" : ""} match
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input
                   type="checkbox"

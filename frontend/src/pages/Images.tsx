@@ -153,7 +153,7 @@ export function Images() {
   const visibleImages = filterByFilename(images, search);
 
   return (
-    <div className="p-8 space-y-6 h-full flex flex-col">
+    <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="shrink-0">
         <SectionHeader className="mb-1.5">Images</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Images</h1>
