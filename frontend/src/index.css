@@ -6,6 +6,10 @@
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
   --radius: 0.4rem;
+  /* opt every native control (select popups, scrollbars, form widgets) into dark
+     rendering — without this, Windows paints <select>/<option> with the OS light
+     theme regardless of our CSS */
+  color-scheme: dark;
 }
 
 @layer base {
@@ -185,6 +189,18 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+  }
+
+  /* Windows paints native <select>/<option> with the OS light theme unless the
+     control itself carries an explicit colour-scheme + background. `bg-transparent`
+     on the trigger is not enough — the option popup stays white. */
+  select {
+    color-scheme: dark;
+  }
+  select option,
+  select optgroup {
+    background-color: var(--px-bg-elevated);
+    color: hsl(var(--foreground));
   }
 
   ::-webkit-scrollbar {
