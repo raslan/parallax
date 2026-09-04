@@ -70,7 +70,7 @@ function FileCard({
 }) {
   return (
     <div
-      className={`flex-1 min-w-[180px] max-w-[260px] rounded-lg border p-3 space-y-2 transition-colors ${
+      className={`h-full rounded-lg border p-3 space-y-2 transition-colors ${
         isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
       }`}
     >
@@ -154,18 +154,28 @@ function GroupCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-wrap gap-3">
-          {group.files.map((f) => (
+        {/* Some groups (e.g. many short clips tied on rounded duration) can hold
+            hundreds of files — render this list virtualized too, not just the
+            outer group list, or a single large group alone can hang the tab. */}
+        <VirtualizedGrid
+          items={group.files}
+          getKey={(f) => f.id}
+          mode="grid"
+          itemHeight={220}
+          itemAspectRatio={16 / 9}
+          itemChromeHeight={92}
+          minColumnWidth={200}
+          maxHeight="320px"
+          renderItem={(f) => (
             <FileCard
-              key={f.id}
               file={f}
               isChecked={deleteIds.has(f.id)}
               isSuggested={f.id === group.keep_id && !deleteIds.has(f.id)}
               onToggle={() => onToggle(f.id)}
               onPlay={() => onPlay(f)}
             />
-          ))}
-        </div>
+          )}
+        />
       </CardContent>
     </Card>
   );
