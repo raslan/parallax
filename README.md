@@ -10,7 +10,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 - **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries; libraries auto-rescan when files change on disk
 - **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC"); cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Toolbox** — bulk file-repair utilities in collapsible tool sections: trim start/end (stream-copy when a keyframe is near the cut point, falls back to hardware-accelerated re-encode otherwise), audio channel isolation (left/right → stereo), rotate, normalize volume, faststart (move moov atom for web playback), and A/V sync offset; cancelable bulk job with per-file progress; originals preserved in `_originals/`
-- **Duplicate detection** — find duplicates by size, duration, and perceptual hash; configurable similarity threshold (0–100%), first-frame/all-frames comparison mode, and frames-per-video (4–64); scan is self-contained and runs pHash extraction automatically before comparing
+- **Duplicate detection** — 10 stackable criteria: size, duration, resolution, content date, orientation, bitrate, filename (fuzzy match), byte-hash, perceptual hash (configurable similarity threshold, first-frame/all-frames mode, frames-per-video 4–64), and audio fingerprint; matching runs entirely client-side and recomputes instantly as you toggle criteria — no server round-trip. One background job, "Extract," fills in byte-hash/pHash/audio-fingerprint data for whichever files need it
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, content date, file-added date, file size, orientation, filename (exact or fuzzy), or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
 - **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); Whisper local speech-to-text generates SRT files from audio with no API key; multiple subtitle tracks shown in the Plyr player with a language picker
@@ -250,7 +250,7 @@ Requires the NVIDIA driver and container toolkit installed on the host before ru
 3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature — subtitle downloads via subf2m.co need no account or API key
 4. To use the Downloads feature, go to **Settings → Downloads** and click **Install yt-dlp** — choose stable or nightly channel first
 5. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
-6. Run a scan; for image libraries it generates thumbnails and runs the AI pipeline; duplicate detection on the Duplicates page is self-contained — it extracts pHash automatically before comparing
+6. Run a scan; for image libraries it generates thumbnails and runs the AI pipeline; on the Duplicates page, run "Extract" once to fill in byte-hash/pHash/audio fingerprint data, then toggle criteria — matching recomputes instantly in the browser
 
 ---
 
