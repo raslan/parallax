@@ -1,26 +1,25 @@
 export interface DuplicateCriteria {
   use_size: boolean;
   use_duration: boolean;
-  use_phash: boolean;
   duration_tolerance: number;
+  use_resolution: boolean;
+  use_content_date: boolean;
+  content_date_tolerance: number;
+  use_orientation: boolean;
+  use_bitrate: boolean;
+  bitrate_tolerance_pct: number;
+  use_filename: boolean;
+  filename_threshold: number;
+  use_byte_hash: boolean;
+  use_phash: boolean;
   phash_threshold: number;
   phash_mode: "first_frame" | "all_frames";
   phash_frames: number;
-}
-
-export interface DuplicateFile {
-  id: number;
-  library_id: number;
-  path: string;
-  filename: string;
-  size: number;
-  duration: number | null;
-  codec_name: string | null;
-  video_bitrate: number | null;
-  status: string;
+  use_audio: boolean;
+  audio_threshold: number;
 }
 
 export interface DuplicateGroup {
-  files: DuplicateFile[];
+  files: import("./file").VideoFile[];
   keep_id: number;
 }

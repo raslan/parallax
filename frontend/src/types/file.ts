@@ -17,6 +17,10 @@ export interface VideoFile {
   file_fps: number | null;
   file_date: number | null;
   file_mtime: number | null;
+  phash: number | null;
+  phash_frames: string | null;
+  byte_hash: string | null;
+  audio_fingerprint: string | null;
 }
 
 export interface FilesResponse {
