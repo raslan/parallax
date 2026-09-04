@@ -387,7 +387,7 @@ export function Duplicates() {
   ].filter(Boolean).length;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
+    <div className="p-4 md:p-8 space-y-6 h-full flex flex-col overflow-hidden">
       <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
           <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
