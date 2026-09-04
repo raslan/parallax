@@ -15,8 +15,6 @@ from app.schemas import (
     BrowseResponse,
     DeleteDuplicatesRequest,
     DuplicateCriteriaRequest,
-    DuplicateFileRead,
-    DuplicateGroupRead,
     FileRead,
     LibraryCreate,
     LibraryRead,
@@ -350,8 +348,6 @@ async def find_duplicates_endpoint(
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
-    if not body.use_size and not body.use_duration and not body.use_phash:
-        raise HTTPException(422, "At least one matching criterion must be selected")
     file_count = db.query(func.count(File.id)).filter(File.library_id == library_id).scalar()
     if file_count == 0:
         raise HTTPException(
@@ -365,57 +361,17 @@ async def find_duplicates_endpoint(
     db.add(job)
     db.commit()
     db.refresh(job)
-    await enqueue(
-        job.id,
-        find_duplicates,
-        library_id,
-        job.id,
-        body.use_size,
-        body.use_duration,
-        body.use_phash,
-        body.duration_tolerance,
-        body.phash_threshold,
-        body.phash_mode,
-        body.phash_frames,
-    )
-    return {"message": "Duplicate scan queued"}
+    await enqueue(job.id, find_duplicates, library_id, job.id, body.model_dump())
+    return {"job_id": job.id, "message": "Duplicate extraction queued"}
 
 
-@router.get("/{library_id}/duplicates", response_model=list[DuplicateGroupRead])
-def get_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
+@router.get("/{library_id}/duplicate-files", response_model=list[FileRead])
+def get_duplicate_files(library_id: int, db: Session = Depends(get_db)):
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
-    from app.services.duplicates import get_cached_results
-
-    results = get_cached_results(library_id)
-    import logging as _logging
-
-    _logging.getLogger(__name__).warning(
-        "get_duplicates_endpoint: library=%d results=%s",
-        library_id,
-        None if results is None else f"{len(results)} groups",
-    )
-    if results is None:
-        raise HTTPException(404, "No duplicate scan has been run for this library yet")
-    out = []
-    for group in results:
-        files = [
-            DuplicateFileRead(
-                id=f.id,
-                library_id=f.library_id,
-                path=f.path,
-                filename=f.filename,
-                size=f.size,
-                duration=f.duration,
-                codec_name=f.codec_name,
-                video_bitrate=f.video_bitrate,
-                status=f.status,
-            )
-            for f in group.files
-        ]
-        out.append(DuplicateGroupRead(files=files, keep_id=group.keep_id))
-    return out
+    files = db.query(File).filter(File.library_id == library_id).order_by(File.filename).all()
+    return [FileRead.model_validate(f) for f in files]
 
 
 @router.delete("/{library_id}/duplicates", status_code=204)

@@ -6,11 +6,22 @@ from pydantic import BaseModel
 class DuplicateCriteriaRequest(BaseModel):
     use_size: bool = True
     use_duration: bool = True
-    use_phash: bool = True
     duration_tolerance: float = 1.0
-    phash_threshold: int = 10  # Hamming distance 0–64
-    phash_mode: str = "all_frames"  # "first_frame" | "all_frames"
-    phash_frames: int = 16  # frames to extract per video for pHash
+    use_resolution: bool = False
+    use_content_date: bool = False
+    content_date_tolerance: float = 86400.0
+    use_orientation: bool = False
+    use_bitrate: bool = False
+    bitrate_tolerance_pct: float = 10.0
+    use_filename: bool = False
+    filename_threshold: float = 0.4
+    use_byte_hash: bool = False
+    use_phash: bool = True
+    phash_threshold: int = 10
+    phash_mode: str = "all_frames"
+    phash_frames: int = 16
+    use_audio: bool = False
+    audio_threshold: float = 0.9
 
 
 class LibraryCreate(BaseModel):
@@ -54,6 +65,10 @@ class FileRead(BaseModel):
     file_fps: float | None = None
     file_date: float | None = None
     file_mtime: float | None = None
+    phash: int | None = None
+    phash_frames: str | None = None
+    byte_hash: str | None = None
+    audio_fingerprint: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -95,25 +110,6 @@ class StatsRead(BaseModel):
     transcoded_files: int
     total_size_bytes: int
     scanning: bool
-
-
-class DuplicateFileRead(BaseModel):
-    id: int
-    library_id: int
-    path: str
-    filename: str
-    size: int
-    duration: float | None = None
-    codec_name: str | None = None
-    video_bitrate: int | None = None
-    status: str
-
-    model_config = {"from_attributes": True}
-
-
-class DuplicateGroupRead(BaseModel):
-    files: list[DuplicateFileRead]
-    keep_id: int
 
 
 class DeleteDuplicatesRequest(BaseModel):

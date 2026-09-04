@@ -84,6 +84,10 @@ def _to_file_read(f: File) -> FileRead:
         file_fps=f.file_fps,
         file_date=f.file_date,
         file_mtime=f.file_mtime,
+        phash=f.phash,
+        phash_frames=f.phash_frames,
+        byte_hash=f.byte_hash,
+        audio_fingerprint=f.audio_fingerprint,
     )
 
 
