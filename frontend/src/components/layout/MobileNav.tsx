@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, Plus } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 /** @public */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
-  const { activeTab, section } = useSectionNav();
+  const { activeTab, items } = useSectionNav();
 
   // Close whenever the user navigates.
   const close = () => setOpen(false);
@@ -51,7 +51,7 @@ export function MobileNav() {
             </Link>
           ))}
           <div className="my-2 h-px bg-[hsl(var(--sidebar-border))]" />
-          {section.items.map((item) => (
+          {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -67,6 +67,9 @@ export function MobileNav() {
             >
               <item.icon className="h-4 w-4 shrink-0" />
               {item.label}
+              {item.label === "Libraries" && (
+                <Plus aria-hidden className="ml-auto h-3.5 w-3.5 opacity-40" />
+              )}
             </NavLink>
           ))}
         </nav>

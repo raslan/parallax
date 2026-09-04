@@ -1,5 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { routeToTab, SECTIONS } from "./nav-config";
+import { routeToTab, filterSectionItems, SECTIONS } from "./nav-config";
+
+const byId = (id: string) => SECTIONS.find((s) => s.id === id)!;
+
+describe("filterSectionItems", () => {
+  it("collapses the videos section to just Libraries when there are no video libraries", () => {
+    const items = filterSectionItems(byId("videos"), false, true);
+    expect(items.map((i) => i.label)).toEqual(["Libraries"]);
+  });
+
+  it("collapses the images section to just Libraries when there are no image libraries", () => {
+    const items = filterSectionItems(byId("images"), true, false);
+    expect(items.map((i) => i.label)).toEqual(["Libraries"]);
+  });
+
+  it("returns the full list once a library of that type exists", () => {
+    expect(filterSectionItems(byId("videos"), true, false)).toEqual(byId("videos").items);
+    expect(filterSectionItems(byId("images"), false, true)).toEqual(byId("images").items);
+  });
+
+  it("never touches the tools section", () => {
+    expect(filterSectionItems(byId("tools"), false, false)).toEqual(byId("tools").items);
+  });
+});
 
 describe("routeToTab", () => {
   it("maps every section item route to its section id", () => {

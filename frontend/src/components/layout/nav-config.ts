@@ -1,4 +1,6 @@
 import { useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api, imageApi, qk } from "@/lib/api";
 import {
   Library,
   Film,
@@ -74,11 +76,45 @@ export function routeToTab(pathname: string): SectionId | null {
   return best?.id ?? null;
 }
 
+/**
+ * The video/image pages other than Libraries are useless without a library of
+ * that type, so hide them until one exists. The first item of each media
+ * section is its Libraries entry.
+ *
+ * @public
+ */
+export function filterSectionItems(
+  section: Section,
+  hasVideoLibraries: boolean,
+  hasImageLibraries: boolean,
+): NavItem[] {
+  if (section.id === "videos" && !hasVideoLibraries) return section.items.slice(0, 1);
+  if (section.id === "images" && !hasImageLibraries) return section.items.slice(0, 1);
+  return section.items;
+}
+
 /** @public */
-export function useSectionNav(): { activeTab: SectionId | null; section: Section } {
+export function useSectionNav(): {
+  activeTab: SectionId | null;
+  section: Section;
+  items: NavItem[];
+} {
   const { pathname } = useLocation();
   const activeTab = routeToTab(pathname);
   // SECTIONS is a statically non-empty literal, so SECTIONS[0] is always defined.
   const section = SECTIONS.find((s) => s.id === activeTab) ?? SECTIONS[0]!;
-  return { activeTab, section };
+
+  const { data: videoLibraries = [] } = useQuery({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+    staleTime: 30_000,
+  });
+  const { data: imageLibraries = [] } = useQuery({
+    queryKey: qk.imageLibraries(),
+    queryFn: () => imageApi.listLibraries(),
+    staleTime: 30_000,
+  });
+
+  const items = filterSectionItems(section, videoLibraries.length > 0, imageLibraries.length > 0);
+  return { activeTab, section, items };
 }

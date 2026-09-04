@@ -6,7 +6,15 @@ import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
-  return { ...actual, api: { ...actual.api, getJobs: () => Promise.resolve([]) } };
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      getJobs: () => Promise.resolve([]),
+      getLibraries: () => Promise.resolve([]),
+    },
+    imageApi: { ...actual.imageApi, listLibraries: () => Promise.resolve([]) },
+  };
 });
 // EventSource + matchMedia stubbed globally in src/test-setup.ts (Task 1).
 

@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSectionNav } from "./nav-config";
 
@@ -13,8 +13,7 @@ function navClass(isActive: boolean) {
 }
 
 export function Sidebar({ className }: { className?: string }) {
-  const { section } = useSectionNav();
-  const [listRef] = useAutoAnimate<HTMLDivElement>();
+  const { items } = useSectionNav();
 
   return (
     <aside
@@ -24,11 +23,14 @@ export function Sidebar({ className }: { className?: string }) {
       )}
     >
       <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <div ref={listRef} className="space-y-0.5">
-          {section.items.map(({ to, icon: Icon, label }) => (
+        <div className="space-y-0.5">
+          {items.map(({ to, icon: Icon, label }) => (
             <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)}>
               <Icon className="h-4 w-4 shrink-0" />
               {label}
+              {label === "Libraries" && (
+                <Plus aria-hidden className="ml-auto h-3.5 w-3.5 opacity-40" />
+              )}
             </NavLink>
           ))}
         </div>
