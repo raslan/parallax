@@ -22,7 +22,10 @@ export function Header() {
         </span>
       </Link>
 
-      <Separator orientation="vertical" className="mx-1 h-6 bg-[hsl(var(--sidebar-border))]" />
+      <Separator
+        orientation="vertical"
+        className="mx-1 hidden h-6 bg-[hsl(var(--sidebar-border))] md:block"
+      />
 
       <nav className="hidden items-center gap-1 md:flex">
         {SECTIONS.map((s) => (
