@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ShieldAlert, FolderX } from "lucide-react";
+import { FolderX } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
@@ -137,15 +137,12 @@ export function ContentReview() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center gap-3">
-        <ShieldAlert className="h-5 w-5" style={{ color: "var(--px-accent)" }} />
-        <div>
-          <h1 className="text-lg font-semibold">Content Review</h1>
-          <p className="text-xs text-muted-foreground">
-            Compose a query from detection labels. Results update live as you build it.
-          </p>
-        </div>
+    <div className="p-4 md:p-8 space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Content Review</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Compose a query from detection labels. Results update live as you build it.
+        </p>
       </div>
 
       <div className="rounded-lg border bg-card p-4">

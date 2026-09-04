@@ -39,6 +39,7 @@ const TYPE_LABEL: Record<string, string> = {
   model_download: "Model download",
   compress: "Compress",
   toolbox_fix: "Toolbox fix",
+  thumbnail_warm: "Generating thumbnails",
 };
 
 function ProgressBar({ value }: { value: number }) {
@@ -248,7 +249,6 @@ export function Jobs() {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <SectionHeader className="mb-1.5">Active &amp; recent jobs</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
           <p className="text-sm text-muted-foreground mt-1">Monitor scan and transcode jobs.</p>
         </div>

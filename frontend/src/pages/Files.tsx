@@ -447,7 +447,6 @@ export function Files() {
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="shrink-0">
-        <SectionHeader className="mb-1.5">Indexed media</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Browse and manage video files across all libraries.

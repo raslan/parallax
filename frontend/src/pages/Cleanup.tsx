@@ -24,7 +24,6 @@ import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { SectionHeader } from "@/components/SectionHeader";
 import { QueryBuilder } from "@/components/QueryBuilder";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { cleanupFields } from "@/lib/cleanupFields";
@@ -305,7 +304,6 @@ export function Cleanup() {
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
-          <SectionHeader className="mb-1.5">Library maintenance</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Cleanup</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Stack filters to find files matching all conditions, then bulk-delete matches.

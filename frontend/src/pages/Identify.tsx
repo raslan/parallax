@@ -12,7 +12,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SectionHeader } from "@/components/SectionHeader";
 import { FileMatcher } from "@/components/FileMatcher";
 import { DirPicker } from "@/components/DirPicker";
 import { api } from "@/lib/api";
@@ -297,7 +296,6 @@ export function Identify() {
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-4xl">
       <div>
-        <SectionHeader className="mb-1.5">Media management</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Identify & Rename</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Identify a folder of badly-named files and rename them to Plex/Jellyfin format.

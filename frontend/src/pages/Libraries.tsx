@@ -78,7 +78,6 @@ function VideoAddDialog({ open, onOpenChange, onCreated }: AddDialogProps) {
 }
 
 const videoKind: LibraryKind<Library> = {
-  sectionLabel: "Media collection",
   title: "Libraries",
   subtitle: () => "Manage the folders you want to scan.",
   emptyIcon: LibIcon,

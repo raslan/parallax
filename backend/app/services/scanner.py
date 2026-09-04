@@ -128,37 +128,86 @@ def generate_thumbnail(file_path: str, file_id: int, duration: float | None = No
 
 
 def _warm_thumbnails(library_id: int) -> None:
-    """Best-effort background thumbnail generation after a scan finishes.
+    """Background job: generate thumbnails for every file in this library
+    still missing one, after a scan finishes.
 
     Scanning deliberately skips thumbnail generation (see scan_library) so the
     scan itself stays fast — but leaving it purely on-demand meant thumbnails
     only ever started generating once a user happened to open a page that
     renders them. This runs the same `get_or_create_thumbnail` a page view
-    would trigger, for every file still missing one, in a thread of its own
-    so it never delays the scan job's completion. It shares
-    `_thumbnail_gen_semaphore` with on-demand requests, so it only ever fills
-    in whatever concurrent-ffmpeg headroom isn't already being used for
-    someone actively browsing — no separate concurrency knob needed.
+    would trigger, for every file still missing one.
+
+    Tracked as its own Job (JobType.THUMBNAIL_WARM) so it's visible on the
+    Jobs page with real progress and can be cancelled — this previously ran
+    as an untracked daemon thread with no Job row at all, invisible to the
+    UI even though a large, freshly-thumbnail-less library could peg most of
+    the host's CPU for minutes. Skips creating a job entirely if nothing is
+    actually missing.
     """
     db = SessionLocal()
+    job_id: int | None = None
     try:
         rows = (
             db.query(File.id, File.path, File.duration).filter(File.library_id == library_id).all()
         )
+        missing = [
+            (fid, path, duration)
+            for fid, path, duration in rows
+            if not os.path.exists(thumbnail_path(fid))
+        ]
+        if not missing:
+            return
+
+        job = Job(
+            type=JobType.THUMBNAIL_WARM,
+            status=JobStatus.RUNNING,
+            library_id=library_id,
+            total_files=len(missing),
+            started_at=_now(),
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        job_id = job.id
+        arm_cancel(job_id)
+
+        def _one(file_id: int, path: str, duration: float | None) -> None:
+            try:
+                get_or_create_thumbnail(file_id, path, duration=duration)
+            except Exception:
+                pass
+
+        completed = 0
+        was_cancelled = False
+        with _cf.ThreadPoolExecutor(
+            max_workers=_THUMBNAIL_GEN_LIMIT, thread_name_prefix="thumb-warm"
+        ) as pool:
+            pending = {pool.submit(_one, fid, path, duration) for fid, path, duration in missing}
+            while pending:
+                done, pending = _cf.wait(pending, timeout=2.0)
+                completed += len(done)
+                if should_cancel(job_id):
+                    was_cancelled = True
+                    for fut in pending:
+                        fut.cancel()
+                    _cf.wait(pending)
+                    pending = set()
+                job.processed_files = completed
+                if not was_cancelled:
+                    job.progress = min(99.0, completed / len(missing) * 100)
+                db.commit()
+
+        job.status = JobStatus.CANCELLED if was_cancelled else JobStatus.COMPLETED
+        if not was_cancelled:
+            job.progress = 100.0
+        job.finished_at = _now()
+        db.commit()
+    except Exception:
+        pass
     finally:
+        if job_id is not None:
+            clear_cancel(job_id)
         db.close()
-
-    def _one(file_id: int, path: str, duration: float | None) -> None:
-        try:
-            get_or_create_thumbnail(file_id, path, duration=duration)
-        except Exception:
-            pass
-
-    with _cf.ThreadPoolExecutor(
-        max_workers=_THUMBNAIL_GEN_LIMIT, thread_name_prefix="thumb-warm"
-    ) as pool:
-        for file_id, path, duration in rows:
-            pool.submit(_one, file_id, path, duration)
 
 
 def thumbnail_path(file_id: int) -> str:
@@ -178,8 +227,11 @@ _thumb_locks_guard = threading.Lock()
 # concurrent ffmpeg process with no limit at all. On a 4-core box that's
 # dozens of ffmpeg processes fighting over 4 cores, each taking dramatically
 # longer than it would alone, which is what "no thumbnails for a minute, then
-# a slow trickle" looks like. Leaves one core free for the API/event loop.
-_THUMBNAIL_GEN_LIMIT = max(1, (os.cpu_count() or 4) - 1)
+# a slow trickle" looks like. Half the cores (not cores-1) — this pool is
+# shared with the post-scan warm-up pass (_warm_thumbnails), which can queue
+# thousands of files at once on a fresh library; leaving only one core free
+# still let a big warm-up saturate the host and starve the API/event loop.
+_THUMBNAIL_GEN_LIMIT = max(1, (os.cpu_count() or 4) // 2)
 _thumbnail_gen_semaphore = threading.Semaphore(_THUMBNAIL_GEN_LIMIT)
 
 

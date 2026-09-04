@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Search } from "lucide-react";
-import { SectionHeader } from "@/components/SectionHeader";
 import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
@@ -155,7 +154,6 @@ export function Images() {
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="shrink-0">
-        <SectionHeader className="mb-1.5">Images</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Images</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Browse and manage images across all libraries.

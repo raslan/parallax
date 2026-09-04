@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Palette, KeyRound, Cpu, Clapperboard, Download } from "lucide-react";
-import { SectionHeader } from "@/components/SectionHeader";
 import { GeneralTab } from "@/components/settings/GeneralTab";
 import { TranscodingTab } from "@/components/settings/TranscodingTab";
 import { CredentialsTab } from "@/components/settings/CredentialsTab";
@@ -31,7 +30,6 @@ export function Settings() {
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
-        <SectionHeader className="mb-1.5">App configuration</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Configure Parallax behaviour.</p>
       </div>

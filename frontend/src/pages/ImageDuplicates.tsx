@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { formatSize } from "@/lib/format";
-import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
 
@@ -213,7 +212,6 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Image Duplicates</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Check images to quarantine, uncheck to keep. Click any image to preview.

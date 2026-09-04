@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
+import { Check, Copy, Loader2, ScanSearch, ShieldCheck, Trash2, Play } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
@@ -7,11 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api, qk } from "@/lib/api";
-import {
-  anyCriteriaEnabled,
-  clusterDuplicates,
-  type DuplicateGroup,
-} from "@/lib/clusterDuplicates";
+import { anyCriteriaEnabled, type DuplicateGroup } from "@/lib/clusterDuplicates";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
 import type { Library } from "@/types/library";
@@ -19,12 +15,12 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { DuplicateCriteriaPanel } from "@/components/duplicates/DuplicateCriteriaPanel";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
-import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { CollapsibleControls } from "@/components/CollapsibleControls";
+import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
 
 // Stable reference so `files` doesn't get a fresh `[]` identity every render
 // while the query has no data yet (e.g. still loading, or erroring with no
@@ -155,29 +151,61 @@ function GroupCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Some groups (e.g. many short clips tied on rounded duration) can hold
-            hundreds of files — render this list virtualized too, not just the
-            outer group list, or a single large group alone can hang the tab. */}
-        <VirtualizedGrid
-          items={group.files}
-          getKey={(f) => f.id}
-          mode="grid"
-          itemHeight={220}
-          itemAspectRatio={16 / 9}
-          itemChromeHeight={92}
-          minColumnWidth={200}
-          renderItem={(f) => (
+        {/* No independent scroll region here on purpose — a nested overflow:auto
+            container (even unbounded) can end up with a sub-pixel sliver of real
+            overflow, which steals the first tick of a scroll gesture from the
+            outer group list. Every group's files render fully; the outer list's
+            virtualization already bounds how many groups are mounted at once. */}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+          {group.files.map((f) => (
             <FileCard
+              key={f.id}
               file={f}
               isChecked={deleteIds.has(f.id)}
               isSuggested={f.id === group.keep_id && !deleteIds.has(f.id)}
               onToggle={() => onToggle(f.id)}
               onPlay={() => onPlay(f)}
             />
-          )}
-        />
+          ))}
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Shown in place of the empty state while a real duplicate scan is actually
+// running (extraction job or client-side clustering) — otherwise "No
+// duplicates found" reads as a false negative while work is still in flight.
+function WorkingState({ extracting, progress }: { extracting: boolean; progress: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-8 py-16 flex flex-col items-center text-center gap-4">
+      <div className="flex items-center gap-2">
+        <ScanSearch className="h-5 w-5 text-primary" />
+        <h3 className="font-semibold text-lg">Finding duplicates</h3>
+      </div>
+
+      {extracting ? (
+        <>
+          <div className="text-3xl font-bold font-mono tabular-nums tracking-tight">
+            {Math.round(progress)}%
+          </div>
+          <div className="w-full max-w-xs h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-sm text-muted-foreground max-w-xs">Scanning your library…</p>
+        </>
+      ) : (
+        <>
+          <div className="w-40 h-1.5 rounded-full bg-muted overflow-hidden relative">
+            <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-primary to-transparent" />
+          </div>
+          <p className="text-sm text-muted-foreground max-w-xs">Comparing files…</p>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -286,7 +314,7 @@ export function Duplicates() {
 
   useLiveFiles("video", selectedId, () => setResultsStale(true));
 
-  const groups = useMemo(() => clusterDuplicates(files, criteria), [files, criteria]);
+  const { groups, isComputing: clustering } = useClusterDuplicates(files, criteria);
 
   // Seed/refresh the delete selection whenever the computed groups change
   // (new files loaded, or criteria changed) — "everyone except the suggested
@@ -390,7 +418,6 @@ export function Duplicates() {
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
-          <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Toggle criteria below — matching recomputes instantly. Extract fills in the
@@ -470,6 +497,11 @@ export function Duplicates() {
           <p className="text-sm">
             <span className="font-semibold tabular-nums font-mono">{groups.length}</span> duplicate
             group{groups.length !== 1 ? "s" : ""} found
+            {clustering && (
+              <span className="text-muted-foreground ml-2 inline-flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> recomputing…
+              </span>
+            )}
             {deleteIds.size > 0 && (
               <span className="text-muted-foreground ml-2">
                 · <span className="font-mono font-semibold text-foreground">{deleteIds.size}</span>{" "}
@@ -506,7 +538,11 @@ export function Duplicates() {
           </div>
         )}
 
-        {!filesLoading && files.length > 0 && groups.length === 0 && (
+        {!filesLoading && files.length > 0 && groups.length === 0 && (extracting || clustering) && (
+          <WorkingState extracting={extracting} progress={progress} />
+        )}
+
+        {!filesLoading && files.length > 0 && groups.length === 0 && !extracting && !clustering && (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <Copy className="h-10 w-10 text-muted-foreground mb-4" />

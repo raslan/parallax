@@ -132,7 +132,6 @@ function ImageAddDialog({ open, onOpenChange, onCreated }: AddDialogProps) {
 }
 
 const imageKind: LibraryKind<ImageLibrary> = {
-  sectionLabel: "Image collection",
   title: "Image Libraries",
   subtitle: (libs) => {
     const total = libs.reduce((s, l) => s + l.image_count, 0);

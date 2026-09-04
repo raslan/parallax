@@ -7,6 +7,22 @@ export interface DuplicateGroup {
   keep_id: number;
 }
 
+// Message shapes for clusterDuplicates.worker.ts — the pairwise pHash/audio
+// stages are O(n^2) per group with BigInt Hamming distance, which can run
+// into tens of millions of operations on a large library and freeze the
+// main thread for multiple seconds if run inline; the worker keeps the tab
+// responsive while it computes.
+export interface ClusterRequest {
+  requestId: number;
+  files: VideoFile[];
+  criteria: DuplicateCriteria;
+}
+
+export interface ClusterResponse {
+  requestId: number;
+  groups: DuplicateGroup[];
+}
+
 type Orientation = "square" | "landscape" | "portrait";
 
 function orientation(f: VideoFile): Orientation | null {

@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { api, qk } from "@/lib/api";
 import type { Original } from "@/types/original";
 import { formatSize } from "@/lib/format";
-import { SectionHeader } from "@/components/SectionHeader";
 import { StatPanel } from "@/components/StatPanel";
 
 // ── Savings badge ─────────────────────────────────────────────────────────────
@@ -305,7 +304,6 @@ export function Originals() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <SectionHeader className="mb-1.5">Backups of modified files</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Originals</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Backup files kept from before modifications. Delete once you're happy, or restore to

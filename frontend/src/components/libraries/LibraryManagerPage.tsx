@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, qk } from "@/lib/api";
 import type { Job } from "@/types/job";
 import { formatDate } from "@/lib/format";
-import { SectionHeader } from "@/components/SectionHeader";
 import { DeleteLibraryDialog } from "./DeleteLibraryDialog";
 import { DeleteAllLibrariesDialog } from "./DeleteAllLibrariesDialog";
 import type { LibraryBase, LibraryKind } from "./types";
@@ -60,7 +59,6 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <SectionHeader className="mb-1.5">{kind.sectionLabel}</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">{kind.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">{kind.subtitle(libraries)}</p>
         </div>

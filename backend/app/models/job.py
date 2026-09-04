@@ -17,6 +17,7 @@ class JobType:
     COMPRESS = "compress"
     PHASH_SCAN = "phash_scan"
     TOOLBOX_FIX = "toolbox_fix"
+    THUMBNAIL_WARM = "thumbnail_warm"
 
 
 class JobStatus:

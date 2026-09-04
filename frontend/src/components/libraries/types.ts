@@ -35,7 +35,6 @@ export interface AddDialogProps {
  */
 export interface LibraryKind<T extends LibraryBase> {
   // page copy
-  sectionLabel: string;
   title: string;
   subtitle: (libs: T[]) => string;
   emptyIcon: LucideIcon;

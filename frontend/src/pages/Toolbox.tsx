@@ -30,7 +30,6 @@ import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { CollapsibleControls } from "@/components/CollapsibleControls";
-import { SectionHeader } from "@/components/SectionHeader";
 import { FilterAccordion } from "@/components/FilterAccordion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -247,7 +246,6 @@ export function Toolbox() {
       )}
 
       <div>
-        <SectionHeader className="mb-1.5">Videos</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Toolbox</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Trim, fix audio, rotate, normalize, and other lossless-where-possible per-file fixes.

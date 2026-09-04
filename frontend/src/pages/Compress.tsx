@@ -12,7 +12,6 @@ import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { CompressEstimatePanel } from "@/components/compress/CompressEstimatePanel";
 import { CompressProgress } from "@/components/compress/CompressProgress";
-import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -315,7 +314,6 @@ export function Compress() {
 
       {/* Header */}
       <div>
-        <SectionHeader className="mb-1.5">Videos</SectionHeader>
         <h1 className="text-2xl font-semibold tracking-tight">Compress</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Re-encode library files with modern codecs to reduce storage. Originals saved to{" "}

@@ -129,11 +129,7 @@ export function VirtualizedGrid<T>({
   return (
     <div
       ref={parentRef}
-      style={
-        maxHeight
-          ? { overflow: "auto", maxHeight, overscrollBehavior: "contain" }
-          : { overflow: "auto", height: "100%", overscrollBehavior: "contain" }
-      }
+      style={maxHeight ? { overflow: "auto", maxHeight } : { overflow: "auto", height: "100%" }}
     >
       <div
         style={{
