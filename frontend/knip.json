@@ -1,5 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignore": ["src/components/ui/**"],
-  "ignoreDependencies": ["@formkit/auto-animate", "react-circular-progressbar"]
+  "ignoreDependencies": ["@formkit/auto-animate"]
 }
