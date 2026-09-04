@@ -76,7 +76,11 @@ function JobRow({
   const [logsOpen, setLogsOpen] = useState(job.status === "failed" || focused);
 
   useEffect(() => {
-    if (focused) rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (focused) {
+      rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLogsOpen(true);
+    }
   }, [focused]);
 
   const { data: logs = [], isLoading: logsLoading } = useQuery<JobLog[]>({

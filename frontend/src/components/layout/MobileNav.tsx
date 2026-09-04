@@ -23,7 +23,7 @@ export function MobileNav() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         aria-label="Open navigation"
-        className="rounded-md p-1 text-muted-foreground hover:text-foreground md:hidden"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground md:hidden"
       >
         <Menu className="h-5 w-5" />
       </SheetTrigger>
@@ -38,8 +38,9 @@ export function MobileNav() {
               to={s.items[0]!.to}
               onClick={close}
               data-active={String(activeTab === s.id)}
+              aria-current={activeTab === s.id ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                "flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
                 activeTab === s.id
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground hover:bg-[hsl(var(--sidebar-accent))] hover:text-foreground",
@@ -57,7 +58,7 @@ export function MobileNav() {
               onClick={close}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  "flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
                   isActive
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:bg-[hsl(var(--sidebar-accent))] hover:text-foreground",

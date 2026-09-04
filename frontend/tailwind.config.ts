@@ -61,7 +61,7 @@ export default {
         "slide-up-fade": "slide-up-fade 200ms cubic-bezier(0.16, 1, 0.3, 1)",
         pop: "pop 200ms cubic-bezier(0.16, 1, 0.3, 1)",
         shimmer: "shimmer 1.6s infinite",
-        "pulse-ring": "pulse-ring 1.4s ease-in-out infinite",
+        "pulse-ring": "pulse-ring 1.4s ease-in-out 3",
       },
     },
   },

@@ -25,6 +25,14 @@ const TYPE_LABEL: Record<string, string> = {
 const label = (t: string) => TYPE_LABEL[t] ?? t;
 const isActive = (s: string) => s === "running" || s === "pending";
 
+const DOT: Record<string, "running" | "idle" | "done" | "error"> = {
+  running: "running",
+  pending: "idle",
+  completed: "done",
+  cancelled: "idle",
+  failed: "error",
+};
+
 /** @public */
 export function JobsMenu() {
   const [open, setOpen] = useState(false);
@@ -63,7 +71,7 @@ export function JobsMenu() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         aria-label={`Jobs${activeCount ? ` (${activeCount} active)` : ""}`}
-        className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
       >
         <JobRadialIcon progress={aggregateProgress} count={activeCount} />
       </PopoverTrigger>
@@ -87,7 +95,7 @@ export function JobsMenu() {
               onClick={() => openJob(j.id)}
               className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left hover:bg-[hsl(var(--sidebar-accent))]"
             >
-              <StatusDot status="running" />
+              <StatusDot status={DOT[j.status] ?? "running"} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{label(j.type)}</span>
                 <span className="block text-[11px] text-muted-foreground">
@@ -131,7 +139,7 @@ export function JobsMenu() {
                 j.status === "failed" && "text-destructive",
               )}
             >
-              <StatusDot status={j.status === "completed" ? "done" : "error"} />
+              <StatusDot status={DOT[j.status] ?? "error"} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{label(j.type)}</span>
                 <span className="block text-[11px] text-muted-foreground">

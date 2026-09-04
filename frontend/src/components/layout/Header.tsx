@@ -34,6 +34,7 @@ export function Header() {
             // Every Section has >= 3 items, so items[0] is always defined.
             to={s.items[0]!.to}
             data-active={String(activeTab === s.id)}
+            aria-current={activeTab === s.id ? "page" : undefined}
             className={cn(
               "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
               activeTab === s.id
@@ -54,7 +55,7 @@ export function Header() {
           aria-label="Settings"
           className={({ isActive }) =>
             cn(
-              "rounded-md p-1.5 transition-colors",
+              "inline-flex min-h-11 min-w-11 items-center justify-center rounded-md transition-colors",
               isActive
                 ? "text-primary"
                 : "text-muted-foreground hover:bg-[hsl(var(--sidebar-accent))] hover:text-foreground",
