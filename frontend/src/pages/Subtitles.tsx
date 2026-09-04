@@ -11,6 +11,8 @@ import {
   Search,
   Play,
   Mic,
+  X,
+  RefreshCw,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { subtitlesApi, api, qk } from "@/lib/api";
@@ -45,41 +47,69 @@ function episodeLabel(f: SubtitleFile): string {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function LangBadges({ languages }: { languages: Record<string, boolean> }) {
+function LangBadges({
+  languages,
+  onDelete,
+}: {
+  languages: Record<string, boolean>;
+  onDelete: (code: string) => void;
+}) {
   const codes = Object.keys(languages);
   if (codes.length === 0) return null;
   return (
     <div className="flex items-center gap-1 shrink-0">
-      {codes.map((code) => (
-        <span
-          key={code}
-          title={languages[code] ? `${code}: present` : `${code}: missing`}
-          className={cn(
-            "px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase leading-none",
-            languages[code]
-              ? "bg-green-500/15 text-green-500"
-              : "bg-muted/50 text-muted-foreground/40",
-          )}
-        >
-          {code}
-        </span>
-      ))}
+      {codes.map((code) =>
+        languages[code] ? (
+          <span
+            key={code}
+            title={`${code}: present — click × to remove`}
+            className="group/badge flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase leading-none bg-green-500/15 text-green-500"
+          >
+            {code}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(code);
+              }}
+              title={`Delete ${code} subtitle`}
+              className="opacity-0 group-hover/badge:opacity-100 transition-opacity rounded hover:bg-green-500/20"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ) : (
+          <span
+            key={code}
+            title={`${code}: missing`}
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase leading-none bg-muted/50 text-muted-foreground/40"
+          >
+            {code}
+          </span>
+        ),
+      )}
     </div>
   );
 }
 
 function FileRow({
   file,
+  syncing,
   onSearch,
   onPlay,
   onGenerate,
+  onSync,
+  onDeleteLang,
 }: {
   file: SubtitleFile;
+  syncing: boolean;
   onSearch: () => void;
   onPlay: () => void;
   onGenerate: () => void;
+  onSync: () => void;
+  onDeleteLang: (code: string) => void;
 }) {
   const label = episodeLabel(file);
+  const hasAny = Object.values(file.languages).some(Boolean);
   return (
     <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
       <Film className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
@@ -92,7 +122,7 @@ function FileRow({
       {label && (
         <span className="text-xs text-muted-foreground/60 shrink-0 font-mono">{label}</span>
       )}
-      <LangBadges languages={file.languages} />
+      <LangBadges languages={file.languages} onDelete={onDeleteLang} />
       <button
         onClick={onSearch}
         title="Search subtitles"
@@ -107,7 +137,17 @@ function FileRow({
       >
         <Mic className="h-3.5 w-3.5" />
       </button>
-      {Object.values(file.languages).some(Boolean) && (
+      {hasAny && (
+        <button
+          onClick={onSync}
+          disabled={syncing}
+          title="Sync subtitle timing to audio"
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
+        </button>
+      )}
+      {hasAny && (
         <button
           onClick={onPlay}
           title="Preview with subtitle"
@@ -123,15 +163,21 @@ function FileRow({
 function DirGroup({
   dir,
   files,
+  syncingPaths,
   onSearch,
   onPlay,
   onGenerate,
+  onSync,
+  onDeleteLang,
 }: {
   dir: string;
   files: SubtitleFile[];
+  syncingPaths: Set<string>;
   onSearch: (f: SubtitleFile) => void;
   onPlay: (f: SubtitleFile) => void;
   onGenerate: (f: SubtitleFile) => void;
+  onSync: (f: SubtitleFile) => void;
+  onDeleteLang: (f: SubtitleFile, code: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const withSub = files.filter((f) => f.has_subtitle).length;
@@ -169,9 +215,12 @@ function DirGroup({
             <FileRow
               key={f.path}
               file={f}
+              syncing={syncingPaths.has(f.path)}
               onSearch={() => onSearch(f)}
               onPlay={() => onPlay(f)}
               onGenerate={() => onGenerate(f)}
+              onSync={() => onSync(f)}
+              onDeleteLang={(code) => onDeleteLang(f, code)}
             />
           ))}
         </div>
@@ -194,6 +243,7 @@ export function Subtitles() {
   const [playingFile, setPlayingFile] = useState<SubtitleFile | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
   const downloadTargetRef = useRef("");
   const transcribeTargetRef = useRef("");
 
@@ -261,6 +311,53 @@ export function Subtitles() {
     } catch (e: unknown) {
       setTranscribing(false);
       setScanError(e instanceof Error ? e.message : "Transcription failed");
+    }
+  };
+
+  const handleDeleteLang = async (file: SubtitleFile, code: string) => {
+    try {
+      await subtitlesApi.deleteSubtitle(file.path, code);
+      setFiles((prev) =>
+        prev
+          ? prev.map((f) =>
+              f.path === file.path
+                ? {
+                    ...f,
+                    languages: { ...f.languages, [code]: false },
+                    has_subtitle: Object.entries(f.languages).some(
+                      ([c, present]) => c !== code && present,
+                    ),
+                  }
+                : f,
+            )
+          : prev,
+      );
+    } catch (e: unknown) {
+      setScanError(e instanceof Error ? e.message : "Delete failed");
+    }
+  };
+
+  const handleSyncFile = async (file: SubtitleFile) => {
+    setSyncingPaths((prev) => new Set(prev).add(file.path));
+    try {
+      const { job_id } = await subtitlesApi.syncFile(file.path);
+      // Poll until terminal, then leave the badges as-is (sync only re-times
+      // existing subtitles in place, it never changes which languages exist).
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const job = await api.getJob(job_id);
+        if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
+          break;
+        }
+      }
+    } catch (e: unknown) {
+      setScanError(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncingPaths((prev) => {
+        const next = new Set(prev);
+        next.delete(file.path);
+        return next;
+      });
     }
   };
 
@@ -540,9 +637,12 @@ export function Subtitles() {
                   key={dir}
                   dir={dir}
                   files={dirFiles}
+                  syncingPaths={syncingPaths}
                   onSearch={setSearchFile}
                   onPlay={setPlayingFile}
                   onGenerate={handleGenerateFile}
+                  onSync={handleSyncFile}
+                  onDeleteLang={handleDeleteLang}
                 />
               ))}
             </div>

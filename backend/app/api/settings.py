@@ -32,6 +32,10 @@ _PREFETCH_KEY = "scan_prefetch"
 _PREFETCH_DEFAULT = "4"
 _SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
 _SUBTITLE_LANGUAGES_DEFAULT = "en"
+_SUBTITLE_SYNC_ENGINE_KEY = "subtitle_sync_engine"
+_SUBTITLE_SYNC_ENGINE_DEFAULT = "alass"
+_SUBTITLE_AUTO_SYNC_KEY = "subtitle_auto_sync"
+_SUBTITLE_AUTO_SYNC_DEFAULT = "true"
 _DOWNLOAD_DIR_KEY = "download_dir"
 _DOWNLOAD_DIR_DEFAULT = "/media/downloads"
 _MAX_DOWNLOADS_KEY = "max_concurrent_downloads"
@@ -48,6 +52,8 @@ class SettingsRead(BaseModel):
     scan_batch_size: int
     scan_prefetch: int
     subtitle_languages: str
+    subtitle_sync_engine: str
+    subtitle_auto_sync: bool
     download_dir: str
     max_concurrent_downloads: int
     ytdlp_channel: str
@@ -63,6 +69,8 @@ class SettingsUpdate(BaseModel):
     scan_batch_size: int | None = Field(default=None, ge=1, le=32)
     scan_prefetch: int | None = Field(default=None, ge=1, le=20)
     subtitle_languages: str | None = Field(default=None, max_length=64)
+    subtitle_sync_engine: str | None = Field(default=None, pattern="^(alass|ffsubsync)$")
+    subtitle_auto_sync: bool | None = None
     download_dir: str | None = Field(default=None, max_length=512)
     max_concurrent_downloads: int | None = Field(default=None, ge=1, le=5)
     ytdlp_channel: str | None = Field(default=None, pattern="^(stable|nightly)$")
@@ -79,6 +87,11 @@ def _read_settings(db: Session) -> SettingsRead:
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
         scan_prefetch=int(get_setting(db, _PREFETCH_KEY, _PREFETCH_DEFAULT)),
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
+        subtitle_sync_engine=get_setting(
+            db, _SUBTITLE_SYNC_ENGINE_KEY, _SUBTITLE_SYNC_ENGINE_DEFAULT
+        ),
+        subtitle_auto_sync=get_setting(db, _SUBTITLE_AUTO_SYNC_KEY, _SUBTITLE_AUTO_SYNC_DEFAULT)
+        == "true",
         download_dir=get_setting(db, _DOWNLOAD_DIR_KEY, _DOWNLOAD_DIR_DEFAULT),
         max_concurrent_downloads=int(get_setting(db, _MAX_DOWNLOADS_KEY, _MAX_DOWNLOADS_DEFAULT)),
         ytdlp_channel=get_setting(db, _YTDLP_CHANNEL_KEY, _YTDLP_CHANNEL_DEFAULT),
@@ -129,6 +142,12 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.subtitle_languages is not None:
         set_setting(db, _SUBTITLE_LANGUAGES_KEY, body.subtitle_languages)
+
+    if body.subtitle_sync_engine is not None:
+        set_setting(db, _SUBTITLE_SYNC_ENGINE_KEY, body.subtitle_sync_engine)
+
+    if body.subtitle_auto_sync is not None:
+        set_setting(db, _SUBTITLE_AUTO_SYNC_KEY, "true" if body.subtitle_auto_sync else "false")
 
     if body.download_dir is not None:
         set_setting(db, _DOWNLOAD_DIR_KEY, body.download_dir)

@@ -18,6 +18,7 @@ class JobType:
     PHASH_SCAN = "phash_scan"
     TOOLBOX_FIX = "toolbox_fix"
     THUMBNAIL_WARM = "thumbnail_warm"
+    SUBTITLE_SYNC = "subtitle_sync"
 
 
 class JobStatus:

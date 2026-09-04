@@ -10,6 +10,8 @@ export function CredentialsTab() {
   const { form, isLoading, save } = useSettingsForm(credentialsSchema, seedCredentials, (v) => ({
     tmdb_api_key: v.tmdbKey,
     subtitle_languages: v.subtitleLangs.join(","),
+    subtitle_sync_engine: v.subtitleSyncEngine,
+    subtitle_auto_sync: v.subtitleAutoSync,
   }));
 
   return (
@@ -93,6 +95,62 @@ export function CredentialsTab() {
                   }}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Subtitle sync engine</p>
+                <p className="text-xs text-muted-foreground/70">
+                  Re-times subtitles against the video's audio (offset/framerate drift). Works
+                  regardless of subtitle language. alass also handles inserted/removed sections
+                  (e.g. ad breaks); ffsubsync doesn't.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { code: "alass", label: "alass" },
+                      { code: "ffsubsync", label: "ffsubsync" },
+                    ] as const
+                  ).map(({ code, label }) => {
+                    const active = form.watch("subtitleSyncEngine") === code;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() =>
+                          form.setValue("subtitleSyncEngine", code, { shouldDirty: true })
+                        }
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+                          active
+                            ? "bg-primary/15 border-primary/40 text-primary"
+                            : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <label className="flex items-start gap-3 cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  {...form.register("subtitleAutoSync")}
+                  className="accent-primary h-4 w-4 mt-0.5"
+                />
+                <div>
+                  <p className="text-sm text-foreground group-hover:text-foreground/90 transition-colors">
+                    Auto-sync downloaded subtitles
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    Runs automatically after a subtitle finishes downloading (bulk or single
+                    search). Whisper-generated subtitles are already audio-aligned and are
+                    unaffected — sync them manually if needed.
+                  </p>
+                </div>
+              </label>
             </CardContent>
           </Card>
 

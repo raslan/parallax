@@ -108,7 +108,7 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/download-one")
-def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
+async def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
     from app.services.subtitle_service import download_one as svc_download
@@ -117,11 +117,61 @@ def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
         ok = svc_download(body.file_path, body.provider, body.subtitle_id, body.language)
         if not ok:
             raise HTTPException(404, "Subtitle not found or download failed")
-        return {"ok": True}
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(500, str(exc))
+
+    if get_setting(db, "subtitle_auto_sync", "true") == "true":
+        from app.services.subtitle_sync import sync_subtitle
+
+        base = os.path.splitext(body.file_path)[0]
+        sub_path = f"{base}.{body.language}.srt"
+        engine = get_setting(db, "subtitle_sync_engine", "alass")
+        await enqueue(None, sync_subtitle, body.file_path, sub_path, engine)
+
+    return {"ok": True}
+
+
+@router.delete("/file")
+def delete_subtitle_file(file_path: str = Query(...), language: str = Query(...)):
+    if not os.path.isfile(file_path):
+        raise HTTPException(400, "Video file not found")
+    from app.services.subtitle_service import delete_subtitle
+
+    if not delete_subtitle(file_path, language):
+        raise HTTPException(404, "Subtitle not found")
+    return {"ok": True}
+
+
+class SyncFileRequest(BaseModel):
+    file_path: str
+    language: str | None = None
+
+
+@router.post("/sync-file")
+async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
+    if not os.path.isfile(body.file_path):
+        raise HTTPException(400, "File not found")
+    from app.services.subtitle_service import find_all_subtitle_tracks
+
+    tracks = find_all_subtitle_tracks(body.file_path)
+    if body.language:
+        tracks = [t for t in tracks if t["lang"] == body.language]
+    if not tracks:
+        raise HTTPException(422, "No subtitle files found to sync")
+
+    engine = get_setting(db, "subtitle_sync_engine", "alass")
+    job = Job(type=JobType.SUBTITLE_SYNC, status=JobStatus.PENDING)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.services.subtitle_sync import run_sync_job
+
+    sub_paths = [t["path"] for t in tracks]
+    await enqueue(job.id, run_sync_job, job.id, body.file_path, sub_paths, engine)
+    return {"job_id": job.id}
 
 
 class TranscribeFileRequest(BaseModel):

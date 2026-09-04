@@ -35,6 +35,7 @@ const TYPE_LABEL: Record<string, string> = {
   transcode: "Transcode",
   duplicates: "Duplicate scan",
   subtitle_download: "Subtitle download",
+  subtitle_sync: "Subtitle sync",
   whisper_transcribe: "Whisper transcription",
   model_download: "Model download",
   compress: "Compress",

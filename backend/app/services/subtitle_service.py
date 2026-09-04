@@ -11,6 +11,9 @@ SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 # Preferred order for browser-renderable subtitles
 _BROWSER_SUB_EXTS = [".srt", ".vtt", ".ass", ".ssa", ".sub"]
 
+# Scene releases often ship subs in a sibling folder instead of next to the video
+_SUBTITLE_SUBDIR_NAMES = {"subs", "subtitles"}
+
 _QUERY_YEAR_RE = re.compile(r"[(\[]\s*((?:19|20)\d{2})\s*[)\]]")
 
 
@@ -42,42 +45,61 @@ def _parse_lang(code: str) -> tuple[str, str]:
         return code, code.title()
 
 
+def _subtitle_search_dirs(video_path: str) -> list[str]:
+    """Directories to look for a video's subtitles in: its own directory, plus
+    any sibling Subs/Subtitles folder (case-insensitive) — common in scene
+    releases that ship subtitles separately rather than next to the video."""
+    video_dir = os.path.dirname(video_path)
+    dirs = [video_dir]
+    try:
+        for entry in os.scandir(video_dir):
+            if entry.is_dir() and entry.name.lower() in _SUBTITLE_SUBDIR_NAMES:
+                dirs.append(entry.path)
+    except OSError:
+        pass
+    return dirs
+
+
 def find_subtitle_path(video_path: str) -> str | None:
-    """Return path to the first subtitle file found alongside the video, or None."""
+    """Return path to the first subtitle file found for the video, or None."""
     import glob
 
-    base = os.path.splitext(video_path)[0]
-    for ext in _BROWSER_SUB_EXTS:
-        if os.path.exists(base + ext):
-            return base + ext
-        matches = sorted(glob.glob(f"{glob.escape(base)}.*{ext}"))
-        if matches:
-            return matches[0]
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    for d in _subtitle_search_dirs(video_path):
+        base = os.path.join(d, stem)
+        for ext in _BROWSER_SUB_EXTS:
+            if os.path.exists(base + ext):
+                return base + ext
+            matches = sorted(glob.glob(f"{glob.escape(base)}.*{ext}"))
+            if matches:
+                return matches[0]
     return None
 
 
 def find_all_subtitle_tracks(video_path: str) -> list[dict]:
-    """Return all subtitle files alongside the video with language metadata."""
+    """Return all subtitle files for the video with language metadata."""
     import glob as _glob
 
-    base = os.path.splitext(video_path)[0]
+    stem = os.path.splitext(os.path.basename(video_path))[0]
     seen: set[str] = set()
     tracks = []
 
-    for ext in _BROWSER_SUB_EXTS:
-        exact = base + ext
-        if os.path.exists(exact) and exact not in seen:
-            seen.add(exact)
-            tracks.append({"path": exact, "lang": "und", "label": "Subtitles"})
+    for d in _subtitle_search_dirs(video_path):
+        base = os.path.join(d, stem)
+        for ext in _BROWSER_SUB_EXTS:
+            exact = base + ext
+            if os.path.exists(exact) and exact not in seen:
+                seen.add(exact)
+                tracks.append({"path": exact, "lang": "und", "label": "Subtitles"})
 
-        for m in sorted(_glob.glob(f"{_glob.escape(base)}.*{ext}")):
-            if m in seen:
-                continue
-            seen.add(m)
-            # Extract the part between basename and extension (e.g. "en" from "movie.en.srt")
-            suffix = m[len(base) + 1 : -len(ext)]
-            lang, label = _parse_lang(suffix)
-            tracks.append({"path": m, "lang": lang, "label": label})
+            for m in sorted(_glob.glob(f"{_glob.escape(base)}.*{ext}")):
+                if m in seen:
+                    continue
+                seen.add(m)
+                # Extract the part between basename and extension (e.g. "en" from "movie.en.srt")
+                suffix = m[len(base) + 1 : -len(ext)]
+                lang, label = _parse_lang(suffix)
+                tracks.append({"path": m, "lang": lang, "label": label})
 
     return tracks
 
@@ -106,26 +128,46 @@ def find_and_serve_vtt(video_path: str) -> str | None:
 
 
 def _has_subtitle(video_path: str, lang_codes: list[str]) -> bool:
-    """True if any subtitle file exists alongside the video (used for display)."""
-    base = os.path.splitext(video_path)[0]
-    for ext in SUBTITLE_EXTENSIONS:
-        if os.path.exists(f"{base}{ext}"):
-            return True
-        for lang in lang_codes:
-            if os.path.exists(f"{base}.{lang}{ext}"):
+    """True if any subtitle file exists for the video (used for display)."""
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    for d in _subtitle_search_dirs(video_path):
+        base = os.path.join(d, stem)
+        for ext in SUBTITLE_EXTENSIONS:
+            if os.path.exists(f"{base}{ext}"):
                 return True
+            for lang in lang_codes:
+                if os.path.exists(f"{base}.{lang}{ext}"):
+                    return True
     return False
 
 
 def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
     """Return lang_codes that don't have a tagged subtitle file yet."""
-    base = os.path.splitext(video_path)[0]
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    dirs = _subtitle_search_dirs(video_path)
     missing = []
     for lang in lang_codes:
-        found = any(os.path.exists(f"{base}.{lang}{ext}") for ext in SUBTITLE_EXTENSIONS)
+        found = any(
+            os.path.exists(os.path.join(d, f"{stem}.{lang}{ext}"))
+            for d in dirs
+            for ext in SUBTITLE_EXTENSIONS
+        )
         if not found:
             missing.append(lang)
     return missing
+
+
+def delete_subtitle(video_path: str, language: str) -> bool:
+    """Delete the subtitle file tagged with `language` for this video. Returns
+    whether a file was found and removed."""
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    for d in _subtitle_search_dirs(video_path):
+        for ext in SUBTITLE_EXTENSIONS:
+            path = os.path.join(d, f"{stem}.{language}{ext}")
+            if os.path.exists(path):
+                os.remove(path)
+                return True
+    return False
 
 
 def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
@@ -344,6 +386,8 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
         from app.services.subf2m_provider import Subf2mProvider
 
         tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip()
+        auto_sync = get_setting(db, "subtitle_auto_sync", "true") == "true"
+        sync_engine = get_setting(db, "subtitle_sync_engine", "alass")
 
         found = skipped = failed = 0
         was_cancelled = False
@@ -353,6 +397,17 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
             from app.services.ytssubs_provider import YtsSubsProvider
 
             yts = YtsSubsProvider()
+
+        def _maybe_sync(video_path: str, sub_path: str, lang: str) -> None:
+            if not auto_sync:
+                return
+            from app.services.subtitle_sync import sync_subtitle
+
+            try:
+                sync_subtitle(video_path, sub_path, sync_engine)
+                _log(db, job_id, f"  Synced [{lang}]: {os.path.basename(sub_path)}")
+            except Exception as sync_err:
+                _log(db, job_id, f"  Sync failed [{lang}]: {sync_err}", level="warning")
 
         try:
             for i, video_path in enumerate(video_paths):
@@ -403,6 +458,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                 seen_langs.add(lang)
                                 downloaded = True
                                 _log(db, job_id, f"Downloaded via subf2m [{lang}]: {fname}")
+                                _maybe_sync(video_path, out_path, lang)
                     except Exception as sf_err:
                         _log(
                             db,
@@ -435,6 +491,7 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                     seen_langs.add(lang)
                                     downloaded = True
                                     _log(db, job_id, f"Downloaded via ytssubs [{lang}]: {fname}")
+                                    _maybe_sync(video_path, out_path, lang)
                         except Exception as yts_err:
                             _log(
                                 db,

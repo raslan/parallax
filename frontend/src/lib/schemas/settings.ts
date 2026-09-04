@@ -15,6 +15,8 @@ export type TranscodingForm = z.infer<typeof transcodingSchema>;
 export const credentialsSchema = z.object({
   tmdbKey: z.string(),
   subtitleLangs: z.array(z.string()).min(1, "Pick at least one language"),
+  subtitleSyncEngine: z.enum(["alass", "ffsubsync"]),
+  subtitleAutoSync: z.boolean(),
 });
 export type CredentialsForm = z.infer<typeof credentialsSchema>;
 
@@ -41,6 +43,8 @@ export const seedCredentials = (s: Settings): CredentialsForm => ({
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean),
+  subtitleSyncEngine: s.subtitle_sync_engine === "ffsubsync" ? "ffsubsync" : "alass",
+  subtitleAutoSync: s.subtitle_auto_sync ?? true,
 });
 export const seedAiModels = (s: Settings): AiModelsForm => ({
   scanBatchSize: s.scan_batch_size ?? 4,

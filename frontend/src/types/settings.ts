@@ -6,6 +6,8 @@ export interface Settings {
   scan_batch_size: number;
   scan_prefetch: number;
   subtitle_languages: string;
+  subtitle_sync_engine: string;
+  subtitle_auto_sync: boolean;
   download_dir: string;
   max_concurrent_downloads: number;
   ytdlp_channel: string;
@@ -21,6 +23,8 @@ export interface UpdateSettingsBody {
   scan_batch_size?: number;
   scan_prefetch?: number;
   subtitle_languages?: string;
+  subtitle_sync_engine?: string;
+  subtitle_auto_sync?: boolean;
   download_dir?: string;
   max_concurrent_downloads?: number;
   ytdlp_channel?: string;

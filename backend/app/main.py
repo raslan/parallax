@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import UTC
@@ -194,6 +195,16 @@ async def lifespan(app: FastAPI):
 
     fs_watcher.init()
     fs_watcher.watch_all_libraries()
+
+    # Best-effort fetch of the alass binary for subtitle sync — never block
+    # startup on it (offline environments should still boot fine).
+    from app.services.subtitle_sync import ensure_alass
+
+    try:
+        await asyncio.to_thread(ensure_alass)
+    except Exception as exc:
+        print(f"[startup] Could not fetch alass binary: {exc}", flush=True)
+
     yield
     fs_watcher.shutdown()
 
