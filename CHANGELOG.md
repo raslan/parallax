@@ -3,6 +3,48 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.1.0](https://github.com/raslan/parallax/compare/v2.0.0...v2.1.0) (2026-09-04)
+
+
+### Features
+
+* **duplicates:** add audio fingerprint extraction and comparison ([58effe1](https://github.com/raslan/parallax/commit/58effe1a744566b5dc760f86b9afed1e62aa20a9))
+* **duplicates:** add byte_hash and audio_fingerprint columns ([20c8915](https://github.com/raslan/parallax/commit/20c891513e1fed3bb8b75ff828af0fdd23fa47df))
+* **duplicates:** add byte-hash exact-copy detection ([22811a2](https://github.com/raslan/parallax/commit/22811a293856ee155f5e2874c760c40fdd9a7de0))
+* **duplicates:** add free-tier funnel scoping for extraction ([fd202fa](https://github.com/raslan/parallax/commit/fd202fa89f4e1e30bb2832b18694c310e3128ea3))
+* **duplicates:** client-side clustering engine ([487515e](https://github.com/raslan/parallax/commit/487515e91f414f948e79fca7e5a3f72ae9085905))
+* **duplicates:** expand criteria API, add duplicate-files endpoint ([5e1ff4e](https://github.com/raslan/parallax/commit/5e1ff4eea82b970b82810bd972eb5ff7f1ee5b88))
+* **duplicates:** expand criteria types, add duplicate-files client ([45344d3](https://github.com/raslan/parallax/commit/45344d385d41260c0d451a081705fd42631691a8))
+* **frontend:** add animation base and radix popover/sheet primitives ([b1dc2cb](https://github.com/raslan/parallax/commit/b1dc2cbf8be214d4ba10854a9d7a677110d247e5))
+* **frontend:** add Header with section tabs and mobile nav drawer ([9540ef4](https://github.com/raslan/parallax/commit/9540ef45573f5cd2cbe106bf10b4f3b81d44b06e))
+* **frontend:** add JobRadialIcon live job progress indicator ([11ed734](https://github.com/raslan/parallax/commit/11ed73459bdaab16082a6142a65aed96423ce63e))
+* **frontend:** add JobsMenu header popover ([0ac10fb](https://github.com/raslan/parallax/commit/0ac10fb872f57e7d024168f5321089dedbe401c1))
+* **frontend:** add nav-config with section list and routeToTab ([faf6442](https://github.com/raslan/parallax/commit/faf64420bb711ec32a0d0e7cc1f45605ddacb36e))
+* **frontend:** add useJobsFeed hook owning the jobs SSE stream ([85933f0](https://github.com/raslan/parallax/commit/85933f0483e2fc3c60695f82adfa158f850150d2))
+* **frontend:** jobs page reads shared feed and honors ?focus ([627caca](https://github.com/raslan/parallax/commit/627caca687074b8bab86b8a2f24bfe8cbd0d6a86))
+* **frontend:** section-tab header shell replaces grouped sidebar ([b4b7a84](https://github.com/raslan/parallax/commit/b4b7a8457716bb086f0704461e0bd964852ce937))
+* **nav:** conditional media nav items + sliding tab indicator ([96acc38](https://github.com/raslan/parallax/commit/96acc381e66a06d342eacadb5825e08435ab0da6))
+* update duplicates backend structure ([699fb85](https://github.com/raslan/parallax/commit/699fb85d5a6f46a70a3a629db07402809c2855f2))
+
+
+### Bug Fixes
+
+* **duplicates:** collapse criteria panel, grid fills height ([a7319f2](https://github.com/raslan/parallax/commit/a7319f2d2e3cb94ec0723f25d7d538d26a3298f2))
+* **duplicates:** contain scroll chaining, clip page overflow ([f7ce42d](https://github.com/raslan/parallax/commit/f7ce42d05bbce5f4a0b8da016723915325132590))
+* **duplicates:** correct pHash precision and funnel staleness gaps ([ff60d38](https://github.com/raslan/parallax/commit/ff60d3871acef267badac96b11fa94b6145ac215))
+* **duplicates:** revert Duplicates.tsx, keep for Task 11 ([12ab189](https://github.com/raslan/parallax/commit/12ab189ba639025db7a3882a40f76389dfb18d58))
+* **duplicates:** revert overflow-hidden, it killed grid scrolling ([073f0ef](https://github.com/raslan/parallax/commit/073f0ef1ad1efbe3cf3543d0c80131c361cd9310))
+* **duplicates:** virtualize files within each group too ([f472cb4](https://github.com/raslan/parallax/commit/f472cb485352d85da7638ebf8996f15f099b85ab))
+* **frontend:** address code-review findings from v2.1 query migration ([065592b](https://github.com/raslan/parallax/commit/065592ba8dd88e702dbbff043a8b8589967edbb7))
+* **frontend:** shell touch targets, job status labels, focus log expand ([03f905d](https://github.com/raslan/parallax/commit/03f905da593106510dab47609ba1ee3c2f64a109))
+* **frontend:** wire mobile nav drawer title/description for a11y ([eaa2ee2](https://github.com/raslan/parallax/commit/eaa2ee2967fa0877ff59c2708e0c8d56738983ec))
+
+
+### Performance Improvements
+
+* **duplicates:** virtualize group list, cap audio fingerprint decode ([5ac320d](https://github.com/raslan/parallax/commit/5ac320d31f08a729a71ea15ae0a0b36a9af7bb06))
+* **duplicates:** worker clustering, tracked thumbnail job, trim headers ([19afecb](https://github.com/raslan/parallax/commit/19afecb6d72ffe22ff299ff7dfce64c7db2a9c61))
+
 ## [2.0.0](https://github.com/raslan/parallax/compare/v1.16.0...v2.0.0) (2026-09-03)
 
 
