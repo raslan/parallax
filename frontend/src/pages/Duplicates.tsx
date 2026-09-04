@@ -24,6 +24,7 @@ import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { CollapsibleControls } from "@/components/CollapsibleControls";
 
 // Stable reference so `files` doesn't get a fresh `[]` identity every render
 // while the query has no data yet (e.g. still loading, or erroring with no
@@ -165,7 +166,6 @@ function GroupCard({
           itemAspectRatio={16 / 9}
           itemChromeHeight={92}
           minColumnWidth={200}
-          maxHeight="320px"
           renderItem={(f) => (
             <FileCard
               file={f}
@@ -373,9 +373,22 @@ export function Duplicates() {
     0,
   );
 
+  const enabledCriteriaCount = [
+    criteria.use_size,
+    criteria.use_duration,
+    criteria.use_resolution,
+    criteria.use_content_date,
+    criteria.use_orientation,
+    criteria.use_bitrate,
+    criteria.use_filename,
+    criteria.use_byte_hash,
+    criteria.use_phash,
+    criteria.use_audio,
+  ].filter(Boolean).length;
+
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
+      <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
           <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
@@ -412,28 +425,36 @@ export function Duplicates() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-1 pt-4 px-5">
-          <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Match Criteria
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-4">
+      <CollapsibleControls
+        storageKey="duplicates-controls"
+        summary={
+          <>
+            {libraries.find((l) => l.id === selectedId)?.name ?? "No library"} ·{" "}
+            {enabledCriteriaCount > 0
+              ? `${enabledCriteriaCount} criteria enabled`
+              : "No criteria enabled"}
+            {groups.length > 0
+              ? ` · ${groups.length} group${groups.length !== 1 ? "s" : ""} found`
+              : ""}
+          </>
+        }
+      >
+        <div className="p-4">
           <DuplicateCriteriaPanel
             criteria={criteria}
             onChange={(patch) => setCriteria((prev) => ({ ...prev, ...patch }))}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleControls>
 
       {jobError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+        <div className="shrink-0 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
           {jobError}
         </div>
       )}
 
       {showStaleBanner && groups.length > 0 && (
-        <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
+        <div className="shrink-0 flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
           <span className="text-amber-400">
             Results may be incomplete —{" "}
             {resultsStale ? "files changed" : "criteria now reach further than the last extract"}.
@@ -445,7 +466,7 @@ export function Duplicates() {
       )}
 
       {groups.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
+        <div className="shrink-0 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-sm">
             <span className="font-semibold tabular-nums font-mono">{groups.length}</span> duplicate
             group{groups.length !== 1 ? "s" : ""} found
@@ -478,45 +499,48 @@ export function Duplicates() {
         </div>
       )}
 
-      {filesLoading && (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {filesLoading && (
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
 
-      {!filesLoading && files.length > 0 && groups.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Copy className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No duplicates found</h3>
-            <p className="text-sm text-muted-foreground">
-              No files match every enabled criterion. Adjust criteria above, or Extract if a signal
-              is missing.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        {!filesLoading && files.length > 0 && groups.length === 0 && (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <Copy className="h-10 w-10 text-muted-foreground mb-4" />
+              <h3 className="font-semibold text-lg mb-1">No duplicates found</h3>
+              <p className="text-sm text-muted-foreground">
+                No files match every enabled criterion. Adjust criteria above, or Extract if a
+                signal is missing.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-      {groups.length > 0 && (
-        <VirtualizedGrid
-          mode="list"
-          dynamicHeight
-          items={groups}
-          getKey={(group) => group.keep_id}
-          itemHeight={220}
-          gap={16}
-          maxHeight="70vh"
-          resetKey={`${selectedId}-${groups.length}`}
-          renderItem={(group) => (
-            <GroupCard
-              group={group}
-              deleteIds={deleteIds}
-              onToggle={toggleDelete}
-              onPlay={setPlayingFile}
+        {groups.length > 0 && (
+          <div className="flex-1 min-h-0">
+            <VirtualizedGrid
+              mode="list"
+              dynamicHeight
+              items={groups}
+              getKey={(group) => group.keep_id}
+              itemHeight={220}
+              gap={16}
+              resetKey={`${selectedId}-${groups.length}`}
+              renderItem={(group) => (
+                <GroupCard
+                  group={group}
+                  deleteIds={deleteIds}
+                  onToggle={toggleDelete}
+                  onPlay={setPlayingFile}
+                />
+              )}
             />
-          )}
-        />
-      )}
+          </div>
+        )}
+      </div>
 
       {playingFile && (
         <VideoPlayerModal
