@@ -19,6 +19,14 @@ from app.services.phash_scanner import _Cancelled, _run_capture_cancelable
 
 AUDIO_FINGERPRINT_SAMPLES = 32
 
+# Unlike pHash's fast seeks, chromaprint needs a continuous decoded signal —
+# it can't just sample a timestamp, so cost scales with how much audio is
+# decoded. Capping at 120s (fpcalc/AcoustID's own default) keeps duplicate
+# detection accurate — near-duplicate encodes share the same opening — while
+# avoiding a full-length decode on long files (a 2-hour movie would otherwise
+# take proportionally as long as extracting its whole audio track).
+_FINGERPRINT_DURATION_SECONDS = 120
+
 
 def _downsample(values: list[int], target: int) -> list[int]:
     if len(values) <= target:
@@ -34,6 +42,8 @@ def _extract_raw_fingerprint(path: str, job_id: int | None) -> list[int]:
             "-y",
             "-i",
             path,
+            "-t",
+            str(_FINGERPRINT_DURATION_SECONDS),
             "-map",
             "0:a:0?",
             "-f",
@@ -46,7 +56,7 @@ def _extract_raw_fingerprint(path: str, job_id: int | None) -> list[int]:
             "error",
         ],
         job_id,
-        timeout=60.0,
+        timeout=30.0,
     )
     n = len(stdout) // 4
     if n == 0:

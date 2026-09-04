@@ -23,6 +23,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 
 // Stable reference so `files` doesn't get a fresh `[]` identity every render
 // while the query has no data yet (e.g. still loading, or erroring with no
@@ -487,17 +488,24 @@ export function Duplicates() {
       )}
 
       {groups.length > 0 && (
-        <div className="space-y-4">
-          {groups.map((group, i) => (
+        <VirtualizedGrid
+          mode="list"
+          dynamicHeight
+          items={groups}
+          getKey={(group) => group.keep_id}
+          itemHeight={220}
+          gap={16}
+          maxHeight="70vh"
+          resetKey={`${selectedId}-${groups.length}`}
+          renderItem={(group) => (
             <GroupCard
-              key={i}
               group={group}
               deleteIds={deleteIds}
               onToggle={toggleDelete}
               onPlay={setPlayingFile}
             />
-          ))}
-        </div>
+          )}
+        />
       )}
 
       {playingFile && (
