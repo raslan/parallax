@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,15 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api, qk } from "@/lib/api";
-import type { DuplicateGroup, DuplicateFile, DuplicateCriteria } from "@/types/duplicate";
+import { clusterDuplicates, type DuplicateGroup } from "@/lib/clusterDuplicates";
+import type { DuplicateCriteria } from "@/types/duplicate";
+import type { VideoFile } from "@/types/file";
 import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
+import { DuplicateCriteriaPanel } from "@/components/duplicates/DuplicateCriteriaPanel";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
-import { cn } from "@/lib/utils";
+
+// Stable reference so `files` doesn't get a fresh `[]` identity every render
+// while the query has no data yet (e.g. still loading, or erroring with no
+// backend) — a fresh identity would re-trigger the `groups`-driven effect
+// below every render and infinite-loop.
+const EMPTY_FILES: VideoFile[] = [];
 
 function LibrarySelector({
   libraries,
@@ -48,7 +57,7 @@ function FileCard({
   onToggle,
   onPlay,
 }: {
-  file: DuplicateFile;
+  file: VideoFile;
   isChecked: boolean;
   isSuggested: boolean;
   onToggle: () => void;
@@ -126,7 +135,7 @@ function GroupCard({
   group: DuplicateGroup;
   deleteIds: Set<number>;
   onToggle: (id: number) => void;
-  onPlay: (f: DuplicateFile) => void;
+  onPlay: (f: VideoFile) => void;
 }) {
   const checkedCount = group.files.filter((f) => deleteIds.has(f.id)).length;
   return (
@@ -157,60 +166,35 @@ function GroupCard({
   );
 }
 
-const CRITERIA_KEY = "parallax-dup-criteria";
+const CRITERIA_KEY = "parallax-dup-criteria-v2"; // v2: shape changed (10 fields), don't reuse v1's key
 
 function loadCriteria(): DuplicateCriteria {
   try {
     const stored = localStorage.getItem(CRITERIA_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // Backfill phash_frames if missing from old saved criteria
-      if (parsed.phash_frames == null) parsed.phash_frames = 16;
-      return parsed;
-    }
+    if (stored) return JSON.parse(stored);
   } catch {
-    // Return defaults if stored criteria is malformed
+    // fall through to defaults
   }
   return {
     use_size: true,
     use_duration: true,
-    use_phash: true,
     duration_tolerance: 1,
+    use_resolution: false,
+    use_content_date: false,
+    content_date_tolerance: 86400,
+    use_orientation: false,
+    use_bitrate: false,
+    bitrate_tolerance_pct: 10,
+    use_filename: false,
+    filename_threshold: 0.4,
+    use_byte_hash: false,
+    use_phash: true,
     phash_threshold: 10,
     phash_mode: "all_frames",
     phash_frames: 16,
+    use_audio: false,
+    audio_threshold: 0.9,
   };
-}
-
-function CriteriaRow({
-  label,
-  enabled,
-  onToggle,
-  children,
-}: {
-  label: string;
-  enabled: boolean;
-  onToggle: () => void;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-4 py-2.5 border-b border-border/50 last:border-0">
-      <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-[140px]">
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={onToggle}
-          className="accent-[var(--px-accent)] h-3.5 w-3.5"
-        />
-        <span
-          className={`text-sm font-medium ${enabled ? "text-foreground" : "text-muted-foreground"}`}
-        >
-          {label}
-        </span>
-      </label>
-      {enabled && children && <div className="flex items-center gap-4 flex-wrap">{children}</div>}
-    </div>
-  );
 }
 
 export function Duplicates() {
@@ -220,219 +204,100 @@ export function Duplicates() {
     queryFn: () => api.getLibraries(),
   });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [scanNonce, setScanNonce] = useState(0);
-  const scanStartedAt = useRef(0);
-  const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
-  const [resultsStale, setResultsStale] = useState(false);
   const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [deleting, setDeleting] = useState(false);
-  const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
+  const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
   const [criteria, setCriteria] = useState<DuplicateCriteria>(loadCriteria);
-  // Criteria that produced the currently-displayed `groups`, from a scan this
-  // session actually ran — null for results loaded from the existing-results
-  // cache on mount, since the backend doesn't record which criteria produced
-  // a past run, so we can't vouch for those matching the current form state.
-  const shownCriteriaRef = useRef<string | null>(null);
-
-  const { data: allJobs, isLoading: jobsLoading } = useQuery({
-    queryKey: qk.jobs(),
-    queryFn: () => api.getJobs(100),
-    refetchOnMount: "always",
-  });
-  const initializing = jobsLoading;
+  const [resultsStale, setResultsStale] = useState(false);
+  // Criteria the last successful extraction was scoped with — if the current
+  // criteria could now include a pair that wasn't a candidate then, results
+  // may be incomplete until Extract runs again.
+  const lastExtractedCriteriaRef = useRef<DuplicateCriteria | null>(null);
 
   useEffect(() => {
     localStorage.setItem(CRITERIA_KEY, JSON.stringify(criteria));
   }, [criteria]);
 
-  // Default to the first library once they load.
   useEffect(() => {
     if (selectedId != null || !librariesLoaded) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (libraries.length > 0) setSelectedId(libraries[0]!.id);
   }, [libraries, librariesLoaded, selectedId]);
 
+  const { data: allJobs } = useQuery({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchOnMount: "always",
+  });
+
+  const {
+    status,
+    progress,
+    error: jobError,
+    start,
+    resume,
+  } = useJobPoll({
+    onTerminal: (job) => {
+      if (job.status === "completed" && selectedId != null) {
+        queryClient.invalidateQueries({ queryKey: qk.duplicateFiles(selectedId) });
+        setResultsStale(false);
+        lastExtractedCriteriaRef.current = criteria;
+      }
+      if (job.status === "failed" && job.error) {
+        toast.error(job.error);
+      }
+    },
+  });
+  const extracting = status === "pending" || status === "running";
+
+  useEffect(() => {
+    if (!selectedId || !allJobs) return;
+    resume(allJobs, (j) => j.type === "duplicates" && j.library_id === selectedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, allJobs]);
+
+  const { data: files = EMPTY_FILES, isLoading: filesLoading } = useQuery({
+    queryKey: qk.duplicateFiles(selectedId ?? -1),
+    queryFn: () => api.getDuplicateFiles(selectedId as number),
+    enabled: selectedId != null,
+  });
+
   useLiveFiles("video", selectedId, () => setResultsStale(true));
 
-  // Load whatever results already exist for this library — a normal resource
-  // fetch, not gated on a scan being in flight. This is what makes a
-  // completed scan show up on page load / a different device / a different
-  // tab without re-running it: the backend's cached results are already
-  // shared across every client hitting this server, the frontend just needs
-  // to actually ask for them instead of only ever fetching inside the
-  // scan-polling flow below.
-  const { data: existingResults } = useQuery({
-    queryKey: qk.duplicates(selectedId ?? -1),
-    enabled: selectedId != null,
-    staleTime: Infinity, // explicit rescan / library-file changes invalidate this directly
-    queryFn: async () => {
-      try {
-        return await api.getDuplicates(selectedId as number);
-      } catch (e) {
-        if (e instanceof Error && e.message.startsWith("404")) return null;
-        throw e;
-      }
-    },
-  });
+  const groups = useMemo(() => clusterDuplicates(files, criteria), [files, criteria]);
 
+  // Seed/refresh the delete selection whenever the computed groups change
+  // (new files loaded, or criteria changed) — always "everyone except the
+  // suggested keep," same as before, just recomputed instead of fetched.
   useEffect(() => {
-    if (existingResults == null || groups !== null || scanning) return;
     const init = new Set<number>();
-    existingResults.forEach((g) =>
+    groups.forEach((g) =>
       g.files.forEach((f) => {
         if (f.id !== g.keep_id) init.add(f.id);
       }),
     );
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setGroups(existingResults);
     setDeleteIds(init);
-    /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingResults, groups, scanning]);
+  }, [groups]);
 
-  // Resume an already-running duplicates job for the selected library (survives refresh).
-  // Only when nothing is rendered yet — otherwise this refires on every `allJobs`
-  // update (e.g. a job that just completed briefly still showing "running" before
-  // the jobs cache catches up) and yanks a freshly-rendered result back into a
-  // spinner it can never resolve, since the poll query's cached data is already
-  // non-null and won't refetch.
-  useEffect(() => {
-    if (!selectedId || !allJobs || scanning || groups !== null) return;
-    const active = allJobs.find(
-      (j) =>
-        j.type === "duplicates" &&
-        j.library_id === selectedId &&
-        (j.status === "running" || j.status === "pending"),
-    );
-    if (active) {
-      scanStartedAt.current = Date.now();
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setScanning(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, allJobs, groups]);
-
-  // Poll for results while a scan runs. `getDuplicates` 404s until the job
-  // finishes; `refetchInterval` stops once results (or a 6-min cap) arrive.
-  const { data: scanResult, error: scanError } = useQuery({
-    queryKey: [...qk.duplicates(selectedId ?? -1), "run", scanNonce],
-    enabled: scanning && selectedId != null,
-    retry: false,
-    gcTime: 0,
-    queryFn: async () => {
-      try {
-        return await api.getDuplicates(selectedId as number);
-      } catch (e) {
-        if (e instanceof Error && e.message.startsWith("404")) return null;
-        throw e;
-      }
-    },
-    refetchInterval: (query) => {
-      if (query.state.data != null) return false;
-      const stillActive = allJobs?.some(
-        (j) =>
-          j.type === "duplicates" &&
-          j.library_id === selectedId &&
-          (j.status === "running" || j.status === "pending"),
-      );
-      // A massive library's scan can run well past any fixed wall-clock cap —
-      // keep polling as long as the job itself is still active. Only fall
-      // back to the cap as a safety net for the brief window before the job
-      // shows up in the jobs list.
-      if (stillActive) return 2000;
-      if (Date.now() - scanStartedAt.current > 6 * 60_000) return false;
-      return 2000;
-    },
-  });
-
-  // If the job we were polling for is no longer active but we still have no
-  // results, stop spinning instead of leaving the page stuck in "Scanning…"
-  // forever (e.g. the job failed, or was cancelled from the Jobs page). Keyed
-  // off `groups` (the rendered state), not the poll query's `data` — that can
-  // sit non-null from a prior run even while `scanning` is true again, which
-  // would otherwise permanently disable this bailout.
-  useEffect(() => {
-    if (!scanning || !allJobs || !selectedId || groups !== null) return;
-    if (Date.now() - scanStartedAt.current < 5000) return; // job may not be listed yet
-    const active = allJobs.some(
-      (j) =>
-        j.type === "duplicates" &&
-        j.library_id === selectedId &&
-        (j.status === "running" || j.status === "pending"),
-    );
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!active) setScanning(false);
-  }, [allJobs, scanning, selectedId, groups]);
-
-  useEffect(() => {
-    if (scanResult == null) return;
-    const init = new Set<number>();
-    scanResult.forEach((g) =>
-      g.files.forEach((f) => {
-        if (f.id !== g.keep_id) init.add(f.id);
-      }),
-    );
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setGroups(scanResult);
-    setResultsStale(false);
-    setDeleteIds(init);
-    setScanning(false);
-    /* eslint-enable react-hooks/set-state-in-effect */
-    // Keep the plain "existing results" cache entry in sync so a later
-    // library switch back, or another tab/device, doesn't need to re-fetch.
-    if (selectedId != null) {
-      queryClient.setQueryData(qk.duplicates(selectedId), scanResult);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanResult]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (scanError) setScanning(false);
-  }, [scanError]);
-
-  const handleScan = async () => {
+  const handleExtract = async () => {
     if (!selectedId) return;
-    const criteriaKey = JSON.stringify(criteria);
-    // Same criteria already showing, nothing's changed on disk since, and
-    // this session is the one that produced them: re-running would just get
-    // the same answer for real cost (a full pHash-comparison job). Skip it.
-    if (groups !== null && !resultsStale && shownCriteriaRef.current === criteriaKey) {
-      toast.info("Results already match these criteria — nothing to rescan");
-      return;
-    }
-    setGroups(null);
-    setDeleteIds(new Set());
-    scanStartedAt.current = Date.now();
-    setScanNonce((n) => n + 1); // fresh query key so a prior result isn't reused
-    setScanning(true);
-    // Drop the cached "existing results" for this library too — otherwise a
-    // failed findDuplicates() call below flips scanning back to false with
-    // groups still null, and the existing-results effect would repopulate
-    // groups from the now-stale pre-scan cache instead of leaving it empty.
-    queryClient.removeQueries({ queryKey: qk.duplicates(selectedId) });
     try {
-      await api.findDuplicates(selectedId, criteria);
-      shownCriteriaRef.current = criteriaKey;
+      const { job_id } = await api.findDuplicates(selectedId, criteria);
+      start(job_id);
     } catch (e) {
       toast.error(getErrorMessage(e));
-      setScanning(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedId || !groups || deleteIds.size === 0) return;
+    if (!selectedId || deleteIds.size === 0) return;
     if (!confirm(`Move ${deleteIds.size} file(s) to _originals/ and remove from library?`)) return;
     setDeleting(true);
-    const toDelete = new Set(deleteIds);
     try {
-      await api.deleteDuplicates(selectedId, [...toDelete]);
-      setGroups(
-        (prev) =>
-          prev
-            ?.map((g) => ({ ...g, files: g.files.filter((f) => !toDelete.has(f.id)) }))
-            .filter((g) => g.files.length > 1) ?? [],
+      await api.deleteDuplicates(selectedId, [...deleteIds]);
+      queryClient.setQueryData<VideoFile[]>(qk.duplicateFiles(selectedId), (prev) =>
+        prev ? prev.filter((f) => !deleteIds.has(f.id)) : prev,
       );
       setDeleteIds(new Set());
     } finally {
@@ -440,30 +305,46 @@ export function Duplicates() {
     }
   };
 
-  const set = <K extends keyof DuplicateCriteria>(key: K, val: DuplicateCriteria[K]) =>
-    setCriteria((prev) => ({ ...prev, [key]: val }));
+  // Two causes for "results may be incomplete": files changed on disk
+  // (useLiveFiles above), or the current criteria now reach further than
+  // what was last extracted for (e.g. duration tolerance loosened, or a
+  // new extraction-tier signal just enabled).
+  const criteriaOutgrewExtraction = useMemo(() => {
+    // Reading a ref inside useMemo: intentional. `lastExtractedCriteriaRef` is
+    // only ever written from the extract-completion callback and the
+    // library-switch handler, both of which already trigger a re-render via
+    // other state changes, so this read never needs to independently drive one.
+    /* eslint-disable react-hooks/refs */
+    const last = lastExtractedCriteriaRef.current;
+    if (!last) return false;
+    return (
+      criteria.duration_tolerance > last.duration_tolerance ||
+      criteria.content_date_tolerance > last.content_date_tolerance ||
+      criteria.bitrate_tolerance_pct > last.bitrate_tolerance_pct ||
+      (criteria.use_byte_hash && !last.use_byte_hash) ||
+      (criteria.use_phash && !last.use_phash) ||
+      (criteria.use_phash && criteria.phash_frames !== last.phash_frames) ||
+      (criteria.use_phash && criteria.phash_mode !== last.phash_mode) ||
+      (criteria.use_audio && !last.use_audio)
+    );
+    /* eslint-enable react-hooks/refs */
+  }, [criteria]);
+  const showStaleBanner = resultsStale || criteriaOutgrewExtraction;
 
-  const similarityPct = Math.round((1 - criteria.phash_threshold / 64) * 100);
-
-  const recoverable = groups
-    ? groups.reduce(
-        (sum, g) =>
-          sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0),
-        0,
-      )
-    : 0;
-
-  const noCriteria = !criteria.use_size && !criteria.use_duration && !criteria.use_phash;
+  const recoverable = groups.reduce(
+    (sum, g) => sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0),
+    0,
+  );
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <SectionHeader className="mb-1.5">Duplicate detection</SectionHeader>
           <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Find videos matching the selected criteria. Check files to delete, uncheck to keep.
+            Toggle criteria below — matching recomputes instantly. Extract fills in the
+            visual/audio/byte-hash signals those criteria need.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -473,28 +354,27 @@ export function Duplicates() {
               selected={selectedId}
               onChange={(id) => {
                 setSelectedId(id);
-                setGroups(null);
                 setDeleteIds(new Set());
+                lastExtractedCriteriaRef.current = null;
               }}
             />
           )}
-          <Button onClick={handleScan} disabled={scanning || !selectedId || noCriteria}>
-            {scanning ? (
+          <Button onClick={handleExtract} disabled={extracting || !selectedId}>
+            {extracting ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                Scanning…
+                Extracting… {Math.round(progress)}%
               </>
             ) : (
               <>
                 <ShieldCheck className="h-3.5 w-3.5 mr-2" />
-                Find Duplicates
+                Extract
               </>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Criteria card */}
       <Card>
         <CardHeader className="pb-1 pt-4 px-5">
           <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -502,125 +382,32 @@ export function Duplicates() {
           </CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-4">
-          {/* Exact size */}
-          <CriteriaRow
-            label="Exact size"
-            enabled={criteria.use_size}
-            onToggle={() => set("use_size", !criteria.use_size)}
-          >
-            <span className="text-xs text-muted-foreground">
-              Files must share the same byte size
-            </span>
-          </CriteriaRow>
-
-          {/* Duration */}
-          <CriteriaRow
-            label="Duration"
-            enabled={criteria.use_duration}
-            onToggle={() => set("use_duration", !criteria.use_duration)}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Tolerance</span>
-              <span className="text-xs text-muted-foreground">±</span>
-              <input
-                type="number"
-                min={0}
-                max={60}
-                step={0.5}
-                value={criteria.duration_tolerance}
-                onChange={(e) => set("duration_tolerance", Math.max(0, Number(e.target.value)))}
-                className="w-16 bg-muted border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
-              />
-              <span className="text-xs text-muted-foreground">seconds</span>
-            </div>
-          </CriteriaRow>
-
-          {/* Visual / pHash */}
-          <CriteriaRow
-            label="Visual (pHash)"
-            enabled={criteria.use_phash}
-            onToggle={() => set("use_phash", !criteria.use_phash)}
-          >
-            {/* Similarity */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                Min similarity
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={similarityPct}
-                onChange={(e) =>
-                  set("phash_threshold", Math.round((1 - Number(e.target.value) / 100) * 64))
-                }
-                className="w-28 accent-primary"
-              />
-              <span className="text-xs font-mono tabular-nums w-8">{similarityPct}%</span>
-            </div>
-
-            {/* Compare mode */}
-            <div className="flex items-center gap-3">
-              {(["all_frames", "first_frame"] as const).map((mode) => (
-                <label key={mode} className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="radio"
-                    name="phash_mode"
-                    value={mode}
-                    checked={criteria.phash_mode === mode}
-                    onChange={() => set("phash_mode", mode)}
-                    className="accent-[var(--px-accent)]"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {mode === "all_frames" ? "All frames" : "First frame only"}
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            {/* Frame count — irrelevant in first-frame mode, which only ever
-                compares File.phash (the single first-frame hash) */}
-            <div
-              className={cn(
-                "flex items-center gap-2",
-                criteria.phash_mode === "first_frame" && "opacity-40",
-              )}
-            >
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                Frames per video
-              </span>
-              <input
-                type="number"
-                min={4}
-                max={64}
-                step={1}
-                disabled={criteria.phash_mode === "first_frame"}
-                value={criteria.phash_frames}
-                onChange={(e) =>
-                  set("phash_frames", Math.min(64, Math.max(4, Number(e.target.value))))
-                }
-                className="w-16 bg-muted border border-border text-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums disabled:cursor-not-allowed"
-              />
-            </div>
-          </CriteriaRow>
+          <DuplicateCriteriaPanel
+            criteria={criteria}
+            onChange={(patch) => setCriteria((prev) => ({ ...prev, ...patch }))}
+          />
         </CardContent>
       </Card>
 
-      {/* Stale results banner */}
-      {groups && groups.length > 0 && resultsStale && (
+      {jobError && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+          {jobError}
+        </div>
+      )}
+
+      {showStaleBanner && groups.length > 0 && (
         <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
           <span className="text-amber-400">
-            Files changed since this scan ran — results may be out of date.
+            Results may be incomplete —{" "}
+            {resultsStale ? "files changed" : "criteria now reach further than the last extract"}.
           </span>
-          <Button size="sm" variant="outline" onClick={handleScan}>
-            Refresh
+          <Button size="sm" variant="outline" onClick={handleExtract} disabled={extracting}>
+            Extract
           </Button>
         </div>
       )}
 
-      {/* Results summary + delete bar */}
-      {groups !== null && groups.length > 0 && (
+      {groups.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <p className="text-sm">
             <span className="font-semibold tabular-nums font-mono">{groups.length}</span> duplicate
@@ -654,28 +441,26 @@ export function Duplicates() {
         </div>
       )}
 
-      {/* Loading */}
-      {scanning && (
+      {filesLoading && (
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
-      {/* No duplicates */}
-      {!scanning && groups !== null && groups.length === 0 && (
+      {!filesLoading && files.length > 0 && groups.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Copy className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No duplicates found</h3>
             <p className="text-sm text-muted-foreground">
-              Every file in this library appears to be unique.
+              No files match every enabled criterion. Adjust criteria above, or Extract if a signal
+              is missing.
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Groups */}
-      {!scanning && groups && groups.length > 0 && (
+      {groups.length > 0 && (
         <div className="space-y-4">
           {groups.map((group, i) => (
             <GroupCard
@@ -687,19 +472,6 @@ export function Duplicates() {
             />
           ))}
         </div>
-      )}
-
-      {/* Ready state */}
-      {!scanning && groups === null && !initializing && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Copy className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">Ready to scan</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Configure criteria above and click Find Duplicates.
-            </p>
-          </CardContent>
-        </Card>
       )}
 
       {playingFile && (

@@ -237,6 +237,11 @@ export function clusterDuplicates(
     criteria.use_phash ||
     criteria.use_audio;
 
-  const finalGroups = anyCriteriaEnabled ? groups.filter((g) => g.length > 1) : groups;
+  // Guard against the pass-through single group being empty (e.g. a library
+  // with zero files, or no files loaded yet) — pickKeep assumes at least one
+  // file, so an empty group must never reach it.
+  const finalGroups = (anyCriteriaEnabled ? groups.filter((g) => g.length > 1) : groups).filter(
+    (g) => g.length > 0,
+  );
   return finalGroups.map((g) => ({ files: g, keep_id: pickKeep(g) }));
 }

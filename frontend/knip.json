@@ -1,5 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["src/components/ui/**", "src/components/duplicates/DuplicateCriteriaPanel.tsx"],
-  "tags": ["-knip:unused"]
+  "ignore": ["src/components/ui/**"]
 }

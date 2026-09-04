@@ -18,8 +18,3 @@ export interface DuplicateCriteria {
   use_audio: boolean;
   audio_threshold: number;
 }
-
-export interface DuplicateGroup {
-  files: import("./file").VideoFile[];
-  keep_id: number;
-}

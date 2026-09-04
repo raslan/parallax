@@ -34,10 +34,7 @@ export const qk = {
   job: (id: number) => ["jobs", id] as const,
   jobLogs: (id: number) => ["jobs", id, "logs"] as const,
 
-  duplicates: (libraryId: number, params?: unknown) =>
-    params === undefined
-      ? (["duplicates", libraryId] as const)
-      : (["duplicates", libraryId, params] as const),
+  duplicateFiles: (libraryId: number) => ["duplicate-files", libraryId] as const,
 
   cleanupFiles: (libraryId: number) => ["cleanup", libraryId] as const,
 
