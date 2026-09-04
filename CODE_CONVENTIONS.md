@@ -198,6 +198,22 @@ most worth enforcing.
   on media, wide content (tables, code) scrolls inside its own container —
   the page body never scrolls sideways.
 
+### Animation
+
+- **Two tools, one vocabulary.** A `data-state`-driven utility layer for overlay
+  enter/exit (e.g. `tailwindcss-animate` on Radix `data-[state]`), and a list-diff
+  hook for add/remove/reorder (e.g. `@formkit/auto-animate`). Everything else is a
+  small set of **named** keyframe utilities defined once in the Tailwind config.
+- **No ad-hoc keyframes in components.** If a component needs a new motion, add it to
+  the config vocabulary so it is named, reused, and reviewable. Arbitrary
+  `animate-[...]` values in JSX are a smell (framework built-ins excepted).
+- **Transform and opacity only.** Never animate layout box properties
+  (`width`/`height`/`top`/`left`); use the list-diff hook for layout moves.
+- **Timing scale:** enter 150–200ms, exit 100–150ms, micro-interactions ~100ms,
+  continuous loops 1.4–1.6s. One enter easing, one exit easing, applied consistently.
+- **Respect `prefers-reduced-motion` globally** — one media query in the base
+  stylesheet that zeroes animation/transition durations. Components never re-implement it.
+
 ## 9. TypeScript strictness
 
 - **`strict: true`**, plus **`noUncheckedIndexedAccess`** — `arr[i]` and
