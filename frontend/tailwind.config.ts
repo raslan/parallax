@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -41,7 +42,28 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "slide-up-fade": {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        pop: {
+          "0%": { transform: "scale(0.8)", opacity: "0" },
+          "60%": { transform: "scale(1.08)" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        shimmer: { "100%": { transform: "translateX(100%)" } },
+        "pulse-ring": { "0%, 100%": { opacity: "1" }, "50%": { opacity: "0.35" } },
+      },
+      animation: {
+        "fade-in": "fade-in 150ms ease-out",
+        "slide-up-fade": "slide-up-fade 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+        pop: "pop 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+        shimmer: "shimmer 1.6s infinite",
+        "pulse-ring": "pulse-ring 1.4s ease-in-out infinite",
+      },
     },
   },
-  plugins: [],
+  plugins: [animate],
 } satisfies Config;
