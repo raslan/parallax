@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
-import { imageApi } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -124,10 +125,7 @@ function ClusterCard({
 }
 
 export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
-  const [clusters, setClusters] = useState<number[][]>([]);
-  const [allImages, setAllImages] = useState<Map<number, ImageFile>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [suggestedKeepIds, setSuggestedKeepIds] = useState<Record<number, number>>({});
+  const queryClient = useQueryClient();
   const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
@@ -137,45 +135,55 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
 
   const similarityPct = Math.round((1 - threshold / 64) * 100);
 
-  const load = async (t = appliedThreshold) => {
-    setResultsStale(false);
-    setLoading(true);
-    try {
+  const {
+    data,
+    isLoading: loading,
+    refetch,
+  } = useQuery({
+    queryKey: qk.imageDuplicates(libraryId ?? -1, { threshold: appliedThreshold }),
+    queryFn: async () => {
       const [clusterData, imageData] = await Promise.all([
-        imageApi.duplicates(libraryId, t),
+        imageApi.duplicates(libraryId, appliedThreshold),
         imageApi.listImages({ library_id: libraryId, page: 1, page_size: 10000 }),
       ]);
+      return { clusters: clusterData, images: imageData.items };
+    },
+    // "Find Duplicates" is an explicit rescan request — re-selecting a
+    // previously-used threshold must hit the network, not serve a cached cluster.
+    staleTime: 0,
+  });
 
-      const imgMap = new Map<number, ImageFile>(imageData.items.map((img) => [img.id, img]));
-      setAllImages(imgMap);
-      setClusters(clusterData);
+  const clusters = useMemo(() => data?.clusters ?? [], [data]);
+  const allImages = useMemo(
+    () => new Map<number, ImageFile>((data?.images ?? []).map((img) => [img.id, img])),
+    [data],
+  );
 
-      const newKeepIds: Record<number, number> = {};
-      const newDeleteIds = new Set<number>();
-      clusterData.forEach((ids, i) => {
-        const imgs = ids.map((id) => imgMap.get(id)).filter(Boolean) as ImageFile[];
-        const keepId = recommendKeep(imgs);
-        newKeepIds[i] = keepId;
-        ids.forEach((id) => {
-          if (id !== keepId) newDeleteIds.add(id);
-        });
+  const suggestedKeepIds = useMemo(() => {
+    const keep: Record<number, number> = {};
+    clusters.forEach((ids, i) => {
+      const imgs = ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[];
+      if (imgs.length) keep[i] = recommendKeep(imgs);
+    });
+    return keep;
+  }, [clusters, allImages]);
+
+  // Seed the quarantine selection from a fresh scan (all copies except the suggested keep).
+  useEffect(() => {
+    if (!data) return;
+    const next = new Set<number>();
+    clusters.forEach((ids, i) => {
+      const keepId = suggestedKeepIds[i];
+      ids.forEach((id) => {
+        if (id !== keepId) next.add(id);
       });
-      setSuggestedKeepIds(newKeepIds);
-      setDeleteIds(newDeleteIds);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+    setDeleteIds(next);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setResultsStale(false);
+  }, [data, clusters, suggestedKeepIds, setDeleteIds]);
 
   useLiveFiles("image", libraryId ?? null, () => setResultsStale(true));
-
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load(appliedThreshold);
-  }, [libraryId]);
 
   const clusterImages = useMemo(
     () => clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
@@ -183,8 +191,8 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   );
 
   const handleFind = () => {
-    setAppliedThreshold(threshold);
-    load(threshold);
+    if (threshold === appliedThreshold) refetch();
+    else setAppliedThreshold(threshold);
   };
 
   const handleQuarantine = async () => {
@@ -193,7 +201,9 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     setQuarantining(true);
     try {
       await imageApi.quarantineBulk([...deleteIds]);
-      await load();
+      await queryClient.invalidateQueries({
+        queryKey: qk.imageDuplicates(libraryId ?? -1),
+      });
     } finally {
       setQuarantining(false);
     }
@@ -299,7 +309,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
               <ClusterCard
                 key={i}
                 images={clusterImages[i] ?? []}
-                suggestedKeepId={suggestedKeepIds[i]}
+                suggestedKeepId={suggestedKeepIds[i]!}
                 deleteIds={deleteIds}
                 onToggle={toggleDelete}
                 onView={setViewingImg}

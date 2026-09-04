@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Wrench,
   X,
@@ -10,9 +11,8 @@ import {
   RotateCcw,
   RefreshCw,
 } from "lucide-react";
-import { toolboxApi, api } from "@/lib/api";
+import { toolboxApi, api, qk } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
-import type { Library } from "@/types/library";
 import {
   FileGridCard,
   FileListRow,
@@ -66,11 +66,8 @@ function sortFiles(files: VideoFile[], key: SortKey, dir: SortDir): VideoFile[] 
 }
 
 export function Toolbox() {
-  const [libraries, setLibraries] = useState<Library[]>([]);
+  const queryClient = useQueryClient();
   const [libraryId, setLibraryId] = useState<number | null>(null);
-  const [loadingFiles, setLoadingFiles] = useState(false);
-  const [files, setFiles] = useState<VideoFile[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fix settings
   const [trimEnabled, setTrimEnabled] = useState(false);
@@ -100,35 +97,43 @@ export function Toolbox() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api
-      .getLibraries()
-      .then((libs) => {
-        setLibraries(libs);
-        if (libs.length > 0) setLibraryId(libs[0].id);
-      })
-      .catch(() => {});
-  }, []);
+  const { data: libraries = [] } = useQuery({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+  });
 
+  // Default to the first library once they load.
   useEffect(() => {
-    if (libraryId == null) return;
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingFiles(true);
-    setLoadError(null);
-    setFiles(null);
+    if (libraryId == null && libraries.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLibraryId(libraries[0]!.id);
+    }
+  }, [libraries, libraryId]);
+
+  const {
+    data: files = null,
+    isLoading: loadingFiles,
+    error: filesError,
+  } = useQuery({
+    queryKey: qk.toolboxFiles(libraryId ?? -1),
+    queryFn: () => toolboxApi.libraryFiles(libraryId as number),
+    enabled: libraryId != null,
+  });
+  const loadError = filesError ? String(filesError) : null;
+
+  // Clear selection when switching libraries.
+  useEffect(() => {
     setSelected(new Set());
-    toolboxApi
-      .libraryFiles(libraryId)
-      .then((f) => {
-        setFiles(f);
-        setSelected(new Set());
-      })
-      .catch((e: unknown) => {
-        setLoadError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => setLoadingFiles(false));
   }, [libraryId, setSelected]);
+
+  // Prune selection to still-existing files after a live refetch.
+  useEffect(() => {
+    if (!files) return;
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((id) => files.some((f) => f.id === id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [files, setSelected]);
 
   const displayFiles = useMemo(
     () => (files ? sortFiles(files, sortKey, sortDir) : null),
@@ -146,21 +151,10 @@ export function Toolbox() {
     [filteredFiles, selected],
   );
 
-  const refreshFiles = useCallback(
-    (libId: number) => {
-      toolboxApi
-        .libraryFiles(libId)
-        .then((f) => {
-          setFiles(f);
-          setSelected((prev) => new Set(f.filter((x) => prev.has(x.id)).map((x) => x.id)));
-        })
-        .catch(() => {});
-    },
-    [setSelected],
-  );
-
   useLiveFiles("video", libraryId, () => {
-    if (libraryId != null) refreshFiles(libraryId);
+    if (libraryId != null) {
+      queryClient.invalidateQueries({ queryKey: qk.toolboxFiles(libraryId) });
+    }
   });
 
   const {
@@ -173,17 +167,21 @@ export function Toolbox() {
     resume: resumeJobPoll,
   } = useJobPoll({
     onTerminal: (job) => {
-      if (job.status === "completed" && job.library_id != null) refreshFiles(job.library_id);
+      if (job.status === "completed" && job.library_id != null) {
+        queryClient.invalidateQueries({ queryKey: qk.toolboxFiles(job.library_id) });
+      }
     },
   });
 
+  const { data: allJobs } = useQuery({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchOnMount: "always",
+  });
   useEffect(() => {
-    api
-      .getJobs(100)
-      .then((jobs) => resumeJobPoll(jobs, (j) => j.type === "toolbox_fix"))
-      .catch(() => {});
+    if (allJobs) resumeJobPoll(allJobs, (j) => j.type === "toolbox_fix");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [allJobs]);
 
   const hasFix =
     trimEnabled ||

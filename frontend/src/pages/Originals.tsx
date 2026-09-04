@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Archive,
   Loader2,
@@ -12,10 +13,11 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
-import type { Original, OriginalsSummary } from "@/types/original";
+import { api, qk } from "@/lib/api";
+import type { Original } from "@/types/original";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { StatPanel } from "@/components/StatPanel";
 
 // ── Savings badge ─────────────────────────────────────────────────────────────
 
@@ -268,22 +270,18 @@ function LibraryGroup({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function Originals() {
-  const [summary, setSummary] = useState<OriginalsSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    api
-      .getOriginals()
-      .then(setSummary)
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
+  const {
+    data: summary = null,
+    isLoading: loading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: qk.originals(),
+    queryFn: () => api.getOriginals(),
+  });
+  const load = () => {
+    refetch();
+  };
 
   // Group entries by library
   const byLibrary = summary
@@ -292,7 +290,7 @@ export function Originals() {
           (acc, e) => {
             if (!acc[e.library_id])
               acc[e.library_id] = { id: e.library_id, name: e.library_name, entries: [] };
-            acc[e.library_id].entries.push(e);
+            acc[e.library_id]!.entries.push(e);
             return acc;
           },
           {},
@@ -319,14 +317,14 @@ export function Originals() {
           className="text-muted-foreground hover:text-foreground transition-colors"
           title="Refresh"
         >
-          <Loader2 className={`h-4 w-4 ${loading ? "animate-spin" : "opacity-0"}`} />
+          <Loader2 className={`h-4 w-4 ${isFetching ? "animate-spin" : "opacity-0"}`} />
         </button>
       </div>
 
       {/* Summary stats */}
       {summary && hasEntries && (
-        <div className="grid grid-cols-3 border border-border rounded-[0.4rem] overflow-hidden divide-x divide-border">
-          {[
+        <StatPanel
+          stats={[
             { label: "Backups", value: `${summary.entries.length}` },
             { label: "Backup storage", value: formatSize(summary.total_original_bytes) },
             {
@@ -334,17 +332,8 @@ export function Originals() {
               value: formatSize(Math.abs(summary.total_savings_bytes)),
               accent: summary.total_savings_bytes > 0,
             },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className="px-7 py-5">
-              <SectionHeader className="mb-2">{label}</SectionHeader>
-              <p
-                className={`text-2xl font-bold font-mono tabular-nums tracking-tight ${accent ? "text-primary" : ""}`}
-              >
-                {value}
-              </p>
-            </div>
-          ))}
-        </div>
+          ]}
+        />
       )}
 
       {/* Content */}

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
+import { api, qk } from "@/lib/api";
 import type { DuplicateGroup, DuplicateFile, DuplicateCriteria } from "@/types/duplicate";
 import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -134,7 +135,7 @@ function GroupCard({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-muted-foreground font-normal">
-          {group.files.length} copies · {formatSize(group.files[0].size)}
+          {group.files.length} copies · {formatSize(group.files[0]!.size)}
           {checkedCount > 0 && (
             <span className="ml-2 text-destructive">{checkedCount} selected for deletion</span>
           )}
@@ -215,114 +216,114 @@ function CriteriaRow({
 }
 
 export function Duplicates() {
-  const [libraries, setLibraries] = useState<Library[]>([]);
+  const { data: libraries = [], isSuccess: librariesLoaded } = useQuery({
+    queryKey: qk.libraries(),
+    queryFn: () => api.getLibraries(),
+  });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [initializing, setInitializing] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [scanNonce, setScanNonce] = useState(0);
+  const scanStartedAt = useRef(0);
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
   const [resultsStale, setResultsStale] = useState(false);
   const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<DuplicateFile | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [criteria, setCriteria] = useState<DuplicateCriteria>(loadCriteria);
+
+  const { data: allJobs, isLoading: jobsLoading } = useQuery({
+    queryKey: qk.jobs(),
+    queryFn: () => api.getJobs(100),
+    refetchOnMount: "always",
+  });
+  const initializing = jobsLoading;
 
   useEffect(() => {
     localStorage.setItem(CRITERIA_KEY, JSON.stringify(criteria));
   }, [criteria]);
 
+  // Default to the first library once they load.
   useEffect(() => {
-    api.getLibraries().then((libs) => {
-      setLibraries(libs);
-      if (libs.length > 0) setSelectedId(libs[0].id);
-      else setInitializing(false);
-    });
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
+    if (selectedId != null || !librariesLoaded) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (libraries.length > 0) setSelectedId(libraries[0]!.id);
+  }, [libraries, librariesLoaded, selectedId]);
 
   useLiveFiles("video", selectedId, () => setResultsStale(true));
 
-  const stopPolling = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
+  // Resume an already-running duplicates job for the selected library (survives refresh).
+  useEffect(() => {
+    if (!selectedId || !allJobs || scanning) return;
+    const active = allJobs.find(
+      (j) =>
+        j.type === "duplicates" &&
+        j.library_id === selectedId &&
+        (j.status === "running" || j.status === "pending"),
+    );
+    if (active) {
+      scanStartedAt.current = Date.now();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setScanning(true);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, allJobs]);
 
-  const startPolling = (libraryId: number) => {
-    stopPolling();
-    let attempts = 0;
-    pollRef.current = setInterval(async () => {
-      attempts++;
-      if (attempts > 180) {
-        stopPolling();
-        setScanning(false);
-        return;
-      }
+  // Poll for results while a scan runs. `getDuplicates` 404s until the job
+  // finishes; `refetchInterval` stops once results (or a 6-min cap) arrive.
+  const { data: scanResult, error: scanError } = useQuery({
+    queryKey: [...qk.duplicates(selectedId ?? -1), "run", scanNonce],
+    enabled: scanning && selectedId != null,
+    retry: false,
+    gcTime: 0,
+    queryFn: async () => {
       try {
-        const result = await api.getDuplicates(libraryId);
-        setGroups(result);
-        setResultsStale(false);
-        const init = new Set<number>();
-        result.forEach((g) =>
-          g.files.forEach((f) => {
-            if (f.id !== g.keep_id) init.add(f.id);
-          }),
-        );
-        setDeleteIds(init);
-        stopPolling();
-        setScanning(false);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "";
-        if (!msg.startsWith("404")) {
-          stopPolling();
-          setScanning(false);
-        }
+        return await api.getDuplicates(selectedId as number);
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith("404")) return null;
+        throw e;
       }
-    }, 2000);
-  };
+    },
+    refetchInterval: (query) => {
+      if (query.state.data != null) return false;
+      if (Date.now() - scanStartedAt.current > 6 * 60_000) return false;
+      return 2000;
+    },
+  });
 
   useEffect(() => {
-    if (!selectedId) return;
-    // Initialize duplicate scan state
+    if (scanResult == null) return;
+    const init = new Set<number>();
+    scanResult.forEach((g) =>
+      g.files.forEach((f) => {
+        if (f.id !== g.keep_id) init.add(f.id);
+      }),
+    );
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setGroups(scanResult);
+    setResultsStale(false);
+    setDeleteIds(init);
+    setScanning(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanResult]);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setInitializing(true);
-    api
-      .getJobs()
-      .then((jobs) => {
-        const active = jobs.find(
-          (j) =>
-            j.type === "duplicates" &&
-            j.library_id === selectedId &&
-            (j.status === "running" || j.status === "pending"),
-        );
-        if (!active) {
-          stopPolling();
-          setScanning(false);
-        } else {
-          setScanning(true);
-          startPolling(selectedId);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setInitializing(false));
-  }, [selectedId]);
+    if (scanError) setScanning(false);
+  }, [scanError]);
 
   const handleScan = async () => {
     if (!selectedId) return;
-    stopPolling();
-    setScanning(true);
     setGroups(null);
     setDeleteIds(new Set());
+    scanStartedAt.current = Date.now();
+    setScanNonce((n) => n + 1); // fresh query key so a prior result isn't reused
+    setScanning(true);
     try {
       await api.findDuplicates(selectedId, criteria);
     } catch {
       setScanning(false);
-      return;
     }
-    startPolling(selectedId);
   };
 
   const handleDelete = async () => {

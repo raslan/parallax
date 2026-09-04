@@ -7,7 +7,7 @@ export interface ImageLibrary {
   image_count: number;
 }
 
-export interface ImageDetection {
+interface ImageDetection {
   id: number;
   image_id: number;
   label: string;

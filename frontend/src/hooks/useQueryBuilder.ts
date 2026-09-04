@@ -3,9 +3,9 @@ import { useCallback, useMemo, useState } from "react";
 export type Operator =
   "gt" | "lt" | "gte" | "lte" | "eq" | "contains" | "not_contains" | "fuzzy_contains";
 
-export type ValueType = "number" | "date_offset" | "text" | "percent" | "select" | "boolean";
+type ValueType = "number" | "date_offset" | "text" | "percent" | "select" | "boolean";
 
-export type FieldCategory = "numeric" | "label" | "search";
+type FieldCategory = "numeric" | "label" | "search";
 
 export type Clause = {
   id: string;
@@ -74,10 +74,10 @@ export function evaluateClauses<T>(
   scoreMaps: Record<string, Map<number, number>>,
 ): boolean {
   if (clauses.length === 0) return true;
-  let result = evaluateOne(clauses[0], row, fields, scoreMaps);
+  let result = evaluateOne(clauses[0]!, row, fields, scoreMaps);
   for (let i = 1; i < clauses.length; i++) {
-    const joiner = clauses[i - 1].joinToNext;
-    const next = evaluateOne(clauses[i], row, fields, scoreMaps);
+    const joiner = clauses[i - 1]!.joinToNext;
+    const next = evaluateOne(clauses[i]!, row, fields, scoreMaps);
     result = joiner === "AND" ? result && next : result || next;
   }
   return result;

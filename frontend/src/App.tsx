@@ -1,4 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/sonner";
 import { Layout } from "@/components/layout/Layout";
 import { Libraries } from "@/pages/Libraries";
@@ -21,34 +24,37 @@ import { ImageQuarantined } from "@/pages/ImageQuarantined";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Toaster />
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/libraries" replace />} />
-          {/* Video routes */}
-          <Route path="/libraries" element={<Libraries />} />
-          <Route path="/files" element={<Files />} />
-          <Route path="/originals" element={<Originals />} />
-          <Route path="/duplicates" element={<Duplicates />} />
-          <Route path="/cleanup" element={<Cleanup />} />
-          {/* Tools */}
-          <Route path="/identify" element={<Identify />} />
-          <Route path="/subtitles" element={<Subtitles />} />
-          <Route path="/downloads" element={<Downloads />} />
-          <Route path="/compress" element={<Compress />} />
-          <Route path="/toolbox" element={<Toolbox />} />
-          {/* Image routes */}
-          <Route path="/image-libraries" element={<ImageLibraries />} />
-          <Route path="/images" element={<Images />} />
-          <Route path="/image-duplicates" element={<ImageDuplicates />} />
-          <Route path="/content-review" element={<ContentReview />} />
-          <Route path="/image-quarantined" element={<ImageQuarantined />} />
-          {/* Shared */}
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Toaster />
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Navigate to="/libraries" replace />} />
+            {/* Video routes */}
+            <Route path="/libraries" element={<Libraries />} />
+            <Route path="/files" element={<Files />} />
+            <Route path="/originals" element={<Originals />} />
+            <Route path="/duplicates" element={<Duplicates />} />
+            <Route path="/cleanup" element={<Cleanup />} />
+            {/* Tools */}
+            <Route path="/identify" element={<Identify />} />
+            <Route path="/subtitles" element={<Subtitles />} />
+            <Route path="/downloads" element={<Downloads />} />
+            <Route path="/compress" element={<Compress />} />
+            <Route path="/toolbox" element={<Toolbox />} />
+            {/* Image routes */}
+            <Route path="/image-libraries" element={<ImageLibraries />} />
+            <Route path="/images" element={<Images />} />
+            <Route path="/image-duplicates" element={<ImageDuplicates />} />
+            <Route path="/content-review" element={<ContentReview />} />
+            <Route path="/image-quarantined" element={<ImageQuarantined />} />
+            {/* Shared */}
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }

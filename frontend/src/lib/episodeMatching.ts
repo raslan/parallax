@@ -4,7 +4,7 @@ export interface FileGuess {
   episode: number | null;
 }
 
-export const POOL = "__pool__";
+const POOL = "__pool__";
 
 export function slotKey(season: number, episode: number): string {
   return `${season}:${episode}`;

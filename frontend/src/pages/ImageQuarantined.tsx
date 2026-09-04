@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderX, Loader2, Trash2, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { imageApi } from "@/lib/api";
-import type { ImageFile, ImageLibrary } from "@/types/image";
+import { imageApi, qk } from "@/lib/api";
+import type { ImageFile } from "@/types/image";
 import { formatSize } from "@/lib/format";
 import { SectionHeader } from "@/components/SectionHeader";
+import { StatPanel } from "@/components/StatPanel";
 
 // ── Per-library group ─────────────────────────────────────────────────────────
 
@@ -202,26 +204,25 @@ function LibraryGroup({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function ImageQuarantined() {
-  const [images, setImages] = useState<ImageFile[]>([]);
-  const [libraries, setLibraries] = useState<ImageLibrary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const {
+    data: quarantined,
+    isLoading: loading,
+    isFetching,
+  } = useQuery({
+    queryKey: qk.imageQuarantined(),
+    queryFn: () => imageApi.listQuarantined(1, 10000),
+  });
+  const { data: libraries = [] } = useQuery({
+    queryKey: qk.imageLibraries(),
+    queryFn: () => imageApi.listLibraries(),
+  });
+  const images = quarantined?.items ?? [];
 
-  const load = useCallback(() => {
-    setLoading(true);
-    Promise.all([imageApi.listQuarantined(1, 10000), imageApi.listLibraries()])
-      .then(([r, libs]) => {
-        setImages(r.items);
-        setLibraries(libs);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    // Intentional setState in effect
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
+  const load = () => {
+    queryClient.invalidateQueries({ queryKey: qk.imageQuarantined() });
+    queryClient.invalidateQueries({ queryKey: qk.imageLibraries() });
+  };
 
   const byLibrary = (() => {
     const libMap = Object.fromEntries(libraries.map((l) => [l.id, l.name]));
@@ -234,7 +235,7 @@ export function ImageQuarantined() {
           entries: [],
         };
       }
-      acc[img.library_id].entries.push(img);
+      acc[img.library_id]!.entries.push(img);
     }
     return Object.values(acc);
   })();
@@ -259,23 +260,18 @@ export function ImageQuarantined() {
           className="text-muted-foreground hover:text-foreground transition-colors"
           title="Refresh"
         >
-          <Loader2 className={`h-4 w-4 ${loading ? "animate-spin" : "opacity-0"}`} />
+          <Loader2 className={`h-4 w-4 ${isFetching ? "animate-spin" : "opacity-0"}`} />
         </button>
       </div>
 
       {/* Summary stats */}
       {hasEntries && (
-        <div className="grid grid-cols-2 border border-border rounded-[0.4rem] overflow-hidden divide-x divide-border">
-          {[
+        <StatPanel
+          stats={[
             { label: "Quarantined", value: `${images.length}` },
             { label: "Total size", value: formatSize(totalSize) },
-          ].map(({ label, value }) => (
-            <div key={label} className="px-7 py-5">
-              <SectionHeader className="mb-2">{label}</SectionHeader>
-              <p className="text-2xl font-bold font-mono tabular-nums tracking-tight">{value}</p>
-            </div>
-          ))}
-        </div>
+          ]}
+        />
       )}
 
       {/* Content */}

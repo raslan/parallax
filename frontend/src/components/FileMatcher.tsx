@@ -177,7 +177,7 @@ export function FileMatcher({
             </div>
           ) : (
             seasonOrder.map((sn) => {
-              const eps = seasonEpisodes[sn];
+              const eps = seasonEpisodes[sn] ?? [];
               const isOpen = !collapsed.has(sn);
               const filledCount = eps.filter(
                 (ep) => assignments[slotKey(ep.season_number, ep.episode_number)],
