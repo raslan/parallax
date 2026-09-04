@@ -189,7 +189,7 @@ def scan_phash_library(
             try:
                 hashes = _extract_phash_frames(file_obj.path, _PHASH_FRAMES)
                 file_obj.phash = hashes[0]
-                file_obj.phash_frames = json.dumps(hashes)
+                file_obj.phash_frames = json.dumps([str(h) for h in hashes])
                 file_obj.phash_scanned_at = now()
                 db.commit()
                 succeeded += 1

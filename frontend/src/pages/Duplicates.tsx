@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api, qk } from "@/lib/api";
-import { clusterDuplicates, type DuplicateGroup } from "@/lib/clusterDuplicates";
+import {
+  anyCriteriaEnabled,
+  clusterDuplicates,
+  type DuplicateGroup,
+} from "@/lib/clusterDuplicates";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
 import type { Library } from "@/types/library";
@@ -211,8 +215,15 @@ export function Duplicates() {
   const [resultsStale, setResultsStale] = useState(false);
   // Criteria the last successful extraction was scoped with — if the current
   // criteria could now include a pair that wasn't a candidate then, results
-  // may be incomplete until Extract runs again.
-  const lastExtractedCriteriaRef = useRef<DuplicateCriteria | null>(null);
+  // may be incomplete until Extract runs again. Plain state rather than a
+  // ref: both writers (extract-completion callback, library-switch handler)
+  // already trigger a re-render via other state changes, and reading a ref
+  // during render (even indirectly, inside a useMemo) trips the React
+  // Compiler's ref-safety analysis once the derived expression gets big
+  // enough for it to bail out of memoizing the callback.
+  const [lastExtractedCriteria, setLastExtractedCriteria] = useState<DuplicateCriteria | null>(
+    null,
+  );
 
   useEffect(() => {
     localStorage.setItem(CRITERIA_KEY, JSON.stringify(criteria));
@@ -241,7 +252,7 @@ export function Duplicates() {
       if (job.status === "completed" && selectedId != null) {
         queryClient.invalidateQueries({ queryKey: qk.duplicateFiles(selectedId) });
         setResultsStale(false);
-        lastExtractedCriteriaRef.current = criteria;
+        setLastExtractedCriteria(criteria);
       }
       if (job.status === "failed" && job.error) {
         toast.error(job.error);
@@ -267,9 +278,17 @@ export function Duplicates() {
   const groups = useMemo(() => clusterDuplicates(files, criteria), [files, criteria]);
 
   // Seed/refresh the delete selection whenever the computed groups change
-  // (new files loaded, or criteria changed) — always "everyone except the
-  // suggested keep," same as before, just recomputed instead of fetched.
+  // (new files loaded, or criteria changed) — "everyone except the suggested
+  // keep" in each group. With zero criteria enabled, clusterDuplicates
+  // returns one pass-through group containing the entire library (spec'd
+  // behavior) — auto-selecting the whole library for deletion there would be
+  // dangerous, so skip the auto-seed in that case and leave the selection
+  // empty instead.
   useEffect(() => {
+    if (!anyCriteriaEnabled(criteria)) {
+      setDeleteIds(new Set());
+      return;
+    }
     const init = new Set<number>();
     groups.forEach((g) =>
       g.files.forEach((f) => {
@@ -278,7 +297,7 @@ export function Duplicates() {
     );
     setDeleteIds(init);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups]);
+  }, [groups, criteria]);
 
   const handleExtract = async () => {
     if (!selectedId) return;
@@ -310,12 +329,7 @@ export function Duplicates() {
   // what was last extracted for (e.g. duration tolerance loosened, or a
   // new extraction-tier signal just enabled).
   const criteriaOutgrewExtraction = useMemo(() => {
-    // Reading a ref inside useMemo: intentional. `lastExtractedCriteriaRef` is
-    // only ever written from the extract-completion callback and the
-    // library-switch handler, both of which already trigger a re-render via
-    // other state changes, so this read never needs to independently drive one.
-    /* eslint-disable react-hooks/refs */
-    const last = lastExtractedCriteriaRef.current;
+    const last = lastExtractedCriteria;
     if (!last) return false;
     return (
       criteria.duration_tolerance > last.duration_tolerance ||
@@ -325,10 +339,22 @@ export function Duplicates() {
       (criteria.use_phash && !last.use_phash) ||
       (criteria.use_phash && criteria.phash_frames !== last.phash_frames) ||
       (criteria.use_phash && criteria.phash_mode !== last.phash_mode) ||
-      (criteria.use_audio && !last.use_audio)
+      (criteria.use_audio && !last.use_audio) ||
+      // Turning OFF a free-tier criterion widens the funnel's candidate set
+      // just as much as loosening a tolerance — fewer files get excluded
+      // before reaching the extraction-tier stages.
+      (!criteria.use_size && last.use_size) ||
+      (!criteria.use_duration && last.use_duration) ||
+      (!criteria.use_resolution && last.use_resolution) ||
+      (!criteria.use_content_date && last.use_content_date) ||
+      (!criteria.use_orientation && last.use_orientation) ||
+      (!criteria.use_bitrate && last.use_bitrate) ||
+      (!criteria.use_filename && last.use_filename) ||
+      // A lower filename threshold matches more files, same direction as
+      // loosening a tolerance.
+      criteria.filename_threshold < last.filename_threshold
     );
-    /* eslint-enable react-hooks/refs */
-  }, [criteria]);
+  }, [criteria, lastExtractedCriteria]);
   const showStaleBanner = resultsStale || criteriaOutgrewExtraction;
 
   const recoverable = groups.reduce(
@@ -355,7 +381,7 @@ export function Duplicates() {
               onChange={(id) => {
                 setSelectedId(id);
                 setDeleteIds(new Set());
-                lastExtractedCriteriaRef.current = null;
+                setLastExtractedCriteria(null);
               }}
             />
           )}

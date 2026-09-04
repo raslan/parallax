@@ -367,10 +367,20 @@ async def find_duplicates_endpoint(
 
 @router.get("/{library_id}/duplicate-files", response_model=list[FileRead])
 def get_duplicate_files(library_id: int, db: Session = Depends(get_db)):
+    from app.models.file import FileStatus
+
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
-    files = db.query(File).filter(File.library_id == library_id).order_by(File.filename).all()
+    files = (
+        db.query(File)
+        .filter(
+            File.library_id == library_id,
+            File.status.in_([FileStatus.DONE, FileStatus.UNKNOWN]),
+        )
+        .order_by(File.filename)
+        .all()
+    )
     return [FileRead.model_validate(f) for f in files]
 
 

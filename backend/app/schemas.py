@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class DuplicateCriteriaRequest(BaseModel):
@@ -65,12 +65,22 @@ class FileRead(BaseModel):
     file_fps: float | None = None
     file_date: float | None = None
     file_mtime: float | None = None
-    phash: int | None = None
+    phash: str | None = None
     phash_frames: str | None = None
     byte_hash: str | None = None
     audio_fingerprint: str | None = None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("phash", mode="before")
+    @classmethod
+    def _phash_to_str(cls, v: int | str | None) -> str | None:
+        # Signed 64-bit pHash values lose precision as JSON numbers (JS
+        # float64 can't exactly represent int64 beyond +-2^53) - always
+        # serialize as a decimal string, same as phash_frames/byte_hash.
+        if v is None:
+            return None
+        return str(v)
 
 
 class FilesResponse(BaseModel):

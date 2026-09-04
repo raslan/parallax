@@ -114,12 +114,14 @@ describe("clusterDuplicates", () => {
   });
 
   it("pHash all_frames mode compares phash_frames via avg-of-minimums Hamming", () => {
-    const framesA = JSON.stringify([0, 0, 0]);
-    const framesB = JSON.stringify([1, 0, 0]); // 1 bit off in one frame
+    // phash/phash_frames are transported as decimal strings (int64 precision
+    // is lost as a JSON number) — see backend/app/schemas.py FileRead.phash.
+    const framesA = JSON.stringify(["0", "0", "0"]);
+    const framesB = JSON.stringify(["1", "0", "0"]); // 1 bit off in one frame
     const files = [
       file(1, { phash_frames: framesA }),
       file(2, { phash_frames: framesB }),
-      file(3, { phash_frames: JSON.stringify([0xff, 0xff, 0xff]) }),
+      file(3, { phash_frames: JSON.stringify(["255", "255", "255"]) }),
     ];
     const groups = clusterDuplicates(files, {
       ...BASE_CRITERIA,
@@ -131,17 +133,39 @@ describe("clusterDuplicates", () => {
   });
 
   it("pHash first_frame mode compares the single phash value", () => {
-    const files = [
-      file(1, { phash: 0b0000 }),
-      file(2, { phash: 0b0001 }),
-      file(3, { phash: 0b1111 }),
-    ];
+    const files = [file(1, { phash: "0" }), file(2, { phash: "1" }), file(3, { phash: "15" })];
     const groups = clusterDuplicates(files, {
       ...BASE_CRITERIA,
       use_phash: true,
       phash_mode: "first_frame",
       phash_threshold: 1,
     });
+    expect(groups[0]!.files.map((f) => f.id).sort()).toEqual([1, 2]);
+  });
+
+  it("pHash precision: large signed 64-bit values compare correctly over the full 64 bits", () => {
+    // -8059256602948617276 as int64 corrupts to a different value if routed
+    // through a JS float64 (JSON.parse would silently round it), and a
+    // 32-bit-masked Hamming distance would ignore the high bits entirely —
+    // this guards both regressions at once.
+    const a = "-8059256602948617276";
+    // Flip only the lowest bit relative to `a`.
+    const aBits = BigInt.asUintN(64, BigInt(a));
+    const bBits = aBits ^ 1n;
+    const b = BigInt.asIntN(64, bBits).toString();
+    // Flip two high bits (bits 40 and 41) — only visible with a true 64-bit
+    // comparison; distance 2 from `a`, so it must NOT join a threshold-1 group.
+    const cBits = aBits ^ (1n << 40n) ^ (1n << 41n);
+    const c = BigInt.asIntN(64, cBits).toString();
+
+    const files = [file(1, { phash: a }), file(2, { phash: b }), file(3, { phash: c })];
+    const groups = clusterDuplicates(files, {
+      ...BASE_CRITERIA,
+      use_phash: true,
+      phash_mode: "first_frame",
+      phash_threshold: 1,
+    });
+    expect(groups).toHaveLength(1);
     expect(groups[0]!.files.map((f) => f.id).sort()).toEqual([1, 2]);
   });
 

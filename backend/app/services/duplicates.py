@@ -216,14 +216,14 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
         ]
         candidate_ids = scope_extraction_candidates(plain, criteria)
 
-        to_extract: list[File] = []
+        to_extract: list[tuple[File, bool, bool, bool]] = []
         for fid in candidate_ids:
             f = by_id[fid]
             needs_byte_hash = criteria["use_byte_hash"] and f.byte_hash is None
             needs_phash = criteria["use_phash"] and _needs_phash_rescan(f, criteria)
             needs_audio = criteria["use_audio"] and f.audio_fingerprint is None
             if needs_byte_hash or needs_phash or needs_audio:
-                to_extract.append(f)
+                to_extract.append((f, needs_byte_hash, needs_phash, needs_audio))
 
         if job:
             job.total_files = len(to_extract)
@@ -234,31 +234,57 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
             return
 
         n_concurrent = max(1, int(get_setting(db, "scan_prefetch", "4")))
-        by_id_extract = {f.id: f for f in to_extract}
-        work_items = [(f.id, f.path) for f in to_extract]
+        by_id_extract = {f.id: f for f, _, _, _ in to_extract}
+        work_items = [
+            (f.id, f.path, needs_byte_hash, needs_phash, needs_audio)
+            for f, needs_byte_hash, needs_phash, needs_audio in to_extract
+        ]
 
-        def _extract_one(file_id: int, path: str) -> tuple[int, dict, str | None]:
+        def _extract_one(
+            file_id: int,
+            path: str,
+            needs_byte_hash: bool,
+            needs_phash: bool,
+            needs_audio: bool,
+        ) -> tuple[int, dict, dict[str, str]]:
+            # Each signal is computed independently: a failure extracting one
+            # (e.g. audio fingerprint) must not discard a signal that already
+            # succeeded for this file (e.g. byte-hash).
             result: dict = {}
-            try:
-                if criteria["use_byte_hash"]:
+            errors: dict[str, str] = {}
+            if needs_byte_hash:
+                try:
                     result["byte_hash"] = compute_byte_hash(path)
-                if criteria["use_phash"]:
+                except _Cancelled:
+                    errors["byte_hash"] = "cancelled"
+                except Exception as exc:
+                    errors["byte_hash"] = str(exc)
+            if needs_phash:
+                try:
                     frames = (
                         1 if criteria["phash_mode"] == "first_frame" else criteria["phash_frames"]
                     )
                     result["phash_frames"] = _extract_phash_frames(path, frames, job_id)
-                if criteria["use_audio"]:
+                except _Cancelled:
+                    errors["phash"] = "cancelled"
+                except Exception as exc:
+                    errors["phash"] = str(exc)
+            if needs_audio:
+                try:
                     result["audio_fingerprint"] = compute_audio_fingerprint(path, job_id)
-                return file_id, result, None
-            except _Cancelled:
-                return file_id, {}, "cancelled"
-            except Exception as exc:
-                return file_id, {}, str(exc)
+                except _Cancelled:
+                    errors["audio"] = "cancelled"
+                except Exception as exc:
+                    errors["audio"] = str(exc)
+            return file_id, result, errors
 
         completed = 0
         was_cancelled = False
         with _cf.ThreadPoolExecutor(max_workers=n_concurrent) as pool:
-            pending = {pool.submit(_extract_one, fid, path) for fid, path in work_items}
+            pending = {
+                pool.submit(_extract_one, fid, path, nbh, nph, nau)
+                for fid, path, nbh, nph, nau in work_items
+            }
             while pending:
                 done, pending = _cf.wait(pending, timeout=2.0)
                 if should_cancel(job_id):
@@ -270,22 +296,26 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
 
                 for fut in done:
                     try:
-                        fid, result, err = fut.result()
+                        fid, result, errors = fut.result()
                     except _cf.CancelledError:
                         continue
                     f = by_id_extract[fid]
-                    if err is None:
-                        if "byte_hash" in result:
-                            f.byte_hash = result["byte_hash"]
-                        if "phash_frames" in result and result["phash_frames"]:
-                            f.phash = result["phash_frames"][0]
-                            f.phash_frames = json.dumps(result["phash_frames"])
-                            f.phash_scanned_at = now()
-                        if "audio_fingerprint" in result and result["audio_fingerprint"]:
-                            f.audio_fingerprint = json.dumps(result["audio_fingerprint"])
+                    if "byte_hash" in result:
+                        f.byte_hash = result["byte_hash"]
+                    if "phash_frames" in result and result["phash_frames"]:
+                        hashes = result["phash_frames"]
+                        f.phash = hashes[0]
+                        f.phash_frames = json.dumps([str(h) for h in hashes])
+                        f.phash_scanned_at = now()
+                    if "audio_fingerprint" in result and result["audio_fingerprint"]:
+                        f.audio_fingerprint = json.dumps(result["audio_fingerprint"])
+                    if result:
                         completed += 1
-                    elif err != "cancelled":
-                        logger.warning("Extraction failed for %s: %s", f.filename, err)
+                    for signal, err in errors.items():
+                        if err != "cancelled":
+                            logger.warning(
+                                "Extraction failed for %s (%s): %s", f.filename, signal, err
+                            )
 
                 db.commit()
                 if job:
