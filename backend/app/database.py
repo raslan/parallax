@@ -117,6 +117,8 @@ def init_db():
             "ALTER TABLE downloads ADD COLUMN source_url TEXT",
             "ALTER TABLE files ADD COLUMN file_mtime REAL",
             "ALTER TABLE images ADD COLUMN file_mtime REAL",
+            "ALTER TABLE files ADD COLUMN byte_hash TEXT",
+            "ALTER TABLE files ADD COLUMN audio_fingerprint TEXT",
         ]:
             try:
                 conn.execute(text(sql))
