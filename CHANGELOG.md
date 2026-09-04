@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.2.0](https://github.com/raslan/parallax/compare/v2.1.0...v2.2.0) (2026-09-04)
+
+
+### Features
+
+* update readme ([c43af42](https://github.com/raslan/parallax/commit/c43af42af60533d6fc263e0796374149df25310e))
+
 ## [2.1.0](https://github.com/raslan/parallax/compare/v2.0.0...v2.1.0) (2026-09-04)
 
 
