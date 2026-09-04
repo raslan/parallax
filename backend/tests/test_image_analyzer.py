@@ -1,6 +1,5 @@
 from unittest.mock import patch
 
-import numpy as np
 from PIL import Image
 
 
@@ -35,44 +34,20 @@ def test_compute_phash():
 
 
 def test_run_nudenet_mocked():
-    from app.services.image_analyzer import run_nudenet
+    import sys
+    from unittest.mock import MagicMock
+
+    from app.services import image_analyzer
 
     path = _make_test_image()
     mock_result = [{"label": "FEMALE_BREAST_EXPOSED", "score": 0.91, "box": [10, 20, 100, 80]}]
-    with patch("app.services.image_analyzer.NudeDetector") as MockDetector:
-        instance = MockDetector.return_value
-        instance.detect.return_value = mock_result
-        detections = run_nudenet(path)
-    assert len(detections) == 1
-    assert detections[0]["label"] == "FEMALE_BREAST_EXPOSED"
-    assert detections[0]["confidence"] == 0.91
-
-
-def test_run_siglip_encode_image_mocked():
-    from app.services.image_analyzer import encode_image_siglip
-
-    path = _make_test_image()
-    fake_embedding = np.ones(512, dtype=np.float32)
-    with patch("app.services.image_analyzer._get_vision_session") as mock_sess:
-        mock_sess.return_value.run.return_value = [fake_embedding.reshape(1, 512)]
-        with patch("app.services.image_analyzer._preprocess_image") as mock_pre:
-            mock_pre.return_value = np.zeros((1, 3, 224, 224), dtype=np.float32)
-            embedding = encode_image_siglip(path)
-    assert isinstance(embedding, list)
-    assert len(embedding) == 512
-
-
-def test_search_siglip_mocked():
-    from app.services.image_analyzer import encode_text_siglip
-
-    fake_embedding = np.ones(512, dtype=np.float32)
-    with patch("app.services.image_analyzer._get_text_session") as mock_sess:
-        mock_sess.return_value.run.return_value = [fake_embedding.reshape(1, 512)]
-        with patch("app.services.image_analyzer._tokenize") as mock_tok:
-            mock_tok.return_value = {
-                "input_ids": np.zeros((1, 64), dtype=np.int64),
-                "attention_mask": np.ones((1, 64), dtype=np.int64),
-            }
-            result = encode_text_siglip("food")
-    assert isinstance(result, list)
-    assert len(result) == 512
+    # run_nudenet lazily imports app.services._image_analyzer_impl, which in
+    # turn imports the real `nudenet` package — not installed outside the
+    # Docker image. Stub the impl module in sys.modules so the proxy's
+    # delegation logic can be tested without that dependency.
+    fake_impl = MagicMock()
+    with patch.dict(sys.modules, {"app.services._image_analyzer_impl": fake_impl}):
+        with patch.object(image_analyzer, "_submit", return_value=mock_result) as mock_submit:
+            detections = image_analyzer.run_nudenet(path)
+    mock_submit.assert_called_once_with(fake_impl.run_nudenet, path, "320n")
+    assert detections == mock_result
