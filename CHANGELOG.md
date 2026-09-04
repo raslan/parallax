@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.3.0](https://github.com/raslan/parallax/compare/v2.2.0...v2.3.0) (2026-09-04)
+
+
+### Features
+
+* **subtitles:** add auto-sync, per-language delete, Subs folder scan ([39b52c0](https://github.com/raslan/parallax/commit/39b52c0bba578973aca3634c61e87cb76d1cd8b3))
+
 ## [2.2.0](https://github.com/raslan/parallax/compare/v2.1.0...v2.2.0) (2026-09-04)
 
 
