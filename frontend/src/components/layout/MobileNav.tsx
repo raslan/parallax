@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { Menu } from "lucide-react";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { SECTIONS, useSectionNav } from "./nav-config";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +29,7 @@ export function MobileNav() {
       </SheetTrigger>
       <SheetContent side="left" className="w-72">
         <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <SheetDescription className="sr-only">Browse sections and pages.</SheetDescription>
         <nav className="mt-6 flex flex-col gap-1">
           {SECTIONS.map((s) => (
             <Link

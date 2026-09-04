@@ -46,8 +46,25 @@ SheetContent.displayName = DialogPrimitive.Content.displayName;
 function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("flex flex-col space-y-2", className)} {...props} />;
 }
-function SheetTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={cn("text-sm font-semibold", className)} {...props} />;
-}
 
-export { Sheet, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetTitle };
+const SheetTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title ref={ref} className={cn("text-sm font-semibold", className)} {...props} />
+));
+SheetTitle.displayName = DialogPrimitive.Title.displayName;
+
+const SheetDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn("text-xs text-muted-foreground", className)}
+    {...props}
+  />
+));
+SheetDescription.displayName = DialogPrimitive.Description.displayName;
+
+export { Sheet, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription };
