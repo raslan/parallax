@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.4.0](https://github.com/raslan/parallax/compare/v2.3.0...v2.4.0) (2026-09-05)
+
+
+### Features
+
+* add bulk subtitle sync functionality ([290aafa](https://github.com/raslan/parallax/commit/290aafa779ebafaf5d9acf9b63d30732601c5d42))
+
 ## [2.3.0](https://github.com/raslan/parallax/compare/v2.2.0...v2.3.0) (2026-09-04)
 
 
