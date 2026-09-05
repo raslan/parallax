@@ -1,15 +1,6 @@
-"""Automatic subtitle sync — alass (default) or ffsubsync.
-
-Both tools re-time a subtitle file's cues against the video's own audio via
-voice-activity detection (speech/silence timing), not speech content — so
-this works regardless of subtitle language vs audio language.
-
-alass is a static Rust binary with no releases since 2019 (v2.0.0) — it's a
-finished tool, not one that needs update/channel machinery like yt-dlp.
-It's fetched once into DATA_DIR on first use and never re-checked.
-ffsubsync is a pip dependency (see requirements.txt), invoked via `-m` so it
-resolves regardless of how the interpreter's script-install PATH is set up.
-"""
+"""Subtitle sync — alass (default) or ffsubsync, both VAD-based (timing only,
+language-agnostic). alass is a static binary with no releases since 2019, so
+it's just fetched once into DATA_DIR, no update/channel machinery."""
 
 import logging
 import os
@@ -35,7 +26,6 @@ def _alass_bin() -> str | None:
 
 
 def ensure_alass() -> None:
-    """Download the alass binary into DATA_DIR if not already present."""
     if _alass_bin():
         return
     tmp = _ALASS_BIN + ".tmp"
@@ -50,26 +40,15 @@ def ensure_alass() -> None:
 
 
 def _sync_tmp_path(sub_path: str) -> str:
-    """Temp output path for a synced subtitle. Keeps the original extension —
-    both alass and ffsubsync infer their output format from it and refuse to
-    write a `.tmp` file ("seems to have a different format... does not
-    perform conversions")."""
+    # keep the real extension — both tools infer output format from it and
+    # refuse to write a plain .tmp file
     stem, ext = os.path.splitext(sub_path)
     return f"{stem}.sync_tmp{ext}"
 
 
 def _run_synced(cmd: list[str], label: str, tmp_out: str) -> None:
-    """Run a sync engine, streaming its output live to this process's own
-    stdout — same as `docker compose logs` already shows for every other job
-    — instead of buffering it silently and only surfacing a line on failure.
-    Also keeps the last few lines to put the real reason in the raised error,
-    since alass reports failures on stdout *after* a long \\r-updated
-    progress bar, not on stderr.
-
-    ponytail: no hang watchdog — both tools finish in well under a minute on
-    a normal file. Add one (e.g. downloader.py's select()-based stall
-    watchdog) if a hung sync is ever observed tying up a job-queue slot.
-    """
+    # stream to our own stdout (visible via `docker compose logs`) instead of
+    # buffering silently; also keep a tail for the raised error's detail
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     assert proc.stdout is not None
     tail: list[str] = []
@@ -116,13 +95,26 @@ def sync_ffsubsync(video_path: str, sub_path: str) -> bool:
 
 
 def sync_subtitle(video_path: str, sub_path: str, engine: str = "alass") -> bool:
-    """Align sub_path's cues to video_path's audio in place. Returns whether it succeeded."""
     if engine == "ffsubsync":
         return sync_ffsubsync(video_path, sub_path)
     return sync_alass(video_path, sub_path)
 
 
-def run_sync_job(job_id: int, video_path: str, sub_paths: list[str], engine: str) -> None:
+def collect_sync_targets(path: str) -> list[tuple[str, str]]:
+    from app.services.subtitle_service import VIDEO_EXTENSIONS, find_all_subtitle_tracks
+
+    targets: list[tuple[str, str]] = []
+    for dirpath, _, filenames in os.walk(path):
+        for fname in sorted(filenames):
+            if os.path.splitext(fname)[1].lower() not in VIDEO_EXTENSIONS:
+                continue
+            video_path = os.path.join(dirpath, fname)
+            for track in find_all_subtitle_tracks(video_path):
+                targets.append((video_path, track["path"]))
+    return targets
+
+
+def run_sync_job(job_id: int, targets: list[tuple[str, str]], engine: str) -> None:
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
 
@@ -134,13 +126,13 @@ def run_sync_job(job_id: int, video_path: str, sub_paths: list[str], engine: str
 
         job.status = JobStatus.RUNNING
         job.started_at = now()
-        job.total_files = len(sub_paths)
+        job.total_files = len(targets)
         db.commit()
         arm_cancel(job_id)
 
         synced = failed = 0
         was_cancelled = False
-        for i, sub_path in enumerate(sub_paths):
+        for i, (video_path, sub_path) in enumerate(targets):
             if should_cancel(job_id):
                 was_cancelled = True
                 break
@@ -148,7 +140,7 @@ def run_sync_job(job_id: int, video_path: str, sub_paths: list[str], engine: str
             fname = os.path.basename(sub_path)
             job.current_file = fname
             job.processed_files = i
-            job.progress = (i / len(sub_paths)) * 99
+            job.progress = (i / len(targets)) * 99
             db.commit()
 
             try:
@@ -160,7 +152,7 @@ def run_sync_job(job_id: int, video_path: str, sub_paths: list[str], engine: str
                 log(db, job_id, f"Sync failed: {fname} — {exc}", level="error")
 
         clear_cancel(job_id)
-        job.processed_files = len(sub_paths)
+        job.processed_files = len(targets)
         job.finished_at = now()
         if was_cancelled:
             job.status = JobStatus.CANCELLED

@@ -61,4 +61,10 @@ export const subtitlesApi = {
       method: "POST",
       body: JSON.stringify({ file_path, language }),
     }),
+
+  syncBulk: (path: string) =>
+    req<{ job_id: number }>("/subtitles/sync-bulk", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    }),
 };

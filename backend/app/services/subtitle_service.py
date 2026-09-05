@@ -11,9 +11,6 @@ SUBTITLE_EXTENSIONS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 # Preferred order for browser-renderable subtitles
 _BROWSER_SUB_EXTS = [".srt", ".vtt", ".ass", ".ssa", ".sub"]
 
-# Scene releases often ship subs in a sibling folder instead of next to the video
-_SUBTITLE_SUBDIR_NAMES = {"subs", "subtitles"}
-
 _QUERY_YEAR_RE = re.compile(r"[(\[]\s*((?:19|20)\d{2})\s*[)\]]")
 
 
@@ -46,18 +43,10 @@ def _parse_lang(code: str) -> tuple[str, str]:
 
 
 def _subtitle_search_dirs(video_path: str) -> list[str]:
-    """Directories to look for a video's subtitles in: its own directory, plus
-    any sibling Subs/Subtitles folder (case-insensitive) — common in scene
-    releases that ship subtitles separately rather than next to the video."""
+    """Video's own dir plus every subdirectory beneath it, recursively —
+    same as how video scanning recurses, no hardcoded folder names."""
     video_dir = os.path.dirname(video_path)
-    dirs = [video_dir]
-    try:
-        for entry in os.scandir(video_dir):
-            if entry.is_dir() and entry.name.lower() in _SUBTITLE_SUBDIR_NAMES:
-                dirs.append(entry.path)
-    except OSError:
-        pass
-    return dirs
+    return [dirpath for dirpath, _, _ in os.walk(video_dir)]
 
 
 def find_subtitle_path(video_path: str) -> str | None:
@@ -127,20 +116,6 @@ def find_and_serve_vtt(video_path: str) -> str | None:
     return subtitle_to_vtt(sub) if sub else None
 
 
-def _has_subtitle(video_path: str, lang_codes: list[str]) -> bool:
-    """True if any subtitle file exists for the video (used for display)."""
-    stem = os.path.splitext(os.path.basename(video_path))[0]
-    for d in _subtitle_search_dirs(video_path):
-        base = os.path.join(d, stem)
-        for ext in SUBTITLE_EXTENSIONS:
-            if os.path.exists(f"{base}{ext}"):
-                return True
-            for lang in lang_codes:
-                if os.path.exists(f"{base}.{lang}{ext}"):
-                    return True
-    return False
-
-
 def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
     """Return lang_codes that don't have a tagged subtitle file yet."""
     stem = os.path.splitext(os.path.basename(video_path))[0]
@@ -194,6 +169,7 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
                     "filename": fname,
                     "relative_dir": "" if rel_dir == "." else rel_dir,
                     "has_subtitle": len(missing) == 0,
+                    "has_any_subtitle": len(find_all_subtitle_tracks(full_path)) > 0,
                     "languages": languages,
                     "title": str(info.get("title", "")),
                     "season": info.get("season"),

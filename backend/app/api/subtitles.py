@@ -169,8 +169,38 @@ async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
 
     from app.services.subtitle_sync import run_sync_job
 
-    sub_paths = [t["path"] for t in tracks]
-    await enqueue(job.id, run_sync_job, job.id, body.file_path, sub_paths, engine)
+    targets = [(body.file_path, t["path"]) for t in tracks]
+    await enqueue(job.id, run_sync_job, job.id, targets, engine)
+    return {"job_id": job.id}
+
+
+class SyncBulkRequest(BaseModel):
+    path: str
+
+
+@router.post("/sync-bulk")
+async def sync_bulk(body: SyncBulkRequest, db: Session = Depends(get_db)):
+    if not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
+    from app.services.subtitle_sync import collect_sync_targets
+
+    targets = collect_sync_targets(body.path)
+    if not targets:
+        raise HTTPException(422, "No subtitle files found to sync")
+
+    engine = get_setting(db, "subtitle_sync_engine", "alass")
+    job = Job(
+        type=JobType.SUBTITLE_SYNC,
+        status=JobStatus.PENDING,
+        settings=json.dumps({"path": body.path}),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.services.subtitle_sync import run_sync_job
+
+    await enqueue(job.id, run_sync_job, job.id, targets, engine)
     return {"job_id": job.id}
 
 

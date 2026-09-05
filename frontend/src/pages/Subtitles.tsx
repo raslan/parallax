@@ -94,6 +94,7 @@ function LangBadges({
 function FileRow({
   file,
   syncing,
+  syncDisabled,
   onSearch,
   onPlay,
   onGenerate,
@@ -102,6 +103,7 @@ function FileRow({
 }: {
   file: SubtitleFile;
   syncing: boolean;
+  syncDisabled: boolean;
   onSearch: () => void;
   onPlay: () => void;
   onGenerate: () => void;
@@ -140,7 +142,7 @@ function FileRow({
       {hasAny && (
         <button
           onClick={onSync}
-          disabled={syncing}
+          disabled={syncing || syncDisabled}
           title="Sync subtitle timing to audio"
           className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
         >
@@ -164,6 +166,7 @@ function DirGroup({
   dir,
   files,
   syncingPaths,
+  syncDisabled,
   onSearch,
   onPlay,
   onGenerate,
@@ -173,6 +176,7 @@ function DirGroup({
   dir: string;
   files: SubtitleFile[];
   syncingPaths: Set<string>;
+  syncDisabled: boolean;
   onSearch: (f: SubtitleFile) => void;
   onPlay: (f: SubtitleFile) => void;
   onGenerate: (f: SubtitleFile) => void;
@@ -216,6 +220,7 @@ function DirGroup({
               key={f.path}
               file={f}
               syncing={syncingPaths.has(f.path)}
+              syncDisabled={syncDisabled}
               onSearch={() => onSearch(f)}
               onPlay={() => onPlay(f)}
               onGenerate={() => onGenerate(f)}
@@ -244,6 +249,8 @@ export function Subtitles() {
   const [downloading, setDownloading] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
+  const [syncingAll, setSyncingAll] = useState(false);
+  const syncAllTargetRef = useRef("");
   const downloadTargetRef = useRef("");
   const transcribeTargetRef = useRef("");
 
@@ -271,10 +278,24 @@ export function Subtitles() {
           .catch(() => {});
     },
   });
+  const syncAllPoll = useJobPoll({
+    intervalMs: 2000,
+    onTerminal: () => {
+      setSyncingAll(false);
+      const target = syncAllTargetRef.current;
+      if (target)
+        subtitlesApi
+          .scan(target)
+          .then(setFiles)
+          .catch(() => {});
+    },
+  });
   const jobProgress = downloadPoll.progress;
   const jobStatus = downloadPoll.currentFile || downloadPoll.status || "";
   const transcribeProgress = transcribePoll.progress;
   const transcribeStatus = transcribePoll.currentFile || transcribePoll.status || "";
+  const syncAllProgress = syncAllPoll.progress;
+  const syncAllStatus = syncAllPoll.currentFile || syncAllPoll.status || "";
 
   // Load default languages from settings
   const { data: settings } = useQuery({
@@ -341,8 +362,6 @@ export function Subtitles() {
     setSyncingPaths((prev) => new Set(prev).add(file.path));
     try {
       const { job_id } = await subtitlesApi.syncFile(file.path);
-      // Poll until terminal, then leave the badges as-is (sync only re-times
-      // existing subtitles in place, it never changes which languages exist).
       for (;;) {
         await new Promise((r) => setTimeout(r, 2000));
         const job = await api.getJob(job_id);
@@ -358,6 +377,19 @@ export function Subtitles() {
         next.delete(file.path);
         return next;
       });
+    }
+  };
+
+  const handleSyncAll = async () => {
+    if (!path.trim()) return;
+    setSyncingAll(true);
+    syncAllTargetRef.current = path.trim();
+    try {
+      const { job_id } = await subtitlesApi.syncBulk(path.trim());
+      syncAllPoll.start(job_id);
+    } catch (e: unknown) {
+      setSyncingAll(false);
+      setScanError(e instanceof Error ? e.message : "Sync failed");
     }
   };
 
@@ -410,8 +442,7 @@ export function Subtitles() {
     }
   };
 
-  // Resume any active subtitle-download or whisper-transcribe job on mount
-  // (e.g. after a page refresh) so bulk jobs across large folders aren't lost.
+  // Resume an active bulk job on mount (e.g. after a refresh)
   const { data: allJobs } = useQuery({
     queryKey: qk.jobs(),
     queryFn: () => api.getJobs(100),
@@ -419,10 +450,9 @@ export function Subtitles() {
   });
   useEffect(() => {
     if (!allJobs) return;
+    const bulkTypes = new Set(["subtitle_download", "whisper_transcribe", "subtitle_sync"]);
     const active = allJobs.find(
-      (j) =>
-        (j.type === "subtitle_download" || j.type === "whisper_transcribe") &&
-        (j.status === "running" || j.status === "pending"),
+      (j) => bulkTypes.has(j.type) && (j.status === "running" || j.status === "pending"),
     );
     if (!active) return;
 
@@ -441,10 +471,14 @@ export function Subtitles() {
       setDownloading(true);
       downloadTargetRef.current = jobPath;
       downloadPoll.resume(allJobs, (j) => j.id === active.id);
-    } else {
+    } else if (active.type === "whisper_transcribe") {
       setTranscribing(true);
       transcribeTargetRef.current = jobPath;
       transcribePoll.resume(allJobs, (j) => j.id === active.id);
+    } else {
+      setSyncingAll(true);
+      syncAllTargetRef.current = jobPath;
+      syncAllPoll.resume(allJobs, (j) => j.id === active.id);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -454,6 +488,7 @@ export function Subtitles() {
   const totalFiles = files?.length ?? 0;
   const withSub = files?.filter((f) => f.has_subtitle).length ?? 0;
   const missing = totalFiles - withSub;
+  const withAnySub = files?.filter((f) => f.has_any_subtitle).length ?? 0;
 
   const handleSearchDownloaded = async () => {
     if (!path.trim()) return;
@@ -602,6 +637,35 @@ export function Subtitles() {
                   </span>
                 </div>
               )}
+              {syncingAll && syncAllProgress !== null && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span className="truncate max-w-xs" title={syncAllStatus}>
+                    {Math.round(syncAllProgress)}% · {syncAllStatus}
+                  </span>
+                </div>
+              )}
+              <Button
+                onClick={handleSyncAll}
+                disabled={
+                  syncingAll ||
+                  syncingPaths.size > 0 ||
+                  downloading ||
+                  transcribing ||
+                  withAnySub === 0
+                }
+                variant="outline"
+                title="Sync every existing subtitle in this library to its video's audio"
+              >
+                {syncingAll ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {withAnySub === 0
+                  ? "No subtitles to sync"
+                  : `Sync ${withAnySub} file${withAnySub === 1 ? "" : "s"}`}
+              </Button>
               <Button
                 onClick={handleGenerateAll}
                 disabled={transcribing || downloading || missing === 0}
@@ -638,6 +702,7 @@ export function Subtitles() {
                   dir={dir}
                   files={dirFiles}
                   syncingPaths={syncingPaths}
+                  syncDisabled={syncingAll}
                   onSearch={setSearchFile}
                   onPlay={setPlayingFile}
                   onGenerate={handleGenerateFile}

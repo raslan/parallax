@@ -3,6 +3,7 @@ export interface SubtitleFile {
   filename: string;
   relative_dir: string;
   has_subtitle: boolean;
+  has_any_subtitle: boolean;
   languages: Record<string, boolean>;
   title: string;
   season: number | null;
