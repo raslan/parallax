@@ -93,3 +93,5 @@ def test_process_group_cancel_no_process_returns_false():
     pg = ProcessGroup()
     assert pg.cancel(99) is False
     assert pg.is_cancel_requested(99) is True
+    pg.clear_cancel_requested(99)
+    assert pg.is_cancel_requested(99) is False

@@ -149,6 +149,10 @@ class ProcessGroup:
         self._cancel_requested.discard(key)
         self._cancelled.discard(key)
 
+    def clear_cancel_requested(self, key: int) -> None:
+        """Drop only the cancel-requested flag, keeping any `_cancelled` mark."""
+        self._cancel_requested.discard(key)
+
     def cancel(
         self,
         key: int,

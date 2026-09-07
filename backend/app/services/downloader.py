@@ -13,64 +13,29 @@ import select
 import shlex
 import signal
 import subprocess
-import tempfile
-import threading
 import time
-import urllib.request
 
 from app.config import DATA_DIR
 from app.database import SessionLocal
 from app.models.download import Download, DownloadStatus
 from app.services.common import now
+from app.services.download_common import (
+    ProcessGroup,
+    ResizableSemaphore,
+    cookies_to_tempfile,
+    install_binary,
+    probe_version,
+    resolve_binary,
+)
 
 # ---------------------------------------------------------------------------
 # Module-level state
 # ---------------------------------------------------------------------------
 
-_active_procs: dict[int, subprocess.Popen] = {}  # download_id → process
-_active_procs_lock = threading.Lock()
 _STALL_TIMEOUT = 300  # seconds of zero stdout output before a subprocess is considered hung
-_cancelled_ids: set[int] = set()  # cancelled and process killed
-_cancel_requested: set[int] = set()  # cancel requested (may not have proc yet)
+_pg = ProcessGroup()
 
-
-class _ResizableSemaphore:
-    """asyncio.Semaphore whose concurrency limit can change at runtime.
-
-    Growing releases extra permits immediately. Shrinking swallows any
-    currently-idle permits right away and marks the rest as "pending" so
-    they're removed the next time an in-flight download finishes and
-    releases, instead of going back into the pool.
-    """
-
-    def __init__(self, value: int) -> None:
-        self._sem = asyncio.Semaphore(value)
-        self._limit = value
-        self._pending_shrink = 0
-
-    def resize(self, new_limit: int) -> None:
-        new_limit = max(1, new_limit)
-        diff = new_limit - self._limit
-        self._limit = new_limit
-        if diff > 0:
-            for _ in range(diff):
-                self._sem.release()
-        elif diff < 0:
-            to_remove = -diff
-            while to_remove > 0 and self._sem._value > 0:
-                self._sem._value -= 1
-                to_remove -= 1
-            self._pending_shrink += to_remove
-
-    async def __aenter__(self) -> None:
-        await self._sem.acquire()
-
-    async def __aexit__(self, *exc) -> None:
-        if self._pending_shrink > 0:
-            self._pending_shrink -= 1
-        else:
-            self._sem.release()
-
+_ResizableSemaphore = ResizableSemaphore  # moved to download_common
 
 _download_semaphore: _ResizableSemaphore | None = None
 _semaphore_limit: int = 0
@@ -82,11 +47,7 @@ _semaphore_limit: int = 0
 
 def _ytdlp_bin() -> str | None:
     """Return path to yt-dlp binary: data-volume location first, then PATH fallback."""
-    if os.path.isfile(_YTDLP_BIN) and os.access(_YTDLP_BIN, os.X_OK):
-        return _YTDLP_BIN
-    import shutil
-
-    return shutil.which("yt-dlp")
+    return resolve_binary(_YTDLP_BIN, "yt-dlp")
 
 
 def get_ytdlp_info() -> dict:
@@ -94,17 +55,7 @@ def get_ytdlp_info() -> dict:
     path = _ytdlp_bin()
     if path is None:
         return {"installed": False, "version": None, "path": None}
-    try:
-        result = subprocess.run(
-            [path, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        version = result.stdout.strip() if result.returncode == 0 else None
-        return {"installed": True, "version": version, "path": path}
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return {"installed": False, "version": None, "path": None}
+    return {"installed": True, "version": probe_version(path), "path": path}
 
 
 _YTDLP_BIN = os.path.join(DATA_DIR, "yt-dlp")  # stored in data volume, writable by container user
@@ -121,15 +72,7 @@ def install_ytdlp(channel: str = "stable") -> None:
     Blocking — callers must wrap in asyncio.to_thread if called from async context.
     """
     url = _YTDLP_URLS.get(channel, _YTDLP_URLS["stable"])
-    tmp = _YTDLP_BIN + ".tmp"
-    try:
-        urllib.request.urlretrieve(url, tmp)
-        os.chmod(tmp, 0o755)
-        os.replace(tmp, _YTDLP_BIN)  # atomic replace
-    except Exception:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-        raise
+    install_binary(url, _YTDLP_BIN)
 
 
 # ---------------------------------------------------------------------------
@@ -542,15 +485,9 @@ def _run_download_sync(download_id: int) -> None:
         options = json.loads(download.options or "{}")
 
         raw_cookies: str = options.pop("cookies", "") or ""
-        if raw_cookies.strip():
-            fd, cookies_tmp = tempfile.mkstemp(prefix="parallax_cookies_", suffix=".txt")
-            try:
-                with os.fdopen(fd, "w") as f:
-                    f.write(raw_cookies)
-            except Exception:
-                cookies_tmp = None
-            else:
-                options["cookies_file"] = cookies_tmp
+        cookies_tmp = cookies_to_tempfile(raw_cookies)
+        if cookies_tmp:
+            options["cookies_file"] = cookies_tmp
 
         # Prefetch metadata (best-effort — don't fail if this errors)
         try:
@@ -596,9 +533,8 @@ def _run_download_sync(download_id: int) -> None:
             return
 
         # Bail out early if cancel was requested before subprocess started
-        if download_id in _cancel_requested:
-            _cancel_requested.discard(download_id)
-            _cancelled_ids.add(download_id)
+        if _pg.is_cancel_requested(download_id):
+            _pg.discard(download_id)
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
             db.commit()
@@ -624,7 +560,7 @@ def _run_download_sync(download_id: int) -> None:
         output_path: str | None = None
 
         for attempt in range(_MAX_ATTEMPTS):
-            if download_id in _cancel_requested:
+            if _pg.is_cancel_requested(download_id):
                 break
 
             if attempt > 0:
@@ -633,7 +569,7 @@ def _run_download_sync(download_id: int) -> None:
                 download.error = f"{attempt_str} failed, retrying in {delay}s…\n\n{last_error}"
                 db.commit()
                 time.sleep(delay)
-                if download_id in _cancel_requested:
+                if _pg.is_cancel_requested(download_id):
                     break
                 download.progress = 0.0
                 download.speed = None
@@ -656,8 +592,7 @@ def _run_download_sync(download_id: int) -> None:
                 db.commit()
                 return
 
-            with _active_procs_lock:
-                _active_procs[download_id] = proc
+            _pg.register(download_id, proc)
 
             last_pct: float = -1.0
             output_lines: list[str] = []
@@ -724,16 +659,15 @@ def _run_download_sync(download_id: int) -> None:
                     proc.wait(timeout=5)
 
             finally:
-                with _active_procs_lock:
-                    _active_procs.pop(download_id, None)
+                _pg.unregister(download_id)
 
-            _cancel_requested.discard(download_id)
+            _pg.clear_cancel_requested(download_id)
 
             if proc.returncode == 0 and not stalled:
                 succeeded = True
                 break
 
-            if download_id in _cancelled_ids or download_id in _cancel_requested:
+            if _pg.is_cancelled(download_id) or _pg.is_cancel_requested(download_id):
                 break
 
             tail = "\n".join(line for line in output_lines[-20:] if line.strip())
@@ -751,9 +685,8 @@ def _run_download_sync(download_id: int) -> None:
             download.finished_at = now()
             if output_path:
                 download.output_path = output_path
-        elif download_id in _cancelled_ids or download_id in _cancel_requested:
-            _cancelled_ids.discard(download_id)
-            _cancel_requested.discard(download_id)
+        elif _pg.is_cancelled(download_id) or _pg.is_cancel_requested(download_id):
+            _pg.discard(download_id)
             download.status = DownloadStatus.CANCELLED
             download.finished_at = now()
             _cleanup_part_files(download.output_dir, download.title)
@@ -802,16 +735,5 @@ async def run_download(download_id: int, max_concurrent: int = 2) -> None:
 
 def cancel_download(download_id: int) -> bool:
     """Signal cancellation and kill active subprocess + its entire process group."""
-    # Always mark as cancel-requested so pre-subprocess phase also stops
-    _cancel_requested.add(download_id)
-    with _active_procs_lock:
-        proc = _active_procs.get(download_id)
-        if proc:
-            _cancelled_ids.add(download_id)
-            try:
-                # Kill the whole process group to take down yt-dlp + ffmpeg children
-                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-            except (ProcessLookupError, OSError):
-                proc.kill()  # fallback if process group unavailable
-            return True
-    return False
+    _pg.request_cancel(download_id)
+    return _pg.cancel(download_id, sig=signal.SIGKILL)
