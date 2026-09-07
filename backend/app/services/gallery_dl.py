@@ -24,6 +24,8 @@ from app.services.download_common import (
     ProcessGroup,
     ResizableSemaphore,
     cookies_to_tempfile,
+    install_binary,
+    probe_version,
     resolve_binary,
 )
 from app.services.gallery_options import load_options
@@ -345,3 +347,48 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
                 os.remove(cookies_tmp)
             except OSError:
                 pass
+
+
+def cancel_gallery(row_id: int) -> bool:
+    _pg.request_cancel(row_id)
+    return _pg.cancel(
+        row_id,
+        sig=signal.SIGINT,
+        escalate_after=3.0,
+        on_escalated=_rm_last_partial,
+    )
+
+
+def _rm_last_partial(row_id: int) -> None:
+    """After a hard SIGKILL, gallery-dl couldn't discard its in-flight file.
+
+    We only know the basename (last stdout `file:`/`error:` line never fired a
+    success), so walk the row's base dir for a match and remove it. Best effort.
+    """
+    try:
+        with SessionLocal() as s:
+            row = s.get(GalleryDownload, row_id)
+            if row is None or not row.last_filename or not row.output_dir:
+                return
+            target = row.last_filename
+            base = row.output_dir
+        for dirpath, _dirs, names in os.walk(base):
+            if target in names:
+                try:
+                    os.remove(os.path.join(dirpath, target))
+                except OSError:
+                    pass
+                return
+    except Exception:
+        pass
+
+
+def get_gallerydl_info() -> dict:
+    path = resolve_binary(GALLERY_DL_BIN, "gallery-dl")
+    if path is None:
+        return {"installed": False, "version": None, "path": None}
+    return {"installed": True, "version": probe_version(path), "path": path}
+
+
+def install_gallerydl() -> None:
+    install_binary(NIGHTLY_URL, GALLERY_DL_BIN)
