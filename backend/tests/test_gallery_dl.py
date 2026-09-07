@@ -2,8 +2,11 @@ import json
 
 from app.schemas import GalleryOptions
 from app.services.gallery_dl import (
+    SENTINEL_ERROR,
     SENTINEL_FILE,
+    SENTINEL_SKIP,
     build_gallerydl_cmd,
+    classify_line,
     type_filter_expr,
 )
 
@@ -105,3 +108,11 @@ def test_build_cmd_omits_disabled_conditionals():
 def test_build_cmd_bad_extra_args_falls_back_to_raw():
     cmd = build_gallerydl_cmd("https://x.com/g/1", _opts(extraArgs='--foo "unbalanced'), None)
     assert '--foo "unbalanced' in cmd
+
+
+def test_classify_line():
+    assert classify_line(f"{SENTINEL_FILE}/media/g/x/001.jpg") == ("file", "/media/g/x/001.jpg")
+    assert classify_line(f"{SENTINEL_SKIP}/media/g/x/002.jpg") == ("skip", "/media/g/x/002.jpg")
+    assert classify_line(f"{SENTINEL_ERROR}/media/g/x/003.jpg") == ("error", "/media/g/x/003.jpg")
+    assert classify_line("[extractor] some noise") is None
+    assert classify_line("") is None

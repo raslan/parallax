@@ -4,13 +4,29 @@ Shared mechanism (semaphore, binary install/probe, cookies tempfile,
 ProcessGroup) comes from download_common.
 """
 
+import asyncio
+import json
 import logging
 import os
+import select
 import shlex
+import signal
+import subprocess
+import time
+from collections import deque
 
 from app.config import GALLERY_DL_DIR
+from app.database import SessionLocal
+from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
 from app.schemas import GalleryOptions
-from app.services.download_common import resolve_binary
+from app.services.common import now
+from app.services.download_common import (
+    ProcessGroup,
+    ResizableSemaphore,
+    cookies_to_tempfile,
+    resolve_binary,
+)
+from app.services.gallery_options import load_options
 
 logger = logging.getLogger(__name__)
 
@@ -121,3 +137,211 @@ def build_gallerydl_cmd(url: str, opts: GalleryOptions, cookies_file: str | None
 def _num(v: float) -> str:
     """3.0 -> '3', 3.5 -> '3.5' for size suffixes."""
     return str(int(v)) if float(v).is_integer() else str(v)
+
+
+_STALL_TIMEOUT = 1200  # 20 min of zero output on either pipe
+_RECENT_CAP = 15
+_FLUSH_INTERVAL = 1.0
+
+_pg = ProcessGroup()
+
+_gallery_semaphore: ResizableSemaphore | None = None
+_gallery_limit = 0
+
+
+def classify_line(line: str) -> tuple[str, str] | None:
+    for sentinel, kind in (
+        (SENTINEL_FILE, "file"),
+        (SENTINEL_SKIP, "skip"),
+        (SENTINEL_ERROR, "error"),
+    ):
+        if line.startswith(sentinel):
+            return kind, line[len(sentinel) :]
+    return None
+
+
+def get_gallery_semaphore(limit: int) -> ResizableSemaphore:
+    global _gallery_semaphore, _gallery_limit
+    limit = max(1, min(5, limit))
+    if _gallery_semaphore is None:
+        _gallery_semaphore = ResizableSemaphore(limit)
+        _gallery_limit = limit
+    elif limit != _gallery_limit:
+        _gallery_semaphore.resize(limit)
+        _gallery_limit = limit
+    return _gallery_semaphore
+
+
+def set_gallery_max_parallel(limit: int) -> None:
+    get_gallery_semaphore(limit)
+
+
+async def run_gallery(row_id: int, cookies: str, max_parallel: int) -> None:
+    sem = get_gallery_semaphore(max_parallel)
+    async with sem:
+        await asyncio.to_thread(_run_gallery_sync, row_id, cookies)
+
+
+def _set_status(row_id: int, **fields) -> None:
+    with SessionLocal() as s:
+        row = s.get(GalleryDownload, row_id)
+        if row is None:
+            return
+        for k, v in fields.items():
+            setattr(row, k, v)
+        s.commit()
+
+
+def _kill(proc: subprocess.Popen) -> None:
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, OSError):
+        proc.kill()
+
+
+def _run_gallery_sync(row_id: int, cookies: str) -> None:
+    if _pg.is_cancel_requested(row_id):
+        _pg.discard(row_id)
+        _set_status(
+            row_id,
+            status=GalleryDownloadStatus.CANCELLED,
+            finished_at=now(),
+        )
+        return
+
+    _set_status(row_id, status=GalleryDownloadStatus.RUNNING, started_at=now())
+
+    with SessionLocal() as s:
+        row = s.get(GalleryDownload, row_id)
+        if row is None:
+            return
+        url = row.url
+        opts = load_options(s)
+
+    cookies_tmp = cookies_to_tempfile(cookies)
+    done = skipped = failed = 0
+    last_filename: str | None = None
+    recent: deque[str] = deque(maxlen=_RECENT_CAP)
+    stderr_tail: deque[str] = deque(maxlen=40)
+    stalled = False
+
+    try:
+        cmd = build_gallerydl_cmd(url, opts, cookies_tmp)
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                start_new_session=True,
+            )
+        except FileNotFoundError:
+            _set_status(
+                row_id,
+                status=GalleryDownloadStatus.FAILED,
+                error="gallery-dl not found. Use the Update button to install it.",
+                finished_at=now(),
+            )
+            return
+
+        _pg.register(row_id, proc)
+        last_output = time.time()
+        last_flush = 0.0
+        dirty = False
+
+        streams = [p for p in (proc.stdout, proc.stderr) if p is not None]
+        while streams:
+            ready, _, _ = select.select(streams, [], [], 5.0)
+            if not ready:
+                if time.time() - last_output > _STALL_TIMEOUT:
+                    stalled = True
+                    _kill(proc)
+                    break
+                continue
+            for stream in ready:
+                line = stream.readline()
+                if line == "":
+                    streams.remove(stream)
+                    continue
+                last_output = time.time()
+                line = line.rstrip("\n")
+                if stream is proc.stderr:
+                    if line.strip():
+                        stderr_tail.append(line)
+                    continue
+                hit = classify_line(line)
+                if hit is None:
+                    continue
+                kind, path = hit
+                base = os.path.basename(path)
+                if kind == "file":
+                    done += 1
+                    last_filename = base
+                    recent.append(base)
+                elif kind == "skip":
+                    skipped += 1
+                else:
+                    failed += 1
+                dirty = True
+
+            if dirty and time.time() - last_flush >= _FLUSH_INTERVAL:
+                _set_status(
+                    row_id,
+                    files_done=done,
+                    files_skipped=skipped,
+                    files_failed=failed,
+                    last_filename=last_filename,
+                    recent_files=json.dumps(list(recent)),
+                )
+                last_flush = time.time()
+                dirty = False
+
+        try:
+            proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+
+        cancelled = _pg.is_cancel_requested(row_id) or _pg.is_cancelled(row_id)
+        if cancelled:
+            final_status = GalleryDownloadStatus.CANCELLED
+            error = None
+        elif proc.returncode == 0 and not stalled:
+            final_status = GalleryDownloadStatus.COMPLETED
+            error = None
+        else:
+            final_status = GalleryDownloadStatus.FAILED
+            tail = "\n".join(stderr_tail)
+            error = (
+                f"[parallax] stalled — no output for {_STALL_TIMEOUT}s\n\n{tail}"
+                if stalled
+                else f"gallery-dl exited {proc.returncode}\n\n{tail}"
+            )
+
+        _set_status(
+            row_id,
+            status=final_status,
+            files_done=done,
+            files_skipped=skipped,
+            files_failed=failed,
+            last_filename=last_filename,
+            recent_files=json.dumps(list(recent)),
+            error=error,
+            finished_at=now(),
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("gallery-dl worker crashed for row %s", row_id)
+        _set_status(
+            row_id,
+            status=GalleryDownloadStatus.FAILED,
+            error=str(exc),
+            finished_at=now(),
+        )
+    finally:
+        _pg.unregister(row_id)
+        _pg.discard(row_id)
+        if cookies_tmp and os.path.exists(cookies_tmp):
+            try:
+                os.remove(cookies_tmp)
+            except OSError:
+                pass
