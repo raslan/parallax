@@ -43,6 +43,7 @@ def init_db():
     from app.models import (  # noqa: F401  # noqa: F401
         download,
         file,
+        gallery_download,
         image,
         image_library,
         job,
@@ -138,6 +139,17 @@ def init_db():
                 "UPDATE images "
                 "SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
                 "WHERE updated_at IS NULL"
+            )
+        )
+
+        # Belt-and-braces orphan sweep: any gallery download still marked running
+        # at DB-init time was killed by a container restart. The primary sweep is
+        # main._reap_orphaned_galleries(); both are idempotent.
+        conn.execute(
+            text(
+                "UPDATE gallery_downloads "
+                "SET status='failed', error='Interrupted by container restart' "
+                "WHERE status='running'"
             )
         )
 

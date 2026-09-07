@@ -23,6 +23,7 @@ from app.api.settings import router as settings_router
 from app.api.stream import router as stream_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
+from app.config import GALLERY_DL_DIR
 from app.database import init_db
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
@@ -116,6 +117,34 @@ def _reap_orphaned_downloads():
         db.close()
 
 
+def _reap_orphaned_galleries():
+    """Mark gallery downloads still running/pending at startup as failed — killed mid-run."""
+    from datetime import datetime
+
+    from app.database import SessionLocal
+    from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
+
+    db = SessionLocal()
+    try:
+        orphans = (
+            db.query(GalleryDownload)
+            .filter(
+                GalleryDownload.status.in_(
+                    [GalleryDownloadStatus.RUNNING, GalleryDownloadStatus.PENDING]
+                )
+            )
+            .all()
+        )
+        for g in orphans:
+            g.status = GalleryDownloadStatus.FAILED
+            g.error = "Interrupted by container restart"
+            g.finished_at = datetime.now(UTC).replace(tzinfo=None)
+        if orphans:
+            db.commit()
+    finally:
+        db.close()
+
+
 def _reap_orphaned_jobs():
     """Mark orphaned jobs at startup as cancelled (killed mid-run)."""
     from datetime import datetime
@@ -170,6 +199,7 @@ def _migrate_siglip_to_clip():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    os.makedirs(GALLERY_DL_DIR, exist_ok=True)
     _cleanup_legacy_dirs()
     _migrate_siglip_to_clip()
     _migrate_video_columns()
@@ -177,6 +207,7 @@ async def lifespan(app: FastAPI):
     _sweep_orphaned_thumbnails()
     _reap_orphaned_jobs()
     _reap_orphaned_downloads()
+    _reap_orphaned_galleries()
     detect_encoder()
     # Load saved concurrency setting before starting the worker
     from app.database import SessionLocal
