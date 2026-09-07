@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import {
   Download,
-  X,
   StopCircle,
   Trash2,
   Loader2,
@@ -26,6 +25,7 @@ import { OptionsPanel } from "@/components/downloads/OptionsPanel";
 import { downloadOptionsSchema, type DownloadOptions } from "@/lib/schemas/download";
 import { zodResolver } from "@/lib/zodResolver";
 import { YtdlpBanner } from "@/components/downloads/YtdlpBanner";
+import { CookiesModal } from "@/components/downloads-common/CookiesModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -47,7 +47,6 @@ export function Downloads() {
     () => sessionStorage.getItem("dl_cookies") ?? "",
   );
   const [showCookiesModal, setShowCookiesModal] = useState(false);
-  const [cookiesDraft, setCookiesDraft] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed" | "failed">(
     "all",
   );
@@ -493,10 +492,7 @@ export function Downloads() {
               Options
             </div>
             <button
-              onClick={() => {
-                setCookiesDraft(activeCookies);
-                setShowCookiesModal(true);
-              }}
+              onClick={() => setShowCookiesModal(true)}
               className={cn(
                 "relative flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors",
                 activeCookies
@@ -520,67 +516,13 @@ export function Downloads() {
       </div>
 
       {/* Cookies modal */}
-      {showCookiesModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={() => setShowCookiesModal(false)}
-        >
-          <div
-            className="bg-card border border-border rounded-lg shadow-xl p-5 w-full max-w-lg mx-4 space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Paste cookies</h3>
-              <button
-                onClick={() => setShowCookiesModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Paste cookies in Netscape format (exported via a browser extension like "Get
-              cookies.txt"). Active for this session only — navigating away clears them.
-            </p>
-            <textarea
-              value={cookiesDraft}
-              onChange={(e) => setCookiesDraft(e.target.value)}
-              placeholder={"# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t..."}
-              rows={8}
-              className="w-full rounded border border-input bg-muted/30 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/30"
-            />
-            <div className="flex gap-2 justify-end">
-              {activeCookies && (
-                <button
-                  onClick={() => {
-                    setActiveCookies("");
-                    setCookiesDraft("");
-                    setShowCookiesModal(false);
-                  }}
-                  className="px-3 py-1.5 text-xs text-destructive border border-destructive/30 rounded hover:bg-destructive/10 transition-colors"
-                >
-                  Clear cookies
-                </button>
-              )}
-              <button
-                onClick={() => setShowCookiesModal(false)}
-                className="px-3 py-1.5 text-xs border border-border rounded hover:bg-accent transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setActiveCookies(cookiesDraft.trim());
-                  setShowCookiesModal(false);
-                }}
-                className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CookiesModal
+        open={showCookiesModal}
+        value={activeCookies}
+        onApply={setActiveCookies}
+        onClear={() => setActiveCookies("")}
+        onClose={() => setShowCookiesModal(false)}
+      />
 
       {/* Duplicate URL confirmation dialog */}
       {dupeUrls.length > 0 && (
