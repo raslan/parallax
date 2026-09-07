@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class DuplicateCriteriaRequest(BaseModel):
@@ -189,3 +190,38 @@ class ImageScanRequest(BaseModel):
     run_phash: bool = True
     run_nudenet: bool = True
     reset: bool = False
+
+
+class GalleryOptions(BaseModel):
+    baseDir: str = ""
+    maxParallel: int = Field(default=2, ge=1, le=5)
+    retries: int = Field(default=3, ge=0, le=20)
+    httpTimeout: int = Field(default=30, ge=1, le=600)
+    typeVideo: bool = True
+    typeAudio: bool = False
+    typeImage: bool = False
+    typeAny: bool = False
+    maxSizeValue: float | None = Field(default=None, ge=0)
+    maxSizeUnit: Literal["K", "M", "G", "T"] = "M"
+    minSizeValue: float | None = Field(default=None, ge=0)
+    minSizeUnit: Literal["K", "M", "G", "T"] = "M"
+    stopAfterExisting: int | None = Field(default=None, ge=1)
+    useArchive: bool = True
+    archivePath: str = ""
+    range: str = ""
+    browser: str = ""
+    userAgent: str = ""
+    limitRate: str = ""
+    sleepRequest: str = ""
+    filenameTemplate: str = ""
+    extraArgs: str = ""
+    inputMode: Literal["paste", "file"] = "paste"
+
+
+class GalleryEnqueueRequest(BaseModel):
+    urls: list[str] = []
+    cookies: str = ""
+
+
+class ClearGalleriesRequest(BaseModel):
+    statuses: list[str]
