@@ -225,3 +225,7 @@ class GalleryEnqueueRequest(BaseModel):
 
 class ClearGalleriesRequest(BaseModel):
     statuses: list[str]
+
+
+class UrlFileBody(BaseModel):
+    text: str = ""

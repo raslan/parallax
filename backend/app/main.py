@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.compress import router as compress_router
 from app.api.downloads import router as downloads_router
 from app.api.files import router as files_router
+from app.api.galleries import router as galleries_router
 from app.api.health import router as health_router
 from app.api.identify import router as identify_router
 from app.api.image_libraries import router as image_libraries_router
@@ -262,6 +263,7 @@ app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
 app.include_router(compress_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
+app.include_router(galleries_router, prefix="/api")
 app.include_router(toolbox_router, prefix="/api")
 app.include_router(stream_router, prefix="/api")
 
