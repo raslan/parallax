@@ -10,6 +10,7 @@ from app.services.gallery_dl import (
     GALLERY_DL_NIGHTLY_SPEC,
     _run_gallery_sync,
     build_gallerydl_cmd,
+    classify_line,
     type_filter_expr,
 )
 
@@ -137,8 +138,6 @@ def test_redacted_argv_masks_cookies_value():
 
 
 def test_classify_line():
-    from app.services.gallery_dl import classify_line
-
     assert classify_line("/media/g/x/001.jpg") == ("file", "/media/g/x/001.jpg")
     assert classify_line("# /media/g/x/002.jpg") == ("skip", "/media/g/x/002.jpg")
     assert classify_line("/media/g/x/003.jpg\n") == ("file", "/media/g/x/003.jpg")

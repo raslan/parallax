@@ -301,7 +301,7 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
                 if stream is proc.stderr:
                     if line.strip():
                         stderr_tail.append(line)
-                        if "[error]" in line:
+                        if "][error]" in line:
                             failed += 1
                             dirty = True
                     continue
@@ -404,9 +404,11 @@ def cancel_gallery(row_id: int) -> bool:
 def _rm_partial_file(last_filename: str | None, output_dir: str | None) -> None:
     """After a hard SIGKILL, gallery-dl couldn't discard its in-flight file.
 
-    We only know the basename (last stdout `file:`/`error:` line never fired a
-    success), so walk the base dir for a match and remove it. Best effort — the
-    row may already be gone by the time the escalation thread runs, so the two
+    Downloaded files arrive on stdout as bare path lines and skips as `# `-prefixed
+    lines (gallery-dl's native PipeOutput) — there is no `error:` stdout event — so
+    `last_filename` is the basename of the most recent downloaded-file line. We only
+    know that basename, so walk the base dir for a match and remove it. Best effort —
+    the row may already be gone by the time the escalation thread runs, so the two
     values are captured at cancel time and passed in rather than re-read here.
     """
     try:
