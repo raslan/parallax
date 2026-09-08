@@ -40,10 +40,6 @@ GALLERY_DL_NIGHTLY_SPEC = (
     "gallery-dl @ https://github.com/mikf/gallery-dl/archive/refs/heads/master.tar.gz"
 )
 
-SENTINEL_FILE = "\x1fPXF\x1f"
-SENTINEL_SKIP = "\x1fPXS\x1f"
-SENTINEL_ERROR = "\x1fPXE\x1f"
-
 EXT_SETS: dict[str, tuple[str, ...]] = {
     "video": ("mp4", "mkv", "m4v", "webm", "mov", "avi", "wmv", "flv", "mpg", "mpeg", "3gp", "ts"),
     "audio": ("mp3", "m4a", "aac", "flac", "ogg", "opus", "wav", "wma"),
@@ -88,14 +84,6 @@ def build_gallerydl_cmd(url: str, opts: GalleryOptions, cookies_file: str | None
         *_gallery_dl_argv_prefix(),
         "--no-part",
         "--no-colors",
-        "-o",
-        "output.mode=null",
-        "--print",
-        f"file:{SENTINEL_FILE}{{_path}}",
-        "--print",
-        f"skip:{SENTINEL_SKIP}{{_path}}",
-        "--print",
-        f"error:{SENTINEL_ERROR}{{_path}}",
         "--retries",
         str(opts.retries),
         "-d",
@@ -179,14 +167,16 @@ _gallery_limit = 0
 
 
 def classify_line(line: str) -> tuple[str, str] | None:
-    for sentinel, kind in (
-        (SENTINEL_FILE, "file"),
-        (SENTINEL_SKIP, "skip"),
-        (SENTINEL_ERROR, "error"),
-    ):
-        if line.startswith(sentinel):
-            return kind, line[len(sentinel) :]
-    return None
+    """Classify one gallery-dl stdout line (PipeOutput format).
+
+    '# <path>' -> ("skip", <path>);  '<path>' -> ("file", <path>);  '' -> None.
+    """
+    line = line.rstrip("\n")
+    if not line:
+        return None
+    if line.startswith("# "):
+        return "skip", line[2:]
+    return "file", line
 
 
 def get_gallery_semaphore(limit: int) -> ResizableSemaphore:
@@ -311,6 +301,9 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
                 if stream is proc.stderr:
                     if line.strip():
                         stderr_tail.append(line)
+                        if "[error]" in line:
+                            failed += 1
+                            dirty = True
                     continue
                 hit = classify_line(line)
                 if hit is None:
@@ -323,8 +316,6 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
                     recent.append(base)
                 elif kind == "skip":
                     skipped += 1
-                else:
-                    failed += 1
                 dirty = True
 
             if dirty and time.time() - last_flush >= _FLUSH_INTERVAL:

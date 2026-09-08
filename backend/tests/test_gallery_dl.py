@@ -1,6 +1,5 @@
 import json
 import os
-import shlex
 import sys
 
 import app.services.gallery_dl as gallery_dl
@@ -9,12 +8,8 @@ from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
 from app.schemas import GalleryOptions
 from app.services.gallery_dl import (
     GALLERY_DL_NIGHTLY_SPEC,
-    SENTINEL_ERROR,
-    SENTINEL_FILE,
-    SENTINEL_SKIP,
     _run_gallery_sync,
     build_gallerydl_cmd,
-    classify_line,
     type_filter_expr,
 )
 
@@ -84,8 +79,8 @@ def test_build_cmd_core_and_conditionals():
     assert cmd[:3] == [sys.executable, "-m", "gallery_dl"]
     assert "--no-part" in cmd
     assert "--no-colors" in cmd
-    assert cmd[cmd.index("-o") + 1] == "output.mode=null"
-    assert f"file:{SENTINEL_FILE}{{_path}}" in cmd
+    assert "--print" not in cmd
+    assert "output.mode=null" not in cmd
     assert cmd[cmd.index("--retries") + 1] == "5"
     assert cmd[cmd.index("-d") + 1] == "/media/g"
     assert "downloader.http.timeout=45" in cmd
@@ -142,45 +137,46 @@ def test_redacted_argv_masks_cookies_value():
 
 
 def test_classify_line():
-    assert classify_line(f"{SENTINEL_FILE}/media/g/x/001.jpg") == ("file", "/media/g/x/001.jpg")
-    assert classify_line(f"{SENTINEL_SKIP}/media/g/x/002.jpg") == ("skip", "/media/g/x/002.jpg")
-    assert classify_line(f"{SENTINEL_ERROR}/media/g/x/003.jpg") == ("error", "/media/g/x/003.jpg")
-    assert classify_line("[extractor] some noise") is None
+    from app.services.gallery_dl import classify_line
+
+    assert classify_line("/media/g/x/001.jpg") == ("file", "/media/g/x/001.jpg")
+    assert classify_line("# /media/g/x/002.jpg") == ("skip", "/media/g/x/002.jpg")
+    assert classify_line("/media/g/x/003.jpg\n") == ("file", "/media/g/x/003.jpg")
     assert classify_line("") is None
+    assert classify_line("\n") is None
 
 
-def _fake_gallerydl(tmp_path, *, emit, exit_code):
+def _fake_gallerydl(tmp_path, *, exit_code):
     """Write an executable stand-in for the gallery-dl binary.
 
-    ``emit`` is a list of ``(sentinel, path)`` tuples echoed to stdout the way
-    the worker's ``--print`` hooks would; ``exit_code`` is the process status.
-    A line of stderr noise is always written so the FAILED path has a tail.
-    The sentinel's control byte (ASCII 31) is reproduced verbatim via ``printf``
-    octal escapes so ``classify_line`` sees exactly what it would in production.
+    Emits gallery-dl's native PipeOutput format on stdout (a bare path is a
+    download, a ``# ``-prefixed path is a skip) plus one ``[error]`` line on
+    stderr, so the worker's real parsing path is exercised. ``exit_code`` is the
+    process status.
     """
-    lines = ["#!/bin/sh"]
-    for sentinel, path in emit:
-        octal = sentinel.replace("\x1f", "\\037")
-        lines.append(f"printf '{octal}%s\\n' {shlex.quote(path)}")
-        lines.append("sleep 0.02")
-    lines.append("echo 'some stderr noise: boom' >&2")
-    lines.append(f"exit {exit_code}")
+    lines = [
+        "#!/bin/sh",
+        'echo "/out/a.jpg"',
+        'echo "/out/b.jpg"',
+        'echo "# /out/c.jpg"',
+        'echo "[extractor.foo][error] boom" >&2',
+        f"exit {exit_code}",
+    ]
     script = tmp_path / "gallery-dl"
     script.write_text("\n".join(lines) + "\n")
     os.chmod(script, 0o755)
     return str(script)
 
 
-def _drive_worker(tmp_path, monkeypatch, *, emit, exit_code):
+def _drive_worker(tmp_path, monkeypatch, *, exit_code):
     """Point ``_run_gallery_sync`` at the fake binary and run it once.
 
     The REAL ``build_gallerydl_cmd`` runs here — only ``_gallery_dl_argv_prefix``
     (argv[0]) is faked. This exercises the actual builder output through a real
-    ``subprocess.Popen``, so a reintroduced NUL sentinel would make Popen raise
-    and fail this test, on top of covering the stdout-sentinel -> counter ->
-    terminal-status contract of the worker.
+    ``subprocess.Popen``, covering the stdout-PipeOutput -> counter ->
+    terminal-status contract of the worker plus the stderr ``[error]`` count.
     """
-    fake = _fake_gallerydl(tmp_path, emit=emit, exit_code=exit_code)
+    fake = _fake_gallerydl(tmp_path, exit_code=exit_code)
     monkeypatch.setattr(gallery_dl, "_gallery_dl_argv_prefix", lambda: [fake])
     row_id = _seed_gallery_row()
     _run_gallery_sync(row_id, "")
@@ -201,17 +197,7 @@ def _seed_gallery_row() -> int:
 
 
 def test_run_gallery_sync_counts_and_completes(tmp_path, monkeypatch):
-    row_id = _drive_worker(
-        tmp_path,
-        monkeypatch,
-        emit=[
-            (SENTINEL_FILE, "/out/a.jpg"),
-            (SENTINEL_FILE, "/out/b.jpg"),
-            (SENTINEL_SKIP, "/out/c.jpg"),
-            (SENTINEL_ERROR, "/out/d.jpg"),
-        ],
-        exit_code=0,
-    )
+    row_id = _drive_worker(tmp_path, monkeypatch, exit_code=0)
 
     with SessionLocal() as s:
         row = s.get(GalleryDownload, row_id)
@@ -227,12 +213,7 @@ def test_run_gallery_sync_counts_and_completes(tmp_path, monkeypatch):
 
 
 def test_run_gallery_sync_nonzero_exit_fails_with_stderr_tail(tmp_path, monkeypatch):
-    row_id = _drive_worker(
-        tmp_path,
-        monkeypatch,
-        emit=[(SENTINEL_FILE, "/out/a.jpg")],
-        exit_code=1,
-    )
+    row_id = _drive_worker(tmp_path, monkeypatch, exit_code=1)
 
     with SessionLocal() as s:
         row = s.get(GalleryDownload, row_id)
