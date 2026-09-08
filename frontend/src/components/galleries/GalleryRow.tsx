@@ -199,10 +199,10 @@ export function GalleryRow({
 
         {/* Right: 3-up stat strip + hover actions */}
         <div className="flex items-start gap-4 shrink-0">
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center min-w-14">
             <span
               key={row.files_done}
-              className="inline-flex items-center gap-1 text-2xl font-bold font-mono tabular-nums tracking-tight text-emerald-400 animate-pop"
+              className="inline-flex items-center gap-1 text-xl font-bold font-mono tabular-nums tracking-tight text-emerald-400 animate-pop"
             >
               <Check className="h-4 w-4 shrink-0" />
               {row.files_done}
@@ -212,12 +212,12 @@ export function GalleryRow({
             </span>
           </div>
 
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center min-w-14">
             <span
               key={row.files_skipped}
-              className="inline-flex items-center gap-1 text-lg font-bold font-mono tabular-nums tracking-tight text-muted-foreground animate-pop"
+              className="inline-flex items-center gap-1 text-xl font-bold font-mono tabular-nums tracking-tight text-muted-foreground animate-pop"
             >
-              <SkipForward className="h-3.5 w-3.5 shrink-0" />
+              <SkipForward className="h-4 w-4 shrink-0" />
               {row.files_skipped}
             </span>
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
@@ -226,12 +226,12 @@ export function GalleryRow({
           </div>
 
           {row.files_failed > 0 && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center min-w-14">
               <span
                 key={row.files_failed}
-                className="inline-flex items-center gap-1 text-lg font-bold font-mono tabular-nums tracking-tight text-destructive animate-pop"
+                className="inline-flex items-center gap-1 text-xl font-bold font-mono tabular-nums tracking-tight text-destructive animate-pop"
               >
-                <X className="h-3.5 w-3.5 shrink-0" />
+                <X className="h-4 w-4 shrink-0" />
                 {row.files_failed}
               </span>
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
