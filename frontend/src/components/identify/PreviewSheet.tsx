@@ -179,7 +179,7 @@ export function PreviewSheet({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Generated poster + backdrop from the first episode's frame, with the show name
-                    in Fraunces.
+                    set in Inter.
                   </p>
                   <div className="overflow-hidden rounded-md border border-border">
                     {imagePaths.map((p) => (

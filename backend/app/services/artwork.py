@@ -2,7 +2,7 @@
 from a single frame of episode 1 — no external metadata, ffmpeg + Pillow only.
 
 poster.jpg / folder.jpg  : blurred, darkened frame with the show title in
-                           Fraunces Black, text colour hue-matched to the frame.
+                           Inter Black, text colour hue-matched to the frame.
 backdrop.jpg / fanart.jpg : the same frame, lightly darkened, no text.
 Season NN/folder.jpg      : a copy of the poster.
 
@@ -17,9 +17,9 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-_FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Fraunces-VF.ttf"
-# Fraunces variable axes: [Optical Size 9-144, Weight 100-900, Softness 0-100, Wonky 0-1]
-_FONT_AXES = [144.0, 900.0, 0.0, 0.0]
+_FONT_PATH = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Inter-VF.ttf"
+# Inter variable axes: [Optical Size 14-32, Weight 100-900]
+_FONT_AXES = [32.0, 900.0]
 _POSTER = (1000, 1500)
 _BACKDROP = (1920, 1080)
 
