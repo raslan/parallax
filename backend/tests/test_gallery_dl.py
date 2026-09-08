@@ -1,10 +1,16 @@
 import json
+import os
+import shlex
 
+import app.services.gallery_dl as gallery_dl
+from app.database import SessionLocal, init_db
+from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
 from app.schemas import GalleryOptions
 from app.services.gallery_dl import (
     SENTINEL_ERROR,
     SENTINEL_FILE,
     SENTINEL_SKIP,
+    _run_gallery_sync,
     build_gallerydl_cmd,
     classify_line,
     type_filter_expr,
@@ -116,3 +122,97 @@ def test_classify_line():
     assert classify_line(f"{SENTINEL_ERROR}/media/g/x/003.jpg") == ("error", "/media/g/x/003.jpg")
     assert classify_line("[extractor] some noise") is None
     assert classify_line("") is None
+
+
+def _fake_gallerydl(tmp_path, *, emit, exit_code):
+    """Write an executable stand-in for the gallery-dl binary.
+
+    ``emit`` is a list of ``(sentinel, path)`` tuples echoed to stdout the way
+    the worker's ``--print`` hooks would; ``exit_code`` is the process status.
+    A line of stderr noise is always written so the FAILED path has a tail.
+    The sentinel bytes (incl. NULs) are reproduced verbatim via ``printf`` octal
+    escapes so ``classify_line`` sees exactly what it would in production.
+    """
+    lines = ["#!/bin/sh"]
+    for sentinel, path in emit:
+        octal = sentinel.replace("\x00", "\\000")
+        lines.append(f"printf '{octal}%s\\n' {shlex.quote(path)}")
+        lines.append("sleep 0.02")
+    lines.append("echo 'some stderr noise: boom' >&2")
+    lines.append(f"exit {exit_code}")
+    script = tmp_path / "gallery-dl"
+    script.write_text("\n".join(lines) + "\n")
+    os.chmod(script, 0o755)
+    return str(script)
+
+
+def _drive_worker(tmp_path, monkeypatch, *, emit, exit_code):
+    """Point ``_run_gallery_sync`` at the fake binary and run it once.
+
+    ``build_gallerydl_cmd`` is stubbed to ``[fake]`` — its argv construction has
+    its own coverage above, and its real ``--print`` templates embed NUL bytes
+    that ``subprocess.Popen`` rejects in argv. This keeps the test focused on
+    the stdout-sentinel -> counter -> terminal-status contract of the worker.
+    """
+    fake = _fake_gallerydl(tmp_path, emit=emit, exit_code=exit_code)
+    monkeypatch.setattr(gallery_dl, "build_gallerydl_cmd", lambda *a, **k: [fake])
+    row_id = _seed_gallery_row()
+    _run_gallery_sync(row_id, "")
+    return row_id
+
+
+def _seed_gallery_row() -> int:
+    init_db()
+    with SessionLocal() as s:
+        row = GalleryDownload(
+            url="https://example.com/g/1",
+            status=GalleryDownloadStatus.PENDING,
+            output_dir="/tmp/px-gallery-test",
+        )
+        s.add(row)
+        s.commit()
+        return row.id
+
+
+def test_run_gallery_sync_counts_and_completes(tmp_path, monkeypatch):
+    row_id = _drive_worker(
+        tmp_path,
+        monkeypatch,
+        emit=[
+            (SENTINEL_FILE, "/out/a.jpg"),
+            (SENTINEL_FILE, "/out/b.jpg"),
+            (SENTINEL_SKIP, "/out/c.jpg"),
+            (SENTINEL_ERROR, "/out/d.jpg"),
+        ],
+        exit_code=0,
+    )
+
+    with SessionLocal() as s:
+        row = s.get(GalleryDownload, row_id)
+        assert row.files_done == 2
+        assert row.files_skipped == 1
+        assert row.files_failed == 1
+        assert row.last_filename == "b.jpg"
+        assert json.loads(row.recent_files) == ["a.jpg", "b.jpg"]
+        assert row.status == GalleryDownloadStatus.COMPLETED
+        assert row.error is None
+        s.delete(row)
+        s.commit()
+
+
+def test_run_gallery_sync_nonzero_exit_fails_with_stderr_tail(tmp_path, monkeypatch):
+    row_id = _drive_worker(
+        tmp_path,
+        monkeypatch,
+        emit=[(SENTINEL_FILE, "/out/a.jpg")],
+        exit_code=1,
+    )
+
+    with SessionLocal() as s:
+        row = s.get(GalleryDownload, row_id)
+        assert row.status == GalleryDownloadStatus.FAILED
+        assert row.error is not None
+        assert "boom" in row.error
+        assert "exited 1" in row.error
+        s.delete(row)
+        s.commit()

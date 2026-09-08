@@ -5,6 +5,7 @@ genuinely portable, stable-surface mechanism — parametrize what differs.
 """
 
 import asyncio
+import logging
 import os
 import shutil
 import signal
@@ -13,6 +14,8 @@ import tempfile
 import threading
 import urllib.request
 from collections.abc import Callable, Sequence
+
+logger = logging.getLogger(__name__)
 
 
 class ResizableSemaphore:
@@ -162,11 +165,12 @@ class ProcessGroup:
         on_escalated: Callable[[int], None] | None = None,
     ) -> bool:
         self._cancel_requested.add(key)
-        proc = self.peek(key)
-        if proc is None:
-            return False
-        self._cancelled.add(key)
-        _kill_group(proc, sig)
+        with self._lock:
+            proc = self._procs.get(key)
+            if proc is None:
+                return False
+            self._cancelled.add(key)
+            _kill_group(proc, sig)
         if escalate_after is not None:
             threading.Thread(
                 target=self._escalate,
@@ -191,4 +195,4 @@ class ProcessGroup:
             try:
                 on_escalated(key)
             except Exception:
-                pass
+                logger.exception("on_escalated callback failed for key %s", key)

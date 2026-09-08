@@ -218,7 +218,14 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
         if row is None:
             return
         url = row.url
-        opts = load_options(s)
+        opts = None
+        if row.options:
+            try:
+                opts = GalleryOptions.model_validate_json(row.options)
+            except Exception:
+                opts = None
+        if opts is None:
+            opts = load_options(s)
 
     cookies_tmp = cookies_to_tempfile(cookies)
     done = skipped = failed = 0
@@ -351,31 +358,39 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
 
 def cancel_gallery(row_id: int) -> bool:
     _pg.request_cancel(row_id)
+    last_filename: str | None = None
+    output_dir: str | None = None
+    try:
+        with SessionLocal() as s:
+            row = s.get(GalleryDownload, row_id)
+            if row is not None:
+                last_filename = row.last_filename
+                output_dir = row.output_dir
+    except Exception:
+        last_filename = output_dir = None
     return _pg.cancel(
         row_id,
         sig=signal.SIGINT,
         escalate_after=3.0,
-        on_escalated=_rm_last_partial,
+        on_escalated=lambda _key: _rm_partial_file(last_filename, output_dir),
     )
 
 
-def _rm_last_partial(row_id: int) -> None:
+def _rm_partial_file(last_filename: str | None, output_dir: str | None) -> None:
     """After a hard SIGKILL, gallery-dl couldn't discard its in-flight file.
 
     We only know the basename (last stdout `file:`/`error:` line never fired a
-    success), so walk the row's base dir for a match and remove it. Best effort.
+    success), so walk the base dir for a match and remove it. Best effort — the
+    row may already be gone by the time the escalation thread runs, so the two
+    values are captured at cancel time and passed in rather than re-read here.
     """
     try:
-        with SessionLocal() as s:
-            row = s.get(GalleryDownload, row_id)
-            if row is None or not row.last_filename or not row.output_dir:
-                return
-            target = row.last_filename
-            base = row.output_dir
-        for dirpath, _dirs, names in os.walk(base):
-            if target in names:
+        if not last_filename or not output_dir:
+            return
+        for dirpath, _dirs, names in os.walk(output_dir):
+            if last_filename in names:
                 try:
-                    os.remove(os.path.join(dirpath, target))
+                    os.remove(os.path.join(dirpath, last_filename))
                 except OSError:
                     pass
                 return
