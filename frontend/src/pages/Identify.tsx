@@ -39,6 +39,7 @@ interface SelectedMedia {
 export function Identify() {
   const [step, setStep] = useState<Step>("search");
   const [folderPath, setFolderPath] = useState("");
+  const [targetDir, setTargetDir] = useState("");
   const [mediaType, setMediaType] = useState<MediaType>("tv");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -54,6 +55,7 @@ export function Identify() {
   const [applySuccesses, setApplySuccesses] = useState<string[]>([]);
   const [applyFailures, setApplyFailures] = useState<{ path: string; error: string }[]>([]);
   const [picking, setPicking] = useState(false);
+  const [pickingTarget, setPickingTarget] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
@@ -230,6 +232,7 @@ export function Identify() {
         year: selected.year,
         tmdb_id: selected.tmdb_id,
         mappings,
+        target_dir: targetDir.trim() || null,
       });
       setFileOps(res.file_ops);
       setFolderOps(res.folder_ops);
@@ -270,6 +273,7 @@ export function Identify() {
   function reset() {
     setStep("search");
     setFolderPath("");
+    setTargetDir("");
     setSearchQuery("");
     setSearchResults([]);
     setSelected(null);
@@ -358,6 +362,34 @@ export function Identify() {
                   file(s).
                 </p>
               )}
+
+              <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                <span className="text-xs text-muted-foreground shrink-0">Move to</span>
+                <span className="flex-1 text-sm font-mono text-muted-foreground truncate">
+                  {targetDir || <span className="italic">Rename in place (same location)</span>}
+                </span>
+                {targetDir && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTargetDir("")}
+                    className="shrink-0"
+                  >
+                    Clear
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPickingTarget(true)}
+                  className="gap-1.5 shrink-0"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  Browse
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -675,6 +707,21 @@ export function Identify() {
             <DialogTitle>Select folder</DialogTitle>
           </DialogHeader>
           <DirPicker onSelect={handleFolderSelect} onClose={() => setPicking(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pickingTarget} onOpenChange={setPickingTarget}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move renamed folder to…</DialogTitle>
+          </DialogHeader>
+          <DirPicker
+            onSelect={(path) => {
+              setTargetDir(path);
+              setPickingTarget(false);
+            }}
+            onClose={() => setPickingTarget(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

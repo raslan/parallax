@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 
 from app.models.file import File
 from app.models.library import Library
@@ -142,12 +143,15 @@ def compute_ops(
     media_type: str,
     tmdb_data: dict,
     mappings: list[dict],
+    target_dir: str | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """
     Compute file and folder rename operations without touching the filesystem.
 
     tmdb_data: {"title": str, "year": int|None, "season_number": int|None}
     mappings: [{"file_path": str, "episode_number": int|None, "episode_name": str|None}]
+    target_dir: optional destination the renamed folder is moved into; when None
+        the folder is renamed in place under its current parent.
 
     Returns (file_ops, folder_ops). Each op: {"old_path": str, "new_path": str}.
     File ops must be applied before folder ops.
@@ -157,7 +161,7 @@ def compute_ops(
     title = tmdb_data["title"]
     year = tmdb_data.get("year")
     abs_folder = os.path.abspath(folder_path)
-    parent = os.path.dirname(abs_folder)
+    dest_parent = os.path.abspath(target_dir) if target_dir else os.path.dirname(abs_folder)
 
     if media_type == "movie":
         for m in mappings:
@@ -170,7 +174,7 @@ def compute_ops(
                 file_ops.append({"old_path": fp, "new_path": new_path})
             file_ops.extend(_subtitle_ops(fp, new_path))
 
-        new_folder = os.path.join(parent, movie_folder_name(title, year))
+        new_folder = os.path.join(dest_parent, movie_folder_name(title, year))
         if abs_folder != os.path.abspath(new_folder):
             folder_ops.append({"old_path": folder_path, "new_path": new_folder})
 
@@ -196,7 +200,7 @@ def compute_ops(
                 file_ops.append({"old_path": fp, "new_path": new_path})
             file_ops.extend(_subtitle_ops(fp, new_path))
 
-        new_folder = os.path.join(parent, safe_name(title))
+        new_folder = os.path.join(dest_parent, safe_name(title))
         if abs_folder != os.path.abspath(new_folder):
             folder_ops.append({"old_path": folder_path, "new_path": new_folder})
 
@@ -231,9 +235,13 @@ def apply_ops(
 
     for op in folder_ops:
         try:
+            if os.path.exists(op["new_path"]):
+                raise OSError(f"destination already exists: {op['new_path']}")
             parent_dir = os.path.dirname(op["new_path"])
             os.makedirs(parent_dir, exist_ok=True)
-            os.rename(op["old_path"], op["new_path"])
+            # shutil.move (not os.rename) so a target_dir on another filesystem
+            # works — os.rename raises EXDEV across mount points.
+            shutil.move(op["old_path"], op["new_path"])
 
             old_prefix = op["old_path"].rstrip("/") + "/"
             new_prefix = op["new_path"].rstrip("/") + "/"
@@ -245,7 +253,7 @@ def apply_ops(
                 lib.path = op["new_path"]
 
             successes.append(op["old_path"])
-        except OSError as e:
+        except (OSError, shutil.Error) as e:
             failures.append({"path": op["old_path"], "error": str(e)})
     db.commit()
 

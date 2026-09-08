@@ -30,6 +30,7 @@ export const identifyApi = {
     year: number | null;
     tmdb_id: number;
     mappings: FileMapping[];
+    target_dir: string | null;
   }) => req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
   identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[] }) =>
     req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),

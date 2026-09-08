@@ -43,6 +43,46 @@ def test_guess_file_episodes_preserves_order_and_length():
     assert [r["episode"] for r in result] == [1, 2, 3, 4, 5]
 
 
+def test_compute_ops_target_dir_moves_folder_into_it(tmp_path):
+    from app.services.renamer import compute_ops
+
+    src = tmp_path / "some.badly.named.folder"
+    src.mkdir()
+    movie = src / "movie.mkv"
+    movie.touch()
+    dest = tmp_path / "Movies"
+    dest.mkdir()
+
+    _file_ops, folder_ops = compute_ops(
+        str(src),
+        "movie",
+        {"title": "The Matrix", "year": 1999},
+        [{"file_path": str(movie)}],
+        target_dir=str(dest),
+    )
+
+    assert len(folder_ops) == 1
+    assert folder_ops[0]["new_path"] == str(dest / "The Matrix (1999)")
+
+
+def test_compute_ops_no_target_dir_renames_in_place(tmp_path):
+    from app.services.renamer import compute_ops
+
+    src = tmp_path / "some.badly.named.folder"
+    src.mkdir()
+    movie = src / "movie.mkv"
+    movie.touch()
+
+    _file_ops, folder_ops = compute_ops(
+        str(src),
+        "movie",
+        {"title": "The Matrix", "year": 1999},
+        [{"file_path": str(movie)}],
+    )
+
+    assert folder_ops[0]["new_path"] == str(tmp_path / "The Matrix (1999)")
+
+
 def test_list_files_route_includes_file_guesses(tmp_path, client):
     show_dir = tmp_path / "The Wire"
     show_dir.mkdir()

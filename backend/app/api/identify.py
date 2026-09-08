@@ -54,6 +54,7 @@ class PreviewRequest(BaseModel):
     year: int | None = None
     tmdb_id: int
     mappings: list[FileMapping]
+    target_dir: str | None = None
 
 
 class RenameOp(BaseModel):
@@ -180,7 +181,11 @@ def preview(body: PreviewRequest, db: Session = Depends(get_db)):
         }
         for m in body.mappings
     ]
-    file_ops, folder_ops = renamer.compute_ops(body.folder_path, body.type, tmdb_data, mappings)
+    if body.target_dir and not os.path.isdir(body.target_dir):
+        raise HTTPException(400, "Target folder not found or is not a directory")
+    file_ops, folder_ops = renamer.compute_ops(
+        body.folder_path, body.type, tmdb_data, mappings, body.target_dir
+    )
     return PreviewResponse(
         file_ops=[RenameOp(**op) for op in file_ops],
         folder_ops=[RenameOp(**op) for op in folder_ops],
