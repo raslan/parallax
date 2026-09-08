@@ -18,6 +18,7 @@ export const identifyApi = {
       files: string[];
       guess: { title: string; year: number | null; type: "movie" | "tv" };
       file_guesses: { file_path: string; season: number | null; episode: number | null }[];
+      mtimes: Record<string, number>;
     }>(`/identify/files?path=${encodeURIComponent(path)}`),
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),

@@ -11,7 +11,7 @@ import { PreviewSheet } from "@/components/identify/PreviewSheet";
 import { api } from "@/lib/api";
 import type { SearchResult, Episode, RenameOp, NfoOp, FileMapping } from "@/types/identify";
 import { type FileGuess, buildInitialAssignments, slotKey } from "@/lib/episodeMatching";
-import { naturalSort, cleanEpisodeTitle } from "@/lib/customShow";
+import { orderFiles, cleanEpisodeTitle } from "@/lib/customShow";
 import { Link } from "react-router-dom";
 
 interface ApplyResult {
@@ -41,7 +41,8 @@ export function Identify() {
   const [titles, setTitles] = useState<Record<string, string>>({});
   const [genericTitles, setGenericTitles] = useState(false);
   const [fileDates, setFileDates] = useState<Record<string, string | null> | null>(null);
-  const [activeSort, setActiveSort] = useState<"name" | "date" | "manual">("name");
+  const [fileMtimes, setFileMtimes] = useState<Record<string, number>>({});
+  const [activeSort, setActiveSort] = useState<"name" | "date" | "added" | "manual">("name");
   const [loadingDates, setLoadingDates] = useState(false);
 
   const [fileOps, setFileOps] = useState<RenameOp[]>([]);
@@ -71,7 +72,8 @@ export function Identify() {
       const res = await api.identifyFiles(path.trim());
       setFiles(res.files);
       setFileGuesses(res.file_guesses);
-      setOrder(naturalSort(res.files));
+      setFileMtimes(res.mtimes);
+      setOrder(orderFiles(res.files));
       setActiveSort("name");
       setShowName((prev) => prev || folderName(path));
       if (mode !== "custom" && res.guess.title) {
@@ -140,7 +142,7 @@ export function Identify() {
     setEpisodes([]);
     setAssignments({});
     if (m === "custom") {
-      setOrder(naturalSort(files));
+      setOrder(orderFiles(files));
       setActiveSort("name");
       setShowName((prev) => prev || folderName(folderPath));
     }
@@ -163,10 +165,15 @@ export function Identify() {
     setActiveSort("manual");
   }
 
-  async function sortBy(by: "name" | "date") {
+  async function sortBy(by: "name" | "date" | "added") {
     if (by === "name") {
-      setOrder(naturalSort(files));
+      setOrder(orderFiles(files));
       setActiveSort("name");
+      return;
+    }
+    if (by === "added") {
+      setOrder((prev) => [...prev].sort((a, b) => (fileMtimes[a] ?? 0) - (fileMtimes[b] ?? 0)));
+      setActiveSort("added");
       return;
     }
     let dates = fileDates;
@@ -183,6 +190,7 @@ export function Identify() {
       }
     }
     const d = dates;
+    if (!Object.values(d).some((v) => v !== null)) return; // no dates embedded — leave order as-is
     setOrder((prev) => [...prev].sort((a, b) => (d[a] ?? "9999").localeCompare(d[b] ?? "9999")));
     setActiveSort("date");
   }
@@ -278,6 +286,7 @@ export function Identify() {
     setOrder([]);
     setTitles({});
     setFileDates(null);
+    setFileMtimes({});
     setShowName("");
     setError("");
     loadFiles(path);
@@ -298,6 +307,7 @@ export function Identify() {
     setTitles({});
     setGenericTitles(false);
     setFileDates(null);
+    setFileMtimes({});
     setActiveSort("name");
     setFileOps([]);
     setFolderOps([]);

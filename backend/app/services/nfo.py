@@ -3,9 +3,9 @@ NFO feature and Plex's XBMCnfoTVImporter read. Used by Identify's custom-show
 mode to give YouTube playlists a real Show experience without a TMDB entry.
 """
 
+import json
+import subprocess
 import xml.etree.ElementTree as ET
-
-from app.services.scanner import probe_file
 
 _DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 _STUDIO = "YouTube"
@@ -30,9 +30,21 @@ def normalize_date(raw: str | None) -> str | None:
 def probe_date_and_plot(path: str) -> tuple[str | None, str | None]:
     """Read the upload date (YYYY-MM-DD) and description from a file's embedded
     container tags. Returns (None, None) if ffprobe fails or the tags are absent.
+
+    Uses `-show_entries format_tags` (not `format=...,tags`): the latter does not
+    expand the tags dict for Matroska, so an mkv's `DATE` tag would be missed.
     """
-    raw = probe_file(path).get("format", {}).get("tags", {}) or {}
-    tags = {k.lower(): v for k, v in raw.items()}
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format_tags", "-of", "json", path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        raw = json.loads(result.stdout).get("format", {}).get("tags", {}) if result.stdout else {}
+    except Exception:
+        raw = {}
+    tags = {k.lower(): v for k, v in (raw or {}).items()}
     date = normalize_date(tags.get("date") or tags.get("creation_time"))
     plot = tags.get("description") or tags.get("synopsis") or tags.get("comment") or None
     return date, plot

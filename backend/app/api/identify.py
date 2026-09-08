@@ -146,7 +146,20 @@ def list_files(path: str = Query(...), db: Session = Depends(get_db)):
     files = renamer.list_video_files(path)
     guess = renamer.guess_media(path, files)
     file_guesses = renamer.guess_file_episodes(files)
-    return {"path": path, "files": files, "guess": guess, "file_guesses": file_guesses}
+
+    def _mtime(f: str) -> float:
+        try:
+            return os.path.getmtime(f)
+        except OSError:
+            return 0.0
+
+    return {
+        "path": path,
+        "files": files,
+        "guess": guess,
+        "file_guesses": file_guesses,
+        "mtimes": {f: _mtime(f) for f in files},
+    }
 
 
 @router.get("/file-dates")

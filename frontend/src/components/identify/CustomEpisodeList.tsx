@@ -13,14 +13,20 @@ interface CustomEpisodeListProps {
   season: number;
   onTitleEdit: (path: string, value: string) => void;
   onMove: (path: string, dir: -1 | 1) => void;
-  onSort: (by: "name" | "date") => void;
+  onSort: (by: "name" | "date" | "added") => void;
   onReverse: () => void;
   genericTitles: boolean;
   onGenericTitlesChange: (v: boolean) => void;
-  activeSort: "name" | "date" | "manual";
+  activeSort: "name" | "date" | "added" | "manual";
   datesLoading: boolean;
   datesUnavailable: boolean;
 }
+
+const SORTS = [
+  { key: "name", label: "Name" },
+  { key: "added", label: "Added" },
+  { key: "date", label: "Upload date" },
+] as const;
 
 function filename(path: string): string {
   return path.split("/").pop() ?? path;
@@ -63,32 +69,35 @@ export function CustomEpisodeList({
             />
             Generic titles
           </label>
-          <Button
-            type="button"
-            size="sm"
-            variant={activeSort === "name" ? "default" : "outline"}
-            onClick={() => onSort("name")}
-          >
-            Name
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={activeSort === "date" ? "default" : "outline"}
-            onClick={() => onSort("date")}
-            disabled={datesLoading || datesUnavailable}
-            title={datesUnavailable ? "No upload dates embedded in these files" : undefined}
-            className="gap-1.5"
-          >
-            {datesLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Upload date
-          </Button>
+          <span className="text-xs text-muted-foreground">Sort</span>
+          <div className="flex overflow-hidden rounded-md border border-border text-xs">
+            {SORTS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onSort(key)}
+                disabled={key === "date" && datesLoading}
+                className={`flex items-center gap-1.5 px-2.5 py-1 transition-colors ${
+                  activeSort === key ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                }`}
+              >
+                {key === "date" && datesLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {label}
+              </button>
+            ))}
+          </div>
           <Button type="button" size="sm" variant="ghost" onClick={onReverse} className="gap-1.5">
             <ArrowUpDown className="h-3.5 w-3.5" />
             Reverse
           </Button>
         </div>
       </div>
+
+      {datesUnavailable && (
+        <p className="text-xs text-muted-foreground">
+          No upload dates are embedded in these files — sort by name or reorder by hand.
+        </p>
+      )}
 
       <div className="overflow-hidden rounded-md border border-border">
         {rows.map((row, i) => (
