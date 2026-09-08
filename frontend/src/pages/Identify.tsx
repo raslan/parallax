@@ -84,6 +84,7 @@ export function Identify() {
         episode_number: 1,
         name: result.title,
         overview: result.overview,
+        still_path: null,
       };
       setEpisodes([movieEpisode]);
       if (files.length > 0) setAssignments({ [slotKey(1, 1)]: files[0]! });

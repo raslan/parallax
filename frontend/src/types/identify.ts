@@ -13,6 +13,7 @@ export interface Episode {
   episode_number: number;
   name: string;
   overview: string;
+  still_path: string | null;
 }
 
 export interface FileMapping {

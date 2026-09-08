@@ -38,6 +38,7 @@ class Episode(BaseModel):
     episode_number: int
     name: str
     overview: str
+    still_path: str | None = None
 
 
 class FileMapping(BaseModel):

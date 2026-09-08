@@ -8,7 +8,7 @@ import {
   DragOverlay,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronDown, ChevronRight, GripVertical, Film, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, Film, Plus, X, Clapperboard } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { api } from "@/lib/api";
 import type { Episode } from "@/types/identify";
@@ -115,6 +115,27 @@ function AssignMenu({ pool, onPick }: { pool: string[]; onPick: (filePath: strin
   );
 }
 
+function EpisodeStill({ path, alt }: { path: string | null; alt: string }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <div className="relative h-14 w-[6.25rem] shrink-0 overflow-hidden rounded bg-muted">
+      {path && !broken ? (
+        <img
+          src={`https://image.tmdb.org/t/p/w300${path}`}
+          alt={alt}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <Clapperboard className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EpisodeRow({
   episode,
   mediaType,
@@ -141,15 +162,18 @@ function EpisodeRow({
   return (
     <div
       ref={setNodeRef}
-      className={`grid grid-cols-[7rem_1fr] items-center gap-3 border-b border-border px-3 py-2.5 last:border-0 ${
+      className={`grid grid-cols-[minmax(0,15rem)_1fr] items-center gap-4 border-b border-border px-3 py-3 last:border-0 ${
         isOver ? "bg-primary/10" : ""
       }`}
     >
-      <div className="min-w-0">
-        <p className="font-mono text-xs font-medium text-foreground">{code}</p>
-        <p className="truncate text-xs text-muted-foreground" title={episode.name}>
-          {episode.name}
-        </p>
+      <div className="flex min-w-0 items-center gap-3">
+        <EpisodeStill path={episode.still_path} alt={episode.name} />
+        <div className="min-w-0">
+          <p className="font-mono text-xs font-medium text-muted-foreground">{code}</p>
+          <p className="truncate text-sm font-medium text-foreground" title={episode.name}>
+            {episode.name}
+          </p>
+        </div>
       </div>
       <div className="min-w-0">
         {filePath ? (
