@@ -33,6 +33,10 @@ class ImageFile(Base):
     status: Mapped[str] = mapped_column(String(32), default=ImageStatus.PENDING)
     scan_error: Mapped[str] = mapped_column(Text, nullable=True)
     scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    # Set whenever a NudeNet pass runs on this row (clean or not), so an
+    # on-demand content scan can skip rows already checked — a zero-detection
+    # row is otherwise indistinguishable from a never-scanned one.
+    content_scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

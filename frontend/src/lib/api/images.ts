@@ -23,6 +23,19 @@ export const imageApi = {
       body: JSON.stringify(opts),
     }),
 
+  // On-demand extraction — mirrors video's find-duplicates: kicks a job, caller
+  // polls it, then refetches the read endpoint.
+  extractPhash: (library_id?: number) =>
+    req<{ job_id: number; missing: number }>(
+      `/images/extract-phash${library_id != null ? `?library_id=${library_id}` : ""}`,
+      { method: "POST" },
+    ),
+  scanContent: (library_id?: number) =>
+    req<{ job_id: number; missing: number }>(
+      `/images/scan-content${library_id != null ? `?library_id=${library_id}` : ""}`,
+      { method: "POST" },
+    ),
+
   listImages: (params: {
     library_id?: number;
     status?: string;

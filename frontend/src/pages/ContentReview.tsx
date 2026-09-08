@@ -1,10 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FolderX } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { imageApi, qk } from "@/lib/api";
+import { getErrorMessage } from "@/lib/api/client";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
+import { WorkingState } from "@/components/WorkingState";
+import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { QueryBuilder } from "@/components/QueryBuilder";
@@ -119,6 +123,44 @@ export function ContentReview() {
     [allImages, evaluate],
   );
 
+  // NudeNet detections are written at scan time, so images the filesystem
+  // watcher added have none and would silently never match a label filter (or
+  // falsely match "no detections at all"). The moment the query includes any
+  // detection-backed clause, kick a background NudeNet pass over every image
+  // not yet content-scanned — same seamless "background the task" flow as
+  // Image Duplicates' Find Duplicates.
+  const {
+    status: scanStatus,
+    progress: scanProgress,
+    start,
+  } = useJobPoll({
+    onTerminal: (job) => {
+      if (job.status === "completed") {
+        queryClient.invalidateQueries({ queryKey: qk.images() });
+      } else if (job.status === "failed" && job.error) {
+        toast.error(job.error);
+      }
+    },
+  });
+  const scanning = scanStatus === "pending" || scanStatus === "running";
+
+  const usesDetections = clauses.some((c) => fieldsByKey[c.fieldKey]?.category === "label");
+  const scanKicked = useRef(false);
+  useEffect(() => {
+    if (!usesDetections) {
+      scanKicked.current = false;
+      return;
+    }
+    if (scanKicked.current) return;
+    scanKicked.current = true;
+    imageApi
+      .scanContent()
+      .then(({ job_id, missing }) => {
+        if (missing > 0) start(job_id);
+      })
+      .catch((e) => toast.error(getErrorMessage(e)));
+  }, [usesDetections, start]);
+
   async function quarantineSelected() {
     if (!selectedIds.size) return;
     setQuarantining(true);
@@ -162,7 +204,15 @@ export function ContentReview() {
         <p className="text-center text-sm text-muted-foreground py-12">Loading images…</p>
       )}
 
-      {allImages && allResults.length > 0 && (
+      {scanning && (
+        <WorkingState
+          title="Scanning for content"
+          message="Running detection on images…"
+          progress={scanProgress}
+        />
+      )}
+
+      {!scanning && allImages && allResults.length > 0 && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-3">
@@ -208,7 +258,7 @@ export function ContentReview() {
         </>
       )}
 
-      {!loading && allImages && allResults.length === 0 && (
+      {!scanning && !loading && allImages && allResults.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-12">
           No results. Try adjusting your filters.
         </p>

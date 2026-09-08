@@ -121,6 +121,7 @@ def init_db():
             "ALTER TABLE files ADD COLUMN byte_hash TEXT",
             "ALTER TABLE files ADD COLUMN audio_fingerprint TEXT",
             "ALTER TABLE gallery_downloads ADD COLUMN log_tail TEXT",
+            "ALTER TABLE images ADD COLUMN content_scanned_at DATETIME",
         ]:
             try:
                 conn.execute(text(sql))
@@ -140,6 +141,19 @@ def init_db():
                 "UPDATE images "
                 "SET updated_at = COALESCE(scanned_at, created_at, CURRENT_TIMESTAMP) "
                 "WHERE updated_at IS NULL"
+            )
+        )
+        # Before the filesystem watcher, every image row came from a full scan
+        # (which always ran NudeNet) — treat those as content-scanned so this
+        # change doesn't force a huge one-time rescan. The watcher inserts rows
+        # with file_mtime NULL and never runs NudeNet, so those are left NULL
+        # and get picked up by the on-demand content scan
+        # (image_extract.scan_image_content).
+        conn.execute(
+            text(
+                "UPDATE images SET content_scanned_at = scanned_at "
+                "WHERE content_scanned_at IS NULL AND status = 'scanned' "
+                "AND file_mtime IS NOT NULL"
             )
         )
 

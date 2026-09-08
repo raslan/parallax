@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Copy, Loader2, ScanSearch, ShieldCheck, Trash2, Play } from "lucide-react";
+import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
@@ -20,6 +20,7 @@ import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { CollapsibleControls } from "@/components/CollapsibleControls";
+import { WorkingState } from "@/components/WorkingState";
 import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
 
 // Stable reference so `files` doesn't get a fresh `[]` identity every render
@@ -176,36 +177,17 @@ function GroupCard({
 // Shown in place of the empty state while a real duplicate scan is actually
 // running (extraction job or client-side clustering) — otherwise "No
 // duplicates found" reads as a false negative while work is still in flight.
-function WorkingState({ extracting, progress }: { extracting: boolean; progress: number }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-8 py-16 flex flex-col items-center text-center gap-4">
-      <div className="flex items-center gap-2">
-        <ScanSearch className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold text-lg">Finding duplicates</h3>
-      </div>
-
-      {extracting ? (
-        <>
-          <div className="text-3xl font-bold font-mono tabular-nums tracking-tight">
-            {Math.round(progress)}%
-          </div>
-          <div className="w-full max-w-xs h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="text-sm text-muted-foreground max-w-xs">Scanning your library…</p>
-        </>
-      ) : (
-        <>
-          <div className="w-40 h-1.5 rounded-full bg-muted overflow-hidden relative">
-            <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-primary to-transparent" />
-          </div>
-          <p className="text-sm text-muted-foreground max-w-xs">Comparing files…</p>
-        </>
-      )}
-    </div>
+function DuplicatesWorkingState({
+  extracting,
+  progress,
+}: {
+  extracting: boolean;
+  progress: number;
+}) {
+  return extracting ? (
+    <WorkingState title="Finding duplicates" message="Scanning your library…" progress={progress} />
+  ) : (
+    <WorkingState title="Finding duplicates" message="Comparing files…" progress={null} />
   );
 }
 
@@ -539,7 +521,7 @@ export function Duplicates() {
         )}
 
         {!filesLoading && files.length > 0 && groups.length === 0 && (extracting || clustering) && (
-          <WorkingState extracting={extracting} progress={progress} />
+          <DuplicatesWorkingState extracting={extracting} progress={progress} />
         )}
 
         {!filesLoading && files.length > 0 && groups.length === 0 && !extracting && !clustering && (

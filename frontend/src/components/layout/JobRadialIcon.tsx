@@ -24,7 +24,10 @@ export function JobRadialIcon({
     body = <div className="flex h-6 w-6 items-center justify-center">{glyph}</div>;
   } else if (progress === "pending") {
     body = (
-      <div data-testid="job-radial-spin" className="h-6 w-6 animate-[spin_1.6s_linear_infinite]">
+      <div
+        data-testid="job-radial-spin"
+        className="h-6 w-6 [&_.CircularProgressbar]:origin-center [&_.CircularProgressbar]:animate-[spin_1.6s_linear_infinite]"
+      >
         <CircularProgressbarWithChildren value={25} strokeWidth={12} styles={RING_STYLES}>
           {glyph}
         </CircularProgressbarWithChildren>

@@ -291,6 +291,7 @@ def scan_image_library(
                 try:
                     batch_dets = run_nudenet_batch_arrays(good_arrays, model_id=nudenet_model_id)
                     for img_obj, detections in zip(img_objs, batch_dets):
+                        img_obj.content_scanned_at = now()
                         for d in detections:
                             db.add(
                                 ImageDetection(
