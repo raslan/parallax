@@ -228,5 +228,8 @@ def gdl_info():
 
 @router.post("/gdl/update")
 async def gdl_update():
-    await asyncio.to_thread(install_gallerydl)
+    try:
+        await asyncio.to_thread(install_gallerydl)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"gallery-dl update failed: {e}") from e
     return {"message": "gallery-dl updated"}

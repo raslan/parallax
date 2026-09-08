@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 URLS_FILE = os.path.join(GALLERY_DL_DIR, "urls.txt")
 DEFAULT_ARCHIVE = os.path.join(GALLERY_DL_DIR, "archive.sqlite3")
 GALLERY_DL_PKG_DIR = os.path.join(GALLERY_DL_DIR, "site")
-GALLERY_DL_NIGHTLY_SPEC = "gallery-dl @ git+https://github.com/mikf/gallery-dl.git"
+GALLERY_DL_NIGHTLY_SPEC = (
+    "gallery-dl @ https://github.com/mikf/gallery-dl/archive/refs/heads/master.tar.gz"
+)
 
 SENTINEL_FILE = "\x1fPXF\x1f"
 SENTINEL_SKIP = "\x1fPXS\x1f"
@@ -460,6 +462,10 @@ def install_gallerydl() -> None:
         os.replace(staging, GALLERY_DL_PKG_DIR)
         if os.path.isdir(backup):
             shutil.rmtree(backup, ignore_errors=True)
+    except subprocess.CalledProcessError as e:
+        shutil.rmtree(staging, ignore_errors=True)
+        tail = (e.stderr or e.stdout or "").strip()[-800:]
+        raise RuntimeError(f"pip install failed (exit {e.returncode}): {tail}") from e
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise

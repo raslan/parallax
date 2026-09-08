@@ -8,6 +8,7 @@ from app.database import SessionLocal, init_db
 from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
 from app.schemas import GalleryOptions
 from app.services.gallery_dl import (
+    GALLERY_DL_NIGHTLY_SPEC,
     SENTINEL_ERROR,
     SENTINEL_FILE,
     SENTINEL_SKIP,
@@ -16,6 +17,13 @@ from app.services.gallery_dl import (
     classify_line,
     type_filter_expr,
 )
+
+
+def test_nightly_spec_is_git_free():
+    # git binary is absent from all three base images — nightly must fetch a plain
+    # HTTPS tarball, never a git+ VCS URL.
+    assert GALLERY_DL_NIGHTLY_SPEC.startswith("gallery-dl @ https://")
+    assert "git+" not in GALLERY_DL_NIGHTLY_SPEC
 
 
 def test_gallery_options_defaults():

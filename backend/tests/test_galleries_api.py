@@ -91,6 +91,18 @@ def test_enqueue_creates_rows(client, monkeypatch):
     assert all(row["status"] == "pending" for row in rows)
 
 
+def test_gdl_update_failure_returns_502(client, monkeypatch):
+    import app.api.galleries as mod
+
+    def _boom():
+        raise RuntimeError("pip install failed (exit 1): No matching distribution")
+
+    monkeypatch.setattr(mod, "install_gallerydl", _boom)
+    r = client.post("/api/galleries/gdl/update")
+    assert r.status_code == 502
+    assert "update failed" in r.json()["detail"]
+
+
 def test_clear_only_terminal(client, engine):
     with Session(engine) as s:
         s.add(GalleryDownload(url="a", status=GalleryDownloadStatus.COMPLETED, output_dir="/x"))
