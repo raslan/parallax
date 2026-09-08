@@ -153,13 +153,25 @@ export function Identify() {
     return titles[path] ?? cleanEpisodeTitle(path);
   }
 
-  function moveRow(path: string, dir: -1 | 1) {
+  function reorder(fromPath: string, toPath: string) {
     setOrder((prev) => {
-      const i = prev.indexOf(path);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const from = prev.indexOf(fromPath);
+      const to = prev.indexOf(toPath);
+      if (from < 0 || to < 0 || from === to) return prev;
       const next = [...prev];
-      [next[i], next[j]] = [next[j]!, next[i]!];
+      next.splice(to, 0, next.splice(from, 1)[0]!);
+      return next;
+    });
+    setActiveSort("manual");
+  }
+
+  function setEpisodeNumber(path: string, episode: number) {
+    setOrder((prev) => {
+      const from = prev.indexOf(path);
+      const to = Math.min(prev.length - 1, Math.max(0, episode - 1));
+      if (from < 0 || from === to) return prev;
+      const next = [...prev];
+      next.splice(to, 0, next.splice(from, 1)[0]!);
       return next;
     });
     setActiveSort("manual");
@@ -381,7 +393,8 @@ export function Identify() {
             rows={customRows}
             season={season}
             onTitleEdit={(path, v) => setTitles((prev) => ({ ...prev, [path]: v }))}
-            onMove={moveRow}
+            onReorder={reorder}
+            onSetEpisode={setEpisodeNumber}
             onSort={sortBy}
             onReverse={() => {
               setOrder((prev) => [...prev].reverse());

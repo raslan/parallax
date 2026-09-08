@@ -61,13 +61,25 @@ export function PreviewSheet({
             </div>
           ) : result ? (
             <div className="space-y-4">
-              <p className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 text-green-400" />
-                <span>
-                  <span className="font-medium text-foreground">{result.successes.length}</span>{" "}
-                  item{result.successes.length === 1 ? "" : "s"} renamed
-                </span>
-              </p>
+              {(() => {
+                const nfoWritten = result.successes.filter((p) => p.endsWith(".nfo")).length;
+                const renamed = result.successes.length - nfoWritten;
+                return (
+                  <p className="flex items-center gap-2 text-sm">
+                    <Check className="h-4 w-4 text-green-400" />
+                    <span>
+                      <span className="font-medium text-foreground">{renamed}</span> renamed
+                      {nfoWritten > 0 && (
+                        <>
+                          {" · "}
+                          <span className="font-medium text-foreground">{nfoWritten}</span> .nfo
+                          file{nfoWritten === 1 ? "" : "s"} written
+                        </>
+                      )}
+                    </span>
+                  </p>
+                );
+              })()}
               {result.failures.length > 0 && (
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-destructive">
