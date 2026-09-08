@@ -37,9 +37,9 @@ URLS_FILE = os.path.join(GALLERY_DL_DIR, "urls.txt")
 DEFAULT_ARCHIVE = os.path.join(GALLERY_DL_DIR, "archive.sqlite3")
 NIGHTLY_URL = "https://github.com/gdl-org/builds/releases/latest/download/gallery-dl_linux"
 
-SENTINEL_FILE = "\x00PXF\x00"
-SENTINEL_SKIP = "\x00PXS\x00"
-SENTINEL_ERROR = "\x00PXE\x00"
+SENTINEL_FILE = "\x1fPXF\x1f"
+SENTINEL_SKIP = "\x1fPXS\x1f"
+SENTINEL_ERROR = "\x1fPXE\x1f"
 
 EXT_SETS: dict[str, tuple[str, ...]] = {
     "video": ("mp4", "mkv", "m4v", "webm", "mov", "avi", "wmv", "flv", "mpg", "mpeg", "3gp", "ts"),

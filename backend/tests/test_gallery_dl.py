@@ -93,6 +93,7 @@ def test_build_cmd_core_and_conditionals():
     assert cmd[cmd.index("--cookies") + 1] == "/tmp/c.txt"
     assert "--verbose" in cmd
     assert cmd[-1] == "https://x.com/g/1"
+    assert "\x00" not in "".join(cmd)  # NUL in any argv element crashes subprocess.Popen
 
 
 def test_build_cmd_file_mode_uses_input_file():
@@ -130,12 +131,12 @@ def _fake_gallerydl(tmp_path, *, emit, exit_code):
     ``emit`` is a list of ``(sentinel, path)`` tuples echoed to stdout the way
     the worker's ``--print`` hooks would; ``exit_code`` is the process status.
     A line of stderr noise is always written so the FAILED path has a tail.
-    The sentinel bytes (incl. NULs) are reproduced verbatim via ``printf`` octal
-    escapes so ``classify_line`` sees exactly what it would in production.
+    The sentinel's control byte (ASCII 31) is reproduced verbatim via ``printf``
+    octal escapes so ``classify_line`` sees exactly what it would in production.
     """
     lines = ["#!/bin/sh"]
     for sentinel, path in emit:
-        octal = sentinel.replace("\x00", "\\000")
+        octal = sentinel.replace("\x1f", "\\037")
         lines.append(f"printf '{octal}%s\\n' {shlex.quote(path)}")
         lines.append("sleep 0.02")
     lines.append("echo 'some stderr noise: boom' >&2")
@@ -149,13 +150,14 @@ def _fake_gallerydl(tmp_path, *, emit, exit_code):
 def _drive_worker(tmp_path, monkeypatch, *, emit, exit_code):
     """Point ``_run_gallery_sync`` at the fake binary and run it once.
 
-    ``build_gallerydl_cmd`` is stubbed to ``[fake]`` — its argv construction has
-    its own coverage above, and its real ``--print`` templates embed NUL bytes
-    that ``subprocess.Popen`` rejects in argv. This keeps the test focused on
-    the stdout-sentinel -> counter -> terminal-status contract of the worker.
+    The REAL ``build_gallerydl_cmd`` runs here — only ``gallery_dl_bin`` (argv[0])
+    is faked. This exercises the actual builder output through a real
+    ``subprocess.Popen``, so a reintroduced NUL sentinel would make Popen raise
+    and fail this test, on top of covering the stdout-sentinel -> counter ->
+    terminal-status contract of the worker.
     """
     fake = _fake_gallerydl(tmp_path, emit=emit, exit_code=exit_code)
-    monkeypatch.setattr(gallery_dl, "build_gallerydl_cmd", lambda *a, **k: [fake])
+    monkeypatch.setattr(gallery_dl, "gallery_dl_bin", lambda: fake)
     row_id = _seed_gallery_row()
     _run_gallery_sync(row_id, "")
     return row_id
