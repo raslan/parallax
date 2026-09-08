@@ -1,6 +1,7 @@
 import json
 import os
 import shlex
+import sys
 
 import app.services.gallery_dl as gallery_dl
 from app.database import SessionLocal, init_db
@@ -72,7 +73,7 @@ def test_build_cmd_core_and_conditionals():
     )
     cmd = build_gallerydl_cmd("https://x.com/g/1", opts, "/tmp/c.txt")
 
-    assert cmd[0].endswith("gallery-dl")
+    assert cmd[:3] == [sys.executable, "-m", "gallery_dl"]
     assert "--no-part" in cmd
     assert "--no-colors" in cmd
     assert cmd[cmd.index("-o") + 1] == "output.mode=null"
@@ -150,14 +151,14 @@ def _fake_gallerydl(tmp_path, *, emit, exit_code):
 def _drive_worker(tmp_path, monkeypatch, *, emit, exit_code):
     """Point ``_run_gallery_sync`` at the fake binary and run it once.
 
-    The REAL ``build_gallerydl_cmd`` runs here — only ``gallery_dl_bin`` (argv[0])
-    is faked. This exercises the actual builder output through a real
+    The REAL ``build_gallerydl_cmd`` runs here — only ``_gallery_dl_argv_prefix``
+    (argv[0]) is faked. This exercises the actual builder output through a real
     ``subprocess.Popen``, so a reintroduced NUL sentinel would make Popen raise
     and fail this test, on top of covering the stdout-sentinel -> counter ->
     terminal-status contract of the worker.
     """
     fake = _fake_gallerydl(tmp_path, emit=emit, exit_code=exit_code)
-    monkeypatch.setattr(gallery_dl, "gallery_dl_bin", lambda: fake)
+    monkeypatch.setattr(gallery_dl, "_gallery_dl_argv_prefix", lambda: [fake])
     row_id = _seed_gallery_row()
     _run_gallery_sync(row_id, "")
     return row_id

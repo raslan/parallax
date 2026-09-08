@@ -1,7 +1,9 @@
 """gallery-dl download service — self-contained, no imports from downloader.py.
 
-Shared mechanism (semaphore, binary install/probe, cookies tempfile,
-ProcessGroup) comes from download_common.
+Shared mechanism (semaphore, cookies tempfile, ProcessGroup) comes from
+download_common. gallery-dl itself is a pip package (stable pinned in
+requirements.txt; the page Update button pulls the git nightly into
+GALLERY_DL_PKG_DIR), invoked as ``python -m gallery_dl``.
 """
 
 import asyncio
@@ -10,8 +12,10 @@ import logging
 import os
 import select
 import shlex
+import shutil
 import signal
 import subprocess
+import sys
 import time
 from collections import deque
 
@@ -24,18 +28,15 @@ from app.services.download_common import (
     ProcessGroup,
     ResizableSemaphore,
     cookies_to_tempfile,
-    install_binary,
-    probe_version,
-    resolve_binary,
 )
 from app.services.gallery_options import load_options
 
 logger = logging.getLogger(__name__)
 
-GALLERY_DL_BIN = os.path.join(GALLERY_DL_DIR, "gallery-dl")
 URLS_FILE = os.path.join(GALLERY_DL_DIR, "urls.txt")
 DEFAULT_ARCHIVE = os.path.join(GALLERY_DL_DIR, "archive.sqlite3")
-NIGHTLY_URL = "https://github.com/gdl-org/builds/releases/latest/download/gallery-dl_linux"
+GALLERY_DL_PKG_DIR = os.path.join(GALLERY_DL_DIR, "site")
+GALLERY_DL_NIGHTLY_SPEC = "gallery-dl @ git+https://github.com/mikf/gallery-dl.git"
 
 SENTINEL_FILE = "\x1fPXF\x1f"
 SENTINEL_SKIP = "\x1fPXS\x1f"
@@ -48,8 +49,18 @@ EXT_SETS: dict[str, tuple[str, ...]] = {
 }
 
 
-def gallery_dl_bin() -> str:
-    return resolve_binary(GALLERY_DL_BIN, "gallery-dl") or "gallery-dl"
+def _gallery_dl_argv_prefix() -> list[str]:
+    """argv[0..] to invoke gallery-dl as a module. Its own seam so tests can fake it."""
+    return [sys.executable, "-m", "gallery_dl"]
+
+
+def _gallery_dl_env() -> dict[str, str]:
+    """os.environ with GALLERY_DL_PKG_DIR prepended to PYTHONPATH, so a page-installed
+    nightly (pip --target) shadows the requirements.txt stable in site-packages."""
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = GALLERY_DL_PKG_DIR + (os.pathsep + existing if existing else "")
+    return env
 
 
 def type_filter_expr(opts: GalleryOptions) -> str | None:
@@ -72,7 +83,7 @@ def type_filter_expr(opts: GalleryOptions) -> str | None:
 
 def build_gallerydl_cmd(url: str, opts: GalleryOptions, cookies_file: str | None) -> list[str]:
     cmd: list[str] = [
-        gallery_dl_bin(),
+        *_gallery_dl_argv_prefix(),
         "--no-part",
         "--no-colors",
         "-o",
@@ -243,6 +254,7 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
                 stderr=subprocess.PIPE,
                 text=True,
                 start_new_session=True,
+                env=_gallery_dl_env(),
             )
         except FileNotFoundError:
             _set_status(
@@ -399,11 +411,53 @@ def _rm_partial_file(last_filename: str | None, output_dir: str | None) -> None:
 
 
 def get_gallerydl_info() -> dict:
-    path = resolve_binary(GALLERY_DL_BIN, "gallery-dl")
-    if path is None:
+    try:
+        result = subprocess.run(
+            [*_gallery_dl_argv_prefix(), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=_gallery_dl_env(),
+        )
+    except (OSError, subprocess.TimeoutExpired):
         return {"installed": False, "version": None, "path": None}
-    return {"installed": True, "version": probe_version(path), "path": path}
+    if result.returncode != 0:
+        return {"installed": False, "version": None, "path": None}
+    version = result.stdout.strip() or None
+    path = GALLERY_DL_PKG_DIR if os.path.isdir(GALLERY_DL_PKG_DIR) else "site-packages"
+    return {"installed": True, "version": version, "path": path}
 
 
 def install_gallerydl() -> None:
-    install_binary(NIGHTLY_URL, GALLERY_DL_BIN)
+    """pip-install the gallery-dl nightly into GALLERY_DL_PKG_DIR, atomically.
+    Blocking — callers wrap in asyncio.to_thread."""
+    os.makedirs(GALLERY_DL_DIR, exist_ok=True)
+    staging = GALLERY_DL_PKG_DIR + ".new"
+    if os.path.isdir(staging):
+        shutil.rmtree(staging, ignore_errors=True)
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--target",
+                staging,
+                "--upgrade",
+                GALLERY_DL_NIGHTLY_SPEC,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        backup = GALLERY_DL_PKG_DIR + ".old"
+        if os.path.isdir(GALLERY_DL_PKG_DIR):
+            os.replace(GALLERY_DL_PKG_DIR, backup)
+        os.replace(staging, GALLERY_DL_PKG_DIR)
+        if os.path.isdir(backup):
+            shutil.rmtree(backup, ignore_errors=True)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
