@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import UTC
@@ -28,6 +29,11 @@ from app.config import GALLERY_DL_DIR
 from app.database import init_db
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
 
