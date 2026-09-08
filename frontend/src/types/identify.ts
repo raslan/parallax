@@ -13,6 +13,7 @@ export interface Episode {
   episode_number: number;
   name: string;
   overview: string;
+  still_path: string | null;
 }
 
 export interface FileMapping {
@@ -27,9 +28,24 @@ export interface RenameOp {
   new_path: string;
 }
 
+export interface NfoOp {
+  path: string;
+  content: string;
+}
+
+export interface ArtworkSpec {
+  source_video: string;
+  show_folder: string;
+  title: string;
+  season: number;
+}
+
 export interface PreviewResponse {
   file_ops: RenameOp[];
   folder_ops: RenameOp[];
+  nfo_ops: NfoOp[];
+  image_paths: string[];
+  artwork: ArtworkSpec | null;
 }
 
 export interface ApplyResponse {

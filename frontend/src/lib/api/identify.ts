@@ -4,6 +4,8 @@ import type {
   Episode,
   FileMapping,
   RenameOp,
+  NfoOp,
+  ArtworkSpec,
   PreviewResponse,
   ApplyResponse,
 } from "@/types/identify";
@@ -17,21 +19,27 @@ export const identifyApi = {
       files: string[];
       guess: { title: string; year: number | null; type: "movie" | "tv" };
       file_guesses: { file_path: string; season: number | null; episode: number | null }[];
+      mtimes: Record<string, number>;
     }>(`/identify/files?path=${encodeURIComponent(path)}`),
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
   identifyGetAllEpisodes: (tmdb_id: number) => req<Episode[]>(`/identify/tv/${tmdb_id}/episodes`),
-  identifyGetSeason: (tmdb_id: number, season_number: number) =>
-    req<Episode[]>(`/identify/tv/${tmdb_id}/season/${season_number}`),
+  identifyFileDates: (path: string) =>
+    req<Record<string, string | null>>(`/identify/file-dates?path=${encodeURIComponent(path)}`),
   identifyPreview: (body: {
     folder_path: string;
     type: "movie" | "tv";
     title: string;
     year: number | null;
-    tmdb_id: number;
+    tmdb_id: number | null;
     mappings: FileMapping[];
     target_dir: string | null;
+    write_nfo: boolean;
   }) => req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
-  identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[] }) =>
-    req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
+  identifyApply: (body: {
+    file_ops: RenameOp[];
+    folder_ops: RenameOp[];
+    nfo_ops: NfoOp[];
+    artwork: ArtworkSpec | null;
+  }) => req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
 };

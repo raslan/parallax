@@ -4,7 +4,7 @@ import {
   poolFiles,
   placeFile,
   slotKey,
-  distinctSeasons,
+  seasonsWithMatches,
   type FileGuess,
 } from "./episodeMatching";
 
@@ -63,9 +63,10 @@ describe("helpers", () => {
   it("slotKey formats season:episode", () => {
     expect(slotKey(2, 7)).toBe("2:7");
   });
-  it("distinctSeasons dedupes and sorts, skipping nulls", () => {
-    expect(
-      distinctSeasons([guess("a", 2, 1), guess("b", 1, 1), guess("c", null, 1), guess("d", 2, 2)]),
-    ).toEqual([1, 2]);
+  it("seasonsWithMatches collects the season number from each assigned slot key", () => {
+    expect(seasonsWithMatches({ "1:3": "a.mkv", "2:1": "b.mkv", "2:5": "c.mkv" })).toEqual(
+      new Set([1, 2]),
+    );
+    expect(seasonsWithMatches({})).toEqual(new Set());
   });
 });

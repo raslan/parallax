@@ -68,6 +68,7 @@ def get_all_episodes(tmdb_id: int, api_key: str) -> list[dict]:
                     "episode_number": ep["episode_number"],
                     "name": ep.get("name") or f"Episode {ep['episode_number']}",
                     "overview": ep.get("overview", ""),
+                    "still_path": ep.get("still_path"),
                 }
                 for ep in sr.json().get("episodes", [])
             ]
@@ -93,6 +94,7 @@ def get_season(tmdb_id: int, season_number: int, api_key: str) -> list[dict]:
             "episode_number": ep["episode_number"],
             "name": ep.get("name") or f"Episode {ep['episode_number']}",
             "overview": ep.get("overview", ""),
+            "still_path": ep.get("still_path"),
         }
         for ep in r.json().get("episodes", [])
     ]

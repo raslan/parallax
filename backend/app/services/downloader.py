@@ -152,6 +152,9 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
 
     # Always-on flags
     cmd += ["--progress", "--newline", "--no-warnings", "--concurrent-fragments", "4"]
+    # Embed upload date / title / description as container tags so downstream
+    # tools (e.g. Identify's custom-show mode) can sort by real upload date.
+    cmd += ["--embed-metadata"]
 
     # Output template
     # _output_title_override is injected by _run_download_sync for collision avoidance

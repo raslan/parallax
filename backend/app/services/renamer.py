@@ -211,9 +211,11 @@ def apply_ops(
     file_ops: list[dict],
     folder_ops: list[dict],
     db,
+    nfo_ops: list[dict] | None = None,
 ) -> tuple[list[str], list[dict]]:
     """
-    Execute rename operations in order: files first, then folders.
+    Execute rename operations in order: files first, then folders, then any
+    .nfo sidecar writes (paths already point at the post-move location).
     Updates File.path, File.filename, and Library.path in the DB.
     Returns (successes, failures).
     """
@@ -256,5 +258,14 @@ def apply_ops(
         except (OSError, shutil.Error) as e:
             failures.append({"path": op["old_path"], "error": str(e)})
     db.commit()
+
+    for op in nfo_ops or []:
+        try:
+            os.makedirs(os.path.dirname(op["path"]), exist_ok=True)
+            with open(op["path"], "w", encoding="utf-8") as f:
+                f.write(op["content"])
+            successes.append(op["path"])
+        except OSError as e:
+            failures.append({"path": op["path"], "error": str(e)})
 
     return successes, failures
