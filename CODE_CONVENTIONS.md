@@ -141,6 +141,16 @@ instruction than a rule here, the CLAUDE.md wins for that detail.
   their local state into a hook. Smaller, single-purpose files are also
   easier to review and easier to hand to a tool (or a teammate) for a
   focused edit.
+- **Two features that need the same mechanism share a neutral module — they
+  neither copy it nor import from each other.** When a second consumer needs
+  logic that already lives in a first (a subprocess runner, a binary
+  installer, a resizable semaphore, a modal), extract the portable core to a
+  domain-neutral `*-common` module both import, parametrizing the parts that
+  differ. Feature B importing from feature A couples their lifecycles —
+  deleting A breaks B. Copy-pasting drifts — a fix to one never reaches the
+  other. Extract only the genuinely identical, stable-surface parts; leave
+  divergent bodies (different parsing, different timeouts) separate rather
+  than forcing a leaky abstraction.
 
 ## 6. Performance & network hygiene
 
@@ -317,6 +327,10 @@ These mirror Part 1's principles for the backend.
   is callable from a queue job, the filesystem watcher, or a test.
 - **One file per resource under `app/api/`**, mirroring the route prefix:
   `/files` → `app/api/files.py`, `/downloads` → `app/api/downloads.py`.
+- **Shared service logic goes in a neutral `*_common.py`** — not copied
+  between services, not imported service-to-service. Same rule as the
+  frontend boundary above: parametrize the difference (a signal number, a
+  URL), share the mechanism, keep divergent loop bodies separate.
 
 ## B2. Validate at the boundary with Pydantic, trust the types after
 
@@ -402,6 +416,14 @@ These mirror Part 1's principles for the backend.
   sync) **goes through `app/queue.py`** — `enqueue` with a `job_id`, never a
   fire-and-forget `asyncio.create_task` from a request handler. The `jobs`
   table row is the persisted record. **(bug)**
+  The **Downloads (yt-dlp)** and **Galleries (gallery-dl)** features are the
+  deliberate exception: each keeps its own persisted table
+  (`downloads` / `gallery_downloads`), its own live-resizable semaphore, and
+  dispatches with `asyncio.create_task` rather than `enqueue`. They need
+  per-row live speed/progress the `jobs` model doesn't carry, user-managed
+  history as first-class row actions, and independent concurrency. §B7's
+  substance still holds for them — terminal state is persisted on the row,
+  orphaned `running` rows are swept at startup, cancellation is cooperative.
 - **Terminal state is written to the `jobs` table**
   (PENDING / RUNNING / CANCELLED / done), so "did it finish" is a query,
   not a log grep.
