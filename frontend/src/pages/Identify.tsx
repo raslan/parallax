@@ -3,33 +3,50 @@ import { Loader2, AlertCircle, Settings, Search, ChevronRight, FolderOpen } from
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DirPicker } from "@/components/DirPicker";
-import { SetupBar, type SelectedMedia } from "@/components/identify/SetupBar";
+import { SetupBar, type SelectedMedia, type IdentifyMode } from "@/components/identify/SetupBar";
 import { MediaSearchDialog } from "@/components/identify/MediaSearchDialog";
 import { MatchBoard } from "@/components/identify/MatchBoard";
+import { CustomEpisodeList, type CustomRow } from "@/components/identify/CustomEpisodeList";
 import { PreviewSheet } from "@/components/identify/PreviewSheet";
 import { api } from "@/lib/api";
-import type { SearchResult, Episode, RenameOp, FileMapping } from "@/types/identify";
+import type { SearchResult, Episode, RenameOp, NfoOp, FileMapping } from "@/types/identify";
 import { type FileGuess, buildInitialAssignments, slotKey } from "@/lib/episodeMatching";
+import { naturalSort, cleanEpisodeTitle } from "@/lib/customShow";
 import { Link } from "react-router-dom";
 
-type MediaType = "movie" | "tv";
 interface ApplyResult {
   successes: string[];
   failures: { path: string; error: string }[];
 }
 
+function folderName(path: string): string {
+  return path.split("/").filter(Boolean).pop() ?? "";
+}
+
 export function Identify() {
   const [folderPath, setFolderPath] = useState("");
   const [targetDir, setTargetDir] = useState("");
-  const [mediaType, setMediaType] = useState<MediaType>("tv");
+  const [mode, setMode] = useState<IdentifyMode>("tv");
   const [guessQuery, setGuessQuery] = useState("");
   const [selected, setSelected] = useState<SelectedMedia | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [files, setFiles] = useState<string[]>([]);
   const [fileGuesses, setFileGuesses] = useState<FileGuess[]>([]);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
+
+  // Custom-show mode
+  const [showName, setShowName] = useState("");
+  const [season, setSeason] = useState(1);
+  const [order, setOrder] = useState<string[]>([]);
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  const [genericTitles, setGenericTitles] = useState(false);
+  const [fileDates, setFileDates] = useState<Record<string, string | null> | null>(null);
+  const [activeSort, setActiveSort] = useState<"name" | "date" | "manual">("name");
+  const [loadingDates, setLoadingDates] = useState(false);
+
   const [fileOps, setFileOps] = useState<RenameOp[]>([]);
   const [folderOps, setFolderOps] = useState<RenameOp[]>([]);
+  const [nfoOps, setNfoOps] = useState<NfoOp[]>([]);
   const [applyResult, setApplyResult] = useState<ApplyResult | null>(null);
 
   const [picking, setPicking] = useState(false);
@@ -44,6 +61,8 @@ export function Identify() {
   const [error, setError] = useState("");
   const [previewError, setPreviewError] = useState("");
 
+  const tmdbType = mode === "movie" ? "movie" : "tv";
+
   async function loadFiles(path: string) {
     if (!path.trim()) return;
     setLoadingFiles(true);
@@ -52,8 +71,11 @@ export function Identify() {
       const res = await api.identifyFiles(path.trim());
       setFiles(res.files);
       setFileGuesses(res.file_guesses);
-      if (res.guess.title) {
-        setMediaType(res.guess.type);
+      setOrder(naturalSort(res.files));
+      setActiveSort("name");
+      setShowName((prev) => prev || folderName(path));
+      if (mode !== "custom" && res.guess.title) {
+        setMode(res.guess.type);
         setGuessQuery(res.guess.title);
         setSearchOpen(true);
       }
@@ -69,7 +91,7 @@ export function Identify() {
       tmdb_id: result.tmdb_id,
       title: result.title,
       year: result.year,
-      type: mediaType,
+      type: tmdbType,
       number_of_seasons: result.number_of_seasons,
       poster_path: result.poster_path,
     };
@@ -78,7 +100,7 @@ export function Identify() {
     setEpisodes([]);
     setAssignments({});
 
-    if (mediaType === "movie") {
+    if (mode === "movie") {
       const movieEpisode: Episode = {
         season_number: 1,
         episode_number: 1,
@@ -112,45 +134,115 @@ export function Identify() {
     }
   }
 
-  function changeMediaType(t: MediaType) {
-    setMediaType(t);
+  function changeMode(m: IdentifyMode) {
+    setMode(m);
     setSelected(null);
     setEpisodes([]);
     setAssignments({});
+    if (m === "custom") {
+      setOrder(naturalSort(files));
+      setActiveSort("name");
+      setShowName((prev) => prev || folderName(folderPath));
+    }
+  }
+
+  function resolvedTitle(path: string, index: number): string {
+    if (genericTitles) return `Episode ${index + 1}`;
+    return titles[path] ?? cleanEpisodeTitle(path);
+  }
+
+  function moveRow(path: string, dir: -1 | 1) {
+    setOrder((prev) => {
+      const i = prev.indexOf(path);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j]!, next[i]!];
+      return next;
+    });
+    setActiveSort("manual");
+  }
+
+  async function sortBy(by: "name" | "date") {
+    if (by === "name") {
+      setOrder(naturalSort(files));
+      setActiveSort("name");
+      return;
+    }
+    let dates = fileDates;
+    if (!dates) {
+      setLoadingDates(true);
+      try {
+        dates = await api.identifyFileDates(folderPath.trim());
+        setFileDates(dates);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to read upload dates");
+        return;
+      } finally {
+        setLoadingDates(false);
+      }
+    }
+    const d = dates;
+    setOrder((prev) => [...prev].sort((a, b) => (d[a] ?? "9999").localeCompare(d[b] ?? "9999")));
+    setActiveSort("date");
   }
 
   async function openPreview() {
-    if (!selected) return;
     setPreviewOpen(true);
     setApplyResult(null);
     setPreviewError("");
     setLoadingPreview(true);
     try {
-      const fileToSlot = new Map<string, string>();
-      for (const [key, fp] of Object.entries(assignments)) fileToSlot.set(fp, key);
-      const mappings: FileMapping[] = files.map((fp) => {
-        const key = fileToSlot.get(fp);
-        const ep = key
-          ? episodes.find((e) => slotKey(e.season_number, e.episode_number) === key)
-          : undefined;
-        return {
-          file_path: fp,
-          season_number: ep?.season_number ?? null,
-          episode_number: ep?.episode_number ?? null,
-          episode_name: ep?.name ?? null,
+      let mappings: FileMapping[];
+      let body: Parameters<typeof api.identifyPreview>[0];
+      if (mode === "custom") {
+        mappings = order.map((path, i) => ({
+          file_path: path,
+          season_number: season,
+          episode_number: i + 1,
+          episode_name: resolvedTitle(path, i),
+        }));
+        body = {
+          folder_path: folderPath.trim(),
+          type: "tv" as const,
+          title: showName.trim(),
+          year: null,
+          tmdb_id: null,
+          mappings,
+          target_dir: targetDir.trim() || null,
+          write_nfo: true,
         };
-      });
-      const res = await api.identifyPreview({
-        folder_path: folderPath.trim(),
-        type: mediaType,
-        title: selected.title,
-        year: selected.year,
-        tmdb_id: selected.tmdb_id,
-        mappings,
-        target_dir: targetDir.trim() || null,
-      });
+      } else {
+        if (!selected) return;
+        const fileToSlot = new Map<string, string>();
+        for (const [key, fp] of Object.entries(assignments)) fileToSlot.set(fp, key);
+        mappings = files.map((fp) => {
+          const key = fileToSlot.get(fp);
+          const ep = key
+            ? episodes.find((e) => slotKey(e.season_number, e.episode_number) === key)
+            : undefined;
+          return {
+            file_path: fp,
+            season_number: ep?.season_number ?? null,
+            episode_number: ep?.episode_number ?? null,
+            episode_name: ep?.name ?? null,
+          };
+        });
+        body = {
+          folder_path: folderPath.trim(),
+          type: tmdbType,
+          title: selected.title,
+          year: selected.year,
+          tmdb_id: selected.tmdb_id,
+          mappings,
+          target_dir: targetDir.trim() || null,
+          write_nfo: false,
+        };
+      }
+      const res = await api.identifyPreview(body);
       setFileOps(res.file_ops);
       setFolderOps(res.folder_ops);
+      setNfoOps(res.nfo_ops);
     } catch (e: unknown) {
       setPreviewError(e instanceof Error ? e.message : "Preview failed");
     } finally {
@@ -162,7 +254,11 @@ export function Identify() {
     setLoadingApply(true);
     setPreviewError("");
     try {
-      const res = await api.identifyApply({ file_ops: fileOps, folder_ops: folderOps });
+      const res = await api.identifyApply({
+        file_ops: fileOps,
+        folder_ops: folderOps,
+        nfo_ops: nfoOps,
+      });
       setApplyResult({ successes: res.successes, failures: res.failures });
     } catch (e: unknown) {
       setPreviewError(e instanceof Error ? e.message : "Apply failed");
@@ -179,6 +275,10 @@ export function Identify() {
     setSelected(null);
     setEpisodes([]);
     setAssignments({});
+    setOrder([]);
+    setTitles({});
+    setFileDates(null);
+    setShowName("");
     setError("");
     loadFiles(path);
   }
@@ -192,8 +292,16 @@ export function Identify() {
     setFiles([]);
     setFileGuesses([]);
     setAssignments({});
+    setShowName("");
+    setSeason(1);
+    setOrder([]);
+    setTitles({});
+    setGenericTitles(false);
+    setFileDates(null);
+    setActiveSort("name");
     setFileOps([]);
     setFolderOps([]);
+    setNfoOps([]);
     setApplyResult(null);
     setPreviewOpen(false);
     setSearchOpen(false);
@@ -201,8 +309,18 @@ export function Identify() {
     setPreviewError("");
   }
 
-  const boardReady = selected !== null && episodes.length > 0;
+  const tmdbReady = selected !== null && episodes.length > 0;
+  const customReady = mode === "custom" && files.length > 0;
+  const workReady = mode === "custom" ? customReady : tmdbReady;
   const matched = Object.keys(assignments).length;
+  const canPreview = mode === "custom" ? customReady && showName.trim().length > 0 : tmdbReady;
+
+  const customRows: CustomRow[] = order.map((path, i) => ({
+    path,
+    episode: i + 1,
+    title: resolvedTitle(path, i),
+  }));
+  const datesUnavailable = fileDates !== null && Object.values(fileDates).every((v) => v === null);
 
   return (
     <div className="flex min-h-full flex-col p-4 md:p-6">
@@ -216,7 +334,7 @@ export function Identify() {
           className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <Settings className="h-3 w-3" />
-          Requires a TMDB API key — configure in Settings → Keys &amp; Accounts
+          TMDB API key needed for TV/Movie matching — configure in Settings → Keys &amp; Accounts
         </Link>
       </div>
 
@@ -236,20 +354,41 @@ export function Identify() {
           targetDir={targetDir}
           onBrowseTarget={() => setPickingTarget(true)}
           onClearTarget={() => setTargetDir("")}
-          mediaType={mediaType}
-          onMediaTypeChange={changeMediaType}
+          mode={mode}
+          onModeChange={changeMode}
           selected={selected}
           loadingEpisodes={loadingEpisodes}
           episodeCount={episodes.length}
           onOpenSearch={() => setSearchOpen(true)}
+          showName={showName}
+          onShowNameChange={setShowName}
+          season={season}
+          onSeasonChange={setSeason}
         />
 
-        {boardReady ? (
+        {mode === "custom" && customReady ? (
+          <CustomEpisodeList
+            rows={customRows}
+            season={season}
+            onTitleEdit={(path, v) => setTitles((prev) => ({ ...prev, [path]: v }))}
+            onMove={moveRow}
+            onSort={sortBy}
+            onReverse={() => {
+              setOrder((prev) => [...prev].reverse());
+              setActiveSort("manual");
+            }}
+            genericTitles={genericTitles}
+            onGenericTitlesChange={setGenericTitles}
+            activeSort={activeSort}
+            datesLoading={loadingDates}
+            datesUnavailable={datesUnavailable}
+          />
+        ) : mode !== "custom" && tmdbReady ? (
           <MatchBoard
             key={selected!.tmdb_id}
             files={files}
             episodes={episodes}
-            mediaType={mediaType}
+            mediaType={tmdbType}
             assignments={assignments}
             onAssignmentsChange={setAssignments}
           />
@@ -267,13 +406,13 @@ export function Identify() {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {folderPath
-                    ? `${files.length} file${files.length === 1 ? "" : "s"} loaded — find the ${
-                        mediaType === "tv" ? "show" : "movie"
-                      } to match them against.`
-                    : "Pick a source folder to begin."}
+                  {!folderPath
+                    ? "Pick a source folder to begin."
+                    : `${files.length} file${files.length === 1 ? "" : "s"} loaded — find the ${
+                        mode === "tv" ? "show" : "movie"
+                      } to match them against.`}
                 </p>
-                {folderPath && (
+                {folderPath && mode !== "custom" && (
                   <Button
                     type="button"
                     variant="outline"
@@ -290,15 +429,24 @@ export function Identify() {
         )}
       </div>
 
-      {boardReady && (
+      {workReady && (
         <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center justify-between gap-3 border-t border-border bg-[var(--px-bg-base)]/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
           <p className="text-sm text-muted-foreground">
-            <span className="font-mono font-medium text-foreground">
-              {matched}/{episodes.length}
-            </span>{" "}
-            matched
+            {mode === "custom" ? (
+              <>
+                <span className="font-mono font-medium text-foreground">{order.length}</span>{" "}
+                episode{order.length === 1 ? "" : "s"}
+              </>
+            ) : (
+              <>
+                <span className="font-mono font-medium text-foreground">
+                  {matched}/{episodes.length}
+                </span>{" "}
+                matched
+              </>
+            )}
           </p>
-          <Button type="button" onClick={openPreview} className="gap-2">
+          <Button type="button" onClick={openPreview} disabled={!canPreview} className="gap-2">
             Preview renames
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -308,8 +456,8 @@ export function Identify() {
       <MediaSearchDialog
         open={searchOpen}
         onOpenChange={setSearchOpen}
-        mediaType={mediaType}
-        onMediaTypeChange={setMediaType}
+        mediaType={tmdbType}
+        onMediaTypeChange={(t) => changeMode(t)}
         initialQuery={guessQuery}
         selectedId={selected?.tmdb_id ?? null}
         onPick={selectMedia}
@@ -324,6 +472,7 @@ export function Identify() {
         loadingPreview={loadingPreview}
         fileOps={fileOps}
         folderOps={folderOps}
+        nfoOps={nfoOps}
         loadingApply={loadingApply}
         onApply={doApply}
         result={applyResult}

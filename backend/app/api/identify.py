@@ -1,6 +1,7 @@
 import os
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.settings import get_setting
-from app.services import renamer
+from app.services import nfo, renamer
 from app.services import tmdb as tmdb_service
 
 router = APIRouter(prefix="/identify", tags=["identify"])
@@ -53,9 +54,10 @@ class PreviewRequest(BaseModel):
     type: Literal["movie", "tv"]
     title: str
     year: int | None = None
-    tmdb_id: int
+    tmdb_id: int | None = None
     mappings: list[FileMapping]
     target_dir: str | None = None
+    write_nfo: bool = False
 
 
 class RenameOp(BaseModel):
@@ -63,14 +65,21 @@ class RenameOp(BaseModel):
     new_path: str
 
 
+class NfoOp(BaseModel):
+    path: str
+    content: str
+
+
 class PreviewResponse(BaseModel):
     file_ops: list[RenameOp]
     folder_ops: list[RenameOp]
+    nfo_ops: list[NfoOp] = []
 
 
 class ApplyRequest(BaseModel):
     file_ops: list[RenameOp]
     folder_ops: list[RenameOp]
+    nfo_ops: list[NfoOp] = []
 
 
 class ApplyResponse(BaseModel):
@@ -140,6 +149,19 @@ def list_files(path: str = Query(...), db: Session = Depends(get_db)):
     return {"path": path, "files": files, "guess": guess, "file_guesses": file_guesses}
 
 
+@router.get("/file-dates")
+def file_dates(path: str = Query(...)):
+    """Map each video file in `path` to its embedded upload date (YYYY-MM-DD) or
+    null. Read lazily by Identify's custom-show "sort by upload date" — one
+    ffprobe per file, so it's a separate call from /files."""
+    if not os.path.isdir(path):
+        raise HTTPException(404, "Path not found or is not a directory")
+    files = renamer.list_video_files(path)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        dates = pool.map(lambda f: nfo.probe_date_and_plot(f)[0], files)
+    return dict(zip(files, dates, strict=True))
+
+
 @router.post("/search", response_model=list[SearchResult])
 def search(body: SearchRequest, db: Session = Depends(get_db)):
     key = _api_key(db)
@@ -187,15 +209,67 @@ def preview(body: PreviewRequest, db: Session = Depends(get_db)):
     file_ops, folder_ops = renamer.compute_ops(
         body.folder_path, body.type, tmdb_data, mappings, body.target_dir
     )
+    nfo_ops = _build_nfo_ops(body, file_ops, folder_ops) if body.write_nfo else []
     return PreviewResponse(
         file_ops=[RenameOp(**op) for op in file_ops],
         folder_ops=[RenameOp(**op) for op in folder_ops],
+        nfo_ops=nfo_ops,
     )
+
+
+def _build_nfo_ops(
+    body: PreviewRequest, file_ops: list[dict], folder_ops: list[dict]
+) -> list[NfoOp]:
+    """Generate .nfo sidecars whose paths already point at the final (post-move)
+    location, so apply just writes them verbatim."""
+    abs_folder = os.path.abspath(body.folder_path)
+    show_folder = folder_ops[0]["new_path"] if folder_ops else abs_folder
+    renamed = {os.path.abspath(op["old_path"]): op["new_path"] for op in file_ops}
+
+    def final_video_path(src: str) -> str:
+        p = renamed.get(os.path.abspath(src), os.path.abspath(src))
+        if folder_ops and p.startswith(abs_folder + os.sep):
+            p = show_folder + p[len(abs_folder) :]
+        return p
+
+    eps = [m for m in body.mappings if m.episode_number is not None]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        probed = list(pool.map(lambda m: nfo.probe_date_and_plot(m.file_path), eps))
+
+    ops: list[NfoOp] = []
+    dates: list[str] = []
+    for m, (aired, plot) in zip(eps, probed, strict=True):
+        if aired:
+            dates.append(aired)
+        nfo_path = os.path.splitext(final_video_path(m.file_path))[0] + ".nfo"
+        ops.append(
+            NfoOp(
+                path=nfo_path,
+                content=nfo.build_episode_nfo(
+                    title=m.episode_name or f"Episode {m.episode_number}",
+                    show_title=body.title,
+                    season=m.season_number or 1,
+                    episode=m.episode_number,
+                    aired=aired,
+                    plot=plot,
+                ),
+            )
+        )
+
+    ops.insert(
+        0,
+        NfoOp(
+            path=os.path.join(show_folder, "tvshow.nfo"),
+            content=nfo.build_tvshow_nfo(title=body.title, premiered=min(dates) if dates else None),
+        ),
+    )
+    return ops
 
 
 @router.post("/apply", response_model=ApplyResponse)
 def apply_renames(body: ApplyRequest, db: Session = Depends(get_db)):
     file_ops = [{"old_path": op.old_path, "new_path": op.new_path} for op in body.file_ops]
     folder_ops = [{"old_path": op.old_path, "new_path": op.new_path} for op in body.folder_ops]
-    successes, failures = renamer.apply_ops(file_ops, folder_ops, db)
+    nfo_ops = [{"path": op.path, "content": op.content} for op in body.nfo_ops]
+    successes, failures = renamer.apply_ops(file_ops, folder_ops, db, nfo_ops)
     return ApplyResponse(successes=successes, failures=failures)

@@ -1,13 +1,13 @@
 import { Loader2, FolderOpen, FolderInput, Search, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type MediaType = "movie" | "tv";
+export type IdentifyMode = "tv" | "movie" | "custom";
 
 export interface SelectedMedia {
   tmdb_id: number;
   title: string;
   year: number | null;
-  type: MediaType;
+  type: "tv" | "movie";
   number_of_seasons: number | null;
   poster_path: string | null;
 }
@@ -22,12 +22,20 @@ interface SetupBarProps {
   onBrowseTarget: () => void;
   onClearTarget: () => void;
 
-  mediaType: MediaType;
-  onMediaTypeChange: (t: MediaType) => void;
+  mode: IdentifyMode;
+  onModeChange: (m: IdentifyMode) => void;
+
+  // TMDB modes
   selected: SelectedMedia | null;
   loadingEpisodes: boolean;
   episodeCount: number;
   onOpenSearch: () => void;
+
+  // Custom mode
+  showName: string;
+  onShowNameChange: (v: string) => void;
+  season: number;
+  onSeasonChange: (v: number) => void;
 }
 
 function Segment({ children }: { children: React.ReactNode }) {
@@ -46,6 +54,12 @@ function SegmentLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+const MODES: { key: IdentifyMode; label: string }[] = [
+  { key: "tv", label: "TV" },
+  { key: "movie", label: "Movie" },
+  { key: "custom", label: "Custom" },
+];
+
 export function SetupBar({
   folderPath,
   fileCount,
@@ -54,12 +68,16 @@ export function SetupBar({
   targetDir,
   onBrowseTarget,
   onClearTarget,
-  mediaType,
-  onMediaTypeChange,
+  mode,
+  onModeChange,
   selected,
   loadingEpisodes,
   episodeCount,
   onOpenSearch,
+  showName,
+  onShowNameChange,
+  season,
+  onSeasonChange,
 }: SetupBarProps) {
   return (
     <div className="grid gap-3 md:grid-cols-3">
@@ -133,27 +151,49 @@ export function SetupBar({
         <p className="text-xs text-muted-foreground">Optional — the renamed folder is moved here</p>
       </Segment>
 
-      {/* Show / Movie */}
+      {/* Show / Movie / Custom */}
       <Segment>
         <div className="flex items-center justify-between gap-2">
-          <SegmentLabel>{mediaType === "tv" ? "Show" : "Movie"}</SegmentLabel>
+          <SegmentLabel>
+            {mode === "custom" ? "Custom show" : mode === "tv" ? "Show" : "Movie"}
+          </SegmentLabel>
           <div className="flex overflow-hidden rounded-md border border-border text-xs">
-            {(["tv", "movie"] as MediaType[]).map((t) => (
+            {MODES.map((m) => (
               <button
-                key={t}
+                key={m.key}
                 type="button"
-                onClick={() => onMediaTypeChange(t)}
+                onClick={() => onModeChange(m.key)}
                 className={`px-2.5 py-1 transition-colors ${
-                  mediaType === t ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                  mode === m.key ? "bg-primary text-primary-foreground" : "hover:bg-accent"
                 }`}
               >
-                {t === "tv" ? "TV" : "Movie"}
+                {m.label}
               </button>
             ))}
           </div>
         </div>
 
-        {selected ? (
+        {mode === "custom" ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={showName}
+              onChange={(e) => onShowNameChange(e.target.value)}
+              placeholder="Show name"
+              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+              Season
+              <input
+                type="number"
+                min={0}
+                value={season}
+                onChange={(e) => onSeasonChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                className="w-14 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </label>
+          </div>
+        ) : selected ? (
           <div className="flex items-center gap-2.5">
             {selected.poster_path ? (
               <img
@@ -177,7 +217,7 @@ export function SetupBar({
                     <Loader2 className="h-3 w-3 animate-spin" /> loading episodes
                   </span>
                 ) : (
-                  mediaType === "tv" &&
+                  mode === "tv" &&
                   episodeCount > 0 && <span className="ml-1.5">· {episodeCount} episodes</span>
                 )}
               </p>

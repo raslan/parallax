@@ -4,6 +4,7 @@ import type {
   Episode,
   FileMapping,
   RenameOp,
+  NfoOp,
   PreviewResponse,
   ApplyResponse,
 } from "@/types/identify";
@@ -21,15 +22,18 @@ export const identifyApi = {
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
   identifyGetAllEpisodes: (tmdb_id: number) => req<Episode[]>(`/identify/tv/${tmdb_id}/episodes`),
+  identifyFileDates: (path: string) =>
+    req<Record<string, string | null>>(`/identify/file-dates?path=${encodeURIComponent(path)}`),
   identifyPreview: (body: {
     folder_path: string;
     type: "movie" | "tv";
     title: string;
     year: number | null;
-    tmdb_id: number;
+    tmdb_id: number | null;
     mappings: FileMapping[];
     target_dir: string | null;
+    write_nfo: boolean;
   }) => req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
-  identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[] }) =>
+  identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[]; nfo_ops: NfoOp[] }) =>
     req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
 };

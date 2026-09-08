@@ -1,7 +1,7 @@
 import { Loader2, Wand2, Check, AlertCircle } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import type { RenameOp } from "@/types/identify";
+import type { RenameOp, NfoOp } from "@/types/identify";
 
 interface ApplyResult {
   successes: string[];
@@ -14,6 +14,7 @@ interface PreviewSheetProps {
   loadingPreview: boolean;
   fileOps: RenameOp[];
   folderOps: RenameOp[];
+  nfoOps: NfoOp[];
   loadingApply: boolean;
   onApply: () => void;
   result: ApplyResult | null;
@@ -31,13 +32,14 @@ export function PreviewSheet({
   loadingPreview,
   fileOps,
   folderOps,
+  nfoOps,
   loadingApply,
   onApply,
   result,
   onReset,
   error,
 }: PreviewSheetProps) {
-  const nothingToDo = fileOps.length === 0 && folderOps.length === 0;
+  const nothingToDo = fileOps.length === 0 && folderOps.length === 0 && nfoOps.length === 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -122,6 +124,29 @@ export function PreviewSheet({
                         </p>
                         <p className="truncate text-primary">{basename(op.new_path)}</p>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {nfoOps.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    NFO files ({nfoOps.length})
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Metadata sidecars for Plex/Jellyfin —{" "}
+                    <span className="font-mono">tvshow.nfo</span> plus one per episode.
+                  </p>
+                  <div className="overflow-hidden rounded-md border border-border">
+                    {nfoOps.map((op) => (
+                      <p
+                        key={op.path}
+                        className="truncate border-b border-border px-3 py-2 font-mono text-xs text-muted-foreground last:border-0"
+                        title={op.path}
+                      >
+                        {basename(op.path)}
+                      </p>
                     ))}
                   </div>
                 </div>

@@ -28,9 +28,15 @@ export interface RenameOp {
   new_path: string;
 }
 
+export interface NfoOp {
+  path: string;
+  content: string;
+}
+
 export interface PreviewResponse {
   file_ops: RenameOp[];
   folder_ops: RenameOp[];
+  nfo_ops: NfoOp[];
 }
 
 export interface ApplyResponse {
