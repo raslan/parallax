@@ -12,7 +12,11 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 - **Toolbox** — bulk file-repair utilities in collapsible tool sections: trim start/end (stream-copy when a keyframe is near the cut point, falls back to hardware-accelerated re-encode otherwise), audio channel isolation (left/right → stereo), rotate, normalize volume, faststart (move moov atom for web playback), and A/V sync offset; cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Duplicate detection** — 10 stackable criteria: size, duration, resolution, content date, orientation, bitrate, filename (fuzzy match), byte-hash, perceptual hash (configurable similarity threshold, first-frame/all-frames mode, frames-per-video 4–64), and audio fingerprint; matching runs entirely client-side and recomputes instantly as you toggle criteria — no server round-trip. One background job, "Extract," fills in byte-hash/pHash/audio-fingerprint data for whichever files need it
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, content date, file-added date, file size, orientation, filename (exact or fuzzy), or content detections; all filters stack with invert/exclude support
-- **Identify & Rename** — search TMDB to identify a folder of badly-named files, match them to episodes via drag-and-drop, and apply Plex/Jellyfin-compatible renames with automatic folder restructuring
+- **Identify & Rename** — turn a folder of badly-named files into a clean Plex/Jellyfin library in one full-width workspace:
+  - **TMDB matching** for TV shows and movies — search, then place files into episode slots by drag *or* click-to-pick (each episode row shows its TMDB still); all seasons load at once, an ✕ pulls a file back out
+  - **Custom Show mode** — no TMDB entry needed: point at a folder of YouTube downloads (a playlist, a channel, an abridged series) and it becomes a one-season show. Order episodes by filename, embedded upload date, date added, drag-and-drop, or by typing an episode number to slot a file in place; titles auto-cleaned from filenames
+  - **Metadata & artwork** — writes Kodi/Jellyfin/Plex `.nfo` sidecars (show + per-episode) and generates a poster and backdrop from a frame of the first episode, show title set in Inter, colour keyed to the frame — all offline, no scraping
+  - Optional **move to** a destination folder as part of the rename (works across filesystems); preview every rename, `.nfo`, and image before applying
 - **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); Whisper local speech-to-text generates SRT files from audio with no API key; multiple subtitle tracks shown in the Plyr player with a language picker
 
 ### Images
@@ -247,7 +251,7 @@ Requires the NVIDIA driver and container toolkit installed on the host before ru
 
 1. Open [http://localhost:7899](http://localhost:7899)
 2. Go to **Settings → AI Models** to download the content detection model (required for AI content scanning on images)
-3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable the Identify feature — subtitle downloads via subf2m.co need no account or API key
+3. Go to **Settings → Keys & Accounts** and add a free [TMDB API key](https://www.themoviedb.org/settings/api) to enable TMDB matching in Identify — its Custom Show mode and subtitle downloads via subf2m.co need no account or API key
 4. To use the Downloads feature, go to **Settings → Downloads** and click **Install yt-dlp** — choose stable or nightly channel first
 5. Add a library — **Videos → Add Library** for a video folder, **Images → Add Library** for an image folder
 6. Run a scan; for image libraries it generates thumbnails and runs the AI pipeline; on the Duplicates page, run "Extract" once to fill in byte-hash/pHash/audio fingerprint data, then toggle criteria — matching recomputes instantly in the browser
