@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, AlertCircle, Settings, Search, ChevronRight, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { qk } from "@/lib/api/queryKeys";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DirPicker } from "@/components/DirPicker";
 import { SetupBar, type SelectedMedia, type IdentifyMode } from "@/components/identify/SetupBar";
@@ -64,6 +66,12 @@ export function Identify() {
 
   const tmdbType = mode === "movie" ? "movie" : "tv";
 
+  const { data: settings } = useQuery({
+    queryKey: qk.settings(),
+    queryFn: () => api.getSettings(),
+  });
+  const hasTmdbKey = !!settings?.tmdb_api_key?.trim();
+
   async function loadFiles(path: string) {
     if (!path.trim()) return;
     setLoadingFiles(true);
@@ -79,7 +87,7 @@ export function Identify() {
       if (mode !== "custom" && res.guess.title) {
         setMode(res.guess.type);
         setGuessQuery(res.guess.title);
-        setSearchOpen(true);
+        if (hasTmdbKey) setSearchOpen(true);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load files");
@@ -431,21 +439,36 @@ export function Identify() {
                 <p className="text-sm text-muted-foreground">
                   {!folderPath
                     ? "Pick a source folder to begin."
-                    : `${files.length} file${files.length === 1 ? "" : "s"} loaded — find the ${
-                        mode === "tv" ? "show" : "movie"
-                      } to match them against.`}
+                    : !hasTmdbKey
+                      ? `${files.length} file${
+                          files.length === 1 ? "" : "s"
+                        } loaded — no TMDB key, so use a custom show (or add a key in Settings).`
+                      : `${files.length} file${files.length === 1 ? "" : "s"} loaded — find the ${
+                          mode === "tv" ? "show" : "movie"
+                        } to match them against.`}
                 </p>
-                {folderPath && mode !== "custom" && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSearchOpen(true)}
-                  >
-                    <Search className="h-4 w-4" />
-                    Search TMDB
-                  </Button>
-                )}
+                {folderPath &&
+                  mode !== "custom" &&
+                  (hasTmdbKey ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSearchOpen(true)}
+                    >
+                      <Search className="h-4 w-4" />
+                      Search TMDB
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => changeMode("custom")}
+                    >
+                      Use a custom show
+                    </Button>
+                  ))}
               </>
             )}
           </div>
