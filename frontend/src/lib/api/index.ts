@@ -9,6 +9,7 @@ import { settingsApi } from "./settings";
 import { ytdlpApi } from "./ytdlp";
 import { identifyApi } from "./identify";
 import { downloadsApi } from "./downloads";
+import { galleriesApi } from "./galleries";
 
 export const api = {
   ...librariesApi,
@@ -22,6 +23,7 @@ export const api = {
   ...ytdlpApi,
   ...identifyApi,
   ...downloadsApi,
+  ...galleriesApi,
 };
 
 export { qk } from "./queryKeys";

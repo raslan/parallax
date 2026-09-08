@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -265,6 +266,13 @@ export function Downloads() {
           >
             1000+ other sites
           </a>
+          . Or{" "}
+          <RouterLink
+            to="/galleries"
+            className="text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
+          >
+            download galleries
+          </RouterLink>
           .
         </p>
       </div>

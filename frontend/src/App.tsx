@@ -14,6 +14,7 @@ import { Cleanup } from "@/pages/Cleanup";
 import { Identify } from "@/pages/Identify";
 import { Subtitles } from "@/pages/Subtitles";
 import { Downloads } from "@/pages/Downloads";
+import { Galleries } from "@/pages/Galleries";
 import { Compress } from "@/pages/Compress";
 import { Toolbox } from "@/pages/Toolbox";
 import { ImageLibraries } from "@/pages/ImageLibraries";
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/identify" element={<Identify />} />
             <Route path="/subtitles" element={<Subtitles />} />
             <Route path="/downloads" element={<Downloads />} />
+            <Route path="/galleries" element={<Galleries />} />
             <Route path="/compress" element={<Compress />} />
             <Route path="/toolbox" element={<Toolbox />} />
             {/* Image routes */}

@@ -43,6 +43,11 @@ export const qk = {
 
   downloads: () => ["downloads"] as const,
 
+  galleries: () => ["galleries"] as const,
+  galleryOptions: () => ["galleries", "options"] as const,
+  galleryDlInfo: () => ["gallery-dl", "info"] as const,
+  galleryUrlfile: () => ["galleries", "urlfile"] as const,
+
   settings: () => ["settings"] as const,
 
   models: () => ["models"] as const,
