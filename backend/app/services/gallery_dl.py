@@ -154,6 +154,20 @@ def _num(v: float) -> str:
     return str(int(v)) if float(v).is_integer() else str(v)
 
 
+def _redacted_argv(cmd: list[str]) -> list[str]:
+    """cmd with the value following --cookies masked (never log a cookies path)."""
+    out: list[str] = []
+    mask_next = False
+    for arg in cmd:
+        if mask_next:
+            out.append("***")
+            mask_next = False
+        else:
+            out.append(arg)
+            mask_next = arg == "--cookies"
+    return out
+
+
 _STALL_TIMEOUT = 1200  # 20 min of zero output on either pipe
 _RECENT_CAP = 15
 _FLUSH_INTERVAL = 1.0
@@ -249,6 +263,12 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
 
     try:
         cmd = build_gallerydl_cmd(url, opts, cookies_tmp)
+        logger.info(
+            "gallery-dl row %s: baseDir=%s argv=%s",
+            row_id,
+            opts.baseDir,
+            _redacted_argv(cmd),
+        )
         try:
             proc = subprocess.Popen(
                 cmd,

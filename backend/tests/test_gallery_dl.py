@@ -126,6 +126,21 @@ def test_build_cmd_bad_extra_args_falls_back_to_raw():
     assert '--foo "unbalanced' in cmd
 
 
+def test_redacted_argv_masks_cookies_value():
+    from app.services.gallery_dl import _redacted_argv
+
+    assert _redacted_argv(["gallery-dl", "--cookies", "/tmp/parallax_cookies_x.txt", "url"]) == [
+        "gallery-dl",
+        "--cookies",
+        "***",
+        "url",
+    ]
+    # no --cookies → unchanged
+    assert _redacted_argv(["gallery-dl", "-d", "/x", "url"]) == ["gallery-dl", "-d", "/x", "url"]
+    # --cookies as the last arg (defensive)
+    assert _redacted_argv(["gallery-dl", "--cookies"]) == ["gallery-dl", "--cookies"]
+
+
 def test_classify_line():
     assert classify_line(f"{SENTINEL_FILE}/media/g/x/001.jpg") == ("file", "/media/g/x/001.jpg")
     assert classify_line(f"{SENTINEL_SKIP}/media/g/x/002.jpg") == ("skip", "/media/g/x/002.jpg")
