@@ -32,3 +32,5 @@ test_images.db
 *.tsbuildinfo
 
 docker-compose.override.yml
+
+.playwright-mcp/

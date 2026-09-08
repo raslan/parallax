@@ -21,8 +21,6 @@ export const identifyApi = {
   identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
   identifyGetAllEpisodes: (tmdb_id: number) => req<Episode[]>(`/identify/tv/${tmdb_id}/episodes`),
-  identifyGetSeason: (tmdb_id: number, season_number: number) =>
-    req<Episode[]>(`/identify/tv/${tmdb_id}/season/${season_number}`),
   identifyPreview: (body: {
     folder_path: string;
     type: "movie" | "tv";

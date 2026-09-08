@@ -10,12 +10,18 @@ export function slotKey(season: number, episode: number): string {
   return `${season}:${episode}`;
 }
 
-export function distinctSeasons(fileGuesses: FileGuess[]): number[] {
+/**
+ * Season numbers that already have at least one file assigned. Used to decide
+ * which season groups open by default — a season nothing auto-matched into
+ * starts collapsed so a long show doesn't bury the seasons that matter.
+ */
+export function seasonsWithMatches(assignments: Record<string, string>): Set<number> {
   const seasons = new Set<number>();
-  for (const g of fileGuesses) {
-    if (g.season != null) seasons.add(g.season);
+  for (const key of Object.keys(assignments)) {
+    const season = Number(key.split(":")[0]);
+    if (Number.isFinite(season)) seasons.add(season);
   }
-  return [...seasons].sort((a, b) => a - b);
+  return seasons;
 }
 
 /**
