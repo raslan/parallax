@@ -453,6 +453,8 @@ def install_gallerydl() -> None:
             timeout=600,
         )
         backup = GALLERY_DL_PKG_DIR + ".old"
+        if os.path.isdir(backup):
+            shutil.rmtree(backup, ignore_errors=True)
         if os.path.isdir(GALLERY_DL_PKG_DIR):
             os.replace(GALLERY_DL_PKG_DIR, backup)
         os.replace(staging, GALLERY_DL_PKG_DIR)
