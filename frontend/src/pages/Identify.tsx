@@ -484,6 +484,10 @@ export function Identify() {
         initialQuery={guessQuery}
         selectedId={selected?.tmdb_id ?? null}
         onPick={selectMedia}
+        onUseCustom={() => {
+          setSearchOpen(false);
+          changeMode("custom");
+        }}
       />
 
       <PreviewSheet

@@ -15,6 +15,7 @@ interface MediaSearchDialogProps {
   initialQuery: string;
   selectedId: number | null;
   onPick: (result: SearchResult) => void;
+  onUseCustom: () => void;
 }
 
 export function MediaSearchDialog({
@@ -25,6 +26,7 @@ export function MediaSearchDialog({
   initialQuery,
   selectedId,
   onPick,
+  onUseCustom,
 }: MediaSearchDialogProps) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -170,9 +172,20 @@ export function MediaSearchDialog({
           ) : (
             !loading &&
             searchedFor && (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Nothing found for “{searchedFor}”. Try a different spelling or media type.
-              </p>
+              <div className="py-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Nothing found for “{searchedFor}”. Try a different spelling or media type
+                  {" — "}or{" "}
+                  <button
+                    type="button"
+                    onClick={onUseCustom}
+                    className="font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    build it as a custom show
+                  </button>
+                  .
+                </p>
+              </div>
             )
           )}
         </div>
