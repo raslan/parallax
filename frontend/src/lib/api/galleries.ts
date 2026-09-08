@@ -1,9 +1,8 @@
 import { BASE, req } from "./client";
-import type { GalleryDownload, GalleryEnqueuePayload } from "@/types/gallery";
+import type { GalleryEnqueuePayload } from "@/types/gallery";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
 
 export const galleriesApi = {
-  getGalleries: () => req<GalleryDownload[]>("/galleries"),
   enqueueGalleries: (body: GalleryEnqueuePayload) =>
     req<{ ids: number[] }>("/galleries", { method: "POST", body: JSON.stringify(body) }),
   deleteGallery: (id: number) => req<void>(`/galleries/${id}`, { method: "DELETE" }),

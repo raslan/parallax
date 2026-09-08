@@ -4,8 +4,14 @@ import { z } from "zod";
 export const galleryOptionsSchema = z.object({
   baseDir: z.string().default(""),
   maxParallel: z.number().int().min(1).max(5).default(2),
-  retries: z.number().int().min(0).max(20).default(3),
-  httpTimeout: z.number().int().min(1).max(600).default(30),
+  retries: z.preprocess(
+    (v) => (typeof v === "number" && Number.isNaN(v) ? undefined : v),
+    z.number().int().min(0).max(20).default(3),
+  ),
+  httpTimeout: z.preprocess(
+    (v) => (typeof v === "number" && Number.isNaN(v) ? undefined : v),
+    z.number().int().min(1).max(600).default(30),
+  ),
   typeVideo: z.boolean().default(true),
   typeAudio: z.boolean().default(false),
   typeImage: z.boolean().default(false),

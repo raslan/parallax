@@ -31,7 +31,7 @@ export function GalleryRow({
           <span className="text-sm font-medium truncate" title={row.url}>
             {isFileMode ? "urls.txt (file mode)" : row.url}
           </span>
-          {!isFileMode && (
+          {!isFileMode && /^https?:\/\//i.test(row.url) && (
             <a
               href={row.url}
               target="_blank"

@@ -13,7 +13,6 @@ vi.mock("@/lib/api", async (importOriginal) => {
       getGalleryOptions: vi.fn().mockResolvedValue({}),
       getGalleryUrlfile: vi.fn().mockResolvedValue({ text: "" }),
       galleryDlInfo: vi.fn().mockResolvedValue({ installed: true, version: "1.27.0", path: "/x" }),
-      getGalleries: vi.fn().mockResolvedValue([]),
     },
   };
 });

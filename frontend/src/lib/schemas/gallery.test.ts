@@ -22,4 +22,10 @@ describe("galleryOptionsSchema", () => {
   it("rejects out-of-range maxParallel", () => {
     expect(() => galleryOptionsSchema.parse({ maxParallel: 99 })).toThrow();
   });
+
+  it("recovers a cleared numeric field (NaN) to its default instead of poisoning the parse", () => {
+    const parsed = galleryOptionsSchema.parse({ retries: NaN });
+    expect(parsed.retries).toBe(3);
+    expect(parsed.httpTimeout).toBe(30);
+  });
 });
