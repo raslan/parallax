@@ -244,16 +244,9 @@ export function GalleryRow({
         </div>
       </div>
 
-      {/* Full-width "it's alive" rail — the entire time the process runs */}
-      {isRunning && (
-        <div className="mt-3 h-1 rounded-full bg-muted overflow-hidden">
-          <div className="h-full w-full bg-primary/40 animate-shimmer" />
-        </div>
-      )}
+      {errorBlock && <div className="mt-3">{errorBlock}</div>}
 
-      {errorBlock && <div className="mt-2">{errorBlock}</div>}
-
-      {logBlock && <div className="mt-2">{logBlock}</div>}
+      {logBlock && <div className="mt-3">{logBlock}</div>}
     </div>
   );
 }
