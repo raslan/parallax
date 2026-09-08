@@ -3,8 +3,11 @@ Filesystem watcher — auto-triggers incremental rescans when specific files
 change inside a library directory. Only the changed/deleted files are processed.
 
 Uses watchdog for cross-platform inotify/FSEvents/kqueue support.
-Debounces 30 s so rapid file ops (e.g. a big copy) wait until files settle,
-then passes the exact changed/deleted paths to targeted scan functions.
+Debounces a few seconds so rapid file ops (e.g. a big copy) settle before
+processing, then passes the changed/deleted paths to targeted scan functions.
+Every fire also stat-prunes the whole library: watchdog does not emit per-file
+delete events for `rm -rf subdir/`, a trash move, or delete-and-recreate, so
+trusting delete events alone leaves stale rows forever.
 """
 
 import logging
@@ -14,7 +17,7 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-_DEBOUNCE = 30.0
+_DEBOUNCE = 3.0
 
 _VIDEO_EXTS = {
     ".mkv",
@@ -36,8 +39,12 @@ _VIDEO_EXTS = {
 }
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".heic", ".heif"}
 
+# Keyed by (is_image, library_id) — video and image library IDs both start at 1
+# and would otherwise collide, silently leaving image libraries unwatched.
+_Key = tuple[bool, int]
+
 _observer = None
-_handles: dict[int, object] = {}  # library_id -> watchdog watch handle
+_handles: dict[_Key, object] = {}  # (is_image, library_id) -> watchdog watch handle
 _lock = threading.Lock()
 
 
@@ -48,7 +55,18 @@ class _Pending:
     deleted: set[str] = field(default_factory=set)
 
 
-_pending: dict[int, _Pending] = {}  # library_id -> pending state
+_pending: dict[_Key, _Pending] = {}  # (is_image, library_id) -> pending state
+
+# Belt-and-braces sweep so drift can't accumulate when fs events are missed
+# entirely (inotify queue overflow, a filesystem that doesn't report to
+# inotify at all — some network mounts, virtiofs). Same reconcile as a fire.
+_RECONCILE_INTERVAL = 90.0
+_reconcile_stop = threading.Event()
+# Serializes _apply_*_changes so a periodic reconcile and a live fire (or two
+# reconciles) never work the same library from two threads at once.
+# ponytail: one global lock — libraries are few and this isn't hot. Per-library
+# locks only if that stops being true.
+_apply_lock = threading.Lock()
 
 
 def init() -> None:
@@ -66,6 +84,7 @@ def init() -> None:
 
 def shutdown() -> None:
     global _observer
+    _reconcile_stop.set()
     with _lock:
         for p in _pending.values():
             if p.timer:
@@ -79,27 +98,31 @@ def shutdown() -> None:
         _observer = None
 
 
-def _fire(library_id: int, is_image: bool) -> None:
+def _fire(key: _Key) -> None:
     """Called from threading.Timer — already in its own thread, just run directly."""
+    is_image, library_id = key
     with _lock:
-        p = _pending.pop(library_id, None)
+        p = _pending.pop(key, None)
     if not p:
         return
     changed = frozenset(p.changed)
-    deleted = frozenset(p.deleted)
-    if not changed and not deleted:
+    # A pure-delete batch has no `changed` paths but must still run so the
+    # existence sweep in _apply_*_changes prunes the now-missing rows.
+    if not changed and not p.deleted:
         return
-    if is_image:
-        _apply_image_changes(library_id, changed, deleted)
-    else:
-        _apply_video_changes(library_id, changed, deleted)
+    with _apply_lock:
+        if is_image:
+            _apply_image_changes(library_id, changed)
+        else:
+            _apply_video_changes(library_id, changed)
 
 
-def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: frozenset[str]) -> None:
+def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
     from app.database import SessionLocal
     from app.models.file import File, FileStatus
     from app.models.library import Library
     from app.services.scanner import (
+        _find_video_files,
         _now,
         _probe_metadata,
         clear_thumbnail_failed_marker,
@@ -112,17 +135,33 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
         if not library:
             return
 
-        # Deletions
-        for path in deleted:
-            f = db.query(File).filter(File.path == path).first()
-            if f:
-                try:
-                    os.remove(thumbnail_path(f.id))
-                except FileNotFoundError:
-                    pass
-                clear_thumbnail_failed_marker(f.id)
-                db.delete(f)
+        # Deletions — stat every row in the library, not just the paths that
+        # arrived as delete events. watchdog emits no per-file delete event for
+        # `rm -rf subdir/`, a trash move, or delete-and-recreate, so the event
+        # set is unreliable; a full existence sweep is the only thing that
+        # actually keeps the DB in step with the disk.
+        pruned = 0
+        for f in db.query(File).filter(File.library_id == library_id).all():
+            if os.path.exists(f.path):
+                continue
+            try:
+                os.remove(thumbnail_path(f.id))
+            except FileNotFoundError:
+                pass
+            clear_thumbnail_failed_marker(f.id)
+            db.delete(f)
+            pruned += 1
         db.commit()
+
+        # Additions the event stream never delivered: files that existed before
+        # the watcher started (added while the app was down, or a library that
+        # was never scanned), or events lost to an inotify queue overflow
+        # during a big copy. Mirror the delete sweep — reconcile the whole
+        # library against disk each fire, not just the event paths.
+        # ponytail: one os.walk per fire. Fine for normal libraries; if a huge
+        # tree makes fires slow, gate this to startup + a periodic interval.
+        known = {p for (p,) in db.query(File.path).filter(File.library_id == library_id)}
+        changed = changed | (frozenset(_find_video_files(library.path)) - known)
 
         # New / modified — batch-insert every genuinely-new path in one shot
         # (one query + one commit for the whole set) instead of a round-trip
@@ -228,27 +267,29 @@ def _apply_video_changes(library_id: int, changed: frozenset[str], deleted: froz
                 # to every page watching this library's SSE stream.
                 db.rollback()
 
-        library.last_scanned_at = _now()
-        db.commit()
-        logger.info(
-            "Watcher: video library %d — %d changed, %d deleted",
-            library_id,
-            len(changed),
-            len(deleted),
-        )
+        if changed or pruned:
+            library.last_scanned_at = _now()
+            db.commit()
+            logger.info(
+                "Watcher: video library %d — %d changed, %d pruned",
+                library_id,
+                len(changed),
+                pruned,
+            )
     except Exception:
         logger.exception("Watcher: error in video incremental scan for library %d", library_id)
     finally:
         db.close()
 
 
-def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: frozenset[str]) -> None:
+def _apply_image_changes(library_id: int, changed: frozenset[str]) -> None:
     from app.database import SessionLocal
     from app.models.image import ImageDetection, ImageFile
     from app.models.image_library import ImageLibrary
     from app.services.common import now
     from app.services.image_scanner import (
         _thumbnail_path,
+        collect_image_paths,
     )
     from app.services.image_scanner import (
         generate_thumbnail as img_thumb,
@@ -260,17 +301,29 @@ def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: froz
         if not library:
             return
 
-        # Deletions
-        for path in deleted:
-            f = db.query(ImageFile).filter(ImageFile.path == path).first()
-            if f:
-                db.query(ImageDetection).filter(ImageDetection.image_id == f.id).delete()
-                try:
-                    os.remove(_thumbnail_path(f.id))
-                except FileNotFoundError:
-                    pass
-                db.delete(f)
+        # Deletions — full existence sweep, not just the delete-event paths.
+        # watchdog emits no per-file delete event for `rm -rf subdir/`, a trash
+        # move, or delete-and-recreate, so stat every row in the library.
+        pruned = 0
+        for f in db.query(ImageFile).filter(ImageFile.library_id == library_id).all():
+            if os.path.exists(f.path):
+                continue
+            db.query(ImageDetection).filter(ImageDetection.image_id == f.id).delete()
+            try:
+                os.remove(_thumbnail_path(f.id))
+            except FileNotFoundError:
+                pass
+            db.delete(f)
+            pruned += 1
         db.commit()
+
+        # Additions the event stream never delivered — pre-existing files, an
+        # unscanned library, or events dropped on an inotify overflow. Same
+        # whole-library reconcile as the delete sweep above.
+        # ponytail: one os.walk per fire; gate to startup + interval if a huge
+        # library makes fires slow.
+        known = {p for (p,) in db.query(ImageFile.path).filter(ImageFile.library_id == library_id)}
+        changed = changed | (frozenset(collect_image_paths(library.path)) - known)
 
         # New / modified — basic metadata + thumbnail, no AI
         import os as _os
@@ -327,12 +380,13 @@ def _apply_image_changes(library_id: int, changed: frozenset[str], deleted: froz
                 db.refresh(f)
                 img_thumb(path, _thumbnail_path(f.id))
 
-        logger.info(
-            "Watcher: image library %d — %d changed, %d deleted",
-            library_id,
-            len(changed),
-            len(deleted),
-        )
+        if changed or pruned:
+            logger.info(
+                "Watcher: image library %d — %d changed, %d pruned",
+                library_id,
+                len(changed),
+                pruned,
+            )
     except Exception:
         logger.exception("Watcher: error in image incremental scan for library %d", library_id)
     finally:
@@ -357,10 +411,9 @@ class _Handler:
     def _record(self, path: str, deleted: bool) -> None:
         if not self._is_relevant(path):
             return
-        lid = self.library_id
-        is_image = self.is_image
+        key: _Key = (self.is_image, self.library_id)
         with _lock:
-            p = _pending.setdefault(lid, _Pending())
+            p = _pending.setdefault(key, _Pending())
             if deleted:
                 p.deleted.add(path)
                 p.changed.discard(path)
@@ -369,7 +422,7 @@ class _Handler:
                 p.deleted.discard(path)
             if p.timer:
                 p.timer.cancel()
-            t = threading.Timer(_DEBOUNCE, _fire, args=(lid, is_image))
+            t = threading.Timer(_DEBOUNCE, _fire, args=(key,))
             t.daemon = True
             t.start()
             p.timer = t
@@ -384,26 +437,33 @@ class _Handler:
             self._record(event.src_path, deleted=True)
             if hasattr(event, "dest_path"):
                 self._record(event.dest_path, deleted=False)
-        else:
+        elif "Created" in event_type or "Modified" in event_type:
             self._record(event.src_path, deleted=False)
+        # Everything else (FileOpenedEvent / FileClosedEvent / ClosedNoWrite,
+        # emitted by watchdog 4.x on Linux for *any* open, reads included) is
+        # not a content change. Recording them here caused an infinite loop:
+        # _fire ffprobes/opens each file to check it, which re-emits an open
+        # event, which schedules another _fire.
 
 
 def watch_library(library_id: int, path: str, is_image: bool) -> None:
     if _observer is None:
         return
+    key: _Key = (is_image, library_id)
     with _lock:
-        if library_id in _handles:
+        if key in _handles:
             return
         handler = _Handler(library_id, is_image)
         handle = _observer.schedule(handler, path, recursive=True)
-        _handles[library_id] = handle
+        _handles[key] = handle
     logger.info("Watching %s library %d → %s", "image" if is_image else "video", library_id, path)
 
 
-def unwatch_library(library_id: int) -> None:
+def unwatch_library(library_id: int, is_image: bool = False) -> None:
+    key: _Key = (is_image, library_id)
     with _lock:
-        handle = _handles.pop(library_id, None)
-        p = _pending.pop(library_id, None)
+        handle = _handles.pop(key, None)
+        p = _pending.pop(key, None)
         if p and p.timer:
             p.timer.cancel()
     if handle and _observer:
@@ -411,7 +471,7 @@ def unwatch_library(library_id: int) -> None:
             _observer.unschedule(handle)
         except Exception:
             pass
-    logger.info("Unwatched library %d", library_id)
+    logger.info("Unwatched %s library %d", "image" if is_image else "video", library_id)
 
 
 def watch_all_libraries() -> None:
@@ -429,3 +489,43 @@ def watch_all_libraries() -> None:
                 watch_library(lib.id, lib.path, is_image=True)
     finally:
         db.close()
+
+    # Reconcile every library against disk now and every _RECONCILE_INTERVAL
+    # thereafter, so files added/deleted while the app was down — or missed
+    # because fs events never arrived at all — get picked up without a live
+    # event. Daemon thread: a large library's walk+probe must not block
+    # startup, and the loop dies with the process (shutdown() also signals it).
+    _reconcile_stop.clear()
+    threading.Thread(target=_reconcile_loop, daemon=True, name="fs-watcher-reconcile").start()
+
+
+def reconcile_all() -> None:
+    """Full disk<->DB reconcile for every library — the same work a debounced
+    fire does, but for all libraries and triggered by a timer instead of an
+    fs event. Safe to call anytime; serialized against live fires by _apply_lock."""
+    from app.database import SessionLocal
+    from app.models.image_library import ImageLibrary
+    from app.models.library import Library
+
+    db = SessionLocal()
+    try:
+        videos = [lib.id for lib in db.query(Library).all() if os.path.isdir(lib.path)]
+        images = [lib.id for lib in db.query(ImageLibrary).all() if os.path.isdir(lib.path)]
+    finally:
+        db.close()
+
+    with _apply_lock:
+        for lid in videos:
+            _apply_video_changes(lid, frozenset())
+        for lid in images:
+            _apply_image_changes(lid, frozenset())
+
+
+def _reconcile_loop() -> None:
+    reconcile_all()
+    logger.info("Watcher: startup reconcile complete")
+    while not _reconcile_stop.wait(_RECONCILE_INTERVAL):
+        try:
+            reconcile_all()
+        except Exception:
+            logger.exception("Watcher: periodic reconcile failed")
