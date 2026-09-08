@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.settings import get_setting
+from app.services import artwork as artwork_service
 from app.services import nfo, renamer
 from app.services import tmdb as tmdb_service
 
@@ -70,16 +71,26 @@ class NfoOp(BaseModel):
     content: str
 
 
+class ArtworkSpec(BaseModel):
+    source_video: str
+    show_folder: str
+    title: str
+    season: int
+
+
 class PreviewResponse(BaseModel):
     file_ops: list[RenameOp]
     folder_ops: list[RenameOp]
     nfo_ops: list[NfoOp] = []
+    image_paths: list[str] = []
+    artwork: ArtworkSpec | None = None
 
 
 class ApplyRequest(BaseModel):
     file_ops: list[RenameOp]
     folder_ops: list[RenameOp]
     nfo_ops: list[NfoOp] = []
+    artwork: ArtworkSpec | None = None
 
 
 class ApplyResponse(BaseModel):
@@ -222,19 +233,28 @@ def preview(body: PreviewRequest, db: Session = Depends(get_db)):
     file_ops, folder_ops = renamer.compute_ops(
         body.folder_path, body.type, tmdb_data, mappings, body.target_dir
     )
-    nfo_ops = _build_nfo_ops(body, file_ops, folder_ops) if body.write_nfo else []
+    nfo_ops: list[NfoOp] = []
+    image_paths: list[str] = []
+    artwork: ArtworkSpec | None = None
+    if body.write_nfo:
+        nfo_ops = _build_nfo_ops(body, file_ops, folder_ops)
+        artwork = _build_artwork_spec(body, file_ops, folder_ops)
+        if artwork:
+            image_paths = [
+                p for p, _ in artwork_service.artwork_paths(artwork.show_folder, artwork.season)
+            ]
     return PreviewResponse(
         file_ops=[RenameOp(**op) for op in file_ops],
         folder_ops=[RenameOp(**op) for op in folder_ops],
         nfo_ops=nfo_ops,
+        image_paths=image_paths,
+        artwork=artwork,
     )
 
 
-def _build_nfo_ops(
-    body: PreviewRequest, file_ops: list[dict], folder_ops: list[dict]
-) -> list[NfoOp]:
-    """Generate .nfo sidecars whose paths already point at the final (post-move)
-    location, so apply just writes them verbatim."""
+def _final_video_resolver(body: PreviewRequest, file_ops: list[dict], folder_ops: list[dict]):
+    """(show_folder, fn) where fn maps a source video path to its final
+    post-rename, post-move location."""
     abs_folder = os.path.abspath(body.folder_path)
     show_folder = folder_ops[0]["new_path"] if folder_ops else abs_folder
     renamed = {os.path.abspath(op["old_path"]): op["new_path"] for op in file_ops}
@@ -244,6 +264,36 @@ def _build_nfo_ops(
         if folder_ops and p.startswith(abs_folder + os.sep):
             p = show_folder + p[len(abs_folder) :]
         return p
+
+    return show_folder, final_video_path
+
+
+def _build_artwork_spec(
+    body: PreviewRequest, file_ops: list[dict], folder_ops: list[dict]
+) -> ArtworkSpec | None:
+    """Show artwork is keyed off the lowest-numbered episode's final frame."""
+    numbered = sorted(
+        (m for m in body.mappings if m.episode_number is not None),
+        key=lambda m: m.episode_number,
+    )
+    if not numbered:
+        return None
+    first = numbered[0]
+    show_folder, final_video_path = _final_video_resolver(body, file_ops, folder_ops)
+    return ArtworkSpec(
+        source_video=final_video_path(first.file_path),
+        show_folder=show_folder,
+        title=body.title,
+        season=first.season_number or 1,
+    )
+
+
+def _build_nfo_ops(
+    body: PreviewRequest, file_ops: list[dict], folder_ops: list[dict]
+) -> list[NfoOp]:
+    """Generate .nfo sidecars whose paths already point at the final (post-move)
+    location, so apply just writes them verbatim."""
+    show_folder, final_video_path = _final_video_resolver(body, file_ops, folder_ops)
 
     eps = [m for m in body.mappings if m.episode_number is not None]
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -273,7 +323,11 @@ def _build_nfo_ops(
         0,
         NfoOp(
             path=os.path.join(show_folder, "tvshow.nfo"),
-            content=nfo.build_tvshow_nfo(title=body.title, premiered=min(dates) if dates else None),
+            content=nfo.build_tvshow_nfo(
+                title=body.title,
+                premiered=min(dates) if dates else None,
+                with_artwork=True,
+            ),
         ),
     )
     return ops
@@ -285,4 +339,20 @@ def apply_renames(body: ApplyRequest, db: Session = Depends(get_db)):
     folder_ops = [{"old_path": op.old_path, "new_path": op.new_path} for op in body.folder_ops]
     nfo_ops = [{"path": op.path, "content": op.content} for op in body.nfo_ops]
     successes, failures = renamer.apply_ops(file_ops, folder_ops, db, nfo_ops)
+
+    # Artwork is generated after the renames — the source frame is read from the
+    # episode's final, post-move location.
+    if body.artwork:
+        a = body.artwork
+        for path, data in artwork_service.generate_show_artwork(
+            a.source_video, a.show_folder, a.title, a.season
+        ):
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(data)
+                successes.append(path)
+            except OSError as e:
+                failures.append({"path": path, "error": str(e)})
+
     return ApplyResponse(successes=successes, failures=failures)

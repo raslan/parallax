@@ -15,6 +15,7 @@ interface PreviewSheetProps {
   fileOps: RenameOp[];
   folderOps: RenameOp[];
   nfoOps: NfoOp[];
+  imagePaths: string[];
   loadingApply: boolean;
   onApply: () => void;
   result: ApplyResult | null;
@@ -33,6 +34,7 @@ export function PreviewSheet({
   fileOps,
   folderOps,
   nfoOps,
+  imagePaths,
   loadingApply,
   onApply,
   result,
@@ -63,7 +65,8 @@ export function PreviewSheet({
             <div className="space-y-4">
               {(() => {
                 const nfoWritten = result.successes.filter((p) => p.endsWith(".nfo")).length;
-                const renamed = result.successes.length - nfoWritten;
+                const artWritten = result.successes.filter((p) => /\.(jpe?g|png)$/i.test(p)).length;
+                const renamed = result.successes.length - nfoWritten - artWritten;
                 return (
                   <p className="flex items-center gap-2 text-sm">
                     <Check className="h-4 w-4 text-green-400" />
@@ -73,7 +76,12 @@ export function PreviewSheet({
                         <>
                           {" · "}
                           <span className="font-medium text-foreground">{nfoWritten}</span> .nfo
-                          file{nfoWritten === 1 ? "" : "s"} written
+                        </>
+                      )}
+                      {artWritten > 0 && (
+                        <>
+                          {" · "}
+                          <span className="font-medium text-foreground">{artWritten}</span> artwork
                         </>
                       )}
                     </span>
@@ -158,6 +166,29 @@ export function PreviewSheet({
                         title={op.path}
                       >
                         {basename(op.path)}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {imagePaths.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    Artwork ({imagePaths.length})
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Generated poster + backdrop from the first episode's frame, with the show name
+                    in Fraunces.
+                  </p>
+                  <div className="overflow-hidden rounded-md border border-border">
+                    {imagePaths.map((p) => (
+                      <p
+                        key={p}
+                        className="truncate border-b border-border px-3 py-2 font-mono text-xs text-muted-foreground last:border-0"
+                        title={p}
+                      >
+                        {basename(p)}
                       </p>
                     ))}
                   </div>

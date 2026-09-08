@@ -33,10 +33,19 @@ export interface NfoOp {
   content: string;
 }
 
+export interface ArtworkSpec {
+  source_video: string;
+  show_folder: string;
+  title: string;
+  season: number;
+}
+
 export interface PreviewResponse {
   file_ops: RenameOp[];
   folder_ops: RenameOp[];
   nfo_ops: NfoOp[];
+  image_paths: string[];
+  artwork: ArtworkSpec | null;
 }
 
 export interface ApplyResponse {

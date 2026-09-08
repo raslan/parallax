@@ -78,7 +78,9 @@ def build_episode_nfo(
     return _render(root)
 
 
-def build_tvshow_nfo(*, title: str, premiered: str | None = None) -> str:
+def build_tvshow_nfo(
+    *, title: str, premiered: str | None = None, with_artwork: bool = False
+) -> str:
     root = ET.Element("tvshow")
     ET.SubElement(root, "title").text = title
     ET.SubElement(root, "showtitle").text = title
@@ -86,4 +88,8 @@ def build_tvshow_nfo(*, title: str, premiered: str | None = None) -> str:
         ET.SubElement(root, "premiered").text = premiered
         ET.SubElement(root, "year").text = premiered[:4]
     ET.SubElement(root, "studio").text = _STUDIO
+    if with_artwork:
+        ET.SubElement(root, "thumb", {"aspect": "poster"}).text = "poster.jpg"
+        fanart = ET.SubElement(root, "fanart")
+        ET.SubElement(fanart, "thumb").text = "backdrop.jpg"
     return _render(root)

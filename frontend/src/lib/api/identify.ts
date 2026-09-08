@@ -5,6 +5,7 @@ import type {
   FileMapping,
   RenameOp,
   NfoOp,
+  ArtworkSpec,
   PreviewResponse,
   ApplyResponse,
 } from "@/types/identify";
@@ -35,6 +36,10 @@ export const identifyApi = {
     target_dir: string | null;
     write_nfo: boolean;
   }) => req<PreviewResponse>("/identify/preview", { method: "POST", body: JSON.stringify(body) }),
-  identifyApply: (body: { file_ops: RenameOp[]; folder_ops: RenameOp[]; nfo_ops: NfoOp[] }) =>
-    req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
+  identifyApply: (body: {
+    file_ops: RenameOp[];
+    folder_ops: RenameOp[];
+    nfo_ops: NfoOp[];
+    artwork: ArtworkSpec | null;
+  }) => req<ApplyResponse>("/identify/apply", { method: "POST", body: JSON.stringify(body) }),
 };

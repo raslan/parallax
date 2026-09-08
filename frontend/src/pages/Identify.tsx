@@ -11,7 +11,14 @@ import { MatchBoard } from "@/components/identify/MatchBoard";
 import { CustomEpisodeList, type CustomRow } from "@/components/identify/CustomEpisodeList";
 import { PreviewSheet } from "@/components/identify/PreviewSheet";
 import { api } from "@/lib/api";
-import type { SearchResult, Episode, RenameOp, NfoOp, FileMapping } from "@/types/identify";
+import type {
+  SearchResult,
+  Episode,
+  RenameOp,
+  NfoOp,
+  ArtworkSpec,
+  FileMapping,
+} from "@/types/identify";
 import { type FileGuess, buildInitialAssignments, slotKey } from "@/lib/episodeMatching";
 import { orderFiles, cleanEpisodeTitle } from "@/lib/customShow";
 import { Link } from "react-router-dom";
@@ -50,6 +57,8 @@ export function Identify() {
   const [fileOps, setFileOps] = useState<RenameOp[]>([]);
   const [folderOps, setFolderOps] = useState<RenameOp[]>([]);
   const [nfoOps, setNfoOps] = useState<NfoOp[]>([]);
+  const [imagePaths, setImagePaths] = useState<string[]>([]);
+  const [artwork, setArtwork] = useState<ArtworkSpec | null>(null);
   const [applyResult, setApplyResult] = useState<ApplyResult | null>(null);
 
   const [picking, setPicking] = useState(false);
@@ -271,6 +280,8 @@ export function Identify() {
       setFileOps(res.file_ops);
       setFolderOps(res.folder_ops);
       setNfoOps(res.nfo_ops);
+      setImagePaths(res.image_paths);
+      setArtwork(res.artwork);
     } catch (e: unknown) {
       setPreviewError(e instanceof Error ? e.message : "Preview failed");
     } finally {
@@ -286,6 +297,7 @@ export function Identify() {
         file_ops: fileOps,
         folder_ops: folderOps,
         nfo_ops: nfoOps,
+        artwork,
       });
       setApplyResult({ successes: res.successes, failures: res.failures });
     } catch (e: unknown) {
@@ -332,6 +344,8 @@ export function Identify() {
     setFileOps([]);
     setFolderOps([]);
     setNfoOps([]);
+    setImagePaths([]);
+    setArtwork(null);
     setApplyResult(null);
     setPreviewOpen(false);
     setSearchOpen(false);
@@ -523,6 +537,7 @@ export function Identify() {
         fileOps={fileOps}
         folderOps={folderOps}
         nfoOps={nfoOps}
+        imagePaths={imagePaths}
         loadingApply={loadingApply}
         onApply={doApply}
         result={applyResult}
