@@ -129,47 +129,47 @@ def _wrap(
 
 def build_poster(frame: Image.Image, title: str) -> bytes:
     w, h = _POSTER
-    base = _cover(frame, w, h).filter(ImageFilter.GaussianBlur(20))
-    base = ImageEnhance.Brightness(base).enhance(0.5)
-    canvas = base.convert("RGBA")
+    base = _cover(frame, w, h).filter(ImageFilter.GaussianBlur(22))
+    canvas = ImageEnhance.Brightness(base).enhance(0.55).convert("RGBA")
 
-    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
+    scratch = ImageDraw.Draw(canvas)
     margin = 90
     max_w = w - 2 * margin
 
     size = 170
     while size >= 52:
         font = _font(size)
-        lines = _wrap(draw, title, font, max_w)
+        lines = _wrap(scratch, title, font, max_w)
         line_h = font.getbbox("Ag")[3] + round(size * 0.06)
         block_h = line_h * len(lines)
-        widest = max((draw.textlength(ln, font=font) for ln in lines), default=0)
+        widest = max((scratch.textlength(ln, font=font) for ln in lines), default=0)
         if block_h <= h * 0.5 and widest <= max_w and len(lines) <= 3:
             break
         size -= 10
     else:
         font = _font(52)
-        lines = _wrap(draw, title, font, max_w)
+        lines = _wrap(scratch, title, font, max_w)
         line_h = font.getbbox("Ag")[3] + 6
         block_h = line_h * len(lines)
 
-    y = (h - block_h) // 2
-    plate_pad = 34
-    draw.rounded_rectangle(
-        (margin - plate_pad, y - plate_pad, w - margin + plate_pad, y + block_h + plate_pad),
-        radius=28,
-        fill=(0, 0, 0, 110),
-    )
+    # No plate — a soft dark halo blurred out from the letters keeps the title
+    # legible on any frame while letting it sit in the image rather than on top.
+    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    text = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    gdraw, tdraw = ImageDraw.Draw(glow), ImageDraw.Draw(text)
     color = _title_color(frame)
+    y = (h - block_h) // 2
     for ln in lines:
-        lw = draw.textlength(ln, font=font)
-        x = (w - lw) // 2
-        draw.text((x + 3, y + 3), ln, font=font, fill=(0, 0, 0, 170))
-        draw.text((x, y), ln, font=font, fill=(*color, 255))
+        x = (w - tdraw.textlength(ln, font=font)) // 2
+        gdraw.text((x, y), ln, font=font, fill=(0, 0, 0, 255))
+        tdraw.text((x, y), ln, font=font, fill=(*color, 235))
         y += line_h
+    glow = glow.filter(ImageFilter.GaussianBlur(18))
 
-    return _jpeg(Image.alpha_composite(canvas, overlay).convert("RGB"))
+    canvas = Image.alpha_composite(canvas, glow)
+    canvas = Image.alpha_composite(canvas, glow)  # denser halo
+    canvas = Image.alpha_composite(canvas, text)
+    return _jpeg(canvas.convert("RGB"))
 
 
 def build_backdrop(frame: Image.Image) -> bytes:
