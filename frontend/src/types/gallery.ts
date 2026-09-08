@@ -8,6 +8,7 @@ export interface GalleryDownload {
   last_filename: string | null;
   recent_files: string[];
   error: string | null;
+  log_tail: string | null;
   output_dir: string;
   created_at: string | null;
   started_at: string | null;

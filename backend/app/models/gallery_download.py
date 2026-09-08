@@ -26,6 +26,7 @@ class GalleryDownload(Base):
     last_filename: Mapped[str] = mapped_column(Text, nullable=True)
     recent_files: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array, cap 15
     error: Mapped[str] = mapped_column(Text, nullable=True)
+    log_tail: Mapped[str] = mapped_column(Text, nullable=True)  # rolling gallery-dl stderr tail
     output_dir: Mapped[str] = mapped_column(Text, nullable=False)
     options: Mapped[str] = mapped_column(Text, nullable=True)  # JSON snapshot at submit
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

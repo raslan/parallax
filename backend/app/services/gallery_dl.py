@@ -158,6 +158,7 @@ def _redacted_argv(cmd: list[str]) -> list[str]:
 
 _STALL_TIMEOUT = 1200  # 20 min of zero output on either pipe
 _RECENT_CAP = 15
+_LOG_CAP = 200
 _FLUSH_INTERVAL = 1.0
 
 _pg = ProcessGroup()
@@ -248,7 +249,7 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
     done = skipped = failed = 0
     last_filename: str | None = None
     recent: deque[str] = deque(maxlen=_RECENT_CAP)
-    stderr_tail: deque[str] = deque(maxlen=40)
+    stderr_tail: deque[str] = deque(maxlen=_LOG_CAP)
     stalled = False
 
     try:
@@ -301,9 +302,9 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
                 if stream is proc.stderr:
                     if line.strip():
                         stderr_tail.append(line)
+                        dirty = True
                         if "][error]" in line:
                             failed += 1
-                            dirty = True
                     continue
                 hit = classify_line(line)
                 if hit is None:
@@ -326,6 +327,7 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
                     files_failed=failed,
                     last_filename=last_filename,
                     recent_files=json.dumps(list(recent)),
+                    log_tail="\n".join(stderr_tail),
                 )
                 last_flush = time.time()
                 dirty = False
@@ -345,7 +347,7 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
             error = None
         else:
             final_status = GalleryDownloadStatus.FAILED
-            tail = "\n".join(stderr_tail)
+            tail = "\n".join(list(stderr_tail)[-40:])
             error = (
                 f"[parallax] stalled — no output for {_STALL_TIMEOUT}s\n\n{tail}"
                 if stalled
@@ -361,6 +363,7 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
             last_filename=last_filename,
             recent_files=json.dumps(list(recent)),
             error=error,
+            log_tail="\n".join(stderr_tail),
             finished_at=now(),
         )
     except Exception as exc:  # pragma: no cover - defensive

@@ -207,6 +207,7 @@ def test_run_gallery_sync_counts_and_completes(tmp_path, monkeypatch):
         assert json.loads(row.recent_files) == ["a.jpg", "b.jpg"]
         assert row.status == GalleryDownloadStatus.COMPLETED
         assert row.error is None
+        assert "boom" in (row.log_tail or "")
         s.delete(row)
         s.commit()
 
@@ -220,5 +221,6 @@ def test_run_gallery_sync_nonzero_exit_fails_with_stderr_tail(tmp_path, monkeypa
         assert row.error is not None
         assert "boom" in row.error
         assert "exited 1" in row.error
+        assert "boom" in (row.log_tail or "")
         s.delete(row)
         s.commit()

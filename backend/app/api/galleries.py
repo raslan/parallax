@@ -45,6 +45,7 @@ def serialize(g: GalleryDownload) -> dict:
         "last_filename": g.last_filename,
         "recent_files": json.loads(g.recent_files) if g.recent_files else [],
         "error": g.error,
+        "log_tail": g.log_tail,
         "output_dir": g.output_dir,
         "created_at": g.created_at.isoformat() if g.created_at else None,
         "started_at": g.started_at.isoformat() if g.started_at else None,

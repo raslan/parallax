@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Check, Download, ExternalLink, RotateCcw, SkipForward, StopCircle, X } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  RotateCcw,
+  SkipForward,
+  StopCircle,
+  Terminal,
+  X,
+} from "lucide-react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { GalleryDownload } from "@/types/gallery";
 import { DownloadStatusBadge } from "@/components/downloads-common/DownloadStatusBadge";
@@ -17,6 +27,9 @@ export function GalleryRow({
   onRetry: (id: number) => void;
 }) {
   const [errorExpanded, setErrorExpanded] = useState(false);
+  const [logExpanded, setLogExpanded] = useState(
+    () => Boolean(row.log_tail) && row.files_failed > 0 && row.files_done === 0,
+  );
   const [streamRef] = useAutoAnimate<HTMLDivElement>();
 
   const isActive = row.status === "pending" || row.status === "running";
@@ -57,6 +70,24 @@ export function GalleryRow({
         <p className="text-[11px] text-destructive line-clamp-2">{row.error.split("\n")[0]}</p>
       )}
     </button>
+  ) : null;
+
+  const logBlock = row.log_tail ? (
+    <div>
+      <button
+        onClick={() => setLogExpanded((v) => !v)}
+        className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground inline-flex items-center gap-1 transition-colors"
+      >
+        <ChevronRight className={cn("h-3 w-3 transition-transform", logExpanded && "rotate-90")} />
+        <Terminal className="h-3 w-3" />
+        output
+      </button>
+      {logExpanded && row.log_tail && (
+        <pre className="mt-1 max-h-48 overflow-y-auto rounded bg-muted/40 p-2 text-[11px] font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
+          {row.log_tail}
+        </pre>
+      )}
+    </div>
   ) : null;
 
   const actions = (
@@ -124,6 +155,8 @@ export function GalleryRow({
           )}
 
           {errorBlock}
+
+          {logBlock}
         </div>
 
         {actions}
@@ -219,6 +252,8 @@ export function GalleryRow({
       )}
 
       {errorBlock && <div className="mt-2">{errorBlock}</div>}
+
+      {logBlock && <div className="mt-2">{logBlock}</div>}
     </div>
   );
 }
