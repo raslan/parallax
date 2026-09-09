@@ -19,7 +19,6 @@ import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
-import { CollapsibleControls } from "@/components/CollapsibleControls";
 import { WorkingState } from "@/components/WorkingState";
 import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
 
@@ -383,19 +382,6 @@ export function Duplicates() {
     0,
   );
 
-  const enabledCriteriaCount = [
-    criteria.use_size,
-    criteria.use_duration,
-    criteria.use_resolution,
-    criteria.use_content_date,
-    criteria.use_orientation,
-    criteria.use_bitrate,
-    criteria.use_filename,
-    criteria.use_byte_hash,
-    criteria.use_phash,
-    criteria.use_audio,
-  ].filter(Boolean).length;
-
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
@@ -434,27 +420,12 @@ export function Duplicates() {
         </div>
       </div>
 
-      <CollapsibleControls
-        storageKey="duplicates-controls"
-        summary={
-          <>
-            {libraries.find((l) => l.id === selectedId)?.name ?? "No library"} ·{" "}
-            {enabledCriteriaCount > 0
-              ? `${enabledCriteriaCount} criteria enabled`
-              : "No criteria enabled"}
-            {groups.length > 0
-              ? ` · ${groups.length} group${groups.length !== 1 ? "s" : ""} found`
-              : ""}
-          </>
-        }
-      >
-        <div className="p-4">
-          <DuplicateCriteriaPanel
-            criteria={criteria}
-            onChange={(patch) => setCriteria((prev) => ({ ...prev, ...patch }))}
-          />
-        </div>
-      </CollapsibleControls>
+      <div className="shrink-0 rounded-lg border bg-card p-4">
+        <DuplicateCriteriaPanel
+          criteria={criteria}
+          onChange={(patch) => setCriteria((prev) => ({ ...prev, ...patch }))}
+        />
+      </div>
 
       {jobError && (
         <div className="shrink-0 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
