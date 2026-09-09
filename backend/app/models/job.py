@@ -21,6 +21,8 @@ class JobType:
     TOOLBOX_FIX = "toolbox_fix"
     THUMBNAIL_WARM = "thumbnail_warm"
     SUBTITLE_SYNC = "subtitle_sync"
+    AUDIO_SCAN = "audio_scan"
+    AUDIO_COMPRESS = "audio_compress"
 
 
 class JobStatus:

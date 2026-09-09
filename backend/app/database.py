@@ -41,6 +41,8 @@ def get_db():
 
 def init_db():
     from app.models import (  # noqa: F401  # noqa: F401
+        audio_file,
+        audio_library,
         download,
         file,
         gallery_download,
@@ -210,3 +212,12 @@ def init_db():
         conn.execute(
             text("DELETE FROM images WHERE library_id NOT IN (SELECT id FROM image_libraries)")
         )
+        try:
+            conn.execute(
+                text(
+                    "DELETE FROM audio_files "
+                    "WHERE library_id NOT IN (SELECT id FROM audio_libraries)"
+                )
+            )
+        except Exception:
+            pass  # table doesn't exist yet on a fresh install
