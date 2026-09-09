@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * A settings/controls panel that collapses to a one-line summary bar and
- * expands into a floating overlay — never pushes sibling content (a
- * virtualized grid below it) down, since the expanded panel is positioned
- * absolutely over whatever's beneath it rather than growing the flex layout.
- * Collapsed/expanded state persists per page via `storageKey`.
+ * expands into a block **in normal flow** — expanding pushes the sibling
+ * content (a virtualized grid) down rather than floating over it, so the
+ * grid never gets hidden and its live updates stay visible. The page shell
+ * owns the single scroll region (`overflow-hidden` + the grid's own
+ * `flex-1 min-h-0`), so a taller panel just means a shorter grid viewport,
+ * not a second scrollbar. Collapsed/expanded state persists per page via
+ * `storageKey`.
  */
 export function CollapsibleControls({
   storageKey,
@@ -26,7 +29,6 @@ export function CollapsibleControls({
       return true;
     }
   });
-  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -36,26 +38,8 @@ export function CollapsibleControls({
     }
   }, [storageKey, open]);
 
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div className="shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-left hover:border-primary/50 hover:bg-primary/15 transition-colors"
@@ -70,7 +54,7 @@ export function CollapsibleControls({
       </button>
 
       {open && (
-        <div className="absolute top-full inset-x-0 z-20 mt-2 max-h-[75vh] overflow-y-auto rounded-lg border border-border bg-card/95 backdrop-blur-sm shadow-2xl">
+        <div className="mt-2 max-h-[60vh] overflow-y-auto rounded-lg border border-border bg-card">
           {children}
         </div>
       )}
