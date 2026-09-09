@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.6.0](https://github.com/raslan/parallax/compare/v2.5.0...v2.6.0) (2026-09-09)
+
+
+### Features
+
+* **audio:** add audio compressor with no-upconvert guard ([87f8c02](https://github.com/raslan/parallax/commit/87f8c023141eee9f599821955755570638166c8f))
+* **audio:** add audio library and file pydantic schemas ([524b1fa](https://github.com/raslan/parallax/commit/524b1faca1c054bbf7a2e1ac4b19451051f224a5))
+* **audio:** add audio library scanner ([f05ee4e](https://github.com/raslan/parallax/commit/f05ee4eaa5906aacbf25dc2f79ca46f858b02c05))
+* **audio:** add audio-compress router ([e89afcb](https://github.com/raslan/parallax/commit/e89afcb2c4a93b749c9e893fab4fba48e8a91a01))
+* **audio:** add audio-files list, stream and live SSE routes ([e48608c](https://github.com/raslan/parallax/commit/e48608cf16aa6b76986d1efdfcef4c8185997ace))
+* **audio:** add audio-libraries router ([bf54a12](https://github.com/raslan/parallax/commit/bf54a12af38c90f73d944df9de1c4e318694c031))
+* **audio:** add AudioLibrary and AudioFile models ([50855c6](https://github.com/raslan/parallax/commit/50855c6f84274bf2b7124168404a848cb9487176))
+* **audio:** extend filesystem watcher to audio libraries ([6a50f02](https://github.com/raslan/parallax/commit/6a50f0286ad49c0de840946941f519d5156adc6a))
+* **audio:** frontend pages, api layer and nav section ([8b362d8](https://github.com/raslan/parallax/commit/8b362d83a9d0667086c55129100a0da07e1642bb))
+* **nav:** mobile bottom bar and N-section header ([fe9258a](https://github.com/raslan/parallax/commit/fe9258a158319f38b6229ab7041e391509a02bcf))
+
+
+### Bug Fixes
+
+* **audio:** align Compress + Libraries pages with the video equivalents ([1ecc021](https://github.com/raslan/parallax/commit/1ecc021bab09a86dc42869f76e17dae8de62c8ed))
+* **audio:** scope job filters, wire scan toggle, purge audio data ([8f12f72](https://github.com/raslan/parallax/commit/8f12f72a8de2cdac97cc5fbed7c11221db955a3c))
+* **downloads:** keep the yt-dlp filename template slash-safe ([60dea10](https://github.com/raslan/parallax/commit/60dea10edc67316b1f2ef7435394e98a3351efb6))
+* **nav:** label header tabs, clear bottom bar over page action bars ([bfc3bca](https://github.com/raslan/parallax/commit/bfc3bca04b905ececd2ec057a5489349adb32812))
+* **stream:** sweep the remux cache on boot and on a timer ([fe269c2](https://github.com/raslan/parallax/commit/fe269c2d7aaf7663edf28bcd79d165d106ff9a8d))
+
 ## [2.5.0](https://github.com/raslan/parallax/compare/v2.4.0...v2.5.0) (2026-09-09)
 
 
