@@ -74,7 +74,7 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(lib)
             created.append(lib)
-            fs_watcher.watch_library(lib.id, lib.path, is_image=False)
+            fs_watcher.watch_library(lib.id, lib.path, kind="video")
         return _with_counts(created, db)
     else:
         if not os.path.isdir(body.path):
@@ -87,7 +87,7 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
         db.refresh(lib)
         from app.services import fs_watcher
 
-        fs_watcher.watch_library(lib.id, lib.path, is_image=False)
+        fs_watcher.watch_library(lib.id, lib.path, kind="video")
         return [lib]
 
 
@@ -175,7 +175,7 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     # Stop watcher first so no new file records are inserted while we clean up
     from app.services import fs_watcher
 
-    fs_watcher.unwatch_library(library_id)
+    fs_watcher.unwatch_library(library_id, kind="video")
     # Signal any running jobs for this library to stop
     active_jobs = (
         db.query(Job)

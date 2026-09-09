@@ -62,7 +62,7 @@ def create_image_library(body: ImageLibraryCreate, db: Session = Depends(get_db)
     db.refresh(lib)
     from app.services import fs_watcher
 
-    fs_watcher.watch_library(lib.id, lib.path, is_image=True)
+    fs_watcher.watch_library(lib.id, lib.path, kind="image")
     return _to_read(lib, db)
 
 
@@ -102,7 +102,7 @@ def delete_image_library(
     # Stop watcher first so no new image records are inserted while we clean up
     from app.services import fs_watcher
 
-    fs_watcher.unwatch_library(library_id, is_image=True)
+    fs_watcher.unwatch_library(library_id, kind="image")
 
     active_jobs = (
         db.query(Job)

@@ -14,6 +14,9 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
+from typing import Literal
+
+from app.services.audio_scanner import AUDIO_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +42,14 @@ _VIDEO_EXTS = {
 }
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".heic", ".heif"}
 
-# Keyed by (is_image, library_id) — video and image library IDs both start at 1
-# and would otherwise collide, silently leaving image libraries unwatched.
-_Key = tuple[bool, int]
+# Keyed by (kind, library_id) — video, image and audio library IDs all start at
+# 1 and would otherwise collide, silently leaving libraries unwatched. The kind
+# string is the discriminator.
+Kind = Literal["video", "image", "audio"]
+_Key = tuple[Kind, int]
 
 _observer = None
-_handles: dict[_Key, object] = {}  # (is_image, library_id) -> watchdog watch handle
+_handles: dict[_Key, object] = {}  # (kind, library_id) -> watchdog watch handle
 _lock = threading.Lock()
 
 
@@ -55,7 +60,7 @@ class _Pending:
     deleted: set[str] = field(default_factory=set)
 
 
-_pending: dict[_Key, _Pending] = {}  # (is_image, library_id) -> pending state
+_pending: dict[_Key, _Pending] = {}  # (kind, library_id) -> pending state
 
 # Belt-and-braces sweep so drift can't accumulate when fs events are missed
 # entirely (inotify queue overflow, a filesystem that doesn't report to
@@ -100,7 +105,7 @@ def shutdown() -> None:
 
 def _fire(key: _Key) -> None:
     """Called from threading.Timer — already in its own thread, just run directly."""
-    is_image, library_id = key
+    kind, library_id = key
     with _lock:
         p = _pending.pop(key, None)
     if not p:
@@ -111,8 +116,10 @@ def _fire(key: _Key) -> None:
     if not changed and not p.deleted:
         return
     with _apply_lock:
-        if is_image:
+        if kind == "image":
             _apply_image_changes(library_id, changed)
+        elif kind == "audio":
+            _apply_audio_changes(library_id, changed)
         else:
             _apply_video_changes(library_id, changed)
 
@@ -393,11 +400,165 @@ def _apply_image_changes(library_id: int, changed: frozenset[str]) -> None:
         db.close()
 
 
+def _apply_audio_changes(library_id: int, changed: frozenset[str]) -> None:
+    """Audio analogue of _apply_video_changes: same whole-library reconcile
+    (delete sweep + disk walk for additions), minus thumbnails (audio has none)."""
+    from app.database import SessionLocal
+    from app.models.audio_file import AudioFile
+    from app.models.audio_library import AudioLibrary
+    from app.models.file import FileStatus
+    from app.services import audio_scanner
+    from app.services.common import now
+
+    db = SessionLocal()
+    try:
+        library = db.get(AudioLibrary, library_id)
+        if not library:
+            return
+
+        # Deletions — stat every row in the library, not just the paths that
+        # arrived as delete events. watchdog emits no per-file delete event for
+        # `rm -rf subdir/`, a trash move, or delete-and-recreate, so the event
+        # set is unreliable; a full existence sweep is the only thing that
+        # actually keeps the DB in step with the disk.
+        pruned = 0
+        for f in db.query(AudioFile).filter(AudioFile.library_id == library_id).all():
+            if os.path.exists(f.path):
+                continue
+            db.delete(f)
+            pruned += 1
+        db.commit()
+
+        # Additions the event stream never delivered: files that existed before
+        # the watcher started (added while the app was down, or a library that
+        # was never scanned), or events lost to an inotify queue overflow
+        # during a big copy. Mirror the delete sweep — reconcile the whole
+        # library against disk each fire, not just the event paths.
+        known = {p for (p,) in db.query(AudioFile.path).filter(AudioFile.library_id == library_id)}
+        changed = changed | (frozenset(audio_scanner._find_audio_files(library.path)) - known)
+
+        # New / modified — batch-insert every genuinely-new path in one shot
+        # (one query + one commit for the whole set) instead of a round-trip
+        # per file; a big folder copy can land hundreds of "changed" paths in
+        # a single debounced batch.
+        existing_changed = {
+            f.path: f
+            for f in db.query(AudioFile)
+            .filter(AudioFile.library_id == library_id, AudioFile.path.in_(changed))
+            .all()
+        }
+        new_paths = [p for p in changed if p not in existing_changed and os.path.exists(p)]
+        new_path_set = set(new_paths)
+        if new_paths:
+            db.expire(library)
+            if db.get(AudioLibrary, library_id) is None:
+                return
+            new_objs = [
+                AudioFile(
+                    library_id=library_id,
+                    path=path,
+                    filename=os.path.basename(path),
+                    extension=os.path.splitext(path)[1].lower(),
+                    status=FileStatus.UNKNOWN,
+                )
+                for path in new_paths
+            ]
+            db.add_all(new_objs)
+            db.commit()
+            for obj in new_objs:
+                existing_changed[obj.path] = obj
+
+        for path in changed:
+            if not os.path.exists(path):
+                continue
+            f = existing_changed.get(path)
+            if f is None:
+                # Existed neither in the DB nor at the batch-insert check above
+                # (e.g. it appeared between the two os.path.exists calls) —
+                # skip for now, the next debounce cycle will pick it up.
+                continue
+            is_new = path in new_path_set
+
+            before = (
+                f.size,
+                f.duration,
+                f.codec_name,
+                f.bitrate,
+                f.sample_rate,
+                f.channels,
+                f.channel_layout,
+                f.file_date,
+                f.file_mtime,
+            )
+
+            meta = audio_scanner._probe_audio_metadata(path)
+            if meta["size"] is not None:
+                f.size = meta["size"]
+            if meta["probe_ok"]:
+                for key in (
+                    "duration",
+                    "codec_name",
+                    "bitrate",
+                    "sample_rate",
+                    "channels",
+                    "channel_layout",
+                ):
+                    setattr(f, key, meta[key])
+                f.status = FileStatus.DONE
+                f.scan_error = None
+            else:
+                f.status = FileStatus.UNKNOWN
+                f.scan_error = "ffprobe failed"
+            f.file_mtime = meta["file_mtime"]
+            f.file_date = meta["file_date"]
+
+            after = (
+                f.size,
+                f.duration,
+                f.codec_name,
+                f.bitrate,
+                f.sample_rate,
+                f.channels,
+                f.channel_layout,
+                f.file_date,
+                f.file_mtime,
+            )
+
+            if is_new or before != after:
+                f.scanned_at = now()
+                db.commit()
+            else:
+                # Re-probed values are identical — a spurious fs event (e.g.
+                # another process touching the file's mtime with no real
+                # content change). Discard the no-op assignments so the flush
+                # doesn't bump AudioFile.updated_at and falsely signal "changed"
+                # to every page watching this library's SSE stream.
+                db.rollback()
+
+        if changed or pruned:
+            library.last_scanned_at = now()
+            db.commit()
+            logger.info(
+                "Watcher: audio library %d — %d changed, %d pruned",
+                library_id,
+                len(changed),
+                pruned,
+            )
+    except Exception:
+        logger.exception("Watcher: error in audio incremental scan for library %d", library_id)
+    finally:
+        db.close()
+
+
 class _Handler:
-    def __init__(self, library_id: int, is_image: bool) -> None:
+    def __init__(self, library_id: int, kind: Kind) -> None:
         self.library_id = library_id
-        self.is_image = is_image
-        self.valid_exts = _IMAGE_EXTS if is_image else _VIDEO_EXTS
+        self.kind = kind
+        self.valid_exts = {
+            "video": _VIDEO_EXTS,
+            "image": _IMAGE_EXTS,
+            "audio": AUDIO_EXTENSIONS,
+        }[kind]
 
     def _is_relevant(self, path: str) -> bool:
         norm = path.replace("\\", "/")
@@ -411,7 +572,7 @@ class _Handler:
     def _record(self, path: str, deleted: bool) -> None:
         if not self._is_relevant(path):
             return
-        key: _Key = (self.is_image, self.library_id)
+        key: _Key = (self.kind, self.library_id)
         with _lock:
             p = _pending.setdefault(key, _Pending())
             if deleted:
@@ -446,21 +607,21 @@ class _Handler:
         # event, which schedules another _fire.
 
 
-def watch_library(library_id: int, path: str, is_image: bool) -> None:
+def watch_library(library_id: int, path: str, kind: Kind = "video") -> None:
     if _observer is None:
         return
-    key: _Key = (is_image, library_id)
+    key: _Key = (kind, library_id)
     with _lock:
         if key in _handles:
             return
-        handler = _Handler(library_id, is_image)
+        handler = _Handler(library_id, kind)
         handle = _observer.schedule(handler, path, recursive=True)
         _handles[key] = handle
-    logger.info("Watching %s library %d → %s", "image" if is_image else "video", library_id, path)
+    logger.info("Watching %s library %d → %s", kind, library_id, path)
 
 
-def unwatch_library(library_id: int, is_image: bool = False) -> None:
-    key: _Key = (is_image, library_id)
+def unwatch_library(library_id: int, kind: Kind = "video") -> None:
+    key: _Key = (kind, library_id)
     with _lock:
         handle = _handles.pop(key, None)
         p = _pending.pop(key, None)
@@ -471,11 +632,12 @@ def unwatch_library(library_id: int, is_image: bool = False) -> None:
             _observer.unschedule(handle)
         except Exception:
             pass
-    logger.info("Unwatched %s library %d", "image" if is_image else "video", library_id)
+    logger.info("Unwatched %s library %d", kind, library_id)
 
 
 def watch_all_libraries() -> None:
     from app.database import SessionLocal
+    from app.models.audio_library import AudioLibrary
     from app.models.image_library import ImageLibrary
     from app.models.library import Library
 
@@ -483,10 +645,13 @@ def watch_all_libraries() -> None:
     try:
         for lib in db.query(Library).all():
             if os.path.isdir(lib.path):
-                watch_library(lib.id, lib.path, is_image=False)
+                watch_library(lib.id, lib.path, kind="video")
         for lib in db.query(ImageLibrary).all():
             if os.path.isdir(lib.path):
-                watch_library(lib.id, lib.path, is_image=True)
+                watch_library(lib.id, lib.path, kind="image")
+        for lib in db.query(AudioLibrary).all():
+            if os.path.isdir(lib.path):
+                watch_library(lib.id, lib.path, kind="audio")
     finally:
         db.close()
 
@@ -504,6 +669,7 @@ def reconcile_all() -> None:
     fire does, but for all libraries and triggered by a timer instead of an
     fs event. Safe to call anytime; serialized against live fires by _apply_lock."""
     from app.database import SessionLocal
+    from app.models.audio_library import AudioLibrary
     from app.models.image_library import ImageLibrary
     from app.models.library import Library
 
@@ -511,6 +677,7 @@ def reconcile_all() -> None:
     try:
         videos = [lib.id for lib in db.query(Library).all() if os.path.isdir(lib.path)]
         images = [lib.id for lib in db.query(ImageLibrary).all() if os.path.isdir(lib.path)]
+        audios = [lib.id for lib in db.query(AudioLibrary).all() if os.path.isdir(lib.path)]
     finally:
         db.close()
 
@@ -519,6 +686,8 @@ def reconcile_all() -> None:
             _apply_video_changes(lid, frozenset())
         for lid in images:
             _apply_image_changes(lid, frozenset())
+        for lid in audios:
+            _apply_audio_changes(lid, frozenset())
 
 
 def _reconcile_loop() -> None:

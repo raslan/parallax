@@ -51,6 +51,7 @@ def list_audio_libraries(db: Session = Depends(get_db)):
 @router.post("", response_model=AudioLibraryRead, status_code=201)
 async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(get_db)):
     from app.queue import enqueue
+    from app.services import fs_watcher
     from app.services.audio_scanner import scan_audio_library
 
     if body.split_into_sublibraries:
@@ -73,7 +74,7 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
             db.add(lib)
             db.commit()
             db.refresh(lib)
-            # TODO(task 9): fs_watcher.watch_library(lib.id, lib.path, kind="audio")
+            fs_watcher.watch_library(lib.id, lib.path, kind="audio")
             job = Job(type=JobType.AUDIO_SCAN, status=JobStatus.PENDING, library_id=lib.id)
             db.add(job)
             db.commit()
@@ -94,7 +95,7 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
     db.add(lib)
     db.commit()
     db.refresh(lib)
-    # TODO(task 9): fs_watcher.watch_library(lib.id, lib.path, kind="audio")
+    fs_watcher.watch_library(lib.id, lib.path, kind="audio")
     job = Job(type=JobType.AUDIO_SCAN, status=JobStatus.PENDING, library_id=lib.id)
     db.add(job)
     db.commit()
@@ -151,7 +152,9 @@ def delete_audio_library(
         raise HTTPException(404, "Library not found")
 
     # Stop watcher first so no new audio records are inserted while we clean up
-    # TODO(task 9): fs_watcher.unwatch_library(library_id, kind="audio")
+    from app.services import fs_watcher
+
+    fs_watcher.unwatch_library(library_id, kind="audio")
 
     active_jobs = (
         db.query(Job)
