@@ -229,3 +229,52 @@ class ClearGalleriesRequest(BaseModel):
 
 class UrlFileBody(BaseModel):
     text: str = ""
+
+
+# ── Audio library schemas ────────────────────────────────────────────────────
+
+
+class AudioLibraryCreate(BaseModel):
+    name: str = ""
+    path: str
+    split_into_sublibraries: bool = False
+
+
+class AudioLibraryRead(BaseModel):
+    id: int
+    name: str
+    path: str
+    created_at: datetime
+    last_scanned_at: datetime | None = None
+    file_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class AudioLibraryUpdate(BaseModel):
+    name: str | None = None
+    scan_automatically: bool | None = None
+
+
+class AudioFileRead(BaseModel):
+    id: int
+    library_id: int
+    path: str
+    filename: str
+    extension: str | None = None
+    size: int
+    duration: float | None = None
+    codec_name: str | None = None
+    bitrate: int | None = None
+    sample_rate: int | None = None
+    channels: int | None = None
+    channel_layout: str | None = None
+    file_date: float | None = None
+    file_mtime: float | None = None
+    status: str
+    scan_error: str | None = None
+    scanned_at: datetime | None = None
+    compressed_at: datetime | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
