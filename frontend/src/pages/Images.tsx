@@ -292,7 +292,7 @@ export function Images() {
       )}
 
       {selectionMode && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-xl">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-xl">
           {selectedIds.size === 0 ? (
             <span className="text-sm text-muted-foreground">Click images to select</span>
           ) : (

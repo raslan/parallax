@@ -10,7 +10,7 @@ export function Layout() {
   const [sheetSection, setSheetSection] = useState<SectionId | null>(null);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden md:flex" />

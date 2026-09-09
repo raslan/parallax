@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
+import { SECTIONS } from "./nav-config";
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
@@ -52,7 +53,7 @@ describe("Header", () => {
     const nav = screen.getByRole("navigation");
     // one <a> per section
     const links = nav.querySelectorAll("a[data-active]");
-    expect(links.length).toBe(3); // SECTIONS.length today
+    expect(links.length).toBe(SECTIONS.length);
   });
 
   it("has no open-navigation hamburger", () => {

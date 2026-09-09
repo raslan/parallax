@@ -9,7 +9,7 @@ export function BottomBar({ onOpenSection }: { onOpenSection: (id: SectionId) =>
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t bg-[hsl(var(--sidebar))] border-[hsl(var(--sidebar-border))] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t bg-[hsl(var(--sidebar))] border-[hsl(var(--sidebar-border))] pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label="Sections"
     >
       {SECTIONS.map((s) => (

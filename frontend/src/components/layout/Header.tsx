@@ -44,11 +44,12 @@ export function Header() {
           <Link
             key={s.id}
             to={s.items[0]!.to}
+            aria-label={s.label}
             data-active={String(activeTab === s.id)}
             aria-current={activeTab === s.id ? "page" : undefined}
             style={{ width: `${pct}%` }}
             className={cn(
-              "relative z-10 flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+              "relative z-10 flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
               activeTab === s.id
                 ? "text-primary font-medium"
                 : "text-muted-foreground hover:text-foreground",

@@ -490,7 +490,7 @@ export function Identify() {
       </div>
 
       {workReady && (
-        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center justify-between gap-3 border-t border-border bg-[var(--px-bg-base)]/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
+        <div className="sticky bottom-14 md:bottom-0 z-10 -mx-4 mt-4 flex items-center justify-between gap-3 border-t border-border bg-[var(--px-bg-base)]/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
           <p className="text-sm text-muted-foreground">
             {mode === "custom" ? (
               <>
