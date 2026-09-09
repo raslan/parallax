@@ -213,6 +213,16 @@ def scan_audio_library(library_id: int, job_id: int) -> None:
         log(db, job_id, f"Scanning audio library: {library.path}")
         audio_paths = _find_audio_files(library.path)
 
+        # File walk is done — the library may have been deleted while we walked;
+        # bail before entering the slow per-file loop (parity with scan_library).
+        db.expire_all()
+        if db.get(AudioLibrary, library_id) is None:
+            job.status = JobStatus.CANCELLED
+            job.error = "Library was deleted"
+            job.finished_at = now()
+            db.commit()
+            return
+
         arm_cancel(job_id)
         if should_cancel(job_id):
             job.status = JobStatus.CANCELLED

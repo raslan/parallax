@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.audio_libraries import router as audio_libraries_router
 from app.api.compress import router as compress_router
 from app.api.downloads import router as downloads_router
 from app.api.files import router as files_router
@@ -258,6 +259,7 @@ app.add_middleware(
 
 app.include_router(health_router, prefix="/api")
 app.include_router(libraries_router, prefix="/api")
+app.include_router(audio_libraries_router, prefix="/api")
 app.include_router(files_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
