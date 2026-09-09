@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.audio_compress import router as audio_compress_router
 from app.api.audio_files import router as audio_files_router
 from app.api.audio_libraries import router as audio_libraries_router
+from app.api.audio_originals import router as audio_originals_router
 from app.api.compress import router as compress_router
 from app.api.downloads import router as downloads_router
 from app.api.files import router as files_router
@@ -267,6 +268,7 @@ app.include_router(audio_files_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(originals_router, prefix="/api")
+app.include_router(audio_originals_router, prefix="/api")
 app.include_router(identify_router, prefix="/api")
 app.include_router(image_libraries_router, prefix="/api")
 app.include_router(images_router, prefix="/api")

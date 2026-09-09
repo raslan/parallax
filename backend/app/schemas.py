@@ -46,6 +46,24 @@ class LibraryUpdate(BaseModel):
     name: str | None = None
 
 
+class OriginalEntry(BaseModel):
+    path: str
+    filename: str
+    library_id: int
+    library_name: str
+    original_size: int
+    current_path: str | None
+    current_size: int | None
+    savings_bytes: int | None  # negative means the transcode made it larger
+
+
+class OriginalsSummary(BaseModel):
+    entries: list[OriginalEntry]
+    total_original_bytes: int
+    total_current_bytes: int
+    total_savings_bytes: int
+
+
 class FileRead(BaseModel):
     id: int
     library_id: int

@@ -1,8 +1,8 @@
-"""Video Originals router — thin wrapper over `services.originals_common`.
+"""Audio Originals router — thin wrapper over `services.originals_common`.
 
-All the `_originals/` path logic lives in `originals_common`; this module is
-just the video `OriginalsKind` config plus route wiring. The audio equivalent
-is `api/audio_originals.py`.
+Mirror of `api/originals.py` with the audio `OriginalsKind` config and routes
+under `/audio-originals`. All `_originals/` path logic lives in
+`originals_common`.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,20 +10,21 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.file import File
-from app.models.library import Library
+from app.models.audio_file import AudioFile
+from app.models.audio_library import AudioLibrary
 from app.schemas import OriginalsSummary
 from app.services import originals_common
+from app.services.audio_scanner import rescan_audio_file
 from app.services.originals_common import OriginalsKind
-from app.services.scanner import rescan_file
 
-router = APIRouter(prefix="/originals", tags=["originals"])
+router = APIRouter(prefix="/audio-originals", tags=["audio-originals"])
 
-VIDEO_ORIGINALS = OriginalsKind(
-    library_model=Library,
-    file_model=File,
-    rescan_fn=rescan_file,
-    route_prefix="/originals",
+AUDIO_ORIGINALS = OriginalsKind(
+    library_model=AudioLibrary,
+    file_model=AudioFile,
+    rescan_fn=rescan_audio_file,
+    route_prefix="/audio-originals",
+    reset_at_field="compressed_at",
 )
 
 
@@ -37,7 +38,7 @@ class BulkOriginalPathsRequest(BaseModel):
 
 @router.get("", response_model=OriginalsSummary)
 def list_originals(library_id: int | None = None, db: Session = Depends(get_db)):
-    kind = VIDEO_ORIGINALS
+    kind = AUDIO_ORIGINALS
     if library_id is not None:
         lib = db.get(kind.library_model, library_id)
         if not lib:
@@ -60,7 +61,7 @@ def delete_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
 
 @router.post("/restore", status_code=200)
 def restore_original(body: OriginalPathRequest, db: Session = Depends(get_db)):
-    restore_path = originals_common.restore_one(VIDEO_ORIGINALS, db, body.path)
+    restore_path = originals_common.restore_one(AUDIO_ORIGINALS, db, body.path)
     return {"message": "Restored", "path": restore_path}
 
 
@@ -70,7 +71,7 @@ def restore_originals_batch(body: BulkOriginalPathsRequest, db: Session = Depend
     failed: list[dict] = []
     for path in body.paths:
         try:
-            originals_common.restore_one(VIDEO_ORIGINALS, db, path)
+            originals_common.restore_one(AUDIO_ORIGINALS, db, path)
             restored += 1
         except HTTPException as e:
             failed.append({"path": path, "error": e.detail})
@@ -81,4 +82,4 @@ def restore_originals_batch(body: BulkOriginalPathsRequest, db: Session = Depend
 
 @router.delete("/library/{library_id}", status_code=204)
 def delete_library_originals(library_id: int, db: Session = Depends(get_db)):
-    originals_common.delete_library_originals(VIDEO_ORIGINALS, db, library_id)
+    originals_common.delete_library_originals(AUDIO_ORIGINALS, db, library_id)
