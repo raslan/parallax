@@ -16,6 +16,21 @@ import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
 import { audioSavingsPct } from "@/lib/audioCompress";
 
+// Tier colours run worst → best (higher bitrate = better, opposite of CRF).
+const TIER_COLORS = ["text-orange-400", "text-yellow-400", "text-green-400", "text-emerald-400"];
+function getBitrateTier(
+  codec: AudioCodec | undefined,
+  bitrate: number,
+): { label: string; color: string } {
+  if (!codec || codec.tiers.length === 0) return { label: "", color: "text-muted-foreground" };
+  let idx = codec.tiers.findIndex((t) => bitrate <= t.max_kbps);
+  if (idx === -1) idx = codec.tiers.length - 1;
+  return {
+    label: codec.tiers[idx]!.label,
+    color: TIER_COLORS[Math.min(idx, TIER_COLORS.length - 1)]!,
+  };
+}
+
 export function AudioEstimatePanel({
   libraries,
   libraryId,
@@ -30,6 +45,8 @@ export function AudioEstimatePanel({
   selectedCount,
   currentBytes,
   estimatedBytes,
+  libraryBytes,
+  libraryEstBytes,
 }: {
   libraries: Library[];
   libraryId: number | null;
@@ -44,26 +61,30 @@ export function AudioEstimatePanel({
   selectedCount: number;
   currentBytes: number;
   estimatedBytes: number;
+  libraryBytes: number;
+  libraryEstBytes: number;
 }) {
   const [open, setOpen] = useState(false);
   const selectedCodec = codecs.find((c) => c.id === codec);
-  const savings = audioSavingsPct(currentBytes, estimatedBytes);
+  const tier = getBitrateTier(selectedCodec, bitrate);
 
-  // The tier a chosen bitrate lands in: the first (ascending) tier it fits under.
-  const activeTierMax =
-    selectedCodec?.tiers.find((t) => bitrate <= t.max_kbps)?.max_kbps ??
-    selectedCodec?.tiers[selectedCodec.tiers.length - 1]?.max_kbps;
-
+  const useSel = selectedCount > 0;
+  const curBytes = useSel ? currentBytes : libraryBytes;
+  const estBytes = useSel ? estimatedBytes : libraryEstBytes;
+  const savings = audioSavingsPct(curBytes, estBytes);
   const estimateCards = [
     { label: "Selected", value: `${selectedCount}`, sub: `file${selectedCount !== 1 ? "s" : ""}` },
-    { label: "Current size", value: formatSize(currentBytes), sub: "for selection" },
-    { label: "Estimated output", value: formatSize(estimatedBytes), sub: "for selection" },
     {
-      label: "Estimated savings",
-      value: `−${savings}%`,
-      sub: "est. ±5%",
-      accent: savings > 0,
+      label: "Current size",
+      value: formatSize(curBytes),
+      sub: useSel ? "for selection" : "whole library",
     },
+    {
+      label: "Estimated output",
+      value: formatSize(estBytes),
+      sub: useSel ? "for selection" : "if all selected",
+    },
+    { label: "Estimated savings", value: `−${savings}%`, sub: "est. ±5%", accent: savings > 0 },
   ];
 
   return (
@@ -165,6 +186,9 @@ export function AudioEstimatePanel({
                     {bitrate}
                   </span>
                   <span className="text-sm text-muted-foreground">kbps</span>
+                  {tier.label && (
+                    <span className={cn("text-sm font-medium", tier.color)}>({tier.label})</span>
+                  )}
                 </div>
                 <Slider
                   min={selectedCodec?.bitrate_min ?? 32}
@@ -205,25 +229,6 @@ export function AudioEstimatePanel({
                 </div>
               ))}
             </div>
-
-            {/* Tier table */}
-            {selectedCodec && (
-              <div className="overflow-hidden rounded-lg border border-border/50">
-                {selectedCodec.tiers.map((t) => (
-                  <div
-                    key={t.max_kbps}
-                    className={cn(
-                      "px-4 py-2 text-xs",
-                      t.max_kbps === activeTierMax
-                        ? "bg-primary/10 text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    <span className="font-mono">≤{t.max_kbps}k</span> · {t.label}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </SheetContent>
       </Sheet>

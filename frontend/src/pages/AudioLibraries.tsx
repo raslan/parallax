@@ -2,9 +2,12 @@ import { AudioLines, ScanLine } from "lucide-react";
 import { audioLibrariesApi, qk } from "@/lib/api";
 import type { AudioLibrary } from "@/types/audio";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LibraryManagerPage } from "@/components/libraries/LibraryManagerPage";
 import { AddLibraryDialog } from "@/components/libraries/AddLibraryDialog";
 import type { AddDialogProps, LibraryKind, ScanControlProps } from "@/components/libraries/types";
+
+const AUDIO_ADD_EXTRA = { split: false };
 
 function AudioScanControl({ libraryId, scanning, onScanned }: ScanControlProps) {
   const scan = async () => {
@@ -32,18 +35,44 @@ function AudioScanControl({ libraryId, scanning, onScanned }: ScanControlProps) 
 
 function AudioAddDialog({ open, onOpenChange, onCreated }: AddDialogProps) {
   return (
-    <AddLibraryDialog<Record<string, never>>
+    <AddLibraryDialog<{ split: boolean }>
       open={open}
       onOpenChange={onOpenChange}
       onCreated={onCreated}
       title="Add Audio Library"
       placeholder="/media/audio"
       autoScanHint="Automatically index audio as soon as the library is created."
-      extraDefault={{}}
-      submitLabel={() => "Add Library"}
-      onSubmit={async ({ path, autoScan }) => {
-        const lib = await audioLibrariesApi.createLibrary({ path });
-        if (autoScan) await audioLibrariesApi.scanLibrary(lib.id).catch(() => {});
+      extraDefault={AUDIO_ADD_EXTRA}
+      submitLabel={(e) => (e.split ? "Add Libraries" : "Add Library")}
+      renderExtra={(extra, setExtra) => (
+        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <Checkbox
+            checked={extra.split}
+            onCheckedChange={(c) => setExtra({ split: c === true })}
+            className="mt-0.5 shrink-0"
+          />
+          <div>
+            <p className="text-sm font-medium">Split into sub-libraries</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Create one library per immediate subdirectory, named after each folder. Files belong
+              only to their parent folder's library.
+            </p>
+          </div>
+        </label>
+      )}
+      onSubmit={async ({ path, extra, autoScan }) => {
+        const parts = path.split("/").filter(Boolean);
+        const derivedName = parts.length > 0 ? parts[parts.length - 1]! : "";
+        const created = await audioLibrariesApi.createLibrary({
+          name: derivedName,
+          path,
+          split_into_sublibraries: extra.split,
+        });
+        if (autoScan) {
+          await Promise.all(
+            created.map((lib) => audioLibrariesApi.scanLibrary(lib.id).catch(() => {})),
+          );
+        }
       }}
     />
   );

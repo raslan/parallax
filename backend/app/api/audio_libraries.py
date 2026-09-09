@@ -48,7 +48,7 @@ def list_audio_libraries(db: Session = Depends(get_db)):
     return _with_counts(libs, db)
 
 
-@router.post("", response_model=AudioLibraryRead, status_code=201)
+@router.post("", response_model=list[AudioLibraryRead], status_code=201)
 async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(get_db)):
     from app.services import fs_watcher
 
@@ -76,7 +76,7 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
             created.append(lib)
         if not created:
             raise HTTPException(409, "All sublibraries already exist")
-        return _to_read(created[0], db)
+        return _with_counts(created, db)
 
     if not os.path.isdir(body.path):
         raise HTTPException(400, "Path does not exist or is not a directory")
@@ -89,7 +89,7 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
     db.commit()
     db.refresh(lib)
     fs_watcher.watch_library(lib.id, lib.path, kind="audio")
-    return _to_read(lib, db)
+    return _with_counts([lib], db)
 
 
 @router.patch("/{library_id}", response_model=AudioLibraryRead)

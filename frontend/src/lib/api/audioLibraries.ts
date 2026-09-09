@@ -4,8 +4,8 @@ import type { AudioLibrary } from "@/types/audio";
 export const audioLibrariesApi = {
   listLibraries: () => req<AudioLibrary[]>("/audio-libraries"),
 
-  createLibrary: (body: { path: string; split_into_sublibraries?: boolean }) =>
-    req<AudioLibrary>("/audio-libraries", { method: "POST", body: JSON.stringify(body) }),
+  createLibrary: (body: { name?: string; path: string; split_into_sublibraries?: boolean }) =>
+    req<AudioLibrary[]>("/audio-libraries", { method: "POST", body: JSON.stringify(body) }),
 
   updateLibrary: (id: number, body: { name?: string; scan_automatically?: boolean }) =>
     req<AudioLibrary>(`/audio-libraries/${id}`, { method: "PATCH", body: JSON.stringify(body) }),

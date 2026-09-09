@@ -149,6 +149,12 @@ export function AudioCompress() {
     0,
   );
 
+  const libraryBytes = (filteredFiles ?? []).reduce((s, f) => s + f.size, 0);
+  const libraryEstBytes = (filteredFiles ?? []).reduce(
+    (s, f) => s + estimateAudioSize(f.duration, bitrate),
+    0,
+  );
+
   const selectLargerThanTarget = () => {
     if (!filteredFiles) return;
     selectNone();
@@ -242,9 +248,11 @@ export function AudioCompress() {
         onBitrateChange={setBitrate}
         keepOriginal={keepOriginal}
         onKeepOriginalChange={setKeepOriginal}
-        selectedCount={selected.size}
+        selectedCount={selectedFiles.length}
         currentBytes={currentBytes}
         estimatedBytes={estimatedBytes}
+        libraryBytes={libraryBytes}
+        libraryEstBytes={libraryEstBytes}
       />
 
       {(isRunning || isDone) && jobId != null && (
