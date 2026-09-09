@@ -110,13 +110,38 @@ def test_build_ytdlp_cmd_group_by_uploader_toggles_dir_segment():
     grouped = build_ytdlp_cmd("http://x/v", "/out", {"group_by_uploader": True})
     assert _output_template(grouped) == "/out/%(uploader,channel,Unknown)s/%(title)s.%(ext)s"
 
-    # A collision-avoidance title override keeps a literal filename, templated dir
-    grouped_override = build_ytdlp_cmd(
-        "http://x/v", "/out", {"group_by_uploader": True, "_output_title_override": "My Vid (2)"}
+    # Collision avoidance appends only a ` (N)` counter — the title stays
+    # `%(title)s` so yt-dlp sanitises it (a raw `/` in a title must never reach
+    # `-o` as a literal or yt-dlp splits it into a folder).
+    grouped_suffix = build_ytdlp_cmd(
+        "http://x/v", "/out", {"group_by_uploader": True, "_output_title_suffix": " (2)"}
     )
     assert (
-        _output_template(grouped_override) == "/out/%(uploader,channel,Unknown)s/My Vid (2).%(ext)s"
+        _output_template(grouped_suffix)
+        == "/out/%(uploader,channel,Unknown)s/%(title)s (2).%(ext)s"
     )
+
+
+def test_build_ytdlp_cmd_never_puts_raw_title_in_output_template():
+    from app.services.downloader import build_ytdlp_cmd
+
+    # No option carries the title into `-o`; the filename is always `%(title)s`.
+    tmpl = _output_template(
+        build_ytdlp_cmd("http://x/v", "/out", {"_output_title_override": "AC/DC – Live"})
+    )
+    assert tmpl == "/out/%(title)s.%(ext)s"
+    assert "AC/DC" not in tmpl
+
+
+def test_collision_suffix_returns_counter_not_title(tmp_path):
+    from app.services.downloader import _collision_suffix
+
+    assert _collision_suffix(str(tmp_path), "Some Title") == ""
+    # yt-dlp writes `/` as U+29F8 — seed a matching on-disk name.
+    (tmp_path / "AC⧸DC – Live.mp3").write_bytes(b"x")
+    assert _collision_suffix(str(tmp_path), "AC/DC – Live") == " (1)"
+    (tmp_path / "AC⧸DC – Live (1).m4a").write_bytes(b"x")
+    assert _collision_suffix(str(tmp_path), "AC/DC – Live") == " (2)"
 
 
 def test_build_ytdlp_cmd_always_embeds_chapters():

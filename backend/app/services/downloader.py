@@ -170,14 +170,16 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     # date and players get chapter markers.
     cmd += ["--embed-metadata", "--embed-chapters"]
 
-    # Output template
-    # _output_title_override is injected by _run_download_sync for collision avoidance.
+    # Output template. The filename is always `%(title)s` so yt-dlp sanitises it
+    # (`/` → ⧸, `\` → ⧹, control chars stripped) — a raw title with a slash must
+    # never reach `-o` as a literal or yt-dlp splits it into a folder. Collision
+    # avoidance appends only a ` (N)` counter via `_output_title_suffix`.
     # group_by_uploader nests each file under an %(uploader)s/ dir — templated dir
-    # part, literal filename; yt-dlp expands the dir per video. Unknown uploader
-    # (non-YouTube sources) falls back to an "Unknown" folder.
-    output_title = options.get("_output_title_override") or "%(title)s"
+    # part; yt-dlp expands the dir per video. Unknown uploader (non-YouTube
+    # sources) falls back to an "Unknown" folder.
+    title_suffix = options.get("_output_title_suffix") or ""
     uploader_dir = "%(uploader,channel,Unknown)s/" if options.get("group_by_uploader") else ""
-    cmd += ["-o", f"{output_dir}/{uploader_dir}{output_title}.%(ext)s"]
+    cmd += ["-o", f"{output_dir}/{uploader_dir}%(title)s{title_suffix}.%(ext)s"]
 
     # Format / quality selection
     if audio_only:
@@ -430,19 +432,28 @@ def _parse_output_path(line: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def _unique_output_title(output_dir: str, title: str | None) -> str | None:
-    """Return title (possibly with ` (N)` suffix) if a file with that title already exists."""
+def _collision_suffix(output_dir: str, title: str | None) -> str:
+    """Return a ` (N)` suffix if a file with this title already exists, else "".
+
+    The suffix is appended to a `%(title)s` output template as a *literal*, so it
+    must never contain path separators — hence a counter rather than the whole
+    (sanitised) title. yt-dlp itself sanitises `%(title)s` (`/` → `⧸`, `\\` → `⧹`,
+    control chars stripped), which is why the title is left to the template and
+    only the counter is injected here.
+    """
     import unicodedata
 
     if not title or not output_dir or not os.path.isdir(output_dir):
-        return title
+        return ""
     try:
         existing = os.listdir(output_dir)
     except OSError:
-        return title
+        return ""
 
     def _sanitize(s: str) -> str:
-        return unicodedata.normalize("NFC", s).replace("/", "_").strip()
+        # Match what yt-dlp actually writes to disk so the collision check sees
+        # the same names it produced (`/` → U+29F8, `\` → U+29F9).
+        return unicodedata.normalize("NFC", s).replace("/", "⧸").replace("\\", "⧹").strip()
 
     def _collides(candidate: str) -> bool:
         sc = _sanitize(candidate)
@@ -453,13 +464,11 @@ def _unique_output_title(output_dir: str, title: str | None) -> str | None:
         )
 
     if not _collides(title):
-        return title
+        return ""
     n = 1
-    while True:
-        numbered = f"{title} ({n})"
-        if not _collides(numbered):
-            return numbered
+    while _collides(f"{title} ({n})"):
         n += 1
+    return f" ({n})"
 
 
 # ---------------------------------------------------------------------------
@@ -550,12 +559,11 @@ def _run_download_sync(download_id: int) -> None:
                     trim_duration_s = None
         except Exception:
             pass
-        # Inject collision-free title so duplicate-URL titles get (1), (2) suffixes
-        unique_title = _unique_output_title(download.output_dir, download.title)
-        if unique_title and unique_title != download.title:
-            options["_output_title_override"] = unique_title
-        elif download.title:
-            options["_output_title_override"] = download.title
+        # Inject a ` (N)` suffix so a duplicate-URL re-download doesn't overwrite;
+        # the title itself stays `%(title)s` in the template (yt-dlp sanitises it).
+        suffix = _collision_suffix(download.output_dir, download.title)
+        if suffix:
+            options["_output_title_suffix"] = suffix
         try:
             cmd = build_ytdlp_cmd(download.url, download.output_dir, options)
         except Exception as exc:
