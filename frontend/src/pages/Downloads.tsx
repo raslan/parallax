@@ -34,6 +34,32 @@ import { cn } from "@/lib/utils";
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+/** Map a persisted (possibly legacy "off"/"auto"/"origin") referer mode to the current enum. */
+function loadRefererMode(): "none" | "site" | "url" | "custom" {
+  switch (sessionStorage.getItem("dl_referer_mode")) {
+    case "origin":
+    case "site":
+      return "site";
+    case "auto":
+    case "url":
+      return "url";
+    case "custom":
+      return "custom";
+    default:
+      return "none";
+  }
+}
+
+/** Split a persisted yt-dlp rate string (e.g. "100K", "1.5M") into value + unit. */
+function loadThrottledRate(): { value: string; unit: "K" | "M" | "G" } {
+  const m = (sessionStorage.getItem("dl_throttled_rate") ?? "").match(/^(\d*\.?\d*)\s*([KMG])?/i);
+  const unit = m?.[2]?.toUpperCase();
+  return {
+    value: m?.[1] ?? "",
+    unit: unit === "K" || unit === "G" ? unit : "M",
+  };
+}
+
 export function Downloads() {
   const [urlInput, setUrlInput] = useState("");
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
@@ -66,11 +92,11 @@ export function Downloads() {
       extraArgs: sessionStorage.getItem("dl_extra_args") ?? "",
       impersonate: sessionStorage.getItem("dl_impersonate") ?? "",
       concurrentFragments: 4,
-      refererMode:
-        (sessionStorage.getItem("dl_referer_mode") as "off" | "auto" | "origin" | null) ?? "off",
+      refererMode: loadRefererMode(),
       referer: sessionStorage.getItem("dl_referer") ?? "",
-      throttledRate: sessionStorage.getItem("dl_throttled_rate") ?? "",
-      limitRate: sessionStorage.getItem("dl_limit_rate") ?? "",
+      throttledRateValue: loadThrottledRate().value,
+      throttledRateUnit: loadThrottledRate().unit,
+      groupByUploader: false,
     },
   });
   // Persist cookies to sessionStorage
@@ -88,8 +114,10 @@ export function Downloads() {
       put("dl_extra_args", v.extraArgs);
       put("dl_referer_mode", v.refererMode);
       put("dl_referer", v.referer);
-      put("dl_throttled_rate", v.throttledRate);
-      put("dl_limit_rate", v.limitRate);
+      put(
+        "dl_throttled_rate",
+        v.throttledRateValue ? `${v.throttledRateValue}${v.throttledRateUnit}` : "",
+      );
     });
     return () => sub.unsubscribe();
   }, [optsForm]);
@@ -119,8 +147,15 @@ export function Downloads() {
       setSubmitError(null);
       try {
         const opts = optsForm.getValues();
-        // Custom Referer wins; otherwise the mode toggle maps to a backend sentinel.
-        const referer = opts.referer.trim() || (opts.refererMode === "off" ? "" : opts.refererMode);
+        // Referer mode maps to a backend sentinel: site → "origin", url → "auto", custom → literal text.
+        const referer =
+          opts.refererMode === "site"
+            ? "origin"
+            : opts.refererMode === "url"
+              ? "auto"
+              : opts.refererMode === "custom"
+                ? opts.referer.trim()
+                : "";
         const body: DownloadRequest = {
           urls,
           output_dir: opts.outputDir || undefined,
@@ -135,9 +170,11 @@ export function Downloads() {
           impersonate: opts.impersonate || null,
           concurrent_fragments: opts.concurrentFragments,
           referer: referer || undefined,
-          throttled_rate: opts.throttledRate || undefined,
-          limit_rate: opts.limitRate || undefined,
+          throttled_rate: opts.throttledRateValue
+            ? `${opts.throttledRateValue}${opts.throttledRateUnit}`
+            : undefined,
           cookies: activeCookies || undefined,
+          group_by_uploader: opts.groupByUploader || undefined,
         };
         await api.enqueueDownloads(body);
         setUrlInput("");

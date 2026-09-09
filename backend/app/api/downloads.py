@@ -40,8 +40,8 @@ class DownloadRequest(BaseModel):
     concurrent_fragments: int = 4  # parallel fragment downloads per file (1-64)
     referer: str = ""  # Referer header; "auto"/"origin" sentinels, else literal
     throttled_rate: str = ""  # re-extract if speed drops below this (e.g. "100K")
-    limit_rate: str = ""  # cap speed (e.g. "2M")
     cookies: str = ""  # Netscape cookie text, ephemeral
+    group_by_uploader: bool = False  # nest each file in an %(uploader)s/ subfolder
 
 
 def _serialize(d: Download) -> dict:
@@ -95,8 +95,8 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
         "concurrent_fragments": req.concurrent_fragments,
         "referer": req.referer,
         "throttled_rate": req.throttled_rate,
-        "limit_rate": req.limit_rate,
         "cookies": req.cookies,
+        "group_by_uploader": req.group_by_uploader,
     }
 
     created_ids: list[int] = []

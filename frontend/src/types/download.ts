@@ -36,6 +36,6 @@ export interface DownloadRequest {
   concurrent_fragments?: number;
   referer?: string;
   throttled_rate?: string;
-  limit_rate?: string;
   cookies?: string;
+  group_by_uploader?: boolean;
 }
