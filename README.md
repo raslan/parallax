@@ -44,7 +44,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 ### General
 - **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
 - **Library delete safety** — when deleting a library that has `_originals/` or `_quarantine/` leftovers, prompts to delete them, review them, or keep them on disk
-- **Five themes** — violet (Deep Space), cyan (Modern HUD), amber (Mission Control, default), OLED, emerald (Neon Grid) — selectable in Settings → General
+- **Eight themes** in two groups — Parallax set: Parallax (default), Graphite, Nightfall, Rose Quartz, OLED · Colour set: Deep Space, Modern HUD, Neon Grid — selectable in Settings → General
 - **Grid size control** — every card grid (Files, Cleanup, Compress, Toolbox, Images) has a slider for card size, persisted globally across all pages
 
 ---

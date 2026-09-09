@@ -1,12 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { imageApi, qk } from "@/lib/api";
+import { getErrorMessage } from "@/lib/api/client";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
+import { WorkingState } from "@/components/WorkingState";
 import { formatSize } from "@/lib/format";
+import { useJobPoll } from "@/hooks/useJobPoll";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
 
@@ -189,9 +193,35 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     [clusters, allImages],
   );
 
-  const handleFind = () => {
+  const showResults = () => {
     if (threshold === appliedThreshold) refetch();
     else setAppliedThreshold(threshold);
+  };
+
+  // pHash is filled in at scan time, so images the filesystem watcher added
+  // (metadata + thumbnail only) have none and are invisible to clustering.
+  // Mirror video's find-duplicates: kick a scoped extraction job for the
+  // missing ones, then show results. missing === 0 → job finishes instantly.
+  const {
+    status: jobStatus,
+    progress: jobProgress,
+    start,
+  } = useJobPoll({
+    onTerminal: (job) => {
+      if (job.status === "completed") showResults();
+      else if (job.status === "failed" && job.error) toast.error(job.error);
+    },
+  });
+  const extracting = jobStatus === "pending" || jobStatus === "running";
+
+  const handleFind = async () => {
+    try {
+      const { job_id, missing } = await imageApi.extractPhash(libraryId);
+      if (missing > 0) start(job_id);
+      else showResults();
+    } catch (e) {
+      toast.error(getErrorMessage(e));
+    }
   };
 
   const handleQuarantine = async () => {
@@ -249,27 +279,45 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
               />
               <span className="text-xs font-mono tabular-nums w-8">{similarityPct}%</span>
             </div>
-            <Button size="sm" onClick={handleFind} disabled={loading}>
-              <ScanSearch className="h-3.5 w-3.5" />
-              Find Duplicates
+            <Button size="sm" onClick={handleFind} disabled={loading || extracting}>
+              {extracting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Extracting…
+                </>
+              ) : (
+                <>
+                  <ScanSearch className="h-3.5 w-3.5" />
+                  Find Duplicates
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {loading && (
+      {extracting && (
+        <WorkingState
+          title="Finding duplicates"
+          message="Extracting perceptual hashes…"
+          progress={jobProgress}
+        />
+      )}
+
+      {!extracting && loading && (
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
-      {!loading && clusters.length === 0 && (
+      {!extracting && !loading && clusters.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Copy className="h-10 w-10 text-muted-foreground mb-4" />
             <h3 className="font-semibold text-lg mb-1">No duplicates found</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              No duplicate images found. Make sure you've scanned with Duplicates enabled.
+              Click Find Duplicates to extract perceptual hashes for any new images and compare
+              them.
             </p>
           </CardContent>
         </Card>

@@ -367,7 +367,7 @@ export function Identify() {
   const datesUnavailable = fileDates !== null && Object.values(fileDates).every((v) => v === null);
 
   return (
-    <div className="flex min-h-full flex-col p-4 md:p-6">
+    <div className="flex min-h-full flex-col p-4 md:p-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Identify &amp; Rename</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -490,7 +490,7 @@ export function Identify() {
       </div>
 
       {workReady && (
-        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center justify-between gap-3 border-t border-border bg-[var(--px-bg-base)]/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center justify-between gap-3 border-t border-border bg-[var(--px-bg-base)]/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
           <p className="text-sm text-muted-foreground">
             {mode === "custom" ? (
               <>

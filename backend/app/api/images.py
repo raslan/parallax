@@ -11,6 +11,8 @@ from starlette.concurrency import run_in_threadpool
 
 from app.database import DATA_DIR, SessionLocal, get_db
 from app.models.image import ImageDetection, ImageFile, ImageStatus
+from app.models.image_library import ImageLibrary
+from app.models.job import Job, JobStatus, JobType
 from app.schemas import ImageDetectionRead, ImageRead, ImagesResponse
 
 
@@ -237,6 +239,89 @@ def get_image_duplicates(
         q = q.filter(ImageFile.library_id == library_id)
     images = [{"id": row[0], "phash": row[1]} for row in q.all()]
     return cluster_by_phash(images, threshold=threshold)
+
+
+@router.post("/extract-phash", status_code=202)
+async def extract_image_phash_endpoint(
+    library_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """On-demand pHash extraction for images that lack it — mirrors video's
+    POST /libraries/{id}/find-duplicates. The Duplicates page (not
+    library-scoped → no library_id) calls this, polls the job, then re-reads
+    GET /images/duplicates."""
+    if library_id is not None and not db.get(ImageLibrary, library_id):
+        raise HTTPException(404, "Library not found")
+    already = (
+        db.query(Job.id)
+        .filter(
+            Job.type == JobType.IMAGE_DUPLICATES,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .first()
+    )
+    if already:
+        raise HTTPException(409, "A pHash extraction is already running")
+
+    missing_q = db.query(func.count(ImageFile.id)).filter(
+        ImageFile.phash.is_(None),
+        ImageFile.status != ImageStatus.QUARANTINED,
+    )
+    if library_id is not None:
+        missing_q = missing_q.filter(ImageFile.library_id == library_id)
+    missing = missing_q.scalar()
+
+    job = Job(type=JobType.IMAGE_DUPLICATES, status=JobStatus.PENDING, library_id=library_id)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.queue import enqueue
+    from app.services.image_extract import extract_image_phash
+
+    await enqueue(job.id, extract_image_phash, library_id, job.id)
+    return {"job_id": job.id, "missing": missing}
+
+
+@router.post("/scan-content", status_code=202)
+async def scan_image_content_endpoint(
+    library_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """On-demand NudeNet scan for images with no detections yet — Content Review
+    calls this (no library_id → all image libraries), polls the job, then
+    re-reads its filtered list."""
+    if library_id is not None and not db.get(ImageLibrary, library_id):
+        raise HTTPException(404, "Library not found")
+    already = (
+        db.query(Job.id)
+        .filter(
+            Job.type == JobType.IMAGE_CONTENT_SCAN,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .first()
+    )
+    if already:
+        raise HTTPException(409, "A content scan is already running")
+
+    missing_q = db.query(func.count(ImageFile.id)).filter(
+        ImageFile.status != ImageStatus.QUARANTINED,
+        ImageFile.content_scanned_at.is_(None),
+    )
+    if library_id is not None:
+        missing_q = missing_q.filter(ImageFile.library_id == library_id)
+    missing = missing_q.scalar()
+
+    job = Job(type=JobType.IMAGE_CONTENT_SCAN, status=JobStatus.PENDING, library_id=library_id)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.queue import enqueue
+    from app.services.image_extract import scan_image_content
+
+    await enqueue(job.id, scan_image_content, library_id, job.id)
+    return {"job_id": job.id, "missing": missing}
 
 
 @router.post("/quarantine-bulk", status_code=200)

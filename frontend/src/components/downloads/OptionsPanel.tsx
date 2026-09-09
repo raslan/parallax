@@ -129,6 +129,26 @@ export function OptionsPanel({
         </div>
       </div>
 
+      {/* Parallel fragments */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          Parallel fragments
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={64}
+            {...register("concurrentFragments", { valueAsNumber: true })}
+            className="w-16 h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <span className="text-[10px] text-muted-foreground/50">
+            per-file download connections · 4 default, higher = faster on fragmented sources
+            (YouTube)
+          </span>
+        </div>
+      </div>
+
       {/* Trim */}
       <div className="space-y-1.5">
         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
@@ -245,6 +265,61 @@ export function OptionsPanel({
           )}
         </div>
       )}
+
+      {/* Anti-throttle */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          Anti-throttle
+        </p>
+        <div className="flex gap-1">
+          {(
+            [
+              ["off", "No Referer"],
+              ["auto", "Video URL"],
+              ["origin", "Site root"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => set("refererMode", id)}
+              className={cn(
+                "px-2.5 py-1.5 rounded border text-xs font-medium transition-colors",
+                opts.refererMode === id
+                  ? "border-primary/60 bg-primary/10 text-foreground"
+                  : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          placeholder="Custom Referer URL (overrides the toggle)"
+          {...register("referer")}
+          className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Throttled rate"
+            title="Re-connect if speed drops below this (e.g. 100K)"
+            {...register("throttledRate")}
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+          />
+          <input
+            type="text"
+            placeholder="Limit rate"
+            title="Cap download speed to stay under a server's abuse radar (e.g. 2M)"
+            {...register("limitRate")}
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground/50">
+          For sites that stream fine but throttle the download. Try Referer + cookies first.
+        </p>
+      </div>
 
       {/* Extra args */}
       <div className="space-y-1.5">

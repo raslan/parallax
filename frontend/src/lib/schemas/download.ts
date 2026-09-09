@@ -18,6 +18,17 @@ export const downloadOptionsSchema = z.object({
   subLangs: z.string(),
   extraArgs: z.string().default(""),
   impersonate: z.string().default(""),
+  concurrentFragments: z.coerce.number().int().min(1).max(64).default(4),
+  refererMode: z.enum(["off", "auto", "origin"]).default("off"),
+  referer: z.string().default(""), // custom Referer; overrides refererMode when non-empty
+  throttledRate: z
+    .string()
+    .regex(/^(\d+(\.\d+)?[KMGkmg]?)?$/, "e.g. 100K or 1.5M")
+    .default(""),
+  limitRate: z
+    .string()
+    .regex(/^(\d+(\.\d+)?[KMGkmg]?)?$/, "e.g. 100K or 1.5M")
+    .default(""),
 });
 
 export type DownloadOptions = z.infer<typeof downloadOptionsSchema>;

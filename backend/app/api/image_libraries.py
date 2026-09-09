@@ -102,7 +102,7 @@ def delete_image_library(
     # Stop watcher first so no new image records are inserted while we clean up
     from app.services import fs_watcher
 
-    fs_watcher.unwatch_library(library_id)
+    fs_watcher.unwatch_library(library_id, is_image=True)
 
     active_jobs = (
         db.query(Job)

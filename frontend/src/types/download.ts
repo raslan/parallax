@@ -33,5 +33,9 @@ export interface DownloadRequest {
   sub_langs?: string;
   extra_args?: string;
   impersonate?: string | null;
+  concurrent_fragments?: number;
+  referer?: string;
+  throttled_rate?: string;
+  limit_rate?: string;
   cookies?: string;
 }

@@ -8,6 +8,7 @@ export const downloadsApi = {
   deleteDownload: (id: number) => req<void>(`/downloads/${id}`, { method: "DELETE" }),
   retryAllFailedDownloads: () =>
     req<{ ids: number[] }>("/downloads/retry-failed", { method: "POST" }),
+  retryDownload: (id: number) => req<{ id: number }>(`/downloads/${id}/retry`, { method: "POST" }),
   stopAllDownloads: () => req<{ stopped: number }>("/downloads/stop-all", { method: "POST" }),
   clearDownloads: (statuses: string[]) =>
     req<{ cleared: number }>("/downloads/clear", {
