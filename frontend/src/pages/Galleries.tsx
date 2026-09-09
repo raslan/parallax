@@ -140,76 +140,80 @@ export function Galleries() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Galleries</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Download image &amp; video galleries with gallery-dl.
-        </p>
-      </div>
-
-      {gdl.missing && !bannerDismissed && (
-        <GalleryDlBanner onDismiss={() => setBannerDismissed(true)} />
-      )}
-
+    <div className="p-4 md:p-8">
+      {/* Two-column layout: left = header + input + queue, right = options
+          (options card sits in its own grid column so it top-aligns with the title) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
-        <div className="space-y-4 min-w-0">
-          <UrlInput
-            mode={inputMode}
-            onModeChange={(m) => form.setValue("inputMode", m, { shouldDirty: true })}
-            pasteValue={pasteInput}
-            onPasteChange={setPasteInput}
-            fileValue={fileInput}
-            onFileChange={setFileInput}
-            onFileSave={() => saveFile.mutate(fileInput)}
-            fileSaving={saveFile.isPending}
-            onSubmit={doSubmit}
-          />
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={doSubmit}
-              disabled={submitting || (inputMode === "paste" && !pasteInput.trim())}
-              className="gap-2"
-            >
-              {submitting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              {submitting ? "Adding…" : "Fetch"}
-            </Button>
-            <span className="text-[10px] text-muted-foreground/40">Ctrl+Enter to submit</span>
-            {submitError && <span className="text-xs text-red-400 ml-auto">{submitError}</span>}
+        <div className="space-y-6 min-w-0">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Galleries</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Download image &amp; video galleries with gallery-dl.
+            </p>
           </div>
 
-          <GalleryQueue
-            rows={rows}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            onStop={removeRow}
-            onRemove={removeRow}
-            onRetry={() => {
-              // per-row retry = retry-all-failed (no per-row endpoint in v1)
-              void api.retryFailedGalleries().catch(() => {});
-            }}
-            onStopAll={async () => {
-              await api.stopAllGalleries().catch(() => {});
-              setRows((prev) =>
-                prev.filter((r) => r.status !== "pending" && r.status !== "running"),
-              );
-            }}
-            onRetryAllFailed={() => void api.retryFailedGalleries().catch(() => {})}
-            onClearCompleted={async () => {
-              await api.clearGalleries(["completed"]).catch(() => {});
-              setRows((prev) => prev.filter((r) => r.status !== "completed"));
-            }}
-            onClearAll={async () => {
-              await api.clearGalleries(["completed", "failed", "cancelled"]).catch(() => {});
-              setRows((prev) =>
-                prev.filter((r) => r.status === "pending" || r.status === "running"),
-              );
-            }}
-          />
+          {gdl.missing && !bannerDismissed && (
+            <GalleryDlBanner onDismiss={() => setBannerDismissed(true)} />
+          )}
+
+          <div className="space-y-4">
+            <UrlInput
+              mode={inputMode}
+              onModeChange={(m) => form.setValue("inputMode", m, { shouldDirty: true })}
+              pasteValue={pasteInput}
+              onPasteChange={setPasteInput}
+              fileValue={fileInput}
+              onFileChange={setFileInput}
+              onFileSave={() => saveFile.mutate(fileInput)}
+              fileSaving={saveFile.isPending}
+              onSubmit={doSubmit}
+            />
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={doSubmit}
+                disabled={submitting || (inputMode === "paste" && !pasteInput.trim())}
+                className="gap-2"
+              >
+                {submitting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                {submitting ? "Adding…" : "Fetch"}
+              </Button>
+              <span className="text-[10px] text-muted-foreground/40">Ctrl+Enter to submit</span>
+              {submitError && <span className="text-xs text-red-400 ml-auto">{submitError}</span>}
+            </div>
+
+            <GalleryQueue
+              rows={rows}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              onStop={removeRow}
+              onRemove={removeRow}
+              onRetry={() => {
+                // per-row retry = retry-all-failed (no per-row endpoint in v1)
+                void api.retryFailedGalleries().catch(() => {});
+              }}
+              onStopAll={async () => {
+                await api.stopAllGalleries().catch(() => {});
+                setRows((prev) =>
+                  prev.filter((r) => r.status !== "pending" && r.status !== "running"),
+                );
+              }}
+              onRetryAllFailed={() => void api.retryFailedGalleries().catch(() => {})}
+              onClearCompleted={async () => {
+                await api.clearGalleries(["completed"]).catch(() => {});
+                setRows((prev) => prev.filter((r) => r.status !== "completed"));
+              }}
+              onClearAll={async () => {
+                await api.clearGalleries(["completed", "failed", "cancelled"]).catch(() => {});
+                setRows((prev) =>
+                  prev.filter((r) => r.status === "pending" || r.status === "running"),
+                );
+              }}
+            />
+          </div>
         </div>
 
         <Card className="overflow-hidden border-border/50 sticky top-6">

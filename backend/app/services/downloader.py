@@ -14,6 +14,7 @@ import shlex
 import signal
 import subprocess
 import time
+from urllib.parse import urlsplit
 
 from app.config import DATA_DIR
 from app.database import SessionLocal
@@ -135,6 +136,11 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
       sub_langs: "en,fr"
       extra_args: str
       impersonate: str
+      concurrent_fragments: int — parallel fragment downloads per file (1-64, default 4)
+      referer: str — Referer header; "auto" = this download's own URL, "origin" = its
+                     scheme://host/, anything else = sent literally
+      throttled_rate: str — re-extract a fresh connection if speed drops below this (e.g. "100K")
+      limit_rate: str — cap download speed (e.g. "2M") to stay under a server's abuse radar
       cookies_file: str — path to temp cookies file (caller manages lifecycle)
     """
     audio_only: bool = bool(options.get("audio_only", False))
@@ -146,12 +152,20 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     sub_langs: str = options.get("sub_langs") or "en"
     extra_args_str: str = options.get("extra_args") or ""
     impersonate: str | None = options.get("impersonate") or None
+    referer: str = (options.get("referer") or "").strip()
+    throttled_rate: str = (options.get("throttled_rate") or "").strip()
+    limit_rate: str = (options.get("limit_rate") or "").strip()
     cookies_file: str | None = options.get("cookies_file") or None
+    try:
+        frags = int(options.get("concurrent_fragments") or 4)
+    except (TypeError, ValueError):
+        frags = 4
+    frags = max(1, min(frags, 64))
 
     cmd: list[str] = [_ytdlp_bin() or "yt-dlp"]
 
     # Always-on flags
-    cmd += ["--progress", "--newline", "--no-warnings", "--concurrent-fragments", "4"]
+    cmd += ["--progress", "--newline", "--no-warnings", "--concurrent-fragments", str(frags)]
     # Embed upload date / title / description as container tags so downstream
     # tools (e.g. Identify's custom-show mode) can sort by real upload date.
     cmd += ["--embed-metadata"]
@@ -187,6 +201,20 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     # Impersonation
     if impersonate:
         cmd += ["--impersonate", impersonate]
+
+    # Anti-throttle knobs (all no-ops when blank)
+    if referer:
+        if referer.lower() == "auto":
+            cmd += ["--referer", url]
+        elif referer.lower() == "origin":
+            parts = urlsplit(url)
+            cmd += ["--referer", f"{parts.scheme}://{parts.netloc}/"]
+        else:
+            cmd += ["--referer", referer]
+    if throttled_rate:
+        cmd += ["--throttled-rate", throttled_rate]
+    if limit_rate:
+        cmd += ["--limit-rate", limit_rate]
 
     # Extra user-supplied arguments
     if extra_args_str.strip():

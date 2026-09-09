@@ -65,6 +65,12 @@ export function Downloads() {
       subLangs: "en",
       extraArgs: sessionStorage.getItem("dl_extra_args") ?? "",
       impersonate: sessionStorage.getItem("dl_impersonate") ?? "",
+      concurrentFragments: 4,
+      refererMode:
+        (sessionStorage.getItem("dl_referer_mode") as "off" | "auto" | "origin" | null) ?? "off",
+      referer: sessionStorage.getItem("dl_referer") ?? "",
+      throttledRate: sessionStorage.getItem("dl_throttled_rate") ?? "",
+      limitRate: sessionStorage.getItem("dl_limit_rate") ?? "",
     },
   });
   // Persist cookies to sessionStorage
@@ -80,6 +86,10 @@ export function Downloads() {
         val ? sessionStorage.setItem(k, val) : sessionStorage.removeItem(k);
       put("dl_impersonate", v.impersonate);
       put("dl_extra_args", v.extraArgs);
+      put("dl_referer_mode", v.refererMode);
+      put("dl_referer", v.referer);
+      put("dl_throttled_rate", v.throttledRate);
+      put("dl_limit_rate", v.limitRate);
     });
     return () => sub.unsubscribe();
   }, [optsForm]);
@@ -109,6 +119,8 @@ export function Downloads() {
       setSubmitError(null);
       try {
         const opts = optsForm.getValues();
+        // Custom Referer wins; otherwise the mode toggle maps to a backend sentinel.
+        const referer = opts.referer.trim() || (opts.refererMode === "off" ? "" : opts.refererMode);
         const body: DownloadRequest = {
           urls,
           output_dir: opts.outputDir || undefined,
@@ -121,6 +133,10 @@ export function Downloads() {
           sub_langs: opts.downloadSubs ? opts.subLangs : undefined,
           extra_args: opts.extraArgs || undefined,
           impersonate: opts.impersonate || null,
+          concurrent_fragments: opts.concurrentFragments,
+          referer: referer || undefined,
+          throttled_rate: opts.throttledRate || undefined,
+          limit_rate: opts.limitRate || undefined,
           cookies: activeCookies || undefined,
         };
         await api.enqueueDownloads(body);
@@ -166,29 +182,14 @@ export function Downloads() {
     async (id: number) => {
       const item = downloads.find((d) => d.id === id);
       if (!item) return;
-      const opts = item.options ? JSON.parse(item.options) : {};
-      const result = await api
-        .enqueueDownloads({
-          urls: [item.url],
-          output_dir: item.output_dir,
-          audio_only: opts.audio_only,
-          quality: opts.quality,
-          codec: opts.codec,
-          trim_start: opts.trim_start,
-          trim_end: opts.trim_end,
-          download_subs: opts.download_subs,
-          sub_langs: opts.sub_langs,
-          extra_args: opts.extra_args,
-          impersonate: opts.impersonate,
-          cookies: activeCookies || undefined,
-        })
-        .catch(() => null);
+      // Server copies url/options/playlist fields from the old row and deletes it
+      // — going through the plain enqueue route re-probes item.url (a lone entry,
+      // not a playlist) so playlist_id is lost and the card renders ungrouped.
+      const result = await api.retryDownload(id).catch(() => null);
       if (!result) return;
-      // Old failed/cancelled row is superseded by the new one — remove it so it doesn't linger.
-      await api.deleteDownload(id).catch(() => {});
       setDownloads((prev) => prev.filter((d) => d.id !== id));
     },
-    [downloads, activeCookies],
+    [downloads],
   );
 
   const handleRetryAllFailed = useCallback(async () => {
@@ -236,7 +237,7 @@ export function Downloads() {
   });
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
+    <div className="p-4 md:p-8">
       {/* Player modal */}
       {playingItem && playingItem.output_path && (
         <VideoPlayerModal
@@ -253,242 +254,246 @@ export function Downloads() {
         />
       )}
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Downloads</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Queue URLs for yt-dlp download. Supports YouTube, Vimeo, Twitch, and{" "}
-          <a
-            href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
-          >
-            1000+ other sites
-          </a>
-          . Or{" "}
-          <RouterLink
-            to="/galleries"
-            className="text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
-          >
-            download galleries
-          </RouterLink>
-          .
-        </p>
-      </div>
-
-      {/* yt-dlp not installed banner */}
-      {ytdlp.missing && !ytdlpBannerDismissed && (
-        <YtdlpBanner onDismiss={() => setYtdlpBannerDismissed(true)} />
-      )}
-
-      {/* Two-column layout: left = URL input + queue, right = options */}
+      {/* Two-column layout: left = header + URL input + queue, right = options
+          (options card sits in its own grid column so it top-aligns with the title) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
-        {/* Left: URL input + queue */}
-        <div className="space-y-4 min-w-0">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Link className="h-3.5 w-3.5 text-muted-foreground/50" />
-              <label className="text-xs font-medium text-muted-foreground">
-                URLs
-                {urlCount > 1 && (
-                  <span className="ml-1.5 text-[10px] text-primary/70 font-mono">
-                    {urlCount} URLs
-                  </span>
-                )}
-              </label>
-            </div>
-            <textarea
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder={
-                "Paste one or more URLs, one per line\nhttps://youtube.com/watch?v=…\nhttps://vimeo.com/…"
-              }
-              rows={4}
-              className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30 placeholder:font-sans"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={handleSubmit}
-              disabled={!urlInput.trim() || submitting}
-              className="gap-2"
-            >
-              {submitting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              {submitting ? "Adding…" : urlCount > 1 ? `Add ${urlCount} URLs` : "Add to queue"}
-            </Button>
-            <span className="text-[10px] text-muted-foreground/40">Ctrl+Enter to submit</span>
-            {submitError && <span className="text-xs text-red-400 ml-auto">{submitError}</span>}
+        {/* Left: header + URL input + queue */}
+        <div className="space-y-6 min-w-0">
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Downloads</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Queue URLs for yt-dlp download. Supports YouTube, Vimeo, Twitch, and{" "}
+              <a
+                href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
+              >
+                1000+ other sites
+              </a>
+              . Or{" "}
+              <RouterLink
+                to="/galleries"
+                className="text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
+              >
+                download galleries
+              </RouterLink>
+              .
+            </p>
           </div>
 
-          {/* Queue */}
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <SectionHeader>Queue</SectionHeader>
-                {activeCount > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20"
-                  >
-                    {activeCount} active
-                  </Badge>
-                )}
-                {downloads.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {(["all", "active", "completed", "failed"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setStatusFilter(f)}
-                        className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-medium transition-colors capitalize",
-                          statusFilter === f
-                            ? "bg-primary/15 text-primary border border-primary/30"
-                            : "text-muted-foreground/50 hover:text-muted-foreground border border-transparent",
-                        )}
-                      >
-                        {f}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {ytdlp.version && (
-                  <span className="text-[10px] text-muted-foreground/40 font-mono">
-                    yt-dlp {ytdlp.version}
-                  </span>
-                )}
-                <button
-                  onClick={ytdlp.update}
-                  disabled={ytdlp.updating}
-                  className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
-                  title="Update yt-dlp to latest"
-                >
-                  {ytdlp.updating ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3" />
+          {/* yt-dlp not installed banner */}
+          {ytdlp.missing && !ytdlpBannerDismissed && (
+            <YtdlpBanner onDismiss={() => setYtdlpBannerDismissed(true)} />
+          )}
+
+          {/* URL input + queue */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Link className="h-3.5 w-3.5 text-muted-foreground/50" />
+                <label className="text-xs font-medium text-muted-foreground">
+                  URLs
+                  {urlCount > 1 && (
+                    <span className="ml-1.5 text-[10px] text-primary/70 font-mono">
+                      {urlCount} URLs
+                    </span>
                   )}
-                  Update
-                </button>
-                {hasFailed && (
-                  <button
-                    onClick={handleRetryAllFailed}
-                    className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Retry all failed
-                  </button>
-                )}
-                {activeCount > 0 && (
-                  <button
-                    onClick={handleStopAll}
-                    className="text-xs text-muted-foreground/50 hover:text-red-400 transition-colors flex items-center gap-1"
-                  >
-                    <StopCircle className="h-3 w-3" />
-                    Stop all
-                  </button>
-                )}
-                {hasCompleted && (
-                  <button
-                    onClick={handleClearCompleted}
-                    className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Clear completed
-                  </button>
-                )}
-                {hasFinished && (
-                  <button
-                    onClick={handleClearAll}
-                    className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Clear all
-                  </button>
-                )}
+                </label>
               </div>
+              <textarea
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder={
+                  "Paste one or more URLs, one per line\nhttps://youtube.com/watch?v=…\nhttps://vimeo.com/…"
+                }
+                rows={4}
+                className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30 placeholder:font-sans"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleSubmit}
+                disabled={!urlInput.trim() || submitting}
+                className="gap-2"
+              >
+                {submitting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                {submitting ? "Adding…" : urlCount > 1 ? `Add ${urlCount} URLs` : "Add to queue"}
+              </Button>
+              <span className="text-[10px] text-muted-foreground/40">Ctrl+Enter to submit</span>
+              {submitError && <span className="text-xs text-red-400 ml-auto">{submitError}</span>}
             </div>
 
-            <Card className="overflow-hidden border-border/50">
-              {downloads.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                  <div className="rounded-full bg-muted/30 p-4">
-                    <Download className="h-8 w-8 text-muted-foreground/30" />
+            {/* Queue */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <SectionHeader>Queue</SectionHeader>
+                  {activeCount > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20"
+                    >
+                      {activeCount} active
+                    </Badge>
+                  )}
+                  {downloads.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {(["all", "active", "completed", "failed"] as const).map((f) => (
+                        <button
+                          key={f}
+                          onClick={() => setStatusFilter(f)}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-medium transition-colors capitalize",
+                            statusFilter === f
+                              ? "bg-primary/15 text-primary border border-primary/30"
+                              : "text-muted-foreground/50 hover:text-muted-foreground border border-transparent",
+                          )}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {ytdlp.version && (
+                    <span className="text-[10px] text-muted-foreground/40 font-mono">
+                      yt-dlp {ytdlp.version}
+                    </span>
+                  )}
+                  <button
+                    onClick={ytdlp.update}
+                    disabled={ytdlp.updating}
+                    className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
+                    title="Update yt-dlp to latest"
+                  >
+                    {ytdlp.updating ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    Update
+                  </button>
+                  {hasFailed && (
+                    <button
+                      onClick={handleRetryAllFailed}
+                      className="text-xs text-muted-foreground/50 hover:text-primary transition-colors flex items-center gap-1"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Retry all failed
+                    </button>
+                  )}
+                  {activeCount > 0 && (
+                    <button
+                      onClick={handleStopAll}
+                      className="text-xs text-muted-foreground/50 hover:text-red-400 transition-colors flex items-center gap-1"
+                    >
+                      <StopCircle className="h-3 w-3" />
+                      Stop all
+                    </button>
+                  )}
+                  {hasCompleted && (
+                    <button
+                      onClick={handleClearCompleted}
+                      className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Clear completed
+                    </button>
+                  )}
+                  {hasFinished && (
+                    <button
+                      onClick={handleClearAll}
+                      className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <Card className="overflow-hidden border-border/50">
+                {downloads.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+                    <div className="rounded-full bg-muted/30 p-4">
+                      <Download className="h-8 w-8 text-muted-foreground/30" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">No downloads yet</p>
+                      <p className="text-xs text-muted-foreground/50 mt-0.5">
+                        Paste a URL above to get started
+                      </p>
+                    </div>
                   </div>
+                ) : filteredDownloads.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                    <p className="text-sm text-muted-foreground/50">No {statusFilter} downloads</p>
+                  </div>
+                ) : (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">No downloads yet</p>
-                    <p className="text-xs text-muted-foreground/50 mt-0.5">
-                      Paste a URL above to get started
-                    </p>
-                  </div>
-                </div>
-              ) : filteredDownloads.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-                  <p className="text-sm text-muted-foreground/50">No {statusFilter} downloads</p>
-                </div>
-              ) : (
-                <div>
-                  {(() => {
-                    const groups = new Map<string, DownloadItem[]>();
-                    const order: (string | number)[] = []; // playlist_id strings, or item.id numbers for ungrouped
+                    {(() => {
+                      const groups = new Map<string, DownloadItem[]>();
+                      const order: (string | number)[] = []; // playlist_id strings, or item.id numbers for ungrouped
 
-                    for (const item of filteredDownloads) {
-                      if (item.playlist_id) {
-                        if (!groups.has(item.playlist_id)) {
-                          groups.set(item.playlist_id, []);
-                          order.push(item.playlist_id);
+                      for (const item of filteredDownloads) {
+                        if (item.playlist_id) {
+                          if (!groups.has(item.playlist_id)) {
+                            groups.set(item.playlist_id, []);
+                            order.push(item.playlist_id);
+                          }
+                          groups.get(item.playlist_id)!.push(item);
+                        } else {
+                          order.push(item.id);
                         }
-                        groups.get(item.playlist_id)!.push(item);
-                      } else {
-                        order.push(item.id);
                       }
-                    }
 
-                    const itemById = new Map(filteredDownloads.map((d) => [d.id, d]));
+                      const itemById = new Map(filteredDownloads.map((d) => [d.id, d]));
 
-                    return order.map((key) => {
-                      if (typeof key === "number") {
-                        const item = itemById.get(key)!;
+                      return order.map((key) => {
+                        if (typeof key === "number") {
+                          const item = itemById.get(key)!;
+                          return (
+                            <DownloadCard
+                              key={item.id}
+                              item={item}
+                              onPlay={setPlayingItem}
+                              onClear={handleClear}
+                              onDeleteFile={handleDeleteFile}
+                              onRetry={handleRetry}
+                            />
+                          );
+                        }
+                        const groupItems = groups.get(key)!;
                         return (
-                          <DownloadCard
-                            key={item.id}
-                            item={item}
+                          <PlaylistGroup
+                            key={`playlist-${key}`}
+                            title={groupItems[0]!.playlist_title ?? key}
+                            items={groupItems}
                             onPlay={setPlayingItem}
                             onClear={handleClear}
                             onDeleteFile={handleDeleteFile}
                             onRetry={handleRetry}
                           />
                         );
-                      }
-                      const groupItems = groups.get(key)!;
-                      return (
-                        <PlaylistGroup
-                          key={`playlist-${key}`}
-                          title={groupItems[0]!.playlist_title ?? key}
-                          items={groupItems}
-                          onPlay={setPlayingItem}
-                          onClear={handleClear}
-                          onDeleteFile={handleDeleteFile}
-                          onRetry={handleRetry}
-                        />
-                      );
-                    });
-                  })()}
-                </div>
-              )}
-            </Card>
+                      });
+                    })()}
+                  </div>
+                )}
+              </Card>
+            </div>
           </div>
         </div>
 

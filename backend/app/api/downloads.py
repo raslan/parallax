@@ -37,6 +37,10 @@ class DownloadRequest(BaseModel):
     sub_langs: str = "en"
     extra_args: str = ""
     impersonate: str | None = None
+    concurrent_fragments: int = 4  # parallel fragment downloads per file (1-64)
+    referer: str = ""  # Referer header; "auto"/"origin" sentinels, else literal
+    throttled_rate: str = ""  # re-extract if speed drops below this (e.g. "100K")
+    limit_rate: str = ""  # cap speed (e.g. "2M")
     cookies: str = ""  # Netscape cookie text, ephemeral
 
 
@@ -88,6 +92,10 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
         "sub_langs": req.sub_langs,
         "extra_args": req.extra_args,
         "impersonate": req.impersonate,
+        "concurrent_fragments": req.concurrent_fragments,
+        "referer": req.referer,
+        "throttled_rate": req.throttled_rate,
+        "limit_rate": req.limit_rate,
         "cookies": req.cookies,
     }
 
@@ -187,6 +195,41 @@ async def retry_all_failed(db: Session = Depends(get_db)):
         asyncio.create_task(run_download(download_id, max_concurrent))
 
     return {"ids": created_ids}
+
+
+@router.post("/{download_id}/retry")
+async def retry_one(download_id: int, db: Session = Depends(get_db)):
+    """Re-queue a single failed/cancelled download.
+
+    Copies url/options straight from the old row (no re-probing — it's an
+    already-resolved single video) and preserves playlist grouping fields, then
+    drops the old row. Single-item mirror of /retry-failed; going through the
+    plain enqueue route instead loses playlist_id (fetch_playlist_info on a lone
+    entry URL returns nothing) so the retried card renders outside its folder.
+    """
+    old = db.get(Download, download_id)
+    if old is None:
+        raise HTTPException(status_code=404, detail="Download not found")
+
+    max_concurrent = int(get_setting(db, "max_concurrent_downloads", "2"))
+    new = Download(
+        url=old.url,
+        title=old.title,
+        output_dir=old.output_dir,
+        status=DownloadStatus.PENDING,
+        options=old.options,
+        source_url=old.source_url,
+        playlist_id=old.playlist_id,
+        playlist_title=old.playlist_title,
+    )
+    db.add(new)
+    db.flush()
+    new_id = new.id
+    db.delete(old)
+    db.commit()
+
+    asyncio.create_task(run_download(new_id, max_concurrent))
+    return {"id": new_id}
 
 
 class ClearDownloadsRequest(BaseModel):
