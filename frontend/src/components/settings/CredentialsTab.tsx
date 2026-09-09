@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { credentialsSchema, seedCredentials } from "@/lib/schemas/settings";
 import { SaveButton } from "./SaveButton";
 import { useSettingsForm } from "./useSettingsForm";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function CredentialsTab() {
   const { form, isLoading, save } = useSettingsForm(credentialsSchema, seedCredentials, (v) => ({
@@ -135,10 +136,12 @@ export function CredentialsTab() {
                 </div>
               </div>
               <label className="flex items-start gap-3 cursor-pointer select-none group">
-                <input
-                  type="checkbox"
-                  {...form.register("subtitleAutoSync")}
-                  className="accent-primary h-4 w-4 mt-0.5"
+                <Checkbox
+                  checked={form.watch("subtitleAutoSync")}
+                  onCheckedChange={(c) =>
+                    form.setValue("subtitleAutoSync", c === true, { shouldDirty: true })
+                  }
+                  className="mt-0.5"
                 />
                 <div>
                   <p className="text-sm text-foreground group-hover:text-foreground/90 transition-colors">

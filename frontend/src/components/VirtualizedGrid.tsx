@@ -76,7 +76,12 @@ export function VirtualizedGrid<T>({
       return;
     }
     const compute = () => {
-      const width = el.clientWidth;
+      // clientWidth includes the scroll container's own padding (the `p-1` below,
+      // which keeps card rings/borders/shadows off the clipped scroll edge) —
+      // subtract it so column math is against the real content width.
+      const cs = getComputedStyle(el);
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      const width = el.clientWidth - padX;
       const cols = Math.max(1, Math.floor((width + gap) / (minColumnWidth + gap)));
       setColumnCount(cols);
       setColumnWidth(Math.max(0, (width - gap * (cols - 1)) / cols));
@@ -129,6 +134,7 @@ export function VirtualizedGrid<T>({
   return (
     <div
       ref={parentRef}
+      className="p-1"
       style={maxHeight ? { overflow: "auto", maxHeight } : { overflow: "auto", height: "100%" }}
     >
       <div

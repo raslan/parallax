@@ -18,6 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Loader2, ArrowUpDown, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface CustomRow {
   path: string;
@@ -202,10 +203,9 @@ export function CustomEpisodeList({
         </p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={genericTitles}
-              onChange={(e) => onGenericTitlesChange(e.target.checked)}
+              onCheckedChange={(c) => onGenericTitlesChange(c === true)}
             />
             Generic titles
           </label>

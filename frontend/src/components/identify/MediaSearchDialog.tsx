@@ -114,13 +114,13 @@ export function MediaSearchDialog({
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {error}
           </div>
         )}
 
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div className="mt-4 max-h-[60vh] overflow-y-auto">
           {results.length > 0 ? (
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
               {results.map((r) => {

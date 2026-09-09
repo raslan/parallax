@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
-import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
@@ -25,35 +24,20 @@ import { useGridSize } from "@/hooks/useGridSize";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { QueryBuilder } from "@/components/QueryBuilder";
+import { LibraryBar } from "@/components/LibraryBar";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { cleanupFields } from "@/lib/cleanupFields";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
-
-function LibrarySelector({
-  libraries,
-  selected,
-  onChange,
-}: {
-  libraries: Library[];
-  selected: number | null;
-  onChange: (id: number) => void;
-}) {
-  return (
-    <select
-      className="bg-card border border-border text-sm rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-      value={selected ?? ""}
-      onChange={(e) => onChange(Number(e.target.value))}
-    >
-      {libraries.map((lib) => (
-        <option key={lib.id} value={lib.id}>
-          {lib.name}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 function CleanupCard({
   file,
@@ -141,11 +125,10 @@ function CleanupListRow({
       )}
       onClick={onToggle}
     >
-      <input
-        type="checkbox"
-        className="accent-primary h-4 w-4 shrink-0"
+      <Checkbox
+        className="shrink-0"
         checked={selected}
-        onChange={onToggle}
+        onCheckedChange={() => onToggle()}
         onClick={(e) => e.stopPropagation()}
       />
       <button
@@ -309,20 +292,19 @@ export function Cleanup() {
             Stack filters to find files matching all conditions, then bulk-delete matches.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {libraries.length > 0 && (
-            <LibrarySelector
-              libraries={libraries}
-              selected={selectedId}
-              onChange={(id) => {
-                setSelectedId(id);
-                setSelected(new Set());
-                setError(null);
-              }}
-            />
-          )}
-        </div>
       </div>
+
+      {libraries.length > 0 && (
+        <LibraryBar
+          libraries={libraries}
+          libraryId={selectedId}
+          onLibraryChange={(id) => {
+            setSelectedId(id);
+            setSelected(new Set());
+            setError(null);
+          }}
+        />
+      )}
 
       <div className="rounded-lg border bg-card p-4 shrink-0">
         <QueryBuilder
@@ -377,25 +359,24 @@ export function Cleanup() {
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="accent-primary h-4 w-4"
+                <Checkbox
                   checked={selected.size === sortedResults.length && sortedResults.length > 0}
-                  onChange={toggleAll}
+                  onCheckedChange={() => toggleAll()}
                 />
                 Select all
               </label>
-              <select
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-8 w-[9rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <button
                 onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                 className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"

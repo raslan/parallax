@@ -19,7 +19,7 @@ class DuplicateCriteriaRequest(BaseModel):
     use_byte_hash: bool = False
     use_phash: bool = True
     phash_threshold: int = 10
-    phash_mode: str = "all_frames"
+    phash_mode: str = "first_frame"
     phash_frames: int = 16
     use_audio: bool = False
     audio_threshold: float = 0.9

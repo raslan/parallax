@@ -19,10 +19,14 @@ const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     side?: "left" | "right" | "bottom";
+    /** dimmed click-catcher behind the sheet; set false for a non-modal side panel */
+    overlay?: boolean;
   }
->(({ className, children, side = "right", ...props }, ref) => (
+>(({ className, children, side = "right", overlay = true, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    {overlay && (
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    )}
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

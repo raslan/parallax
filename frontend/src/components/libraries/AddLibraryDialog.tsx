@@ -14,6 +14,7 @@ import {
 import { DirPicker } from "@/components/DirPicker";
 import { zodResolver } from "@/lib/zodResolver";
 import { addLibrarySchema, type AddLibraryForm } from "@/lib/schemas/library";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /**
  * Shared "Add library" dialog shell. The path input, dir picker, "scan after
@@ -50,6 +51,7 @@ export function AddLibraryDialog<E>({
 }) {
   const {
     register,
+    watch,
     handleSubmit,
     reset: resetForm,
     setValue,
@@ -125,10 +127,10 @@ export function AddLibraryDialog<E>({
             </div>
             {renderExtra?.(extra, setExtra)}
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                {...register("autoScan")}
-                className="accent-primary h-4 w-4 mt-0.5 shrink-0"
+              <Checkbox
+                checked={watch("autoScan")}
+                onCheckedChange={(c) => setValue("autoScan", c === true, { shouldDirty: true })}
+                className="mt-0.5 shrink-0"
               />
               <div>
                 <p className="text-sm font-medium">Scan after creation</p>

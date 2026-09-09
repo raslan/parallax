@@ -10,16 +10,15 @@ import { api, qk } from "@/lib/api";
 import { anyCriteriaEnabled, type DuplicateGroup } from "@/lib/clusterDuplicates";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
-import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { DuplicateCriteriaPanel } from "@/components/duplicates/DuplicateCriteriaPanel";
+import { LibraryBar } from "@/components/LibraryBar";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
-import { CollapsibleControls } from "@/components/CollapsibleControls";
 import { WorkingState } from "@/components/WorkingState";
 import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
 
@@ -28,30 +27,6 @@ import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
 // backend) — a fresh identity would re-trigger the `groups`-driven effect
 // below every render and infinite-loop.
 const EMPTY_FILES: VideoFile[] = [];
-
-function LibrarySelector({
-  libraries,
-  selected,
-  onChange,
-}: {
-  libraries: Library[];
-  selected: number | null;
-  onChange: (id: number) => void;
-}) {
-  return (
-    <select
-      className="bg-card border border-border text-sm rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-      value={selected ?? ""}
-      onChange={(e) => onChange(Number(e.target.value))}
-    >
-      {libraries.map((lib) => (
-        <option key={lib.id} value={lib.id}>
-          {lib.name}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 function FileCard({
   file,
@@ -215,7 +190,7 @@ function loadCriteria(): DuplicateCriteria {
     use_byte_hash: false,
     use_phash: true,
     phash_threshold: 10,
-    phash_mode: "all_frames",
+    phash_mode: "first_frame",
     phash_frames: 16,
     use_audio: false,
     audio_threshold: 0.9,
@@ -383,19 +358,6 @@ export function Duplicates() {
     0,
   );
 
-  const enabledCriteriaCount = [
-    criteria.use_size,
-    criteria.use_duration,
-    criteria.use_resolution,
-    criteria.use_content_date,
-    criteria.use_orientation,
-    criteria.use_bitrate,
-    criteria.use_filename,
-    criteria.use_byte_hash,
-    criteria.use_phash,
-    criteria.use_audio,
-  ].filter(Boolean).length;
-
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
@@ -407,17 +369,6 @@ export function Duplicates() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {libraries.length > 0 && (
-            <LibrarySelector
-              libraries={libraries}
-              selected={selectedId}
-              onChange={(id) => {
-                setSelectedId(id);
-                setDeleteIds(new Set());
-                setLastExtractedCriteria(null);
-              }}
-            />
-          )}
           <Button onClick={handleExtract} disabled={extracting || !selectedId}>
             {extracting ? (
               <>
@@ -434,27 +385,24 @@ export function Duplicates() {
         </div>
       </div>
 
-      <CollapsibleControls
-        storageKey="duplicates-controls"
-        summary={
-          <>
-            {libraries.find((l) => l.id === selectedId)?.name ?? "No library"} ·{" "}
-            {enabledCriteriaCount > 0
-              ? `${enabledCriteriaCount} criteria enabled`
-              : "No criteria enabled"}
-            {groups.length > 0
-              ? ` · ${groups.length} group${groups.length !== 1 ? "s" : ""} found`
-              : ""}
-          </>
-        }
-      >
-        <div className="p-4">
-          <DuplicateCriteriaPanel
-            criteria={criteria}
-            onChange={(patch) => setCriteria((prev) => ({ ...prev, ...patch }))}
-          />
-        </div>
-      </CollapsibleControls>
+      {libraries.length > 0 && (
+        <LibraryBar
+          libraries={libraries}
+          libraryId={selectedId}
+          onLibraryChange={(id) => {
+            setSelectedId(id);
+            setDeleteIds(new Set());
+            setLastExtractedCriteria(null);
+          }}
+        />
+      )}
+
+      <div className="shrink-0 rounded-lg border bg-card p-4">
+        <DuplicateCriteriaPanel
+          criteria={criteria}
+          onChange={(patch) => setCriteria((prev) => ({ ...prev, ...patch }))}
+        />
+      </div>
 
       {jobError && (
         <div className="shrink-0 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
