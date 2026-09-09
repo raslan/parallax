@@ -39,6 +39,8 @@ const TYPE_LABEL: Record<string, string> = {
   whisper_transcribe: "Whisper transcription",
   model_download: "Model download",
   compress: "Compress",
+  audio_scan: "Audio scan",
+  audio_compress: "Audio compress",
   toolbox_fix: "Toolbox fix",
   thumbnail_warm: "Generating thumbnails",
 };

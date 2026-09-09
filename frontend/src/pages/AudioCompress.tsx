@@ -303,14 +303,19 @@ export function AudioCompress() {
               />
             </div>
             <div className="flex-1" />
-            <Button onClick={handleStart} disabled={selected.size === 0 || isRunning || starting}>
+            <Button
+              onClick={handleStart}
+              disabled={selectedFiles.length === 0 || isRunning || starting}
+            >
               {starting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Zap className="h-4 w-4 mr-2" />
               )}
               Compress{" "}
-              {selected.size > 0 ? `${selected.size} file${selected.size !== 1 ? "s" : ""}` : ""}
+              {selectedFiles.length > 0
+                ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? "s" : ""}`
+                : ""}
             </Button>
           </div>
 

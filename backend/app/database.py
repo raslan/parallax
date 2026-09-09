@@ -212,12 +212,9 @@ def init_db():
         conn.execute(
             text("DELETE FROM images WHERE library_id NOT IN (SELECT id FROM image_libraries)")
         )
-        try:
-            conn.execute(
-                text(
-                    "DELETE FROM audio_files "
-                    "WHERE library_id NOT IN (SELECT id FROM audio_libraries)"
-                )
+        conn.execute(
+            text(
+                "DELETE FROM audio_files "
+                "WHERE library_id NOT IN (SELECT id FROM audio_libraries)"
             )
-        except Exception:
-            pass  # table doesn't exist yet on a fresh install
+        )

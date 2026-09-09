@@ -50,9 +50,7 @@ def list_audio_libraries(db: Session = Depends(get_db)):
 
 @router.post("", response_model=AudioLibraryRead, status_code=201)
 async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(get_db)):
-    from app.queue import enqueue
     from app.services import fs_watcher
-    from app.services.audio_scanner import scan_audio_library
 
     if body.split_into_sublibraries:
         try:
@@ -75,11 +73,6 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
             db.commit()
             db.refresh(lib)
             fs_watcher.watch_library(lib.id, lib.path, kind="audio")
-            job = Job(type=JobType.AUDIO_SCAN, status=JobStatus.PENDING, library_id=lib.id)
-            db.add(job)
-            db.commit()
-            db.refresh(job)
-            await enqueue(job.id, scan_audio_library, lib.id, job.id)
             created.append(lib)
         if not created:
             raise HTTPException(409, "All sublibraries already exist")
@@ -96,11 +89,6 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
     db.commit()
     db.refresh(lib)
     fs_watcher.watch_library(lib.id, lib.path, kind="audio")
-    job = Job(type=JobType.AUDIO_SCAN, status=JobStatus.PENDING, library_id=lib.id)
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-    await enqueue(job.id, scan_audio_library, lib.id, job.id)
     return _to_read(lib, db)
 
 
@@ -156,10 +144,12 @@ def delete_audio_library(
 
     fs_watcher.unwatch_library(library_id, kind="audio")
 
+    _audio_job_types = (JobType.AUDIO_SCAN, JobType.AUDIO_COMPRESS)
     active_jobs = (
         db.query(Job)
         .filter(
             Job.library_id == library_id,
+            Job.type.in_(_audio_job_types),
             Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
         )
         .all()
@@ -167,8 +157,10 @@ def delete_audio_library(
     for job in active_jobs:
         request_cancel(job.id)
 
-    # Null out library_id on all job records (FK prevents library delete otherwise)
-    db.query(Job).filter(Job.library_id == library_id).update(
+    # Null out library_id on audio job records (FK prevents library delete
+    # otherwise). Scoped to audio job types — library ids collide across
+    # video/image/audio and Job has no kind column.
+    db.query(Job).filter(Job.library_id == library_id, Job.type.in_(_audio_job_types)).update(
         {Job.library_id: None}, synchronize_session=False
     )
     db.query(AudioFile).filter(AudioFile.library_id == library_id).delete()

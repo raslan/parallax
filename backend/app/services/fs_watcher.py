@@ -120,8 +120,10 @@ def _fire(key: _Key) -> None:
             _apply_image_changes(library_id, changed)
         elif kind == "audio":
             _apply_audio_changes(library_id, changed)
-        else:
+        elif kind == "video":
             _apply_video_changes(library_id, changed)
+        else:
+            logger.warning("fs_watcher: unknown watch kind %r for library %s", kind, library_id)
 
 
 def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:

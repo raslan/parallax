@@ -41,8 +41,9 @@ function AudioAddDialog({ open, onOpenChange, onCreated }: AddDialogProps) {
       autoScanHint="Automatically index audio as soon as the library is created."
       extraDefault={{}}
       submitLabel={() => "Add Library"}
-      onSubmit={async ({ path }) => {
-        await audioLibrariesApi.createLibrary({ path });
+      onSubmit={async ({ path, autoScan }) => {
+        const lib = await audioLibrariesApi.createLibrary({ path });
+        if (autoScan) await audioLibrariesApi.scanLibrary(lib.id).catch(() => {});
       }}
     />
   );

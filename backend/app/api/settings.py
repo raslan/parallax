@@ -167,6 +167,8 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 @router.post("/purge-library-data", status_code=204)
 def purge_library_data(db: Session = Depends(get_db)):
     """Delete all libraries, files, and derived data. Settings and AI models are preserved."""
+    from app.models.audio_file import AudioFile
+    from app.models.audio_library import AudioLibrary
     from app.models.file import File
     from app.models.image import ImageDetection, ImageFile
     from app.models.image_library import ImageLibrary
@@ -204,6 +206,10 @@ def purge_library_data(db: Session = Depends(get_db)):
             pass
     db.query(ImageFile).delete(synchronize_session=False)
     db.query(ImageLibrary).delete(synchronize_session=False)
+
+    # Audio: no detections or thumbnails — just files then libraries
+    db.query(AudioFile).delete(synchronize_session=False)
+    db.query(AudioLibrary).delete(synchronize_session=False)
 
     # Delete all downloads
     from app.models.download import Download

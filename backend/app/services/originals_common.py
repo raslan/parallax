@@ -167,6 +167,7 @@ def restore_one(kind: OriginalsKind, db, path: str) -> str:
         setattr(file_obj, kind.reset_at_field, None)
         file_obj.path = restore_path
         file_obj.filename = filename
+        file_obj.extension = os.path.splitext(filename)[1].lower()
         db.commit()
         kind.rescan_fn(db, file_obj)
 
