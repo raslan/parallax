@@ -214,7 +214,7 @@ function loadCriteria(): DuplicateCriteria {
     use_byte_hash: false,
     use_phash: true,
     phash_threshold: 10,
-    phash_mode: "all_frames",
+    phash_mode: "first_frame",
     phash_frames: 16,
     use_audio: false,
     audio_threshold: 0.9,
