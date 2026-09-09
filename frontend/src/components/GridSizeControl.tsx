@@ -1,4 +1,5 @@
 import { LayoutGrid } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 
 /**
  * Compact slider for a virtualized grid's card size — icon-slider-icon, no
@@ -19,14 +20,13 @@ export function GridSizeControl({
   return (
     <div className="flex items-center gap-1.5" title={`Card size: ${value}px`}>
       <LayoutGrid className="h-3 w-3 shrink-0 text-muted-foreground" />
-      <input
-        type="range"
+      <Slider
         min={min}
         max={max}
         step={10}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-20 accent-primary"
+        value={[value]}
+        onValueChange={([v]) => onChange(v ?? value)}
+        className="w-20"
       />
       <LayoutGrid className="h-4 w-4 shrink-0 text-muted-foreground" />
     </div>

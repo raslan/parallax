@@ -38,6 +38,7 @@ import { cleanupFields } from "@/lib/cleanupFields";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
+import { useConfirm } from "@/components/ConfirmProvider";
 
 function CleanupCard({
   file,
@@ -184,6 +185,7 @@ function CleanupListRow({
 export function Cleanup() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(cleanupFields);
@@ -267,7 +269,15 @@ export function Cleanup() {
 
   const handleDelete = async () => {
     if (!selectedId || selected.size === 0 || !allFiles) return;
-    if (!confirm(`Move ${selected.size} file(s) to _originals/ and remove from library?`)) return;
+    if (
+      !(await confirm({
+        title: "Move to originals?",
+        description: `Move ${selected.size} file(s) to _originals/ and remove from library?`,
+        confirmText: "Move",
+        destructive: true,
+      }))
+    )
+      return;
     setDeleting(true);
     setError(null);
     try {

@@ -7,6 +7,7 @@ import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { formatSize } from "@/lib/format";
 import { StatPanel } from "@/components/StatPanel";
+import { useConfirm } from "@/components/ConfirmProvider";
 
 // ── Per-library group ─────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ function LibraryGroup({
   entries: ImageFile[];
   onRefresh: () => void;
 }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(true);
   const [deletingAll, setDeletingAll] = useState(false);
   const [restoringAll, setRestoringAll] = useState(false);
@@ -51,7 +53,15 @@ function LibraryGroup({
   };
 
   const handleDelete = async (img: ImageFile) => {
-    if (!confirm(`Permanently delete "${img.filename}"? This cannot be undone.`)) return;
+    if (
+      !(await confirm({
+        title: "Delete image?",
+        description: `Permanently delete "${img.filename}"? This cannot be undone.`,
+        confirmText: "Delete",
+        destructive: true,
+      }))
+    )
+      return;
     setIdBusy(img.id, true);
     try {
       await imageApi.deleteImage(img.id);
@@ -64,7 +74,13 @@ function LibraryGroup({
   };
 
   const handleRestoreAll = async () => {
-    if (!confirm(`Restore all ${entries.length} images in "${libraryName}" to their library?`))
+    if (
+      !(await confirm({
+        title: "Restore all images?",
+        description: `Restore all ${entries.length} images in "${libraryName}" to their library?`,
+        confirmText: "Restore all",
+      }))
+    )
       return;
     setRestoringAll(true);
     try {
@@ -77,9 +93,12 @@ function LibraryGroup({
 
   const handleDeleteAll = async () => {
     if (
-      !confirm(
-        `Permanently delete all ${entries.length} images in "${libraryName}"? This cannot be undone.`,
-      )
+      !(await confirm({
+        title: "Delete all images?",
+        description: `Permanently delete all ${entries.length} images in "${libraryName}"? This cannot be undone.`,
+        confirmText: "Delete all",
+        destructive: true,
+      }))
     )
       return;
     setDeletingAll(true);

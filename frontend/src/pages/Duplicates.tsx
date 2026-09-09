@@ -21,6 +21,7 @@ import { useSelection } from "@/hooks/useSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { WorkingState } from "@/components/WorkingState";
 import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
+import { useConfirm } from "@/components/ConfirmProvider";
 
 // Stable reference so `files` doesn't get a fresh `[]` identity every render
 // while the query has no data yet (e.g. still loading, or erroring with no
@@ -199,6 +200,7 @@ function loadCriteria(): DuplicateCriteria {
 
 export function Duplicates() {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const { data: libraries = [], isSuccess: librariesLoaded } = useQuery({
     queryKey: qk.libraries(),
     queryFn: () => api.getLibraries(),
@@ -307,7 +309,15 @@ export function Duplicates() {
 
   const handleDelete = async () => {
     if (!selectedId || deleteIds.size === 0) return;
-    if (!confirm(`Move ${deleteIds.size} file(s) to _originals/ and remove from library?`)) return;
+    if (
+      !(await confirm({
+        title: "Move to originals?",
+        description: `Move ${deleteIds.size} file(s) to _originals/ and remove from library?`,
+        confirmText: "Move",
+        destructive: true,
+      }))
+    )
+      return;
     setDeleting(true);
     try {
       await api.deleteDuplicates(selectedId, [...deleteIds]);

@@ -1,6 +1,7 @@
 import { Controller } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { transcodingSchema, seedTranscoding } from "@/lib/schemas/settings";
 import { SaveButton } from "./SaveButton";
 import { useSettingsForm } from "./useSettingsForm";
@@ -46,13 +47,12 @@ export function TranscodingTab() {
                 render={({ field }) => (
                   <>
                     <div className="flex items-center gap-4">
-                      <input
-                        type="range"
+                      <Slider
                         min={1}
                         max={8}
-                        value={field.value ?? 1}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                        className="w-48 accent-primary"
+                        value={[field.value ?? 1]}
+                        onValueChange={([v]) => field.onChange(v ?? 1)}
+                        className="w-48"
                       />
                       <span className="text-sm font-mono w-4 text-center">{field.value}</span>
                     </div>

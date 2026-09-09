@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,7 +69,7 @@ export function KeepOriginalsToggle({
   const id = React.useId();
   return (
     <div className="flex items-center gap-3">
-      <Checkbox id={id} checked={checked} onCheckedChange={(v) => onChange(v === true)} />
+      <Switch id={id} checked={checked} onCheckedChange={onChange} />
       <label htmlFor={id} className="shrink-0 cursor-pointer select-none text-sm">
         Keep originals
       </label>

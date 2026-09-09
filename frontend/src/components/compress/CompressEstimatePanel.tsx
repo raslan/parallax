@@ -5,6 +5,7 @@ import type { VideoFile } from "@/types/file";
 import type { CompressCodec } from "@/types/compress";
 import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Slider } from "@/components/ui/slider";
 import {
   Sheet,
   SheetContent,
@@ -304,14 +305,12 @@ export function CompressEstimatePanel({
                     </span>
                     <span className={cn("text-sm font-medium", tier.color)}>({tier.label})</span>
                   </div>
-                  <input
-                    type="range"
+                  <Slider
                     min={crfRange.min}
                     max={crfRange.max}
                     step={1}
-                    value={crf}
-                    onChange={(e) => onCrfChange(Number(e.target.value))}
-                    className="w-full accent-primary"
+                    value={[crf]}
+                    onValueChange={([v]) => onCrfChange(v ?? crf)}
                     data-testid="crf-slider"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">

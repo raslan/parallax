@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { modelsApi, qk } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { aiModelsSchema, seedAiModels } from "@/lib/schemas/settings";
 import { SaveButton } from "./SaveButton";
 import { useSettingsForm } from "./useSettingsForm";
@@ -26,13 +27,12 @@ function SliderRow({
   return (
     <>
       <div className="flex items-center gap-4">
-        <input
-          type="range"
+        <Slider
           min={min}
           max={max}
-          value={value ?? min}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="w-48 accent-primary"
+          value={[value ?? min]}
+          onValueChange={([v]) => onChange(v ?? min)}
+          className="w-48"
         />
         <span className={`text-sm font-mono ${unit ? "w-16 text-right" : "w-4 text-center"}`}>
           {value}

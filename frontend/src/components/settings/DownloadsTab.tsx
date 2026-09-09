@@ -6,6 +6,7 @@ import { api, qk } from "@/lib/api";
 import { DirPicker } from "@/components/DirPicker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { downloadsSettingsSchema, seedDownloads } from "@/lib/schemas/settings";
 import { SaveButton } from "./SaveButton";
 import { useSettingsForm } from "./useSettingsForm";
@@ -77,14 +78,13 @@ export function DownloadsTab() {
                   <p className="text-sm font-medium">Max concurrent downloads</p>
                   <span className="text-sm font-mono">{field.value}</span>
                 </div>
-                <input
-                  type="range"
+                <Slider
                   min={1}
                   max={5}
                   step={1}
-                  value={field.value ?? 1}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
-                  className="w-48 accent-primary"
+                  value={[field.value ?? 1]}
+                  onValueChange={([v]) => field.onChange(v ?? 1)}
+                  className="w-48"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground w-48 mt-1">
                   <span>1</span>

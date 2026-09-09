@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import type { Clause, FieldDef, Operator } from "@/hooks/useQueryBuilder";
 import { cn } from "@/lib/utils";
 
@@ -109,14 +110,12 @@ export function PercentSlider({
           {value}%
         </span>
       </div>
-      <input
-        type="range"
+      <Slider
         min={0}
         max={100}
         step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-full accent-primary"
+        value={[value]}
+        onValueChange={([v]) => onChange(v ?? value)}
       />
     </div>
   );

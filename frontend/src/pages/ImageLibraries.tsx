@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Images, ScanLine } from "lucide-react";
 import { imageApi, qk } from "@/lib/api";
 import type { ImageLibrary, ImageScanRequest } from "@/types/image";
@@ -8,6 +8,8 @@ import { LibraryManagerPage } from "@/components/libraries/LibraryManagerPage";
 import { AddLibraryDialog } from "@/components/libraries/AddLibraryDialog";
 import type { AddDialogProps, LibraryKind, ScanControlProps } from "@/components/libraries/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useConfirm } from "@/components/ConfirmProvider";
 
 const DEFAULT_SCAN_OPTS: ImageScanRequest = {
   run_phash: true,
@@ -21,18 +23,9 @@ const SCAN_TOGGLES = [
 ] as const;
 
 function ImageScanControl({ libraryId, scanning, onScanned }: ScanControlProps) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [opts, setOpts] = useState<ImageScanRequest>(DEFAULT_SCAN_OPTS);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
 
   const scan = async (reset = false) => {
     setOpen(false);
@@ -45,52 +38,55 @@ function ImageScanControl({ libraryId, scanning, onScanned }: ScanControlProps) 
   };
 
   return (
-    <div className="relative" ref={ref}>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-7 w-7"
-        disabled={scanning}
-        title="Scan for images"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <ScanLine className={`h-3.5 w-3.5 ${scanning ? "text-primary animate-pulse" : ""}`} />
-      </Button>
-      {open && (
-        <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-[210px]">
-          {SCAN_TOGGLES.map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
-              <Checkbox
-                checked={opts[key]}
-                onCheckedChange={(c) => setOpts((o) => ({ ...o, [key]: c === true }))}
-                className="h-3.5 w-3.5"
-              />
-              <span className="text-xs">{label}</span>
-            </label>
-          ))}
-          <div className="border-t border-border pt-2 mt-1 flex flex-col gap-1.5">
-            <Button size="sm" onClick={() => scan()}>
-              Scan new images
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                if (
-                  confirm(
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          disabled={scanning}
+          title="Scan for images"
+        >
+          <ScanLine className={`h-3.5 w-3.5 ${scanning ? "text-primary animate-pulse" : ""}`} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="flex w-[210px] flex-col gap-2 p-3">
+        {SCAN_TOGGLES.map(([key, label]) => (
+          <label key={key} className="flex cursor-pointer select-none items-center gap-2">
+            <Checkbox
+              checked={opts[key]}
+              onCheckedChange={(c) => setOpts((o) => ({ ...o, [key]: c === true }))}
+              className="h-3.5 w-3.5"
+            />
+            <span className="text-xs">{label}</span>
+          </label>
+        ))}
+        <div className="mt-1 flex flex-col gap-1.5 border-t border-border pt-2">
+          <Button size="sm" onClick={() => scan()}>
+            Scan new images
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: "Reset & rescan?",
+                  description:
                     "Delete all existing image records for this library and rescan from scratch? Thumbnails will be removed.",
-                  )
-                ) {
-                  scan(true);
-                }
-              }}
-            >
-              Reset &amp; rescan all
-            </Button>
-          </div>
+                  confirmText: "Reset & rescan",
+                  destructive: true,
+                })
+              ) {
+                scan(true);
+              }
+            }}
+          >
+            Reset &amp; rescan all
+          </Button>
         </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

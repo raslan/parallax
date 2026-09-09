@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { WorkingState } from "@/components/WorkingState";
+import { Slider } from "@/components/ui/slider";
 import { formatSize } from "@/lib/format";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
+import { useConfirm } from "@/components/ConfirmProvider";
 
 function recommendKeep(images: ImageFile[]): number {
   return images.reduce((best, img) => {
@@ -129,6 +131,7 @@ function ClusterCard({
 
 export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
@@ -226,7 +229,15 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
 
   const handleQuarantine = async () => {
     if (!deleteIds.size) return;
-    if (!confirm(`Quarantine ${deleteIds.size} image(s)?`)) return;
+    if (
+      !(await confirm({
+        title: "Quarantine images?",
+        description: `Quarantine ${deleteIds.size} image(s)?`,
+        confirmText: "Quarantine",
+        destructive: true,
+      }))
+    )
+      return;
     setQuarantining(true);
     try {
       await imageApi.quarantineBulk([...deleteIds]);
@@ -268,14 +279,15 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 Min similarity
               </span>
-              <input
-                type="range"
+              <Slider
                 min={0}
                 max={100}
                 step={1}
-                value={similarityPct}
-                onChange={(e) => setThreshold(Math.round((1 - Number(e.target.value) / 100) * 64))}
-                className="w-32 accent-primary"
+                value={[similarityPct]}
+                onValueChange={([v]) =>
+                  setThreshold(Math.round((1 - (v ?? similarityPct) / 100) * 64))
+                }
+                className="w-32"
               />
               <span className="text-xs font-mono tabular-nums w-8">{similarityPct}%</span>
             </div>
