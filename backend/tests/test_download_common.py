@@ -95,3 +95,38 @@ def test_process_group_cancel_no_process_returns_false():
     assert pg.is_cancel_requested(99) is True
     pg.clear_cancel_requested(99)
     assert pg.is_cancel_requested(99) is False
+
+
+def _output_template(cmd: list[str]) -> str:
+    return cmd[cmd.index("-o") + 1]
+
+
+def test_build_ytdlp_cmd_group_by_uploader_toggles_dir_segment():
+    from app.services.downloader import build_ytdlp_cmd
+
+    plain = build_ytdlp_cmd("http://x/v", "/out", {})
+    assert _output_template(plain) == "/out/%(title)s.%(ext)s"
+
+    grouped = build_ytdlp_cmd("http://x/v", "/out", {"group_by_uploader": True})
+    assert _output_template(grouped) == "/out/%(uploader,channel,Unknown)s/%(title)s.%(ext)s"
+
+    # A collision-avoidance title override keeps a literal filename, templated dir
+    grouped_override = build_ytdlp_cmd(
+        "http://x/v", "/out", {"group_by_uploader": True, "_output_title_override": "My Vid (2)"}
+    )
+    assert (
+        _output_template(grouped_override) == "/out/%(uploader,channel,Unknown)s/My Vid (2).%(ext)s"
+    )
+
+
+def test_build_ytdlp_cmd_always_embeds_chapters():
+    from app.services.downloader import build_ytdlp_cmd
+
+    assert "--embed-chapters" in build_ytdlp_cmd("http://x/v", "/out", {})
+
+
+def test_build_ytdlp_cmd_no_limit_rate_support():
+    from app.services.downloader import build_ytdlp_cmd
+
+    # limit-rate was removed from the UI/schema — a stale option must not resurrect it
+    assert "--limit-rate" not in build_ytdlp_cmd("http://x/v", "/out", {"limit_rate": "2M"})

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { Folder, Globe, Music, Subtitles, Video } from "lucide-react";
+import { Folder, FolderTree, Globe, Music, Subtitles, Video } from "lucide-react";
 import { DirPicker } from "@/components/DirPicker";
 import { cn } from "@/lib/utils";
 import type { DownloadOptions } from "@/lib/schemas/download";
@@ -233,6 +233,21 @@ export function OptionsPanel({
         )}
       </div>
 
+      {/* Group by uploader — nest each file under an uploader/ subfolder */}
+      <div className="space-y-1.5">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            {...register("groupByUploader")}
+            className="accent-primary h-3.5 w-3.5"
+          />
+          <span className="text-xs text-foreground flex items-center gap-1.5">
+            <FolderTree className="h-3.5 w-3.5 text-muted-foreground/60" />
+            Group by uploader
+          </span>
+        </label>
+      </div>
+
       {/* Impersonate */}
       {impersonateTargets.length > 0 && (
         <div className="space-y-1.5">
@@ -274,9 +289,10 @@ export function OptionsPanel({
         <div className="flex gap-1">
           {(
             [
-              ["off", "No Referer"],
-              ["auto", "Video URL"],
-              ["origin", "Site root"],
+              ["none", "None"],
+              ["site", "Site"],
+              ["url", "URL"],
+              ["custom", "Custom"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -284,7 +300,7 @@ export function OptionsPanel({
               type="button"
               onClick={() => set("refererMode", id)}
               className={cn(
-                "px-2.5 py-1.5 rounded border text-xs font-medium transition-colors",
+                "flex-1 px-2 py-1 rounded border text-[11px] font-medium transition-colors",
                 opts.refererMode === id
                   ? "border-primary/60 bg-primary/10 text-foreground"
                   : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
@@ -294,30 +310,35 @@ export function OptionsPanel({
             </button>
           ))}
         </div>
-        <input
-          type="text"
-          placeholder="Custom Referer URL (overrides the toggle)"
-          {...register("referer")}
-          className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-        />
+        {opts.refererMode === "custom" && (
+          <input
+            type="text"
+            placeholder="Referer header to send (e.g. https://example.com)"
+            {...register("referer")}
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+          />
+        )}
         <div className="flex gap-2">
           <input
             type="text"
-            placeholder="Throttled rate"
-            title="Re-connect if speed drops below this (e.g. 100K)"
-            {...register("throttledRate")}
+            inputMode="decimal"
+            placeholder="Reconnect if slower than…"
+            title="Re-connect to a fresh stream if the download speed drops below this"
+            {...register("throttledRateValue")}
             className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
-          <input
-            type="text"
-            placeholder="Limit rate"
-            title="Cap download speed to stay under a server's abuse radar (e.g. 2M)"
-            {...register("limitRate")}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-          />
+          <select
+            {...register("throttledRateUnit")}
+            className="h-8 shrink-0 rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="K">KB/s</option>
+            <option value="M">MB/s</option>
+            <option value="G">GB/s</option>
+          </select>
         </div>
         <p className="text-[10px] text-muted-foreground/50">
-          For sites that stream fine but throttle the download. Try Referer + cookies first.
+          For sites (mainly YouTube) that stream fine but throttle the download partway. Try Referer
+          + cookies first.
         </p>
       </div>
 

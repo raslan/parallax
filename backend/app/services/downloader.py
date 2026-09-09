@@ -137,10 +137,10 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
       extra_args: str
       impersonate: str
       concurrent_fragments: int — parallel fragment downloads per file (1-64, default 4)
+      group_by_uploader: bool — nest each file in an %(uploader)s/ subfolder
       referer: str — Referer header; "auto" = this download's own URL, "origin" = its
                      scheme://host/, anything else = sent literally
       throttled_rate: str — re-extract a fresh connection if speed drops below this (e.g. "100K")
-      limit_rate: str — cap download speed (e.g. "2M") to stay under a server's abuse radar
       cookies_file: str — path to temp cookies file (caller manages lifecycle)
     """
     audio_only: bool = bool(options.get("audio_only", False))
@@ -154,7 +154,6 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     impersonate: str | None = options.get("impersonate") or None
     referer: str = (options.get("referer") or "").strip()
     throttled_rate: str = (options.get("throttled_rate") or "").strip()
-    limit_rate: str = (options.get("limit_rate") or "").strip()
     cookies_file: str | None = options.get("cookies_file") or None
     try:
         frags = int(options.get("concurrent_fragments") or 4)
@@ -166,14 +165,19 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
 
     # Always-on flags
     cmd += ["--progress", "--newline", "--no-warnings", "--concurrent-fragments", str(frags)]
-    # Embed upload date / title / description as container tags so downstream
-    # tools (e.g. Identify's custom-show mode) can sort by real upload date.
-    cmd += ["--embed-metadata"]
+    # Embed upload date / title / description / chapters as container tags so
+    # downstream tools (e.g. Identify's custom-show mode) can sort by real upload
+    # date and players get chapter markers.
+    cmd += ["--embed-metadata", "--embed-chapters"]
 
     # Output template
-    # _output_title_override is injected by _run_download_sync for collision avoidance
+    # _output_title_override is injected by _run_download_sync for collision avoidance.
+    # group_by_uploader nests each file under an %(uploader)s/ dir — templated dir
+    # part, literal filename; yt-dlp expands the dir per video. Unknown uploader
+    # (non-YouTube sources) falls back to an "Unknown" folder.
     output_title = options.get("_output_title_override") or "%(title)s"
-    cmd += ["-o", f"{output_dir}/{output_title}.%(ext)s"]
+    uploader_dir = "%(uploader,channel,Unknown)s/" if options.get("group_by_uploader") else ""
+    cmd += ["-o", f"{output_dir}/{uploader_dir}{output_title}.%(ext)s"]
 
     # Format / quality selection
     if audio_only:
@@ -213,8 +217,6 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
             cmd += ["--referer", referer]
     if throttled_rate:
         cmd += ["--throttled-rate", throttled_rate]
-    if limit_rate:
-        cmd += ["--limit-rate", limit_rate]
 
     # Extra user-supplied arguments
     if extra_args_str.strip():

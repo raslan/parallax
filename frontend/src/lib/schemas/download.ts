@@ -19,16 +19,15 @@ export const downloadOptionsSchema = z.object({
   extraArgs: z.string().default(""),
   impersonate: z.string().default(""),
   concurrentFragments: z.coerce.number().int().min(1).max(64).default(4),
-  refererMode: z.enum(["off", "auto", "origin"]).default("off"),
-  referer: z.string().default(""), // custom Referer; overrides refererMode when non-empty
-  throttledRate: z
+  // none = no header · site = origin root · url = the video's own URL · custom = literal (uses `referer`)
+  refererMode: z.enum(["none", "site", "url", "custom"]).default("none"),
+  referer: z.string().default(""), // literal Referer, used only when refererMode === "custom"
+  throttledRateValue: z
     .string()
-    .regex(/^(\d+(\.\d+)?[KMGkmg]?)?$/, "e.g. 100K or 1.5M")
+    .regex(/^\d*\.?\d*$/, "number only")
     .default(""),
-  limitRate: z
-    .string()
-    .regex(/^(\d+(\.\d+)?[KMGkmg]?)?$/, "e.g. 100K or 1.5M")
-    .default(""),
+  throttledRateUnit: z.enum(["K", "M", "G"]).default("M"),
+  groupByUploader: z.boolean().default(false), // nest each file in an uploader/ subfolder
 });
 
 export type DownloadOptions = z.infer<typeof downloadOptionsSchema>;
