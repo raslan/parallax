@@ -1,10 +1,18 @@
-import { Info } from "lucide-react";
+import { useState } from "react";
+import { Info, SlidersHorizontal, ChevronRight } from "lucide-react";
 import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import type { CompressCodec } from "@/types/compress";
-import { CollapsibleControls } from "@/components/CollapsibleControls";
 import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
 
@@ -144,65 +152,133 @@ export function CompressEstimatePanel({
   totalEstSize: number;
   totalSavingsPct: number;
 }) {
+  const [open, setOpen] = useState(false);
   const selectedCodec = codecs.find((c) => c.id === codec);
+  const tier = getCrfTier(codec, crf);
+
+  const estimateCards: {
+    label: string;
+    value: string;
+    sub: string;
+    accent?: boolean;
+    warn?: boolean;
+  }[] = files
+    ? [
+        {
+          label: "Library",
+          value: formatSize(libraryTotalSize),
+          sub: `${files.length} file${files.length !== 1 ? "s" : ""}`,
+        },
+        {
+          label: "Selected",
+          value: formatSize(totalSourceSize),
+          sub: `${selectedCount} file${selectedCount !== 1 ? "s" : ""}`,
+        },
+        {
+          label: "Estimated output",
+          value: selectedCount > 0 ? formatSize(totalEstSize) : formatSize(libraryEstSize),
+          sub: selectedCount > 0 ? "for selection" : "if all selected",
+        },
+        (() => {
+          const useSelection = selectedCount > 0;
+          const src = useSelection ? totalSourceSize : libraryTotalSize;
+          const est = useSelection ? totalEstSize : libraryEstSize;
+          const diff = src - est;
+          const pct = useSelection ? totalSavingsPct : librarySavingsPct;
+          const grows = diff < 0;
+          return {
+            label: "Estimated savings",
+            value: grows ? `+${formatSize(Math.abs(diff))}` : `−${formatSize(diff)}`,
+            sub: grows
+              ? `Files would grow ${Math.abs(pct)}% — try a higher CRF`
+              : `${pct}% reduction · est. ±20%`,
+            accent: !grows,
+            warn: grows,
+          } as { label: string; value: string; sub: string; accent?: boolean; warn?: boolean };
+        })(),
+      ]
+    : [];
 
   return (
     <TooltipProvider delayDuration={150}>
-      <CollapsibleControls
-        storageKey="compress-controls"
-        summary={
-          <>
-            {libraries.find((l) => l.id === libraryId)?.name ?? "No library"} ·{" "}
-            {selectedCodec?.label ?? codec.toUpperCase()} · CRF {crf} · {speed}
-            {keepOriginal ? " · keep originals" : ""}
-          </>
-        }
-      >
-        <div className="p-4 space-y-4">
-          <LibraryBar
-            libraries={libraries}
-            libraryId={libraryId}
-            onLibraryChange={onLibraryChange}
-            right={
-              <KeepOriginalsToggle
-                checked={keepOriginal}
-                onChange={onKeepOriginalChange}
-                hint="Move source to _originals/ before replacing — restore or free space later"
-              />
-            }
-          />
+      <div className="shrink-0 space-y-3">
+        <LibraryBar
+          libraries={libraries}
+          libraryId={libraryId}
+          onLibraryChange={onLibraryChange}
+          right={
+            <KeepOriginalsToggle
+              checked={keepOriginal}
+              onChange={onKeepOriginalChange}
+              hint="Move source to _originals/ before replacing — restore or free space later"
+            />
+          }
+        />
 
-          {/* Settings panel */}
-          <div className="rounded-lg border border-border/50 bg-muted/10 divide-y divide-border/40">
-            {/* Codec + Speed side by side */}
-            <div className="px-5 py-4 grid grid-cols-2 gap-0 divide-x divide-border/40">
-              <div className="flex items-start gap-8 pr-8">
-                <div className="w-40 shrink-0">
-                  <p className="text-xs font-medium text-foreground">Target Codec</p>
-                  <p className="text-[11px] text-muted-foreground/60 mt-0.5">Output video format</p>
-                  {selectedCodec && (
-                    <p className="text-[10px] text-muted-foreground/40 font-mono mt-1">
-                      via {selectedCodec.encoder}
+        {/* Trigger — current output at a glance; opens the non-modal settings drawer
+            (page stays interactive, so the estimate keeps updating as files are selected) */}
+        <Sheet open={open} onOpenChange={setOpen} modal={false}>
+          <SheetTrigger asChild>
+            <button className="flex w-full items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/15">
+              <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 truncate text-sm">
+                <span className="font-medium">{selectedCodec?.label ?? codec.toUpperCase()}</span>
+                <span className="text-muted-foreground">
+                  {" · "}CRF {crf} · {speed}
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                Encoding settings
+                <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+            </button>
+          </SheetTrigger>
+
+          <SheetContent
+            side="right"
+            overlay={false}
+            onInteractOutside={() => setOpen(false)}
+            className="w-[34rem] max-w-[92vw] gap-4 overflow-y-auto bg-card sm:w-[38rem]"
+          >
+            <SheetHeader>
+              <SheetTitle>Encoding settings</SheetTitle>
+              <SheetDescription>
+                Codec, speed, and quality — with a live size estimate for this library.
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="space-y-4">
+              <div className="divide-y divide-border/40 rounded-lg border border-border/50 bg-muted/10">
+                {/* Codec */}
+                <div className="space-y-2 px-4 py-4">
+                  <div>
+                    <p className="text-xs font-medium text-foreground">
+                      Target codec
+                      {selectedCodec && (
+                        <span className="ml-2 font-mono text-[10px] text-muted-foreground/40">
+                          via {selectedCodec.encoder}
+                        </span>
+                      )}
                     </p>
-                  )}
-                </div>
-                <div className="flex-1">
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                      Output video format
+                    </p>
+                  </div>
                   <RadioToggle
                     value={codec}
                     onChange={onCodecChange}
                     options={codecs.map((c) => ({ id: c.id, label: c.label, hint: c.description }))}
                   />
                 </div>
-              </div>
 
-              <div className="flex items-start gap-8 pl-8">
-                <div className="w-40 shrink-0">
-                  <p className="text-xs font-medium text-foreground">Encoding Speed</p>
-                  <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                    Slower = smaller file, more time.
-                  </p>
-                </div>
-                <div className="flex-1">
+                {/* Speed */}
+                <div className="space-y-2 px-4 py-4">
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Encoding speed</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                      Slower = smaller file, more time.
+                    </p>
+                  </div>
                   <RadioToggle
                     value={speed}
                     onChange={onSpeedChange}
@@ -213,126 +289,69 @@ export function CompressEstimatePanel({
                     ]}
                   />
                 </div>
-              </div>
-            </div>
 
-            {/* Row 3: CRF slider — full width */}
-            <div className="px-5 py-4 flex items-start gap-8">
-              <div className="w-40 shrink-0">
-                <p className="text-xs font-medium text-foreground">Quality (CRF)</p>
-                <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                  Lower = better quality, larger file. Each +6 roughly halves the bitrate.
-                </p>
-              </div>
-              <div className="flex-1 space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-mono font-light tabular-nums text-foreground">
-                    {crf}
-                  </span>
-                  {(() => {
-                    const tier = getCrfTier(codec, crf);
-                    return (
-                      <span className={cn("text-sm font-medium", tier.color)}>({tier.label})</span>
-                    );
-                  })()}
-                </div>
-                <input
-                  type="range"
-                  min={crfRange.min}
-                  max={crfRange.max}
-                  step={1}
-                  value={crf}
-                  onChange={(e) => onCrfChange(Number(e.target.value))}
-                  className="w-full accent-primary"
-                  data-testid="crf-slider"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{crfRange.min} — lossless</span>
-                  <span>{crfRange.max} — smallest</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Library stats */}
-          {files && (
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                {
-                  label: "Library",
-                  value: formatSize(libraryTotalSize),
-                  sub: `${files.length} file${files.length !== 1 ? "s" : ""}`,
-                  accent: false,
-                },
-                {
-                  label: "Selected",
-                  value: formatSize(totalSourceSize),
-                  sub: `${selectedCount} file${selectedCount !== 1 ? "s" : ""}`,
-                  accent: false,
-                },
-                {
-                  label: "Estimated output",
-                  value: selectedCount > 0 ? formatSize(totalEstSize) : formatSize(libraryEstSize),
-                  sub: selectedCount > 0 ? "for selection" : "if all selected",
-                  accent: false,
-                },
-                (() => {
-                  const useSelection = selectedCount > 0;
-                  const src = useSelection ? totalSourceSize : libraryTotalSize;
-                  const est = useSelection ? totalEstSize : libraryEstSize;
-                  const diff = src - est;
-                  const pct = useSelection ? totalSavingsPct : librarySavingsPct;
-                  const grows = diff < 0;
-                  return {
-                    label: "Estimated savings",
-                    value: grows ? `+${formatSize(Math.abs(diff))}` : `−${formatSize(diff)}`,
-                    sub: grows
-                      ? `Files would grow ${Math.abs(pct)}% — try a higher CRF`
-                      : `${pct}% reduction · est. ±20%`,
-                    accent: !grows,
-                    warn: grows,
-                  };
-                })(),
-              ].map(
-                ({
-                  label,
-                  value,
-                  sub,
-                  accent,
-                  warn,
-                }: {
-                  label: string;
-                  value: string;
-                  sub: string;
-                  accent?: boolean;
-                  warn?: boolean;
-                }) => (
-                  <div
-                    key={label}
-                    className={cn(
-                      "rounded-lg border bg-muted/10 px-5 py-4",
-                      warn ? "border-orange-500/30" : "border-border/50",
-                    )}
-                  >
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
-                      {label}
+                {/* CRF */}
+                <div className="space-y-2 px-4 py-4">
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Quality (CRF)</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                      Lower = better quality, larger file. Each +6 roughly halves the bitrate.
                     </p>
-                    <p
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-2xl font-light tabular-nums text-foreground">
+                      {crf}
+                    </span>
+                    <span className={cn("text-sm font-medium", tier.color)}>({tier.label})</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={crfRange.min}
+                    max={crfRange.max}
+                    step={1}
+                    value={crf}
+                    onChange={(e) => onCrfChange(Number(e.target.value))}
+                    className="w-full accent-primary"
+                    data-testid="crf-slider"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{crfRange.min} — lossless</span>
+                    <span>{crfRange.max} — smallest</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live estimate */}
+              {files && (
+                <div className="grid grid-cols-2 gap-3">
+                  {estimateCards.map(({ label, value, sub, accent, warn }) => (
+                    <div
+                      key={label}
                       className={cn(
-                        "text-2xl font-light tabular-nums mt-1",
-                        warn ? "text-orange-400" : accent ? "text-green-400" : "text-foreground",
+                        "rounded-lg border bg-muted/10 px-4 py-3",
+                        warn ? "border-orange-500/30" : "border-border/50",
                       )}
                     >
-                      {value}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/60 mt-0.5">{sub}</p>
-                  </div>
-                ),
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        {label}
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-1 text-xl font-light tabular-nums",
+                          warn ? "text-orange-400" : accent ? "text-green-400" : "text-foreground",
+                        )}
+                      >
+                        {value}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/60">{sub}</p>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          )}
-        </div>
-      </CollapsibleControls>
+          </SheetContent>
+        </Sheet>
+      </div>
     </TooltipProvider>
   );
 }
