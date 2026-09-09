@@ -20,6 +20,7 @@ import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { ToolboxFixChips, type FixKey, type FixValues } from "@/components/toolbox/ToolboxFixChips";
+import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -238,42 +239,22 @@ export function Toolbox() {
         </p>
       </div>
 
-      <div className="shrink-0 space-y-3 rounded-lg border bg-card p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Library</span>
-            <select
-              value={libraryId ?? ""}
-              onChange={(e) => setLibraryId(Number(e.target.value))}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {libraries.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name || l.path}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={keepOriginal}
-              onChange={(e) => setKeepOriginal(e.target.checked)}
-              className="accent-primary h-4 w-4"
-            />
-            Keep originals
-            <span className="text-[11px] text-muted-foreground/60">
-              &mdash; move source to <code className="font-mono">_originals/</code> first
-            </span>
-          </label>
-        </div>
-        <ToolboxFixChips
-          active={activeFixes}
-          values={fixValues}
-          onAdd={addFix}
-          onRemove={removeFix}
-          onChange={patchFixValues}
+      <div className="shrink-0 space-y-3">
+        <LibraryBar
+          libraries={libraries}
+          libraryId={libraryId}
+          onLibraryChange={setLibraryId}
+          right={<KeepOriginalsToggle checked={keepOriginal} onChange={setKeepOriginal} />}
         />
+        <div className="rounded-lg border bg-card p-4">
+          <ToolboxFixChips
+            active={activeFixes}
+            values={fixValues}
+            onAdd={addFix}
+            onRemove={removeFix}
+            onChange={patchFixValues}
+          />
+        </div>
       </div>
 
       {/* Job progress */}

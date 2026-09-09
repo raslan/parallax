@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
-import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
@@ -25,35 +24,12 @@ import { useGridSize } from "@/hooks/useGridSize";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { QueryBuilder } from "@/components/QueryBuilder";
+import { LibraryBar } from "@/components/LibraryBar";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { cleanupFields } from "@/lib/cleanupFields";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
-
-function LibrarySelector({
-  libraries,
-  selected,
-  onChange,
-}: {
-  libraries: Library[];
-  selected: number | null;
-  onChange: (id: number) => void;
-}) {
-  return (
-    <select
-      className="bg-card border border-border text-sm rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-      value={selected ?? ""}
-      onChange={(e) => onChange(Number(e.target.value))}
-    >
-      {libraries.map((lib) => (
-        <option key={lib.id} value={lib.id}>
-          {lib.name}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 function CleanupCard({
   file,
@@ -309,20 +285,19 @@ export function Cleanup() {
             Stack filters to find files matching all conditions, then bulk-delete matches.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {libraries.length > 0 && (
-            <LibrarySelector
-              libraries={libraries}
-              selected={selectedId}
-              onChange={(id) => {
-                setSelectedId(id);
-                setSelected(new Set());
-                setError(null);
-              }}
-            />
-          )}
-        </div>
       </div>
+
+      {libraries.length > 0 && (
+        <LibraryBar
+          libraries={libraries}
+          libraryId={selectedId}
+          onLibraryChange={(id) => {
+            setSelectedId(id);
+            setSelected(new Set());
+            setError(null);
+          }}
+        />
+      )}
 
       <div className="rounded-lg border bg-card p-4 shrink-0">
         <QueryBuilder

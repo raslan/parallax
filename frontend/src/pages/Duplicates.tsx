@@ -10,10 +10,10 @@ import { api, qk } from "@/lib/api";
 import { anyCriteriaEnabled, type DuplicateGroup } from "@/lib/clusterDuplicates";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
-import type { Library } from "@/types/library";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { DuplicateCriteriaPanel } from "@/components/duplicates/DuplicateCriteriaPanel";
+import { LibraryBar } from "@/components/LibraryBar";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
@@ -27,30 +27,6 @@ import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
 // backend) — a fresh identity would re-trigger the `groups`-driven effect
 // below every render and infinite-loop.
 const EMPTY_FILES: VideoFile[] = [];
-
-function LibrarySelector({
-  libraries,
-  selected,
-  onChange,
-}: {
-  libraries: Library[];
-  selected: number | null;
-  onChange: (id: number) => void;
-}) {
-  return (
-    <select
-      className="bg-card border border-border text-sm rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-      value={selected ?? ""}
-      onChange={(e) => onChange(Number(e.target.value))}
-    >
-      {libraries.map((lib) => (
-        <option key={lib.id} value={lib.id}>
-          {lib.name}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 function FileCard({
   file,
@@ -393,17 +369,6 @@ export function Duplicates() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {libraries.length > 0 && (
-            <LibrarySelector
-              libraries={libraries}
-              selected={selectedId}
-              onChange={(id) => {
-                setSelectedId(id);
-                setDeleteIds(new Set());
-                setLastExtractedCriteria(null);
-              }}
-            />
-          )}
           <Button onClick={handleExtract} disabled={extracting || !selectedId}>
             {extracting ? (
               <>
@@ -419,6 +384,18 @@ export function Duplicates() {
           </Button>
         </div>
       </div>
+
+      {libraries.length > 0 && (
+        <LibraryBar
+          libraries={libraries}
+          libraryId={selectedId}
+          onLibraryChange={(id) => {
+            setSelectedId(id);
+            setDeleteIds(new Set());
+            setLastExtractedCriteria(null);
+          }}
+        />
+      )}
 
       <div className="shrink-0 rounded-lg border bg-card p-4">
         <DuplicateCriteriaPanel
