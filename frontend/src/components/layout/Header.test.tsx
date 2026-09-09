@@ -46,4 +46,17 @@ describe("Header", () => {
       expect(screen.getByRole("link", { name }).getAttribute("data-active")).toBe("false");
     }
   });
+
+  it("renders exactly one tab per section", () => {
+    renderAt("/files");
+    const nav = screen.getByRole("navigation");
+    // one <a> per section
+    const links = nav.querySelectorAll("a[data-active]");
+    expect(links.length).toBe(3); // SECTIONS.length today
+  });
+
+  it("has no open-navigation hamburger", () => {
+    renderAt("/files");
+    expect(screen.queryByRole("button", { name: /open navigation/i })).toBeNull();
+  });
 });

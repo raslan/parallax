@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { routeToTab, filterSectionItems, SECTIONS } from "./nav-config";
+import { routeToTab, filterSectionItems, SECTIONS, sectionItemsById } from "./nav-config";
 
 const byId = (id: string) => SECTIONS.find((s) => s.id === id)!;
 
@@ -46,5 +46,29 @@ describe("routeToTab", () => {
   it("does not confuse /image-libraries with /libraries", () => {
     expect(routeToTab("/image-libraries")).toBe("images");
     expect(routeToTab("/libraries")).toBe("videos");
+  });
+});
+
+describe("sectionItemsById", () => {
+  it("returns the tools items regardless of library flags", () => {
+    expect(sectionItemsById("tools", false, false).map((i) => i.label)).toEqual([
+      "Identify",
+      "Subtitles",
+      "Downloads",
+    ]);
+  });
+
+  it("collapses videos to just Libraries when there are no video libraries", () => {
+    expect(sectionItemsById("videos", false, true).map((i) => i.label)).toEqual(["Libraries"]);
+  });
+
+  it("returns the full images list once an image library exists", () => {
+    const byId = (id: string) => SECTIONS.find((s) => s.id === id)!;
+    expect(sectionItemsById("images", false, true)).toEqual(byId("images").items);
+  });
+
+  it("returns [] for an unknown section id", () => {
+    // @ts-expect-error deliberately passing an invalid id
+    expect(sectionItemsById("nope", true, true)).toEqual([]);
   });
 });

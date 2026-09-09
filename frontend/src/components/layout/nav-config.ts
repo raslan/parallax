@@ -93,11 +93,24 @@ export function filterSectionItems(
   return section.items;
 }
 
+/** @public — items for an arbitrary section id (BottomBar → SectionSheet). */
+export function sectionItemsById(
+  id: SectionId,
+  hasVideoLibraries: boolean,
+  hasImageLibraries: boolean,
+): NavItem[] {
+  const section = SECTIONS.find((s) => s.id === id);
+  if (!section) return [];
+  return filterSectionItems(section, hasVideoLibraries, hasImageLibraries);
+}
+
 /** @public */
 export function useSectionNav(): {
   activeTab: SectionId | null;
   section: Section;
   items: NavItem[];
+  hasVideoLibraries: boolean;
+  hasImageLibraries: boolean;
 } {
   const { pathname } = useLocation();
   const activeTab = routeToTab(pathname);
@@ -115,6 +128,8 @@ export function useSectionNav(): {
     staleTime: 30_000,
   });
 
-  const items = filterSectionItems(section, videoLibraries.length > 0, imageLibraries.length > 0);
-  return { activeTab, section, items };
+  const hasVideoLibraries = videoLibraries.length > 0;
+  const hasImageLibraries = imageLibraries.length > 0;
+  const items = filterSectionItems(section, hasVideoLibraries, hasImageLibraries);
+  return { activeTab, section, items, hasVideoLibraries, hasImageLibraries };
 }
