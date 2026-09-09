@@ -88,6 +88,49 @@ def _sweep_idle_locked() -> None:
         _clear_cache()
 
 
+# ── Background sweeper ────────────────────────────────────────────────────────
+# Historically the only thing that evicted `current.mp4` was `needs_prepare()`
+# calling `_sweep_idle_locked()` — and that runs *only* past the web-safe
+# early-return, i.e. only while starting a remux for another AC3/DTS file (which
+# rebuilds the cache anyway). So a remux whose source was later deleted, or that
+# simply wasn't replayed, parked multiple GB indefinitely. This makes the sweep
+# independent of playback: a hard clear on boot plus an hourly idle check.
+
+_SWEEP_INTERVAL_SECONDS = 3600
+_sweeper_stop = threading.Event()
+_sweeper_thread: threading.Thread | None = None
+
+
+def _sweeper_loop() -> None:
+    while not _sweeper_stop.wait(_SWEEP_INTERVAL_SECONDS):
+        with _lock:
+            _sweep_idle_locked()
+
+
+def start_sweeper() -> None:
+    """Clear any leftover remux on boot, then idle-sweep on a timer.
+
+    Called once from the app lifespan. The remux at `current.mp4` is a
+    single-slot throwaway rebuilt on demand, so clearing it unconditionally at
+    startup (nothing is in flight in a fresh process) is safe and also collects
+    an orphan whose source file is gone.
+    """
+    global _sweeper_thread
+    _clear_cache()
+    if _sweeper_thread and _sweeper_thread.is_alive():
+        return
+    _sweeper_stop.clear()
+    _sweeper_thread = threading.Thread(
+        target=_sweeper_loop, daemon=True, name="stream-cache-sweeper"
+    )
+    _sweeper_thread.start()
+
+
+def stop_sweeper() -> None:
+    """Signal the sweeper thread to exit (best-effort; it's a daemon)."""
+    _sweeper_stop.set()
+
+
 def needs_prepare(video_path: str) -> dict:
     """Non-blocking status check. Does not start a remux — call start_prepare() for that."""
     codec = _probe_audio_codec(video_path)

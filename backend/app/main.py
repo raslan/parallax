@@ -238,6 +238,12 @@ async def lifespan(app: FastAPI):
     fs_watcher.init()
     fs_watcher.watch_all_libraries()
 
+    # Clear a leftover stream remux on boot and idle-sweep it on a timer —
+    # otherwise a multi-GB `current.mp4` lingers until the next AC3/DTS playback.
+    from app.services import stream_cache
+
+    stream_cache.start_sweeper()
+
     # Best-effort fetch of the alass binary for subtitle sync — never block
     # startup on it (offline environments should still boot fine).
     from app.services.subtitle_sync import ensure_alass
@@ -249,6 +255,7 @@ async def lifespan(app: FastAPI):
 
     yield
     fs_watcher.shutdown()
+    stream_cache.stop_sweeper()
 
 
 app = FastAPI(title="Transcoder", lifespan=lifespan)
