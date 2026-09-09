@@ -3,6 +3,53 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.5.0](https://github.com/raslan/parallax/compare/v2.4.0...v2.5.0) (2026-09-09)
+
+
+### Features
+
+* add more shadcn native components and replace handrolled ([1c3047d](https://github.com/raslan/parallax/commit/1c3047df2c74dd69c3b5737426ead95a49c4ecd2))
+* add the ability to move identified folders sort of like import ([3ba12e6](https://github.com/raslan/parallax/commit/3ba12e64369f2d91b86cbe34d3724d5aaeb62465))
+* **downloads:** per-uploader folders, chapter embed, tidy rate options ([f46747b](https://github.com/raslan/parallax/commit/f46747bf0b5f50efd30c658fc54b6ecc930085d0))
+* **duplicates:** default pHash compare mode to first-frame ([095e386](https://github.com/raslan/parallax/commit/095e3864d4746467ee195fffc2eef2cf82e417e1))
+* **fs-watcher:** full disk reconcile each fire plus periodic sweep ([00f2145](https://github.com/raslan/parallax/commit/00f21450946cad22a111f939465a53607bbd18a6))
+* **galleries:** add /galleries API router ([097e403](https://github.com/raslan/parallax/commit/097e403356f77fe83f42097437d09df33226a09d))
+* **galleries:** add /galleries page and gallery-dl downloader UI ([38d255c](https://github.com/raslan/parallax/commit/38d255cfac4a6abf0e0e1a343c083d6c95a96ef9))
+* **galleries:** add gallery_downloads model and startup wiring ([c4ca2a1](https://github.com/raslan/parallax/commit/c4ca2a132de9a73bb61fd543ff3b7a59cc2d345c))
+* **galleries:** add GalleryOptions schema and settings plumbing ([e334c33](https://github.com/raslan/parallax/commit/e334c3306f42ebfd9ef2c0b73b16930e7961536b))
+* **galleries:** build gallery-dl command from options ([bbc6318](https://github.com/raslan/parallax/commit/bbc631860fd594c145f494e83363c09f4e7ad94a))
+* **galleries:** gallery-dl cancel and binary management ([61c972c](https://github.com/raslan/parallax/commit/61c972c70dd6f5c013ec41f4c6981a18813d1a4c))
+* **galleries:** gallery-dl subprocess worker and progress parser ([3a023fb](https://github.com/raslan/parallax/commit/3a023fb77d615a0ff29f03fbde996924fc506b59))
+* **galleries:** stream gallery-dl output to a live expandable log ([deaf1c7](https://github.com/raslan/parallax/commit/deaf1c73e91bc81ae250f60e46cf248c42040582))
+* **identify:** custom-show mode for playlists with no TMDB entry ([0ce9b0b](https://github.com/raslan/parallax/commit/0ce9b0bb17523fa62532bd847c223155647fe911))
+* **identify:** don't auto-open TMDB search when no API key is set ([5f5e051](https://github.com/raslan/parallax/commit/5f5e051b44cc8098f13584bb02594809a49ff636))
+* **identify:** drag-reorder + editable episode number in custom show ([3287d09](https://github.com/raslan/parallax/commit/3287d09e0f6254b0c7a10bece44bb1df14461de2))
+* **identify:** generate show + season artwork for custom shows ([3076927](https://github.com/raslan/parallax/commit/3076927a54e9b37b3fbb4c8095fda2e20e2a37d6))
+* **identify:** offer custom show from the empty TMDB search results ([6e51d87](https://github.com/raslan/parallax/commit/6e51d879e970d84eec7f8d305c6898918da8c34c))
+* **identify:** rework page into one full-width workspace ([1cce0cf](https://github.com/raslan/parallax/commit/1cce0cf78db7c5be1c7cb58425b6b4d0f41a90a0))
+* **identify:** show TMDB episode stills in the match list ([7f2cdc8](https://github.com/raslan/parallax/commit/7f2cdc846dbb349a10749096a15db246d0734675))
+* **images:** on-demand phash/content-scan extraction for image pages ([c6d1ece](https://github.com/raslan/parallax/commit/c6d1ece45ed52cb505b67b7099e69ea09c910f6b))
+* **themes:** add neutral theme set with Parallax as new default ([51d5e9b](https://github.com/raslan/parallax/commit/51d5e9bd6c92a7ea5a24a5b634be31b240ae30b5))
+* **ui:** shadcn Select + Checkbox, replace all native ones ([9275e20](https://github.com/raslan/parallax/commit/9275e209a2a8ec5277806e4ec8afa85db23d85e8))
+* update download flows to use concurrent download streams ([bf8d1eb](https://github.com/raslan/parallax/commit/bf8d1ebfe80df8a3509c0153d9a0288381a3ce91))
+
+
+### Bug Fixes
+
+* **galleries:** fetch nightly via tarball not git, handle update failure ([ad2301a](https://github.com/raslan/parallax/commit/ad2301a23359237f3b8f1845b7b7f53122cfa92b))
+* **galleries:** guard external link, harden numeric option parsing ([4fefc65](https://github.com/raslan/parallax/commit/4fefc65a30f5ccce69700d2eaa426ed57c4e41d8))
+* **galleries:** log gallery-dl argv with cookies path redacted ([8f1f10c](https://github.com/raslan/parallax/commit/8f1f10c68f9587d081a7a0e412ee72f4ecff9685))
+* **galleries:** parse gallery-dl stdout — --print suppressed downloads ([deca780](https://github.com/raslan/parallax/commit/deca780b4aeb14fe7a0f87c927be33eed202d9a9))
+* **galleries:** pip-install gallery-dl instead of a glibc-bound binary ([f43518a](https://github.com/raslan/parallax/commit/f43518a83f6ab34646eed984ecb91a87ef2e8477))
+* **galleries:** pre-clean stale pip backup dir before atomic swap ([5632483](https://github.com/raslan/parallax/commit/56324831a854db3c5412b65ea328dab2de72a7b1))
+* **galleries:** snapshot opts, partial-file cleanup, kill under lock ([4088af6](https://github.com/raslan/parallax/commit/4088af69fc113365f81fc4a8fb1fca373de11219))
+* **galleries:** tighten error match and refresh stale comment ([a0d338c](https://github.com/raslan/parallax/commit/a0d338c96e8cf68785e27f6d40c767e643c75902))
+* **galleries:** use argv-safe sentinels — NUL bytes crash Popen ([07b52cc](https://github.com/raslan/parallax/commit/07b52ccd9ac48af99677e52f4d89708d285f4813))
+* **grid:** pad virtualized scroll box so card rings aren't clipped ([54b0fae](https://github.com/raslan/parallax/commit/54b0fae7b5133929501b6adb04f6c409f62ba619))
+* **identify:** pad TMDB search results below the search bar ([5397e8f](https://github.com/raslan/parallax/commit/5397e8f5a94a13e51682e295c7f31cf83bb41fee))
+* **identify:** read mkv date tags, fix the sort toggle, add Added sort ([6e94040](https://github.com/raslan/parallax/commit/6e940403121e11e8aaa39d9c7a44173324e6733b))
+* **logging:** configure root logging so app-level logs are emitted ([c3fadc3](https://github.com/raslan/parallax/commit/c3fadc36e2b1b56db34909f287fe790db5c3b97f))
+
 ## [2.4.0](https://github.com/raslan/parallax/compare/v2.3.0...v2.4.0) (2026-09-05)
 
 
