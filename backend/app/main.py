@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.audio_compress import router as audio_compress_router
 from app.api.audio_files import router as audio_files_router
 from app.api.audio_libraries import router as audio_libraries_router
 from app.api.compress import router as compress_router
@@ -272,6 +273,7 @@ app.include_router(images_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
 app.include_router(compress_router, prefix="/api")
+app.include_router(audio_compress_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
 app.include_router(galleries_router, prefix="/api")
 app.include_router(toolbox_router, prefix="/api")
