@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { LibraryManagerPage } from "@/components/libraries/LibraryManagerPage";
 import { AddLibraryDialog } from "@/components/libraries/AddLibraryDialog";
 import type { AddDialogProps, LibraryKind, ScanControlProps } from "@/components/libraries/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const DEFAULT_SCAN_OPTS: ImageScanRequest = {
   run_phash: true,
@@ -59,11 +60,10 @@ function ImageScanControl({ libraryId, scanning, onScanned }: ScanControlProps) 
         <div className="absolute right-0 top-8 z-10 bg-card border border-border rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-[210px]">
           {SCAN_TOGGLES.map(([key, label]) => (
             <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={opts[key]}
-                onChange={(e) => setOpts((o) => ({ ...o, [key]: e.target.checked }))}
-                className="h-3.5 w-3.5 accent-primary"
+                onCheckedChange={(c) => setOpts((o) => ({ ...o, [key]: c === true }))}
+                className="h-3.5 w-3.5"
               />
               <span className="text-xs">{label}</span>
             </label>
@@ -110,11 +110,9 @@ function ImageAddDialog({ open, onOpenChange, onCreated }: AddDialogProps) {
           <Label>Scan options</Label>
           {SCAN_TOGGLES.map(([key, label]) => (
             <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={opts[key]}
-                onChange={(e) => setOpts({ ...opts, [key]: e.target.checked })}
-                className="h-4 w-4 rounded border-border accent-primary"
+                onCheckedChange={(c) => setOpts({ ...opts, [key]: c === true })}
               />
               <span className="text-sm">{label}</span>
             </label>

@@ -24,6 +24,13 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const FETCH_ALL_PAGE_SIZE = 10000;
 
@@ -454,20 +461,22 @@ export function Files() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 shrink-0">
-        <select
-          className={selectCls}
-          value={selectedLibraryId}
-          onChange={(e) =>
-            setSelectedLibraryId(e.target.value === "all" ? "all" : Number(e.target.value))
-          }
+        <Select
+          value={selectedLibraryId === "all" ? "all" : String(selectedLibraryId)}
+          onValueChange={(v) => setSelectedLibraryId(v === "all" ? "all" : Number(v))}
         >
-          <option value="all">All libraries (flat)</option>
-          {libraries.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-[13rem] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All libraries (flat)</SelectItem>
+            {libraries.map((l) => (
+              <SelectItem key={l.id} value={String(l.id)}>
+                {l.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -481,13 +490,18 @@ export function Files() {
         </div>
 
         <div className="flex flex-wrap items-center gap-1 ml-auto">
-          <select className={selectCls} value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-8 w-[9rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <button
             onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
             className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"

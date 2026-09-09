@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Clause, FieldDef, Operator } from "@/hooks/useQueryBuilder";
 import { cn } from "@/lib/utils";
 
@@ -64,24 +71,21 @@ function PhraseOperatorSelect<T>({
     );
   }
   return (
-    <div className="relative inline-flex shrink-0 items-center">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as Operator)}
-        className="cursor-pointer appearance-none rounded-md bg-transparent py-1 pl-0 pr-5 text-sm font-medium hover:text-primary focus:outline-none"
+    <Select value={value} onValueChange={(v) => onChange(v as Operator)}>
+      <SelectTrigger
+        className="h-auto w-auto gap-1 border-0 bg-transparent p-0 text-sm font-medium shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:opacity-100"
         style={{ color: "var(--px-accent)" }}
       >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
         {field.operators.map((op) => (
-          <option key={op} value={op} className="text-foreground">
+          <SelectItem key={op} value={op}>
             {phraseMap?.[op] ?? OPERATOR_PHRASE[op]}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-      <ChevronDown
-        className="pointer-events-none absolute right-0 h-3.5 w-3.5"
-        style={{ color: "var(--px-accent)" }}
-      />
-    </div>
+      </SelectContent>
+    </Select>
   );
 }
 

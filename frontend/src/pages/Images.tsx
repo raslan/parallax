@@ -13,6 +13,13 @@ import { filterByFilename } from "@/components/FileSelectGrid";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
@@ -161,26 +168,34 @@ export function Images() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 shrink-0">
-        <select
+        <Select
           value={statusFilter || "all"}
-          onChange={(e) => setStatusFilter(e.target.value === "all" ? "" : e.target.value)}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+          onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}
         >
-          <option value="all">All statuses</option>
-          <option value="scanned">Scanned</option>
-          <option value="failed">Failed</option>
-        </select>
+          <SelectTrigger className="h-8 w-[8.5rem] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="scanned">Scanned</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <select
+        <Select
           value={detectionFilter || "all"}
-          onChange={(e) => setDetectionFilter(e.target.value === "all" ? "" : e.target.value)}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+          onValueChange={(v) => setDetectionFilter(v === "all" ? "" : v)}
         >
-          <option value="all">All images</option>
-          <option value="any">Has detections</option>
-          <option value="exposed">Exposed only</option>
-          <option value="none">No detections</option>
-        </select>
+          <SelectTrigger className="h-8 w-[9rem] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All images</SelectItem>
+            <SelectItem value="any">Has detections</SelectItem>
+            <SelectItem value="exposed">Exposed only</SelectItem>
+            <SelectItem value="none">No detections</SelectItem>
+          </SelectContent>
+        </Select>
 
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -194,17 +209,18 @@ export function Images() {
         </div>
 
         <div className="flex items-center gap-1 ml-auto">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-8 w-[9rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <button
             onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
             className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"

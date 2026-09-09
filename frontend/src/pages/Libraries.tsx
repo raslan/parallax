@@ -5,6 +5,7 @@ import type { Library } from "@/types/library";
 import { LibraryManagerPage } from "@/components/libraries/LibraryManagerPage";
 import { AddLibraryDialog } from "@/components/libraries/AddLibraryDialog";
 import type { AddDialogProps, LibraryKind, ScanControlProps } from "@/components/libraries/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const VIDEO_ADD_EXTRA = { split: false };
 
@@ -46,11 +47,10 @@ function VideoAddDialog({ open, onOpenChange, onCreated }: AddDialogProps) {
       submitLabel={(e) => (e.split ? "Add Libraries" : "Add Library")}
       renderExtra={(extra, setExtra) => (
         <label className="flex items-start gap-2.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={extra.split}
-            onChange={(e) => setExtra({ split: e.target.checked })}
-            className="accent-primary h-4 w-4 mt-0.5 shrink-0"
+            onCheckedChange={(c) => setExtra({ split: c === true })}
+            className="mt-0.5 shrink-0"
           />
           <div>
             <p className="text-sm font-medium">Split into sub-libraries</p>

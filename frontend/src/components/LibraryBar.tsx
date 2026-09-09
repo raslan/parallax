@@ -1,4 +1,13 @@
+import * as React from "react";
 import type { Library } from "@/types/library";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,17 +36,21 @@ export function LibraryBar({
     >
       <div className="flex items-center gap-3 bg-card px-4 py-3">
         <span className="shrink-0 text-sm text-muted-foreground">Library</span>
-        <select
-          value={libraryId ?? ""}
-          onChange={(e) => onLibraryChange(Number(e.target.value))}
-          className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        <Select
+          value={libraryId != null ? String(libraryId) : undefined}
+          onValueChange={(v) => onLibraryChange(Number(v))}
         >
-          {libraries.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name || l.path}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Select a library" />
+          </SelectTrigger>
+          <SelectContent>
+            {libraries.map((l) => (
+              <SelectItem key={l.id} value={String(l.id)}>
+                {l.name || l.path}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {right && <div className="flex items-center gap-3 bg-card px-4 py-3">{right}</div>}
     </div>
@@ -53,16 +66,14 @@ export function KeepOriginalsToggle({
   onChange: (v: boolean) => void;
   hint?: string;
 }) {
+  const id = React.useId();
   return (
-    <label className="flex cursor-pointer select-none items-center gap-3">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 shrink-0 accent-primary"
-      />
-      <span className="shrink-0 text-sm">Keep originals</span>
+    <div className="flex items-center gap-3">
+      <Checkbox id={id} checked={checked} onCheckedChange={(v) => onChange(v === true)} />
+      <label htmlFor={id} className="shrink-0 cursor-pointer select-none text-sm">
+        Keep originals
+      </label>
       <span className="text-[11px] leading-tight text-muted-foreground/60">{hint}</span>
-    </label>
+    </div>
   );
 }

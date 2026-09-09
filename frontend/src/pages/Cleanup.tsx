@@ -25,6 +25,14 @@ import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { QueryBuilder } from "@/components/QueryBuilder";
 import { LibraryBar } from "@/components/LibraryBar";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { cleanupFields } from "@/lib/cleanupFields";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
@@ -117,11 +125,10 @@ function CleanupListRow({
       )}
       onClick={onToggle}
     >
-      <input
-        type="checkbox"
-        className="accent-primary h-4 w-4 shrink-0"
+      <Checkbox
+        className="shrink-0"
         checked={selected}
-        onChange={onToggle}
+        onCheckedChange={() => onToggle()}
         onClick={(e) => e.stopPropagation()}
       />
       <button
@@ -352,25 +359,24 @@ export function Cleanup() {
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="accent-primary h-4 w-4"
+                <Checkbox
                   checked={selected.size === sortedResults.length && sortedResults.length > 0}
-                  onChange={toggleAll}
+                  onCheckedChange={() => toggleAll()}
                 />
                 Select all
               </label>
-              <select
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-8 w-[9rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <button
                 onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                 className="h-8 w-8 flex items-center justify-center rounded-md border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"

@@ -2,8 +2,16 @@ import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Folder, FolderTree, Globe, Music, Subtitles, Video } from "lucide-react";
 import { DirPicker } from "@/components/DirPicker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { DownloadOptions } from "@/lib/schemas/download";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export type { DownloadOptions };
 
@@ -213,10 +221,9 @@ export function OptionsPanel({
       {/* Subtitles */}
       <div className="space-y-1.5">
         <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            {...register("downloadSubs")}
-            className="accent-primary h-3.5 w-3.5"
+          <Checkbox
+            checked={opts.downloadSubs}
+            onCheckedChange={(c) => set("downloadSubs", c === true)}
           />
           <span className="text-xs text-foreground flex items-center gap-1.5">
             <Subtitles className="h-3.5 w-3.5 text-muted-foreground/60" />
@@ -236,10 +243,9 @@ export function OptionsPanel({
       {/* Group by uploader — nest each file under an uploader/ subfolder */}
       <div className="space-y-1.5">
         <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            {...register("groupByUploader")}
-            className="accent-primary h-3.5 w-3.5"
+          <Checkbox
+            checked={opts.groupByUploader}
+            onCheckedChange={(c) => set("groupByUploader", c === true)}
           />
           <span className="text-xs text-foreground flex items-center gap-1.5">
             <FolderTree className="h-3.5 w-3.5 text-muted-foreground/60" />
@@ -252,13 +258,11 @@ export function OptionsPanel({
       {impersonateTargets.length > 0 && (
         <div className="space-y-1.5">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={!!opts.impersonate}
-              onChange={(e) =>
-                set("impersonate", e.target.checked ? (impersonateTargets[0] ?? "") : "")
+              onCheckedChange={(c) =>
+                set("impersonate", c === true ? (impersonateTargets[0] ?? "") : "")
               }
-              className="accent-primary h-3.5 w-3.5"
             />
             <span className="text-xs text-foreground flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5 text-muted-foreground/60" />
@@ -266,17 +270,18 @@ export function OptionsPanel({
             </span>
           </label>
           {opts.impersonate && (
-            <select
-              value={opts.impersonate}
-              onChange={(e) => set("impersonate", e.target.value)}
-              className="h-8 w-full rounded border border-border/40 bg-transparent px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              {impersonateTargets.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            <Select value={opts.impersonate} onValueChange={(v) => set("impersonate", v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {impersonateTargets.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
       )}
@@ -327,14 +332,23 @@ export function OptionsPanel({
             {...register("throttledRateValue")}
             className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
-          <select
-            {...register("throttledRateUnit")}
-            className="h-8 shrink-0 rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          <Select
+            value={watch("throttledRateUnit")}
+            onValueChange={(v) =>
+              setValue("throttledRateUnit", v as DownloadOptions["throttledRateUnit"], {
+                shouldDirty: true,
+              })
+            }
           >
-            <option value="K">KB/s</option>
-            <option value="M">MB/s</option>
-            <option value="G">GB/s</option>
-          </select>
+            <SelectTrigger className="h-8 w-[5rem] shrink-0 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="K">KB/s</SelectItem>
+              <SelectItem value="M">MB/s</SelectItem>
+              <SelectItem value="G">GB/s</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <p className="text-[10px] text-muted-foreground/50">
           For sites (mainly YouTube) that stream fine but throttle the download partway. Try Referer

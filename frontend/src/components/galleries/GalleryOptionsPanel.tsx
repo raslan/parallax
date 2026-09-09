@@ -2,8 +2,16 @@ import { useState, type ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { DirPicker } from "@/components/DirPicker";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const UNITS = ["K", "M", "G", "T"] as const;
 const BROWSERS = [
@@ -105,12 +113,11 @@ export function GalleryOptionsPanel({ form }: { form: UseFormReturn<GalleryOptio
                   disabled && "opacity-40 cursor-not-allowed",
                 )}
               >
-                <input
-                  type="checkbox"
-                  className="accent-primary h-3 w-3"
+                <Checkbox
+                  className="h-3.5 w-3.5"
                   checked={o[key]}
                   disabled={disabled}
-                  onChange={(e) => set(key, e.target.checked)}
+                  onCheckedChange={(c) => set(key, c === true)}
                 />
                 {label}
               </label>
@@ -133,17 +140,21 @@ export function GalleryOptionsPanel({ form }: { form: UseFormReturn<GalleryOptio
             }
             className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
           />
-          <select
+          <Select
             value={o.maxSizeUnit}
-            onChange={(e) => set("maxSizeUnit", e.target.value as GalleryOptions["maxSizeUnit"])}
-            className="h-8 rounded border border-border/40 bg-transparent px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            onValueChange={(v) => set("maxSizeUnit", v as GalleryOptions["maxSizeUnit"])}
           >
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u}B
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 w-[4.5rem] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNITS.map((u) => (
+                <SelectItem key={u} value={u}>
+                  {u}B
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {!showMin ? (
           <button
@@ -165,17 +176,21 @@ export function GalleryOptionsPanel({ form }: { form: UseFormReturn<GalleryOptio
               }
               className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
             />
-            <select
+            <Select
               value={o.minSizeUnit}
-              onChange={(e) => set("minSizeUnit", e.target.value as GalleryOptions["minSizeUnit"])}
-              className="h-8 rounded border border-border/40 bg-transparent px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              onValueChange={(v) => set("minSizeUnit", v as GalleryOptions["minSizeUnit"])}
             >
-              {UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {u}B
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-8 w-[4.5rem] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {UNITS.map((u) => (
+                  <SelectItem key={u} value={u}>
+                    {u}B
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -222,12 +237,7 @@ export function GalleryOptionsPanel({ form }: { form: UseFormReturn<GalleryOptio
       {/* Archive */}
       <div className="space-y-1.5">
         <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={o.useArchive}
-            onChange={(e) => set("useArchive", e.target.checked)}
-            className="accent-primary h-3.5 w-3.5"
-          />
+          <Checkbox checked={o.useArchive} onCheckedChange={(c) => set("useArchive", c === true)} />
           <span className="text-xs text-foreground">Skip already-downloaded (archive)</span>
         </label>
         {o.useArchive && (
@@ -254,17 +264,21 @@ export function GalleryOptionsPanel({ form }: { form: UseFormReturn<GalleryOptio
       {/* Impersonation */}
       <div className="space-y-1.5">
         <Label>Browser impersonation</Label>
-        <select
-          value={o.browser}
-          onChange={(e) => set("browser", e.target.value)}
-          className="h-8 w-full rounded border border-border/40 bg-transparent px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        <Select
+          value={o.browser || "__none__"}
+          onValueChange={(v) => set("browser", v === "__none__" ? "" : v)}
         >
-          {BROWSERS.map((b) => (
-            <option key={b || "none"} value={b}>
-              {b || "None"}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {BROWSERS.map((b) => (
+              <SelectItem key={b || "none"} value={b || "__none__"}>
+                {b || "None"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <input
           type="text"
           placeholder="Custom User-Agent (optional)"
