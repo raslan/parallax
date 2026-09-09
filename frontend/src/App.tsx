@@ -23,6 +23,9 @@ import { Images } from "@/pages/Images";
 import { ImageDuplicates } from "@/pages/ImageDuplicates";
 import { ContentReview } from "@/pages/ContentReview";
 import { ImageQuarantined } from "@/pages/ImageQuarantined";
+import { AudioLibraries } from "@/pages/AudioLibraries";
+import { AudioCompress } from "@/pages/AudioCompress";
+import { AudioOriginals } from "@/pages/AudioOriginals";
 
 export default function App() {
   return (
@@ -52,6 +55,10 @@ export default function App() {
               <Route path="/image-duplicates" element={<ImageDuplicates />} />
               <Route path="/content-review" element={<ContentReview />} />
               <Route path="/image-quarantined" element={<ImageQuarantined />} />
+              {/* Audio routes */}
+              <Route path="/audio-libraries" element={<AudioLibraries />} />
+              <Route path="/audio-compress" element={<AudioCompress />} />
+              <Route path="/audio-originals" element={<AudioOriginals />} />
               {/* Shared */}
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/settings" element={<Settings />} />

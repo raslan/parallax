@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { api, imageApi, qk } from "@/lib/api";
+import { api, imageApi, audioLibrariesApi, qk } from "@/lib/api";
 import {
   Library,
   Film,
@@ -15,12 +15,13 @@ import {
   Wand2,
   Captions,
   Download,
+  AudioLines,
   type LucideIcon,
 } from "lucide-react";
 
 /** @public */
 export type NavItem = { to: string; icon: LucideIcon; label: string };
-export type SectionId = "videos" | "images" | "tools";
+export type SectionId = "videos" | "images" | "tools" | "audio";
 export type Section = { id: SectionId; label: string; icon: LucideIcon; items: NavItem[] };
 
 export const SECTIONS: Section[] = [
@@ -60,6 +61,16 @@ export const SECTIONS: Section[] = [
       { to: "/image-quarantined", icon: FolderX, label: "Quarantined" },
     ],
   },
+  {
+    id: "audio",
+    label: "Audio",
+    icon: AudioLines,
+    items: [
+      { to: "/audio-libraries", icon: Library, label: "Libraries" },
+      { to: "/audio-compress", icon: Minimize2, label: "Compress" },
+      { to: "/audio-originals", icon: Archive, label: "Originals" },
+    ],
+  },
 ];
 
 /** Longest-prefix match so `/image-libraries` beats `/images` etc. */
@@ -87,9 +98,11 @@ export function filterSectionItems(
   section: Section,
   hasVideoLibraries: boolean,
   hasImageLibraries: boolean,
+  hasAudioLibraries = false,
 ): NavItem[] {
   if (section.id === "videos" && !hasVideoLibraries) return section.items.slice(0, 1);
   if (section.id === "images" && !hasImageLibraries) return section.items.slice(0, 1);
+  if (section.id === "audio" && !hasAudioLibraries) return section.items.slice(0, 1);
   return section.items;
 }
 
@@ -98,10 +111,11 @@ export function sectionItemsById(
   id: SectionId,
   hasVideoLibraries: boolean,
   hasImageLibraries: boolean,
+  hasAudioLibraries = false,
 ): NavItem[] {
   const section = SECTIONS.find((s) => s.id === id);
   if (!section) return [];
-  return filterSectionItems(section, hasVideoLibraries, hasImageLibraries);
+  return filterSectionItems(section, hasVideoLibraries, hasImageLibraries, hasAudioLibraries);
 }
 
 /** @public */
@@ -111,6 +125,7 @@ export function useSectionNav(): {
   items: NavItem[];
   hasVideoLibraries: boolean;
   hasImageLibraries: boolean;
+  hasAudioLibraries: boolean;
 } {
   const { pathname } = useLocation();
   const activeTab = routeToTab(pathname);
@@ -127,9 +142,27 @@ export function useSectionNav(): {
     queryFn: () => imageApi.listLibraries(),
     staleTime: 30_000,
   });
+  const { data: audioLibraries = [] } = useQuery({
+    queryKey: qk.audioLibraries(),
+    queryFn: () => audioLibrariesApi.listLibraries(),
+    staleTime: 30_000,
+  });
 
   const hasVideoLibraries = videoLibraries.length > 0;
   const hasImageLibraries = imageLibraries.length > 0;
-  const items = filterSectionItems(section, hasVideoLibraries, hasImageLibraries);
-  return { activeTab, section, items, hasVideoLibraries, hasImageLibraries };
+  const hasAudioLibraries = audioLibraries.length > 0;
+  const items = filterSectionItems(
+    section,
+    hasVideoLibraries,
+    hasImageLibraries,
+    hasAudioLibraries,
+  );
+  return {
+    activeTab,
+    section,
+    items,
+    hasVideoLibraries,
+    hasImageLibraries,
+    hasAudioLibraries,
+  };
 }

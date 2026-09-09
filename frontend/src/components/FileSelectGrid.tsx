@@ -136,7 +136,14 @@ export function FileListRow({
   onPlay,
   trailing,
 }: {
-  file: VideoFile;
+  file: {
+    id: number;
+    path?: string;
+    filename: string;
+    codec_name?: string | null;
+    duration?: number | null;
+    size: number;
+  };
   selected: boolean;
   onToggle: () => void;
   onPlay: () => void;

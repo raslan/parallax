@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { api, imageApi } from "@/lib/api";
+import { api, imageApi, audioFilesApi } from "@/lib/api";
 
 /**
  * Subscribes to the backend's file-change SSE stream for one library (or,
@@ -14,7 +14,7 @@ import { api, imageApi } from "@/lib/api";
  * a ref on every tick, so passing a fresh inline arrow each render is fine.
  */
 export function useLiveFiles(
-  kind: "video" | "image",
+  kind: "video" | "image" | "audio",
   libraryId: number | null | undefined,
   onChange: () => void,
 ): void {
@@ -25,7 +25,12 @@ export function useLiveFiles(
   }, [onChange]);
 
   useEffect(() => {
-    const url = kind === "video" ? api.filesStreamUrl(libraryId) : imageApi.streamUrl(libraryId);
+    const url =
+      kind === "video"
+        ? api.filesStreamUrl(libraryId)
+        : kind === "audio"
+          ? audioFilesApi.filesStreamUrl(libraryId)
+          : imageApi.streamUrl(libraryId);
     const es = new EventSource(url);
     let lastSignature: string | null = null;
 

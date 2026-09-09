@@ -22,9 +22,11 @@ export function SectionSheet({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { hasVideoLibraries, hasImageLibraries } = useSectionNav();
+  const { hasVideoLibraries, hasImageLibraries, hasAudioLibraries } = useSectionNav();
   const section = sectionId ? SECTIONS.find((s) => s.id === sectionId) : null;
-  const items = sectionId ? sectionItemsById(sectionId, hasVideoLibraries, hasImageLibraries) : [];
+  const items = sectionId
+    ? sectionItemsById(sectionId, hasVideoLibraries, hasImageLibraries, hasAudioLibraries)
+    : [];
   const close = () => onOpenChange(false);
 
   return (

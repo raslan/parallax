@@ -22,6 +22,15 @@ describe("filterSectionItems", () => {
   it("never touches the tools section", () => {
     expect(filterSectionItems(byId("tools"), false, false)).toEqual(byId("tools").items);
   });
+
+  it("collapses the audio section to just Libraries when there are no audio libraries", () => {
+    const items = filterSectionItems(byId("audio"), true, true, false);
+    expect(items.map((i) => i.label)).toEqual(["Libraries"]);
+  });
+
+  it("returns the full audio list once an audio library exists", () => {
+    expect(filterSectionItems(byId("audio"), true, true, true)).toEqual(byId("audio").items);
+  });
 });
 
 describe("routeToTab", () => {
@@ -46,6 +55,11 @@ describe("routeToTab", () => {
   it("does not confuse /image-libraries with /libraries", () => {
     expect(routeToTab("/image-libraries")).toBe("images");
     expect(routeToTab("/libraries")).toBe("videos");
+  });
+
+  it("maps /audio-compress to the audio section, not videos", () => {
+    expect(routeToTab("/audio-compress")).toBe("audio");
+    expect(routeToTab("/audio-libraries")).toBe("audio");
   });
 });
 

@@ -19,6 +19,16 @@ export const qk = {
   imageLibraries: () => ["image-libraries"] as const,
   imageLibraryLeftovers: (id: number) => ["image-libraries", id, "leftovers"] as const,
 
+  // ── audio ──
+  audioLibraries: () => ["audio-libraries"] as const,
+  audioLibraryLeftovers: (id: number) => ["audio-libraries", id, "leftovers"] as const,
+  audioFiles: (libraryId: number) => ["audio-files", libraryId] as const,
+  audioCompressCodecs: () => ["audio-compress", "codecs"] as const,
+  audioOriginals: (libraryId?: number) =>
+    libraryId === undefined
+      ? (["audio-originals"] as const)
+      : (["audio-originals", libraryId] as const),
+
   files: (params?: unknown) =>
     params === undefined ? (["files"] as const) : (["files", params] as const),
 
