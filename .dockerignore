@@ -1,6 +1,41 @@
-frontend/node_modules
-frontend/dist
-data
+# VCS
+.git
+.gitignore
+.githooks
+.husky
+
+# Internal docs / tooling (mirrors .gitignore — these must never enter the image)
+**/CLAUDE.md
+AGENTS.md
+**/AGENTS.md
+docs
+**/docs
+.claude
+**/.claude
+.superpowers
+.worktrees
+.playwright-mcp
+
+# Python caches & local test artifacts
 **/__pycache__
 **/*.pyc
-.git
+**/*.pyo
+**/.venv
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+**/test_images.db
+
+# Node / frontend build artifacts
+frontend/node_modules
+frontend/dist
+**/*.tsbuildinfo
+
+# Runtime data & compose overrides
+data
+docker-compose.override.yml
+
+# OS cruft
+**/.DS_Store
+Thumbs.db
+/*.png
