@@ -4,8 +4,9 @@
 .githooks
 .husky
 
-# Internal docs / tooling (mirrors .gitignore — these must never enter the image)
+# Internal docs / tooling
 **/CLAUDE.md
+CLAUDE.md
 AGENTS.md
 **/AGENTS.md
 docs
