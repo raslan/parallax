@@ -41,6 +41,7 @@ const TYPE_LABEL: Record<string, string> = {
   compress: "Compress",
   audio_scan: "Audio scan",
   audio_compress: "Audio compress",
+  audio_toolbox: "Audio Toolbox",
   toolbox_fix: "Toolbox fix",
   thumbnail_warm: "Generating thumbnails",
 };

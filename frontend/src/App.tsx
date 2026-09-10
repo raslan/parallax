@@ -27,6 +27,7 @@ import { AudioLibraries } from "@/pages/AudioLibraries";
 import { AudioFiles } from "@/pages/AudioFiles";
 import { AudioCleanup } from "@/pages/AudioCleanup";
 import { AudioCompress } from "@/pages/AudioCompress";
+import { AudioToolbox } from "@/pages/AudioToolbox";
 import { AudioOriginals } from "@/pages/AudioOriginals";
 
 export default function App() {
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="/audio-files" element={<AudioFiles />} />
               <Route path="/audio-compress" element={<AudioCompress />} />
               <Route path="/audio-cleanup" element={<AudioCleanup />} />
+              <Route path="/audio-toolbox" element={<AudioToolbox />} />
               <Route path="/audio-originals" element={<AudioOriginals />} />
               {/* Shared */}
               <Route path="/jobs" element={<Jobs />} />

@@ -70,6 +70,7 @@ export const SECTIONS: Section[] = [
       { to: "/audio-files", icon: Film, label: "Files" },
       { to: "/audio-cleanup", icon: Scissors, label: "Cleanup" },
       { to: "/audio-compress", icon: Minimize2, label: "Compress" },
+      { to: "/audio-toolbox", icon: Wrench, label: "Toolbox" },
       { to: "/audio-originals", icon: Archive, label: "Originals" },
     ],
   },

@@ -36,4 +36,5 @@ export { toolboxApi } from "./toolbox";
 export { audioLibrariesApi } from "./audioLibraries";
 export { audioFilesApi } from "./audioFiles";
 export { audioCompressApi } from "./audioCompress";
+export { audioToolboxApi } from "./audioToolbox";
 export { audioOriginalsApi } from "./audioOriginals";
