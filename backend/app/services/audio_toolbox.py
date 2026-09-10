@@ -8,6 +8,7 @@ unit-tested without touching ffmpeg or the DB.
 
 import concurrent.futures as _cf
 import json
+import logging
 import os
 import re
 import shutil
@@ -23,6 +24,8 @@ from app.models.settings import get_setting
 from app.services import audio_scanner
 from app.services.audio_compressor import _has_encoder
 from app.services.common import arm_cancel, clear_cancel, now, should_cancel
+
+logger = logging.getLogger(__name__)
 
 LOUDNORM_TARGET = "I=-16:TP=-1.5:LRA=11"
 CHANNEL_OPS = ("mono", "downmix_stereo", "left_to_both", "right_to_both")
@@ -178,6 +181,13 @@ def _measure_loudnorm(path: str) -> dict | None:
         )
     except (subprocess.SubprocessError, OSError):
         return None
+    if proc.returncode != 0:
+        logger.warning(
+            "loudnorm measure pass failed (ffmpeg exit %s) for %s — falling back to dynamic pass",
+            proc.returncode,
+            path,
+        )
+        return None
     return _parse_loudnorm_json(proc.stderr or "")
 
 
@@ -278,7 +288,12 @@ def _toolbox_fix_one(
             dest = os.path.join(originals_dir, os.path.basename(src))
             if os.path.exists(dest):
                 b, e = os.path.splitext(os.path.basename(src))
-                dest = os.path.join(originals_dir, f"{b}_{_row_id_for(src)}{e}")
+                rid = _row_id_for(src)
+                dest = os.path.join(originals_dir, f"{b}_{rid}{e}")
+                n = 1
+                while os.path.exists(dest):
+                    dest = os.path.join(originals_dir, f"{b}_{rid}_{n}{e}")
+                    n += 1
             shutil.move(src, dest)
         os.replace(tmp, src)
 
@@ -312,7 +327,13 @@ def _toolbox_fix_one(
 def run_audio_toolbox_job(
     job_id: int, file_ids: list[int], settings: dict, keep_original: bool
 ) -> None:
-    """Job body: apply the toolbox ops to every file in `file_ids`."""
+    """Job body: apply the toolbox ops to every file in `file_ids`.
+
+    Progress is reported on the 0–100 scale (like `toolbox.py` /
+    `audio_compressor.py`): each in-flight file folds its own fractional ffmpeg
+    progress into the aggregate, and `job.current_file` names whichever file(s)
+    are being worked on right now.
+    """
     db = SessionLocal()
     try:
         job = db.get(Job, job_id)
@@ -320,51 +341,69 @@ def run_audio_toolbox_job(
             return
         job.status = JobStatus.RUNNING
         job.started_at = now()
-        db.commit()
         paths: list[str] = [
             r.path for r in db.query(AudioFile).filter(AudioFile.id.in_(file_ids)).all()
         ]
+        job.total_files = len(paths)
+        db.commit()
         try:
             n_concurrent = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
         except (TypeError, ValueError):
             n_concurrent = 1
-    finally:
-        db.close()
 
-    arm_cancel(job_id)
-    results: list[dict] = []
-    done = 0
-    lock = threading.Lock()
+        total = len(paths)
+        results: list[dict] = []
+        fracs: dict[str, float] = {}
+        fracs_lock = threading.Lock()
 
-    def work(path: str) -> None:
-        nonlocal done
-        ok, err = _toolbox_fix_one(path, settings, keep_original, job_id)
-        with lock:
-            results.append({"path": path, "ok": ok, "error": err})
-            done += 1
-            _db = SessionLocal()
-            try:
-                j = _db.get(Job, job_id)
-                if j is not None:
-                    j.processed_files = done
-                    j.progress = done / max(1, len(paths))
-                    _db.commit()
-            finally:
-                _db.close()
+        arm_cancel(job_id)
 
-    try:
-        with _cf.ThreadPoolExecutor(max_workers=n_concurrent) as pool:
-            futures = [pool.submit(work, p) for p in paths]
-            for fut in _cf.as_completed(futures):
-                fut.result()
-    finally:
-        clear_cancel(job_id)
+        def make_progress_cb(path: str) -> Callable[[float], None]:
+            def cb(frac: float) -> None:
+                with fracs_lock:
+                    fracs[path] = frac
 
-    db = SessionLocal()
-    try:
-        job = db.get(Job, job_id)
-        if job is None:
-            return
+            return cb
+
+        def do_one(path: str) -> dict:
+            ok, err = _toolbox_fix_one(
+                path, settings, keep_original, job_id, progress_cb=make_progress_cb(path)
+            )
+            with fracs_lock:
+                fracs.pop(path, None)
+            return {"path": path, "ok": ok, "error": err}
+
+        def flush_to_db() -> None:
+            with fracs_lock:
+                in_flight = sum(fracs.values())
+                active_names = [os.path.basename(p) for p in fracs]
+            processed = len(results)
+            pct = (processed + in_flight) / total * 100 if total else 100.0
+            job.progress = min(pct, 99.0)
+            job.processed_files = processed
+            job.current_file = " · ".join(active_names) if active_names else None
+            db.commit()
+
+        try:
+            with _cf.ThreadPoolExecutor(max_workers=n_concurrent) as pool:
+                future_map = {pool.submit(do_one, p): p for p in paths}
+                pending = set(future_map)
+                while pending:
+                    done, pending = _cf.wait(pending, timeout=2.0)
+                    if should_cancel(job_id):
+                        for f in pending:
+                            f.cancel()
+                        _cf.wait(pending)
+                        pending = set()
+                    for fut in done:
+                        try:
+                            results.append(fut.result())
+                        except _cf.CancelledError:
+                            continue
+                    flush_to_db()
+        finally:
+            clear_cancel(job_id)
+
         cancelled = should_cancel(job_id) or any(r["error"] == "Cancelled" for r in results)
         failed = [r for r in results if not r["ok"] and r["error"] != "Cancelled"]
         job.status = (
@@ -375,7 +414,9 @@ def run_audio_toolbox_job(
             else JobStatus.COMPLETED
         )
         job.finished_at = now()
-        job.progress = 1.0
+        job.progress = 100.0
+        job.processed_files = len(results)
+        job.current_file = None
         existing = json.loads(job.settings) if job.settings else {}
         existing["results"] = results
         job.settings = json.dumps(existing)
