@@ -201,13 +201,16 @@ export function FileListRow({
             </div>
           </>
         ) : (
-          // no real thumbnail (audio) — a lightly hatched placeholder with the
-          // play glyph always visible
+          // no real thumbnail (audio) — a softly mottled placeholder (layered
+          // radial gradients, no hard lines) with the play glyph always visible
           <div
             className="h-8 w-14 overflow-hidden rounded bg-muted flex items-center justify-center text-muted-foreground/70 group-hover/thumb:text-foreground transition-colors"
             style={{
-              backgroundImage:
-                "repeating-linear-gradient(45deg, color-mix(in srgb, var(--px-text-muted) 10%, transparent) 0 1px, transparent 1px 5px)",
+              backgroundImage: [
+                "radial-gradient(130% 150% at 12% 18%, color-mix(in srgb, var(--px-text-muted) 16%, transparent) 0%, transparent 58%)",
+                "radial-gradient(120% 130% at 88% 82%, color-mix(in srgb, var(--px-text-muted) 11%, transparent) 0%, transparent 55%)",
+                "radial-gradient(90% 100% at 60% 40%, color-mix(in srgb, var(--px-bg-elevated) 55%, transparent) 0%, transparent 60%)",
+              ].join(", "),
             }}
           >
             <Play className="h-3.5 w-3.5 fill-current" />
