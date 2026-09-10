@@ -19,20 +19,19 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import {
   AudioToolboxFixChips,
+  type AudioFixKey,
   type AudioFixValues,
 } from "@/components/audio-toolbox/AudioToolboxFixChips";
-import { LibraryBar } from "@/components/LibraryBar";
+import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type SortKey = "filename" | "codec" | "duration" | "size";
 
-const FIX_DEFAULTS: AudioFixValues = {
+const AUDIO_FIX_DEFAULTS: AudioFixValues = {
   trimStart: 0,
   trimEnd: 0,
-  channelOp: "",
-  normalize: false,
-  keepOriginal: true,
+  channelOp: "mono",
 };
 
 function sortFiles(files: AudioFile[], key: SortKey, dir: SortDir): AudioFile[] {
@@ -65,7 +64,18 @@ export function AudioToolbox() {
   const queryClient = useQueryClient();
   const [libraryId, setLibraryId] = useState<number | null>(null);
 
-  const [fixValues, setFixValues] = useState<AudioFixValues>(FIX_DEFAULTS);
+  // Fixes: which chips are active + their shared values
+  const [activeFixes, setActiveFixes] = useState<Set<AudioFixKey>>(() => new Set());
+  const [fixValues, setFixValues] = useState<AudioFixValues>(AUDIO_FIX_DEFAULTS);
+  const [keepOriginal, setKeepOriginal] = useState(true);
+
+  const addFix = (key: AudioFixKey) => setActiveFixes((s) => new Set(s).add(key));
+  const removeFix = (key: AudioFixKey) =>
+    setActiveFixes((s) => {
+      const next = new Set(s);
+      next.delete(key);
+      return next;
+    });
 
   const {
     selected,
@@ -167,11 +177,7 @@ export function AudioToolbox() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allJobs]);
 
-  const hasFix =
-    fixValues.trimStart > 0 ||
-    fixValues.trimEnd > 0 ||
-    fixValues.channelOp !== "" ||
-    fixValues.normalize;
+  const hasFix = activeFixes.size > 0;
 
   const handleStart = async () => {
     if (selectedFiles.length === 0 || !hasFix || starting) return;
@@ -180,11 +186,11 @@ export function AudioToolbox() {
     try {
       const body: AudioToolboxStartBody = {
         file_ids: selectedFiles.map((f) => f.id),
-        trim_start: fixValues.trimStart,
-        trim_end: fixValues.trimEnd,
-        channel_op: fixValues.channelOp || null,
-        normalize: fixValues.normalize,
-        keep_original: fixValues.keepOriginal,
+        trim_start: activeFixes.has("trim") ? fixValues.trimStart : 0,
+        trim_end: activeFixes.has("trim") ? fixValues.trimEnd : 0,
+        channel_op: activeFixes.has("channel") ? fixValues.channelOp : null,
+        normalize: activeFixes.has("normalize"),
+        keep_original: keepOriginal,
       };
       const { job_id } = await audioToolboxApi.start(body);
       startJobPoll(job_id);
@@ -227,9 +233,20 @@ export function AudioToolbox() {
       </div>
 
       <div className="shrink-0 space-y-3">
-        <LibraryBar libraries={libraries} libraryId={libraryId} onLibraryChange={setLibraryId} />
+        <LibraryBar
+          libraries={libraries}
+          libraryId={libraryId}
+          onLibraryChange={setLibraryId}
+          right={<KeepOriginalsToggle checked={keepOriginal} onChange={setKeepOriginal} />}
+        />
         <div className="rounded-lg border bg-card p-4">
-          <AudioToolboxFixChips values={fixValues} onChange={setFixValues} />
+          <AudioToolboxFixChips
+            active={activeFixes}
+            values={fixValues}
+            onAdd={addFix}
+            onRemove={removeFix}
+            onChange={(p) => setFixValues((v) => ({ ...v, ...p }))}
+          />
         </div>
       </div>
 
