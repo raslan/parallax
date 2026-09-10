@@ -73,19 +73,30 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
 function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row"
+      className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors"
       onClick={onPlay}
     >
-      <div className="relative h-8 w-14 shrink-0 bg-muted rounded overflow-hidden">
+      <button
+        type="button"
+        className="relative group/thumb h-8 w-14 shrink-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPlay();
+        }}
+        title="Play video"
+      >
         <VideoThumbnail
           fileId={file.id}
           scannedAt={file.scanned_at}
           alt={file.filename}
           imgClassName="h-8 w-14 object-cover rounded"
           iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
-          fallbackClassName="h-8 w-14"
+          fallbackClassName="h-8 w-14 bg-muted rounded"
         />
-      </div>
+        <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+          <Play className="h-3.5 w-3.5 text-white fill-white" />
+        </div>
+      </button>
       <div className="flex-1 min-w-0">
         <p className="truncate text-sm font-medium" title={file.filename}>
           {file.filename}
@@ -112,18 +123,6 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
       <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
         {formatSize(file.size)}
       </span>
-      <div className="w-14 shrink-0 flex items-center justify-end gap-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlay();
-          }}
-          title="Play video"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Play className="h-3.5 w-3.5" />
-        </button>
-      </div>
     </div>
   );
 }
@@ -139,7 +138,6 @@ function FileListHeader() {
       <div className="w-24 shrink-0 text-right">Content date</div>
       <div className="w-24 shrink-0 text-right">File added</div>
       <div className="w-16 shrink-0 text-right">Size</div>
-      <div className="w-14 shrink-0" />
     </div>
   );
 }

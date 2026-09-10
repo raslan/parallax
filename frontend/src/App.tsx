@@ -24,7 +24,11 @@ import { ImageDuplicates } from "@/pages/ImageDuplicates";
 import { ContentReview } from "@/pages/ContentReview";
 import { ImageQuarantined } from "@/pages/ImageQuarantined";
 import { AudioLibraries } from "@/pages/AudioLibraries";
+import { AudioFiles } from "@/pages/AudioFiles";
+import { AudioDuplicates } from "@/pages/AudioDuplicates";
+import { AudioCleanup } from "@/pages/AudioCleanup";
 import { AudioCompress } from "@/pages/AudioCompress";
+import { AudioToolbox } from "@/pages/AudioToolbox";
 import { AudioOriginals } from "@/pages/AudioOriginals";
 
 export default function App() {
@@ -57,7 +61,11 @@ export default function App() {
               <Route path="/image-quarantined" element={<ImageQuarantined />} />
               {/* Audio routes */}
               <Route path="/audio-libraries" element={<AudioLibraries />} />
+              <Route path="/audio-files" element={<AudioFiles />} />
+              <Route path="/audio-duplicates" element={<AudioDuplicates />} />
               <Route path="/audio-compress" element={<AudioCompress />} />
+              <Route path="/audio-cleanup" element={<AudioCleanup />} />
+              <Route path="/audio-toolbox" element={<AudioToolbox />} />
               <Route path="/audio-originals" element={<AudioOriginals />} />
               {/* Shared */}
               <Route path="/jobs" element={<Jobs />} />

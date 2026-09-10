@@ -23,6 +23,8 @@ class JobType:
     SUBTITLE_SYNC = "subtitle_sync"
     AUDIO_SCAN = "audio_scan"
     AUDIO_COMPRESS = "audio_compress"
+    AUDIO_TOOLBOX = "audio_toolbox"
+    AUDIO_DUPLICATES = "audio_duplicates"
 
 
 class JobStatus:

@@ -1,6 +1,7 @@
-import { Check, Play, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Check, Play, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { VideoFile } from "@/types/file";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { cn } from "@/lib/utils";
 import { formatSize, formatDuration } from "@/lib/format";
@@ -135,6 +136,11 @@ export function FileListRow({
   onToggle,
   onPlay,
   trailing,
+  thumbnail,
+  selectable = true,
+  clickAction = "select",
+  columns,
+  className,
 }: {
   file: {
     id: number;
@@ -148,50 +154,91 @@ export function FileListRow({
   onToggle: () => void;
   onPlay: () => void;
   trailing?: React.ReactNode;
+  /** A `<VideoThumbnail>` node rendered inside the play button; falls back to a `bg-muted` well (audio pages). */
+  thumbnail?: React.ReactNode;
+  /** When false, no checkbox is rendered (e.g. AudioFiles has no selection). */
+  selectable?: boolean;
+  /** What a click on the row body does. Defaults to toggling selection. */
+  clickAction?: "select" | "play";
+  /** Replaces the default codec/duration/size columns when provided. */
+  columns?: React.ReactNode;
+  /** Merged onto the row root — escape hatch for e.g. a bordered card row. */
+  className?: string;
 }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none group",
+        "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none",
         selected && "bg-primary/5",
+        className,
       )}
-      onClick={onToggle}
+      onClick={clickAction === "play" ? onPlay : onToggle}
     >
-      <span className="shrink-0">
-        {selected ? (
-          <CheckSquare className="h-4 w-4 text-primary" />
+      {selectable && (
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0"
+        />
+      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPlay();
+        }}
+        title="Play"
+        className="relative group/thumb h-8 w-14 shrink-0"
+      >
+        {thumbnail ? (
+          <>
+            {thumbnail}
+            {/* hover overlay — the thumbnail already reads as content, so the
+                play glyph only appears on hover */}
+            <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+              <Play className="h-3.5 w-3.5 text-white fill-white" />
+            </div>
+          </>
         ) : (
-          <Square className="h-4 w-4 text-muted-foreground" />
+          // no real thumbnail (audio) — a softly mottled placeholder (layered
+          // radial gradients, no hard lines) with the play glyph always visible
+          <div
+            className="h-8 w-14 overflow-hidden rounded bg-muted flex items-center justify-center text-muted-foreground/70 group-hover/thumb:text-foreground transition-colors"
+            style={{
+              backgroundImage: [
+                "radial-gradient(130% 150% at 12% 18%, color-mix(in srgb, var(--px-text-muted) 16%, transparent) 0%, transparent 58%)",
+                "radial-gradient(120% 130% at 88% 82%, color-mix(in srgb, var(--px-text-muted) 11%, transparent) 0%, transparent 55%)",
+                "radial-gradient(90% 100% at 60% 40%, color-mix(in srgb, var(--px-bg-elevated) 55%, transparent) 0%, transparent 60%)",
+              ].join(", "),
+            }}
+          >
+            <Play className="h-3.5 w-3.5 fill-current" />
+          </div>
         )}
-      </span>
+      </button>
       <span
         className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"
         title={file.path}
       >
         {file.filename}
       </span>
-      {file.codec_name && (
-        <span className="text-xs text-muted-foreground/60 font-mono shrink-0 w-14 text-right uppercase">
-          {file.codec_name}
-        </span>
+      {columns ?? (
+        <>
+          {file.codec_name && (
+            <span className="text-xs text-muted-foreground/60 font-mono shrink-0 w-14 text-right uppercase">
+              {file.codec_name}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground/50 shrink-0 w-14 text-right">
+            {file.duration != null ? formatDuration(file.duration) : "—"}
+          </span>
+          <span className="text-xs text-muted-foreground/70 shrink-0 w-16 text-right font-mono">
+            {formatSize(file.size)}
+          </span>
+        </>
       )}
-      <span className="text-xs text-muted-foreground/50 shrink-0 w-14 text-right">
-        {file.duration != null ? formatDuration(file.duration) : "—"}
-      </span>
-      <span className="text-xs text-muted-foreground/70 shrink-0 w-16 text-right font-mono">
-        {formatSize(file.size)}
-      </span>
       {trailing}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onPlay();
-        }}
-        title="Preview"
-        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
-      >
-        <Play className="h-3.5 w-3.5" />
-      </button>
     </div>
   );
 }

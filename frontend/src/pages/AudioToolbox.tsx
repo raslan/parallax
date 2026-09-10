@@ -1,20 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Zap, Loader2, Search } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, audioCompressApi, audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
-import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
-import { useSort } from "@/hooks/useSort";
-import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { Wrench, X, Loader2, Search } from "lucide-react";
+import { api, audioFilesApi, audioLibrariesApi, audioToolboxApi, qk } from "@/lib/api";
+import type { AudioToolboxStartBody } from "@/lib/api/audioToolbox";
 import type { AudioFile } from "@/types/audio";
-import { VideoPlayerModal } from "@/components/VideoPlayerModal";
-import { VirtualizedGrid } from "@/components/VirtualizedGrid";
-import { AudioEstimatePanel } from "@/components/audio-compress/AudioEstimatePanel";
-import { CompressProgress } from "@/components/compress/CompressProgress";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { formatSize } from "@/lib/format";
-import { estimateAudioSize } from "@/lib/audioCompress";
 import {
   FileListRow,
   filterByFilename,
@@ -22,10 +11,30 @@ import {
   applySortDir,
   type SortDir,
 } from "@/components/FileSelectGrid";
+import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { useJobPoll } from "@/hooks/useJobPoll";
+import { useSelection } from "@/hooks/useSelection";
+import { useSort } from "@/hooks/useSort";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import {
+  AudioToolboxFixChips,
+  type AudioFixKey,
+  type AudioFixValues,
+} from "@/components/audio-toolbox/AudioToolboxFixChips";
+import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-type SortKey = "filename" | "codec" | "duration" | "size" | "estimated";
+type SortKey = "filename" | "codec" | "duration" | "size";
 
-function sortFiles(files: AudioFile[], key: SortKey, dir: SortDir, bitrate: number): AudioFile[] {
+const AUDIO_FIX_DEFAULTS: AudioFixValues = {
+  trimStart: 0,
+  trimEnd: 0,
+  channelOp: "mono",
+};
+
+function sortFiles(files: AudioFile[], key: SortKey, dir: SortDir): AudioFile[] {
   const sorted = [...files].sort((a, b) => {
     let va: number | string, vb: number | string;
     switch (key) {
@@ -45,27 +54,39 @@ function sortFiles(files: AudioFile[], key: SortKey, dir: SortDir, bitrate: numb
         va = a.size;
         vb = b.size;
         break;
-      case "estimated":
-        va = estimateAudioSize(a.duration, bitrate);
-        vb = estimateAudioSize(b.duration, bitrate);
-        break;
     }
     return va < vb ? -1 : va > vb ? 1 : 0;
   });
   return applySortDir(sorted, dir);
 }
 
-export function AudioCompress() {
-  const qc = useQueryClient();
+export function AudioToolbox() {
+  const queryClient = useQueryClient();
   const [libraryId, setLibraryId] = useState<number | null>(null);
 
-  const [codec, setCodec] = useState("opus");
-  const [bitrate, setBitrate] = useState(128);
+  // Fixes: which chips are active + their shared values
+  const [activeFixes, setActiveFixes] = useState<Set<AudioFixKey>>(() => new Set());
+  const [fixValues, setFixValues] = useState<AudioFixValues>(AUDIO_FIX_DEFAULTS);
   const [keepOriginal, setKeepOriginal] = useState(true);
 
-  const { selected, setSelected, toggle, selectAll, selectNone } = useSelection<number>();
-  const { sortKey, sortDir, toggleSort } = useSort<SortKey>("filename");
-  const [playing, setPlaying] = useState<AudioFile | null>(null);
+  const addFix = (key: AudioFixKey) => setActiveFixes((s) => new Set(s).add(key));
+  const removeFix = (key: AudioFixKey) =>
+    setActiveFixes((s) => {
+      const next = new Set(s);
+      next.delete(key);
+      return next;
+    });
+
+  const {
+    selected,
+    setSelected,
+    toggle: toggleFile,
+    selectAll: selectAllIds,
+    selectNone,
+  } = useSelection();
+  const { sortKey, sortDir, toggleSort: handleSort } = useSort<SortKey>("filename");
+  const [playingFile, setPlayingFile] = useState<AudioFile | null>(null);
+
   const [search, setSearch] = useState("");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -74,11 +95,8 @@ export function AudioCompress() {
     queryKey: qk.audioLibraries(),
     queryFn: () => audioLibrariesApi.listLibraries(),
   });
-  const { data: codecs = [] } = useQuery({
-    queryKey: qk.audioCompressCodecs(),
-    queryFn: () => audioCompressApi.codecs(),
-  });
 
+  // Default to the first library once they load.
   useEffect(() => {
     if (libraryId == null && libraries.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -86,31 +104,23 @@ export function AudioCompress() {
     }
   }, [libraries, libraryId]);
 
-  // Seed codec + bitrate from the codec list once (prefers opus).
-  const codecSeeded = useRef(false);
-  useEffect(() => {
-    if (codecs.length === 0 || codecSeeded.current) return;
-    codecSeeded.current = true;
-    const first = codecs.find((c) => c.id === "opus") ?? codecs[0]!;
-    setCodec(first.id);
-    setBitrate(first.bitrate_default);
-  }, [codecs]);
-
   const {
     data: files = null,
     isLoading: loadingFiles,
     error: filesError,
   } = useQuery({
     queryKey: qk.audioFiles(libraryId ?? -1),
-    queryFn: () => audioCompressApi.libraryFiles(libraryId as number),
+    queryFn: () => audioFilesApi.list(libraryId as number),
     enabled: libraryId != null,
   });
   const loadError = filesError ? String(filesError) : null;
 
+  // Clear selection when switching libraries.
   useEffect(() => {
     setSelected(new Set());
   }, [libraryId, setSelected]);
 
+  // Prune selection to still-existing files after a live refetch.
   useEffect(() => {
     if (!files) return;
     setSelected((prev) => {
@@ -119,47 +129,27 @@ export function AudioCompress() {
     });
   }, [files, setSelected]);
 
-  useLiveFiles("audio", libraryId, () => {
-    if (libraryId != null) qc.invalidateQueries({ queryKey: qk.audioFiles(libraryId) });
-  });
-
-  const handleCodecChange = (id: string) => {
-    setCodec(id);
-    const def = codecs.find((c) => c.id === id)?.bitrate_default ?? bitrate;
-    setBitrate(def);
-  };
-
   const displayFiles = useMemo(
-    () => (files ? sortFiles(files, sortKey, sortDir, bitrate) : null),
-    [files, sortKey, sortDir, bitrate],
+    () => (files ? sortFiles(files, sortKey, sortDir) : null),
+    [files, sortKey, sortDir],
   );
   const filteredFiles = useMemo(
     () => (displayFiles ? filterByFilename(displayFiles, search) : null),
     [displayFiles, search],
   );
 
+  const selectAll = () => filteredFiles && selectAllIds(filteredFiles.map((f) => f.id));
+
   const selectedFiles = useMemo(
     () => (filteredFiles ?? []).filter((f) => selected.has(f.id)),
     [filteredFiles, selected],
   );
 
-  const currentBytes = selectedFiles.reduce((s, f) => s + f.size, 0);
-  const estimatedBytes = selectedFiles.reduce(
-    (s, f) => s + estimateAudioSize(f.duration, bitrate),
-    0,
-  );
-
-  const libraryBytes = (filteredFiles ?? []).reduce((s, f) => s + f.size, 0);
-  const libraryEstBytes = (filteredFiles ?? []).reduce(
-    (s, f) => s + estimateAudioSize(f.duration, bitrate),
-    0,
-  );
-
-  const selectLargerThanTarget = () => {
-    if (!filteredFiles) return;
-    selectNone();
-    selectAll(filteredFiles.filter((f) => (f.bitrate ?? 0) / 1000 > bitrate).map((f) => f.id));
-  };
+  useLiveFiles("audio", libraryId, () => {
+    if (libraryId != null) {
+      queryClient.invalidateQueries({ queryKey: qk.audioFiles(libraryId) });
+    }
+  });
 
   const {
     jobId,
@@ -172,7 +162,7 @@ export function AudioCompress() {
   } = useJobPoll({
     onTerminal: (job) => {
       if (job.status === "completed" && job.library_id != null) {
-        qc.invalidateQueries({ queryKey: qk.audioFiles(job.library_id) });
+        queryClient.invalidateQueries({ queryKey: qk.audioFiles(job.library_id) });
       }
     },
   });
@@ -183,21 +173,26 @@ export function AudioCompress() {
     refetchOnMount: "always",
   });
   useEffect(() => {
-    if (allJobs) resumeJobPoll(allJobs, (j) => j.type === "audio_compress");
+    if (allJobs) resumeJobPoll(allJobs, (j) => j.type === "audio_toolbox");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allJobs]);
 
+  const hasFix = activeFixes.size > 0;
+
   const handleStart = async () => {
-    if (selectedFiles.length === 0 || starting) return;
+    if (selectedFiles.length === 0 || !hasFix || starting) return;
     setStarting(true);
     setStartError(null);
     try {
-      const { job_id } = await audioCompressApi.start({
+      const body: AudioToolboxStartBody = {
         file_ids: selectedFiles.map((f) => f.id),
-        codec,
-        bitrate,
+        trim_start: activeFixes.has("trim") ? fixValues.trimStart : 0,
+        trim_end: activeFixes.has("trim") ? fixValues.trimEnd : 0,
+        channel_op: activeFixes.has("channel") ? fixValues.channelOp : null,
+        normalize: activeFixes.has("normalize"),
         keep_original: keepOriginal,
-      });
+      };
+      const { job_id } = await audioToolboxApi.start(body);
       startJobPoll(job_id);
     } catch (e: unknown) {
       setStartError(e instanceof Error ? e.message : String(e));
@@ -211,7 +206,7 @@ export function AudioCompress() {
     try {
       await api.cancelJob(jobId);
     } catch {
-      /* ignore */
+      // Ignore error when canceling job
     }
   };
 
@@ -220,52 +215,87 @@ export function AudioCompress() {
 
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
-      {playing && (
+      {playingFile && (
         <VideoPlayerModal
-          file={playing}
-          streamUrl={audioFilesApi.streamUrl(playing.id)}
+          file={playingFile}
+          streamUrl={audioFilesApi.streamUrl(playingFile.id)}
           isAudio
-          onClose={() => setPlaying(null)}
+          onClose={() => setPlayingFile(null)}
         />
       )}
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Compress</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Toolbox</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Re-encode audio files to a smaller lossy codec. Originals saved to{" "}
-          <code className="font-mono text-xs">_originals/</code> when enabled.
+          Trim, fix channels, and normalize loudness — stack as many as you need, one job, one pass.
+          Originals saved to <code className="font-mono text-xs">_originals/</code> when enabled.
         </p>
       </div>
 
-      <AudioEstimatePanel
-        libraries={libraries}
-        libraryId={libraryId}
-        onLibraryChange={setLibraryId}
-        codecs={codecs}
-        codec={codec}
-        onCodecChange={handleCodecChange}
-        bitrate={bitrate}
-        onBitrateChange={setBitrate}
-        keepOriginal={keepOriginal}
-        onKeepOriginalChange={setKeepOriginal}
-        selectedCount={selectedFiles.length}
-        currentBytes={currentBytes}
-        estimatedBytes={estimatedBytes}
-        libraryBytes={libraryBytes}
-        libraryEstBytes={libraryEstBytes}
-      />
-
-      {(isRunning || isDone) && jobId != null && (
-        <CompressProgress
-          isRunning={isRunning}
-          isDone={isDone}
-          jobStatus={jobStatus}
-          jobProgress={jobProgress}
-          jobCurrentFile={jobCurrentFile}
-          jobError={jobError}
-          startError={startError}
-          onCancel={handleCancel}
+      <div className="shrink-0 space-y-3">
+        <LibraryBar
+          libraries={libraries}
+          libraryId={libraryId}
+          onLibraryChange={setLibraryId}
+          right={<KeepOriginalsToggle checked={keepOriginal} onChange={setKeepOriginal} />}
         />
+        <div className="rounded-lg border bg-card p-4">
+          <AudioToolboxFixChips
+            active={activeFixes}
+            values={fixValues}
+            onAdd={addFix}
+            onRemove={removeFix}
+            onChange={(p) => setFixValues((v) => ({ ...v, ...p }))}
+          />
+        </div>
+      </div>
+
+      {/* Job progress */}
+      {(isRunning || isDone) && jobId != null && (
+        <div
+          className={cn(
+            "rounded-lg border px-4 py-3 space-y-2 max-w-2xl",
+            isDone && jobStatus === "completed"
+              ? "border-green-500/30 bg-green-500/5"
+              : isDone
+                ? "border-red-500/30 bg-red-500/5"
+                : "border-primary/30 bg-primary/5",
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />}
+            <span className="text-sm font-medium flex-1">
+              {jobStatus === "completed"
+                ? "Fix complete"
+                : jobStatus === "cancelled"
+                  ? "Cancelled"
+                  : jobStatus === "failed"
+                    ? "Fix failed"
+                    : jobCurrentFile
+                      ? `Fixing: ${jobCurrentFile}`
+                      : "Starting…"}
+            </span>
+            {isRunning && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancel}
+                className="h-7 px-2 text-muted-foreground"
+              >
+                <X className="h-3.5 w-3.5 mr-1" /> Cancel
+              </Button>
+            )}
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${jobProgress}%` }}
+            />
+          </div>
+          {(jobError || startError) && (
+            <p className="text-xs text-red-400">{jobError || startError}</p>
+          )}
+        </div>
       )}
 
       {loadingFiles && (
@@ -282,7 +312,7 @@ export function AudioCompress() {
               {filteredFiles.length} file{filteredFiles.length !== 1 ? "s" : ""}
             </span>
             <button
-              onClick={() => filteredFiles && selectAll(filteredFiles.map((f) => f.id))}
+              onClick={selectAll}
               className="text-xs text-muted-foreground/60 hover:text-foreground transition-colors underline underline-offset-2"
             >
               All
@@ -292,13 +322,6 @@ export function AudioCompress() {
               className="text-xs text-muted-foreground/60 hover:text-foreground transition-colors underline underline-offset-2"
             >
               None
-            </button>
-            <button
-              onClick={selectLargerThanTarget}
-              className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
-              title={`Select files whose bitrate is above ${bitrate}k`}
-            >
-              Larger than target
             </button>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -311,19 +334,19 @@ export function AudioCompress() {
               />
             </div>
             <div className="flex-1" />
+
             <Button
               onClick={handleStart}
-              disabled={selectedFiles.length === 0 || isRunning || starting}
+              disabled={selected.size === 0 || !hasFix || isRunning || starting}
+              title={!hasFix ? "Pick at least one fix" : undefined}
             >
               {starting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Zap className="h-4 w-4 mr-2" />
+                <Wrench className="h-4 w-4 mr-2" />
               )}
-              Compress{" "}
-              {selectedFiles.length > 0
-                ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? "s" : ""}`
-                : ""}
+              Fix{" "}
+              {selected.size > 0 ? `${selected.size} file${selected.size !== 1 ? "s" : ""}` : ""}
             </Button>
           </div>
 
@@ -341,7 +364,7 @@ export function AudioCompress() {
                   sortKey="filename"
                   current={sortKey}
                   dir={sortDir}
-                  onSort={toggleSort}
+                  onSort={handleSort}
                   className="flex-1"
                 />
                 <ColHeader
@@ -349,7 +372,7 @@ export function AudioCompress() {
                   sortKey="codec"
                   current={sortKey}
                   dir={sortDir}
-                  onSort={toggleSort}
+                  onSort={handleSort}
                   className="w-14 justify-end shrink-0"
                 />
                 <ColHeader
@@ -357,23 +380,15 @@ export function AudioCompress() {
                   sortKey="duration"
                   current={sortKey}
                   dir={sortDir}
-                  onSort={toggleSort}
+                  onSort={handleSort}
                   className="w-14 justify-end shrink-0"
                 />
                 <ColHeader
-                  label="Current"
+                  label="Size"
                   sortKey="size"
                   current={sortKey}
                   dir={sortDir}
-                  onSort={toggleSort}
-                  className="w-16 justify-end shrink-0"
-                />
-                <ColHeader
-                  label="Estimated"
-                  sortKey="estimated"
-                  current={sortKey}
-                  dir={sortDir}
-                  onSort={toggleSort}
+                  onSort={handleSort}
                   className="w-16 justify-end shrink-0"
                 />
               </div>
@@ -389,13 +404,8 @@ export function AudioCompress() {
                       file={f}
                       clickAction="select"
                       selected={selected.has(f.id)}
-                      onToggle={() => toggle(f.id)}
-                      onPlay={() => setPlaying(f)}
-                      trailing={
-                        <Badge variant="secondary" className="font-mono text-xs w-16 justify-end">
-                          {formatSize(estimateAudioSize(f.duration, bitrate))}
-                        </Badge>
-                      }
+                      onToggle={() => toggleFile(f.id)}
+                      onPlay={() => setPlayingFile(f)}
                     />
                   )}
                 />

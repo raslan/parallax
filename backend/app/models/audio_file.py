@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -22,6 +22,7 @@ class AudioFile(Base):
     sample_rate: Mapped[int] = mapped_column(Integer, nullable=True)
     channels: Mapped[int] = mapped_column(Integer, nullable=True)
     channel_layout: Mapped[str] = mapped_column(String(64), nullable=True)
+    audio_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     file_date: Mapped[float] = mapped_column(Float, nullable=True)
     file_mtime: Mapped[float] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default=FileStatus.UNKNOWN)

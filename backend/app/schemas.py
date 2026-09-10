@@ -287,6 +287,7 @@ class AudioFileRead(BaseModel):
     sample_rate: int | None = None
     channels: int | None = None
     channel_layout: str | None = None
+    audio_fingerprint: str | None = None
     file_date: float | None = None
     file_mtime: float | None = None
     status: str
