@@ -49,7 +49,7 @@ function AudioFileColumns({ file }: { file: AudioFile }) {
 function AudioFileListHeader() {
   return (
     <div className="flex items-center gap-3 px-4 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg">
-      <div className="w-8 shrink-0" />
+      <div className="w-14 shrink-0" />
       <div className="flex-1">Filename</div>
       <div className="w-16 shrink-0 text-right">Codec</div>
       <div className="w-16 shrink-0 text-right">Duration</div>

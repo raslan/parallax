@@ -7,6 +7,7 @@ import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
@@ -516,7 +517,7 @@ export function Compress() {
               {/* Headers */}
               <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border/30 bg-muted/20 shrink-0">
                 <span className="w-4 shrink-0" />
-                <span className="w-8 shrink-0" />
+                <span className="w-14 shrink-0" />
                 <ColHeader
                   label="Filename"
                   sortKey="filename"
@@ -574,6 +575,16 @@ export function Compress() {
                       selected={selected.has(f.id)}
                       onToggle={() => toggleFile(f.id)}
                       onPlay={() => setPlayingFile(f)}
+                      thumbnail={
+                        <VideoThumbnail
+                          fileId={f.id}
+                          scannedAt={f.scanned_at}
+                          alt={f.filename}
+                          imgClassName="h-8 w-14 object-cover rounded"
+                          iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
+                          fallbackClassName="h-8 w-14 bg-muted rounded"
+                        />
+                      }
                       trailing={
                         <>
                           <span

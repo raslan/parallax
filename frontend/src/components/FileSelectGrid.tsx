@@ -136,6 +136,7 @@ export function FileListRow({
   onToggle,
   onPlay,
   trailing,
+  thumbnail,
   selectable = true,
   clickAction = "select",
   columns,
@@ -153,6 +154,8 @@ export function FileListRow({
   onToggle: () => void;
   onPlay: () => void;
   trailing?: React.ReactNode;
+  /** A `<VideoThumbnail>` node rendered inside the play button; falls back to a `bg-muted` well (audio pages). */
+  thumbnail?: React.ReactNode;
   /** When false, no checkbox is rendered (e.g. AudioFiles has no selection). */
   selectable?: boolean;
   /** What a click on the row body does. Defaults to toggling selection. */
@@ -180,14 +183,18 @@ export function FileListRow({
         />
       )}
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           onPlay();
         }}
-        title="Preview"
-        className="shrink-0 flex h-8 w-8 items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors"
+        title="Play"
+        className="relative group/thumb h-8 w-14 shrink-0"
       >
-        <Play className="h-4 w-4" />
+        {thumbnail ?? <div className="h-8 w-14 rounded bg-muted" />}
+        <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+          <Play className="h-3.5 w-3.5 text-white fill-white" />
+        </div>
       </button>
       <span
         className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"

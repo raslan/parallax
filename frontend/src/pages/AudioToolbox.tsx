@@ -341,7 +341,7 @@ export function AudioToolbox() {
             <div className="flex-1 min-h-0 flex flex-col border border-border/50 rounded-lg overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border/30 bg-muted/20 shrink-0">
                 <span className="w-4 shrink-0" />
-                <span className="w-8 shrink-0" />
+                <span className="w-14 shrink-0" />
                 <ColHeader
                   label="Filename"
                   sortKey="filename"

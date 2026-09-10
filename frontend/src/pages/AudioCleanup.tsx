@@ -288,7 +288,7 @@ export function AudioCleanup() {
           <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider shrink-0">
               <span className="w-4 shrink-0" />
-              <span className="w-8 shrink-0" />
+              <span className="w-14 shrink-0" />
               <span className="flex-1 min-w-0">Filename</span>
               <span className="w-16 text-right shrink-0">Duration</span>
               <span className="w-24 text-right shrink-0">Content date</span>
