@@ -176,5 +176,9 @@ export function clusterAudioDuplicates(
     );
   }
 
+  // Defensive invariant only: every split stage above (splitByKey /
+  // splitByTolerance / splitByPairwise) already drops sub-2 groups, so this
+  // filter is a no-op once any criterion has run — kept so a singleton can
+  // never reach pickKeep. Mirrors the equivalent guard in clusterDuplicates.ts.
   return groups.filter((g) => g.length > 1).map((g) => ({ files: g, keep_id: pickKeep(g) }));
 }

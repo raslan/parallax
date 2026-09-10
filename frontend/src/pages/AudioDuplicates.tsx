@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Loader2, ScanSearch, Trash2, Play } from "lucide-react";
+import { Check, Copy, Loader2, ScanSearch, Trash2, Play } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
@@ -100,7 +100,7 @@ function FileRow({
             : "bg-background/80 border-muted-foreground hover:border-foreground"
         }`}
       >
-        {isChecked && <span className="h-2 w-2 rounded-sm bg-white" />}
+        {isChecked && <Check className="h-3 w-3 text-white" />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium" title={file.filename}>

@@ -235,7 +235,13 @@ export function AudioCleanup() {
         </div>
       )}
 
-      {!loading && allFiles === null && !displayError && (
+      {!loading && libraries.length === 0 && (
+        <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
+          No audio libraries yet — add one on the Libraries page
+        </div>
+      )}
+
+      {!loading && libraries.length > 0 && allFiles === null && !displayError && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
