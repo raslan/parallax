@@ -452,7 +452,7 @@ export function Toolbox() {
                   items={filteredFiles}
                   getKey={(f) => f.id}
                   mode="list"
-                  itemHeight={48}
+                  itemHeight={50}
                   resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}`}
                   renderItem={(f) => (
                     <FileListRow

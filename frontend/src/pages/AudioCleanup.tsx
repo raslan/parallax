@@ -300,7 +300,7 @@ export function AudioCleanup() {
                 items={sortedResults}
                 getKey={(f) => f.id}
                 mode="list"
-                itemHeight={52}
+                itemHeight={50}
                 resetKey={`${selectedId}-${sortBy}-${sortDir}`}
                 renderItem={(f) => (
                   <FileListRow

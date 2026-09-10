@@ -165,7 +165,7 @@ export function FileListRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none group",
+        "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none",
         selected && "bg-primary/5",
         className,
       )}
