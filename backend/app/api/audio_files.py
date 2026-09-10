@@ -1,8 +1,10 @@
 import asyncio
 import os
+import shutil
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -88,3 +90,32 @@ def stream_audio_file(file_id: int, db: Session = Depends(get_db)):
     if not f or not os.path.isfile(f.path):
         raise HTTPException(404, "File not found")
     return FileResponse(f.path, headers={"Cache-Control": "no-store"})
+
+
+class AudioFileDeleteRequest(BaseModel):
+    file_ids: list[int]
+    keep_original: bool = True
+
+
+@router.post("/delete", status_code=204)
+def delete_audio_files(body: AudioFileDeleteRequest, db: Session = Depends(get_db)):
+    for file_id in body.file_ids:
+        row = db.get(AudioFile, file_id)
+        if row is None:
+            continue
+        if os.path.isfile(row.path):
+            if body.keep_original:
+                originals_dir = os.path.join(os.path.dirname(row.path), "_originals")
+                os.makedirs(originals_dir, exist_ok=True)
+                dest = os.path.join(originals_dir, row.filename)
+                if os.path.exists(dest):
+                    base, ext = os.path.splitext(row.filename)
+                    dest = os.path.join(originals_dir, f"{base}_{row.id}{ext}")
+                shutil.move(row.path, dest)
+            else:
+                try:
+                    os.remove(row.path)
+                except FileNotFoundError:
+                    pass
+        db.delete(row)
+    db.commit()
