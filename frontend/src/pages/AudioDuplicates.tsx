@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Loader2, ScanSearch, Trash2, Play } from "lucide-react";
+import { Copy, Loader2, ScanSearch, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
@@ -26,6 +26,7 @@ import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { FileListRow } from "@/components/FileSelectGrid";
 import { WorkingState } from "@/components/WorkingState";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -70,70 +71,17 @@ function useClusterAudioDuplicates(files: AudioFile[], criteria: AudioDuplicateC
   return { groups, isComputing };
 }
 
-function FileRow({
-  file,
-  isChecked,
-  isSuggested,
-  onToggle,
-  onPlay,
-}: {
-  file: AudioFile;
-  isChecked: boolean;
-  isSuggested: boolean;
-  onToggle: () => void;
-  onPlay: () => void;
-}) {
+function DuplicateColumns({ file }: { file: AudioFile }) {
   return (
-    <div
-      className={`group flex items-center gap-3 rounded-md border px-3 py-2 transition-colors ${
-        isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
-      }`}
-    >
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        className={`h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-          isChecked
-            ? "bg-destructive border-destructive"
-            : "bg-background/80 border-muted-foreground hover:border-foreground"
-        }`}
-      >
-        {isChecked && <Check className="h-3 w-3 text-white" />}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium" title={file.filename}>
-          {file.filename}
-        </p>
-        <p className="truncate text-xs text-muted-foreground" title={file.path}>
-          {file.path}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-x-3 text-xs text-muted-foreground tabular-nums">
-        <span className="font-mono">{formatSize(file.size)}</span>
-        {file.duration != null && (
-          <span className="font-mono">{formatDuration(file.duration)}</span>
-        )}
-        {file.bitrate != null && <span className="font-mono">{formatBitrate(file.bitrate)}</span>}
-        {file.codec_name && (
-          <Badge variant="secondary" className="px-1 py-0 text-xs">
-            {file.codec_name}
-          </Badge>
-        )}
-      </div>
-      {isSuggested && (
-        <span className="shrink-0 rounded bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
-          KEEP
-        </span>
+    <div className="flex shrink-0 items-center gap-x-3 text-xs text-muted-foreground tabular-nums">
+      <span className="font-mono">{formatSize(file.size)}</span>
+      {file.duration != null && <span className="font-mono">{formatDuration(file.duration)}</span>}
+      {file.bitrate != null && <span className="font-mono">{formatBitrate(file.bitrate)}</span>}
+      {file.codec_name && (
+        <Badge variant="secondary" className="px-1 py-0 text-xs">
+          {file.codec_name}
+        </Badge>
       )}
-      <button
-        onClick={onPlay}
-        title="Play audio"
-        className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-      >
-        <Play className="h-3.5 w-3.5" />
-      </button>
     </div>
   );
 }
@@ -162,16 +110,28 @@ function GroupCard({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-2">
-          {group.files.map((f) => (
-            <FileRow
-              key={f.id}
-              file={f}
-              isChecked={deleteIds.has(f.id)}
-              isSuggested={f.id === group.keep_id && !deleteIds.has(f.id)}
-              onToggle={() => onToggle(f.id)}
-              onPlay={() => onPlay(f)}
-            />
-          ))}
+          {group.files.map((f) => {
+            const isSuggested = f.id === group.keep_id && !deleteIds.has(f.id);
+            return (
+              <FileListRow
+                key={f.id}
+                file={f}
+                className="rounded-md border"
+                clickAction="play"
+                selected={deleteIds.has(f.id)}
+                onToggle={() => onToggle(f.id)}
+                onPlay={() => onPlay(f)}
+                columns={<DuplicateColumns file={f} />}
+                trailing={
+                  isSuggested ? (
+                    <span className="shrink-0 rounded bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
+                      KEEP
+                    </span>
+                  ) : null
+                }
+              />
+            );
+          })}
         </div>
       </CardContent>
     </Card>

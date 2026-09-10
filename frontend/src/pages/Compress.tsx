@@ -516,6 +516,7 @@ export function Compress() {
               {/* Headers */}
               <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border/30 bg-muted/20 shrink-0">
                 <span className="w-4 shrink-0" />
+                <span className="w-8 shrink-0" />
                 <ColHeader
                   label="Filename"
                   sortKey="filename"
@@ -559,14 +560,13 @@ export function Compress() {
                   onSort={handleSort}
                   className="w-14 justify-end shrink-0"
                 />
-                <span className="w-6 shrink-0" />
               </div>
               <div className="flex-1 min-h-[200px]">
                 <VirtualizedGrid
                   items={filteredFiles}
                   getKey={(f) => f.id}
                   mode="list"
-                  itemHeight={44}
+                  itemHeight={48}
                   resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}`}
                   renderItem={(f) => (
                     <FileListRow

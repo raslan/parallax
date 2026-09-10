@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Scissors, Loader2, Trash2, Play, ArrowUp, ArrowDown } from "lucide-react";
+import { Scissors, Loader2, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,8 +8,8 @@ import { getErrorMessage } from "@/lib/api/client";
 import type { AudioFile } from "@/types/audio";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { FileListRow } from "@/components/FileSelectGrid";
 import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { QueryBuilder } from "@/components/QueryBuilder";
 import { LibraryBar } from "@/components/LibraryBar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,39 +27,9 @@ import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { useConfirm } from "@/components/ConfirmProvider";
 
-function CleanupListRow({
-  file,
-  selected,
-  onToggle,
-  onPlay,
-}: {
-  file: AudioFile;
-  selected: boolean;
-  onToggle: () => void;
-  onPlay: () => void;
-}) {
+function CleanupColumns({ file }: { file: AudioFile }) {
   return (
-    <div
-      className={cn(
-        "group flex items-center gap-3 px-3 py-2 border-b border-border/50 last:border-0 hover:bg-muted/20 cursor-pointer transition-colors",
-        selected && "bg-primary/5",
-      )}
-      onClick={onToggle}
-    >
-      <Checkbox
-        className="shrink-0"
-        checked={selected}
-        onCheckedChange={() => onToggle()}
-        onClick={(e) => e.stopPropagation()}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="truncate font-medium text-sm" title={file.filename}>
-          {file.filename}
-        </p>
-        <p className="truncate text-xs text-muted-foreground" title={file.path}>
-          {file.path}
-        </p>
-      </div>
+    <>
       <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
         {formatDuration(file.duration)}
       </span>
@@ -72,17 +42,7 @@ function CleanupListRow({
       <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
         {formatSize(file.size)}
       </span>
-      <button
-        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground/50 hover:text-foreground"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPlay();
-        }}
-        title="Play audio"
-      >
-        <Play className="h-3.5 w-3.5" />
-      </button>
-    </div>
+    </>
   );
 }
 
@@ -326,14 +286,14 @@ export function AudioCleanup() {
           </div>
 
           <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
-            <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider shrink-0">
-              <span className="h-4 w-4 shrink-0" />
+            <div className="flex items-center gap-3 px-4 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider shrink-0">
+              <span className="w-4 shrink-0" />
+              <span className="w-8 shrink-0" />
               <span className="flex-1 min-w-0">Filename</span>
               <span className="w-16 text-right shrink-0">Duration</span>
               <span className="w-24 text-right shrink-0">Content date</span>
               <span className="w-24 text-right shrink-0">File added</span>
               <span className="w-16 text-right shrink-0">Size</span>
-              <span className="h-3.5 w-3.5 shrink-0" />
             </div>
             <div className="flex-1 min-h-0">
               <VirtualizedGrid
@@ -343,11 +303,13 @@ export function AudioCleanup() {
                 itemHeight={52}
                 resetKey={`${selectedId}-${sortBy}-${sortDir}`}
                 renderItem={(f) => (
-                  <CleanupListRow
+                  <FileListRow
                     file={f}
+                    clickAction="select"
                     selected={selected.has(f.id)}
                     onToggle={() => toggleOne(f.id)}
                     onPlay={() => setPlayingFile(f)}
+                    columns={<CleanupColumns file={f} />}
                   />
                 )}
               />

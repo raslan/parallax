@@ -1,6 +1,7 @@
-import { Check, Play, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Check, Play, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { VideoFile } from "@/types/file";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { cn } from "@/lib/utils";
 import { formatSize, formatDuration } from "@/lib/format";
@@ -135,6 +136,10 @@ export function FileListRow({
   onToggle,
   onPlay,
   trailing,
+  selectable = true,
+  clickAction = "select",
+  columns,
+  className,
 }: {
   file: {
     id: number;
@@ -148,50 +153,64 @@ export function FileListRow({
   onToggle: () => void;
   onPlay: () => void;
   trailing?: React.ReactNode;
+  /** When false, no checkbox is rendered (e.g. AudioFiles has no selection). */
+  selectable?: boolean;
+  /** What a click on the row body does. Defaults to toggling selection. */
+  clickAction?: "select" | "play";
+  /** Replaces the default codec/duration/size columns when provided. */
+  columns?: React.ReactNode;
+  /** Merged onto the row root — escape hatch for e.g. a bordered card row. */
+  className?: string;
 }) {
   return (
     <div
       className={cn(
         "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none group",
         selected && "bg-primary/5",
+        className,
       )}
-      onClick={onToggle}
+      onClick={clickAction === "play" ? onPlay : onToggle}
     >
-      <span className="shrink-0">
-        {selected ? (
-          <CheckSquare className="h-4 w-4 text-primary" />
-        ) : (
-          <Square className="h-4 w-4 text-muted-foreground" />
-        )}
-      </span>
-      <span
-        className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"
-        title={file.path}
-      >
-        {file.filename}
-      </span>
-      {file.codec_name && (
-        <span className="text-xs text-muted-foreground/60 font-mono shrink-0 w-14 text-right uppercase">
-          {file.codec_name}
-        </span>
+      {selectable && (
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0"
+        />
       )}
-      <span className="text-xs text-muted-foreground/50 shrink-0 w-14 text-right">
-        {file.duration != null ? formatDuration(file.duration) : "—"}
-      </span>
-      <span className="text-xs text-muted-foreground/70 shrink-0 w-16 text-right font-mono">
-        {formatSize(file.size)}
-      </span>
-      {trailing}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onPlay();
         }}
         title="Preview"
-        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
+        className="shrink-0 flex h-8 w-8 items-center justify-center rounded bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors"
       >
-        <Play className="h-3.5 w-3.5" />
+        <Play className="h-4 w-4" />
       </button>
+      <span
+        className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"
+        title={file.path}
+      >
+        {file.filename}
+      </span>
+      {columns ?? (
+        <>
+          {file.codec_name && (
+            <span className="text-xs text-muted-foreground/60 font-mono shrink-0 w-14 text-right uppercase">
+              {file.codec_name}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground/50 shrink-0 w-14 text-right">
+            {file.duration != null ? formatDuration(file.duration) : "—"}
+          </span>
+          <span className="text-xs text-muted-foreground/70 shrink-0 w-16 text-right font-mono">
+            {formatSize(file.size)}
+          </span>
+        </>
+      )}
+      {trailing}
     </div>
   );
 }

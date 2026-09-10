@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, ArrowDown, Film, Loader2, Play } from "lucide-react";
+import { ArrowUp, ArrowDown, Film, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import type { AudioFile } from "@/types/audio";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { LibraryBar } from "@/components/LibraryBar";
-import { applySortDir, type SortDir } from "@/components/FileSelectGrid";
+import { applySortDir, FileListRow, type SortDir } from "@/components/FileSelectGrid";
 import { useSort } from "@/hooks/useSort";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { formatSize, formatDuration, formatBitrate, formatUnixDate } from "@/lib/format";
@@ -21,20 +21,9 @@ import {
 
 // ─── List row ────────────────────────────────────────────────────────────────
 
-function AudioFileRow({ file, onPlay }: { file: AudioFile; onPlay: () => void }) {
+function AudioFileColumns({ file }: { file: AudioFile }) {
   return (
-    <div
-      className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors group/row"
-      onClick={onPlay}
-    >
-      <div className="flex-1 min-w-0">
-        <p className="truncate text-sm font-medium" title={file.filename}>
-          {file.filename}
-        </p>
-        <p className="truncate text-xs text-muted-foreground" title={file.path}>
-          {file.path}
-        </p>
-      </div>
+    <>
       <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
         {file.codec_name ? file.codec_name.toUpperCase() : "—"}
       </span>
@@ -53,25 +42,14 @@ function AudioFileRow({ file, onPlay }: { file: AudioFile; onPlay: () => void })
       <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
         {formatSize(file.size)}
       </span>
-      <div className="w-14 shrink-0 flex items-center justify-end gap-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlay();
-          }}
-          title="Play audio"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Play className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
 
 function AudioFileListHeader() {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg">
+    <div className="flex items-center gap-3 px-4 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg">
+      <div className="w-8 shrink-0" />
       <div className="flex-1">Filename</div>
       <div className="w-16 shrink-0 text-right">Codec</div>
       <div className="w-16 shrink-0 text-right">Duration</div>
@@ -79,7 +57,6 @@ function AudioFileListHeader() {
       <div className="w-24 shrink-0 text-right">Content date</div>
       <div className="w-24 shrink-0 text-right">File added</div>
       <div className="w-16 shrink-0 text-right">Size</div>
-      <div className="w-14 shrink-0" />
     </div>
   );
 }
@@ -233,7 +210,17 @@ export function AudioFiles() {
                   itemHeight={54}
                   dynamicHeight
                   resetKey={`${libraryId}-${sortKey}-${sortDir}`}
-                  renderItem={(f) => <AudioFileRow file={f} onPlay={() => setPlaying(f)} />}
+                  renderItem={(f) => (
+                    <FileListRow
+                      file={f}
+                      selectable={false}
+                      clickAction="play"
+                      selected={false}
+                      onToggle={() => {}}
+                      onPlay={() => setPlaying(f)}
+                      columns={<AudioFileColumns file={f} />}
+                    />
+                  )}
                 />
               </div>
             </div>
