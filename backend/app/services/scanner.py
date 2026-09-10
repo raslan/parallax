@@ -11,7 +11,12 @@ from app.models.file import File, FileStatus
 from app.models.job import Job, JobLog, JobStatus, JobType
 from app.models.library import Library
 from app.models.settings import get_setting
-from app.services.common import arm_cancel, clear_cancel, should_cancel
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    is_ignored_media_name,
+    should_cancel,
+)
 
 VIDEO_EXTENSIONS = {
     ".mp4",
@@ -405,6 +410,8 @@ def _find_video_files(library_path: str) -> list[str]:
     for root, dirs, files in os.walk(library_path):
         dirs[:] = [d for d in dirs if d != "_originals"]
         for name in files:
+            if is_ignored_media_name(name):
+                continue
             if os.path.splitext(name)[1].lower() in VIDEO_EXTENSIONS:
                 paths.append(os.path.join(root, name))
     return sorted(paths)

@@ -5,6 +5,17 @@ import threading
 from datetime import UTC, datetime
 
 
+def is_ignored_media_name(name: str) -> bool:
+    """True for filenames that a library walk must never pick up as media.
+
+    Dotfiles and in-progress encode temps (`.compressing*` / `.transcoding*`).
+    Mirrors `fs_watcher._Handler._is_relevant` — that filter only guards live
+    watcher events, so the scanner / reconcile disk walks need the same check or
+    a half-written temp file gets inserted as a real row.
+    """
+    return name.startswith(".") or ".compressing" in name or ".transcoding" in name
+
+
 def temp_sibling_path(src: str, ext: str, infix: str) -> str:
     """A short, collision-free temp path next to `src` for in-progress media output.
 
