@@ -68,6 +68,7 @@ export const SECTIONS: Section[] = [
     items: [
       { to: "/audio-libraries", icon: Library, label: "Libraries" },
       { to: "/audio-files", icon: Film, label: "Files" },
+      { to: "/audio-cleanup", icon: Scissors, label: "Cleanup" },
       { to: "/audio-compress", icon: Minimize2, label: "Compress" },
       { to: "/audio-originals", icon: Archive, label: "Originals" },
     ],

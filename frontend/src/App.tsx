@@ -25,6 +25,7 @@ import { ContentReview } from "@/pages/ContentReview";
 import { ImageQuarantined } from "@/pages/ImageQuarantined";
 import { AudioLibraries } from "@/pages/AudioLibraries";
 import { AudioFiles } from "@/pages/AudioFiles";
+import { AudioCleanup } from "@/pages/AudioCleanup";
 import { AudioCompress } from "@/pages/AudioCompress";
 import { AudioOriginals } from "@/pages/AudioOriginals";
 
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/audio-libraries" element={<AudioLibraries />} />
               <Route path="/audio-files" element={<AudioFiles />} />
               <Route path="/audio-compress" element={<AudioCompress />} />
+              <Route path="/audio-cleanup" element={<AudioCleanup />} />
               <Route path="/audio-originals" element={<AudioOriginals />} />
               {/* Shared */}
               <Route path="/jobs" element={<Jobs />} />
