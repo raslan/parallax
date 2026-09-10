@@ -6,10 +6,23 @@ every video concern removed. Pure command builders live at the top and are
 unit-tested without touching ffmpeg or the DB.
 """
 
+import concurrent.futures as _cf
 import json
+import os
 import re
+import shutil
+import subprocess
+import tempfile
+import threading
+from collections.abc import Callable
 
+from app.database import SessionLocal
+from app.models.audio_file import AudioFile
+from app.models.job import Job, JobStatus
+from app.models.settings import get_setting
+from app.services import audio_scanner
 from app.services.audio_compressor import _has_encoder
+from app.services.common import arm_cancel, clear_cancel, now, should_cancel
 
 LOUDNORM_TARGET = "I=-16:TP=-1.5:LRA=11"
 CHANNEL_OPS = ("mono", "downmix_stereo", "left_to_both", "right_to_both")
@@ -138,3 +151,238 @@ def _build_audio_toolbox_cmd(
 
     cmd += ["-progress", "pipe:1", "-nostats", out]
     return cmd
+
+
+# ---- runtime: loudnorm measure + per-file fix + job runner -------------------
+
+
+def _measure_loudnorm(path: str) -> dict | None:
+    """First loudnorm pass — analysis only. Returns the measured dict or None."""
+    try:
+        proc = subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-nostats",
+                "-i",
+                path,
+                "-af",
+                f"loudnorm={LOUDNORM_TARGET}:print_format=json",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    return _parse_loudnorm_json(proc.stderr or "")
+
+
+def _safe_remove(path: str) -> None:
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def _row_id_for(src: str) -> int:
+    db = SessionLocal()
+    try:
+        row = db.query(AudioFile).filter(AudioFile.path == src).first()
+        return row.id if row else 0
+    finally:
+        db.close()
+
+
+def _toolbox_fix_one(
+    src: str,
+    settings: dict,
+    keep_original: bool,
+    job_id: int,
+    progress_cb: Callable[[float], None] | None = None,
+) -> tuple[bool, str | None]:
+    """Apply the toolbox ops to one audio file in place. Returns (ok, error)."""
+    if should_cancel(job_id):
+        return False, "Cancelled"
+    if not os.path.isfile(src):
+        return False, "Source file missing"
+
+    db = SessionLocal()
+    try:
+        row = db.query(AudioFile).filter(AudioFile.path == src).first()
+        codec_name = row.codec_name if row else None
+        bitrate_bps = row.bitrate if row else None
+        duration = float(row.duration or 0.0) if row else 0.0
+    finally:
+        db.close()
+
+    channel_op = settings.get("channel_op")
+    normalize = bool(settings.get("normalize"))
+    trim_start = float(settings.get("trim_start") or 0.0)
+    trim_end = float(settings.get("trim_end") or 0.0)
+
+    encoder, bitrate_arg = _encoder_for_source(codec_name, bitrate_bps)
+    measured = _measure_loudnorm(src) if normalize else None
+
+    base, ext = os.path.splitext(src)
+    tmp = base + ".compressing" + ext  # watcher skips `.compressing*`
+    cmd = _build_audio_toolbox_cmd(
+        src,
+        tmp,
+        duration=duration,
+        trim_start=trim_start,
+        trim_end=trim_end,
+        channel_op=channel_op,
+        normalize=normalize,
+        encoder=encoder,
+        bitrate_arg=bitrate_arg,
+        measured=measured,
+    )
+
+    err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="audiotoolbox_")
+    proc = None
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err_fd, text=True)
+        os.close(err_fd)
+        err_fd = -1
+        for line in iter(proc.stdout.readline, ""):
+            if should_cancel(job_id):
+                proc.kill()
+                proc.wait()
+                _safe_remove(tmp)
+                _safe_remove(err_path)
+                return False, "Cancelled"
+            line = line.strip()
+            if line.startswith("out_time_ms=") and duration > 0 and progress_cb:
+                try:
+                    ms = int(line.split("=", 1)[1])
+                    if ms > 0:
+                        progress_cb(min(ms / 1_000_000 / duration, 0.99))
+                except (ValueError, IndexError):
+                    pass
+        proc.wait()
+        if proc.returncode != 0:
+            with open(err_path, errors="replace") as fh:
+                stderr_text = fh.read()[-512:]
+            _safe_remove(tmp)
+            _safe_remove(err_path)
+            return False, stderr_text or f"ffmpeg exit {proc.returncode}"
+        _safe_remove(err_path)
+
+        if keep_original:
+            originals_dir = os.path.join(os.path.dirname(src), "_originals")
+            os.makedirs(originals_dir, exist_ok=True)
+            dest = os.path.join(originals_dir, os.path.basename(src))
+            if os.path.exists(dest):
+                b, e = os.path.splitext(os.path.basename(src))
+                dest = os.path.join(originals_dir, f"{b}_{_row_id_for(src)}{e}")
+            shutil.move(src, dest)
+        os.replace(tmp, src)
+
+        db = SessionLocal()
+        try:
+            row = db.query(AudioFile).filter(AudioFile.path == src).first()
+            if row is not None:
+                row.compressed_at = now()
+                db.commit()
+                audio_scanner.rescan_audio_file(db, row)
+        finally:
+            db.close()
+        return True, None
+    except Exception as exc:  # noqa: BLE001 - report, don't crash the job
+        if err_fd != -1:
+            try:
+                os.close(err_fd)
+            except OSError:
+                pass
+        if proc:
+            try:
+                proc.kill()
+                proc.wait()
+            except Exception:
+                pass
+        _safe_remove(tmp)
+        _safe_remove(err_path)
+        return False, str(exc)
+
+
+def run_audio_toolbox_job(
+    job_id: int, file_ids: list[int], settings: dict, keep_original: bool
+) -> None:
+    """Job body: apply the toolbox ops to every file in `file_ids`."""
+    db = SessionLocal()
+    try:
+        job = db.get(Job, job_id)
+        if job is None:
+            return
+        job.status = JobStatus.RUNNING
+        job.started_at = now()
+        db.commit()
+        paths: list[str] = [
+            r.path for r in db.query(AudioFile).filter(AudioFile.id.in_(file_ids)).all()
+        ]
+        try:
+            n_concurrent = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
+        except (TypeError, ValueError):
+            n_concurrent = 1
+    finally:
+        db.close()
+
+    arm_cancel(job_id)
+    results: list[dict] = []
+    done = 0
+    lock = threading.Lock()
+
+    def work(path: str) -> None:
+        nonlocal done
+        ok, err = _toolbox_fix_one(path, settings, keep_original, job_id)
+        with lock:
+            results.append({"path": path, "ok": ok, "error": err})
+            done += 1
+            _db = SessionLocal()
+            try:
+                j = _db.get(Job, job_id)
+                if j is not None:
+                    j.processed_files = done
+                    j.progress = done / max(1, len(paths))
+                    _db.commit()
+            finally:
+                _db.close()
+
+    try:
+        with _cf.ThreadPoolExecutor(max_workers=n_concurrent) as pool:
+            futures = [pool.submit(work, p) for p in paths]
+            for fut in _cf.as_completed(futures):
+                fut.result()
+    finally:
+        clear_cancel(job_id)
+
+    db = SessionLocal()
+    try:
+        job = db.get(Job, job_id)
+        if job is None:
+            return
+        cancelled = should_cancel(job_id) or any(r["error"] == "Cancelled" for r in results)
+        failed = [r for r in results if not r["ok"] and r["error"] != "Cancelled"]
+        job.status = (
+            JobStatus.CANCELLED
+            if cancelled
+            else JobStatus.FAILED
+            if failed and not any(r["ok"] for r in results)
+            else JobStatus.COMPLETED
+        )
+        job.finished_at = now()
+        job.progress = 1.0
+        existing = json.loads(job.settings) if job.settings else {}
+        existing["results"] = results
+        job.settings = json.dumps(existing)
+        if failed:
+            job.error = f"{len(failed)} file(s) failed: " + "; ".join(
+                f"{os.path.basename(r['path'])}: {r['error']}" for r in failed[:5]
+            )
+        db.commit()
+    finally:
+        db.close()
