@@ -1,5 +1,5 @@
-"""fs_watcher watch bookkeeping — video and image library IDs both start at 1,
-so the watch registry must namespace by (is_image, library_id) or the second
+"""fs_watcher watch bookkeeping — video, image and audio library IDs all start
+at 1, so the watch registry must namespace by (kind, library_id) or the second
 library scheduled silently overwrites/short-circuits the first."""
 
 from app.services import fs_watcher
@@ -26,31 +26,32 @@ def _reset(monkeypatch):
     return obs
 
 
-def test_same_id_video_and_image_both_watched(monkeypatch):
+def test_same_id_video_image_and_audio_all_watched(monkeypatch):
     obs = _reset(monkeypatch)
 
-    fs_watcher.watch_library(1, "/media/vid", is_image=False)
-    fs_watcher.watch_library(1, "/media/img", is_image=True)
+    fs_watcher.watch_library(1, "/media/vid", kind="video")
+    fs_watcher.watch_library(1, "/media/img", kind="image")
+    fs_watcher.watch_library(1, "/media/aud", kind="audio")
 
-    assert len(obs.scheduled) == 2
-    assert set(fs_watcher._handles) == {(False, 1), (True, 1)}
+    assert len(obs.scheduled) == 3
+    assert set(fs_watcher._handles) == {("video", 1), ("image", 1), ("audio", 1)}
 
 
 def test_unwatch_targets_the_right_library(monkeypatch):
     obs = _reset(monkeypatch)
-    fs_watcher.watch_library(1, "/media/vid", is_image=False)
-    fs_watcher.watch_library(1, "/media/img", is_image=True)
+    fs_watcher.watch_library(1, "/media/vid", kind="video")
+    fs_watcher.watch_library(1, "/media/img", kind="image")
 
-    fs_watcher.unwatch_library(1, is_image=True)
+    fs_watcher.unwatch_library(1, kind="image")
 
-    assert set(fs_watcher._handles) == {(False, 1)}
+    assert set(fs_watcher._handles) == {("video", 1)}
     assert [p for _, p in obs.scheduled] == ["/media/vid"]
 
 
 def test_watch_is_idempotent_per_key(monkeypatch):
     obs = _reset(monkeypatch)
-    fs_watcher.watch_library(1, "/media/vid", is_image=False)
-    fs_watcher.watch_library(1, "/media/vid", is_image=False)
+    fs_watcher.watch_library(1, "/media/vid", kind="video")
+    fs_watcher.watch_library(1, "/media/vid", kind="video")
     assert len(obs.scheduled) == 1
 
 
@@ -71,10 +72,10 @@ def _dispatch_and_drain(monkeypatch, *events):
     _reset(monkeypatch)
     fired = []
     monkeypatch.setattr(fs_watcher, "_fire", lambda key: fired.append(key))
-    h = fs_watcher._Handler(1, is_image=False)
+    h = fs_watcher._Handler(1, kind="video")
     for e in events:
         h.dispatch(e)
-    state = fs_watcher._pending.get((False, 1))
+    state = fs_watcher._pending.get(("video", 1))
     if state and state.timer:
         state.timer.cancel()
     return state
