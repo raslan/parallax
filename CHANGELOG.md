@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.8.0](https://github.com/raslan/parallax/compare/v2.7.0...v2.8.0) (2026-09-10)
+
+
+### Features
+
+* adjust audio tuning and compression parametric name and scan ([eda4e5d](https://github.com/raslan/parallax/commit/eda4e5dd037e77fb9a790e838be0076d46a71beb))
+
 ## [2.7.0](https://github.com/raslan/parallax/compare/v2.6.0...v2.7.0) (2026-09-10)
 
 
