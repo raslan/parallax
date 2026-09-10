@@ -1,7 +1,7 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -15,8 +15,8 @@ router = APIRouter(prefix="/audio-toolbox", tags=["audio-toolbox"])
 
 class AudioToolboxStartRequest(BaseModel):
     file_ids: list[int]
-    trim_start: float = 0
-    trim_end: float = 0
+    trim_start: float = Field(0, ge=0)
+    trim_end: float = Field(0, ge=0)
     channel_op: str | None = None
     normalize: bool = False
     keep_original: bool = True

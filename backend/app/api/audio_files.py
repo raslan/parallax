@@ -111,6 +111,10 @@ def delete_audio_files(body: AudioFileDeleteRequest, db: Session = Depends(get_d
                 if os.path.exists(dest):
                     base, ext = os.path.splitext(row.filename)
                     dest = os.path.join(originals_dir, f"{base}_{row.id}{ext}")
+                    n = 1
+                    while os.path.exists(dest):
+                        dest = os.path.join(originals_dir, f"{base}_{row.id}_{n}{ext}")
+                        n += 1
                 shutil.move(row.path, dest)
             else:
                 try:
