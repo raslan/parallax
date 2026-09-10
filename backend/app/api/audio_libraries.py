@@ -205,3 +205,28 @@ async def scan_audio_library_endpoint(library_id: int, db: Session = Depends(get
 
     await enqueue(job.id, scan_audio_library, library_id, job.id)
     return {"job_id": job.id}
+
+
+@router.post("/{library_id}/find-duplicates", status_code=202)
+async def find_audio_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
+    lib = db.get(AudioLibrary, library_id)
+    if not lib:
+        raise HTTPException(404, "Library not found")
+    file_count = (
+        db.query(func.count(AudioFile.id)).filter(AudioFile.library_id == library_id).scalar()
+    )
+    if file_count == 0:
+        raise HTTPException(
+            422, "Scan the library first to index files before checking for duplicates"
+        )
+
+    job = Job(type=JobType.AUDIO_DUPLICATES, status=JobStatus.PENDING, library_id=library_id)
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.queue import enqueue
+    from app.services.audio_duplicates import extract_audio_fingerprints
+
+    await enqueue(job.id, extract_audio_fingerprints, library_id, job.id)
+    return {"job_id": job.id, "message": "Audio fingerprint extraction queued"}
