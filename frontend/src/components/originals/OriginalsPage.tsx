@@ -316,6 +316,7 @@ export function OriginalsPage({ kind }: { kind: OriginalsKind }) {
   } = useQuery({
     queryKey: kind.listKey(),
     queryFn: () => kind.list(),
+    refetchOnMount: "always",
   });
   const load = () => {
     refetch();
