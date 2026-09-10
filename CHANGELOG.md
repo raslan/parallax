@@ -3,6 +3,35 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.7.0](https://github.com/raslan/parallax/compare/v2.6.0...v2.7.0) (2026-09-10)
+
+
+### Features
+
+* **audio:** add audio_fingerprint column and audio job types ([c8461b5](https://github.com/raslan/parallax/commit/c8461b5bf8e2f4e6ed448d3255b4c957371c5e05))
+* **audio:** add audio-toolbox job runner and start endpoint ([449c1f0](https://github.com/raslan/parallax/commit/449c1f0a9442f59a415f9f7a643fd390be146009))
+* **audio:** add bulk delete endpoint for audio files ([847bc38](https://github.com/raslan/parallax/commit/847bc38038fac75d2a46955b5170feddb14017c1))
+* **audio:** add Cleanup page with query-builder filters ([3cb3f3d](https://github.com/raslan/parallax/commit/3cb3f3daf35d286c1cc8f5f321406ffb9cff642b))
+* **audio:** add Duplicates page with client-side clustering ([437e5d7](https://github.com/raslan/parallax/commit/437e5d74000b9ebcabd6e420ba66ea2ff61b37ae))
+* **audio:** add Files page ([8a5fa34](https://github.com/raslan/parallax/commit/8a5fa34d53ce72c7911161e57d3e38bb6dd5da75))
+* **audio:** add fingerprint extraction job and find-duplicates route ([94f0493](https://github.com/raslan/parallax/commit/94f0493d00587dcfd1254b138a5d58283374ba05))
+* **audio:** add toolbox ffmpeg command builders ([ee357ff](https://github.com/raslan/parallax/commit/ee357ff76448b30827bfc501233baf5412562cdf))
+* **audio:** add Toolbox page with trim, channel fix and normalize ([d14ab84](https://github.com/raslan/parallax/commit/d14ab84324c1ddfcfcc25c1f03bdef1fff3135ef))
+
+
+### Bug Fixes
+
+* **audio:** cleanup no-libraries empty state and duplicates parity ([1fae649](https://github.com/raslan/parallax/commit/1fae64956fe652660bc1549118221a82908a2bef))
+* **audio:** guard find-duplicates against a concurrent extraction job ([df9f2cc](https://github.com/raslan/parallax/commit/df9f2cc58f6927894cfa18b1d8a6b87756c8e707))
+* **audio:** guard trim inputs and originals-collision naming ([4744d05](https://github.com/raslan/parallax/commit/4744d05db7ea3a68f6ea9d8cf35a2f5e70f9e178))
+* **audio:** keep list-row play glyph always visible without a thumbnail ([0a9428c](https://github.com/raslan/parallax/commit/0a9428c3dcca79a1f6e47ca81f5443cc44655b6e))
+* **audio:** match toolbox add-fix flow and keep-originals to video ([666dbac](https://github.com/raslan/parallax/commit/666dbac9b09876ff7cb4711d93c4ea00fefe973a))
+* **audio:** report toolbox job progress on the 0-100 scale ([5827ff8](https://github.com/raslan/parallax/commit/5827ff82b0ebb11fc7779fa911a05b04020195a5))
+* **audio:** stamp processed_files when the fingerprint job finishes ([9d38087](https://github.com/raslan/parallax/commit/9d38087ea27ff9959188aceff69a6d70159ca37a))
+* **originals:** always refetch the originals list on mount ([9690711](https://github.com/raslan/parallax/commit/96907114de593c299a9b05e06b97ffedeaa5a0ff))
+* **ui:** keep list-row separators visible and drop dead group class ([42e1fc0](https://github.com/raslan/parallax/commit/42e1fc07d0e3d19d7c604a0b803c4281cf575169))
+* **ui:** restore list-row thumbnail as the play affordance ([2ac611a](https://github.com/raslan/parallax/commit/2ac611abe1ec034a95b4432025ed9a1ff6022018))
+
 ## [2.6.0](https://github.com/raslan/parallax/compare/v2.5.0...v2.6.0) (2026-09-09)
 
 
