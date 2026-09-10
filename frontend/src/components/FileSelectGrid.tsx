@@ -191,10 +191,21 @@ export function FileListRow({
         title="Play"
         className="relative group/thumb h-8 w-14 shrink-0"
       >
-        {thumbnail ?? <div className="h-8 w-14 rounded bg-muted" />}
-        <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-          <Play className="h-3.5 w-3.5 text-white fill-white" />
-        </div>
+        {thumbnail ? (
+          <>
+            {thumbnail}
+            {/* hover overlay — the thumbnail already reads as content, so the
+                play glyph only appears on hover */}
+            <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+              <Play className="h-3.5 w-3.5 text-white fill-white" />
+            </div>
+          </>
+        ) : (
+          // no real thumbnail (audio) — keep the play glyph always visible
+          <div className="h-8 w-14 rounded bg-muted flex items-center justify-center text-muted-foreground group-hover/thumb:text-foreground transition-colors">
+            <Play className="h-3.5 w-3.5 fill-current" />
+          </div>
+        )}
       </button>
       <span
         className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"
