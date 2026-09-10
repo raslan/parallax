@@ -201,8 +201,15 @@ export function FileListRow({
             </div>
           </>
         ) : (
-          // no real thumbnail (audio) — keep the play glyph always visible
-          <div className="h-8 w-14 rounded bg-muted flex items-center justify-center text-muted-foreground group-hover/thumb:text-foreground transition-colors">
+          // no real thumbnail (audio) — a lightly hatched placeholder with the
+          // play glyph always visible
+          <div
+            className="h-8 w-14 overflow-hidden rounded bg-muted flex items-center justify-center text-muted-foreground/70 group-hover/thumb:text-foreground transition-colors"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(45deg, color-mix(in srgb, var(--px-text-muted) 10%, transparent) 0 1px, transparent 1px 5px)",
+            }}
+          >
             <Play className="h-3.5 w-3.5 fill-current" />
           </div>
         )}
