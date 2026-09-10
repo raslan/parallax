@@ -219,6 +219,8 @@ async def find_audio_duplicates_endpoint(library_id: int, db: Session = Depends(
         raise HTTPException(
             422, "Scan the library first to index files before checking for duplicates"
         )
+    if active_job_exists(db, library_id, JobType.AUDIO_DUPLICATES):
+        raise HTTPException(409, "A duplicate scan is already running for this library")
 
     job = Job(type=JobType.AUDIO_DUPLICATES, status=JobStatus.PENDING, library_id=library_id)
     db.add(job)

@@ -95,11 +95,37 @@ def test_extract_honours_cancel(seeded, engine, monkeypatch):
     assert calls["n"] == 1
 
 
-def test_find_duplicates_endpoint_guards(client, seeded):
+def test_find_duplicates_endpoint_guards(client, seeded, engine, tmp_path):
     lib_id, _job_id, *_ = seeded
+
     # 404 for a missing library
     assert client.post("/api/audio-libraries/999999/find-duplicates").status_code == 404
-    # happy path returns a job id
-    r = client.post(f"/api/audio-libraries/{lib_id}/find-duplicates")
+
+    # 409 — the seeded library already has a PENDING AUDIO_DUPLICATES job
+    assert client.post(f"/api/audio-libraries/{lib_id}/find-duplicates").status_code == 409
+
+    # happy path: a fresh library with a file and no active job → 202 + job id
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    fresh = AudioLibrary(name="fresh", path=str(tmp_path / "fresh"))
+    db.add(fresh)
+    db.commit()
+    p = tmp_path / "fresh.mp3"
+    p.write_bytes(b"x")
+    db.add(
+        AudioFile(
+            library_id=fresh.id,
+            path=str(p),
+            filename="fresh.mp3",
+            extension=".mp3",
+            size=1,
+            duration=60.0,
+        )
+    )
+    db.commit()
+    fresh_id = fresh.id
+    db.close()
+
+    r = client.post(f"/api/audio-libraries/{fresh_id}/find-duplicates")
     assert r.status_code == 202
     assert "job_id" in r.json()
