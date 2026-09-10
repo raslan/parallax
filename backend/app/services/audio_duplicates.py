@@ -34,6 +34,7 @@ def extract_audio_fingerprints(library_id: int, job_id: int) -> None:
     cancelled = False
     failed = False
     error: str | None = None
+    processed = 0
     try:
         rows = (
             db.query(AudioFile)
@@ -47,7 +48,6 @@ def extract_audio_fingerprints(library_id: int, job_id: int) -> None:
         job.total_files = total
         db.commit()
 
-        processed = 0
         for i, row in enumerate(rows):
             if should_cancel(job_id):
                 cancelled = True
@@ -75,6 +75,7 @@ def extract_audio_fingerprints(library_id: int, job_id: int) -> None:
         clear_cancel(job_id)
         job = db.get(Job, job_id)
         if job is not None:
+            job.processed_files = processed
             if cancelled:
                 job.status = JobStatus.CANCELLED
             elif failed:

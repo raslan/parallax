@@ -56,7 +56,12 @@ def test_extract_only_touches_null_rows(seeded, engine, monkeypatch):
     assert json.loads(db.get(AudioFile, a).audio_fingerprint) == [1, 2, 3]
     assert json.loads(db.get(AudioFile, b).audio_fingerprint) == [1, 2, 3]
     assert db.get(AudioFile, already).audio_fingerprint == "[9, 9, 9]"  # untouched
-    assert db.get(Job, job_id).status == JobStatus.COMPLETED
+    job = db.get(Job, job_id)
+    assert job.status == JobStatus.COMPLETED
+    # <25 files: the commit-every-25 branch never runs, so processed_files must
+    # still be stamped in the finally block (was left at 0 / None before).
+    assert job.processed_files == 2
+    assert job.progress == 100.0
     db.close()
 
 
