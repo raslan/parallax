@@ -10,7 +10,14 @@ from collections.abc import Callable
 from app.database import SessionLocal
 from app.models.file import File
 from app.models.job import Job, JobStatus
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    log,
+    now,
+    should_cancel,
+    temp_sibling_path,
+)
 from app.services.encoder import _get_encoders
 from app.services.scanner import rescan_file
 
@@ -188,7 +195,7 @@ def _compress_one(
     else:
         out_ext = ext.lower() or ".mkv"
         changing_container = False
-    tmp = base + ".compressing" + out_ext
+    tmp = temp_sibling_path(src, out_ext, "compressing")
     dst = src if out_ext == ext.lower() else (base + out_ext)
 
     duration = 0.0

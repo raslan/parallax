@@ -5,6 +5,7 @@ extraction and thumbnails. The ffprobe-field-mapping logic lives in
 `_probe_audio_metadata`, shared by `rescan_audio_file` and `scan_audio_library`.
 """
 
+import concurrent.futures as _cf
 import json
 import os
 import subprocess
@@ -35,6 +36,40 @@ AUDIO_EXTENSIONS = {
 
 # Commit progress to the DB every this many files during the scan loop.
 _PROGRESS_EVERY = 50
+
+# Hard ceiling on how long probing one file may take. ffprobe already has its own
+# 30s timeout, but the surrounding os.stat / os.path.getmtime calls have none and
+# block uninterruptibly on an unresponsive mount — this keeps one bad path from
+# wedging the whole (uncancellable-while-blocked) scan loop.
+_PROBE_TIMEOUT = 90
+
+
+def _probe_audio_metadata_guarded(path: str) -> dict:
+    """`_probe_audio_metadata` with a `_PROBE_TIMEOUT` wall-clock cap.
+
+    On timeout the worker thread is abandoned — it may stay blocked in the kernel
+    (D-state on a dead mount) but the scan moves on — and a probe-failure dict is
+    returned so the row is marked UNKNOWN rather than the job hanging forever.
+    """
+    ex = _cf.ThreadPoolExecutor(max_workers=1)
+    try:
+        return ex.submit(_probe_audio_metadata, path).result(timeout=_PROBE_TIMEOUT)
+    except _cf.TimeoutError:
+        ts = now().timestamp()
+        return {
+            "size": None,
+            "duration": None,
+            "codec_name": None,
+            "bitrate": None,
+            "sample_rate": None,
+            "channels": None,
+            "channel_layout": None,
+            "probe_ok": False,
+            "file_mtime": ts,
+            "file_date": ts,
+        }
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
 
 
 def probe_audio(path: str) -> dict:
@@ -128,7 +163,10 @@ def _probe_audio_metadata(path: str) -> dict:
 
     tags = data.get("format", {}).get("tags", {}) if data else {}
     creation_time_str = tags.get("creation_time") or tags.get("date")
-    file_mtime = os.path.getmtime(path)
+    try:
+        file_mtime = os.path.getmtime(path)
+    except OSError:
+        file_mtime = now().timestamp()
     file_date = file_mtime
     if creation_time_str:
         try:
@@ -147,8 +185,19 @@ def _find_audio_files(library_path: str) -> list[str]:
     for root, dirs, files in os.walk(library_path):
         dirs[:] = [d for d in dirs if d != "_originals"]
         for name in files:
-            if os.path.splitext(name)[1].lower() in AUDIO_EXTENSIONS:
-                paths.append(os.path.join(root, name))
+            if os.path.splitext(name)[1].lower() not in AUDIO_EXTENSIONS:
+                continue
+            full = os.path.join(root, name)
+            # Only real files (os.path.isfile follows symlinks to their target).
+            # A FIFO / device / socket that happens to carry an audio extension
+            # would block ffprobe and the unguarded stat calls forever, wedging
+            # the scan loop with no way to cancel it.
+            try:
+                if not os.path.isfile(full):
+                    continue
+            except OSError:
+                continue
+            paths.append(full)
     return sorted(paths)
 
 
@@ -258,7 +307,7 @@ def scan_audio_library(library_id: int, job_id: int) -> None:
                 existing[path] = row
 
             try:
-                meta = _probe_audio_metadata(path)
+                meta = _probe_audio_metadata_guarded(path)
             except Exception as exc:  # noqa: BLE001 - record the failure, keep scanning
                 row.status = FileStatus.UNKNOWN
                 row.scan_error = str(exc)

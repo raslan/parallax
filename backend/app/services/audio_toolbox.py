@@ -23,7 +23,13 @@ from app.models.job import Job, JobStatus
 from app.models.settings import get_setting
 from app.services import audio_scanner
 from app.services.audio_compressor import _has_encoder
-from app.services.common import arm_cancel, clear_cancel, now, should_cancel
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    now,
+    should_cancel,
+    temp_sibling_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -237,8 +243,8 @@ def _toolbox_fix_one(
     encoder, bitrate_arg = _encoder_for_source(codec_name, bitrate_bps)
     measured = _measure_loudnorm(src) if normalize else None
 
-    base, ext = os.path.splitext(src)
-    tmp = base + ".compressing" + ext  # watcher skips `.compressing*`
+    ext = os.path.splitext(src)[1]
+    tmp = temp_sibling_path(src, ext, "compressing")  # watcher skips `.compressing*`
     cmd = _build_audio_toolbox_cmd(
         src,
         tmp,

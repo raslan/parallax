@@ -167,12 +167,15 @@ def _reap_orphaned_jobs():
     db = SessionLocal()
     try:
         orphans = db.query(Job).filter(Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING])).all()
+        reaped = [(j.id, j.type, j.status) for j in orphans]
         for job in orphans:
             job.status = JobStatus.CANCELLED
             job.error = "Interrupted by container restart"
             job.finished_at = datetime.now(UTC).replace(tzinfo=None)
         if orphans:
             db.commit()
+            summary = ", ".join(f"#{jid} {jtype} ({jstatus})" for jid, jtype, jstatus in reaped)
+            print(f"[startup] Reaped {len(orphans)} orphaned job(s): {summary}", flush=True)
     finally:
         db.close()
 

@@ -1,6 +1,23 @@
 """Shared state and utilities for background job workers."""
 
+import os
+import threading
 from datetime import UTC, datetime
+
+
+def temp_sibling_path(src: str, ext: str, infix: str) -> str:
+    """A short, collision-free temp path next to `src` for in-progress media output.
+
+    Deliberately does NOT derive from the source basename: a source name already
+    near NAME_MAX (255 bytes) plus an infix overflows and ffmpeg fails with
+    "... File name too long". Use a fixed short name keyed by pid + thread id
+    instead — one worker thread processes one file at a time, so that's unique.
+    `infix` ("compressing" / "transcoding") keeps the fs-watcher skipping it.
+    """
+    return os.path.join(
+        os.path.dirname(src),
+        f".{infix}-{os.getpid()}-{threading.get_ident()}{ext}",
+    )
 
 
 def now() -> datetime:

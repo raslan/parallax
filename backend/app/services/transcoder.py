@@ -8,7 +8,14 @@ from collections.abc import Callable
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus
 from app.models.library import Library
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    log,
+    now,
+    should_cancel,
+    temp_sibling_path,
+)
 from app.services.encoder import encoder_for_codec
 
 
@@ -139,7 +146,7 @@ def _transcode_one(
         out_ext = ext.lower() or ".mkv"
         changing_container = False
     dst = src if out_ext == ext.lower() else (base + out_ext)
-    tmp = base + ".transcoding" + out_ext
+    tmp = temp_sibling_path(src, out_ext, "transcoding")
     duration = file_obj.duration or 0.0
 
     original_status = file_obj.status

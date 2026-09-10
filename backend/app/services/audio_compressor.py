@@ -26,7 +26,14 @@ from app.database import SessionLocal
 from app.models.audio_file import AudioFile
 from app.models.job import Job, JobStatus
 from app.services import audio_scanner
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    log,
+    now,
+    should_cancel,
+    temp_sibling_path,
+)
 
 # Static codec metadata. `get_available_audio_codecs()` returns a deep copy with
 # aac's `encoder` resolved against the local ffmpeg build. `tiers` is ascending
@@ -228,7 +235,7 @@ def _compress_one(
         return False, "Cancelled"
 
     base = os.path.splitext(src)[0]
-    tmp = base + ".compressing" + ext  # the fs watcher skips `.compressing*`
+    tmp = temp_sibling_path(src, ext, "compressing")  # fs watcher skips `.compressing*`
     final = base + ext
 
     proc = None
