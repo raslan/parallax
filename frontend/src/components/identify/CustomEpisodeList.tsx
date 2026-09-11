@@ -26,9 +26,14 @@ export interface CustomRow {
   title: string;
 }
 
-interface CustomEpisodeListProps {
+export interface CustomSeasonGroup {
+  seasonNumber: number;
+  folderName: string | null;
   rows: CustomRow[];
-  season: number;
+}
+
+interface CustomEpisodeListProps {
+  groups: CustomSeasonGroup[];
   onTitleEdit: (path: string, value: string) => void;
   onReorder: (fromPath: string, toPath: string) => void;
   onSetEpisode: (path: string, episode: number) => void;
@@ -36,6 +41,9 @@ interface CustomEpisodeListProps {
   onReverse: () => void;
   genericTitles: boolean;
   onGenericTitlesChange: (v: boolean) => void;
+  groupFoldersAsSeasons: boolean;
+  onGroupFoldersAsSeasonsChange: (v: boolean) => void;
+  showFoldersAsSeasonsToggle: boolean;
   activeSort: "name" | "date" | "added" | "manual";
   datesLoading: boolean;
   datesUnavailable: boolean;
@@ -77,7 +85,7 @@ function EpisodeNumberInput({
   return (
     <label
       className="flex shrink-0 items-center gap-1 font-mono text-xs font-medium text-muted-foreground"
-      title="Set this file's episode number (shifts the rest)"
+      title="Set this file's episode number (shifts the rest within its season)"
     >
       S{String(season).padStart(2, "0")}E
       <input
@@ -166,20 +174,19 @@ function SortableRow({
   );
 }
 
-export function CustomEpisodeList({
-  rows,
-  season,
+function SeasonBlock({
+  group,
+  genericTitles,
   onTitleEdit,
   onReorder,
   onSetEpisode,
-  onSort,
-  onReverse,
-  genericTitles,
-  onGenericTitlesChange,
-  activeSort,
-  datesLoading,
-  datesUnavailable,
-}: CustomEpisodeListProps) {
+}: {
+  group: CustomSeasonGroup;
+  genericTitles: boolean;
+  onTitleEdit: (path: string, value: string) => void;
+  onReorder: (fromPath: string, toPath: string) => void;
+  onSetEpisode: (path: string, episode: number) => void;
+}) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -191,17 +198,66 @@ export function CustomEpisodeList({
   }
 
   return (
+    <div className="overflow-hidden rounded-md border border-border">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={group.rows.map((r) => r.path)}
+          strategy={verticalListSortingStrategy}
+        >
+          {group.rows.map((row) => (
+            <SortableRow
+              key={row.path}
+              row={row}
+              season={group.seasonNumber}
+              max={group.rows.length}
+              genericTitles={genericTitles}
+              onTitleEdit={onTitleEdit}
+              onSetEpisode={onSetEpisode}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
+export function CustomEpisodeList({
+  groups,
+  onTitleEdit,
+  onReorder,
+  onSetEpisode,
+  onSort,
+  onReverse,
+  genericTitles,
+  onGenericTitlesChange,
+  groupFoldersAsSeasons,
+  onGroupFoldersAsSeasonsChange,
+  showFoldersAsSeasonsToggle,
+  activeSort,
+  datesLoading,
+  datesUnavailable,
+}: CustomEpisodeListProps) {
+  const totalCount = groups.reduce((n, g) => n + g.rows.length, 0);
+  const grouped = groupFoldersAsSeasons && groups.length > 1;
+
+  return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm text-muted-foreground">
-          <span className="font-mono font-medium text-foreground">{rows.length}</span> episodes
-          {rows.length > 0 && (
-            <span className="ml-1.5 font-mono">
-              · S{String(season).padStart(2, "0")}E01–E{String(rows.length).padStart(2, "0")}
-            </span>
-          )}
+          <span className="font-mono font-medium text-foreground">{totalCount}</span> episode
+          {totalCount === 1 ? "" : "s"}
+          {grouped && <span className="ml-1.5 font-mono">· {groups.length} seasons</span>}
         </p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {showFoldersAsSeasonsToggle && (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Checkbox
+                checked={groupFoldersAsSeasons}
+                onCheckedChange={(c) => onGroupFoldersAsSeasonsChange(c === true)}
+              />
+              Folders are seasons
+            </label>
+          )}
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Checkbox
               checked={genericTitles}
@@ -239,22 +295,28 @@ export function CustomEpisodeList({
         </p>
       )}
 
-      <div className="overflow-hidden rounded-md border border-border">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={rows.map((r) => r.path)} strategy={verticalListSortingStrategy}>
-            {rows.map((row) => (
-              <SortableRow
-                key={row.path}
-                row={row}
-                season={season}
-                max={rows.length}
-                genericTitles={genericTitles}
-                onTitleEdit={onTitleEdit}
-                onSetEpisode={onSetEpisode}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+      <div className="space-y-4">
+        {groups.map((group) => (
+          <div key={group.folderName ?? `__loose_${group.seasonNumber}`} className="space-y-1.5">
+            {grouped && (
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Season {String(group.seasonNumber).padStart(2, "0")}
+                {group.folderName && (
+                  <span className="ml-1.5 normal-case tracking-normal text-muted-foreground/70">
+                    ({group.folderName})
+                  </span>
+                )}
+              </p>
+            )}
+            <SeasonBlock
+              group={group}
+              genericTitles={genericTitles}
+              onTitleEdit={onTitleEdit}
+              onReorder={onReorder}
+              onSetEpisode={onSetEpisode}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );

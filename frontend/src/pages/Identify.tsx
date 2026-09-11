@@ -8,7 +8,11 @@ import { DirPicker } from "@/components/DirPicker";
 import { SetupBar, type SelectedMedia, type IdentifyMode } from "@/components/identify/SetupBar";
 import { MediaSearchDialog } from "@/components/identify/MediaSearchDialog";
 import { MatchBoard } from "@/components/identify/MatchBoard";
-import { CustomEpisodeList, type CustomRow } from "@/components/identify/CustomEpisodeList";
+import {
+  CustomEpisodeList,
+  type CustomRow,
+  type CustomSeasonGroup,
+} from "@/components/identify/CustomEpisodeList";
 import { PreviewSheet } from "@/components/identify/PreviewSheet";
 import { api } from "@/lib/api";
 import type {
@@ -20,7 +24,13 @@ import type {
   FileMapping,
 } from "@/types/identify";
 import { type FileGuess, buildInitialAssignments, slotKey } from "@/lib/episodeMatching";
-import { orderFiles, cleanEpisodeTitle } from "@/lib/customShow";
+import {
+  orderFiles,
+  cleanEpisodeTitle,
+  hasSeasonFolders,
+  groupBySeasonFolder,
+  reorderWithinGroup,
+} from "@/lib/customShow";
 import { Link } from "react-router-dom";
 
 interface ApplyResult {
@@ -49,6 +59,7 @@ export function Identify() {
   const [order, setOrder] = useState<string[]>([]);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const [genericTitles, setGenericTitles] = useState(false);
+  const [groupFoldersAsSeasons, setGroupFoldersAsSeasons] = useState(false);
   const [fileDates, setFileDates] = useState<Record<string, string | null> | null>(null);
   const [fileMtimes, setFileMtimes] = useState<Record<string, number>>({});
   const [activeSort, setActiveSort] = useState<"name" | "date" | "added" | "manual">("name");
@@ -165,8 +176,8 @@ export function Identify() {
     }
   }
 
-  function resolvedTitle(path: string, index: number): string {
-    if (genericTitles) return `Episode ${index + 1}`;
+  function resolvedTitle(path: string, episodeNumber: number): string {
+    if (genericTitles) return `Episode ${episodeNumber}`;
     return titles[path] ?? cleanEpisodeTitle(path);
   }
 
@@ -184,14 +195,20 @@ export function Identify() {
 
   function setEpisodeNumber(path: string, episode: number) {
     setOrder((prev) => {
-      const from = prev.indexOf(path);
-      const to = Math.min(prev.length - 1, Math.max(0, episode - 1));
-      if (from < 0 || from === to) return prev;
-      const next = [...prev];
-      next.splice(to, 0, next.splice(from, 1)[0]!);
-      return next;
+      const group = currentSeasonGroups(prev).find((g) => g.paths.includes(path));
+      if (!group) return prev;
+      return reorderWithinGroup(prev, group.paths, path, episode - 1);
     });
     setActiveSort("manual");
+  }
+
+  /** The season grouping currently in effect, given the folders-are-seasons
+   * toggle — a single implicit season when off (or no subfolders present). */
+  function currentSeasonGroups(currentOrder: string[]) {
+    if (groupFoldersAsSeasons && hasSeasonFolders(files, folderPath)) {
+      return groupBySeasonFolder(currentOrder, folderPath);
+    }
+    return [{ seasonNumber: season, folderName: null as string | null, paths: currentOrder }];
   }
 
   async function sortBy(by: "name" | "date" | "added") {
@@ -233,12 +250,14 @@ export function Identify() {
       let mappings: FileMapping[];
       let body: Parameters<typeof api.identifyPreview>[0];
       if (mode === "custom") {
-        mappings = order.map((path, i) => ({
-          file_path: path,
-          season_number: season,
-          episode_number: i + 1,
-          episode_name: resolvedTitle(path, i),
-        }));
+        mappings = currentSeasonGroups(order).flatMap((g) =>
+          g.paths.map((path, i) => ({
+            file_path: path,
+            season_number: g.seasonNumber,
+            episode_number: i + 1,
+            episode_name: resolvedTitle(path, i + 1),
+          })),
+        );
         body = {
           folder_path: folderPath.trim(),
           type: "tv" as const,
@@ -317,6 +336,7 @@ export function Identify() {
     setAssignments({});
     setOrder([]);
     setTitles({});
+    setGroupFoldersAsSeasons(false);
     setFileDates(null);
     setFileMtimes({});
     setShowName("");
@@ -338,6 +358,7 @@ export function Identify() {
     setOrder([]);
     setTitles({});
     setGenericTitles(false);
+    setGroupFoldersAsSeasons(false);
     setFileDates(null);
     setFileMtimes({});
     setActiveSort("name");
@@ -359,10 +380,15 @@ export function Identify() {
   const matched = Object.keys(assignments).length;
   const canPreview = mode === "custom" ? customReady && showName.trim().length > 0 : tmdbReady;
 
-  const customRows: CustomRow[] = order.map((path, i) => ({
-    path,
-    episode: i + 1,
-    title: resolvedTitle(path, i),
+  const showFoldersAsSeasonsToggle = hasSeasonFolders(files, folderPath);
+  const customGroups: CustomSeasonGroup[] = currentSeasonGroups(order).map((g) => ({
+    seasonNumber: g.seasonNumber,
+    folderName: g.folderName,
+    rows: g.paths.map((path, i) => ({
+      path,
+      episode: i + 1,
+      title: resolvedTitle(path, i + 1),
+    })) satisfies CustomRow[],
   }));
   const datesUnavailable = fileDates !== null && Object.values(fileDates).every((v) => v === null);
 
@@ -412,8 +438,7 @@ export function Identify() {
 
         {mode === "custom" && customReady ? (
           <CustomEpisodeList
-            rows={customRows}
-            season={season}
+            groups={customGroups}
             onTitleEdit={(path, v) => setTitles((prev) => ({ ...prev, [path]: v }))}
             onReorder={reorder}
             onSetEpisode={setEpisodeNumber}
@@ -424,6 +449,9 @@ export function Identify() {
             }}
             genericTitles={genericTitles}
             onGenericTitlesChange={setGenericTitles}
+            groupFoldersAsSeasons={groupFoldersAsSeasons}
+            onGroupFoldersAsSeasonsChange={setGroupFoldersAsSeasons}
+            showFoldersAsSeasonsToggle={showFoldersAsSeasonsToggle}
             activeSort={activeSort}
             datesLoading={loadingDates}
             datesUnavailable={datesUnavailable}

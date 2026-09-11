@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { orderFiles, episodeIndexOf, cleanEpisodeTitle } from "./customShow";
+import {
+  orderFiles,
+  episodeIndexOf,
+  cleanEpisodeTitle,
+  hasSeasonFolders,
+  groupBySeasonFolder,
+  reorderWithinGroup,
+} from "./customShow";
 
 const names = (paths: string[]) => paths.map((p) => p.split("/").pop());
 
@@ -75,5 +82,71 @@ describe("cleanEpisodeTitle", () => {
 
   it("falls back to the bare stem when cleanup empties it", () => {
     expect(cleanEpisodeTitle("/x/dQw4w9WgXcQ.mp4")).toBe("dQw4w9WgXcQ");
+  });
+});
+
+describe("hasSeasonFolders", () => {
+  it("is false when every file sits directly under the root", () => {
+    expect(hasSeasonFolders(["/root/a.mp4", "/root/b.mp4"], "/root")).toBe(false);
+  });
+
+  it("is true when at least one file is inside a subfolder", () => {
+    expect(hasSeasonFolders(["/root/a.mp4", "/root/Playlist 2/b.mp4"], "/root")).toBe(true);
+  });
+
+  it("tolerates a trailing slash on the root", () => {
+    expect(hasSeasonFolders(["/root/Playlist 1/b.mp4"], "/root/")).toBe(true);
+  });
+});
+
+describe("groupBySeasonFolder", () => {
+  it("groups files by their immediate parent folder under the root, natural-sorted by folder name", () => {
+    const groups = groupBySeasonFolder(
+      ["/root/Playlist 2/b.mp4", "/root/Playlist 10/c.mp4", "/root/Playlist 2/a.mp4"],
+      "/root",
+    );
+    expect(groups.map((g) => g.folderName)).toEqual(["Playlist 2", "Playlist 10"]);
+    expect(groups.map((g) => g.seasonNumber)).toEqual([1, 2]);
+    // within-folder order is preserved from the input order (caller sorts beforehand)
+    expect(groups[0]!.paths).toEqual(["/root/Playlist 2/b.mp4", "/root/Playlist 2/a.mp4"]);
+  });
+
+  it("puts loose root files first as a leading season, ahead of any real folders", () => {
+    const groups = groupBySeasonFolder(["/root/Playlist 2/a.mp4", "/root/loose.mp4"], "/root");
+    expect(groups.map((g) => g.folderName)).toEqual([null, "Playlist 2"]);
+    expect(groups.map((g) => g.seasonNumber)).toEqual([1, 2]);
+  });
+
+  it("omits the loose-files season entirely when there are no loose files", () => {
+    const groups = groupBySeasonFolder(["/root/Playlist 1/a.mp4"], "/root");
+    expect(groups.map((g) => g.folderName)).toEqual(["Playlist 1"]);
+    expect(groups.map((g) => g.seasonNumber)).toEqual([1]);
+  });
+
+  it("folds deeper nesting into the top-level subfolder's season", () => {
+    const groups = groupBySeasonFolder(["/root/Playlist 1/Extras/a.mp4"], "/root");
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.folderName).toBe("Playlist 1");
+  });
+});
+
+describe("reorderWithinGroup", () => {
+  it("moves a file to a target index within its own group, leaving other groups' relative order untouched", () => {
+    const order = ["A1", "B1", "A2", "B2", "A3"];
+    const groupA = ["A1", "A2", "A3"];
+    const next = reorderWithinGroup(order, groupA, "A3", 0);
+    expect(next.filter((p) => groupA.includes(p))).toEqual(["A3", "A1", "A2"]);
+    expect(next.filter((p) => !groupA.includes(p))).toEqual(["B1", "B2"]);
+  });
+
+  it("clamps the target index to the group's bounds", () => {
+    const order = ["A1", "A2"];
+    const next = reorderWithinGroup(order, order, "A1", 99);
+    expect(next).toEqual(["A2", "A1"]);
+  });
+
+  it("returns the input unchanged when the file isn't in the group", () => {
+    const order = ["A1", "A2"];
+    expect(reorderWithinGroup(order, order, "missing", 0)).toEqual(order);
   });
 });
