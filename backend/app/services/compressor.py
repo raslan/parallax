@@ -1,5 +1,4 @@
 import concurrent.futures as _cf
-import glob
 import os
 import queue as _queue
 import shutil
@@ -20,6 +19,7 @@ from app.services.common import (
     temp_sibling_path,
 )
 from app.services.encoder import _get_encoders
+from app.services.gpu_pool import GPUDevice
 from app.services.scanner import rescan_file
 
 _SOURCE_EFFICIENCY: dict[str, float] = {
@@ -54,28 +54,6 @@ _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
 def _get_av1_encoder() -> str | None:
     enc = _get_encoders().get("av1", "libsvtav1")
     return enc if enc else None
-
-
-_UNSET = object()
-_vaapi_device: str | None = _UNSET  # type: ignore[assignment]
-
-
-def _find_vaapi_device() -> str | None:
-    """First readable+writable /dev/dri/renderD* node, or None if none usable.
-
-    Cached at module scope (mirrors _get_encoders) — device nodes don't
-    change at runtime. Returning None means "no hwaccel", not an error:
-    callers fall back to the pre-existing software-decode behavior rather
-    than handing ffmpeg a device path that doesn't exist.
-    """
-    global _vaapi_device
-    if _vaapi_device is _UNSET:
-        _vaapi_device = None
-        for path in sorted(glob.glob("/dev/dri/renderD*")):
-            if os.access(path, os.R_OK | os.W_OK):
-                _vaapi_device = path
-                break
-    return _vaapi_device
 
 
 def get_available_codecs() -> list[dict]:
@@ -134,6 +112,15 @@ def estimate_size(
     return int(source_size * factor)
 
 
+def _resolve_encoder(codec: str) -> str:
+    encoders = _get_encoders()
+    if codec == "h264":
+        return encoders["h264"]
+    if codec == "hevc":
+        return encoders["hevc"]
+    return _get_av1_encoder() or "libsvtav1"
+
+
 def _build_compress_cmd(
     input_path: str,
     output_path: str,
@@ -141,15 +128,9 @@ def _build_compress_cmd(
     crf: int,
     speed: str,
     reencode_audio: bool = False,
+    gpu: GPUDevice | None = None,
 ) -> list[str]:
-    encoders = _get_encoders()
-
-    if codec == "h264":
-        encoder = encoders["h264"]
-    elif codec == "hevc":
-        encoder = encoders["hevc"]
-    else:
-        encoder = _get_av1_encoder() or "libsvtav1"
+    encoder = _resolve_encoder(codec)
 
     nvenc = encoder in ("h264_nvenc", "hevc_nvenc")
     vaapi = encoder in ("h264_vaapi", "hevc_vaapi")
@@ -160,21 +141,25 @@ def _build_compress_cmd(
     # AV1 source) bottlenecks the whole pipeline on CPU threads.
     if nvenc:
         hwaccel_args = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
-    elif vaapi:
-        device = _find_vaapi_device()
-        # No usable /dev/dri/renderD* node found — stay software-decode
-        # rather than pointing ffmpeg at a device path that may not exist.
-        hwaccel_args = (
-            ["-hwaccel", "vaapi", "-hwaccel_device", device, "-hwaccel_output_format", "vaapi"]
-            if device
-            else []
-        )
+        if gpu:
+            hwaccel_args += ["-hwaccel_device", gpu.index]
+    elif vaapi and gpu:
+        hwaccel_args = [
+            "-hwaccel",
+            "vaapi",
+            "-hwaccel_device",
+            gpu.index,
+            "-hwaccel_output_format",
+            "vaapi",
+        ]
     else:
         hwaccel_args = []
 
     if nvenc:
         nvenc_preset = {"slow": "p7", "medium": "p5", "fast": "p3"}.get(speed, "p5")
         video_args = ["-c:v", encoder, "-rc:v", "vbr", "-cq:v", str(crf), "-preset", nvenc_preset]
+        if gpu:
+            video_args += ["-gpu", gpu.index]
     elif encoder == "libsvtav1":
         svt_preset = {"slow": "4", "medium": "8", "fast": "10"}.get(speed, "8")
         video_args = ["-c:v", encoder, "-crf", str(crf), "-preset", svt_preset]
