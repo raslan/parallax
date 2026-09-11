@@ -80,7 +80,6 @@ export function ModelsTab() {
   };
 
   const nudenetModels = models.filter((m) => m.type === "nudenet");
-  const whisperModels = models.filter((m) => m.type === "whisper");
 
   return (
     <div className="space-y-6">
@@ -174,28 +173,6 @@ export function ModelsTab() {
               </div>
               <div className="space-y-2">
                 {nudenetModels.map((m) => (
-                  <ModelCard
-                    key={m.id}
-                    model={m}
-                    onAction={reloadModels}
-                    activeDownload={activeDownload}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-5 space-y-4">
-              <div>
-                <p className="text-sm font-medium">Speech-to-Text (Whisper)</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Generates subtitle files locally from video audio. No API key required. Larger
-                  models are slower but more accurate.
-                </p>
-              </div>
-              <div className="space-y-2">
-                {whisperModels.map((m) => (
                   <ModelCard
                     key={m.id}
                     model={m}

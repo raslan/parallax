@@ -53,9 +53,7 @@ export function ModelCard({
     setBusy(true);
     setError(null);
     try {
-      const res = await (model.type === "whisper"
-        ? modelsApi.downloadWhisper(model.id)
-        : modelsApi.downloadNudenet(model.id));
+      const res = await modelsApi.downloadNudenet(model.id);
       startPoll(res.job_id);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -67,9 +65,7 @@ export function ModelCard({
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "whisper"
-        ? modelsApi.deleteWhisper(model.id)
-        : modelsApi.deleteNudenet(model.id));
+      await modelsApi.deleteNudenet(model.id);
       onAction();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -82,15 +78,11 @@ export function ModelCard({
     setBusy(true);
     setError(null);
     try {
-      await (model.type === "whisper"
-        ? modelsApi.activateWhisper(model.id)
-        : modelsApi.activateNudenet(model.id));
+      await modelsApi.activateNudenet(model.id);
       onAction();
-      if (model.type === "nudenet") {
-        toast("Model changed — rescan recommended to update keyframe resolution", {
-          duration: 4000,
-        });
-      }
+      toast("Model changed — rescan recommended to update keyframe resolution", {
+        duration: 4000,
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
