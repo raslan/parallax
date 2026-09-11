@@ -47,16 +47,7 @@ function parseFeatureGroups() {
   return groups;
 }
 
-function parseRuntimeTable() {
-  const section = getSection("Deployment");
-  const rows = [...section.matchAll(/\| `(ghcr\.io[^`]+)` \| ([^|]+) \|/g)].map(
-    ([, tag, desc]) => ({ tag: tag.trim(), desc: desc.trim() })
-  );
-  return rows;
-}
-
 const featureGroups = parseFeatureGroups();
-const runtimeRows = parseRuntimeTable();
 
 // ── Per-group section metadata ────────────────────────────────────────────────
 
@@ -185,26 +176,31 @@ const featureGroupSectionsHtml = featureGroups
   .join("\n");
 
 // ── Runtime cards ─────────────────────────────────────────────────────────────
+// One image now — these cards describe how the SAME `parallax:latest` image
+// behaves under each hardware passthrough config, not separate image flavors.
 
-const runtimeLabels = { cpu: "CPU", cuda: "NVIDIA", rocm: "AMD" };
-const runtimeDescs = {
-  cpu: "No GPU required. AI inference runs on CPU.",
-  cuda: "ONNX CUDA backend + NVENC hardware transcoding.",
-  rocm: "ONNX ROCm backend + VA-API hardware transcoding.",
-};
-const runtimeColorClass = { cpu: "cpu", cuda: "nvidia", rocm: "amd" };
-
-const runtimeCardsHtml = runtimeRows
-  .map(({ tag }) => {
-    const key = tag.endsWith("-cuda") ? "cuda" : tag.endsWith("-rocm") ? "rocm" : "cpu";
-    return `
+function runtimeCard(label, colorClass, desc) {
+  return `
     <div class="runtime-card">
-      <div class="runtime-label ${runtimeColorClass[key]}">${runtimeLabels[key]}</div>
-      <code class="runtime-tag">${escapeHtml(tag)}</code>
-      <p class="runtime-desc">${runtimeDescs[key]}</p>
+      <div class="runtime-label ${colorClass}">${label}</div>
+      <code class="runtime-tag">latest</code>
+      <p class="runtime-desc">${desc}</p>
     </div>`;
-  })
-  .join("\n");
+}
+
+const runtimeCardsHtml = [
+  runtimeCard(
+    "NVIDIA",
+    "nvidia",
+    "Same image, pass <code>--gpus all</code> — NVENC hardware transcoding, auto-spread across every GPU on the host."
+  ),
+  runtimeCard(
+    "AMD",
+    "amd",
+    "Same image, mount <code>/dev/dri</code> — VA-API hardware transcoding."
+  ),
+  runtimeCard("CPU", "cpu", "Same image, no extra flags — runs out of the box, no GPU required."),
+].join("\n");
 
 const ghUrl = "https://github.com/raslan/parallax";
 
@@ -443,7 +439,7 @@ const html = `<!DOCTYPE html>
       opacity: 0; animation: rise 0.9s cubic-bezier(0.16,1,0.3,1) 0.6s forwards;
     }
 
-    /* hero demo gif */
+    /* hero demo image */
     .hero-demo {
       border: 1px solid var(--rule-hi); border-radius: 5px;
       overflow: hidden;
@@ -833,7 +829,7 @@ const html = `<!DOCTYPE html>
     </div>
     <div class="hero-right">
       <div class="hero-demo">
-        <img src="demo.gif" alt="Parallax in action — scanning a library, filtering files, and compressing video" width="640" height="400" loading="lazy" />
+        <img src="demo.png" alt="Parallax in action — scanning a library, filtering files, and compressing video" width="640" height="400" loading="lazy" />
       </div>
     </div>
   </div>
@@ -849,7 +845,7 @@ ${featureGroupSectionsHtml}
         <div class="reveal">
           <div class="section-label">Deploy</div>
           <h2 class="section-heading">One container. Runs everywhere.</h2>
-          <p class="section-sub">Pre-built images for CPU, NVIDIA, and AMD. Pull, run, own your media.</p>
+          <p class="section-sub">One image, CPU-only out of the box. Pass a GPU through and it picks up hardware transcode automatically.</p>
         </div>
         <br>
         <div class="runtime-cards reveal" style="--rd:0.15s">
@@ -865,10 +861,10 @@ ${featureGroupSectionsHtml}
             <div class="snippet-tab" onclick="switchTab(this,'amd')">AMD</div>
             <div class="snippet-tab" onclick="switchTab(this,'cpu')">CPU</div>
           </div>
-          <div class="snippet-body active" id="tab-nvidia"><pre><span class="s-c"># NVIDIA — requires nvidia-container-toolkit</span>
+          <div class="snippet-body active" id="tab-nvidia"><pre><span class="s-c"># NVIDIA — requires nvidia-container-toolkit. Same image as CPU.</span>
 <span class="s-k">services</span>:
   <span class="s-k">parallax</span>:
-    <span class="s-k">image</span>: <span class="s-v">ghcr.io/raslan/parallax:latest-cuda</span>
+    <span class="s-k">image</span>: <span class="s-v">ghcr.io/raslan/parallax:latest</span>
     <span class="s-k">ports</span>: [<span class="s-s">"7899:7899"</span>]
     <span class="s-k">volumes</span>:
       - <span class="s-v">./data:/app/data</span>
@@ -879,10 +875,10 @@ ${featureGroupSectionsHtml}
         <span class="s-k">reservations</span>:
           <span class="s-k">devices</span>:
             - {<span class="s-k">driver</span>: <span class="s-v">nvidia</span>, <span class="s-k">count</span>: <span class="s-v">all</span>, <span class="s-k">capabilities</span>: [<span class="s-v">gpu</span>, <span class="s-v">video</span>]}</pre></div>
-          <div class="snippet-body" id="tab-amd"><pre><span class="s-c"># AMD — VA-API via /dev/dri</span>
+          <div class="snippet-body" id="tab-amd"><pre><span class="s-c"># AMD — VA-API via /dev/dri. Same image as CPU.</span>
 <span class="s-k">services</span>:
   <span class="s-k">parallax</span>:
-    <span class="s-k">image</span>: <span class="s-v">ghcr.io/raslan/parallax:latest-rocm</span>
+    <span class="s-k">image</span>: <span class="s-v">ghcr.io/raslan/parallax:latest</span>
     <span class="s-k">ports</span>: [<span class="s-s">"7899:7899"</span>]
     <span class="s-k">volumes</span>:
       - <span class="s-v">./data:/app/data</span>
@@ -920,13 +916,13 @@ ${featureGroupSectionsHtml}
         <div class="runtime-cards reveal" style="--rd:0.15s">
           <div class="runtime-card">
             <div class="runtime-label nvidia">NVIDIA</div>
-            <code class="runtime-tag">latest-cuda</code>
-            <p class="runtime-desc">Install Docker Desktop, then update your NVIDIA GPU driver (521+). WSL 2 includes CUDA support — no separate toolkit required.</p>
+            <code class="runtime-tag">latest</code>
+            <p class="runtime-desc">Install Docker Desktop, then update your NVIDIA GPU driver (521+). WSL 2 includes NVENC support — no separate toolkit required.</p>
           </div>
           <div class="runtime-card">
             <div class="runtime-label amd">AMD</div>
             <code class="runtime-tag">latest</code>
-            <p class="runtime-desc">AMD ROCm is not supported under WSL 2. Use the CPU image. ONNX inference runs on CPU; hardware video encoding is unavailable with this configuration unfortunately.</p>
+            <p class="runtime-desc">VA-API device passthrough isn't available under WSL 2. Same image still runs fine, just CPU-only — no hardware video encoding on this path.</p>
           </div>
           <div class="runtime-card">
             <div class="runtime-label cpu">CPU</div>
@@ -941,11 +937,11 @@ ${featureGroupSectionsHtml}
             <div class="snippet-tab active" onclick="switchTab(this,'win-nvidia')">NVIDIA</div>
             <div class="snippet-tab" onclick="switchTab(this,'win-cpu')">CPU / AMD</div>
           </div>
-          <div class="snippet-body active" id="tab-win-nvidia"><pre><span class="s-c"># Windows — Docker Desktop + NVIDIA driver 521+</span>
+          <div class="snippet-body active" id="tab-win-nvidia"><pre><span class="s-c"># Windows — Docker Desktop + NVIDIA driver 521+. Same image as CPU.</span>
 <span class="s-c"># No NVIDIA Container Toolkit needed on Windows</span>
 <span class="s-k">services</span>:
   <span class="s-k">parallax</span>:
-    <span class="s-k">image</span>: <span class="s-v">ghcr.io/raslan/parallax:latest-cuda</span>
+    <span class="s-k">image</span>: <span class="s-v">ghcr.io/raslan/parallax:latest</span>
     <span class="s-k">ports</span>: [<span class="s-s">"7899:7899"</span>]
     <span class="s-k">volumes</span>:
       - <span class="s-v">./data:/app/data</span>
@@ -1025,10 +1021,10 @@ if (fs.existsSync(ogSrc)) {
   console.log("Copied og-image.jpg to dist/");
 }
 
-const demoSrc = path.join(__dirname, "../demo.gif");
+const demoSrc = path.join(__dirname, "../demo.png");
 if (fs.existsSync(demoSrc)) {
-  fs.copyFileSync(demoSrc, path.join(outDir, "demo.gif"));
-  console.log("Copied demo.gif to dist/");
+  fs.copyFileSync(demoSrc, path.join(outDir, "demo.png"));
+  console.log("Copied demo.png to dist/");
 }
 
 console.log("Built dist/index.html");
