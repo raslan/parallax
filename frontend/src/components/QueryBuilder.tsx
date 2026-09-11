@@ -316,7 +316,13 @@ function ExpandedClause<T>({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Element | null;
+      // The operator <Select>'s dropdown renders in a portal on document.body,
+      // outside `ref`. Without this guard, clicking an option (e.g. "doesn't
+      // contain") counts as an outside click and collapses the editor before
+      // Radix can fire onValueChange, so the operator never changes.
+      if (target?.closest?.("[data-radix-popper-content-wrapper]")) return;
+      if (ref.current && !ref.current.contains(target as Node)) {
         onCollapse();
       }
     }
