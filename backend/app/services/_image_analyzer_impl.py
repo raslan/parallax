@@ -22,6 +22,11 @@ def _get_nudenet_detector(model_id: str = _NUDENET_DEFAULT) -> NudeDetector:
                 raise ValueError(f"Unknown NudeNet model: {model_id!r}")
             _nudenet_detectors[model_id] = NudeDetector(
                 model_path=nudenet_path(model_id),
+                # nudenet 3.4.2 doesn't actually forward `providers` to its
+                # onnxruntime.InferenceSession (that line is commented out
+                # upstream) — kept here in case a future version honors it.
+                # The real CPU-only guarantee is the `onnxruntime` (non-GPU)
+                # pin in requirements.txt.
                 providers=["CPUExecutionProvider"],
                 inference_resolution=meta["inference_resolution"],
             )

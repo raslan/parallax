@@ -37,8 +37,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY backend/requirements.txt ./
-RUN python3.12 -m pip install --no-cache-dir -r requirements.txt && \
-    python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime==1.20.1
+RUN python3.12 -m pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./
 

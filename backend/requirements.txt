@@ -11,6 +11,7 @@ beautifulsoup4==4.12.3
 rarfile==4.2
 numpy==2.5.1
 nudenet==3.4.2
+onnxruntime==1.20.1
 watchdog==4.0.1
 ffsubsync==0.5.1
 gallery-dl==1.32.11
