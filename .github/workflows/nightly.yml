@@ -11,15 +11,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      matrix:
-        include:
-          - runtime: cpu
-            tag: cpu-nightly
-          - runtime: cuda
-            tag: cuda-nightly
-          - runtime: rocm
-            tag: rocm-nightly
 
     steps:
       - name: Checkout
@@ -40,9 +31,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ matrix.tag }}
+          tags: ghcr.io/${{ github.repository }}:nightly
           build-args: |
-            RUNTIME=${{ matrix.runtime }}
             APP_VERSION=nightly-${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.runtime }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.runtime }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
