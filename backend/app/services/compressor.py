@@ -18,8 +18,8 @@ from app.services.common import (
     should_cancel,
     temp_sibling_path,
 )
-from app.services.encoder import _get_encoders
-from app.services.gpu_pool import GPUDevice
+from app.services.encoder import _get_encoders, family_for_encoder
+from app.services.gpu_pool import GPUDevice, GpuPool, is_hwaccel_failure
 from app.services.scanner import rescan_file
 
 _SOURCE_EFFICIENCY: dict[str, float] = {
@@ -199,6 +199,7 @@ def _compress_one(
     job_id: int,
     progress_cb: Callable[[float], None] | None = None,
     keep_original: bool = True,
+    gpu: GPUDevice | None = None,
 ) -> tuple[bool, str | None, str | None]:
     """Compress one file in-place. Returns (success, error_msg, final_path).
 
@@ -251,7 +252,9 @@ def _compress_one(
     err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="compress_")
     try:
         proc = subprocess.Popen(
-            _build_compress_cmd(src, tmp, codec, crf, speed, reencode_audio=changing_container),
+            _build_compress_cmd(
+                src, tmp, codec, crf, speed, reencode_audio=changing_container, gpu=gpu
+            ),
             stdout=subprocess.PIPE,
             stderr=err_fd,
             text=True,
@@ -394,6 +397,10 @@ def run_compress_job(
 
         arm_cancel(job_id)
 
+        encoder = _resolve_encoder(codec)
+        family = family_for_encoder(encoder)
+        gpu_pool = GpuPool.build(family) if family in ("nvenc", "vaapi") else None
+
         def make_progress_cb(path: str) -> Callable[[float], None]:
             def cb(frac: float) -> None:
                 with fracs_lock:
@@ -404,6 +411,7 @@ def run_compress_job(
         def do_one(path: str) -> tuple[str, bool, str | None]:
             fname = os.path.basename(path)
             log_q.put(("info", f"Compressing: {fname}"))
+            gpu = gpu_pool.acquire_any() if gpu_pool else None
             ok, err, final_path = _compress_one(
                 path,
                 codec,
@@ -412,7 +420,30 @@ def run_compress_job(
                 job_id,
                 progress_cb=make_progress_cb(path),
                 keep_original=keep_original,
+                gpu=gpu,
             )
+            if not ok and gpu is not None and is_hwaccel_failure(err or ""):
+                log_q.put(
+                    (
+                        "error",
+                        f"{gpu.label}: hwaccel init failed, retrying {fname} on another device",
+                    )
+                )
+                gpu_pool.mark_degraded(gpu)
+                gpu_pool.release(gpu)
+                gpu = gpu_pool.acquire_any(exclude=frozenset({gpu.index}))
+                ok, err, final_path = _compress_one(
+                    path,
+                    codec,
+                    crf,
+                    speed,
+                    job_id,
+                    progress_cb=make_progress_cb(path),
+                    keep_original=keep_original,
+                    gpu=gpu,
+                )
+            if gpu is not None:
+                gpu_pool.release(gpu)
             with fracs_lock:
                 fracs.pop(path, None)
             if ok and final_path:
