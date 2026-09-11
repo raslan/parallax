@@ -1,4 +1,5 @@
 import concurrent.futures as _cf
+import glob
 import os
 import queue as _queue
 import shutil
@@ -53,6 +54,28 @@ _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
 def _get_av1_encoder() -> str | None:
     enc = _get_encoders().get("av1", "libsvtav1")
     return enc if enc else None
+
+
+_UNSET = object()
+_vaapi_device: str | None = _UNSET  # type: ignore[assignment]
+
+
+def _find_vaapi_device() -> str | None:
+    """First readable+writable /dev/dri/renderD* node, or None if none usable.
+
+    Cached at module scope (mirrors _get_encoders) — device nodes don't
+    change at runtime. Returning None means "no hwaccel", not an error:
+    callers fall back to the pre-existing software-decode behavior rather
+    than handing ffmpeg a device path that doesn't exist.
+    """
+    global _vaapi_device
+    if _vaapi_device is _UNSET:
+        _vaapi_device = None
+        for path in sorted(glob.glob("/dev/dri/renderD*")):
+            if os.access(path, os.R_OK | os.W_OK):
+                _vaapi_device = path
+                break
+    return _vaapi_device
 
 
 def get_available_codecs() -> list[dict]:
@@ -129,7 +152,25 @@ def _build_compress_cmd(
         encoder = _get_av1_encoder() or "libsvtav1"
 
     nvenc = encoder in ("h264_nvenc", "hevc_nvenc")
+    vaapi = encoder in ("h264_vaapi", "hevc_vaapi")
     is_hevc = codec == "hevc"
+
+    # Without -hwaccel, decode stays on CPU even though the encoder is GPU —
+    # visible in nvidia-smi as one active ffmpeg process while decode (esp.
+    # AV1 source) bottlenecks the whole pipeline on CPU threads.
+    if nvenc:
+        hwaccel_args = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+    elif vaapi:
+        device = _find_vaapi_device()
+        # No usable /dev/dri/renderD* node found — stay software-decode
+        # rather than pointing ffmpeg at a device path that may not exist.
+        hwaccel_args = (
+            ["-hwaccel", "vaapi", "-hwaccel_device", device, "-hwaccel_output_format", "vaapi"]
+            if device
+            else []
+        )
+    else:
+        hwaccel_args = []
 
     if nvenc:
         nvenc_preset = {"slow": "p7", "medium": "p5", "fast": "p3"}.get(speed, "p5")
@@ -152,6 +193,7 @@ def _build_compress_cmd(
     return [
         "ffmpeg",
         "-y",
+        *hwaccel_args,
         "-i",
         input_path,
         *video_args,
