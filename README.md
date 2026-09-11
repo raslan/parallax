@@ -8,8 +8,8 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 
 ### Videos
 - **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries; libraries auto-rescan when files change on disk
-- **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC"); cancelable bulk job with per-file progress; originals preserved in `_originals/`
-- **Toolbox** — bulk file-repair utilities in collapsible tool sections: trim start/end (stream-copy when a keyframe is near the cut point, falls back to hardware-accelerated re-encode otherwise), audio channel isolation (left/right → stereo), rotate, normalize volume, faststart (move moov atom for web playback), and A/V sync offset; cancelable bulk job with per-file progress; originals preserved in `_originals/`
+- **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API, automatically spreading work across every detected GPU when more than one is present; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC"); cancelable bulk job with per-file progress; originals preserved in `_originals/`
+- **Toolbox** — bulk file-repair utilities in collapsible tool sections: trim start/end (stream-copy when a keyframe is near the cut point, falls back to hardware-accelerated re-encode otherwise, also multi-GPU aware), audio channel isolation (left/right → stereo), rotate, normalize volume, faststart (move moov atom for web playback), and A/V sync offset; cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Duplicate detection** — 10 stackable criteria: size, duration, resolution, content date, orientation, bitrate, filename (fuzzy match), byte-hash, perceptual hash (configurable similarity threshold, first-frame/all-frames mode, frames-per-video 4–64), and audio fingerprint; matching runs entirely client-side and recomputes instantly as you toggle criteria — no server round-trip. One background job, "Extract," fills in byte-hash/pHash/audio-fingerprint data for whichever files need it
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, content date, file-added date, file size, orientation, filename (exact or fuzzy), or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — turn a folder of badly-named files into a clean Plex/Jellyfin library in one full-width workspace:
@@ -83,6 +83,20 @@ On each release, three images are built and pushed with version tags:
 
 Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2-cuda` to track all patch releases on 1.2 with CUDA support.
 
+### Nightly builds (unstable)
+
+Every push to the `develop` branch rebuilds and overwrites three fixed tags — no version bump, no changelog entry, and the release tags above (`latest`, versioned) are never touched:
+
+| Tag | Hardware |
+|-----|----------|
+| `ghcr.io/raslan/parallax:cpu-nightly` | CPU only |
+| `ghcr.io/raslan/parallax:cuda-nightly` | NVIDIA GPU |
+| `ghcr.io/raslan/parallax:rocm-nightly` | AMD GPU |
+
+**These are unstable by design.** They track whatever most recently landed on `develop` — possibly mid-feature, untested against real hardware, or outright broken. Use them only to try unreleased work ahead of a release, never for a media library you care about; keep backups. Each push overwrites the same tag in place, so there's no way to pin to "yesterday's nightly" — if one breaks something, the fix is to wait for the next push or fall back to a release tag.
+
+Substitute the nightly tag for the release tag in any Compose/Run example below to try one, e.g. `ghcr.io/raslan/parallax:cuda-nightly` in place of `ghcr.io/raslan/parallax:latest-cuda`.
+
 ---
 
 ### Docker Compose (recommended)
@@ -113,6 +127,8 @@ services:
               count: all
               capabilities: [gpu, video]
 ```
+
+`count: all` forwards every NVIDIA GPU on the host into the container — with more than one, Compress and Toolbox jobs automatically spread transcode work across all of them, no extra configuration needed.
 
 **AMD (ROCm):**
 ```yaml
@@ -186,6 +202,8 @@ docker run -d \
   --restart unless-stopped \
   ghcr.io/raslan/parallax:latest-cuda
 ```
+
+`--gpus all` forwards every NVIDIA GPU on the host — same multi-GPU auto-distribution as the Compose example above.
 
 **AMD (ROCm):**
 ```bash
