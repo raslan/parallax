@@ -41,3 +41,5 @@ jobs:
           build-args: |
             RUNTIME=${{ matrix.runtime }}
             APP_VERSION=nightly-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.runtime }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.runtime }}
