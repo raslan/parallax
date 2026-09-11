@@ -39,9 +39,6 @@ export function Sidebar({ className }: { className?: string }) {
       <div className="px-4 py-3">
         <span className="text-[10px] text-muted-foreground/40 tabular-nums">
           {import.meta.env.VITE_APP_VERSION ?? "dev"}
-          {import.meta.env.VITE_RUNTIME && import.meta.env.VITE_RUNTIME !== "cpu"
-            ? `-${import.meta.env.VITE_RUNTIME}`
-            : ""}
         </span>
       </div>
     </aside>

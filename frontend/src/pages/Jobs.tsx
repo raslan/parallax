@@ -135,7 +135,7 @@ function JobRow({
                 : `${
                     job.type === "duplicates" || job.type === "phash_scan"
                       ? "Scanning"
-                      : job.type === "subtitle_scan" || job.type === "whisper"
+                      : job.type === "subtitle_scan"
                         ? "Processing"
                         : "Transcoding"
                   }: ${job.current_file}`}
