@@ -1,0 +1,43 @@
+name: Nightly
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - runtime: cpu
+            tag: cpu-nightly
+          - runtime: cuda
+            tag: cuda-nightly
+          - runtime: rocm
+            tag: rocm-nightly
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ matrix.tag }}
+          build-args: |
+            RUNTIME=${{ matrix.runtime }}
+            APP_VERSION=nightly-${{ github.sha }}
