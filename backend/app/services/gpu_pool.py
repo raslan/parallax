@@ -66,6 +66,12 @@ def _read_pci_vendor(render_path: str) -> str | None:
 
 _PCI_VENDOR_MAP = {"0x1002": "amd", "0x8086": "intel"}
 
+# nvidia-container-toolkit's "video" capability exposes an NVIDIA card's own
+# VA-API render node for NVENC/NVDEC interop — without this, that same
+# physical card would be double-counted here (as an "unknown"-vendor vaapi
+# device) on top of _detect_nvidia()'s nvenc entry for it.
+_NVIDIA_PCI_VENDOR = "0x10de"
+
 
 def _detect_vaapi() -> list[GPUDevice]:
     devices = []
@@ -73,6 +79,8 @@ def _detect_vaapi() -> list[GPUDevice]:
         if not os.access(path, os.R_OK | os.W_OK):
             continue
         vendor_id = _read_pci_vendor(path)
+        if vendor_id == _NVIDIA_PCI_VENDOR:
+            continue
         vendor = _PCI_VENDOR_MAP.get(vendor_id or "", "unknown")
         devices.append(
             GPUDevice(vendor=vendor, index=path, label=os.path.basename(path), family="vaapi")

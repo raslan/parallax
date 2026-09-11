@@ -74,6 +74,28 @@ def test_detect_vaapi_unknown_vendor_still_included(monkeypatch, tmp_path):
     assert devices[0].family == "vaapi"
 
 
+def test_detect_gpus_does_not_double_count_nvidia_card_as_vaapi(monkeypatch, tmp_path):
+    # nvidia-container-toolkit's "video" capability exposes an NVIDIA card's
+    # own VA-API render node — without the vendor-id skip, the same physical
+    # card would show up twice: once via nvidia-smi, once via /dev/dri.
+    node = tmp_path / "renderD129"
+    node.write_text("")
+    monkeypatch.setattr(gp.glob, "glob", lambda pattern: [str(node)])
+    monkeypatch.setattr(gp.os, "access", lambda path, mode: True)
+    monkeypatch.setattr(gp, "_read_pci_vendor", lambda path: "0x10de")
+    monkeypatch.setattr(
+        gp,
+        "_detect_nvidia",
+        lambda: [gp.GPUDevice(vendor="nvidia", index="0", label="RTX 3050", family="nvenc")],
+    )
+
+    devices = gp.detect_gpus()
+
+    assert len(devices) == 1
+    assert devices[0].vendor == "nvidia"
+    assert devices[0].family == "nvenc"
+
+
 def test_is_hwaccel_failure_matches_known_patterns():
     assert gp.is_hwaccel_failure("Error initializing CUDA device: no CUDA-capable device")
     assert gp.is_hwaccel_failure("[vaapi] vaInitialize failed with error code -1")
