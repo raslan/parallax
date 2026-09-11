@@ -1,16 +1,13 @@
-# Build tagged images for each runtime:
+# Build the image:
 #   docker build -t parallax .
-#   docker build --build-arg RUNTIME=cuda -t parallax:cuda .
-#   docker build --build-arg RUNTIME=rocm -t parallax:rocm .
-ARG RUNTIME=cpu
 ARG APP_VERSION=dev
-# jellyfin-ffmpeg replaces Ubuntu 22.04's stock ffmpeg (4.4.2, from 2021) in the
-# cuda/rocm stages: that old build has a known NVDEC bug — "No decoder surfaces
-# left" plus an "Impossible to convert ... Parsed_null_0 / auto_scaler_0" filter
-# error — piping -hwaccel cuda decode straight into hevc_nvenc/h264_nvenc.
-# jellyfin-ffmpeg8 (built for exactly this hardware-transcode use case) tracks a
-# current ffmpeg release and includes chromaprint (needed for audio_fingerprint.py),
-# vaapi (AMD/Intel), and nvenc/nvdec (NVIDIA) — one package covers both stages.
+# jellyfin-ffmpeg replaces the stock ffmpeg the Debian base would otherwise
+# pull in. NVENC/NVDEC and VA-API hardware transcode work purely through
+# runtime device passthrough (nvidia-container-toolkit's `video` capability,
+# or a plain /dev/dri mount) — neither needs the CUDA or ROCm toolkit baked
+# into the image itself. jellyfin-ffmpeg8 tracks a current ffmpeg release and
+# includes chromaprint (needed for audio_fingerprint.py), vaapi, and
+# nvenc/nvdec in one package.
 ARG JELLYFIN_FFMPEG_VERSION=8.1.2-4
 ARG JELLYFIN_FFMPEG_DEB=jellyfin-ffmpeg8_8.1.2-4-jammy_amd64.deb
 
@@ -21,58 +18,21 @@ COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
 ARG APP_VERSION=dev
-ARG RUNTIME=cpu
-RUN VITE_APP_VERSION=$APP_VERSION VITE_RUNTIME=$RUNTIME npm run build
+RUN VITE_APP_VERSION=$APP_VERSION npm run build
 
-# Stage 2a: CPU-only base (default)
-FROM python:3.12-slim AS base-cpu
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg unar && \
-    rm -rf /var/lib/apt/lists/*
-
-# Stage 2b: NVIDIA CUDA base
-FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04 AS base-cuda
-ENV DEBIAN_FRONTEND=noninteractive
+# Stage 2: runtime base — CPU-only Python, jellyfin-ffmpeg for hw transcode
+FROM python:3.12-slim AS base
 ARG JELLYFIN_FFMPEG_VERSION
 ARG JELLYFIN_FFMPEG_DEB
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common curl && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends unar python3.12 python3.12-venv python3.12-dev && \
+    apt-get install -y --no-install-recommends unar curl && \
     curl -fL -o /tmp/jellyfin-ffmpeg.deb \
       "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v${JELLYFIN_FFMPEG_VERSION}/${JELLYFIN_FFMPEG_DEB}" && \
     apt-get install -y --no-install-recommends /tmp/jellyfin-ffmpeg.deb && \
     rm /tmp/jellyfin-ffmpeg.deb && \
     ln -sf /usr/lib/jellyfin-ffmpeg/ffmpeg /usr/local/bin/ffmpeg && \
     ln -sf /usr/lib/jellyfin-ffmpeg/ffprobe /usr/local/bin/ffprobe && \
-    python3.12 -m ensurepip --upgrade && \
-    python3.12 -m pip install --upgrade pip && \
     rm -rf /var/lib/apt/lists/*
-
-# Stage 2c: AMD ROCm base
-FROM rocm/dev-ubuntu-22.04:6.0.2 AS base-rocm
-ENV DEBIAN_FRONTEND=noninteractive
-ARG JELLYFIN_FFMPEG_VERSION
-ARG JELLYFIN_FFMPEG_DEB
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common curl && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends unar python3.12 python3.12-venv python3.12-dev && \
-    curl -fL -o /tmp/jellyfin-ffmpeg.deb \
-      "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v${JELLYFIN_FFMPEG_VERSION}/${JELLYFIN_FFMPEG_DEB}" && \
-    apt-get install -y --no-install-recommends /tmp/jellyfin-ffmpeg.deb && \
-    rm /tmp/jellyfin-ffmpeg.deb && \
-    ln -sf /usr/lib/jellyfin-ffmpeg/ffmpeg /usr/local/bin/ffmpeg && \
-    ln -sf /usr/lib/jellyfin-ffmpeg/ffprobe /usr/local/bin/ffprobe && \
-    python3.12 -m ensurepip --upgrade && \
-    python3.12 -m pip install --upgrade pip && \
-    rm -rf /var/lib/apt/lists/*
-
-# Final stage: select base via RUNTIME arg
-ARG RUNTIME=cpu
-FROM base-${RUNTIME}
 
 WORKDIR /app
 
