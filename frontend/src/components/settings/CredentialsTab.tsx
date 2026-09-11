@@ -149,8 +149,7 @@ export function CredentialsTab() {
                   </p>
                   <p className="text-xs text-muted-foreground/70">
                     Runs automatically after a subtitle finishes downloading (bulk or single
-                    search). Whisper-generated subtitles are already audio-aligned and are
-                    unaffected — sync them manually if needed.
+                    search).
                   </p>
                 </div>
               </label>

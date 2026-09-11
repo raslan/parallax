@@ -37,7 +37,7 @@ function renderAt(path: string) {
 
 const failedJob = {
   id: 7,
-  type: "whisper_transcribe",
+  type: "subtitle_sync",
   status: "failed",
   progress: 0,
   total_files: 1,
@@ -72,7 +72,7 @@ describe("Jobs page focus param", () => {
     getJobs.mockResolvedValue([failedJob]);
     const { container } = renderAt("/jobs?focus=7");
     // JobRow requests logs only when logsOpen — so getJobLogs being called proves the panel opened.
-    await screen.findByText(/Whisper transcription/);
+    await screen.findByText(/Subtitle sync/);
     expect(getJobLogs).toHaveBeenCalled();
     // The focused row gets the attention-pulse ring.
     expect(container.querySelector(".animate-pulse-ring")).toBeTruthy();
@@ -88,7 +88,7 @@ describe("Jobs page focus param", () => {
   it("does not throw when focus id matches no job", async () => {
     getJobs.mockResolvedValue([failedJob]);
     const { container } = renderAt("/jobs?focus=999");
-    expect(await screen.findByText(/Whisper transcription/)).toBeDefined();
+    expect(await screen.findByText(/Subtitle sync/)).toBeDefined();
     expect(container.querySelector(".animate-pulse-ring")).toBeNull();
   });
 });

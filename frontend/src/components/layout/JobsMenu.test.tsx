@@ -80,7 +80,7 @@ describe("JobsMenu", () => {
     getJobs.mockResolvedValue([
       {
         id: 7,
-        type: "whisper_transcribe",
+        type: "subtitle_sync",
         status: "failed",
         progress: 0,
         total_files: 1,
@@ -96,7 +96,7 @@ describe("JobsMenu", () => {
     ]);
     renderMenu();
     fireEvent.click(await screen.findByRole("button", { name: /jobs/i }));
-    fireEvent.click(await screen.findByText(/Whisper/));
+    fireEvent.click(await screen.findByText(/Subtitle sync/));
     expect(navigate).toHaveBeenCalledWith("/jobs?focus=7");
   });
 });

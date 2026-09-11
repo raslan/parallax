@@ -18,7 +18,6 @@ const TYPE_LABEL: Record<string, string> = {
   duplicates: "Duplicate scan",
   subtitle_download: "Subtitle download",
   subtitle_sync: "Subtitle sync",
-  whisper_transcribe: "Whisper transcription",
   model_download: "Model download",
   compress: "Compress",
   toolbox_fix: "Toolbox fix",
