@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.9.0](https://github.com/raslan/parallax/compare/v2.8.0...v2.9.0) (2026-09-11)
+
+
+### Features
+
+* add a better handler for mouse events in portals ([4f2e6a1](https://github.com/raslan/parallax/commit/4f2e6a12ad916822a5821b90753000fd7176bcbe))
+* ignore compressing media when audio files are mid job ([2fc45fe](https://github.com/raslan/parallax/commit/2fc45fe438ff96cc16861e862b17d83f92fc3915))
+
 ## [2.8.0](https://github.com/raslan/parallax/compare/v2.7.0...v2.8.0) (2026-09-10)
 
 
