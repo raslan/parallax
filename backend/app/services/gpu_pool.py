@@ -2,7 +2,11 @@ import glob
 import os
 import re
 import subprocess
+import threading
+import time
 from dataclasses import dataclass
+
+from app.services.encoder import _CONCURRENT_HINT
 
 _HWACCEL_FAILURE_RE = re.compile(
     r"error initializ\w+ (?:a )?cuda"
@@ -86,3 +90,61 @@ def detect_gpus() -> list[GPUDevice]:
     if _gpus is None:
         _gpus = _detect_nvidia() + _detect_vaapi()
     return _gpus
+
+
+_UNCAPPED_CAPACITY = 32  # stand-in "no known session cap" for vaapi/qsv/amf —
+# generous enough to never itself become the bottleneck below the
+# max_concurrent_transcodes ceiling; only nvenc enforces a real per-card cap.
+
+_POLL_INTERVAL_SECONDS = 0.2
+
+
+class GpuPool:
+    """Work-stealing scheduler over a family's detected GPU devices — one
+    semaphore per device, `acquire_any` hands out whichever device has a free
+    slot next rather than pinning files to devices up front, so an idle card
+    keeps pulling work instead of waiting its turn."""
+
+    def __init__(self, devices: list[GPUDevice], capacity: int):
+        self._devices = devices
+        self._capacity = capacity
+        self._sems = {d.index: threading.Semaphore(capacity) for d in devices}
+        self._degraded: set[str] = set()
+        self._lock = threading.Lock()
+
+    @classmethod
+    def build(cls, family: str) -> "GpuPool":
+        devices = [d for d in detect_gpus() if d.family == family]
+        capacity = _CONCURRENT_HINT.get(family) or _UNCAPPED_CAPACITY
+        return cls(devices, capacity)
+
+    def acquire_any(
+        self, exclude: frozenset[str] = frozenset(), timeout: float | None = None
+    ) -> GPUDevice | None:
+        """Block until some non-excluded, non-degraded device has a free
+        slot. Returns None if the pool has no eligible device at all, or (when
+        `timeout` is given) none became free in time. Production callers omit
+        `timeout` and wait as long as it takes — tests pass a short one."""
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            with self._lock:
+                live = [
+                    d
+                    for d in self._devices
+                    if d.index not in exclude and d.index not in self._degraded
+                ]
+            if not live:
+                return None
+            for d in live:
+                if self._sems[d.index].acquire(blocking=False):
+                    return d
+            if deadline is not None and time.monotonic() >= deadline:
+                return None
+            time.sleep(_POLL_INTERVAL_SECONDS)
+
+    def release(self, device: GPUDevice) -> None:
+        self._sems[device.index].release()
+
+    def mark_degraded(self, device: GPUDevice) -> None:
+        with self._lock:
+            self._degraded.add(device.index)

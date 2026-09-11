@@ -1,8 +1,12 @@
 import subprocess
+import threading
+import time
 
 import pytest
 
 from app.services import gpu_pool as gp
+from app.services.encoder import family_for_encoder
+from app.services.gpu_pool import GPUDevice, GpuPool
 
 
 @pytest.fixture(autouse=True)
@@ -75,3 +79,96 @@ def test_is_hwaccel_failure_matches_known_patterns():
     assert gp.is_hwaccel_failure("[vaapi] vaInitialize failed with error code -1")
     assert not gp.is_hwaccel_failure("")
     assert not gp.is_hwaccel_failure("Error: Invalid argument -crf for encoder libx264")
+
+
+def test_family_for_encoder_known_and_unknown():
+    assert family_for_encoder("hevc_nvenc") == "nvenc"
+    assert family_for_encoder("hevc_vaapi") == "vaapi"
+    assert family_for_encoder("libx265") == "software"
+    assert family_for_encoder("something_made_up") == "software"
+
+
+def _dev(index: str) -> GPUDevice:
+    return GPUDevice(vendor="nvidia", index=index, label=f"card{index}", family="nvenc")
+
+
+def test_gpu_pool_round_robins_across_devices():
+    devices = [_dev("0"), _dev("1")]
+    pool = GpuPool(devices, capacity=1)
+
+    first = pool.acquire_any()
+    second = pool.acquire_any()
+
+    assert first is not None and second is not None
+    assert {first.index, second.index} == {"0", "1"}
+
+
+def test_gpu_pool_empty_devices_returns_none_immediately():
+    pool = GpuPool([], capacity=3)
+    assert pool.acquire_any(timeout=0.1) is None
+
+
+def test_gpu_pool_degraded_device_excluded():
+    devices = [_dev("0"), _dev("1")]
+    pool = GpuPool(devices, capacity=1)
+
+    bad = pool.acquire_any()
+    assert bad is not None
+    pool.mark_degraded(bad)
+    pool.release(bad)
+
+    good = pool.acquire_any(timeout=0.5)
+    assert good is not None
+    assert good.index != bad.index
+
+
+def test_gpu_pool_all_degraded_returns_none():
+    devices = [_dev("0")]
+    pool = GpuPool(devices, capacity=1)
+    pool.mark_degraded(devices[0])
+    assert pool.acquire_any(timeout=0.1) is None
+
+
+def test_gpu_pool_release_frees_slot_for_next_acquire():
+    devices = [_dev("0")]
+    pool = GpuPool(devices, capacity=1)
+
+    held = pool.acquire_any()
+    assert held is not None
+    assert pool.acquire_any(timeout=0.1) is None  # capacity exhausted
+
+    pool.release(held)
+    assert pool.acquire_any(timeout=0.5) is not None
+
+
+def test_gpu_pool_acquire_any_blocks_until_release():
+    devices = [_dev("0")]
+    pool = GpuPool(devices, capacity=1)
+    held = pool.acquire_any()
+    assert held is not None
+
+    result = {}
+
+    def waiter():
+        result["device"] = pool.acquire_any()
+
+    t = threading.Thread(target=waiter)
+    t.start()
+    time.sleep(0.1)
+    assert "device" not in result  # still blocked
+    pool.release(held)
+    t.join(timeout=2)
+    assert result["device"] is not None
+
+
+def test_gpu_pool_build_filters_by_family_and_uses_concurrent_hint(monkeypatch):
+    import app.services.gpu_pool as gp2
+
+    nvidia = GPUDevice(vendor="nvidia", index="0", label="card0", family="nvenc")
+    amd = GPUDevice(vendor="amd", index="/dev/dri/renderD128", label="renderD128", family="vaapi")
+    monkeypatch.setattr(gp2, "detect_gpus", lambda: [nvidia, amd])
+
+    pool = GpuPool.build("nvenc")
+
+    assert pool._devices == [nvidia]
+    assert pool._sems["0"]._value == 3  # encoder._CONCURRENT_HINT["nvenc"]

@@ -97,3 +97,11 @@ def encoder_for_codec(source_codec: str | None) -> str:
     if source_codec and source_codec.lower() in _EFFICIENT_CODECS:
         return encoders["hevc"]
     return encoders["h264"]
+
+
+def family_for_encoder(encoder_name: str) -> str:
+    """Return the family ('nvenc' | 'qsv' | 'amf' | 'vaapi' | 'software') for a
+    specific encoder name — unlike get_encoder_family(), which reports the
+    globally-cached family, this takes any encoder string directly (e.g. the
+    one actually resolved for one job's codec)."""
+    return _FAMILY_MAP.get(encoder_name, "software")
