@@ -385,7 +385,9 @@ def run_compress_job(
         db.commit()
 
         total = len(video_paths)
-        n_concurrent = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
+        # Per-GPU capacity — each detected device gets up to this many
+        # concurrent files; total in-flight files scales with GPU count.
+        per_device = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
 
         # Shared state — accessed from worker threads under lock
         fracs: dict[str, float] = {}
@@ -399,7 +401,10 @@ def run_compress_job(
 
         encoder = _resolve_encoder(codec)
         family = family_for_encoder(encoder)
-        gpu_pool = GpuPool.build(family) if family in ("nvenc", "vaapi") else None
+        gpu_pool = GpuPool.build(family, per_device) if family in ("nvenc", "vaapi") else None
+        n_concurrent = (
+            per_device * len(gpu_pool._devices) if gpu_pool and gpu_pool._devices else per_device
+        )
 
         def make_progress_cb(path: str) -> Callable[[float], None]:
             def cb(frac: float) -> None:

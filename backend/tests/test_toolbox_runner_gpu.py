@@ -36,6 +36,85 @@ def _seed_job(engine, tmp_path):
     return job_id, str(p)
 
 
+def _seed_multi(engine, tmp_path, n_files):
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    lib = Library(name="L", path=str(tmp_path))
+    db.add(lib)
+    db.commit()
+    paths = []
+    for i in range(n_files):
+        p = tmp_path / f"v{i}.mp4"
+        p.write_bytes(b"x")
+        db.add(
+            File(
+                library_id=lib.id,
+                path=str(p),
+                filename=p.name,
+                extension=".mp4",
+                size=1,
+                codec_name="h264",
+            )
+        )
+        paths.append(str(p))
+    db.commit()
+    job = Job(type=JobType.TOOLBOX_FIX, status=JobStatus.PENDING, library_id=lib.id)
+    db.add(job)
+    db.commit()
+    job_id = job.id
+    db.close()
+    return job_id, paths
+
+
+def test_run_toolbox_job_scales_total_workers_by_gpu_count(engine, tmp_path, monkeypatch):
+    # max_concurrent_transcodes now means "per GPU" — with capacity 2 and 2
+    # GPUs, up to 4 files must run truly simultaneously.
+    import threading
+
+    import app.services.gpu_pool as gp
+    import app.services.toolbox as tb
+    from app.models.settings import set_setting
+    from app.services.gpu_pool import GPUDevice
+
+    job_id, paths = _seed_multi(engine, tmp_path, 4)
+    Session = sessionmaker(bind=engine)
+    monkeypatch.setattr(tb, "SessionLocal", Session)
+
+    seed_db = Session()
+    set_setting(seed_db, "max_concurrent_transcodes", "2")
+    seed_db.close()
+
+    dev_a = GPUDevice(vendor="nvidia", index="0", label="card0", family="nvenc")
+    dev_b = GPUDevice(vendor="nvidia", index="1", label="card1", family="nvenc")
+    monkeypatch.setattr(gp, "detect_gpus", lambda: [dev_a, dev_b])
+    monkeypatch.setattr(tb, "encoder_for_codec", lambda codec: "hevc_nvenc")
+
+    barrier = threading.Barrier(4, timeout=5)
+
+    def fake_fix_one(
+        file_path,
+        settings,
+        job_id,
+        progress_cb=None,
+        note_cb=None,
+        keep_original=True,
+        gpu_pools=None,
+    ):
+        barrier.wait()  # only returns once all 4 workers are running at once
+        return True, None, file_path
+
+    monkeypatch.setattr(tb, "_toolbox_fix_one", fake_fix_one)
+    monkeypatch.setattr(tb, "_rescan_after_job", lambda *a, **k: None)
+
+    tb.run_toolbox_job(job_id, paths, {"rotate_deg": 90}, keep_original=False)
+
+    db = Session()
+    job = db.get(Job, job_id)
+    assert job.status == JobStatus.COMPLETED
+    assert job.processed_files == 4
+    db.close()
+
+
 def test_run_toolbox_job_retries_on_hwaccel_failure_then_succeeds(engine, tmp_path, monkeypatch):
     import app.services.gpu_pool as gp
     import app.services.toolbox as tb

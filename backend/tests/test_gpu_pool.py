@@ -183,14 +183,48 @@ def test_gpu_pool_acquire_any_blocks_until_release():
     assert result["device"] is not None
 
 
-def test_gpu_pool_build_filters_by_family_and_uses_concurrent_hint(monkeypatch):
+def test_gpu_pool_build_filters_by_family_and_uses_passed_capacity(monkeypatch):
     import app.services.gpu_pool as gp2
 
     nvidia = GPUDevice(vendor="nvidia", index="0", label="card0", family="nvenc")
     amd = GPUDevice(vendor="amd", index="/dev/dri/renderD128", label="renderD128", family="vaapi")
     monkeypatch.setattr(gp2, "detect_gpus", lambda: [nvidia, amd])
 
-    pool = GpuPool.build("nvenc")
+    pool = GpuPool.build("nvenc", capacity=5)
 
     assert pool._devices == [nvidia]
-    assert pool._sems["0"]._value == 3  # encoder._CONCURRENT_HINT["nvenc"]
+    assert pool._capacity == 5
+
+
+def test_gpu_pool_prefers_least_loaded_device_over_fixed_order():
+    # Regression test: acquire_any must treat all devices as peers and route
+    # to whichever has the most free capacity, not always prefer device 0
+    # until it's completely full ("fill-then-spill", the old behavior that
+    # left a second GPU idle at low concurrency settings).
+    devices = [_dev("0"), _dev("1")]
+    pool = GpuPool(devices, capacity=3)
+
+    # Force two acquisitions onto device 0 only (device 1 excluded).
+    pool.acquire_any(exclude=frozenset({"1"}))
+    pool.acquire_any(exclude=frozenset({"1"}))
+
+    # Device 0 now has 2 active (room for 1 more under capacity=3), device 1
+    # has 0 active. An unrestricted acquire must prefer the least-loaded
+    # device (1), not device 0 just because it comes first.
+    got = pool.acquire_any()
+    assert got is not None
+    assert got.index == "1"
+
+
+def test_gpu_pool_active_count_decreases_on_release():
+    devices = [_dev("0")]
+    pool = GpuPool(devices, capacity=2)
+
+    a = pool.acquire_any()
+    b = pool.acquire_any()
+    assert a is not None and b is not None
+    assert pool.acquire_any(timeout=0.1) is None  # capacity exhausted (2/2 active)
+
+    pool.release(a)
+    c = pool.acquire_any(timeout=0.5)
+    assert c is not None

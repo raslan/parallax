@@ -544,7 +544,9 @@ def run_toolbox_job(
         db.commit()
 
         total = len(video_paths)
-        n_concurrent = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
+        # Per-GPU capacity — each detected device gets up to this many
+        # concurrent files; total in-flight files scales with GPU count.
+        per_device = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
 
         fracs: dict[str, float] = {}
         fracs_lock = threading.Lock()
@@ -557,9 +559,14 @@ def run_toolbox_job(
 
         gpu_pools: dict[str, GpuPool] = {}
         for family in ("nvenc", "vaapi"):
-            pool = GpuPool.build(family)
+            pool = GpuPool.build(family, per_device)
             if pool._devices:
                 gpu_pools[family] = pool
+        n_concurrent = (
+            sum(per_device * len(p._devices) for p in gpu_pools.values())
+            if gpu_pools
+            else per_device
+        )
 
         def make_progress_cb(path: str) -> Callable[[float], None]:
             def cb(frac: float) -> None:
