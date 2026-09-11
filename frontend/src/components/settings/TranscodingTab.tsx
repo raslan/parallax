@@ -13,6 +13,26 @@ export function TranscodingTab() {
     (v) => ({ max_concurrent_transcodes: v.maxConcurrent }),
   );
   const encoderFamily = settings?.encoder_family ?? "software";
+  const gpus = settings?.detected_gpus ?? [];
+
+  const hintCopy = (() => {
+    if (gpus.length === 0) {
+      return encoderFamily === "software"
+        ? " No hardware encoder detected — using CPU software encoding."
+        : " No GPU devices detected for the active encoder family.";
+    }
+    const label = gpus[0]?.label ?? "GPU";
+    const allSameLabel = gpus.every((g) => g.label === label);
+    const countLabel = allSameLabel ? `${gpus.length}× ${label}` : `${gpus.length} GPUs`;
+    if (encoderFamily === "nvenc") {
+      return (
+        ` ${countLabel} detected. NVIDIA's real per-card session limit varies by GPU/driver — ` +
+        "check NVIDIA's official video encode/decode support matrix before raising this " +
+        "much above ~3× the number of cards."
+      );
+    }
+    return ` ${countLabel} detected. No known session-count cap for this encoder family — raise as high as your cards can sustain.`;
+  })();
 
   return (
     <Card>
@@ -30,15 +50,9 @@ export function TranscodingTab() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   How many files to encode in parallel within a compress job. Each session shares
                   the GPU's fixed encode hardware — setting this above the number of encode engines
-                  on your card makes each file take proportionally longer with no improvement in
+                  on your card(s) makes each file take proportionally longer with no improvement in
                   total time.
-                  {encoderFamily === "nvenc"
-                    ? " NVIDIA: RTX 3050/3060 = 1 engine · RTX 3080/3090 = 2 · RTX 4090 = 3."
-                    : encoderFamily === "qsv"
-                      ? " Intel: UHD 630/730 = 1 engine · UHD 770 / Iris Xe / Arc = 2."
-                      : encoderFamily === "amf" || encoderFamily === "vaapi"
-                        ? " AMD: RX 6000 series = 1 engine · RX 7000 high-end = 2."
-                        : " No hardware encoder detected — using CPU software encoding."}
+                  {hintCopy}
                 </p>
               </div>
               <Controller
@@ -49,7 +63,7 @@ export function TranscodingTab() {
                     <div className="flex items-center gap-4">
                       <Slider
                         min={1}
-                        max={8}
+                        max={32}
                         value={[field.value ?? 1]}
                         onValueChange={([v]) => field.onChange(v ?? 1)}
                         className="w-48"

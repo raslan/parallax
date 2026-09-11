@@ -1,3 +1,8 @@
+interface DetectedGpu {
+  vendor: string;
+  label: string;
+}
+
 export interface Settings {
   max_concurrent_transcodes: number;
   tmdb_api_key: string;
@@ -13,6 +18,7 @@ export interface Settings {
   ytdlp_channel: string;
   encoder_family: string;
   concurrent_limit_hint: number | null;
+  detected_gpus: DetectedGpu[];
 }
 
 export interface UpdateSettingsBody {

@@ -8,7 +8,7 @@ import type { Settings } from "@/types/settings";
  */
 
 export const transcodingSchema = z.object({
-  maxConcurrent: z.number().int().min(1).max(8),
+  maxConcurrent: z.number().int().min(1).max(32),
 });
 export type TranscodingForm = z.infer<typeof transcodingSchema>;
 
