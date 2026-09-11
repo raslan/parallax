@@ -34,4 +34,3 @@ test_images.db
 docker-compose.override.yml
 
 .playwright-mcp/
-/*.png
