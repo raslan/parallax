@@ -2,32 +2,36 @@
 
 A self-hosted media library manager with hardware-accelerated compression, duplicate detection, subtitle management, and media identification. Runs in Docker, accessible from any browser.
 
-![Parallax demo](demo.gif)
+![Parallax demo](demo.png)
 
 ## Features
 
 ### Videos
+
 - **Library management** — scan video folders; browse by status, resolution, bitrate, duration; split into sub-libraries; libraries auto-rescan when files change on disk
 - **Compression** — re-encode to H.264, HEVC, or AV1 via the dedicated Compress page; hardware-accelerated with NVIDIA NVENC and Intel/AMD VA-API, automatically spreading work across every detected GPU when more than one is present; CRF slider with live estimated savings; smart-select by codec (e.g. "non-HEVC"); cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Toolbox** — bulk file-repair utilities in collapsible tool sections: trim start/end (stream-copy when a keyframe is near the cut point, falls back to hardware-accelerated re-encode otherwise, also multi-GPU aware), audio channel isolation (left/right → stereo), rotate, normalize volume, faststart (move moov atom for web playback), and A/V sync offset; cancelable bulk job with per-file progress; originals preserved in `_originals/`
 - **Duplicate detection** — 10 stackable criteria: size, duration, resolution, content date, orientation, bitrate, filename (fuzzy match), byte-hash, perceptual hash (configurable similarity threshold, first-frame/all-frames mode, frames-per-video 4–64), and audio fingerprint; matching runs entirely client-side and recomputes instantly as you toggle criteria — no server round-trip. One background job, "Extract," fills in byte-hash/pHash/audio-fingerprint data for whichever files need it
 - **Cleanup** — filter and bulk-delete by duration, resolution, FPS, content date, file-added date, file size, orientation, filename (exact or fuzzy), or content detections; all filters stack with invert/exclude support
 - **Identify & Rename** — turn a folder of badly-named files into a clean Plex/Jellyfin library in one full-width workspace:
-  - **TMDB matching** for TV shows and movies — search, then place files into episode slots by drag *or* click-to-pick (each episode row shows its TMDB still); all seasons load at once, an ✕ pulls a file back out
+  - **TMDB matching** for TV shows and movies — search, then place files into episode slots by drag _or_ click-to-pick (each episode row shows its TMDB still); all seasons load at once, an ✕ pulls a file back out
   - **Custom Show mode** — no TMDB entry needed: point at a folder of YouTube downloads (a playlist, a channel, an abridged series) and it becomes a one-season show. Order episodes by filename, embedded upload date, date added, drag-and-drop, or by typing an episode number to slot a file in place; titles auto-cleaned from filenames
   - **Metadata & artwork** — writes Kodi/Jellyfin/Plex `.nfo` sidecars (show + per-episode) and generates a poster and backdrop from a frame of the first episode, show title set in Inter, colour keyed to the frame — all offline, no scraping
   - Optional **move to** a destination folder as part of the rename (works across filesystems); preview every rename, `.nfo`, and image before applying
 - **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); multiple subtitle tracks shown in the Plyr player with a language picker
 
 ### Images
+
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
 - **Duplicate detection** — find duplicate images by perceptual hash with configurable similarity threshold
 - **Content review** — filter by content detections, file size, orientation, dates, or "no detections at all"; bulk quarantine flagged images; restore or permanently delete from quarantine
 
 ### AI
+
 - **Content detection** — flag inappropriate content with configurable confidence thresholds; review, quarantine, or bulk-delete flagged files; runs CPU-only, in an isolated subprocess, batch size tunable per your hardware
 
 ### Downloads
+
 - **yt-dlp integration** — paste one or more URLs and queue downloads with live progress; supports YouTube, Vimeo, Twitch, and thousands of other sites
 - **Quality & codec control** — choose resolution (Best/4K/1080p/720p/480p/360p) and codec preference (Auto/H.264/H.265/AV1/VP9); quality-first fallback so codec degrades gracefully before resolution does
 - **Audio mode** — extract audio-only in mp3/m4a/opus
@@ -40,6 +44,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 - **Playback** — completed downloads play in the built-in Plyr player with subtitle support
 
 ### General
+
 - **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
 - **Library delete safety** — when deleting a library that has `_originals/` or `_quarantine/` leftovers, prompts to delete them, review them, or keep them on disk
 - **Eight themes** in two groups — Parallax set: Parallax (default), Graphite, Nightfall, Rose Quartz, OLED · Colour set: Deep Space, Modern HUD, Neon Grid — selectable in Settings → General
@@ -65,11 +70,11 @@ Once Docker Desktop is running, follow the [Docker Compose](#docker-compose-reco
 
 Pre-built images are published to the GitHub Container Registry on every release. There is a single image — it runs CPU-only out of the box and picks up hardware transcode automatically when you pass a GPU through (see the Compose/Run examples below):
 
-| Tag | Notes |
-|-----|-------|
-| `ghcr.io/raslan/parallax:latest` | Latest release |
-| `ghcr.io/raslan/parallax:1.2.0` | Exact version |
-| `ghcr.io/raslan/parallax:1.2` | Latest patch on the 1.2 minor line |
+| Tag                              | Notes                              |
+| -------------------------------- | ---------------------------------- |
+| `ghcr.io/raslan/parallax:latest` | Latest release                     |
+| `ghcr.io/raslan/parallax:1.2.0`  | Exact version                      |
+| `ghcr.io/raslan/parallax:1.2`    | Latest patch on the 1.2 minor line |
 
 Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2` to track all patch releases on 1.2.
 
@@ -77,8 +82,8 @@ Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2` t
 
 Every push to the `develop` branch rebuilds and overwrites one fixed tag — no version bump, no changelog entry, and the release tags above (`latest`, versioned) are never touched:
 
-| Tag | Notes |
-|-----|-------|
+| Tag                               | Notes                                      |
+| --------------------------------- | ------------------------------------------ |
 | `ghcr.io/raslan/parallax:nightly` | Whatever most recently landed on `develop` |
 
 **This is unstable by design.** It tracks whatever most recently landed on `develop` — possibly mid-feature, untested against real hardware, or outright broken. Use it only to try unreleased work ahead of a release, never for a media library you care about; keep backups. Each push overwrites the tag in place, so there's no way to pin to "yesterday's nightly" — if it breaks something, the fix is to wait for the next push or fall back to a release tag.
@@ -92,6 +97,7 @@ Substitute `nightly` for the release tag in any Compose/Run example below to try
 Save this as `docker-compose.yml`, create a `data/` folder alongside it, then run `docker compose up -d`. One image for every setup — add the GPU block for your hardware, or leave it out entirely to run CPU-only.
 
 **CPU only:**
+
 ```yaml
 services:
   parallax:
@@ -100,33 +106,35 @@ services:
     ports:
       - "7899:7899"
     volumes:
-      - ./data:/app/data       # database, thumbnails, keyframes, downloaded AI models
-      - /mnt/media:/media      # your media — add as many mounts as needed
+      - ./data:/app/data # database, thumbnails, keyframes, downloaded AI models
+      - /mnt/media:/media # your media — add as many mounts as needed
     environment:
       - DATA_DIR=/app/data
-    user: "1000:1000"          # match your host UID:GID — run `id` to check
+    user: "1000:1000" # match your host UID:GID — run `id` to check
     restart: unless-stopped
 ```
 
 **NVIDIA:** add this `deploy` block to the service above (same image, same everything else):
+
 ```yaml
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu, video]
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [gpu, video]
 ```
 
 `count: all` forwards every NVIDIA GPU on the host into the container — with more than one, Compress and Toolbox jobs automatically spread transcode work across all of them, no extra configuration needed.
 
 **AMD (VA-API):** add these to the service above instead:
+
 ```yaml
-    devices:
-      - /dev/dri:/dev/dri
-    group_add:
-      - video
+devices:
+  - /dev/dri:/dev/dri
+group_add:
+  - video
 ```
 
 ---
@@ -136,6 +144,7 @@ services:
 One image for every setup — add `--gpus all` or `--device /dev/dri:/dev/dri` for your hardware, or leave both out to run CPU-only.
 
 **CPU only:**
+
 ```bash
 docker run -d \
   --name parallax \
@@ -149,6 +158,7 @@ docker run -d \
 ```
 
 **NVIDIA:** add `--gpus all`:
+
 ```bash
 docker run -d \
   --name parallax \
@@ -165,6 +175,7 @@ docker run -d \
 `--gpus all` forwards every NVIDIA GPU on the host — same multi-GPU auto-distribution as the Compose example above.
 
 **AMD (VA-API):** add `--device /dev/dri:/dev/dri --group-add video`:
+
 ```bash
 docker run -d \
   --name parallax \
@@ -185,10 +196,10 @@ docker run -d \
 
 ### Volumes
 
-| Mount | Purpose |
-|-------|---------|
-| `/app/data` | Database, thumbnails, keyframes, downloaded AI models |
-| `/media` (or any path) | Your media folders — mount as many as needed |
+| Mount                  | Purpose                                               |
+| ---------------------- | ----------------------------------------------------- |
+| `/app/data`            | Database, thumbnails, keyframes, downloaded AI models |
+| `/media` (or any path) | Your media folders — mount as many as needed          |
 
 ### Port
 
