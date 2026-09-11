@@ -432,36 +432,30 @@ def _parse_output_path(line: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def _collision_suffix(output_dir: str, title: str | None) -> str:
-    """Return a ` (N)` suffix if a file with this title already exists, else "".
+def sanitize_collision_name(s: str) -> str:
+    """Normalize a name the same way yt-dlp writes it to disk, for collision checks.
 
-    The suffix is appended to a `%(title)s` output template as a *literal*, so it
-    must never contain path separators — hence a counter rather than the whole
-    (sanitised) title. yt-dlp itself sanitises `%(title)s` (`/` → `⧸`, `\\` → `⧹`,
-    control chars stripped), which is why the title is left to the template and
-    only the counter is injected here.
+    Match what yt-dlp actually writes (`/` → U+29F8 ⧸, `\\` → U+29F9 ⧹) so the
+    collision check sees the same names it produced.
     """
     import unicodedata
 
-    if not title or not output_dir or not os.path.isdir(output_dir):
-        return ""
-    try:
-        existing = os.listdir(output_dir)
-    except OSError:
-        return ""
+    return unicodedata.normalize("NFC", s).replace("/", "⧸").replace("\\", "⧹").strip()
 
-    def _sanitize(s: str) -> str:
-        # Match what yt-dlp actually writes to disk so the collision check sees
-        # the same names it produced (`/` → U+29F8, `\` → U+29F9).
-        return unicodedata.normalize("NFC", s).replace("/", "⧸").replace("\\", "⧹").strip()
+
+def resolve_collision_suffix(existing_names: set[str], title: str) -> str:
+    """Return a ` (N)` suffix such that *title* + suffix doesn't collide with
+    any name in *existing_names* (already `sanitize_collision_name`d).
+
+    The suffix is appended to a `%(title)s` output template as a *literal*, so it
+    must never contain path separators — hence a counter rather than the whole
+    (sanitised) title. yt-dlp itself sanitises `%(title)s`, which is why the title
+    is left to the template and only the counter is injected here.
+    """
 
     def _collides(candidate: str) -> bool:
-        sc = _sanitize(candidate)
-        return any(
-            _sanitize(f).startswith(sc + ".") or _sanitize(f).startswith(sc + " [")
-            for f in existing
-            if not f.endswith(".part") and not f.endswith(".ytdl")
-        )
+        sc = sanitize_collision_name(candidate)
+        return any(n.startswith(sc + ".") or n.startswith(sc + " [") for n in existing_names)
 
     if not _collides(title):
         return ""
@@ -469,6 +463,28 @@ def _collision_suffix(output_dir: str, title: str | None) -> str:
     while _collides(f"{title} ({n})"):
         n += 1
     return f" ({n})"
+
+
+def _collision_suffix(output_dir: str, title: str | None) -> str:
+    """Return a ` (N)` suffix if a file with this title already exists, else "".
+
+    Fallback path used only when the caller hasn't already resolved the suffix
+    at enqueue time (see `resolve_collision_suffix` / api/downloads.py) — reads
+    the directory fresh, so it's still subject to a TOCTOU race if two downloads
+    sharing this output_dir and title are dispatched concurrently.
+    """
+    if not title or not output_dir or not os.path.isdir(output_dir):
+        return ""
+    try:
+        existing = os.listdir(output_dir)
+    except OSError:
+        return ""
+    names = {
+        sanitize_collision_name(f)
+        for f in existing
+        if not f.endswith(".part") and not f.endswith(".ytdl")
+    }
+    return resolve_collision_suffix(names, title)
 
 
 # ---------------------------------------------------------------------------
@@ -561,9 +577,16 @@ def _run_download_sync(download_id: int) -> None:
             pass
         # Inject a ` (N)` suffix so a duplicate-URL re-download doesn't overwrite;
         # the title itself stays `%(title)s` in the template (yt-dlp sanitises it).
-        suffix = _collision_suffix(download.output_dir, download.title)
-        if suffix:
-            options["_output_title_suffix"] = suffix
+        # Playlist entries resolve this at enqueue time (api/downloads.py), sequentially,
+        # so concurrent workers can't race each other onto the same output filename —
+        # only recompute here when that wasn't already done (single-URL enqueues, whose
+        # title isn't known until the metadata prefetch above just ran).
+        if "_output_title_suffix" in options:
+            suffix = options["_output_title_suffix"]
+        else:
+            suffix = _collision_suffix(download.output_dir, download.title)
+            if suffix:
+                options["_output_title_suffix"] = suffix
         try:
             cmd = build_ytdlp_cmd(download.url, download.output_dir, options)
         except Exception as exc:

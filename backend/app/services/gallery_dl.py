@@ -2,8 +2,9 @@
 
 Shared mechanism (semaphore, cookies tempfile, ProcessGroup) comes from
 download_common. gallery-dl itself is a pip package (stable pinned in
-requirements.txt; the page Update button pulls the git nightly into
-GALLERY_DL_PKG_DIR), invoked as ``python -m gallery_dl``.
+requirements.txt; the page Update button pulls the Codeberg master
+tarball into GALLERY_DL_PKG_DIR — upstream dev moved off GitHub, whose
+mirror lags), invoked as ``python -m gallery_dl``.
 """
 
 import asyncio
@@ -18,6 +19,8 @@ import subprocess
 import sys
 import time
 from collections import deque
+
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.config import GALLERY_DL_DIR
 from app.database import SessionLocal
@@ -36,9 +39,7 @@ logger = logging.getLogger(__name__)
 URLS_FILE = os.path.join(GALLERY_DL_DIR, "urls.txt")
 DEFAULT_ARCHIVE = os.path.join(GALLERY_DL_DIR, "archive.sqlite3")
 GALLERY_DL_PKG_DIR = os.path.join(GALLERY_DL_DIR, "site")
-GALLERY_DL_NIGHTLY_SPEC = (
-    "gallery-dl @ https://github.com/mikf/gallery-dl/archive/refs/heads/master.tar.gz"
-)
+GALLERY_DL_NIGHTLY_SPEC = "gallery-dl @ https://codeberg.org/mikf/gallery-dl/archive/master.tar.gz"
 
 EXT_SETS: dict[str, tuple[str, ...]] = {
     "video": ("mp4", "mkv", "m4v", "webm", "mov", "avi", "wmv", "flv", "mpg", "mpeg", "3gp", "ts"),
@@ -209,7 +210,13 @@ def _set_status(row_id: int, **fields) -> None:
             return
         for k, v in fields.items():
             setattr(row, k, v)
-        s.commit()
+        try:
+            s.commit()
+        except StaleDataError:
+            # Row was deleted by another session (e.g. user deleted this
+            # download from the UI) between our get() and commit() — same
+            # as the row-is-None case above, just caught later.
+            s.rollback()
 
 
 def _kill(proc: subprocess.Popen) -> None:

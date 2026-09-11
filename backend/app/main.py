@@ -263,6 +263,20 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         print(f"[startup] Could not fetch alass binary: {exc}", flush=True)
 
+    # Auto-update gallery-dl to the Codeberg nightly in the background — fire-and-forget
+    # so a slow/offline network never delays boot. Same install path as the page's
+    # manual Update button.
+    from app.services.gallery_dl import install_gallerydl
+
+    async def _auto_update_gallerydl():
+        try:
+            await asyncio.to_thread(install_gallerydl)
+            print("[startup] gallery-dl nightly updated", flush=True)
+        except Exception as exc:
+            print(f"[startup] Could not update gallery-dl: {exc}", flush=True)
+
+    asyncio.create_task(_auto_update_gallerydl())
+
     yield
     fs_watcher.shutdown()
     stream_cache.stop_sweeper()

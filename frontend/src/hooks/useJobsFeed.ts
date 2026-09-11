@@ -41,25 +41,28 @@ export function useJobsFeed(): {
   const loadAll = () => queryClient.invalidateQueries({ queryKey: qk.jobs() });
 
   // Merge live SSE updates into the cached list without dropping history entries.
+  // A job that was active on the previous tick but is absent from this one just
+  // settled (completed/failed/cancelled) — refetch so its real final state lands
+  // in the cache instead of the last live snapshot (which can be a "0/0" row from
+  // right after the job started). Gating this refetch on the *entire* active list
+  // being empty missed settlements whenever a sibling job was still running —
+  // common now that jobs serialize behind `max_concurrent_jobs`, leaving a
+  // completed job stuck showing its stale snapshot until a manual reload.
   const applyLiveUpdate = (liveJobs: Job[]) => {
+    const liveMap = new Map(liveJobs.map((j) => [j.id, j]));
+    let settled = false;
     queryClient.setQueryData<Job[]>(qk.jobs(), (prev = []) => {
-      const liveMap = new Map(liveJobs.map((j) => [j.id, j]));
+      settled = prev.some((j) => ACTIVE.has(j.status) && !liveMap.has(j.id));
       const merged = prev.map((j) => (liveMap.has(j.id) ? { ...j, ...liveMap.get(j.id) } : j));
       for (const lj of liveJobs) {
         if (!merged.find((j) => j.id === lj.id)) merged.unshift(lj);
       }
       return merged;
     });
+    if (settled) loadAll();
   };
 
-  useEventSource<Job[]>(
-    api.jobsStreamUrl(),
-    (live) => {
-      applyLiveUpdate(live);
-      if (live.length === 0) loadAll();
-    },
-    () => loadAll(),
-  );
+  useEventSource<Job[]>(api.jobsStreamUrl(), applyLiveUpdate, () => loadAll());
 
   return useMemo(
     () => ({

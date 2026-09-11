@@ -18,7 +18,9 @@ from app.services.downloader import (
     get_ytdlp_info,
     install_ytdlp,
     list_impersonate_targets,
+    resolve_collision_suffix,
     run_download,
+    sanitize_collision_name,
     unique_playlist_dir,
 )
 
@@ -105,6 +107,12 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
         *[asyncio.to_thread(fetch_playlist_info, url) for url in req.urls]
     )
 
+    # Per-output-dir set of already-claimed (sanitized) filenames, seeded from disk
+    # once per directory then updated in-memory as entries are assigned below — so
+    # two same-titled entries in one playlist never both resolve to no-suffix before
+    # either file exists on disk (the race that broke concurrent downloads).
+    dir_claims: dict[str, set[str]] = {}
+
     for url, playlist_info in zip(req.urls, playlist_results):
         if playlist_info:
             # Reuse the same folder if this exact playlist was queued before (continuation);
@@ -123,13 +131,31 @@ async def enqueue_downloads(req: DownloadRequest, db: Session = Depends(get_db))
                 )
             await asyncio.to_thread(lambda: os.makedirs(playlist_output_dir, exist_ok=True))
 
+            if playlist_output_dir not in dir_claims:
+                try:
+                    existing_files = await asyncio.to_thread(os.listdir, playlist_output_dir)
+                except OSError:
+                    existing_files = []
+                dir_claims[playlist_output_dir] = {
+                    sanitize_collision_name(f)
+                    for f in existing_files
+                    if not f.endswith(".part") and not f.endswith(".ytdl")
+                }
+            claims = dir_claims[playlist_output_dir]
+
             for entry in playlist_info["entries"]:
+                entry_title = entry.get("title")
+                row_options = dict(options)
+                if entry_title:
+                    suffix = resolve_collision_suffix(claims, entry_title)
+                    row_options["_output_title_suffix"] = suffix
+                    claims.add(sanitize_collision_name(f"{entry_title}{suffix}"))
                 download = Download(
                     url=entry["url"],
-                    title=entry.get("title"),
+                    title=entry_title,
                     output_dir=playlist_output_dir,
                     status=DownloadStatus.PENDING,
-                    options=json.dumps(options),
+                    options=json.dumps(row_options),
                     source_url=url,
                     playlist_id=playlist_info["playlist_id"],
                     playlist_title=playlist_info["playlist_title"],
