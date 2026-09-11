@@ -9,6 +9,7 @@ from app.database import DATA_DIR, get_db
 from app.models.settings import get_setting, set_setting
 from app.queue import update_max_concurrent
 from app.services.downloader import set_max_concurrent as set_max_concurrent_downloads
+from app.services.gpu_pool import detect_gpus
 from app.services.image_analyzer import release_sessions
 from app.services.model_manager import (
     NUDENET_MODELS,
@@ -44,6 +45,11 @@ _YTDLP_CHANNEL_KEY = "ytdlp_channel"
 _YTDLP_CHANNEL_DEFAULT = "stable"
 
 
+class GPUInfo(BaseModel):
+    vendor: str
+    label: str
+
+
 class SettingsRead(BaseModel):
     max_concurrent_transcodes: int
     tmdb_api_key: str
@@ -59,10 +65,11 @@ class SettingsRead(BaseModel):
     ytdlp_channel: str
     encoder_family: str
     concurrent_limit_hint: int | None
+    detected_gpus: list[GPUInfo]
 
 
 class SettingsUpdate(BaseModel):
-    max_concurrent_transcodes: int | None = Field(default=None, ge=1, le=8)
+    max_concurrent_transcodes: int | None = Field(default=None, ge=1, le=32)
     tmdb_api_key: str | None = Field(default=None, max_length=128)
     nudenet_model: str | None = None
     whisper_model: str | None = None
@@ -97,6 +104,7 @@ def _read_settings(db: Session) -> SettingsRead:
         ytdlp_channel=get_setting(db, _YTDLP_CHANNEL_KEY, _YTDLP_CHANNEL_DEFAULT),
         encoder_family=get_encoder_family(),
         concurrent_limit_hint=get_concurrent_limit_hint(),
+        detected_gpus=[GPUInfo(vendor=d.vendor, label=d.label) for d in detect_gpus()],
     )
 
 
