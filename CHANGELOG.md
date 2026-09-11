@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [2.10.0](https://github.com/raslan/parallax/compare/v2.9.0...v2.10.0) (2026-09-11)
+
+
+### Features
+
+* **identify:** group custom-show subfolders as seasons ([adf6c8b](https://github.com/raslan/parallax/commit/adf6c8b6fb4a8327995c4a6c628649919f98cbb0))
+
 ## [2.9.0](https://github.com/raslan/parallax/compare/v2.8.0...v2.9.0) (2026-09-11)
 
 
