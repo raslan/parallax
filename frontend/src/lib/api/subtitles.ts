@@ -38,18 +38,6 @@ export const subtitlesApi = {
   vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
   tracksUrl: (path: string) => `${BASE}/subtitles/tracks?path=${encodeURIComponent(path)}`,
 
-  transcribeFile: (file_path: string, model_id?: string, language?: string) =>
-    req<{ job_id: number }>("/subtitles/transcribe-file", {
-      method: "POST",
-      body: JSON.stringify({ file_path, model_id, language }),
-    }),
-
-  transcribeBulk: (path: string, model_id?: string, language?: string) =>
-    req<{ job_id: number }>("/subtitles/transcribe-bulk", {
-      method: "POST",
-      body: JSON.stringify({ path, model_id, language }),
-    }),
-
   deleteSubtitle: (file_path: string, language: string) =>
     req<{ ok: boolean }>(
       `/subtitles/file?file_path=${encodeURIComponent(file_path)}&language=${encodeURIComponent(language)}`,
