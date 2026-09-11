@@ -77,15 +77,8 @@ FROM base-${RUNTIME}
 WORKDIR /app
 
 COPY backend/requirements.txt ./
-ARG RUNTIME=cpu
-# Install requirements first, then force-reinstall the correct onnxruntime variant
-# so nudenet's CPU onnxruntime dependency doesn't overwrite the GPU build.
 RUN python3.12 -m pip install --no-cache-dir -r requirements.txt && \
-    case "${RUNTIME}" in \
-      cuda) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-gpu==1.21.0 ;; \
-      rocm) python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime-rocm ;; \
-      *)    python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime==1.20.1 ;; \
-    esac
+    python3.12 -m pip install --no-cache-dir --force-reinstall onnxruntime==1.20.1
 
 COPY backend/ ./
 
