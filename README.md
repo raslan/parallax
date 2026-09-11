@@ -196,10 +196,24 @@ docker run -d \
 
 ### Volumes
 
-| Mount                  | Purpose                                               |
-| ---------------------- | ----------------------------------------------------- |
-| `/app/data`            | Database, thumbnails, keyframes, downloaded AI models |
-| `/media` (or any path) | Your media folders — mount as many as needed          |
+| Mount                     | Purpose                                                                    |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `/app/data`                | Database, thumbnails, keyframes, downloaded AI models                     |
+| `/media` (or any path)     | Your media folders — mount as many as needed                              |
+| `/app/scratch` (optional)  | Fast-disk staging area for in-progress Compress/Toolbox output — see below |
+
+### Fast-disk transcode staging (optional)
+
+If your media lives on slow storage (e.g. spinning disks) but you have a faster disk (SSD/NVMe) available, mount it at `/app/scratch`:
+
+```yaml
+volumes:
+  - ./data:/app/data
+  - /mnt/media:/media
+  - /mnt/ssd/scratch:/app/scratch
+```
+
+When present, Compress/Toolbox (video and audio) write their in-progress output there instead of next to the source file, then move the finished result back — turning several concurrent slow-disk read/write streams into one clean sequential read and one clean sequential write per file. Purely opt-in: nothing is created automatically, so leaving this unmounted behaves exactly as before. No setting, no toggle — the mount itself is the switch.
 
 ### Port
 
