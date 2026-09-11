@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [3.1.1](https://github.com/raslan/parallax/compare/v3.1.0...v3.1.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* respect max_concurrent_jobs for every kind of job especially scans ([54d15d9](https://github.com/raslan/parallax/commit/54d15d94dc3480edaf56f528296b7d08bd6daedb))
+
 ## [3.1.0](https://github.com/raslan/parallax/compare/v3.0.0...v3.1.0) (2026-09-11)
 
 
