@@ -4,6 +4,8 @@ import os
 import threading
 from datetime import UTC, datetime
 
+from app.config import SCRATCH_DIR
+
 
 def is_ignored_media_name(name: str) -> bool:
     """True for filenames that a library walk must never pick up as media.
@@ -17,16 +19,20 @@ def is_ignored_media_name(name: str) -> bool:
 
 
 def temp_sibling_path(src: str, ext: str, infix: str) -> str:
-    """A short, collision-free temp path next to `src` for in-progress media output.
+    """A short, collision-free temp path for in-progress media output — in
+    `SCRATCH_DIR` if that's actually mounted (a fast disk staging area, opt-in
+    purely by bind-mounting something there), otherwise next to `src`.
 
     Deliberately does NOT derive from the source basename: a source name already
     near NAME_MAX (255 bytes) plus an infix overflows and ffmpeg fails with
     "... File name too long". Use a fixed short name keyed by pid + thread id
-    instead — one worker thread processes one file at a time, so that's unique.
+    instead — one worker thread processes one file at a time, so that's unique
+    even when every in-flight file shares one scratch directory.
     `infix` ("compressing" / "transcoding") keeps the fs-watcher skipping it.
     """
+    directory = SCRATCH_DIR if os.path.isdir(SCRATCH_DIR) else os.path.dirname(src)
     return os.path.join(
-        os.path.dirname(src),
+        directory,
         f".{infix}-{os.getpid()}-{threading.get_ident()}{ext}",
     )
 
