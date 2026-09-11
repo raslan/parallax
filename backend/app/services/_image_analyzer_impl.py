@@ -22,6 +22,7 @@ def _get_nudenet_detector(model_id: str = _NUDENET_DEFAULT) -> NudeDetector:
                 raise ValueError(f"Unknown NudeNet model: {model_id!r}")
             _nudenet_detectors[model_id] = NudeDetector(
                 model_path=nudenet_path(model_id),
+                providers=["CPUExecutionProvider"],
                 inference_resolution=meta["inference_resolution"],
             )
         return _nudenet_detectors[model_id]
