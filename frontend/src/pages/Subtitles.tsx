@@ -10,7 +10,6 @@ import {
   Globe,
   Search,
   Play,
-  Mic,
   X,
   RefreshCw,
 } from "lucide-react";
@@ -97,7 +96,6 @@ function FileRow({
   syncDisabled,
   onSearch,
   onPlay,
-  onGenerate,
   onSync,
   onDeleteLang,
 }: {
@@ -106,7 +104,6 @@ function FileRow({
   syncDisabled: boolean;
   onSearch: () => void;
   onPlay: () => void;
-  onGenerate: () => void;
   onSync: () => void;
   onDeleteLang: (code: string) => void;
 }) {
@@ -131,13 +128,6 @@ function FileRow({
         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
       >
         <Search className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={onGenerate}
-        title="Generate subtitle with Whisper"
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
-      >
-        <Mic className="h-3.5 w-3.5" />
       </button>
       {hasAny && (
         <button
@@ -169,7 +159,6 @@ function DirGroup({
   syncDisabled,
   onSearch,
   onPlay,
-  onGenerate,
   onSync,
   onDeleteLang,
 }: {
@@ -179,7 +168,6 @@ function DirGroup({
   syncDisabled: boolean;
   onSearch: (f: SubtitleFile) => void;
   onPlay: (f: SubtitleFile) => void;
-  onGenerate: (f: SubtitleFile) => void;
   onSync: (f: SubtitleFile) => void;
   onDeleteLang: (f: SubtitleFile, code: string) => void;
 }) {
@@ -223,7 +211,6 @@ function DirGroup({
               syncDisabled={syncDisabled}
               onSearch={() => onSearch(f)}
               onPlay={() => onPlay(f)}
-              onGenerate={() => onGenerate(f)}
               onSync={() => onSync(f)}
               onDeleteLang={(code) => onDeleteLang(f, code)}
             />
@@ -247,30 +234,16 @@ export function Subtitles() {
   const [searchFile, setSearchFile] = useState<SubtitleFile | null>(null);
   const [playingFile, setPlayingFile] = useState<SubtitleFile | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
   const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
   const [syncingAll, setSyncingAll] = useState(false);
   const syncAllTargetRef = useRef("");
   const downloadTargetRef = useRef("");
-  const transcribeTargetRef = useRef("");
 
   const downloadPoll = useJobPoll({
     intervalMs: 2000,
     onTerminal: () => {
       setDownloading(false);
       const target = downloadTargetRef.current;
-      if (target)
-        subtitlesApi
-          .scan(target)
-          .then(setFiles)
-          .catch(() => {});
-    },
-  });
-  const transcribePoll = useJobPoll({
-    intervalMs: 2000,
-    onTerminal: () => {
-      setTranscribing(false);
-      const target = transcribeTargetRef.current;
       if (target)
         subtitlesApi
           .scan(target)
@@ -292,8 +265,6 @@ export function Subtitles() {
   });
   const jobProgress = downloadPoll.progress;
   const jobStatus = downloadPoll.currentFile || downloadPoll.status || "";
-  const transcribeProgress = transcribePoll.progress;
-  const transcribeStatus = transcribePoll.currentFile || transcribePoll.status || "";
   const syncAllProgress = syncAllPoll.progress;
   const syncAllStatus = syncAllPoll.currentFile || syncAllPoll.status || "";
 
@@ -321,18 +292,6 @@ export function Subtitles() {
           : prev // keep at least one
         : [...prev, code],
     );
-  };
-
-  const handleGenerateFile = async (file: SubtitleFile) => {
-    setTranscribing(true);
-    transcribeTargetRef.current = path.trim();
-    try {
-      const { job_id } = await subtitlesApi.transcribeFile(file.path);
-      transcribePoll.start(job_id);
-    } catch (e: unknown) {
-      setTranscribing(false);
-      setScanError(e instanceof Error ? e.message : "Transcription failed");
-    }
   };
 
   const handleDeleteLang = async (file: SubtitleFile, code: string) => {
@@ -393,19 +352,6 @@ export function Subtitles() {
     }
   };
 
-  const handleGenerateAll = async () => {
-    if (!path.trim()) return;
-    setTranscribing(true);
-    transcribeTargetRef.current = path.trim();
-    try {
-      const { job_id } = await subtitlesApi.transcribeBulk(path.trim());
-      transcribePoll.start(job_id);
-    } catch (e: unknown) {
-      setTranscribing(false);
-      setScanError(e instanceof Error ? e.message : "Transcription failed");
-    }
-  };
-
   const handleScan = async (scanPath?: string) => {
     const target = (scanPath ?? path).trim();
     if (!target) return;
@@ -450,7 +396,7 @@ export function Subtitles() {
   });
   useEffect(() => {
     if (!allJobs) return;
-    const bulkTypes = new Set(["subtitle_download", "whisper_transcribe", "subtitle_sync"]);
+    const bulkTypes = new Set(["subtitle_download", "subtitle_sync"]);
     const active = allJobs.find(
       (j) => bulkTypes.has(j.type) && (j.status === "running" || j.status === "pending"),
     );
@@ -471,10 +417,6 @@ export function Subtitles() {
       setDownloading(true);
       downloadTargetRef.current = jobPath;
       downloadPoll.resume(allJobs, (j) => j.id === active.id);
-    } else if (active.type === "whisper_transcribe") {
-      setTranscribing(true);
-      transcribeTargetRef.current = jobPath;
-      transcribePoll.resume(allJobs, (j) => j.id === active.id);
     } else {
       setSyncingAll(true);
       syncAllTargetRef.current = jobPath;
@@ -519,11 +461,6 @@ export function Subtitles() {
         <h1 className="text-2xl font-semibold tracking-tight">Subtitles</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Download and match subtitle files for a folder of videos.
-        </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          <Mic className="h-3 w-3 inline mr-1 opacity-60" />
-          Whisper generates subtitles in the video's spoken language regardless of the language
-          selection above. Download uses the selection.
         </p>
       </div>
 
@@ -629,14 +566,6 @@ export function Subtitles() {
                   </span>
                 </div>
               )}
-              {transcribing && transcribeProgress !== null && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="truncate max-w-xs" title={transcribeStatus}>
-                    {Math.round(transcribeProgress)}% · {transcribeStatus}
-                  </span>
-                </div>
-              )}
               {syncingAll && syncAllProgress !== null && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -647,13 +576,7 @@ export function Subtitles() {
               )}
               <Button
                 onClick={handleSyncAll}
-                disabled={
-                  syncingAll ||
-                  syncingPaths.size > 0 ||
-                  downloading ||
-                  transcribing ||
-                  withAnySub === 0
-                }
+                disabled={syncingAll || syncingPaths.size > 0 || downloading || withAnySub === 0}
                 variant="outline"
                 title="Sync every existing subtitle in this library to its video's audio"
               >
@@ -667,20 +590,8 @@ export function Subtitles() {
                   : `Sync ${withAnySub} file${withAnySub === 1 ? "" : "s"}`}
               </Button>
               <Button
-                onClick={handleGenerateAll}
-                disabled={transcribing || downloading || missing === 0}
-                variant="outline"
-              >
-                {transcribing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Mic className="h-4 w-4 mr-2" />
-                )}
-                {missing === 0 ? "All subtitles present" : `Generate ${missing} missing`}
-              </Button>
-              <Button
                 onClick={handleDownload}
-                disabled={downloading || transcribing || missing === 0}
+                disabled={downloading || missing === 0}
                 variant={missing === 0 ? "outline" : "default"}
               >
                 {downloading ? (
@@ -705,7 +616,6 @@ export function Subtitles() {
                   syncDisabled={syncingAll}
                   onSearch={setSearchFile}
                   onPlay={setPlayingFile}
-                  onGenerate={handleGenerateFile}
                   onSync={handleSyncFile}
                   onDeleteLang={handleDeleteLang}
                 />
