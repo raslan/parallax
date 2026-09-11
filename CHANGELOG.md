@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [3.1.0](https://github.com/raslan/parallax/compare/v3.0.0...v3.1.0) (2026-09-11)
+
+
+### Features
+
+* **compress:** stage transcode temp output on a mounted scratch dir ([1f4d626](https://github.com/raslan/parallax/commit/1f4d6263824d40aa32e9d0b51a6bbe804191b80f))
+* **settings:** split job-queue and audio concurrency settings ([160dfb5](https://github.com/raslan/parallax/commit/160dfb5d84d053831dbd4d220e3c6105e657c9f8))
+
+
+### Bug Fixes
+
+* **gpu:** least-loaded scheduling, redefine concurrency as per-GPU ([1c876f6](https://github.com/raslan/parallax/commit/1c876f600139ae07ec149a40cbceae6a185fbabb))
+
 ## [3.0.0](https://github.com/raslan/parallax/compare/v2.10.0...v3.0.0) (2026-09-11)
 
 
