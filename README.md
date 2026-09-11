@@ -17,7 +17,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
   - **Custom Show mode** — no TMDB entry needed: point at a folder of YouTube downloads (a playlist, a channel, an abridged series) and it becomes a one-season show. Order episodes by filename, embedded upload date, date added, drag-and-drop, or by typing an episode number to slot a file in place; titles auto-cleaned from filenames
   - **Metadata & artwork** — writes Kodi/Jellyfin/Plex `.nfo` sidecars (show + per-episode) and generates a poster and backdrop from a frame of the first episode, show title set in Inter, colour keyed to the frame — all offline, no scraping
   - Optional **move to** a destination folder as part of the rename (works across filesystems); preview every rename, `.nfo`, and image before applying
-- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); Whisper local speech-to-text generates SRT files from audio with no API key; multiple subtitle tracks shown in the Plyr player with a language picker
+- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); multiple subtitle tracks shown in the Plyr player with a language picker
 
 ### Images
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
@@ -25,9 +25,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 - **Content review** — filter by content detections, file size, orientation, dates, or "no detections at all"; bulk quarantine flagged images; restore or permanently delete from quarantine
 
 ### AI
-- **Content detection** — flag inappropriate content with configurable confidence thresholds; review, quarantine, or bulk-delete flagged files
-- **Local speech-to-text** — generate subtitle files from audio with Whisper; no API key or cloud upload required; auto-detects spoken language; five model sizes (tiny → large-v3)
-- **GPU-accelerated** — CUDA and ROCm backends; inference runs in isolated subprocesses so VRAM is fully freed when idle; batch size tunable per your hardware
+- **Content detection** — flag inappropriate content with configurable confidence thresholds; review, quarantine, or bulk-delete flagged files; runs CPU-only, in an isolated subprocess, batch size tunable per your hardware
 
 ### Downloads
 - **yt-dlp integration** — paste one or more URLs and queue downloads with live progress; supports YouTube, Vimeo, Twitch, and thousands of other sites
@@ -55,9 +53,9 @@ Parallax runs on Windows via [Docker Desktop](https://www.docker.com/products/do
 
 **All users:** Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) and make sure it is running before continuing. WSL 2 backend is required (the default).
 
-**NVIDIA GPU users:** A recent Game Ready or Studio driver (521+) is all you need — CUDA support for Docker is included in the driver automatically via WSL 2. No separate CUDA toolkit or NVIDIA Container Toolkit install is required on Windows. Use the `latest-cuda` image tag.
+**NVIDIA GPU users:** A recent Game Ready or Studio driver (521+) is all you need — NVENC/NVDEC hardware transcode support for Docker is included in the driver automatically via WSL 2. No separate CUDA toolkit or NVIDIA Container Toolkit install is required on Windows. Pass `--gpus all` (or the Compose `deploy.resources` block) as shown below.
 
-**AMD GPU users:** AMD ROCm is not supported under WSL 2 / Docker Desktop on Windows. Use the `latest` (CPU) image tag instead. GPU-accelerated transcoding via hardware video encoders is not available on this path.
+**AMD GPU users:** VA-API device passthrough (`/dev/dri`) is not available under WSL 2 / Docker Desktop on Windows, so hardware-accelerated transcoding isn't available on this path — the same image still runs fine CPU-only.
 
 Once Docker Desktop is running, follow the [Docker Compose](#docker-compose-recommended) instructions below with the image tag for your hardware. Everything else — the compose file, volume mounts, port — is identical to Linux.
 
@@ -65,49 +63,39 @@ Once Docker Desktop is running, follow the [Docker Compose](#docker-compose-reco
 
 ## Deployment
 
-Pre-built images are published to the GitHub Container Registry on every release. Pick the tag for your hardware:
+Pre-built images are published to the GitHub Container Registry on every release. There is a single image — it runs CPU-only out of the box and picks up hardware transcode automatically when you pass a GPU through (see the Compose/Run examples below):
 
-| Tag | Hardware |
-|-----|----------|
-| `ghcr.io/raslan/parallax:latest` | CPU only (no GPU inference) |
-| `ghcr.io/raslan/parallax:latest-cuda` | NVIDIA GPU — ONNX CUDA + NVENC |
-| `ghcr.io/raslan/parallax:latest-rocm` | AMD GPU — ONNX ROCm + VA-API |
+| Tag | Notes |
+|-----|-------|
+| `ghcr.io/raslan/parallax:latest` | Latest release |
+| `ghcr.io/raslan/parallax:1.2.0` | Exact version |
+| `ghcr.io/raslan/parallax:1.2` | Latest patch on the 1.2 minor line |
 
-On each release, three images are built and pushed with version tags:
-
-| Image | Tags (example: v1.2.0) |
-|-------|------------------------|
-| CPU | `latest`, `1.2.0`, `1.2` |
-| NVIDIA CUDA | `latest-cuda`, `1.2.0-cuda`, `1.2-cuda` |
-| AMD ROCm | `latest-rocm`, `1.2.0-rocm`, `1.2-rocm` |
-
-Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2-cuda` to track all patch releases on 1.2 with CUDA support.
+Pin to a specific release by replacing `latest` with a version tag, e.g. `1.2` to track all patch releases on 1.2.
 
 ### Nightly builds (unstable)
 
-Every push to the `develop` branch rebuilds and overwrites three fixed tags — no version bump, no changelog entry, and the release tags above (`latest`, versioned) are never touched:
+Every push to the `develop` branch rebuilds and overwrites one fixed tag — no version bump, no changelog entry, and the release tags above (`latest`, versioned) are never touched:
 
-| Tag | Hardware |
-|-----|----------|
-| `ghcr.io/raslan/parallax:cpu-nightly` | CPU only |
-| `ghcr.io/raslan/parallax:cuda-nightly` | NVIDIA GPU |
-| `ghcr.io/raslan/parallax:rocm-nightly` | AMD GPU |
+| Tag | Notes |
+|-----|-------|
+| `ghcr.io/raslan/parallax:nightly` | Whatever most recently landed on `develop` |
 
-**These are unstable by design.** They track whatever most recently landed on `develop` — possibly mid-feature, untested against real hardware, or outright broken. Use them only to try unreleased work ahead of a release, never for a media library you care about; keep backups. Each push overwrites the same tag in place, so there's no way to pin to "yesterday's nightly" — if one breaks something, the fix is to wait for the next push or fall back to a release tag.
+**This is unstable by design.** It tracks whatever most recently landed on `develop` — possibly mid-feature, untested against real hardware, or outright broken. Use it only to try unreleased work ahead of a release, never for a media library you care about; keep backups. Each push overwrites the tag in place, so there's no way to pin to "yesterday's nightly" — if it breaks something, the fix is to wait for the next push or fall back to a release tag.
 
-Substitute the nightly tag for the release tag in any Compose/Run example below to try one, e.g. `ghcr.io/raslan/parallax:cuda-nightly` in place of `ghcr.io/raslan/parallax:latest-cuda`.
+Substitute `nightly` for the release tag in any Compose/Run example below to try it, e.g. `ghcr.io/raslan/parallax:nightly` in place of `ghcr.io/raslan/parallax:latest`.
 
 ---
 
 ### Docker Compose (recommended)
 
-Save this as `docker-compose.yml`, create a `data/` folder alongside it, then run `docker compose up -d`.
+Save this as `docker-compose.yml`, create a `data/` folder alongside it, then run `docker compose up -d`. One image for every setup — add the GPU block for your hardware, or leave it out entirely to run CPU-only.
 
-**NVIDIA:**
+**CPU only:**
 ```yaml
 services:
   parallax:
-    image: ghcr.io/raslan/parallax:latest-cuda
+    image: ghcr.io/raslan/parallax:latest
     container_name: parallax
     ports:
       - "7899:7899"
@@ -119,6 +107,10 @@ services:
       - HF_HOME=/app/data/hf-cache
     user: "1000:1000"          # match your host UID:GID — run `id` to check
     restart: unless-stopped
+```
+
+**NVIDIA:** add this `deploy` block to the service above (same image, same everything else):
+```yaml
     deploy:
       resources:
         reservations:
@@ -130,51 +122,21 @@ services:
 
 `count: all` forwards every NVIDIA GPU on the host into the container — with more than one, Compress and Toolbox jobs automatically spread transcode work across all of them, no extra configuration needed.
 
-**AMD (ROCm):**
+**AMD (VA-API):** add these to the service above instead:
 ```yaml
-services:
-  parallax:
-    image: ghcr.io/raslan/parallax:latest-rocm
-    container_name: parallax
-    ports:
-      - "7899:7899"
-    volumes:
-      - ./data:/app/data
-      - /mnt/media:/media
-    environment:
-      - DATA_DIR=/app/data
-      - HF_HOME=/app/data/hf-cache
-    user: "1000:1000"
-    restart: unless-stopped
     devices:
       - /dev/dri:/dev/dri
     group_add:
       - video
 ```
 
-**CPU:**
-```yaml
-services:
-  parallax:
-    image: ghcr.io/raslan/parallax:latest
-    container_name: parallax
-    ports:
-      - "7899:7899"
-    volumes:
-      - ./data:/app/data
-      - /mnt/media:/media
-    environment:
-      - DATA_DIR=/app/data
-      - HF_HOME=/app/data/hf-cache
-    user: "1000:1000"
-    restart: unless-stopped
-```
-
 ---
 
 ### Docker Run
 
-**CPU:**
+One image for every setup — add `--gpus all` or `--device /dev/dri:/dev/dri` for your hardware, or leave both out to run CPU-only.
+
+**CPU only:**
 ```bash
 docker run -d \
   --name parallax \
@@ -188,7 +150,7 @@ docker run -d \
   ghcr.io/raslan/parallax:latest
 ```
 
-**NVIDIA:**
+**NVIDIA:** add `--gpus all`:
 ```bash
 docker run -d \
   --name parallax \
@@ -200,12 +162,12 @@ docker run -d \
   --user 1000:1000 \
   --gpus all \
   --restart unless-stopped \
-  ghcr.io/raslan/parallax:latest-cuda
+  ghcr.io/raslan/parallax:latest
 ```
 
 `--gpus all` forwards every NVIDIA GPU on the host — same multi-GPU auto-distribution as the Compose example above.
 
-**AMD (ROCm):**
+**AMD (VA-API):** add `--device /dev/dri:/dev/dri --group-add video`:
 ```bash
 docker run -d \
   --name parallax \
@@ -218,7 +180,7 @@ docker run -d \
   --device /dev/dri:/dev/dri \
   --group-add video \
   --restart unless-stopped \
-  ghcr.io/raslan/parallax:latest-rocm
+  ghcr.io/raslan/parallax:latest
 ```
 
 ---
