@@ -10,7 +10,10 @@ export function TranscodingTab() {
   const { form, settings, isLoading, save } = useSettingsForm(
     transcodingSchema,
     seedTranscoding,
-    (v) => ({ max_concurrent_transcodes: v.maxConcurrent }),
+    (v) => ({
+      max_concurrent_transcodes: v.maxConcurrent,
+      max_concurrent_audio_transcodes: v.maxConcurrentAudio,
+    }),
   );
   const encoderFamily = settings?.encoder_family ?? "software";
   const gpus = settings?.detected_gpus ?? [];
@@ -26,12 +29,17 @@ export function TranscodingTab() {
     const countLabel = allSameLabel ? `${gpus.length}× ${label}` : `${gpus.length} GPUs`;
     if (encoderFamily === "nvenc") {
       return (
-        ` ${countLabel} detected. NVIDIA's real per-card session limit varies by GPU/driver — ` +
-        "check NVIDIA's official video encode/decode support matrix before raising this " +
-        "much above ~3× the number of cards."
+        ` ${countLabel} detected — this many files run per card at once ` +
+        `(${gpus.length} × this value, total). NVIDIA's real per-card session limit varies ` +
+        "by GPU/driver — check NVIDIA's official video encode/decode support matrix before " +
+        "raising this much above ~3."
       );
     }
-    return ` ${countLabel} detected. No known session-count cap for this encoder family — raise as high as your cards can sustain.`;
+    return (
+      ` ${countLabel} detected — this many files run per card at once ` +
+      `(${gpus.length} × this value, total). No known session-count cap for this encoder ` +
+      "family — raise as high as your cards can sustain."
+    );
   })();
 
   return (
@@ -46,12 +54,12 @@ export function TranscodingTab() {
           <>
             <div className="space-y-3">
               <div>
-                <p className="text-sm font-medium">Concurrent transcodes</p>
+                <p className="text-sm font-medium">Concurrent video transcodes (per GPU)</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  How many files to encode in parallel within a compress job. Each session shares
-                  the GPU's fixed encode hardware — setting this above the number of encode engines
-                  on your card(s) makes each file take proportionally longer with no improvement in
-                  total time.
+                  How many files each detected GPU encodes in parallel within a Compress or Toolbox
+                  job — every card is used as an equal peer, not a fallback for the first one.
+                  Setting this above the number of encode engines on a card makes each file on that
+                  card take proportionally longer with no improvement in total time.
                   {hintCopy}
                 </p>
               </div>
@@ -87,6 +95,31 @@ export function TranscodingTab() {
                       ))}
                     </div>
                   </>
+                )}
+              />
+            </div>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium">Concurrent audio transcodes</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  How many files Audio Compress or Audio Toolbox process in parallel. Audio always
+                  runs on CPU — unrelated to the GPU-oriented setting above.
+                </p>
+              </div>
+              <Controller
+                control={form.control}
+                name="maxConcurrentAudio"
+                render={({ field }) => (
+                  <div className="flex items-center gap-4">
+                    <Slider
+                      min={1}
+                      max={32}
+                      value={[field.value ?? 1]}
+                      onValueChange={([v]) => field.onChange(v ?? 1)}
+                      className="w-48"
+                    />
+                    <span className="text-sm font-mono w-4 text-center">{field.value}</span>
+                  </div>
                 )}
               />
             </div>

@@ -343,7 +343,7 @@ def run_audio_compress_job(
         db.commit()
 
         total = len(paths)
-        n_concurrent = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
+        n_concurrent = max(1, int(get_setting(db, "max_concurrent_audio_transcodes", "1")))
 
         codec_meta = next((c for c in get_available_audio_codecs() if c["id"] == codec), None)
         if codec_meta is None:

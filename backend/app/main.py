@@ -226,6 +226,26 @@ def _migrate_siglip_to_clip():
             conn.commit()
 
 
+def _seed_max_concurrent_jobs():
+    """One-time: `max_concurrent_jobs` (app-wide job dispatcher concurrency)
+    used to be the same setting as `max_concurrent_transcodes`, which is now
+    redefined as per-GPU capacity for Compress/Toolbox file scheduling and no
+    longer drives the job queue. Seed the new key from the old stored value
+    so upgrading doesn't silently serialize the job queue down to the
+    default of 1. No-op once `max_concurrent_jobs` has its own stored value."""
+    from app.database import SessionLocal
+    from app.models.settings import Setting, get_setting, set_setting
+
+    db = SessionLocal()
+    try:
+        if db.get(Setting, "max_concurrent_jobs") is not None:
+            return
+        old = get_setting(db, "max_concurrent_transcodes", "1")
+        set_setting(db, "max_concurrent_jobs", old)
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -235,6 +255,7 @@ async def lifespan(app: FastAPI):
     _migrate_video_columns()
     _cleanup_clip_models()
     _cleanup_whisper_models()
+    _seed_max_concurrent_jobs()
     _sweep_orphaned_thumbnails()
     _reap_orphaned_jobs()
     _reap_orphaned_downloads()
@@ -247,7 +268,7 @@ async def lifespan(app: FastAPI):
 
     _db = SessionLocal()
     try:
-        n = int(get_setting(_db, "max_concurrent_transcodes", "1"))
+        n = int(get_setting(_db, "max_concurrent_jobs", "1"))
     finally:
         _db.close()
     init_queue(n)

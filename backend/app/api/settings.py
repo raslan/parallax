@@ -20,6 +20,10 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 _CONCURRENT_KEY = "max_concurrent_transcodes"
 _CONCURRENT_DEFAULT = "1"
+_JOBS_KEY = "max_concurrent_jobs"
+_JOBS_DEFAULT = "1"
+_AUDIO_CONCURRENT_KEY = "max_concurrent_audio_transcodes"
+_AUDIO_CONCURRENT_DEFAULT = "1"
 _TMDB_KEY = "tmdb_api_key"
 _NUDENET_MODEL_KEY = "nudenet_model"
 _NUDENET_MODEL_DEFAULT = "320n"
@@ -48,6 +52,8 @@ class GPUInfo(BaseModel):
 
 class SettingsRead(BaseModel):
     max_concurrent_transcodes: int
+    max_concurrent_jobs: int
+    max_concurrent_audio_transcodes: int
     tmdb_api_key: str
     nudenet_model: str
     scan_batch_size: int
@@ -65,6 +71,8 @@ class SettingsRead(BaseModel):
 
 class SettingsUpdate(BaseModel):
     max_concurrent_transcodes: int | None = Field(default=None, ge=1, le=32)
+    max_concurrent_jobs: int | None = Field(default=None, ge=1, le=32)
+    max_concurrent_audio_transcodes: int | None = Field(default=None, ge=1, le=32)
     tmdb_api_key: str | None = Field(default=None, max_length=128)
     nudenet_model: str | None = None
     scan_batch_size: int | None = Field(default=None, ge=1, le=32)
@@ -82,6 +90,10 @@ def _read_settings(db: Session) -> SettingsRead:
 
     return SettingsRead(
         max_concurrent_transcodes=int(get_setting(db, _CONCURRENT_KEY, _CONCURRENT_DEFAULT)),
+        max_concurrent_jobs=int(get_setting(db, _JOBS_KEY, _JOBS_DEFAULT)),
+        max_concurrent_audio_transcodes=int(
+            get_setting(db, _AUDIO_CONCURRENT_KEY, _AUDIO_CONCURRENT_DEFAULT)
+        ),
         tmdb_api_key=get_setting(db, _TMDB_KEY, ""),
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
@@ -120,10 +132,16 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.max_concurrent_transcodes is not None:
         set_setting(db, _CONCURRENT_KEY, str(body.max_concurrent_transcodes))
+
+    if body.max_concurrent_jobs is not None:
+        set_setting(db, _JOBS_KEY, str(body.max_concurrent_jobs))
         try:
-            update_max_concurrent(body.max_concurrent_transcodes)
+            update_max_concurrent(body.max_concurrent_jobs)
         except Exception:
             pass
+
+    if body.max_concurrent_audio_transcodes is not None:
+        set_setting(db, _AUDIO_CONCURRENT_KEY, str(body.max_concurrent_audio_transcodes))
 
     if body.tmdb_api_key is not None:
         set_setting(db, _TMDB_KEY, body.tmdb_api_key)

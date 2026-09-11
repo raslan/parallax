@@ -1,8 +1,13 @@
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
+import { Controller } from "react-hook-form";
 import { Card, CardContent } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { useTheme } from "@/components/ThemeProvider";
 import type { Theme } from "@/types/theme";
+import { generalSettingsSchema, seedGeneral } from "@/lib/schemas/settings";
 import { DangerZone } from "./DangerZone";
+import { SaveButton } from "./SaveButton";
+import { useSettingsForm } from "./useSettingsForm";
 
 type ThemeOption = { id: Theme; label: string };
 
@@ -95,6 +100,10 @@ function ThemeGroup({ title, options }: { title: string; options: ThemeOption[] 
 }
 
 export function GeneralTab() {
+  const { form, isLoading, save } = useSettingsForm(generalSettingsSchema, seedGeneral, (v) => ({
+    max_concurrent_jobs: v.maxConcurrentJobs,
+  }));
+
   return (
     <>
       <Card>
@@ -105,6 +114,44 @@ export function GeneralTab() {
           </div>
           <ThemeGroup title="Parallax" options={PARALLAX_THEMES} />
           <ThemeGroup title="Colour" options={COLOUR_THEMES} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-medium">Concurrent jobs</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  How many jobs of any type (scan, compress, toolbox, duplicates, downloads, etc.)
+                  run at once across the whole app. Unrelated to a job's own internal file-level
+                  concurrency, set per feature (e.g. Transcoding's per-GPU setting).
+                </p>
+              </div>
+              <Controller
+                control={form.control}
+                name="maxConcurrentJobs"
+                render={({ field }) => (
+                  <div className="flex items-center gap-4">
+                    <Slider
+                      min={1}
+                      max={32}
+                      value={[field.value ?? 1]}
+                      onValueChange={([v]) => field.onChange(v ?? 1)}
+                      className="w-48"
+                    />
+                    <span className="text-sm font-mono w-4 text-center">{field.value}</span>
+                  </div>
+                )}
+              />
+              <SaveButton {...save} />
+            </>
+          )}
         </CardContent>
       </Card>
       <DangerZone />

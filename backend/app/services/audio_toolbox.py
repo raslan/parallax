@@ -353,7 +353,7 @@ def run_audio_toolbox_job(
         job.total_files = len(paths)
         db.commit()
         try:
-            n_concurrent = max(1, int(get_setting(db, "max_concurrent_transcodes", "1")))
+            n_concurrent = max(1, int(get_setting(db, "max_concurrent_audio_transcodes", "1")))
         except (TypeError, ValueError):
             n_concurrent = 1
 

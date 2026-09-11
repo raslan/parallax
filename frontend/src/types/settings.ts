@@ -5,6 +5,8 @@ interface DetectedGpu {
 
 export interface Settings {
   max_concurrent_transcodes: number;
+  max_concurrent_jobs: number;
+  max_concurrent_audio_transcodes: number;
   tmdb_api_key: string;
   nudenet_model: string;
   scan_batch_size: number;
@@ -22,6 +24,8 @@ export interface Settings {
 
 export interface UpdateSettingsBody {
   max_concurrent_transcodes?: number;
+  max_concurrent_jobs?: number;
+  max_concurrent_audio_transcodes?: number;
   tmdb_api_key?: string;
   nudenet_model?: string;
   scan_batch_size?: number;

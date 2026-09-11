@@ -42,3 +42,33 @@ def test_patch_settings_rejects_above_new_ceiling(client):
     r = client.patch("/api/settings", json={"max_concurrent_transcodes": 33})
 
     assert r.status_code == 422
+
+
+def test_max_concurrent_jobs_is_independent_of_video_transcodes(client, monkeypatch):
+    # max_concurrent_transcodes now means "per GPU" for Compress/Toolbox file
+    # scheduling — it must not drive the app-wide job dispatcher anymore.
+    import app.api.settings as settings_api
+
+    calls = []
+    monkeypatch.setattr(settings_api, "update_max_concurrent", lambda n: calls.append(n))
+
+    r = client.patch("/api/settings", json={"max_concurrent_transcodes": 4})
+    assert r.status_code == 200
+    assert calls == []
+
+    r2 = client.patch("/api/settings", json={"max_concurrent_jobs": 7})
+    assert r2.status_code == 200
+    assert r2.json()["max_concurrent_jobs"] == 7
+    assert calls == [7]
+
+
+def test_max_concurrent_audio_transcodes_is_independent(client):
+    # Audio Compress/Toolbox always run on CPU — this setting must be
+    # separate from the GPU-oriented video transcode concurrency.
+    r = client.patch("/api/settings", json={"max_concurrent_audio_transcodes": 5})
+    assert r.status_code == 200
+    assert r.json()["max_concurrent_audio_transcodes"] == 5
+
+    r2 = client.patch("/api/settings", json={"max_concurrent_transcodes": 9})
+    assert r2.status_code == 200
+    assert r2.json()["max_concurrent_audio_transcodes"] == 5

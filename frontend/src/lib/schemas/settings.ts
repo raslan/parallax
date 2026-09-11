@@ -9,8 +9,14 @@ import type { Settings } from "@/types/settings";
 
 export const transcodingSchema = z.object({
   maxConcurrent: z.number().int().min(1).max(32),
+  maxConcurrentAudio: z.number().int().min(1).max(32),
 });
 export type TranscodingForm = z.infer<typeof transcodingSchema>;
+
+export const generalSettingsSchema = z.object({
+  maxConcurrentJobs: z.number().int().min(1).max(32),
+});
+export type GeneralSettingsForm = z.infer<typeof generalSettingsSchema>;
 
 export const credentialsSchema = z.object({
   tmdbKey: z.string(),
@@ -36,6 +42,10 @@ export type DownloadsSettingsForm = z.infer<typeof downloadsSettingsSchema>;
 /** Seed helpers — map a fetched `Settings` onto each tab's form shape. */
 export const seedTranscoding = (s: Settings): TranscodingForm => ({
   maxConcurrent: s.max_concurrent_transcodes,
+  maxConcurrentAudio: s.max_concurrent_audio_transcodes,
+});
+export const seedGeneral = (s: Settings): GeneralSettingsForm => ({
+  maxConcurrentJobs: s.max_concurrent_jobs,
 });
 export const seedCredentials = (s: Settings): CredentialsForm => ({
   tmdbKey: s.tmdb_api_key,
