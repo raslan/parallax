@@ -9,7 +9,7 @@ ARG APP_VERSION=dev
 # includes chromaprint (needed for audio_fingerprint.py), vaapi, and
 # nvenc/nvdec in one package.
 ARG JELLYFIN_FFMPEG_VERSION=8.1.2-4
-ARG JELLYFIN_FFMPEG_DEB=jellyfin-ffmpeg8_8.1.2-4-jammy_amd64.deb
+ARG JELLYFIN_FFMPEG_DEB=jellyfin-ffmpeg8_8.1.2-4-trixie_amd64.deb
 
 # Stage 1: build the React frontend
 FROM node:20-alpine AS frontend-builder
