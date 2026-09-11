@@ -52,9 +52,7 @@ export function VideoThumbnail({
         />
       )}
       {(!loaded || errored) && (
-        <div
-          className={cn("absolute inset-0 flex items-center justify-center", fallbackClassName)}
-        >
+        <div className={cn("absolute inset-0 flex items-center justify-center", fallbackClassName)}>
           <ImageOff className={iconClassName} />
         </div>
       )}

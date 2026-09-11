@@ -8,10 +8,7 @@ import { SectionSheet } from "./SectionSheet";
 
 afterEach(cleanup);
 
-const renderSheet = (
-  sectionId: "videos" | "images" | "tools" | null,
-  onOpenChange = vi.fn(),
-) => {
+const renderSheet = (sectionId: "videos" | "images" | "tools" | null, onOpenChange = vi.fn()) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   qc.setQueryData(qk.libraries(), [{ id: 1 }]);
   qc.setQueryData(qk.imageLibraries(), [{ id: 1 }]);

@@ -26,7 +26,9 @@ describe("BottomBar", () => {
   it("marks the active section from the current route", () => {
     at("/content-review");
     expect(screen.getByRole("button", { name: "Images" }).getAttribute("data-active")).toBe("true");
-    expect(screen.getByRole("button", { name: "Videos" }).getAttribute("data-active")).toBe("false");
+    expect(screen.getByRole("button", { name: "Videos" }).getAttribute("data-active")).toBe(
+      "false",
+    );
   });
 
   it("calls onOpenSection with the section id on click (never navigates)", () => {
