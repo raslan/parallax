@@ -16,6 +16,7 @@ _pending: set[int] = set()
 _semaphore: asyncio.Semaphore | None = None
 _executor: ThreadPoolExecutor | None = None
 _max_concurrent: int = 1
+_loop: asyncio.AbstractEventLoop | None = None
 
 
 def _get_queue() -> asyncio.Queue:
@@ -47,6 +48,16 @@ async def enqueue(job_id: int | None, fn: Callable, *args: Any) -> None:
     await _get_queue().put((job_id, fn, args))
 
 
+def enqueue_threadsafe(job_id: int | None, fn: Callable, *args: Any) -> None:
+    """Enqueue from a non-event-loop thread (e.g. a job running inside the
+    queue's own ThreadPoolExecutor that wants to chain another job). Same
+    semaphore/executor as enqueue() — just scheduled onto the running loop
+    from outside it instead of awaited directly."""
+    if _loop is None:
+        raise RuntimeError("queue worker not started")
+    asyncio.run_coroutine_threadsafe(enqueue(job_id, fn, *args), _loop)
+
+
 def cancel_pending(job_id: int) -> bool:
     """Remove a queued-but-not-started job. Returns True if it was pending."""
     if job_id in _pending:
@@ -56,10 +67,12 @@ def cancel_pending(job_id: int) -> bool:
 
 
 async def start_worker() -> None:
+    global _loop
     if _semaphore is None:
         init_queue(_max_concurrent)
 
     loop = asyncio.get_event_loop()
+    _loop = loop
     q = _get_queue()
 
     async def _run(fn: Callable, args: tuple) -> None:

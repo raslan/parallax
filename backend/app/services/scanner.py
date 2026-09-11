@@ -605,9 +605,9 @@ def scan_library(library_id: int):
         db.commit()
         _log(db, job.id, "Scan complete")
 
-        threading.Thread(
-            target=_warm_thumbnails, args=(library_id,), daemon=True, name="thumb-warm-dispatch"
-        ).start()
+        from app.queue import enqueue_threadsafe
+
+        enqueue_threadsafe(None, _warm_thumbnails, library_id)
 
     except Exception as e:
         if job:
