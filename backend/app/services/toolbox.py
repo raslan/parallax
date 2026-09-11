@@ -13,6 +13,7 @@ from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 from app.services.compressor import _NEEDS_REMUX, _cleanup, _read_and_remove, _rescan_after_job
 from app.services.encoder import encoder_for_codec
+from app.services.gpu_pool import GPUDevice
 
 _HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
 
@@ -43,14 +44,35 @@ def _build_toolbox_cmd(
     force_video_reencode: bool = False,
     copy_seek_start: float | None = None,  # actual keyframe-snapped seek point, copy-mode only
     rebase_pts: bool = False,  # matroska-family output needs pts rezeroed after a trimmed reencode
+    gpu: GPUDevice | None = None,
 ) -> list[str]:
     needs_video_reencode = rotate_deg is not None or force_video_reencode
     needs_audio_reencode = audio_channel is not None or normalize or rebase_pts
     has_dual_input = sync_offset_ms is not None
 
+    reencode_encoder: str | None = None
+    hwaccel_args: list[str] = []
+    if needs_video_reencode:
+        reencode_encoder = encoder_for_codec(source_codec)
+        nvenc = reencode_encoder in ("h264_nvenc", "hevc_nvenc")
+        vaapi = reencode_encoder in ("h264_vaapi", "hevc_vaapi")
+        if nvenc:
+            hwaccel_args = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+            if gpu:
+                hwaccel_args += ["-hwaccel_device", gpu.index]
+        elif vaapi and gpu:
+            hwaccel_args = [
+                "-hwaccel",
+                "vaapi",
+                "-hwaccel_device",
+                gpu.index,
+                "-hwaccel_output_format",
+                "vaapi",
+            ]
+
     ss_args = ["-ss", str(trim_start)] if trim_start > 0 else []
 
-    cmd = ["ffmpeg", "-y", *ss_args, "-i", input_path]
+    cmd = ["ffmpeg", "-y", *hwaccel_args, *ss_args, "-i", input_path]
 
     if has_dual_input:
         cmd += [*ss_args, "-itsoffset", str(sync_offset_ms / 1000), "-i", input_path]
@@ -88,9 +110,10 @@ def _build_toolbox_cmd(
     out_ext = os.path.splitext(output_path)[1].lower()
 
     if needs_video_reencode:
-        encoder = encoder_for_codec(source_codec)
-        cmd += ["-c:v", encoder, "-crf", "18", "-preset", "medium"]
-        if encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
+        cmd += ["-c:v", reencode_encoder, "-crf", "18", "-preset", "medium"]
+        if reencode_encoder in ("h264_nvenc", "hevc_nvenc") and gpu:
+            cmd += ["-gpu", gpu.index]
+        if reencode_encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
             cmd += ["-tag:v", "hvc1"]
     else:
         cmd += ["-c:v", "copy"]

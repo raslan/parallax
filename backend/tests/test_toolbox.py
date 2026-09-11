@@ -2,6 +2,7 @@ import os
 import subprocess
 
 from app.services.encoder import encoder_for_codec
+from app.services.gpu_pool import GPUDevice
 from app.services.toolbox import (
     _build_toolbox_cmd,
     _nearest_keyframe_at_or_before,
@@ -731,3 +732,78 @@ def test_parse_last_keyframe_malformed_lines_are_skipped():
         "not,valid,csv,too,many,fields\n" "0.000000,K_\n" "garbage\n" "abc,K_\n" "2.000000,K_\n"
     )
     assert _parse_last_keyframe_at_or_before(csv_output, 2.0) == 2.0
+
+
+def _nvidia(index="0"):
+    return GPUDevice(vendor="nvidia", index=index, label="card", family="nvenc")
+
+
+def test_build_cmd_reencode_pins_nvenc_device(monkeypatch):
+    import app.services.toolbox as tb
+
+    monkeypatch.setattr(tb, "encoder_for_codec", lambda codec: "hevc_nvenc")
+
+    cmd = tb._build_toolbox_cmd(
+        "/lib/movie.mp4",
+        "/lib/movie.fixing.mp4",
+        duration=60.0,
+        trim_start=0,
+        trim_end=0,
+        audio_channel=None,
+        rotate_deg=90,
+        normalize=False,
+        faststart=False,
+        sync_offset_ms=None,
+        source_codec="av1",
+        gpu=_nvidia("1"),
+    )
+
+    assert cmd[cmd.index("-hwaccel_device") + 1] == "1"
+    assert cmd[cmd.index("-gpu") + 1] == "1"
+    assert cmd.index("-hwaccel_device") < cmd.index("-i")
+
+
+def test_build_cmd_no_reencode_ignores_gpu_param():
+    import app.services.toolbox as tb
+
+    cmd = tb._build_toolbox_cmd(
+        "/lib/movie.mp4",
+        "/lib/movie.fixing.mp4",
+        duration=60.0,
+        trim_start=0,
+        trim_end=0,
+        audio_channel=None,
+        rotate_deg=None,
+        normalize=False,
+        faststart=False,
+        sync_offset_ms=None,
+        gpu=_nvidia(),
+    )
+
+    assert "-hwaccel" not in cmd
+    assert cmd[cmd.index("-c:v") + 1] == "copy"
+
+
+def test_build_cmd_reencode_no_gpu_omits_pinning(monkeypatch):
+    import app.services.toolbox as tb
+
+    monkeypatch.setattr(tb, "encoder_for_codec", lambda codec: "hevc_nvenc")
+
+    cmd = tb._build_toolbox_cmd(
+        "/lib/movie.mp4",
+        "/lib/movie.fixing.mp4",
+        duration=60.0,
+        trim_start=0,
+        trim_end=0,
+        audio_channel=None,
+        rotate_deg=90,
+        normalize=False,
+        faststart=False,
+        sync_offset_ms=None,
+        source_codec="av1",
+        gpu=None,
+    )
+
+    assert "-hwaccel_device" not in cmd
+    assert "-gpu" not in cmd
+    assert cmd[cmd.index("-hwaccel") + 1] == "cuda"
