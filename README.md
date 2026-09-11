@@ -100,11 +100,10 @@ services:
     ports:
       - "7899:7899"
     volumes:
-      - ./data:/app/data       # database, thumbnails, keyframes, model cache
+      - ./data:/app/data       # database, thumbnails, keyframes, downloaded AI models
       - /mnt/media:/media      # your media — add as many mounts as needed
     environment:
       - DATA_DIR=/app/data
-      - HF_HOME=/app/data/hf-cache
     user: "1000:1000"          # match your host UID:GID — run `id` to check
     restart: unless-stopped
 ```
@@ -144,7 +143,6 @@ docker run -d \
   -v ./data:/app/data \
   -v /mnt/media:/media \
   -e DATA_DIR=/app/data \
-  -e HF_HOME=/app/data/hf-cache \
   --user 1000:1000 \
   --restart unless-stopped \
   ghcr.io/raslan/parallax:latest
@@ -158,7 +156,6 @@ docker run -d \
   -v ./data:/app/data \
   -v /mnt/media:/media \
   -e DATA_DIR=/app/data \
-  -e HF_HOME=/app/data/hf-cache \
   --user 1000:1000 \
   --gpus all \
   --restart unless-stopped \
@@ -175,7 +172,6 @@ docker run -d \
   -v ./data:/app/data \
   -v /mnt/media:/media \
   -e DATA_DIR=/app/data \
-  -e HF_HOME=/app/data/hf-cache \
   --user 1000:1000 \
   --device /dev/dri:/dev/dri \
   --group-add video \
@@ -246,17 +242,10 @@ If you want to build your own image (e.g. to run unreleased code):
 git clone https://github.com/raslan/parallax.git
 cd parallax
 
-# CPU
-docker build -t parallax:cpu .
-
-# NVIDIA CUDA
-docker build --build-arg RUNTIME=cuda -t parallax:cuda .
-
-# AMD ROCm
-docker build --build-arg RUNTIME=rocm -t parallax:rocm .
+docker build -t parallax .
 ```
 
-Then substitute `parallax:cuda` (etc.) for the `ghcr.io/...` image in the examples above.
+Then substitute `parallax` for the `ghcr.io/...` image in the examples above.
 
 > When iterating locally, always pass `--build` to `docker compose up` — a plain restart won't pick up code changes.
 
@@ -266,4 +255,4 @@ Then substitute `parallax:cuda` (etc.) for the `ghcr.io/...` image in the exampl
 
 - **Backend** — Python 3.12, FastAPI, SQLAlchemy, SQLite, ffmpeg, babelfish, guessit
 - **Frontend** — React, TypeScript, Vite, shadcn/ui, Tailwind CSS
-- **Container** — multi-stage Docker build (Node → Python), single port, three runtime targets
+- **Container** — multi-stage Docker build (Node → Python), single port, one slim CPU-only image (GPU transcode via runtime device passthrough)
