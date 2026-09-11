@@ -9,7 +9,11 @@ ARG APP_VERSION=dev
 # includes chromaprint (needed for audio_fingerprint.py), vaapi, and
 # nvenc/nvdec in one package.
 ARG JELLYFIN_FFMPEG_VERSION=8.1.2-4
-ARG JELLYFIN_FFMPEG_DEB=jellyfin-ffmpeg8_8.1.2-4-trixie_amd64.deb
+# The .deb suite suffix must match python:3.12-slim's actual Debian codename
+# (currently trixie) — a mismatch fails apt with an unsatisfiable dependency
+# (e.g. the jammy build's libvpx7 requirement doesn't resolve on trixie).
+ARG JELLYFIN_FFMPEG_SUITE=trixie
+ARG JELLYFIN_FFMPEG_DEB=jellyfin-ffmpeg8_${JELLYFIN_FFMPEG_VERSION}-${JELLYFIN_FFMPEG_SUITE}_amd64.deb
 
 # Stage 1: build the React frontend
 FROM node:20-alpine AS frontend-builder
@@ -32,6 +36,8 @@ RUN apt-get update && \
     rm /tmp/jellyfin-ffmpeg.deb && \
     ln -sf /usr/lib/jellyfin-ffmpeg/ffmpeg /usr/local/bin/ffmpeg && \
     ln -sf /usr/lib/jellyfin-ffmpeg/ffprobe /usr/local/bin/ffprobe && \
+    apt-get purge -y curl && \
+    apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
