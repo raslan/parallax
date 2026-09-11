@@ -80,3 +80,78 @@ export function cleanEpisodeTitle(path: string): string {
   t = t.replace(/[-–|]\s*$/, "").trim();
   return t || raw;
 }
+
+/** Path segments of `path` relative to `root`, e.g. "/root/Playlist 1/a.mp4"
+ * under root "/root" → ["Playlist 1", "a.mp4"]. */
+function relSegments(path: string, root: string): string[] {
+  const r = root.endsWith("/") ? root.slice(0, -1) : root;
+  const rel = path.startsWith(r + "/") ? path.slice(r.length + 1) : path;
+  return rel.split("/");
+}
+
+/** True if any file lives inside a subfolder of the source root — the signal
+ * that offers "Folders are seasons" in Custom mode. */
+export function hasSeasonFolders(paths: string[], rootPath: string): boolean {
+  return paths.some((p) => relSegments(p, rootPath).length > 1);
+}
+
+export interface SeasonGroup {
+  seasonNumber: number;
+  /** null for files that sit directly under the source root (no season folder). */
+  folderName: string | null;
+  paths: string[];
+}
+
+/**
+ * Groups files by their immediate parent folder under the source root, for
+ * Custom mode's "Folders are seasons" toggle. Within-group order is preserved
+ * from the input (the caller applies sort/reverse to the flat order first).
+ * Season numbers: any loose root files become a leading season 1 (so nothing
+ * is silently dropped), then real subfolders follow, natural-sorted by name —
+ * Plex/Jellyfin only see the season number we write, not the source folder
+ * name, so this is just an initial numbering guess, not a compat requirement.
+ */
+export function groupBySeasonFolder(paths: string[], rootPath: string): SeasonGroup[] {
+  const loose: string[] = [];
+  const byFolder = new Map<string, string[]>();
+  for (const p of paths) {
+    const segments = relSegments(p, rootPath);
+    if (segments.length <= 1) {
+      loose.push(p);
+    } else {
+      const folder = segments[0]!;
+      (byFolder.get(folder) ?? byFolder.set(folder, []).get(folder)!).push(p);
+    }
+  }
+  const folderNames = [...byFolder.keys()].sort((a, b) => collator.compare(a, b));
+  const groups: SeasonGroup[] = [];
+  let n = 1;
+  if (loose.length > 0) groups.push({ seasonNumber: n++, folderName: null, paths: loose });
+  for (const name of folderNames) {
+    groups.push({ seasonNumber: n++, folderName: name, paths: byFolder.get(name)! });
+  }
+  return groups;
+}
+
+/**
+ * Moves `fromPath` to `toIndex` within its own group (a season, under the
+ * folders-are-seasons toggle, or the whole order otherwise), leaving every
+ * other group's relative order untouched. Used by the per-row episode-number
+ * input, which should only shift files within the same season.
+ */
+export function reorderWithinGroup(
+  order: string[],
+  groupPaths: string[],
+  fromPath: string,
+  toIndex: number,
+): string[] {
+  const from = groupPaths.indexOf(fromPath);
+  if (from < 0) return order;
+  const nextGroup = [...groupPaths];
+  const clamped = Math.max(0, Math.min(nextGroup.length - 1, toIndex));
+  nextGroup.splice(clamped, 0, nextGroup.splice(from, 1)[0]!);
+
+  const inGroup = new Set(groupPaths);
+  let i = 0;
+  return order.map((p) => (inGroup.has(p) ? nextGroup[i++]! : p));
+}
