@@ -54,35 +54,6 @@ def _cleanup_legacy_dirs():
         shutil.rmtree(keyframes_dir, ignore_errors=True)
 
 
-def _cleanup_clip_models():
-    """One-time: CLIP was removed from the app — delete any downloaded CLIP
-    model files left on disk. Single-user app, no prompt needed. Safe to
-    delete this function in a future release once confirmed run."""
-    import shutil
-
-    from app.services.model_manager import MODELS_DIR
-
-    clip_dir = os.path.join(MODELS_DIR, "clip")
-    if os.path.isdir(clip_dir):
-        shutil.rmtree(clip_dir, ignore_errors=True)
-        print("[startup] Removed leftover CLIP model files", flush=True)
-
-
-def _cleanup_whisper_models():
-    """One-time: Whisper transcription was removed from the app — delete any
-    downloaded Whisper model files left on disk. Single-user app, no prompt
-    needed. Safe to delete this function in a future release once confirmed
-    run."""
-    import shutil
-
-    from app.services.model_manager import MODELS_DIR
-
-    whisper_dir = os.path.join(MODELS_DIR, "whisper")
-    if os.path.isdir(whisper_dir):
-        shutil.rmtree(whisper_dir, ignore_errors=True)
-        print("[startup] Removed leftover Whisper model files", flush=True)
-
-
 def _sweep_orphaned_thumbnails():
     """Delete thumbnail files whose file_id no longer has a matching `File` row.
 
@@ -253,8 +224,6 @@ async def lifespan(app: FastAPI):
     _cleanup_legacy_dirs()
     _migrate_siglip_to_clip()
     _migrate_video_columns()
-    _cleanup_clip_models()
-    _cleanup_whisper_models()
     _seed_max_concurrent_jobs()
     _sweep_orphaned_thumbnails()
     _reap_orphaned_jobs()
