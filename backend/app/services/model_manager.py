@@ -1,5 +1,4 @@
 import os
-import shutil
 
 from app.database import DATA_DIR
 
@@ -28,64 +27,6 @@ NUDENET_MODELS: dict[str, dict] = {
         "inference_resolution": 640,
     },
 }
-
-
-WHISPER_MODELS: dict[str, dict] = {
-    "tiny": {
-        "id": "tiny",
-        "type": "whisper",
-        "name": "Whisper Tiny",
-        "description": "Fastest, lowest accuracy. ~75 MB.",
-        "hf_repo": "Systran/faster-whisper-tiny",
-        "size_mb": 75,
-        "quality": "fast",
-    },
-    "base": {
-        "id": "base",
-        "type": "whisper",
-        "name": "Whisper Base",
-        "description": "Good speed/accuracy balance. ~145 MB.",
-        "hf_repo": "Systran/faster-whisper-base",
-        "size_mb": 145,
-        "quality": "good",
-    },
-    "small": {
-        "id": "small",
-        "type": "whisper",
-        "name": "Whisper Small",
-        "description": "Recommended. Strong accuracy, fast enough. ~460 MB.",
-        "hf_repo": "Systran/faster-whisper-small",
-        "size_mb": 460,
-        "quality": "better",
-    },
-    "medium": {
-        "id": "medium",
-        "type": "whisper",
-        "name": "Whisper Medium",
-        "description": "High accuracy. ~1.4 GB.",
-        "hf_repo": "Systran/faster-whisper-medium",
-        "size_mb": 1400,
-        "quality": "better",
-    },
-    "large-v3": {
-        "id": "large-v3",
-        "type": "whisper",
-        "name": "Whisper Large v3",
-        "description": "Best accuracy. ~3 GB.",
-        "hf_repo": "Systran/faster-whisper-large-v3",
-        "size_mb": 3000,
-        "quality": "best",
-    },
-}
-
-
-def whisper_model_dir(model_id: str) -> str:
-    return os.path.join(MODELS_DIR, "whisper", model_id)
-
-
-def is_whisper_downloaded(model_id: str) -> bool:
-    d = whisper_model_dir(model_id)
-    return os.path.isdir(d) and os.path.exists(os.path.join(d, "model.bin"))
 
 
 def nudenet_path(model_id: str) -> str:
@@ -167,101 +108,6 @@ def _download_hf_file(
                     )
                     last_log_pct = pct
     return downloaded
-
-
-# ---------------------------------------------------------------------------
-# Whisper
-# ---------------------------------------------------------------------------
-
-
-def download_whisper(model_id: str, job_id: int) -> None:
-    from huggingface_hub import list_repo_files
-
-    from app.database import SessionLocal
-    from app.models.job import Job, JobStatus
-    from app.services.common import arm_cancel, clear_cancel, log, now
-
-    meta = WHISPER_MODELS[model_id]
-    target_dir = whisper_model_dir(model_id)
-    os.makedirs(target_dir, exist_ok=True)
-
-    db = SessionLocal()
-    job = None
-    _cleanup = False
-    try:
-        job = db.get(Job, job_id)
-        if not job:
-            return
-        job.status = JobStatus.RUNNING
-        job.started_at = now()
-        db.commit()
-        arm_cancel(job_id)
-
-        total_bytes = meta["size_mb"] * 1024 * 1024
-        print(
-            f"[model-download] {meta['name']}: starting download ({meta['size_mb']} MB)", flush=True
-        )
-        log(db, job_id, f"Downloading {meta['name']} from HuggingFace…")
-        job.progress = 5.0
-        db.commit()
-
-        files = list(list_repo_files(meta["hf_repo"]))
-        byte_offset = 0
-        for filename in files:
-            dest = os.path.join(target_dir, filename)
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            if os.path.exists(dest):
-                byte_offset += os.path.getsize(dest)
-                continue
-            byte_offset += _download_hf_file(
-                repo_id=meta["hf_repo"],
-                filename=filename,
-                dest_path=dest,
-                job=job,
-                db=db,
-                job_id=job_id,
-                total_bytes=total_bytes,
-                pct_start=5.0,
-                pct_end=95.0,
-                label=meta["name"],
-                byte_offset=byte_offset,
-            )
-
-        job.status = JobStatus.COMPLETED
-        job.progress = 100.0
-        job.finished_at = now()
-        db.commit()
-        print(f"[model-download] {meta['name']}: download complete", flush=True)
-        log(db, job_id, f"{meta['name']} downloaded successfully.")
-
-    except _DownloadCancelled:
-        _cleanup = True
-        if job:
-            job.status = JobStatus.CANCELLED
-            job.finished_at = now()
-            db.commit()
-        print(f"[model-download] {meta['name']}: cancelled — removing partial files", flush=True)
-
-    except Exception as e:
-        _cleanup = True
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)[:512]
-            job.finished_at = now()
-            db.commit()
-        print(f"[model-download] {meta['name']}: failed — {e}", flush=True)
-
-    finally:
-        clear_cancel(job_id)
-        if _cleanup:
-            shutil.rmtree(target_dir, ignore_errors=True)
-        db.close()
-
-
-def delete_whisper(model_id: str) -> None:
-    d = whisper_model_dir(model_id)
-    if os.path.isdir(d):
-        shutil.rmtree(d)
 
 
 # ---------------------------------------------------------------------------

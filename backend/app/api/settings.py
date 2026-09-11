@@ -13,9 +13,7 @@ from app.services.gpu_pool import detect_gpus
 from app.services.image_analyzer import release_sessions
 from app.services.model_manager import (
     NUDENET_MODELS,
-    WHISPER_MODELS,
     is_nudenet_downloaded,
-    is_whisper_downloaded,
 )
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -25,8 +23,6 @@ _CONCURRENT_DEFAULT = "1"
 _TMDB_KEY = "tmdb_api_key"
 _NUDENET_MODEL_KEY = "nudenet_model"
 _NUDENET_MODEL_DEFAULT = "320n"
-_WHISPER_MODEL_KEY = "whisper_model"
-_WHISPER_MODEL_DEFAULT = "small"
 _BATCH_SIZE_KEY = "scan_batch_size"
 _BATCH_SIZE_DEFAULT = "4"
 _PREFETCH_KEY = "scan_prefetch"
@@ -54,7 +50,6 @@ class SettingsRead(BaseModel):
     max_concurrent_transcodes: int
     tmdb_api_key: str
     nudenet_model: str
-    whisper_model: str
     scan_batch_size: int
     scan_prefetch: int
     subtitle_languages: str
@@ -72,7 +67,6 @@ class SettingsUpdate(BaseModel):
     max_concurrent_transcodes: int | None = Field(default=None, ge=1, le=32)
     tmdb_api_key: str | None = Field(default=None, max_length=128)
     nudenet_model: str | None = None
-    whisper_model: str | None = None
     scan_batch_size: int | None = Field(default=None, ge=1, le=32)
     scan_prefetch: int | None = Field(default=None, ge=1, le=20)
     subtitle_languages: str | None = Field(default=None, max_length=64)
@@ -90,7 +84,6 @@ def _read_settings(db: Session) -> SettingsRead:
         max_concurrent_transcodes=int(get_setting(db, _CONCURRENT_KEY, _CONCURRENT_DEFAULT)),
         tmdb_api_key=get_setting(db, _TMDB_KEY, ""),
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
-        whisper_model=get_setting(db, _WHISPER_MODEL_KEY, _WHISPER_MODEL_DEFAULT),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
         scan_prefetch=int(get_setting(db, _PREFETCH_KEY, _PREFETCH_DEFAULT)),
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
@@ -124,13 +117,6 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
             raise HTTPException(422, f"NudeNet model '{body.nudenet_model}' is not downloaded yet")
         set_setting(db, _NUDENET_MODEL_KEY, body.nudenet_model)
         model_changed = True
-
-    if body.whisper_model is not None:
-        if body.whisper_model not in WHISPER_MODELS:
-            raise HTTPException(400, f"Unknown Whisper model: {body.whisper_model}")
-        if not is_whisper_downloaded(body.whisper_model):
-            raise HTTPException(422, f"Whisper model '{body.whisper_model}' is not downloaded yet")
-        set_setting(db, _WHISPER_MODEL_KEY, body.whisper_model)
 
     if body.max_concurrent_transcodes is not None:
         set_setting(db, _CONCURRENT_KEY, str(body.max_concurrent_transcodes))
