@@ -55,61 +55,6 @@ class _DownloadCancelled(BaseException):
     pass
 
 
-def _download_hf_file(
-    repo_id: str,
-    filename: str,
-    dest_path: str,
-    job,
-    db,
-    job_id: int,
-    total_bytes: int,
-    pct_start: float,
-    pct_end: float,
-    label: str,
-    byte_offset: int = 0,
-) -> int:
-    """
-    Stream one file from HuggingFace to dest_path with live progress.
-    Returns number of bytes downloaded.
-    byte_offset: bytes already counted toward progress (for multi-file jobs).
-    """
-    import requests
-    from huggingface_hub import hf_hub_url
-
-    from app.services.common import should_cancel
-
-    url = hf_hub_url(repo_id=repo_id, filename=filename)
-    _total = max(total_bytes, 1)
-    n = byte_offset
-    last_db_pct = pct_start
-    last_log_pct = pct_start - 5.0
-    downloaded = 0
-
-    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    with requests.get(url, stream=True, timeout=60) as r:
-        r.raise_for_status()
-        with open(dest_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                if should_cancel(job_id):
-                    raise _DownloadCancelled()
-                f.write(chunk)
-                n += len(chunk)
-                downloaded += len(chunk)
-                pct = min(pct_start + (n / _total) * (pct_end - pct_start), pct_end)
-                if pct - last_db_pct >= 1.0:
-                    job.progress = pct
-                    db.commit()
-                    last_db_pct = pct
-                if pct - last_log_pct >= 5.0:
-                    print(
-                        f"[model-download] {label}: "
-                        f"{n // (1024 * 1024)} / {_total // (1024 * 1024)} MB ({pct:.0f}%)",
-                        flush=True,
-                    )
-                    last_log_pct = pct
-    return downloaded
-
-
 # ---------------------------------------------------------------------------
 # NudeNet
 # ---------------------------------------------------------------------------
