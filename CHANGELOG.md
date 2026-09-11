@@ -3,6 +3,37 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [3.0.0](https://github.com/raslan/parallax/compare/v2.10.0...v3.0.0) (2026-09-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **docker:** collapse to a single slim image
+
+### Features
+
+* add nightly releases (we go into the night) ([2f1480f](https://github.com/raslan/parallax/commit/2f1480f9a2cc879779c8a517b96759e2efce1be4))
+* **compress:** distribute compress jobs across detected GPUs ([c6939f8](https://github.com/raslan/parallax/commit/c6939f83da1556c9bc7491f97385ebbcbc796d7a))
+* **docker:** collapse to a single slim image ([7fc0b6d](https://github.com/raslan/parallax/commit/7fc0b6d46d2bb73a368ea543f6edbce6a0f480e2))
+* **gpu:** add GPU device detection service ([bf206da](https://github.com/raslan/parallax/commit/bf206da5b2d0970916017abb66e4d06165af55d4))
+* **gpu:** add GpuPool work-stealing scheduler ([490b585](https://github.com/raslan/parallax/commit/490b58535efefd52094125d8834379f3ab731803))
+* **settings:** show detected GPU hardware in transcoding hint ([304cc11](https://github.com/raslan/parallax/commit/304cc111e0d6f7f6f0d7e0ea8dda300d60658f28))
+* **settings:** surface detected GPUs, raise concurrency ceiling to 32 ([1659a51](https://github.com/raslan/parallax/commit/1659a5178343ebff365c84d7bca5a2a7173bc773))
+* **toolbox:** distribute toolbox re-encodes across detected GPUs ([7e4b910](https://github.com/raslan/parallax/commit/7e4b910631186d62ccc98ceb4de23846182ea1a9))
+* **toolbox:** pin GPU device on toolbox re-encode path ([a2d2228](https://github.com/raslan/parallax/commit/a2d222897501e1ec2485e68a1c3f4350127e4ef1))
+
+
+### Bug Fixes
+
+* **backend:** move onnxruntime cpu pin into requirements.txt ([b8e43e1](https://github.com/raslan/parallax/commit/b8e43e1cadaf4dc9a4a90698e9cb4700ede52696))
+* **docker:** use jellyfin-ffmpeg in cuda/rocm stages ([e11eea9](https://github.com/raslan/parallax/commit/e11eea98de6e2c498b7c5eebea07fa6be528849a))
+* **docker:** use trixie jellyfin-ffmpeg deb to match base image ([e73adf8](https://github.com/raslan/parallax/commit/e73adf8e4c9311ac3b06d1104edcefda0dcd5f21))
+* **frontend:** remove dead VITE_RUNTIME and whisper job-type checks ([2848d18](https://github.com/raslan/parallax/commit/2848d187e0f087971a9f2e8c33d90f69ac3ac89d))
+* **gpu:** don't double-count an NVIDIA card as a separate VA-API device ([5782311](https://github.com/raslan/parallax/commit/57823110c308471fbfdf2aa2d5a7cf46f456e52a))
+* **landing:** single-image deploy content, swap demo gif for png ([50f875e](https://github.com/raslan/parallax/commit/50f875ed9158e68f5309829bd744ffdd7f5811d8))
+* **nudenet:** force CPU execution provider ([d409385](https://github.com/raslan/parallax/commit/d409385a564d8d29aeb6fd5b835d687a792ed668))
+* use dynamic hwaccel for nvidia and rocm cards to not be icy slow ([cc03abc](https://github.com/raslan/parallax/commit/cc03abc80597ba7d5f55f39f20d04e9c2d07256e))
+
 ## [2.10.0](https://github.com/raslan/parallax/compare/v2.9.0...v2.10.0) (2026-09-11)
 
 
