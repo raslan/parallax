@@ -57,7 +57,7 @@ Parallax runs on Windows via [Docker Desktop](https://www.docker.com/products/do
 
 **AMD GPU users:** VA-API device passthrough (`/dev/dri`) is not available under WSL 2 / Docker Desktop on Windows, so hardware-accelerated transcoding isn't available on this path — the same image still runs fine CPU-only.
 
-Once Docker Desktop is running, follow the [Docker Compose](#docker-compose-recommended) instructions below with the image tag for your hardware. Everything else — the compose file, volume mounts, port — is identical to Linux.
+Once Docker Desktop is running, follow the [Docker Compose](#docker-compose-recommended) instructions below, adding the GPU block for your hardware if applicable. Everything else — the compose file, volume mounts, port — is identical to Linux.
 
 ---
 
