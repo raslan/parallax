@@ -12,8 +12,8 @@ from app.database import SessionLocal
 from app.models.job import Job, JobStatus
 from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
 from app.services.compressor import _NEEDS_REMUX, _cleanup, _read_and_remove, _rescan_after_job
-from app.services.encoder import encoder_for_codec
-from app.services.gpu_pool import GPUDevice
+from app.services.encoder import encoder_for_codec, family_for_encoder
+from app.services.gpu_pool import GPUDevice, GpuPool, is_hwaccel_failure
 
 _HEVC_ENCODERS = {"libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf", "hevc_vaapi"}
 
@@ -234,6 +234,7 @@ def _toolbox_fix_one(
     progress_cb: Callable[[float], None] | None = None,
     note_cb: Callable[[str], None] | None = None,
     keep_original: bool = True,
+    gpu_pools: dict[str, GpuPool] | None = None,
 ) -> tuple[bool, str | None, str | None]:
     """Apply the configured fix(es) to one file in-place.
 
@@ -369,6 +370,15 @@ def _toolbox_fix_one(
         except Exception:
             pass
 
+    gpu = None
+    pool = None
+    if needs_video_reencode and gpu_pools:
+        reencode_encoder = encoder_for_codec(source_codec)
+        family = family_for_encoder(reencode_encoder)
+        pool = gpu_pools.get(family)
+        if pool:
+            gpu = pool.acquire_any()
+
     cmd = _build_toolbox_cmd(
         src,
         tmp,
@@ -384,6 +394,7 @@ def _toolbox_fix_one(
         force_video_reencode=force_video_reencode,
         copy_seek_start=nearest_kf,
         rebase_pts=rebase_pts,
+        gpu=gpu,
     )
 
     proc = None
@@ -399,6 +410,8 @@ def _toolbox_fix_one(
                 proc.wait()
                 _cleanup(tmp)
                 _cleanup(err_path)
+                if gpu is not None and pool:
+                    pool.release(gpu)
                 return False, "Cancelled", None
 
             line = line.strip()
@@ -415,13 +428,71 @@ def _toolbox_fix_one(
         if proc.returncode != 0:
             stderr_text = _read_and_remove(err_path)
             _cleanup(tmp)
-            return (
-                False,
-                (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"),
-                None,
-            )
-
-        _cleanup(err_path)
+            if gpu is not None and pool and is_hwaccel_failure(stderr_text):
+                if note_cb:
+                    note_cb(f"{gpu.label}: hwaccel init failed, retrying on another device")
+                pool.mark_degraded(gpu)
+                pool.release(gpu)
+                retry_gpu = pool.acquire_any(exclude=frozenset({gpu.index}))
+                retry_cmd = _build_toolbox_cmd(
+                    src,
+                    tmp,
+                    duration,
+                    trim_start=trim_start,
+                    trim_end=trim_end,
+                    audio_channel=audio_channel,
+                    rotate_deg=settings.get("rotate_deg"),
+                    normalize=settings.get("normalize", False),
+                    faststart=settings.get("faststart", False),
+                    sync_offset_ms=settings.get("sync_offset_ms"),
+                    source_codec=source_codec,
+                    force_video_reencode=force_video_reencode,
+                    copy_seek_start=nearest_kf,
+                    rebase_pts=rebase_pts,
+                    gpu=retry_gpu,
+                )
+                retry_err_fd, retry_err_path = tempfile.mkstemp(suffix=".log", prefix="toolbox_")
+                retry_proc = subprocess.Popen(
+                    retry_cmd, stdout=subprocess.PIPE, stderr=retry_err_fd, text=True
+                )
+                os.close(retry_err_fd)
+                for line in iter(retry_proc.stdout.readline, ""):
+                    line = line.strip()
+                    if line.startswith("out_time_ms=") and duration > 0 and progress_cb:
+                        try:
+                            ms = int(line.split("=")[1])
+                            if ms > 0:
+                                progress_cb(min(ms / 1_000_000 / duration, 0.99))
+                        except (ValueError, IndexError):
+                            pass
+                retry_proc.wait()
+                if retry_gpu is not None:
+                    pool.release(retry_gpu)
+                if retry_proc.returncode != 0:
+                    retry_stderr = _read_and_remove(retry_err_path)
+                    _cleanup(tmp)
+                    return (
+                        False,
+                        (
+                            retry_stderr[-512:]
+                            if retry_stderr
+                            else f"ffmpeg exit {retry_proc.returncode}"
+                        ),
+                        None,
+                    )
+                _cleanup(retry_err_path)
+            else:
+                if gpu is not None and pool:
+                    pool.release(gpu)
+                return (
+                    False,
+                    (stderr_text[-512:] if stderr_text else f"ffmpeg exit {proc.returncode}"),
+                    None,
+                )
+        else:
+            _cleanup(err_path)
+            if gpu is not None and pool:
+                pool.release(gpu)
 
         if keep_original:
             originals_dir = os.path.join(os.path.dirname(src), "_originals")
@@ -445,6 +516,8 @@ def _toolbox_fix_one(
                 proc.wait()
             except Exception:
                 pass
+        if gpu is not None and pool:
+            pool.release(gpu)
         _cleanup(tmp)
         _cleanup(err_path)
         return False, str(e), None
@@ -482,6 +555,12 @@ def run_toolbox_job(
 
         arm_cancel(job_id)
 
+        gpu_pools: dict[str, GpuPool] = {}
+        for family in ("nvenc", "vaapi"):
+            pool = GpuPool.build(family)
+            if pool._devices:
+                gpu_pools[family] = pool
+
         def make_progress_cb(path: str) -> Callable[[float], None]:
             def cb(frac: float) -> None:
                 with fracs_lock:
@@ -499,6 +578,7 @@ def run_toolbox_job(
                 progress_cb=make_progress_cb(path),
                 note_cb=lambda msg: log_q.put(("info", msg)),
                 keep_original=keep_original,
+                gpu_pools=gpu_pools,
             )
             with fracs_lock:
                 fracs.pop(path, None)
