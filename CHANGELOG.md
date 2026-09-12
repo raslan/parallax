@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [3.2.0](https://github.com/raslan/parallax/compare/v3.1.1...v3.2.0) (2026-09-12)
+
+
+### Features
+
+* update downloader flow dependency and name resolution ([a144646](https://github.com/raslan/parallax/commit/a144646f37525f6a2bd88a6951ed0fba1bb1b50f))
+
 ## [3.1.1](https://github.com/raslan/parallax/compare/v3.1.0...v3.1.1) (2026-09-11)
 
 
