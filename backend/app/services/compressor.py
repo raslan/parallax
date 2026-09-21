@@ -13,6 +13,7 @@ from app.models.job import Job, JobStatus
 from app.services.common import (
     arm_cancel,
     clear_cancel,
+    fail_job,
     log,
     now,
     should_cancel,
@@ -530,10 +531,6 @@ def run_compress_job(
         log(db, job_id, f"Compress complete — {completed} succeeded, {failed} failed")
 
     except Exception as exc:
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(exc)[:512]
-            job.finished_at = now()
-            db.commit()
+        fail_job(db, job, exc)
     finally:
         db.close()

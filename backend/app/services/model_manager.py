@@ -65,7 +65,7 @@ def download_nudenet(model_id: str, job_id: int) -> None:
 
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+    from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 
     meta = NUDENET_MODELS[model_id]
     target = nudenet_path(model_id)
@@ -161,12 +161,7 @@ def download_nudenet(model_id: str, job_id: int) -> None:
 
     except Exception as e:
         _cleanup = True
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)[:512]
-            job.finished_at = now()
-            job.current_file = None
-            db.commit()
+        fail_job(db, job, e)
         print(f"[model-download] {meta['name']}: failed — {e}", flush=True)
 
     finally:

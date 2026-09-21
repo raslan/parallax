@@ -380,6 +380,33 @@ def test_video_scan_poisoned_session_still_ends_failed(sessions, tmp_path, monke
     db.close()
 
 
+# --- fail_job ---------------------------------------------------------------------
+
+
+def test_fail_job_recovers_a_poisoned_session_and_truncates(sessions):
+    """The shared handler helper: rollback first, then record the failure."""
+    db = sessions()
+    job = Job(type=JobType.COMPRESS, status=JobStatus.RUNNING, current_file="x.mkv")
+    db.add_all([Job(type="x", status=JobStatus.RUNNING), job])
+    db.add(ImageLibrary(name="dup", path="/dup"))
+    db.commit()
+    jid = job.id
+    db.add(ImageLibrary(name="dup2", path="/dup"))  # UNIQUE(path) -> flush fails
+    try:
+        db.flush()
+    except Exception as exc:
+        boom = exc
+    common.fail_job(db, job, RuntimeError("x" * 2000 + str(boom)))
+    db.close()
+
+    db = sessions()
+    got = db.get(Job, jid)
+    assert got.status == JobStatus.FAILED and len(got.error) == 512
+    assert got.current_file is None and got.finished_at is not None
+    db.close()
+    common.fail_job(db, None, RuntimeError("no job"))  # tolerated
+
+
 # --- queue safety net -------------------------------------------------------------
 
 

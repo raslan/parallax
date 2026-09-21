@@ -9,7 +9,7 @@ from app.database import SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus
 from app.models.library import Library
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 from app.services.video_analyzer import (
     _calc_scaled_size,
     _hwaccel_args,
@@ -206,10 +206,6 @@ def scan_phash_library(
         log(db, job_id, f"pHash scan complete — {succeeded} scanned, {failed} failed")
 
     except Exception as e:
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)
-            job.finished_at = now()
-            db.commit()
+        fail_job(db, job, e)
     finally:
         db.close()

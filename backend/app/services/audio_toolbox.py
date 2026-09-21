@@ -26,6 +26,7 @@ from app.services.audio_compressor import _has_encoder
 from app.services.common import (
     arm_cancel,
     clear_cancel,
+    fail_job,
     now,
     should_cancel,
     temp_sibling_path,
@@ -341,6 +342,7 @@ def run_audio_toolbox_job(
     are being worked on right now.
     """
     db = SessionLocal()
+    job = None
     try:
         job = db.get(Job, job_id)
         if job is None:
@@ -431,5 +433,7 @@ def run_audio_toolbox_job(
                 f"{os.path.basename(r['path'])}: {r['error']}" for r in failed[:5]
             )
         db.commit()
+    except Exception as exc:
+        fail_job(db, job, exc)
     finally:
         db.close()

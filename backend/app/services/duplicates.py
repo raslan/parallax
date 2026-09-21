@@ -8,7 +8,7 @@ from app.models.job import Job, JobStatus
 from app.models.settings import get_setting
 from app.services.audio_fingerprint import compute_audio_fingerprint
 from app.services.byte_hash import compute_byte_hash
-from app.services.common import arm_cancel, clear_cancel, now, should_cancel
+from app.services.common import arm_cancel, clear_cancel, fail_job, now, should_cancel
 from app.services.phash_scanner import _Cancelled, _extract_phash_frames
 
 logger = logging.getLogger(__name__)
@@ -329,11 +329,7 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
     except Exception as e:
         logger.exception("Duplicate extraction failed for library %d: %s", library_id, e)
         clear_cancel(job_id)
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)
-            job.finished_at = now()
-            db.commit()
+        fail_job(db, job, e)
         raise
     finally:
         db.close()

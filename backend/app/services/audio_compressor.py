@@ -29,6 +29,7 @@ from app.services import audio_scanner
 from app.services.common import (
     arm_cancel,
     clear_cancel,
+    fail_job,
     log,
     now,
     should_cancel,
@@ -502,11 +503,7 @@ def run_audio_compress_job(
         )
 
     except Exception as exc:
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(exc)[:512]
-            job.finished_at = now()
-            db.commit()
+        fail_job(db, job, exc)
     finally:
         clear_cancel(job_id)
         db.close()

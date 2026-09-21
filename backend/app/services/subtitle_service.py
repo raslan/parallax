@@ -327,7 +327,7 @@ def download_one(file_path: str, provider: str, subtitle_id: str, language: str)
 def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
-    from app.services.common import arm_cancel, clear_cancel, should_cancel
+    from app.services.common import arm_cancel, clear_cancel, fail_job, should_cancel
 
     db = SessionLocal()
     try:
@@ -507,14 +507,10 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
     except Exception as exc:
         logger.exception("Subtitle job %d failed", job_id)
         try:
-            job = db.get(Job, job_id)
-            if job:
-                job.status = JobStatus.FAILED
-                job.error = str(exc)
-                job.finished_at = datetime.now(UTC).replace(tzinfo=None)
-                db.commit()
+            db.rollback()  # a failed flush poisons the session; get() below needs it usable
+            fail_job(db, db.get(Job, job_id), exc)
         except Exception:
-            pass
+            logger.exception("Could not mark subtitle job %d failed", job_id)
     finally:
         db.close()
 

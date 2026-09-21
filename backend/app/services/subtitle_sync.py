@@ -9,7 +9,7 @@ import sys
 import urllib.request
 
 from app.database import DATA_DIR
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 
 logger = logging.getLogger(__name__)
 
@@ -166,13 +166,9 @@ def run_sync_job(job_id: int, targets: list[tuple[str, str]], engine: str) -> No
     except Exception as exc:
         logger.exception("Subtitle sync job %d failed", job_id)
         try:
-            job = db.get(Job, job_id)
-            if job:
-                job.status = JobStatus.FAILED
-                job.error = str(exc)
-                job.finished_at = now()
-                db.commit()
+            db.rollback()  # a failed flush poisons the session; get() below needs it usable
+            fail_job(db, db.get(Job, job_id), exc)
         except Exception:
-            pass
+            logger.exception("Could not mark subtitle sync job %d failed", job_id)
     finally:
         db.close()

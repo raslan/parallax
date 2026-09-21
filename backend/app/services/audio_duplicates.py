@@ -69,6 +69,7 @@ def extract_audio_fingerprints(library_id: int, job_id: int) -> None:
         db.commit()
     except Exception as exc:  # noqa: BLE001
         logger.exception("audio fingerprint extraction crashed: %s", exc)
+        db.rollback()  # a failed flush poisons the session; the finally below needs it usable
         failed = True
         error = str(exc)
     finally:

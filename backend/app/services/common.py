@@ -64,7 +64,8 @@ def fail_job(db, job, exc: Exception) -> None:
         return
     db.rollback()
     job.status = JobStatus.FAILED
-    job.error = str(exc)
+    job.error = str(exc)[:512]
+    job.current_file = None
     job.finished_at = now()
     db.commit()
 
