@@ -6,6 +6,7 @@ extraction and thumbnails. The ffprobe-field-mapping logic lives in
 """
 
 import concurrent.futures as _cf
+import contextlib
 import json
 import os
 import subprocess
@@ -19,7 +20,9 @@ from app.models.job import Job, JobStatus
 from app.services.common import (
     arm_cancel,
     clear_cancel,
+    fail_job,
     is_ignored_media_name,
+    library_scan_active,
     log,
     now,
     should_cancel,
@@ -251,6 +254,7 @@ def scan_audio_library(library_id: int, job_id: int) -> None:
     """
     db = SessionLocal()
     job: Job | None = None
+    scan_guard = contextlib.ExitStack()
     try:
         job = db.get(Job, job_id)
         if job is None:
@@ -267,6 +271,10 @@ def scan_audio_library(library_id: int, job_id: int) -> None:
         job.status = JobStatus.RUNNING
         job.started_at = now()
         db.commit()
+
+        # The filesystem watcher leaves this library alone until we finish — see
+        # common.library_scan_active. Registered before the row snapshot below.
+        scan_guard.enter_context(library_scan_active("audio", library_id))
 
         log(db, job_id, f"Scanning audio library: {library.path}")
         audio_paths = _find_audio_files(library.path)
@@ -367,11 +375,8 @@ def scan_audio_library(library_id: int, job_id: int) -> None:
         log(db, job_id, "Audio scan complete")
 
     except Exception as e:
-        if job is not None:
-            job.status = JobStatus.FAILED
-            job.error = str(e)
-            job.finished_at = now()
-            db.commit()
+        fail_job(db, job, e)
     finally:
+        scan_guard.close()
         clear_cancel(job_id)
         db.close()

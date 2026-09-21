@@ -15,7 +15,7 @@ from app.database import SessionLocal
 from app.models.image import ImageDetection, ImageFile, ImageStatus
 from app.models.job import Job, JobStatus
 from app.models.settings import get_setting
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 
 
 def _start(db, job_id: int) -> Job | None:
@@ -41,11 +41,7 @@ def _finish(db, job: Job | None, *, cancelled: bool = False) -> None:
 
 
 def _fail(db, job: Job | None, exc: Exception) -> None:
-    if job:
-        job.status = JobStatus.FAILED
-        job.error = str(exc)
-        job.finished_at = now()
-        db.commit()
+    fail_job(db, job, exc)
 
 
 def extract_image_phash(library_id: int | None, job_id: int) -> None:

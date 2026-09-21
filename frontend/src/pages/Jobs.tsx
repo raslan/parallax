@@ -32,6 +32,10 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 
 const TYPE_LABEL: Record<string, string> = {
   scan: "Scan",
+  image_scan: "Image scan",
+  image_duplicates: "Image pHash",
+  image_content_scan: "Content scan",
+  phash_scan: "pHash scan",
   transcode: "Transcode",
   duplicates: "Duplicate scan",
   subtitle_download: "Subtitle download",
@@ -44,6 +48,23 @@ const TYPE_LABEL: Record<string, string> = {
   audio_duplicates: "Audio Duplicates",
   toolbox_fix: "Toolbox fix",
   thumbnail_warm: "Generating thumbnails",
+};
+
+// Job types whose `current_file` is shown bare (a scan's file is just a name).
+const BARE_FILE_TYPES = new Set(["scan", "audio_scan", "image_scan"]);
+
+// Verb shown before `current_file`; anything unlisted reads "Processing".
+const FILE_VERB: Record<string, string> = {
+  duplicates: "Scanning",
+  phash_scan: "Scanning",
+  image_duplicates: "Scanning",
+  image_content_scan: "Scanning",
+  audio_duplicates: "Scanning",
+  transcode: "Transcoding",
+  compress: "Transcoding",
+  audio_compress: "Transcoding",
+  toolbox_fix: "Transcoding",
+  audio_toolbox: "Transcoding",
 };
 
 function ProgressBar({ value }: { value: number }) {
@@ -130,15 +151,9 @@ function JobRow({
           </div>
           {job.status === "running" && job.current_file && (
             <p className="text-xs text-muted-foreground truncate" title={job.current_file}>
-              {job.type === "scan"
+              {BARE_FILE_TYPES.has(job.type)
                 ? job.current_file
-                : `${
-                    job.type === "duplicates" || job.type === "phash_scan"
-                      ? "Scanning"
-                      : job.type === "subtitle_scan"
-                        ? "Processing"
-                        : "Transcoding"
-                  }: ${job.current_file}`}
+                : `${FILE_VERB[job.type] ?? "Processing"}: ${job.current_file}`}
             </p>
           )}
           {job.error && (

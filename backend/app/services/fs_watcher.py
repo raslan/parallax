@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from app.services.audio_scanner import AUDIO_EXTENSIONS
+from app.services.common import apply_lock, scan_active
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +69,11 @@ _pending: dict[_Key, _Pending] = {}  # (kind, library_id) -> pending state
 _RECONCILE_INTERVAL = 90.0
 _reconcile_stop = threading.Event()
 # Serializes _apply_*_changes so a periodic reconcile and a live fire (or two
-# reconciles) never work the same library from two threads at once.
+# reconciles) never work the same library from two threads at once. Shared with
+# `common.library_scan_active`, which takes it briefly at scan start-up.
 # ponytail: one global lock — libraries are few and this isn't hot. Per-library
 # locks only if that stops being true.
-_apply_lock = threading.Lock()
+_apply_lock = apply_lock
 
 
 def init() -> None:
@@ -103,6 +105,35 @@ def shutdown() -> None:
         _observer = None
 
 
+def _apply(kind: Kind, library_id: int, changed: frozenset[str]) -> bool:
+    """Run one library's reconcile under `_apply_lock`. Returns False (doing
+    nothing) when a scan of that library is running: the scan owns its rows, and
+    reconciling alongside it inserts paths the scan hasn't reached yet, which
+    its own INSERT then collides with (UNIQUE path)."""
+    with _apply_lock:
+        if scan_active(kind, library_id):
+            return False
+        if kind == "image":
+            _apply_image_changes(library_id, changed)
+        elif kind == "audio":
+            _apply_audio_changes(library_id, changed)
+        elif kind == "video":
+            _apply_video_changes(library_id, changed)
+        else:
+            logger.warning("fs_watcher: unknown watch kind %r for library %s", kind, library_id)
+    return True
+
+
+def _arm_timer(key: _Key, p: _Pending) -> None:
+    """(Re)start `p`'s debounce timer. Caller holds `_lock`."""
+    if p.timer:
+        p.timer.cancel()
+    t = threading.Timer(_DEBOUNCE, _fire, args=(key,))
+    t.daemon = True
+    t.start()
+    p.timer = t
+
+
 def _fire(key: _Key) -> None:
     """Called from threading.Timer — already in its own thread, just run directly."""
     kind, library_id = key
@@ -115,15 +146,14 @@ def _fire(key: _Key) -> None:
     # existence sweep in _apply_*_changes prunes the now-missing rows.
     if not changed and not p.deleted:
         return
-    with _apply_lock:
-        if kind == "image":
-            _apply_image_changes(library_id, changed)
-        elif kind == "audio":
-            _apply_audio_changes(library_id, changed)
-        elif kind == "video":
-            _apply_video_changes(library_id, changed)
-        else:
-            logger.warning("fs_watcher: unknown watch kind %r for library %s", kind, library_id)
+    if not _apply(kind, library_id, changed):
+        # A scan owns this library right now — put the batch back and retry after
+        # another debounce so in-place modifications aren't dropped.
+        with _lock:
+            q = _pending.setdefault(key, _Pending())
+            q.changed |= p.changed
+            q.deleted |= p.deleted
+            _arm_timer(key, q)
 
 
 def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
@@ -583,12 +613,7 @@ class _Handler:
             else:
                 p.changed.add(path)
                 p.deleted.discard(path)
-            if p.timer:
-                p.timer.cancel()
-            t = threading.Timer(_DEBOUNCE, _fire, args=(key,))
-            t.daemon = True
-            t.start()
-            p.timer = t
+            _arm_timer(key, p)
 
     def dispatch(self, event) -> None:
         if event.is_directory:
@@ -683,13 +708,12 @@ def reconcile_all() -> None:
     finally:
         db.close()
 
-    with _apply_lock:
-        for lid in videos:
-            _apply_video_changes(lid, frozenset())
-        for lid in images:
-            _apply_image_changes(lid, frozenset())
-        for lid in audios:
-            _apply_audio_changes(lid, frozenset())
+    # One library per lock hold, not the whole sweep: a scan starting up waits on
+    # `_apply_lock` (see common.library_scan_active), so it should wait out one
+    # library's apply, not every library's.
+    for kind, ids in (("video", videos), ("image", images), ("audio", audios)):
+        for lid in ids:
+            _apply(kind, lid, frozenset())
 
 
 def _reconcile_loop() -> None:

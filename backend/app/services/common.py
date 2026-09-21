@@ -1,7 +1,9 @@
 """Shared state and utilities for background job workers."""
 
+import contextlib
 import os
 import threading
+from collections import Counter
 from datetime import UTC, datetime
 
 from app.config import SCRATCH_DIR
@@ -46,6 +48,64 @@ def log(db, job_id: int, message: str, level: str = "info") -> None:
 
     db.add(JobLog(job_id=job_id, message=message, level=level))
     db.commit()
+
+
+def fail_job(db, job, exc: Exception) -> None:
+    """Mark `job` FAILED from an `except` handler.
+
+    Rolls the session back first: the usual cause is a failed flush (e.g. a
+    UNIQUE violation), which leaves the session unusable until rolled back —
+    committing straight away raises again, the exception escapes the handler,
+    and the job is left RUNNING forever.
+    """
+    from app.models.job import JobStatus
+
+    if job is None:
+        return
+    db.rollback()
+    job.status = JobStatus.FAILED
+    job.error = str(exc)
+    job.finished_at = now()
+    db.commit()
+
+
+# Serializes filesystem-watcher applies against scan start-up. A scan takes it
+# just long enough to register itself (see `library_scan_active`), so a watcher
+# apply is either fully finished before the scan snapshots the library's rows,
+# or sees the scan registered and stands down. Never held for a scan's duration.
+apply_lock = threading.Lock()
+
+_active_scans: Counter[tuple[str, int]] = Counter()
+_active_scans_guard = threading.Lock()
+
+
+@contextlib.contextmanager
+def library_scan_active(kind: str, library_id: int):
+    """Mark a library (`kind` = "video" | "image" | "audio") as mid-scan.
+
+    The filesystem watcher's whole-library reconcile inserts rows for every
+    on-disk path it doesn't know yet. Run alongside a long scan it inserted the
+    paths the scan hadn't reached, and the scan's own INSERT then died on
+    UNIQUE(path). While registered here, the watcher leaves the library alone;
+    the scan owns it and the next reconcile after it finishes catches anything
+    that arrived meanwhile.
+    """
+    key = (kind, library_id)
+    with apply_lock:  # waits out an in-flight watcher apply on this library
+        with _active_scans_guard:
+            _active_scans[key] += 1
+    try:
+        yield
+    finally:
+        with _active_scans_guard:
+            _active_scans[key] -= 1
+            if _active_scans[key] <= 0:
+                del _active_scans[key]
+
+
+def scan_active(kind: str, library_id: int) -> bool:
+    with _active_scans_guard:
+        return _active_scans.get((kind, library_id), 0) > 0
 
 
 # job_id → True means "please stop at next checkpoint"

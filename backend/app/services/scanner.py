@@ -1,4 +1,5 @@
 import concurrent.futures as _cf
+import contextlib
 import json
 import os
 import subprocess
@@ -14,7 +15,9 @@ from app.models.settings import get_setting
 from app.services.common import (
     arm_cancel,
     clear_cancel,
+    fail_job,
     is_ignored_media_name,
+    library_scan_active,
     should_cancel,
 )
 
@@ -426,6 +429,7 @@ def scan_library(library_id: int):
     """Background task: discover files, probe metadata, generate thumbnails."""
     db = SessionLocal()
     job = None
+    scan_guard = contextlib.ExitStack()
     try:
         library: Library = db.get(Library, library_id)
         if not library:
@@ -440,6 +444,10 @@ def scan_library(library_id: int):
         db.add(job)
         db.commit()
         db.refresh(job)
+
+        # The filesystem watcher leaves this library alone until we finish — see
+        # common.library_scan_active. Registered before the row snapshot below.
+        scan_guard.enter_context(library_scan_active("video", library_id))
 
         _log(db, job.id, f"Scanning library: {library.path}")
         video_paths = _find_video_files(library.path)
@@ -610,10 +618,7 @@ def scan_library(library_id: int):
         enqueue_threadsafe(None, _warm_thumbnails, library_id)
 
     except Exception as e:
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)
-            job.finished_at = _now()
-            db.commit()
+        fail_job(db, job, e)
     finally:
+        scan_guard.close()
         db.close()

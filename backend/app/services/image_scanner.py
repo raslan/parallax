@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import queue as _queue
@@ -12,7 +13,15 @@ from app.database import DATA_DIR, SessionLocal
 from app.models.image import ImageDetection, ImageFile, ImageStatus
 from app.models.image_library import ImageLibrary
 from app.models.job import Job, JobStatus
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    fail_job,
+    library_scan_active,
+    log,
+    now,
+    should_cancel,
+)
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 THUMBNAIL_DIR = os.path.join(DATA_DIR, "image-thumbnails")
@@ -124,6 +133,8 @@ def scan_image_library(
 
     db = SessionLocal()
     job = None
+    stop = threading.Event()  # tells the producer thread to quit, however we exit
+    scan_guard = contextlib.ExitStack()
     try:
         library = db.get(ImageLibrary, library_id)
         if not library:
@@ -145,6 +156,11 @@ def scan_image_library(
         job.status = JobStatus.RUNNING
         job.started_at = now()
         db.commit()
+
+        # From here the filesystem watcher leaves this library alone until we
+        # finish (it would insert the paths we haven't reached yet). Registered
+        # before the existing-paths snapshot below so the two can't interleave.
+        scan_guard.enter_context(library_scan_active("image", library_id))
 
         if reset:
             existing = db.query(ImageFile).filter(ImageFile.library_id == library_id).all()
@@ -188,15 +204,35 @@ def scan_image_library(
         # Queue holds (path, (meta, arr)) or (path, None) per image, then None sentinel.
         work_q: _queue.Queue = _queue.Queue(maxsize=prefetch)
 
-        def producer() -> None:
-            for path in new_paths:
-                if should_cancel(job_id):
-                    break
-                work_q.put((path, _load_image_for_scan(path, load_size)))
-            work_q.put(None)
+        def _put(item) -> None:
+            # Bounded put that gives up once `stop` is set, so an early consumer
+            # exit (cancel / failure) can't leave this thread blocked forever.
+            while not stop.is_set():
+                try:
+                    work_q.put(item, timeout=0.5)
+                    return
+                except _queue.Full:
+                    continue
 
-        prod = threading.Thread(target=producer, daemon=True)
+        def producer() -> None:
+            try:
+                for path in new_paths:
+                    if stop.is_set() or should_cancel(job_id):
+                        break
+                    _put((path, _load_image_for_scan(path, load_size)))
+            finally:
+                _put(None)  # sentinel, even if loading blew up
+
+        prod = threading.Thread(target=producer, daemon=True, name="image-scan-producer")
         prod.start()
+
+        def _next_item():
+            while True:
+                try:
+                    return work_q.get(timeout=1.0)
+                except _queue.Empty:
+                    if not prod.is_alive():
+                        return None
 
         succeeded = 0
         failed = 0
@@ -209,13 +245,12 @@ def scan_image_library(
                 job.finished_at = now()
                 db.commit()
                 clear_cancel(job_id)
-                prod.join(timeout=30)
                 return
 
             # Accumulate up to batch_size images
             batch: list[tuple[str, dict | None, np.ndarray | None]] = []
             while len(batch) < batch_size:
-                item = work_q.get()
+                item = _next_item()
                 if item is None:
                     done = True
                     break
@@ -233,6 +268,13 @@ def scan_image_library(
             job.progress = processed / total * 100 if total else 100
             db.commit()
 
+            # Rows the filesystem watcher (or anything else) created after our
+            # snapshot are filled in rather than re-inserted — path is UNIQUE.
+            known_rows = {
+                r.path: r
+                for r in db.query(ImageFile).filter(ImageFile.path.in_([b[0] for b in batch]))
+            }
+
             # Build ImageFile records; separate good from failed loads
             img_objs: list[ImageFile] = []
             good_arrays: list[np.ndarray] = []
@@ -240,41 +282,45 @@ def scan_image_library(
             for path, meta, arr in batch:
                 fname = os.path.basename(path)
                 ext = os.path.splitext(path)[1].lower().lstrip(".")
+                row = known_rows.get(path)
                 if meta is None:
-                    db.add(
-                        ImageFile(
+                    if row is None:
+                        row = ImageFile(
                             library_id=library_id,
                             path=path,
                             filename=fname,
                             extension=ext,
                             size=0,
-                            status=ImageStatus.FAILED,
-                            scan_error="Failed to load image",
                         )
-                    )
+                        db.add(row)
+                    row.status = ImageStatus.FAILED
+                    row.scan_error = "Failed to load image"
                     failed += 1
                     log(db, job_id, f"Failed: {fname} — could not load", level="error")
                     continue
 
-                img_obj = ImageFile(
-                    library_id=library_id,
-                    path=path,
-                    filename=fname,
-                    extension=ext,
-                    size=meta["size"],
-                    width=meta["width"],
-                    height=meta["height"],
-                    exif_date=meta["exif_date"],
-                    exif_gps=meta["exif_gps"],
-                    exif_camera=meta["exif_camera"],
-                    file_mtime=meta["file_mtime"],
-                    status=ImageStatus.SCANNED,
-                    scanned_at=now(),
-                )
+                if row is None:
+                    row = ImageFile(
+                        library_id=library_id,
+                        path=path,
+                        filename=fname,
+                        extension=ext,
+                        size=meta["size"],
+                    )
+                    db.add(row)
+                row.size = meta["size"]
+                row.width = meta["width"]
+                row.height = meta["height"]
+                row.exif_date = meta["exif_date"]
+                row.exif_gps = meta["exif_gps"]
+                row.exif_camera = meta["exif_camera"]
+                row.file_mtime = meta["file_mtime"]
+                row.status = ImageStatus.SCANNED
+                row.scan_error = None
+                row.scanned_at = now()
                 if run_phash:
-                    img_obj.phash = _phash_from_array(arr)
-                db.add(img_obj)
-                img_objs.append(img_obj)
+                    row.phash = _phash_from_array(arr)
+                img_objs.append(row)
                 good_arrays.append(arr)
 
             db.flush()  # assign IDs
@@ -285,6 +331,16 @@ def scan_image_library(
                     _generate_thumbnail_from_array(arr, _thumbnail_path(img_obj.id))
                 except Exception:
                     pass
+
+            # Commit before inference: the flush above holds SQLite's single write
+            # lock, and a big NudeNet batch on CPU runs for minutes — every other
+            # writer in the app (watcher, other jobs, API) would sit on busy_timeout
+            # for the duration. The re-query refreshes the now-expired rows in one
+            # SELECT instead of one lazy load per attribute access below.
+            img_ids = [o.id for o in img_objs]
+            db.commit()
+            if img_ids:
+                db.query(ImageFile).filter(ImageFile.id.in_(img_ids)).all()
 
             # NudeNet
             if run_nudenet and good_arrays:
@@ -322,12 +378,10 @@ def scan_image_library(
         log(db, job_id, f"Scan complete — {succeeded} scanned, {failed} failed")
 
     except Exception as e:
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(e)
-            job.finished_at = now()
-            db.commit()
+        fail_job(db, job, e)
     finally:
+        stop.set()
+        scan_guard.close()
         from app.services.image_analyzer import release_sessions
 
         release_sessions()
