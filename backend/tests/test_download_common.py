@@ -155,3 +155,37 @@ def test_build_ytdlp_cmd_no_limit_rate_support():
 
     # limit-rate was removed from the UI/schema — a stale option must not resurrect it
     assert "--limit-rate" not in build_ytdlp_cmd("http://x/v", "/out", {"limit_rate": "2M"})
+
+
+def test_install_zip_binary_extracts_member_and_marks_executable(tmp_path):
+    import zipfile
+
+    from app.services.download_common import install_zip_binary
+
+    archive = tmp_path / "tool.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("tool", "#!/bin/sh\necho hi\n")
+        zf.writestr("LICENSE", "x")
+    dest = tmp_path / "bin" / "tool"
+    dest.parent.mkdir()
+
+    install_zip_binary(archive.as_uri(), "tool", str(dest))
+
+    assert dest.read_text().startswith("#!/bin/sh")
+    assert os.access(dest, os.X_OK)
+    assert sorted(p.name for p in dest.parent.iterdir()) == ["tool"]  # no .tmp left behind
+
+
+def test_install_zip_binary_missing_member_leaves_nothing(tmp_path):
+    import zipfile
+
+    from app.services.download_common import install_zip_binary
+
+    archive = tmp_path / "tool.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("other", "x")
+    dest = tmp_path / "tool"
+
+    with pytest.raises(KeyError):
+        install_zip_binary(archive.as_uri(), "tool", str(dest))
+    assert list(tmp_path.glob("tool*")) == [archive]

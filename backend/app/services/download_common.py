@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import threading
 import urllib.request
+import zipfile
 from collections.abc import Callable, Sequence
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,24 @@ def install_binary(url: str, dest: str) -> None:
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
+
+
+def install_zip_binary(url: str, member: str, dest: str) -> None:
+    """Download a zip and extract its single executable *member* to *dest*, atomically.
+
+    For releases that ship the binary inside an archive (deno). Blocking.
+    """
+    zip_tmp, tmp = dest + ".zip.tmp", dest + ".tmp"
+    try:
+        urllib.request.urlretrieve(url, zip_tmp)  # noqa: S310 - trusted GitHub release URL
+        with zipfile.ZipFile(zip_tmp) as zf, zf.open(member) as src, open(tmp, "wb") as out:
+            shutil.copyfileobj(src, out)
+        os.chmod(tmp, 0o755)
+        os.replace(tmp, dest)
+    finally:
+        for leftover in (zip_tmp, tmp):
+            if os.path.exists(leftover):
+                os.remove(leftover)
 
 
 def probe_version(path: str, args: Sequence[str] = ("--version",)) -> str | None:

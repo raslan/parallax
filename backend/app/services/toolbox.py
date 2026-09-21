@@ -10,7 +10,7 @@ from collections.abc import Callable
 
 from app.database import SessionLocal
 from app.models.job import Job, JobStatus
-from app.services.common import arm_cancel, clear_cancel, log, now, should_cancel
+from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 from app.services.compressor import _NEEDS_REMUX, _cleanup, _read_and_remove, _rescan_after_job
 from app.services.encoder import encoder_for_codec, family_for_encoder
 from app.services.gpu_pool import GPUDevice, GpuPool, is_hwaccel_failure
@@ -57,18 +57,23 @@ def _build_toolbox_cmd(
         nvenc = reencode_encoder in ("h264_nvenc", "hevc_nvenc")
         vaapi = reencode_encoder in ("h264_vaapi", "hevc_vaapi")
         if nvenc:
-            hwaccel_args = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+            # Rotate's transpose is a CPU filter: leaving decoded frames in GPU memory
+            # (-hwaccel_output_format cuda) makes ffmpeg fail with "Impossible to convert
+            # between the formats" and then "Could not open encoder". Decode still runs
+            # on the GPU; ffmpeg downloads frames for the filter and NVENC re-uploads.
+            hwaccel_args = ["-hwaccel", "cuda"]
+            if rotate_deg is None:
+                hwaccel_args += ["-hwaccel_output_format", "cuda"]
             if gpu:
                 hwaccel_args += ["-hwaccel_device", gpu.index]
         elif vaapi and gpu:
-            hwaccel_args = [
-                "-hwaccel",
-                "vaapi",
-                "-hwaccel_device",
-                gpu.index,
-                "-hwaccel_output_format",
-                "vaapi",
-            ]
+            # Same CPU-filter constraint as NVENC above: rotate can't consume VAAPI
+            # surfaces. transpose_vaapi isn't a way out — it needs driver VPP support
+            # that some iGPUs lack (Intel Gen9.5 iHD: "requested VAProfile is not
+            # supported") — so decode on the GPU, filter on the CPU, hwupload back.
+            hwaccel_args = ["-hwaccel", "vaapi", "-hwaccel_device", gpu.index]
+            if rotate_deg is None:
+                hwaccel_args += ["-hwaccel_output_format", "vaapi"]
 
     ss_args = ["-ss", str(trim_start)] if trim_start > 0 else []
 
@@ -104,15 +109,22 @@ def _build_toolbox_cmd(
         # container's declared duration ends up wrong (full original length, not
         # the trimmed length) unless pts is explicitly rebased to start at 0.
         vf_filters.append("setpts=PTS-STARTPTS")
+    if rotate_deg is not None and reencode_encoder in ("h264_vaapi", "hevc_vaapi") and gpu:
+        vf_filters.append("format=nv12,hwupload")
     if vf_filters:
         cmd += ["-vf", ",".join(vf_filters)]
 
     out_ext = os.path.splitext(output_path)[1].lower()
 
     if needs_video_reencode:
-        cmd += ["-c:v", reencode_encoder, "-crf", "18", "-preset", "medium"]
-        if reencode_encoder in ("h264_nvenc", "hevc_nvenc") and gpu:
-            cmd += ["-gpu", gpu.index]
+        if reencode_encoder in ("h264_nvenc", "hevc_nvenc"):
+            # NVENC has no -crf (ffmpeg silently ignores it, leaving the default ~2.5 Mbps
+            # rate control); constant quality is -rc vbr -cq, as in compressor.
+            cmd += ["-c:v", reencode_encoder, "-rc:v", "vbr", "-cq:v", "18", "-preset", "p5"]
+            if gpu:
+                cmd += ["-gpu", gpu.index]
+        else:
+            cmd += ["-c:v", reencode_encoder, "-crf", "18", "-preset", "medium"]
         if reencode_encoder in _HEVC_ENCODERS and out_ext in {".mp4", ".m4v", ".mov"}:
             cmd += ["-tag:v", "hvc1"]
     else:
@@ -665,10 +677,6 @@ def run_toolbox_job(
         log(db, job_id, f"Toolbox fix complete — {completed} succeeded, {failed} failed")
 
     except Exception as exc:
-        if job:
-            job.status = JobStatus.FAILED
-            job.error = str(exc)[:512]
-            job.finished_at = now()
-            db.commit()
+        fail_job(db, job, exc)
     finally:
         db.close()

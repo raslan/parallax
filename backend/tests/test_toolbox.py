@@ -1,6 +1,8 @@
 import os
 import subprocess
 
+import pytest
+
 from app.services.encoder import encoder_for_codec
 from app.services.gpu_pool import GPUDevice
 from app.services.toolbox import (
@@ -807,3 +809,117 @@ def test_build_cmd_reencode_no_gpu_omits_pinning(monkeypatch):
     assert "-hwaccel_device" not in cmd
     assert "-gpu" not in cmd
     assert cmd[cmd.index("-hwaccel") + 1] == "cuda"
+
+
+def _rotate_nvenc_cmd(monkeypatch, rotate_deg, trim_start=0, gpu=None):
+    import app.services.toolbox as tb
+
+    monkeypatch.setattr(tb, "encoder_for_codec", lambda codec: "hevc_nvenc")
+    return tb._build_toolbox_cmd(
+        "/lib/movie.mp4",
+        "/lib/movie.fixing.mp4",
+        duration=60.0,
+        trim_start=trim_start,
+        trim_end=0,
+        audio_channel=None,
+        rotate_deg=rotate_deg,
+        normalize=False,
+        faststart=False,
+        sync_offset_ms=None,
+        source_codec="h264",
+        gpu=gpu,
+    )
+
+
+@pytest.mark.parametrize("rotate_deg", [90, 180, 270])
+def test_build_cmd_nvenc_rotate_keeps_frames_on_cpu_for_software_filter(monkeypatch, rotate_deg):
+    # transpose is a CPU filter — with -hwaccel_output_format cuda the decoded
+    # frames stay in GPU memory and ffmpeg fails with "Impossible to convert
+    # between the formats" → "Could not open encoder" (-22).
+    cmd = _rotate_nvenc_cmd(monkeypatch, rotate_deg, gpu=_nvidia())
+
+    assert "-vf" in cmd
+    assert "-hwaccel_output_format" not in cmd
+    assert cmd[cmd.index("-hwaccel") + 1] == "cuda"  # decode still on GPU
+
+
+def test_build_cmd_nvenc_forced_reencode_without_filter_keeps_cuda_frames(monkeypatch):
+    import app.services.toolbox as tb
+
+    monkeypatch.setattr(tb, "encoder_for_codec", lambda codec: "hevc_nvenc")
+    cmd = tb._build_toolbox_cmd(
+        "/lib/movie.mp4",
+        "/lib/movie.fixing.mp4",
+        duration=60.0,
+        trim_start=5.0,
+        trim_end=0,
+        audio_channel=None,
+        rotate_deg=None,
+        normalize=False,
+        faststart=False,
+        sync_offset_ms=None,
+        source_codec="h264",
+        force_video_reencode=True,
+    )
+
+    assert "-vf" not in cmd
+    assert cmd[cmd.index("-hwaccel_output_format") + 1] == "cuda"
+
+
+def test_build_cmd_nvenc_uses_cq_not_crf(monkeypatch):
+    # NVENC has no -crf (ffmpeg silently ignores it → default ~2.5 Mbps, poor
+    # quality). It needs -rc vbr -cq, same as compressor._build_compress_cmd.
+    cmd = _rotate_nvenc_cmd(monkeypatch, 90)
+
+    assert "-crf" not in cmd
+    assert cmd[cmd.index("-rc:v") + 1] == "vbr"
+    assert cmd[cmd.index("-cq:v") + 1] == "18"
+    assert cmd[cmd.index("-preset") + 1] == "p5"  # legacy "medium" is not an NVENC preset
+
+
+def _vaapi(index="/dev/dri/renderD128"):
+    return GPUDevice(vendor="intel", index=index, label="renderD128", family="vaapi")
+
+
+def _reencode_vaapi_cmd(monkeypatch, rotate_deg, trim_start=0, force=False):
+    import app.services.toolbox as tb
+
+    monkeypatch.setattr(tb, "encoder_for_codec", lambda codec: "h264_vaapi")
+    return tb._build_toolbox_cmd(
+        "/lib/movie.mp4",
+        "/lib/movie.fixing.mp4",
+        duration=60.0,
+        trim_start=trim_start,
+        trim_end=0,
+        audio_channel=None,
+        rotate_deg=rotate_deg,
+        normalize=False,
+        faststart=False,
+        sync_offset_ms=None,
+        source_codec="h264",
+        force_video_reencode=force,
+        gpu=_vaapi(),
+    )
+
+
+@pytest.mark.parametrize("rotate_deg", [90, 180, 270])
+def test_build_cmd_vaapi_rotate_uploads_after_cpu_filter(monkeypatch, rotate_deg):
+    # transpose is a CPU filter: with -hwaccel_output_format vaapi the decoded
+    # surfaces can't feed it ("Impossible to convert between the formats" → -22).
+    # transpose_vaapi isn't an option either — it needs driver VPP support, which
+    # e.g. Intel Gen9.5 iHD lacks ("requested VAProfile is not supported").
+    cmd = _reencode_vaapi_cmd(monkeypatch, rotate_deg)
+
+    assert "-hwaccel_output_format" not in cmd
+    assert cmd[cmd.index("-hwaccel") + 1] == "vaapi"
+    assert cmd[cmd.index("-hwaccel_device") + 1] == "/dev/dri/renderD128"
+    vf = cmd[cmd.index("-vf") + 1]
+    assert vf.startswith("transpose=")
+    assert vf.endswith("format=nv12,hwupload")
+
+
+def test_build_cmd_vaapi_forced_reencode_without_filter_keeps_vaapi_frames(monkeypatch):
+    cmd = _reencode_vaapi_cmd(monkeypatch, None, trim_start=5.0, force=True)
+
+    assert "-vf" not in cmd
+    assert cmd[cmd.index("-hwaccel_output_format") + 1] == "vaapi"
