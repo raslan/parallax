@@ -14,6 +14,7 @@ from app.models.image import ImageDetection, ImageFile, ImageStatus
 from app.models.image_library import ImageLibrary
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import ImageDetectionRead, ImageRead, ImagesResponse
+from app.services.image_scanner import get_or_create_image_thumbnail
 
 
 class BulkQuarantineRequest(BaseModel):
@@ -389,12 +390,22 @@ def delete_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/{image_id}/thumbnail")
-def get_thumbnail(image_id: int, db: Session = Depends(get_db)):
-    f = db.get(ImageFile, image_id)
-    if not f:
-        raise HTTPException(404, "Image not found")
-    thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
-    if not os.path.exists(thumb):
+async def get_thumbnail(image_id: int):
+    # No Depends(get_db): first-view generation is a blocking decode, and a grid
+    # fires one request per card — holding a pooled connection across that is how
+    # the pool gets exhausted. Read the path from a short-lived session, close it,
+    # then generate with no connection held (same as GET /files/{id}/thumbnail).
+    db = SessionLocal()
+    try:
+        f = db.get(ImageFile, image_id)
+        if not f:
+            raise HTTPException(404, "Image not found")
+        path = f.path
+    finally:
+        db.close()
+
+    thumb = await run_in_threadpool(get_or_create_image_thumbnail, image_id, path)
+    if thumb is None:
         raise HTTPException(404, "Thumbnail not available")
     return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 

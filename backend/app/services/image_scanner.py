@@ -1,3 +1,4 @@
+import concurrent.futures as _cf
 import contextlib
 import json
 import os
@@ -12,7 +13,7 @@ from PIL import ExifTags, Image
 from app.database import DATA_DIR, SessionLocal
 from app.models.image import ImageDetection, ImageFile, ImageStatus
 from app.models.image_library import ImageLibrary
-from app.models.job import Job, JobStatus
+from app.models.job import Job, JobStatus, JobType
 from app.services.common import (
     arm_cancel,
     clear_cancel,
@@ -45,11 +46,13 @@ def _thumbnail_path(image_id: int) -> str:
 def _load_image_for_scan(
     path: str,
     load_size: int,
-) -> tuple[dict, np.ndarray] | None:
+    decode: bool = True,
+) -> tuple[dict, np.ndarray | None] | None:
     """
     Open image once: extract metadata from header, decode at reduced resolution.
     Uses PIL draft() for JPEG (DCT-domain downsampling — no full-res decode).
-    Returns (meta_dict, rgb_uint8_array) or None on failure.
+    `decode=False` stops after the header/EXIF read (array is None) for callers
+    with no pixel work to do. Returns (meta_dict, rgb_uint8_array) or None on failure.
     """
     try:
         file_size = os.path.getsize(path)
@@ -78,12 +81,14 @@ def _load_image_for_scan(
             except (AttributeError, ValueError, KeyError, TypeError, struct.error):
                 pass
 
-            # draft() hints JPEG decoder to produce a reduced-resolution image
-            # without decoding the full pixel grid — same principle as ffmpeg low-res decode.
-            img.draft("RGB", (load_size, load_size))
-            img = img.convert("RGB")
-            img.thumbnail((load_size, load_size), Image.LANCZOS)
-            arr = np.array(img, dtype=np.uint8)
+            arr = None
+            if decode:
+                # draft() hints JPEG decoder to produce a reduced-resolution image
+                # without decoding the full pixel grid — same principle as ffmpeg low-res decode.
+                img.draft("RGB", (load_size, load_size))
+                img = img.convert("RGB")
+                img.thumbnail((load_size, load_size), Image.LANCZOS)
+                arr = np.array(img, dtype=np.uint8)
 
         return {
             "width": orig_w,
@@ -113,11 +118,113 @@ def generate_thumbnail(src_path: str, out_path: str) -> None:
         img.save(out_path, "JPEG", quality=85)
 
 
-def _generate_thumbnail_from_array(arr: np.ndarray, out_path: str) -> None:
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    img = Image.fromarray(arr)
-    img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
-    img.save(out_path, "JPEG", quality=85)
+# Caps concurrent thumbnail generation: a grid page fires one request per card
+# and the post-scan warm-up queues a whole library, so without this a cold
+# library saturates every core. Same sizing as the video pool in scanner.py.
+_THUMBNAIL_GEN_LIMIT = max(1, (os.cpu_count() or 4) // 2)
+_thumbnail_gen_semaphore = threading.Semaphore(_THUMBNAIL_GEN_LIMIT)
+
+
+def get_or_create_image_thumbnail(image_id: int, src_path: str) -> str | None:
+    """On-disk thumbnail path for an image, generating it on first request.
+
+    Scanning deliberately skips thumbnails (see scan_image_library) — they're
+    made here on first view or by the post-scan `_warm_image_thumbnails` job,
+    whichever comes first. Returns None if the source can't be decoded. Written
+    to a temp file then renamed, so a concurrent reader never sees a
+    half-written JPEG.
+    """
+    out_path = _thumbnail_path(image_id)
+    if os.path.exists(out_path):
+        return out_path
+    tmp_path = f"{out_path}.{threading.get_ident()}.tmp"
+    with _thumbnail_gen_semaphore:
+        if os.path.exists(out_path):
+            return out_path
+        try:
+            generate_thumbnail(src_path, tmp_path)
+            os.replace(tmp_path, out_path)
+        except Exception:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(tmp_path)
+            return None
+    return out_path
+
+
+def _warm_image_thumbnails(library_id: int) -> None:
+    """Background job: generate thumbnails for every image in this library that
+    is still missing one, after a scan — the image twin of scanner._warm_thumbnails.
+
+    Tracked as its own Job (JobType.THUMBNAIL_WARM) so it shows on the Jobs page
+    with real progress and can be cancelled. No Job row at all when nothing is
+    missing.
+    """
+    db = SessionLocal()
+    job_id: int | None = None
+    try:
+        rows = (
+            db.query(ImageFile.id, ImageFile.path)
+            .filter(ImageFile.library_id == library_id, ImageFile.status != ImageStatus.FAILED)
+            .all()
+        )
+        missing = [(iid, path) for iid, path in rows if not os.path.exists(_thumbnail_path(iid))]
+        if not missing:
+            return
+
+        job = Job(
+            type=JobType.THUMBNAIL_WARM,
+            status=JobStatus.RUNNING,
+            library_id=library_id,
+            total_files=len(missing),
+            started_at=now(),
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+        job_id = job.id
+        arm_cancel(job_id)
+
+        completed = 0
+        was_cancelled = False
+        with _cf.ThreadPoolExecutor(
+            max_workers=_THUMBNAIL_GEN_LIMIT, thread_name_prefix="img-thumb-warm"
+        ) as pool:
+            pending = {pool.submit(get_or_create_image_thumbnail, i, p) for i, p in missing}
+            while pending:
+                done, pending = _cf.wait(pending, timeout=2.0)
+                completed += len(done)
+                if should_cancel(job_id):
+                    was_cancelled = True
+                    for fut in pending:
+                        fut.cancel()
+                    _cf.wait(pending)
+                    pending = set()
+                job.processed_files = completed
+                if not was_cancelled:
+                    job.progress = min(99.0, completed / len(missing) * 100)
+                db.commit()
+
+        job.status = JobStatus.CANCELLED if was_cancelled else JobStatus.COMPLETED
+        if not was_cancelled:
+            job.progress = 100.0
+        job.finished_at = now()
+        db.commit()
+    except Exception as e:
+        if job_id is not None:
+            fail_job(db, db.get(Job, job_id), e)
+    finally:
+        if job_id is not None:
+            clear_cancel(job_id)
+        db.close()
+
+
+def _enqueue_thumbnail_warm(library_id: int) -> None:
+    from app.queue import enqueue_threadsafe
+
+    try:
+        enqueue_threadsafe(None, _warm_image_thumbnails, library_id)
+    except RuntimeError:  # queue worker not started (tests / one-off scripts)
+        pass
 
 
 def scan_image_library(
@@ -152,6 +259,9 @@ def scan_image_library(
         extraction_res = max(nudenet_res, 400)
         # Load at max of inference size and thumbnail size so we can serve both from one decode
         load_size = max(extraction_res, THUMBNAIL_SIZE[0])
+        # Thumbnails are deferred (see _warm_image_thumbnails), so the pixel decode
+        # is only needed when pHash or NudeNet will actually consume it.
+        need_pixels = run_phash or run_nudenet
 
         job.status = JobStatus.RUNNING
         job.started_at = now()
@@ -191,6 +301,7 @@ def scan_image_library(
             job.progress = 100.0
             job.finished_at = now()
             db.commit()
+            _enqueue_thumbnail_warm(library_id)
             return
 
         log(
@@ -219,7 +330,7 @@ def scan_image_library(
                 for path in new_paths:
                     if stop.is_set() or should_cancel(job_id):
                         break
-                    _put((path, _load_image_for_scan(path, load_size)))
+                    _put((path, _load_image_for_scan(path, load_size, decode=need_pixels)))
             finally:
                 _put(None)  # sentinel, even if loading blew up
 
@@ -277,6 +388,7 @@ def scan_image_library(
 
             # Build ImageFile records; separate good from failed loads
             img_objs: list[ImageFile] = []
+            fresh: list[ImageFile] = []
             good_arrays: list[np.ndarray] = []
 
             for path, meta, arr in batch:
@@ -308,6 +420,7 @@ def scan_image_library(
                         size=meta["size"],
                     )
                     db.add(row)
+                    fresh.append(row)
                 row.size = meta["size"]
                 row.width = meta["width"]
                 row.height = meta["height"]
@@ -318,19 +431,19 @@ def scan_image_library(
                 row.status = ImageStatus.SCANNED
                 row.scan_error = None
                 row.scanned_at = now()
-                if run_phash:
+                if run_phash and arr is not None:
                     row.phash = _phash_from_array(arr)
                 img_objs.append(row)
-                good_arrays.append(arr)
+                if arr is not None:
+                    good_arrays.append(arr)
 
             db.flush()  # assign IDs
 
-            # Thumbnails — generated from the already-loaded array, no extra disk read
-            for img_obj, arr in zip(img_objs, good_arrays):
-                try:
-                    _generate_thumbnail_from_array(arr, _thumbnail_path(img_obj.id))
-                except Exception:
-                    pass
+            # Row ids get reused after deletes; a thumbnail left behind by a
+            # previous owner of this id must not be served for the new image.
+            for row in fresh:
+                with contextlib.suppress(FileNotFoundError):
+                    os.remove(_thumbnail_path(row.id))
 
             # Commit before inference: the flush above holds SQLite's single write
             # lock, and a big NudeNet batch on CPU runs for minutes — every other
@@ -376,6 +489,7 @@ def scan_image_library(
         job.finished_at = now()
         db.commit()
         log(db, job_id, f"Scan complete — {succeeded} scanned, {failed} failed")
+        _enqueue_thumbnail_warm(library_id)
 
     except Exception as e:
         fail_job(db, job, e)

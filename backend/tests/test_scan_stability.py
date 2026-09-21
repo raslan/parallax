@@ -10,6 +10,7 @@ swallowed that — leaving the job RUNNING forever with a leaked producer thread
 import os
 import threading
 
+import numpy as np
 import pytest
 from PIL import Image
 from sqlalchemy import create_engine
@@ -216,6 +217,55 @@ def test_image_scan_tolerates_rows_inserted_mid_scan(sessions, tmp_path, no_nude
     db.close()
 
 
+def test_image_scan_defers_thumbnails_to_followup_job(sessions, tmp_path, no_nudenet, warm_calls):
+    from app.services.image_scanner import _warm_image_thumbnails, scan_image_library
+
+    root = tmp_path / "imgs"
+    _make_images(str(root), 3)
+    lib_id, job_id = _image_library(sessions, root)
+
+    scan_image_library(lib_id, job_id, True, True, False)
+
+    assert not os.path.isdir(tmp_path / "thumbs") or not os.listdir(tmp_path / "thumbs")
+    assert [(a[0], a[1], a[2]) for a in warm_calls] == [(None, _warm_image_thumbnails, lib_id)]
+
+    _warm_image_thumbnails(lib_id)
+
+    db = sessions()
+    ids = [r.id for r in db.query(ImageFile).all()]
+    warm = db.query(Job).filter(Job.type == JobType.THUMBNAIL_WARM).one()
+    db.close()
+    assert warm.status == JobStatus.COMPLETED and warm.total_files == 3
+    assert all(os.path.exists(tmp_path / "thumbs" / f"{i}.jpg") for i in ids)
+
+
+def test_image_scan_skips_pixel_decode_when_nothing_needs_it(
+    sessions, tmp_path, no_nudenet, warm_calls, monkeypatch
+):
+    from app.services import image_scanner
+
+    root = tmp_path / "imgs"
+    _make_images(str(root), 2)
+    lib_id, job_id = _image_library(sessions, root)
+    decoded = []
+    real = image_scanner._load_image_for_scan
+
+    def spy(path, load_size, decode=True):
+        decoded.append(decode)
+        return real(path, load_size, decode)
+
+    monkeypatch.setattr(image_scanner, "_load_image_for_scan", spy)
+    image_scanner.scan_image_library(lib_id, job_id, False, False, False)
+
+    assert decoded == [False, False]
+    db = sessions()
+    assert db.get(Job, job_id).status == JobStatus.COMPLETED
+    rows = db.query(ImageFile).all()
+    assert len(rows) == 2 and all(r.width == 64 and r.phash is None for r in rows)
+    db.close()
+    assert no_nudenet == []
+
+
 # --- failure paths end FAILED, never stuck RUNNING ------------------------------
 
 
@@ -353,3 +403,50 @@ def test_queue_marks_crashed_job_failed(sessions):
     assert "kaboom" in db.get(Job, jid).error
     assert db.get(Job, did).status == JobStatus.COMPLETED
     db.close()
+
+
+# --- lazy image thumbnails ----------------------------------------------------------
+
+
+def test_get_or_create_image_thumbnail(sessions, tmp_path):
+    from app.services.image_scanner import get_or_create_image_thumbnail
+
+    [p] = _make_images(str(tmp_path / "imgs"), 1)
+    out = get_or_create_image_thumbnail(42, p)
+    assert out == str(tmp_path / "thumbs" / "42.jpg") and os.path.exists(out)
+    assert not [n for n in os.listdir(tmp_path / "thumbs") if n.endswith(".tmp")]
+    # second call is a hit, and a missing/corrupt source is None, not an error
+    assert get_or_create_image_thumbnail(42, p) == out
+    bad = tmp_path / "bad.png"
+    bad.write_bytes(b"not an image")
+    assert get_or_create_image_thumbnail(43, str(bad)) is None
+    assert not os.path.exists(tmp_path / "thumbs" / "43.jpg")
+
+
+def test_thumbnail_endpoint_generates_on_first_request(sessions, tmp_path, client, monkeypatch):
+    from app.api import images as images_api
+
+    monkeypatch.setattr(images_api, "SessionLocal", sessions)
+    [p] = _make_images(str(tmp_path / "imgs"), 1)
+    lib_id, _ = _image_library(sessions, tmp_path / "imgs")
+    db = sessions()
+    row = ImageFile(library_id=lib_id, path=p, filename="img0.png", extension="png", size=1)
+    db.add(row)
+    db.commit()
+    rid = row.id
+    db.close()
+
+    r = client.get(f"/api/images/{rid}/thumbnail")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    assert os.path.exists(tmp_path / "thumbs" / f"{rid}.jpg")
+    assert client.get("/api/images/99999/thumbnail").status_code == 404
+
+
+def test_load_image_for_scan_header_only(tmp_path):
+    from app.services.image_scanner import _load_image_for_scan
+
+    [p] = _make_images(str(tmp_path), 1)
+    meta, arr = _load_image_for_scan(p, 400, decode=False)
+    assert arr is None and meta["width"] == 64 and meta["height"] == 48
+    meta, arr = _load_image_for_scan(p, 400)
+    assert isinstance(arr, np.ndarray)

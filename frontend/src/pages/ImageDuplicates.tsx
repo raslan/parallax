@@ -3,6 +3,7 @@ import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { imageApi, qk } from "@/lib/api";
+import { ImageThumbnail } from "@/components/ImageThumbnail";
 import { getErrorMessage } from "@/lib/api/client";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
@@ -46,15 +47,12 @@ function ImageCard({
           : "border-border hover:border-muted-foreground/50"
       }`}
     >
-      {img.has_thumbnail ? (
-        <img
-          src={imageApi.thumbnailUrl(img.id, img.scanned_at ?? undefined)}
-          alt={img.filename}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="w-full h-full bg-muted" />
-      )}
+      <ImageThumbnail
+        imageId={img.id}
+        scannedAt={img.scanned_at}
+        alt={img.filename}
+        imgClassName="object-cover"
+      />
 
       {/* Checkbox top-left */}
       <div

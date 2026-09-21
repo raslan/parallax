@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { imageApi, qk } from "@/lib/api";
+import { ImageThumbnail } from "@/components/ImageThumbnail";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,17 +56,14 @@ function ImageCard({
         else onOpen();
       }}
     >
-      {img.has_thumbnail ? (
-        <img
-          src={imageApi.thumbnailUrl(img.id, img.scanned_at ?? undefined)}
+      <div className="relative w-full aspect-square bg-muted">
+        <ImageThumbnail
+          imageId={img.id}
+          scannedAt={img.scanned_at}
           alt={img.filename}
-          className="w-full aspect-square object-cover bg-muted"
+          imgClassName="object-cover"
         />
-      ) : (
-        <div className="w-full aspect-square bg-muted flex items-center justify-center">
-          <ImagesIcon className="h-8 w-8 text-muted-foreground/40" />
-        </div>
-      )}
+      </div>
 
       {selectionMode && (
         <div
