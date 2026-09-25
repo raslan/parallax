@@ -66,6 +66,7 @@ export const qk = {
   ytdlpImpersonateTargets: () => ["ytdlp", "impersonate-targets"] as const,
 
   compressCodecs: () => ["compress", "codecs"] as const,
+  compressResolutions: () => ["compress", "resolutions"] as const,
   compressFiles: (libraryId: number) => ["compress", "files", libraryId] as const,
 
   toolboxFiles: (libraryId: number) => ["toolbox", "files", libraryId] as const,

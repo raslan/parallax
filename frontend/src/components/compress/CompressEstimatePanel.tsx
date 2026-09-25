@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Info, SlidersHorizontal, ChevronRight } from "lucide-react";
 import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
-import type { CompressCodec } from "@/types/compress";
+import type { CompressCodec, ResolutionPreset } from "@/types/compress";
 import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Slider } from "@/components/ui/slider";
@@ -122,6 +122,9 @@ export function CompressEstimatePanel({
   crfRange,
   keepOriginal,
   onKeepOriginalChange,
+  resolutions,
+  maxResolution,
+  onMaxResolutionChange,
   files,
   selectedCount,
   libraryTotalSize,
@@ -144,6 +147,9 @@ export function CompressEstimatePanel({
   crfRange: { min: number; max: number };
   keepOriginal: boolean;
   onKeepOriginalChange: (v: boolean) => void;
+  resolutions: ResolutionPreset[];
+  maxResolution: string;
+  onMaxResolutionChange: (id: string) => void;
   files: VideoFile[] | null;
   selectedCount: number;
   libraryTotalSize: number;
@@ -155,6 +161,7 @@ export function CompressEstimatePanel({
 }) {
   const [open, setOpen] = useState(false);
   const selectedCodec = codecs.find((c) => c.id === codec);
+  const selectedResolution = resolutions.find((r) => r.id === maxResolution);
   const tier = getCrfTier(codec, crf);
 
   const estimateCards: {
@@ -226,6 +233,9 @@ export function CompressEstimatePanel({
                 <span className="font-medium">{selectedCodec?.label ?? codec.toUpperCase()}</span>
                 <span className="text-muted-foreground">
                   {" · "}CRF {crf} · {speed}
+                  {selectedResolution && selectedResolution.id !== "original" && (
+                    <> · max {selectedResolution.label}</>
+                  )}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
@@ -317,6 +327,22 @@ export function CompressEstimatePanel({
                     <span>{crfRange.min} — lossless</span>
                     <span>{crfRange.max} — smallest</span>
                   </div>
+                </div>
+
+                {/* Max resolution */}
+                <div className="space-y-2 px-4 py-4">
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Max resolution</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                      Downscale sources above this size (short side) — an approximation, not an
+                      exact pixel match. Quality stays governed by CRF above.
+                    </p>
+                  </div>
+                  <RadioToggle
+                    value={maxResolution}
+                    onChange={onMaxResolutionChange}
+                    options={resolutions.map((r) => ({ id: r.id, label: r.label }))}
+                  />
                 </div>
               </div>
 

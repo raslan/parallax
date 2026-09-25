@@ -51,6 +51,55 @@ _DEFAULT_CRF: dict[str, int] = {
 
 _NEEDS_REMUX = {".webm", ".flv", ".avi", ".wmv"}
 
+# Long-standing resolution-name convention: the number names the SHORT side in
+# landscape orientation (1080p = 1920x1080, height 1080 is the short side; 4K =
+# 3840x2160, height 2160 is the short side). Applied to whichever side is
+# actually shorter so portrait/vertical sources are capped correctly too.
+RESOLUTION_PRESETS: dict[str, int] = {
+    "2160": 2160,
+    "1440": 1440,
+    "1080": 1080,
+    "720": 720,
+    "480": 480,
+}
+
+
+def _scale_filter(src_w: int | None, src_h: int | None, max_resolution: int | None) -> str | None:
+    """ffmpeg -vf value capping the short side at max_resolution, or None if no downscale needed."""
+    if not max_resolution or not src_w or not src_h:
+        return None
+    short_side = min(src_w, src_h)
+    if short_side <= max_resolution:
+        return None
+    # scale=W:H, -2 keeps the free dimension even (required by most encoders).
+    if src_w >= src_h:  # landscape or square — height is the short side
+        return f"scale=-2:{max_resolution}"
+    return f"scale={max_resolution}:-2"  # portrait — width is the short side
+
+
+def _resolution_scale_factor(
+    src_w: int | None, src_h: int | None, max_resolution: int | None
+) -> float:
+    """Pixel-area ratio applied by _scale_filter, for size estimation. 1.0 if no downscale."""
+    if not max_resolution or not src_w or not src_h:
+        return 1.0
+    short_side = min(src_w, src_h)
+    if short_side <= max_resolution:
+        return 1.0
+    scale = max_resolution / short_side
+    return scale * scale
+
+
+def get_resolution_presets() -> list[dict]:
+    return [
+        {"id": "original", "label": "Original", "max_short_side": None},
+        {"id": "2160", "label": "4K", "max_short_side": 2160},
+        {"id": "1440", "label": "1440p", "max_short_side": 1440},
+        {"id": "1080", "label": "1080p", "max_short_side": 1080},
+        {"id": "720", "label": "720p", "max_short_side": 720},
+        {"id": "480", "label": "480p", "max_short_side": 480},
+    ]
+
 
 def _get_av1_encoder() -> str | None:
     enc = _get_encoders().get("av1", "libsvtav1")
@@ -100,6 +149,9 @@ def estimate_size(
     source_codec: str | None,
     target_codec: str,
     crf: int,
+    source_width: int | None = None,
+    source_height: int | None = None,
+    max_resolution: int | None = None,
 ) -> int:
     """Estimate compressed size in bytes. Approximate: ±20% of actual result."""
     if not source_size:
@@ -110,7 +162,8 @@ def estimate_size(
     crf_delta = crf - default_crf
     crf_factor = 2 ** (-crf_delta / 6)
     factor = max((tgt_eff / src_eff) * crf_factor, 0.05)
-    return int(source_size * factor)
+    res_factor = _resolution_scale_factor(source_width, source_height, max_resolution)
+    return int(source_size * factor * res_factor)
 
 
 def _resolve_encoder(codec: str) -> str:
@@ -130,6 +183,7 @@ def _build_compress_cmd(
     speed: str,
     reencode_audio: bool = False,
     gpu: GPUDevice | None = None,
+    vf: str | None = None,
 ) -> list[str]:
     encoder = _resolve_encoder(codec)
 
@@ -140,19 +194,20 @@ def _build_compress_cmd(
     # Without -hwaccel, decode stays on CPU even though the encoder is GPU —
     # visible in nvidia-smi as one active ffmpeg process while decode (esp.
     # AV1 source) bottlenecks the whole pipeline on CPU threads.
+    # When a scale filter is active, frames must land in system memory for
+    # libavfilter's (CPU) scale to read them, so -hwaccel_output_format is
+    # skipped — decode is still hardware-accelerated, just not zero-copy into
+    # the encoder. Without it, decoded frames come out in system memory already.
     if nvenc:
-        hwaccel_args = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+        hwaccel_args = ["-hwaccel", "cuda"]
+        if not vf:
+            hwaccel_args += ["-hwaccel_output_format", "cuda"]
         if gpu:
             hwaccel_args += ["-hwaccel_device", gpu.index]
     elif vaapi and gpu:
-        hwaccel_args = [
-            "-hwaccel",
-            "vaapi",
-            "-hwaccel_device",
-            gpu.index,
-            "-hwaccel_output_format",
-            "vaapi",
-        ]
+        hwaccel_args = ["-hwaccel", "vaapi", "-hwaccel_device", gpu.index]
+        if not vf:
+            hwaccel_args += ["-hwaccel_output_format", "vaapi"]
     else:
         hwaccel_args = []
 
@@ -175,6 +230,7 @@ def _build_compress_cmd(
     tag_args = ["-tag:v", "hvc1"] if is_hevc and out_ext in {".mp4", ".m4v", ".mov"} else []
 
     audio_args = ["-c:a", "aac", "-b:a", "192k"] if reencode_audio else ["-c:a", "copy"]
+    filter_args = ["-vf", vf] if vf else []
 
     return [
         "ffmpeg",
@@ -183,6 +239,7 @@ def _build_compress_cmd(
         "-i",
         input_path,
         *video_args,
+        *filter_args,
         *tag_args,
         *audio_args,
         "-progress",
@@ -201,6 +258,7 @@ def _compress_one(
     progress_cb: Callable[[float], None] | None = None,
     keep_original: bool = True,
     gpu: GPUDevice | None = None,
+    max_resolution: int | None = None,
 ) -> tuple[bool, str | None, str | None]:
     """Compress one file in-place. Returns (success, error_msg, final_path).
 
@@ -249,12 +307,47 @@ def _compress_one(
     except Exception:
         pass
 
+    src_w: int | None = None
+    src_h: int | None = None
+    if max_resolution:
+        try:
+            dim_probe = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "quiet",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=width,height",
+                    "-print_format",
+                    "csv=p=0",
+                    src,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            parts = dim_probe.stdout.strip().split("\n")[0].split(",")
+            if len(parts) == 2:
+                src_w, src_h = int(parts[0]), int(parts[1])
+        except Exception:
+            pass
+    vf = _scale_filter(src_w, src_h, max_resolution)
+
     proc = None
     err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="compress_")
     try:
         proc = subprocess.Popen(
             _build_compress_cmd(
-                src, tmp, codec, crf, speed, reencode_audio=changing_container, gpu=gpu
+                src,
+                tmp,
+                codec,
+                crf,
+                speed,
+                reencode_audio=changing_container,
+                gpu=gpu,
+                vf=vf,
             ),
             stdout=subprocess.PIPE,
             stderr=err_fd,
@@ -370,6 +463,7 @@ def run_compress_job(
     crf: int,
     speed: str,
     keep_original: bool = True,
+    max_resolution: int | None = None,
 ) -> None:
     from app.models.settings import get_setting
 
@@ -427,6 +521,7 @@ def run_compress_job(
                 progress_cb=make_progress_cb(path),
                 keep_original=keep_original,
                 gpu=gpu,
+                max_resolution=max_resolution,
             )
             if not ok and gpu is not None and is_hwaccel_failure(err or ""):
                 log_q.put(
@@ -447,6 +542,7 @@ def run_compress_job(
                     progress_cb=make_progress_cb(path),
                     keep_original=keep_original,
                     gpu=gpu,
+                    max_resolution=max_resolution,
                 )
             if gpu is not None:
                 gpu_pool.release(gpu)

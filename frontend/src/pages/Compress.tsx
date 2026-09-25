@@ -47,19 +47,50 @@ const DEFAULT_CRF: Record<string, number> = { h264: 23, hevc: 28, av1: 35 };
 // Slower preset = encoder spends more time finding efficient compression at same CRF
 const SPEED_FACTOR: Record<string, number> = { slow: 0.92, medium: 1.0, fast: 1.08 };
 
-function estimateSize(f: VideoFile, codec: string, crf: number, speed = "medium"): number {
+// Resolution-name convention: the number names the SHORT side in landscape
+// orientation (1080p = height 1080, the short side; 4K = height 2160, the
+// short side) — applied to whichever side is actually shorter so portrait
+// sources are capped correctly too. Mirrors backend `_resolution_scale_factor`
+// / `_scale_filter` in compressor.py.
+function exceedsMaxResolution(f: VideoFile, maxShortSide: number | null): boolean {
+  if (!maxShortSide || !f.file_width || !f.file_height) return false;
+  return Math.min(f.file_width, f.file_height) > maxShortSide;
+}
+
+function resolutionScaleFactor(f: VideoFile, maxShortSide: number | null): number {
+  if (!maxShortSide || !f.file_width || !f.file_height) return 1;
+  const shortSide = Math.min(f.file_width, f.file_height);
+  if (shortSide <= maxShortSide) return 1;
+  const scale = maxShortSide / shortSide;
+  return scale * scale; // pixel area scales with the square of the linear scale
+}
+
+function estimateSize(
+  f: VideoFile,
+  codec: string,
+  crf: number,
+  speed = "medium",
+  maxShortSide: number | null = null,
+): number {
   if (!f.size) return 0;
   const srcEff = SRC_EFF[f.codec_name?.toLowerCase() ?? "h264"] ?? 1.0;
   const tgtEff = TGT_EFF[codec] ?? 1.0;
   const crfDelta = crf - (DEFAULT_CRF[codec] ?? 23);
   const speedF = SPEED_FACTOR[speed] ?? 1.0;
+  const resF = resolutionScaleFactor(f, maxShortSide);
   return Math.round(
-    f.size * Math.max((tgtEff / srcEff) * Math.pow(2, -crfDelta / 6) * speedF, 0.05),
+    f.size * Math.max((tgtEff / srcEff) * Math.pow(2, -crfDelta / 6) * speedF * resF, 0.05),
   );
 }
 
-function savingsPct(f: VideoFile, codec: string, crf: number, speed = "medium"): number {
-  const est = estimateSize(f, codec, crf, speed);
+function savingsPct(
+  f: VideoFile,
+  codec: string,
+  crf: number,
+  speed = "medium",
+  maxShortSide: number | null = null,
+): number {
+  const est = estimateSize(f, codec, crf, speed, maxShortSide);
   return f.size > 0 ? Math.round((1 - est / f.size) * 100) : 0;
 }
 
@@ -74,6 +105,7 @@ function sortFiles(
   codec: string,
   crf: number,
   speed: string,
+  maxShortSide: number | null,
 ): VideoFile[] {
   const sorted = [...files].sort((a, b) => {
     let va: number | string, vb: number | string;
@@ -95,8 +127,8 @@ function sortFiles(
         vb = b.size;
         break;
       case "savings":
-        va = savingsPct(a, codec, crf, speed);
-        vb = savingsPct(b, codec, crf, speed);
+        va = savingsPct(a, codec, crf, speed, maxShortSide);
+        vb = savingsPct(b, codec, crf, speed, maxShortSide);
         break;
     }
     return va < vb ? -1 : va > vb ? 1 : 0;
@@ -114,6 +146,7 @@ export function Compress() {
   const [crf, setCrf] = useState(28);
   const [speed, setSpeed] = useState("medium");
   const [keepOriginal, setKeepOriginal] = useState(true);
+  const [maxResolution, setMaxResolution] = useState<string>("original");
 
   const {
     selected,
@@ -138,6 +171,14 @@ export function Compress() {
     queryKey: qk.compressCodecs(),
     queryFn: () => compressApi.codecs(),
   });
+  const { data: resolutions = [] } = useQuery({
+    queryKey: qk.compressResolutions(),
+    queryFn: () => compressApi.resolutions(),
+  });
+  const maxShortSide = useMemo(
+    () => resolutions.find((r) => r.id === maxResolution)?.max_short_side ?? null,
+    [resolutions, maxResolution],
+  );
 
   // Default to the first library once they load.
   useEffect(() => {
@@ -196,8 +237,8 @@ export function Compress() {
   }, [codec, codecs]);
 
   const displayFiles = useMemo(
-    () => (files ? sortFiles(files, sortKey, sortDir, codec, crf, speed) : null),
-    [files, sortKey, sortDir, codec, crf, speed],
+    () => (files ? sortFiles(files, sortKey, sortDir, codec, crf, speed, maxShortSide) : null),
+    [files, sortKey, sortDir, codec, crf, speed, maxShortSide],
   );
   const filteredFiles = useMemo(
     () => (displayFiles ? filterByFilename(displayFiles, search) : null),
@@ -210,6 +251,11 @@ export function Compress() {
     setSelected(
       new Set(filteredFiles.filter((f) => f.codec_name?.toLowerCase() !== codec).map((f) => f.id)),
     );
+  const selectOversized = () =>
+    filteredFiles &&
+    setSelected(
+      new Set(filteredFiles.filter((f) => exceedsMaxResolution(f, maxShortSide)).map((f) => f.id)),
+    );
   const selectedFiles = useMemo(
     () => (filteredFiles ?? []).filter((f) => selected.has(f.id)),
     [filteredFiles, selected],
@@ -217,7 +263,10 @@ export function Compress() {
 
   // Selection stats
   const totalSourceSize = selectedFiles.reduce((s, f) => s + f.size, 0);
-  const totalEstSize = selectedFiles.reduce((s, f) => s + estimateSize(f, codec, crf, speed), 0);
+  const totalEstSize = selectedFiles.reduce(
+    (s, f) => s + estimateSize(f, codec, crf, speed, maxShortSide),
+    0,
+  );
   const totalSavingsPct =
     totalSourceSize > 0
       ? Math.round(((totalSourceSize - totalEstSize) / totalSourceSize) * 100)
@@ -226,8 +275,8 @@ export function Compress() {
   // Library-wide stats (all loaded files, not just selected)
   const libraryTotalSize = useMemo(() => (files ?? []).reduce((s, f) => s + f.size, 0), [files]);
   const libraryEstSize = useMemo(
-    () => (files ?? []).reduce((s, f) => s + estimateSize(f, codec, crf, speed), 0),
-    [files, codec, crf, speed],
+    () => (files ?? []).reduce((s, f) => s + estimateSize(f, codec, crf, speed, maxShortSide), 0),
+    [files, codec, crf, speed, maxShortSide],
   );
   const librarySavingsPct =
     libraryTotalSize > 0
@@ -280,6 +329,7 @@ export function Compress() {
         crf,
         speed,
         keep_original: keepOriginal,
+        max_resolution: maxResolution === "original" ? null : maxResolution,
       });
       startJobPoll(job_id);
     } catch (e: unknown) {
@@ -336,6 +386,9 @@ export function Compress() {
         crfRange={crfRange}
         keepOriginal={keepOriginal}
         onKeepOriginalChange={setKeepOriginal}
+        resolutions={resolutions}
+        maxResolution={maxResolution}
+        onMaxResolutionChange={setMaxResolution}
         files={files}
         selectedCount={selected.size}
         libraryTotalSize={libraryTotalSize}
@@ -395,6 +448,15 @@ export function Compress() {
             >
               Non-{selectedCodec?.label ?? codec.toUpperCase()}
             </button>
+            {maxShortSide != null && (
+              <button
+                onClick={selectOversized}
+                className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
+                title={`Select files above ${resolutions.find((r) => r.id === maxResolution)?.label ?? maxResolution}`}
+              >
+                Above {resolutions.find((r) => r.id === maxResolution)?.label ?? maxResolution}
+              </button>
+            )}
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <input
@@ -493,16 +555,16 @@ export function Compress() {
                       <span
                         className={cn(
                           "text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 font-mono",
-                          estimateSize(f, codec, crf, speed) > f.size
+                          estimateSize(f, codec, crf, speed, maxShortSide) > f.size
                             ? "text-red-400"
-                            : savingsPct(f, codec, crf, speed) > 0
+                            : savingsPct(f, codec, crf, speed, maxShortSide) > 0
                               ? "text-green-400"
                               : "text-muted-foreground/60",
                         )}
                       >
                         {(() => {
-                          const est = estimateSize(f, codec, crf, speed);
-                          const pct = savingsPct(f, codec, crf, speed);
+                          const est = estimateSize(f, codec, crf, speed, maxShortSide);
+                          const pct = savingsPct(f, codec, crf, speed, maxShortSide);
                           const growing = est > f.size;
                           return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
                         })()}
@@ -590,26 +652,26 @@ export function Compress() {
                           <span
                             className={cn(
                               "text-xs shrink-0 w-16 text-right font-mono",
-                              estimateSize(f, codec, crf, speed) > f.size
+                              estimateSize(f, codec, crf, speed, maxShortSide) > f.size
                                 ? "text-red-400"
                                 : "text-muted-foreground/70",
                             )}
                           >
-                            {formatSize(estimateSize(f, codec, crf, speed))}
+                            {formatSize(estimateSize(f, codec, crf, speed, maxShortSide))}
                           </span>
                           <span
                             className={cn(
                               "text-xs shrink-0 w-14 text-right font-semibold",
-                              estimateSize(f, codec, crf, speed) > f.size
+                              estimateSize(f, codec, crf, speed, maxShortSide) > f.size
                                 ? "text-red-400"
-                                : savingsPct(f, codec, crf, speed) > 0
+                                : savingsPct(f, codec, crf, speed, maxShortSide) > 0
                                   ? "text-green-400"
                                   : "text-muted-foreground/50",
                             )}
                           >
                             {(() => {
-                              const est = estimateSize(f, codec, crf, speed);
-                              const pct = savingsPct(f, codec, crf, speed);
+                              const est = estimateSize(f, codec, crf, speed, maxShortSide);
+                              const pct = savingsPct(f, codec, crf, speed, maxShortSide);
                               const growing = est > f.size;
                               return growing ? `+${Math.abs(pct)}%` : pct > 0 ? `-${pct}%` : "—";
                             })()}

@@ -8,7 +8,12 @@ from app.database import SessionLocal
 from app.models.file import File
 from app.models.job import Job, JobStatus, JobType
 from app.queue import enqueue
-from app.services.compressor import get_available_codecs, run_compress_job
+from app.services.compressor import (
+    RESOLUTION_PRESETS,
+    get_available_codecs,
+    get_resolution_presets,
+    run_compress_job,
+)
 
 router = APIRouter()
 
@@ -19,11 +24,17 @@ class CompressStartRequest(BaseModel):
     crf: int = 28
     speed: str = "medium"
     keep_original: bool = True
+    max_resolution: str | None = None  # RESOLUTION_PRESETS key, or None/"original" for no cap
 
 
 @router.get("/compress/codecs")
 def list_codecs():
     return get_available_codecs()
+
+
+@router.get("/compress/resolutions")
+def list_resolutions():
+    return get_resolution_presets()
 
 
 @router.get("/compress/library-files")
@@ -41,6 +52,9 @@ def library_files(library_id: int = Query(...)):
 async def start_compress(req: CompressStartRequest):
     if not req.file_ids:
         raise HTTPException(422, "No files specified")
+    if req.max_resolution and req.max_resolution not in RESOLUTION_PRESETS:
+        raise HTTPException(422, "Unknown max_resolution preset")
+    max_resolution = RESOLUTION_PRESETS.get(req.max_resolution) if req.max_resolution else None
 
     db = SessionLocal()
     try:
@@ -58,6 +72,7 @@ async def start_compress(req: CompressStartRequest):
                 "crf": req.crf,
                 "speed": req.speed,
                 "keep_original": req.keep_original,
+                "max_resolution": req.max_resolution,
             }
         )
         job = Job(
@@ -83,6 +98,7 @@ async def start_compress(req: CompressStartRequest):
         req.crf,
         req.speed,
         req.keep_original,
+        max_resolution,
     )
 
     return {"job_id": job_id}
