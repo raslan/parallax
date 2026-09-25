@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [3.3.0](https://github.com/raslan/parallax/compare/v3.2.0...v3.3.0) (2026-09-25)
+
+
+### Features
+
+* add resolution selection option to Compress ([f4cef55](https://github.com/raslan/parallax/commit/f4cef55dabfe2a4c7566d9ca574908205b47f882))
+
+
+### Bug Fixes
+
+* add several cleanup fixes to gallery and toolbox consistency ([f662c18](https://github.com/raslan/parallax/commit/f662c18bda73d96010408346b5e2a4788e4113b9))
+* **jobs:** roll back before marking a job failed in every job handler ([e5b4f55](https://github.com/raslan/parallax/commit/e5b4f55a0992c53e7b6e2f3fc49d747ec1d7103c))
+* **scan:** stop watcher racing scans and leaving jobs stuck running ([d8266e1](https://github.com/raslan/parallax/commit/d8266e15a4ef4a88af91bb27d95b9e34521effb6))
+
+
+### Performance Improvements
+
+* **images:** defer scan thumbnails to a follow-up job and lazy endpoint ([de21cf2](https://github.com/raslan/parallax/commit/de21cf2bd4ff69d45cfe0e6d0d4994170b25711b))
+
 ## [3.2.0](https://github.com/raslan/parallax/compare/v3.1.1...v3.2.0) (2026-09-12)
 
 
