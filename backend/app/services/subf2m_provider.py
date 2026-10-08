@@ -113,6 +113,20 @@ _EPISODE_SPECIAL_RE = re.compile(
 )
 
 
+def _season_slug_path(title: str, season: int) -> str | None:
+    """Guess subf2m's season page path, e.g. ``/subtitles/stranger-things-first-season``.
+
+    Used when the title search is down or finds nothing. A wrong guess just yields
+    an empty (404) page, which the episode lookup treats as "no subtitles".
+    """
+    if not 1 <= season <= len(_SEASONS):
+        return None
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower().replace("'", "")).strip("-")
+    if not slug:
+        return None
+    return f"/subtitles/{slug}-{_SEASONS[season - 1].lower()}-season"
+
+
 class Subf2mProvider:
     def __init__(self) -> None:
         self._session = requests.Session()
@@ -191,7 +205,14 @@ class Subf2mProvider:
             logger.debug("subf2m: season %d not in lookup table", season)
             return []
         results = []
-        for result in self._gen_results(title):
+        try:
+            candidates = list(self._gen_results(title))
+        except requests.RequestException as exc:
+            # subf2m's search endpoint has been seen returning 500 for every query
+            # while the show pages themselves still load fine.
+            logger.warning("subf2m: title search failed (%s) — trying direct season URL", exc)
+            candidates = []
+        for result in candidates:
             text = result.text.strip().lower()
             m = _TV_SHOW_TITLE_RE.match(text) or _TV_SHOW_TITLE_ALT_RE.match(text)
             if m:
@@ -214,7 +235,12 @@ class Subf2mProvider:
                     }
                 )
         results.sort(key=lambda x: x["similarity"], reverse=True)
-        return list(dict.fromkeys(r["href"] for r in results[:return_len]))
+        hrefs = list(dict.fromkeys(r["href"] for r in results[:return_len]))
+        if not hrefs:
+            slug_path = _season_slug_path(title, season)
+            if slug_path:
+                hrefs = [slug_path]
+        return hrefs
 
     # ------------------------------------------------------------------
     # Subtitle listing helpers
