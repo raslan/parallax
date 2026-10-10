@@ -10,6 +10,9 @@ import json
 import subprocess
 from dataclasses import dataclass
 
+from app.services.compressor import _encoder_args, _resolve_encoder
+from app.services.gpu_pool import GPUDevice
+
 _FPS_TOLERANCE = 0.01
 _NAME_MAX_BYTES = 200
 _FORBIDDEN_NAME_CHARS = set("/\\\x00")
@@ -167,3 +170,101 @@ def duration_ok(actual: float, expected: float) -> bool:
     if actual <= 0:
         return False
     return abs(actual - expected) <= max(2.0, expected * 0.01)
+
+
+_SOFTWARE_ENCODERS = {"h264": "libx264", "hevc": "libx265", "av1": "libsvtav1"}
+
+
+def software_encoder(codec: str) -> str:
+    return _SOFTWARE_ENCODERS.get(codec, "libx264")
+
+
+def pick_output_ext(verdict: str, first_ext: str, codec: str | None) -> str:
+    ext = first_ext.lower()
+    if verdict == "copy":
+        return ext or ".mkv"
+    if codec in ("h264", "hevc") and ext in {".mp4", ".m4v", ".mov"}:
+        return ".mp4"
+    return ".mkv"
+
+
+def build_copy_cmd(list_path: str, output_path: str, chapters_path: str | None) -> list[str]:
+    cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path]
+    if chapters_path:
+        cmd += ["-i", chapters_path]
+    cmd += ["-map", "0:v:0", "-map", "0:a:0?"]
+    if chapters_path:
+        cmd += ["-map_chapters", "1"]
+    cmd += ["-c", "copy", "-progress", "pipe:1", "-nostats", output_path]
+    return cmd
+
+
+def _even(n: int | None, fallback: int) -> int:
+    n = n or fallback
+    return max(2, n - (n % 2))
+
+
+def _fmt(n: float) -> str:
+    return f"{n:g}"
+
+
+def build_reencode_cmd(
+    facts: list[StreamFacts],
+    ref: StreamFacts,
+    output_path: str,
+    codec: str,
+    crf: int,
+    speed: str,
+    chapters_path: str | None,
+    gpu: GPUDevice | None,
+    encoder: str | None = None,
+) -> list[str]:
+    w, h = _even(ref.width, 1280), _even(ref.height, 720)
+    fps = _fmt(ref.fps or 24.0)
+    rate = ref.sample_rate or 48000
+    layout = "mono" if (ref.channels or 2) == 1 else "stereo"
+    any_audio = any(f.has_audio for f in facts)
+
+    chains: list[str] = []
+    labels: list[str] = []
+    for i, f in enumerate(facts):
+        chains.append(
+            f"[{i}:v:0]scale={w}:{h}:force_original_aspect_ratio=decrease,"
+            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps},format=yuv420p[v{i}]"
+        )
+        labels.append(f"[v{i}]")
+        if any_audio:
+            if f.has_audio:
+                chains.append(
+                    f"[{i}:a:0]aresample={rate},"
+                    f"aformat=sample_fmts=fltp:channel_layouts={layout}[a{i}]"
+                )
+            else:
+                chains.append(
+                    f"anullsrc=r={rate}:cl={layout},atrim=duration={_fmt(f.duration)},"
+                    f"aformat=sample_fmts=fltp[a{i}]"
+                )
+            labels.append(f"[a{i}]")
+    n = len(facts)
+    if any_audio:
+        chains.append(f"{''.join(labels)}concat=n={n}:v=1:a=1[v][a]")
+    else:
+        chains.append(f"{''.join(labels)}concat=n={n}:v=1:a=0[v]")
+
+    cmd = ["ffmpeg", "-y"]
+    for f in facts:
+        cmd += ["-i", f.path]
+    if chapters_path:
+        cmd += ["-i", chapters_path]
+    cmd += ["-filter_complex", ";".join(chains), "-map", "[v]"]
+    if any_audio:
+        cmd += ["-map", "[a]"]
+    if chapters_path:
+        cmd += ["-map_chapters", str(n)]
+    cmd += _encoder_args(encoder or _resolve_encoder(codec), codec, crf, speed, gpu)
+    if codec == "hevc" and output_path.lower().endswith((".mp4", ".m4v", ".mov")):
+        cmd += ["-tag:v", "hvc1"]
+    if any_audio:
+        cmd += ["-c:a", "aac", "-b:a", "192k"]
+    cmd += ["-progress", "pipe:1", "-nostats", output_path]
+    return cmd

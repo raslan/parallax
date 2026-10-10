@@ -4,9 +4,13 @@ from app.services.splice import (
     StreamFacts,
     build_chapters_ffmetadata,
     build_concat_list,
+    build_copy_cmd,
+    build_reencode_cmd,
     duration_ok,
     mismatch_reasons,
     parse_probe,
+    pick_output_ext,
+    software_encoder,
     validate_output_name,
     verdict_for,
 )
@@ -118,3 +122,87 @@ def test_duration_ok_tolerance():
     assert duration_ok(101.5, 100.0)  # within 2 s / 1 %
     assert not duration_ok(90.0, 100.0)
     assert not duration_ok(0.0, 5.0)
+
+
+def test_copy_cmd_without_chapters():
+    cmd = build_copy_cmd("/t/list.txt", "/t/out.mp4", None)
+    assert cmd[:6] == ["ffmpeg", "-y", "-f", "concat", "-safe", "0"]
+    assert cmd[cmd.index("-i") + 1] == "/t/list.txt"
+    assert "-c" in cmd and cmd[cmd.index("-c") + 1] == "copy"
+    assert "-map_chapters" not in cmd
+    assert cmd[-1] == "/t/out.mp4"
+
+
+def test_copy_cmd_with_chapters_adds_second_input_and_maps_chapters():
+    cmd = build_copy_cmd("/t/list.txt", "/t/out.mkv", "/t/meta.txt")
+    assert cmd.count("-i") == 2
+    assert cmd[cmd.index("-map_chapters") + 1] == "1"
+
+
+def test_reencode_cmd_filtergraph_scales_pads_even_and_silences_missing_audio():
+    ref = _facts(width=1920, height=1080, fps=24.0)
+    portrait = _facts(path="/lib/p.mp4", width=1080, height=1920)
+    silent = _facts(path="/lib/s.mp4", acodec=None, sample_rate=None, channels=None)
+    cmd = build_reencode_cmd(
+        [ref, portrait, silent], ref, "/t/out.mp4", "h264", 23, "medium", None, None
+    )
+    graph = cmd[cmd.index("-filter_complex") + 1]
+    assert graph.count("scale=1920:1080:force_original_aspect_ratio=decrease") == 3
+    assert graph.count("pad=1920:1080:(ow-iw)/2:(oh-ih)/2") == 3
+    assert "fps=24" in graph
+    assert "anullsrc" in graph and "atrim=duration=10" in graph  # only the silent one
+    assert "concat=n=3:v=1:a=1[v][a]" in graph
+    assert cmd.count("-i") == 3
+    assert cmd[cmd.index("-map") + 1] == "[v]"
+
+
+def test_reencode_cmd_rounds_odd_reference_dimensions_down_to_even():
+    ref = _facts(width=1279, height=719)
+    cmd = build_reencode_cmd([ref, ref], ref, "/t/o.mkv", "h264", 23, "fast", None, None)
+    assert "scale=1278:718" in cmd[cmd.index("-filter_complex") + 1]
+
+
+def test_reencode_cmd_no_audio_anywhere_has_no_audio_map():
+    ref = _facts(acodec=None, sample_rate=None, channels=None)
+    cmd = build_reencode_cmd([ref, ref], ref, "/t/o.mkv", "h264", 23, "fast", None, None)
+    graph = cmd[cmd.index("-filter_complex") + 1]
+    assert "concat=n=2:v=1:a=0[v]" in graph and "[a]" not in graph
+    assert "[a]" not in cmd
+
+
+def test_reencode_encoder_override_is_used():
+    ref = _facts()
+    cmd = build_reencode_cmd(
+        [ref, ref], ref, "/t/o.mp4", "h264", 23, "medium", None, None, encoder="libx264"
+    )
+    assert cmd[cmd.index("-c:v") + 1] == "libx264"
+
+
+def test_software_encoder_names():
+    assert [software_encoder(c) for c in ("h264", "hevc", "av1")] == [
+        "libx264",
+        "libx265",
+        "libsvtav1",
+    ]
+
+
+def test_reencode_hevc_mp4_gets_hvc1_tag():
+    ref = _facts()
+    cmd = build_reencode_cmd([ref, ref], ref, "/t/o.mp4", "hevc", 28, "medium", None, None)
+    assert cmd[cmd.index("-tag:v") + 1] == "hvc1"
+
+
+@pytest.mark.parametrize(
+    "verdict,first_ext,codec,expected",
+    [
+        ("copy", ".MP4", None, ".mp4"),
+        ("copy", ".mkv", None, ".mkv"),
+        ("reencode", ".mp4", "h264", ".mp4"),
+        ("reencode", ".m4v", "hevc", ".mp4"),
+        ("reencode", ".mkv", "h264", ".mkv"),
+        ("reencode", ".webm", "h264", ".mkv"),
+        ("reencode", ".mp4", "av1", ".mkv"),
+    ],
+)
+def test_pick_output_ext(verdict, first_ext, codec, expected):
+    assert pick_output_ext(verdict, first_ext, codec) == expected

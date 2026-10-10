@@ -175,6 +175,24 @@ def _resolve_encoder(codec: str) -> str:
     return _get_av1_encoder() or "libsvtav1"
 
 
+def _encoder_args(
+    encoder: str, codec: str, crf: int, speed: str, gpu: GPUDevice | None
+) -> list[str]:
+    """Per-encoder quality/speed args for `-c:v` — shared by Compress and Splice."""
+    if encoder in ("h264_nvenc", "hevc_nvenc"):
+        nvenc_preset = {"slow": "p7", "medium": "p5", "fast": "p3"}.get(speed, "p5")
+        args = ["-c:v", encoder, "-rc:v", "vbr", "-cq:v", str(crf), "-preset", nvenc_preset]
+        if gpu:
+            args += ["-gpu", gpu.index]
+        return args
+    if encoder == "libsvtav1":
+        svt_preset = {"slow": "4", "medium": "8", "fast": "10"}.get(speed, "8")
+        return ["-c:v", encoder, "-crf", str(crf), "-preset", svt_preset]
+    if encoder == "libaom-av1":
+        return ["-c:v", encoder, "-crf", str(crf), "-b:v", "0", "-cpu-used", "4"]
+    return ["-c:v", encoder, "-crf", str(crf), "-preset", speed]
+
+
 def _build_compress_cmd(
     input_path: str,
     output_path: str,
@@ -211,18 +229,7 @@ def _build_compress_cmd(
     else:
         hwaccel_args = []
 
-    if nvenc:
-        nvenc_preset = {"slow": "p7", "medium": "p5", "fast": "p3"}.get(speed, "p5")
-        video_args = ["-c:v", encoder, "-rc:v", "vbr", "-cq:v", str(crf), "-preset", nvenc_preset]
-        if gpu:
-            video_args += ["-gpu", gpu.index]
-    elif encoder == "libsvtav1":
-        svt_preset = {"slow": "4", "medium": "8", "fast": "10"}.get(speed, "8")
-        video_args = ["-c:v", encoder, "-crf", str(crf), "-preset", svt_preset]
-    elif encoder == "libaom-av1":
-        video_args = ["-c:v", encoder, "-crf", str(crf), "-b:v", "0", "-cpu-used", "4"]
-    else:
-        video_args = ["-c:v", encoder, "-crf", str(crf), "-preset", speed]
+    video_args = _encoder_args(encoder, codec, crf, speed, gpu)
 
     # MP4/M4V/MOV containers require the hvc1 tag to signal HEVC; without it
     # the muxer rejects the stream ("codec not currently supported in container").
