@@ -33,6 +33,7 @@ export { subtitlesApi } from "./subtitles";
 export { streamApi } from "./stream";
 export { compressApi } from "./compress";
 export { toolboxApi } from "./toolbox";
+export { spliceApi } from "./splice";
 export { audioLibrariesApi } from "./audioLibraries";
 export { audioFilesApi } from "./audioFiles";
 export { audioDuplicatesApi } from "./audioDuplicates";

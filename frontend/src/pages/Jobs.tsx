@@ -47,6 +47,7 @@ const TYPE_LABEL: Record<string, string> = {
   audio_toolbox: "Audio Toolbox",
   audio_duplicates: "Audio Duplicates",
   toolbox_fix: "Toolbox fix",
+  splice_merge: "Splice",
   thumbnail_warm: "Generating thumbnails",
 };
 
@@ -64,6 +65,7 @@ const FILE_VERB: Record<string, string> = {
   compress: "Transcoding",
   audio_compress: "Transcoding",
   toolbox_fix: "Transcoding",
+  splice_merge: "Transcoding",
   audio_toolbox: "Transcoding",
 };
 

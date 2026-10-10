@@ -18,6 +18,7 @@ import { Downloads } from "@/pages/Downloads";
 import { Galleries } from "@/pages/Galleries";
 import { Compress } from "@/pages/Compress";
 import { Toolbox } from "@/pages/Toolbox";
+import { Splice } from "@/pages/Splice";
 import { ImageLibraries } from "@/pages/ImageLibraries";
 import { Images } from "@/pages/Images";
 import { ImageDuplicates } from "@/pages/ImageDuplicates";
@@ -53,6 +54,7 @@ export default function App() {
               <Route path="/galleries" element={<Galleries />} />
               <Route path="/compress" element={<Compress />} />
               <Route path="/toolbox" element={<Toolbox />} />
+              <Route path="/splice" element={<Splice />} />
               {/* Image routes */}
               <Route path="/image-libraries" element={<ImageLibraries />} />
               <Route path="/images" element={<Images />} />

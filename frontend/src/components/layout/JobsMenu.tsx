@@ -21,6 +21,7 @@ const TYPE_LABEL: Record<string, string> = {
   model_download: "Model download",
   compress: "Compress",
   toolbox_fix: "Toolbox fix",
+  splice_merge: "Splice",
   thumbnail_warm: "Generating thumbnails",
 };
 const label = (t: string) => TYPE_LABEL[t] ?? t;

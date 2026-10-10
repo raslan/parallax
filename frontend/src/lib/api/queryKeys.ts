@@ -71,6 +71,10 @@ export const qk = {
 
   toolboxFiles: (libraryId: number) => ["toolbox", "files", libraryId] as const,
 
+  spliceFiles: (libraryId: number) => ["splice", "files", libraryId] as const,
+  splicePreflight: (ids: number[], referenceId: number | null, name: string, codec: string) =>
+    ["splice", "preflight", ids.join(","), referenceId, name, codec] as const,
+
   subtitleScan: (libraryId: number, params?: unknown) =>
     params === undefined
       ? (["subtitles", "scan", libraryId] as const)
