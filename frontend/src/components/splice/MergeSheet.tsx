@@ -58,6 +58,9 @@ interface MergeSheetProps {
   starting: boolean;
   startError: string | null;
   onMerge: () => void;
+  preflightError: string | null;
+  forceCpu: boolean;
+  onForceCpuChange: (v: boolean) => void;
 }
 
 export function MergeSheet({
@@ -88,6 +91,9 @@ export function MergeSheet({
   starting,
   startError,
   onMerge,
+  preflightError,
+  forceCpu,
+  onForceCpuChange,
 }: MergeSheetProps) {
   const info = new Map((preflight?.files ?? []).map((f) => [f.file_id, f]));
   const reencode = preflight?.verdict === "reencode";
@@ -95,6 +101,7 @@ export function MergeSheet({
   const lowDisk = !!preflight && preflight.free_bytes < preflight.total_size * 1.1;
   const canMerge =
     !!preflight &&
+    !preflightError &&
     !preflight.name_conflict &&
     outputName.trim().length > 0 &&
     !starting &&
@@ -146,7 +153,14 @@ export function MergeSheet({
           onPickReference={onReferenceChange}
         />
 
-        {preflight && (
+        {preflightError && (
+          <Alert variant="destructive">
+            <AlertTitle>Can&apos;t merge these files</AlertTitle>
+            <AlertDescription>{preflightError}</AlertDescription>
+          </Alert>
+        )}
+
+        {preflight && !preflightError && (
           <Alert className={reencode ? "border-orange-500/40" : "border-green-500/30"}>
             <AlertTitle>{reencode ? "Re-encode needed" : "Stream copy — no re-encode"}</AlertTitle>
             <AlertDescription>
@@ -219,9 +233,13 @@ export function MergeSheet({
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="splice-cpu">Encode on CPU</Label>
+              <Switch id="splice-cpu" checked={forceCpu} onCheckedChange={onForceCpuChange} />
+            </div>
             <p className="text-xs text-muted-foreground">
               Output matches the starred file&apos;s size and frame rate; the others are scaled with
-              black bars.
+              black bars. Use the CPU switch if your GPU encoder isn&apos;t working.
             </p>
           </div>
         )}

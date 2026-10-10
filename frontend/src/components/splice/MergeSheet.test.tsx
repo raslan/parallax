@@ -84,6 +84,9 @@ const base = {
   starting: false,
   startError: null,
   onMerge: vi.fn(),
+  preflightError: null,
+  forceCpu: false,
+  onForceCpuChange: vi.fn(),
 };
 
 describe("MergeSheet", () => {
@@ -119,5 +122,29 @@ describe("MergeSheet", () => {
     render(<MergeSheet {...base} onMerge={onMerge} preflight={pre({})} />);
     fireEvent.click(screen.getByRole("button", { name: /merge 2 files/i }));
     expect(onMerge).toHaveBeenCalled();
+  });
+
+  it("shows why the preflight failed and keeps Merge disabled", () => {
+    render(<MergeSheet {...base} preflight={undefined} preflightError="Could not read gone.mp4" />);
+    expect(screen.getByText(/could not read gone\.mp4/i)).toBeTruthy();
+    const btn = screen.getByRole("button", { name: /merge 2 files/i }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it("offers an Encode on CPU switch only when a re-encode is needed", () => {
+    const onForceCpuChange = vi.fn();
+    const { rerender } = render(
+      <MergeSheet {...base} onForceCpuChange={onForceCpuChange} preflight={pre({})} />,
+    );
+    expect(screen.queryByLabelText(/encode on cpu/i)).toBeNull();
+    rerender(
+      <MergeSheet
+        {...base}
+        onForceCpuChange={onForceCpuChange}
+        preflight={pre({ verdict: "reencode" })}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(/encode on cpu/i));
+    expect(onForceCpuChange).toHaveBeenCalledWith(true);
   });
 });

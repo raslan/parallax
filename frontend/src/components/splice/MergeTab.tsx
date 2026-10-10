@@ -26,7 +26,7 @@ import { useSelection } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import {
   defaultOutputName,
-  moveItem,
+  moveById,
   sortOrder,
   syncOrder,
   type SortMode,
@@ -87,6 +87,8 @@ export function MergeTab() {
   const [crfOverride, setCrfOverride] = useState<number | null>(null);
   const [speed, setSpeed] = useState("medium");
   const [referenceId, setReferenceId] = useState<number | null>(null);
+  const [forceCpu, setForceCpu] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [gridSize, setGridSize] = useGridSize(200);
@@ -178,6 +180,8 @@ export function MergeTab() {
     [order, byId],
   );
   const ids = orderedFiles.map((f) => f.id);
+  // A reference whose file left the selection (live refetch prune) falls back to the first.
+  const activeReferenceId = referenceId != null && ids.includes(referenceId) ? referenceId : null;
 
   const effectiveName = nameOverride ?? defaultOutputName(orderedFiles);
   // Each preflight ffprobes every selected file, so don't fire one per keystroke.
@@ -190,12 +194,16 @@ export function MergeTab() {
     }
   });
 
-  const { data: preflight, isFetching: preflightLoading } = useQuery({
-    queryKey: qk.splicePreflight(ids, referenceId, settledName, codec),
+  const {
+    data: preflight,
+    isFetching: preflightLoading,
+    error: preflightErr,
+  } = useQuery({
+    queryKey: qk.splicePreflight(ids, activeReferenceId, settledName, codec),
     queryFn: () =>
       spliceApi.preflight({
         file_ids: ids,
-        reference_file_id: referenceId,
+        reference_file_id: activeReferenceId,
         output_name: settledName || null,
         codec,
       }),
@@ -241,7 +249,13 @@ export function MergeTab() {
         chapters,
         reencode:
           preflight.verdict === "reencode"
-            ? { codec, crf, speed, reference_file_id: preflight.reference_file_id }
+            ? {
+                codec,
+                crf,
+                speed,
+                reference_file_id: preflight.reference_file_id,
+                force_cpu: forceCpu,
+              }
             : null,
       });
       startJobPoll(job_id);
@@ -256,13 +270,16 @@ export function MergeTab() {
   };
 
   const handleRetryCpu = async () => {
-    if (jobId == null) return;
+    if (jobId == null || retrying) return;
+    setRetrying(true);
     setStartError(null);
     try {
       const { job_id } = await spliceApi.retryCpu(jobId);
       startJobPoll(job_id);
     } catch (e: unknown) {
       setStartError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -318,7 +335,7 @@ export function MergeTab() {
           />
           {gpuFailed && (
             <div className="flex items-center gap-3">
-              <Button size="sm" variant="outline" onClick={handleRetryCpu}>
+              <Button size="sm" variant="outline" onClick={handleRetryCpu} disabled={retrying}>
                 <Cpu className="h-3.5 w-3.5 mr-1.5" />
                 Retry with CPU
               </Button>
@@ -525,7 +542,7 @@ export function MergeTab() {
         onCrfChange={setCrfOverride}
         speed={speed}
         onSpeedChange={setSpeed}
-        referenceId={referenceId}
+        referenceId={activeReferenceId}
         onReferenceChange={setReferenceId}
         sortMode={sortMode}
         reverse={reverse}
@@ -538,8 +555,11 @@ export function MergeTab() {
           setOrder((prev) => [...prev].reverse());
         }}
         onReorder={(from, to) => {
+          const fromId = orderedFiles[from]?.id;
+          const toId = orderedFiles[to]?.id;
+          if (fromId === undefined || toId === undefined) return;
           setSortMode(null);
-          setOrder((prev) => moveItem(prev, from, to));
+          setOrder((prev) => moveById(prev, fromId, toId));
         }}
         onRemove={(id) => {
           const next = new Set(selected);
@@ -549,6 +569,9 @@ export function MergeTab() {
         starting={starting}
         startError={isDone ? null : startError}
         onMerge={handleMerge}
+        preflightError={preflightErr instanceof Error ? preflightErr.message : null}
+        forceCpu={forceCpu}
+        onForceCpuChange={setForceCpu}
       />
     </div>
   );

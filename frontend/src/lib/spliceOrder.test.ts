@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { VideoFile } from "@/types/file";
-import { defaultOutputName, moveItem, naturalCompare, sortOrder, syncOrder } from "./spliceOrder";
+import { defaultOutputName, moveById, naturalCompare, sortOrder, syncOrder } from "./spliceOrder";
 
 const f = (id: number, filename: string, duration = 10, file_date: number | null = null) =>
   ({ id, filename, duration, file_date }) as VideoFile;
@@ -43,10 +43,14 @@ describe("defaultOutputName", () => {
   });
 });
 
-describe("moveItem", () => {
-  it("moves without mutating", () => {
+describe("moveById", () => {
+  it("moves by id without mutating", () => {
     const a = [1, 2, 3];
-    expect(moveItem(a, 0, 2)).toEqual([2, 3, 1]);
+    expect(moveById(a, 1, 3)).toEqual([2, 3, 1]);
     expect(a).toEqual([1, 2, 3]);
+  });
+  it("ignores ids that are not in the order", () => {
+    expect(moveById([1, 2, 3], 9, 2)).toEqual([1, 2, 3]);
+    expect(moveById([1, 2, 3], 1, 9)).toEqual([1, 2, 3]);
   });
 });

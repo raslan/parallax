@@ -33,6 +33,7 @@ interface SpliceReencode {
   crf: number;
   speed: string;
   reference_file_id: number | null;
+  force_cpu: boolean;
 }
 export interface SpliceMergeRequest {
   file_ids: number[];

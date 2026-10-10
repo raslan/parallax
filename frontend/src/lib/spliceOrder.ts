@@ -55,7 +55,12 @@ export function defaultOutputName(files: VideoFile[]): string {
   return cleaned.length >= 3 ? cleaned : `${stems[0]} (merged)`;
 }
 
-export function moveItem(ids: number[], from: number, to: number): number[] {
+/** Move `fromId` to where `toId` currently sits. Works on ids, not list positions,
+ *  so it stays correct even if `ids` holds entries the UI isn't showing. */
+export function moveById(ids: number[], fromId: number, toId: number): number[] {
+  const from = ids.indexOf(fromId);
+  const to = ids.indexOf(toId);
+  if (from < 0 || to < 0) return ids;
   const next = [...ids];
   const [item] = next.splice(from, 1);
   if (item !== undefined) next.splice(to, 0, item);
