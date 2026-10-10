@@ -7,11 +7,27 @@ sources to `_originals/` → rename into place; no DB) and `run_splice_job`
 """
 
 import json
+import os
+import shutil
 import subprocess
+import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.database import SessionLocal
+from app.models.job import Job, JobStatus
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    fail_job,
+    log,
+    now,
+    should_cancel,
+    temp_sibling_path,
+)
 from app.services.compressor import _encoder_args, _resolve_encoder
-from app.services.gpu_pool import GPUDevice
+from app.services.encoder import family_for_encoder
+from app.services.gpu_pool import GPUDevice, GpuPool
 
 _FPS_TOLERANCE = 0.01
 _NAME_MAX_BYTES = 200
@@ -273,5 +289,224 @@ def build_reencode_cmd(
 GPU_FAILED_PREFIX = "GPU encode failed"  # job.error marker the UI/retry route key off
 
 
+class SpliceCancelled(Exception):
+    pass
+
+
+class GpuEncodeFailed(RuntimeError):
+    """A hardware-encoder ffmpeg run failed; the caller may offer a CPU retry."""
+
+
+def move_to_originals(path: str, file_id: int) -> str:
+    originals = os.path.join(os.path.dirname(path), "_originals")
+    os.makedirs(originals, exist_ok=True)
+    name = os.path.basename(path)
+    dest = os.path.join(originals, name)
+    if os.path.exists(dest):
+        base, ext = os.path.splitext(name)
+        n = 1
+        dest = os.path.join(originals, f"{base}_{n}{ext}")
+        while os.path.exists(dest):
+            n += 1
+            dest = os.path.join(originals, f"{base}_{n}{ext}")
+    shutil.move(path, dest)
+    return dest
+
+
+def _remove(path: str | None) -> None:
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def _run_ffmpeg(cmd, total: float, progress_cb, is_cancelled) -> None:
+    err_fd, err_path = tempfile.mkstemp(suffix=".log", prefix="splice_")
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err_fd, text=True)
+    os.close(err_fd)
+    try:
+        for line in iter(proc.stdout.readline, ""):
+            if is_cancelled():
+                proc.kill()
+                proc.wait()
+                raise SpliceCancelled()
+            line = line.strip()
+            if line.startswith("out_time_ms=") and total > 0:
+                try:
+                    progress_cb(min(int(line.split("=")[1]) / 1_000_000 / total, 0.99))
+                except ValueError:
+                    pass
+        proc.wait()
+        if proc.returncode != 0:
+            with open(err_path) as fh:
+                tail = fh.read()[-512:]
+            raise RuntimeError(tail or f"ffmpeg exit {proc.returncode}")
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+        _remove(err_path)
+
+
+def perform_merge(
+    ids: list[int],
+    paths: list[str],
+    settings: dict,
+    progress_cb: Callable[[float], None],
+    is_cancelled: Callable[[], bool],
+    note_cb: Callable[[str], None] = lambda _m: None,
+) -> str:
+    facts = [probe_facts(p) for p in paths]
+    total = sum(f.duration for f in facts)
+    reencode = settings.get("reencode")
+    codec = reencode["codec"] if reencode else None
+    ext = pick_output_ext(settings["verdict"], os.path.splitext(paths[0])[1], codec)
+    final = os.path.join(os.path.dirname(paths[0]), settings["output_name"] + ext)
+    if os.path.exists(final) and final not in paths:
+        raise RuntimeError(f"{os.path.basename(final)} already exists")
+
+    tmp = temp_sibling_path(paths[0], ext, "compressing")
+    used_hw_encoder = False
+    aux: list[str] = []
+    gpu = pool = None
+    try:
+        chapters_path = None
+        if settings.get("chapters"):
+            chapters_path = tmp + ".chapters.txt"
+            aux.append(chapters_path)
+            with open(chapters_path, "w", encoding="utf-8") as fh:
+                fh.write(
+                    build_chapters_ffmetadata(
+                        [(os.path.splitext(os.path.basename(f.path))[0], f.duration) for f in facts]
+                    )
+                )
+        if settings["verdict"] == "copy":
+            list_path = tmp + ".list.txt"
+            aux.append(list_path)
+            with open(list_path, "w", encoding="utf-8") as fh:
+                fh.write(build_concat_list(paths))
+            cmd = build_copy_cmd(list_path, tmp, chapters_path)
+        else:
+            ref = facts[settings.get("reference_index", 0)]
+            encoder = (
+                software_encoder(reencode["codec"])
+                if settings.get("force_cpu")
+                else _resolve_encoder(reencode["codec"])
+            )
+            family = family_for_encoder(encoder)
+            used_hw_encoder = family != "software"
+            if family in ("nvenc", "vaapi"):
+                pool = GpuPool.build(family, 1)
+                gpu = pool.acquire_any() if pool._devices else None
+                if gpu is None:
+                    note_cb("No GPU slot available — encoding on CPU decode path")
+            cmd = build_reencode_cmd(
+                facts,
+                ref,
+                tmp,
+                reencode["codec"],
+                reencode["crf"],
+                reencode["speed"],
+                chapters_path,
+                gpu,
+                encoder,
+            )
+        try:
+            _run_ffmpeg(cmd, total, progress_cb, is_cancelled)
+        except RuntimeError as e:
+            if used_hw_encoder:
+                raise GpuEncodeFailed(f"{GPU_FAILED_PREFIX}: {e}") from e
+            raise
+
+        if is_cancelled():
+            raise SpliceCancelled()
+
+        out = probe_facts(tmp)
+        if out.vcodec is None or (any(f.has_audio for f in facts) and not out.has_audio):
+            raise RuntimeError("Output failed verification: missing stream")
+        if not duration_ok(out.duration, total):
+            raise RuntimeError(
+                f"Output failed verification: duration {out.duration:.1f}s vs expected {total:.1f}s"
+            )
+
+        moved: list[tuple[str, str]] = []
+        try:
+            for fid, p in zip(ids, paths, strict=True):
+                moved.append((p, move_to_originals(p, fid)))
+            shutil.move(tmp, final)  # tmp may live on SCRATCH_DIR (another filesystem)
+        except Exception as e:
+            for orig, dest in reversed(moved):
+                try:
+                    shutil.move(dest, orig)
+                except OSError:
+                    pass
+            raise RuntimeError(f"Could not move originals: {e}") from e
+        return final
+    finally:
+        if pool is not None and gpu is not None:
+            pool.release(gpu)
+        _remove(tmp)
+        for a in aux:
+            _remove(a)
+
+
 def run_splice_job(job_id: int, ids: list[int], paths: list[str], settings: dict) -> None:
-    raise NotImplementedError  # replaced in Task 4
+    db = SessionLocal()
+    job = None
+    try:
+        job = db.get(Job, job_id)
+        if not job:
+            return
+        job.status = JobStatus.RUNNING
+        job.started_at = now()
+        job.current_file = "Merging " + ", ".join(os.path.basename(p) for p in paths[:3])
+        db.commit()
+        arm_cancel(job_id)
+
+        def progress(frac: float) -> None:
+            job.progress = min(frac * 100, 99.0)
+            db.commit()
+
+        try:
+            final = perform_merge(
+                ids,
+                paths,
+                settings,
+                progress,
+                lambda: should_cancel(job_id),
+                lambda m: log(db, job_id, m),
+            )
+        except SpliceCancelled:
+            job.status = JobStatus.CANCELLED
+            job.finished_at = now()
+            db.commit()
+            log(db, job_id, "Merge cancelled — sources untouched")
+            return
+        except RuntimeError as e:  # includes GpuEncodeFailed — its message carries the retry marker
+            job.status = JobStatus.FAILED
+            job.error = str(e)
+            job.finished_at = now()
+            db.commit()
+            log(db, job_id, f"Merge failed — {e}", "error")
+            return
+
+        try:  # immediate library refresh: prunes the moved sources, ingests the output
+            from app.services import fs_watcher
+
+            fs_watcher._apply("video", job.library_id, frozenset({final}))
+        except Exception:
+            pass  # the watcher's own debounce will catch up
+
+        job.status = JobStatus.COMPLETED
+        job.progress = 100.0
+        job.processed_files = 1
+        job.current_file = os.path.basename(final)
+        job.finished_at = now()
+        db.commit()
+        log(db, job_id, f"Merged {len(paths)} files into {os.path.basename(final)}")
+    except Exception as exc:
+        fail_job(db, job, exc)
+    finally:
+        clear_cancel(job_id)
+        db.close()
