@@ -268,3 +268,10 @@ def build_reencode_cmd(
         cmd += ["-c:a", "aac", "-b:a", "192k"]
     cmd += ["-progress", "pipe:1", "-nostats", output_path]
     return cmd
+
+
+GPU_FAILED_PREFIX = "GPU encode failed"  # job.error marker the UI/retry route key off
+
+
+def run_splice_job(job_id: int, ids: list[int], paths: list[str], settings: dict) -> None:
+    raise NotImplementedError  # replaced in Task 4
