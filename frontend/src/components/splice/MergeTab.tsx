@@ -18,6 +18,7 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { Button } from "@/components/ui/button";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useGridSize } from "@/hooks/useGridSize";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
@@ -179,6 +180,9 @@ export function MergeTab() {
   const ids = orderedFiles.map((f) => f.id);
 
   const effectiveName = nameOverride ?? defaultOutputName(orderedFiles);
+  // Each preflight ffprobes every selected file, so don't fire one per keystroke.
+  const settledName = useDebouncedValue(effectiveName.trim(), 400);
+  const nameSettling = settledName !== effectiveName.trim();
 
   useLiveFiles("video", libraryId, () => {
     if (libraryId != null) {
@@ -187,12 +191,12 @@ export function MergeTab() {
   });
 
   const { data: preflight, isFetching: preflightLoading } = useQuery({
-    queryKey: qk.splicePreflight(ids, referenceId, effectiveName.trim(), codec),
+    queryKey: qk.splicePreflight(ids, referenceId, settledName, codec),
     queryFn: () =>
       spliceApi.preflight({
         file_ids: ids,
         reference_file_id: referenceId,
-        output_name: effectiveName.trim() || null,
+        output_name: settledName || null,
         codec,
       }),
     enabled: sheetOpen && ids.length >= 2,
@@ -506,7 +510,7 @@ export function MergeTab() {
         onOpenChange={setSheetOpen}
         files={orderedFiles}
         preflight={preflight}
-        preflightLoading={preflightLoading}
+        preflightLoading={preflightLoading || nameSettling}
         codecs={codecs}
         outputName={effectiveName}
         onOutputNameChange={setNameOverride}
