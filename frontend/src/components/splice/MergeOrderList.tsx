@@ -47,7 +47,7 @@ export function MergeOrderList({
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-border">
+    <div className="max-h-80 shrink-0 overflow-y-auto rounded-md border border-border">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={files.map((f) => f.id)} strategy={verticalListSortingStrategy}>
           {files.map((f, i) => (

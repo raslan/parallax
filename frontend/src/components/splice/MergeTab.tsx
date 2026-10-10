@@ -36,6 +36,12 @@ import { MergeSheet } from "./MergeSheet";
 // Mirrors `GPU_FAILED_PREFIX` in backend/app/services/splice.py.
 const GPU_FAILED_PREFIX = "GPU encode failed";
 
+const MERGE_LABELS = {
+  done: "Merge complete",
+  failed: "Merge failed",
+  running: (file: string) => `Merging: ${file}`,
+};
+
 type SortKey = "filename" | "codec" | "duration" | "size";
 
 function sortFiles(files: VideoFile[], key: SortKey, dir: SortDir): VideoFile[] {
@@ -304,6 +310,7 @@ export function MergeTab() {
             jobError={jobError}
             startError={startError}
             onCancel={handleCancel}
+            labels={MERGE_LABELS}
           />
           {gpuFailed && (
             <div className="flex items-center gap-3">

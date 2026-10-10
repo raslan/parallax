@@ -241,14 +241,16 @@ export function MergeSheet({
         )}
         {startError && <p className="text-xs text-red-400">{startError}</p>}
 
-        <Button onClick={onMerge} disabled={!canMerge}>
-          {starting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Merge className="mr-2 h-4 w-4" />
-          )}
-          Merge {files.length} files
-        </Button>
+        <div className="sticky bottom-0 -mx-4 -mb-4 mt-auto border-t bg-[hsl(var(--sidebar))] p-4">
+          <Button className="w-full" onClick={onMerge} disabled={!canMerge}>
+            {starting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Merge className="mr-2 h-4 w-4" />
+            )}
+            Merge {files.length} files
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
   );

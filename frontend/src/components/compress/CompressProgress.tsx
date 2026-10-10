@@ -2,6 +2,12 @@ import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const COMPRESS_LABELS = {
+  done: "Compression complete",
+  failed: "Compression failed",
+  running: (file: string) => `Compressing: ${file}`,
+};
+
 /**
  * Compress job progress / result banner. The page owns the `jobId != null`
  * mount guard; this just renders the box given the poll state.
@@ -15,6 +21,7 @@ export function CompressProgress({
   jobError,
   startError,
   onCancel,
+  labels = COMPRESS_LABELS,
 }: {
   isRunning: boolean;
   isDone: boolean;
@@ -24,6 +31,8 @@ export function CompressProgress({
   jobError: string | null;
   startError: string | null;
   onCancel: () => void;
+  /** Wording override for non-compress jobs (Splice) — defaults to compression copy. */
+  labels?: typeof COMPRESS_LABELS;
 }) {
   return (
     <div
@@ -40,13 +49,13 @@ export function CompressProgress({
         {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />}
         <span className="text-sm font-medium flex-1">
           {jobStatus === "completed"
-            ? "Compression complete"
+            ? labels.done
             : jobStatus === "cancelled"
               ? "Cancelled"
               : jobStatus === "failed"
-                ? "Compression failed"
+                ? labels.failed
                 : jobCurrentFile
-                  ? `Compressing: ${jobCurrentFile}`
+                  ? labels.running(jobCurrentFile)
                   : "Starting…"}
         </span>
         {isRunning && (
