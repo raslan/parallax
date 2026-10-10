@@ -7,6 +7,7 @@ sources to `_originals/` → rename into place; no DB) and `run_splice_job`
 """
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -29,6 +30,8 @@ from app.services.common import (
 from app.services.compressor import _encoder_args, _resolve_encoder
 from app.services.encoder import family_for_encoder
 from app.services.gpu_pool import GPUDevice, GpuPool
+
+logger = logging.getLogger(__name__)
 
 _FPS_TOLERANCE = 0.01
 _NAME_MAX_BYTES = 200
@@ -111,23 +114,41 @@ def parse_probe(path: str, data: dict) -> StreamFacts:
     )
 
 
+class ProbeError(RuntimeError):
+    """A source file could not be probed (missing, unreadable, not a video)."""
+
+
 def probe_facts(path: str) -> StreamFacts:
-    result = subprocess.run(
-        [
-            "ffprobe",
-            "-v",
-            "quiet",
-            "-print_format",
-            "json",
-            "-show_streams",
-            "-show_format",
-            path,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    return parse_probe(path, json.loads(result.stdout or "{}"))
+    name = os.path.basename(path)
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_streams",
+                "-show_format",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired as e:
+        raise ProbeError(f"Probing {name} timed out") from e
+    except OSError as e:
+        raise ProbeError(f"Could not run ffprobe on {name}: {e}") from e
+    try:
+        facts = parse_probe(path, json.loads(result.stdout or "{}"))
+    except ValueError as e:
+        raise ProbeError(f"Could not read {name}") from e
+    if result.returncode != 0:
+        raise ProbeError(f"Could not read {name}")
+    if facts.vcodec is None:
+        raise ProbeError(f"{name} has no video stream")
+    return facts
 
 
 def mismatch_reasons(ref: StreamFacts, other: StreamFacts) -> list[str]:
@@ -262,6 +283,9 @@ def build_reencode_cmd(
     rate = ref.sample_rate or 48000
     layout = "mono" if (ref.channels or 2) == 1 else "stereo"
     any_audio = any(f.has_audio for f in facts)
+    enc = encoder or _resolve_encoder(codec)
+    # VAAPI encodes from device surfaces: keep the software graph, then upload.
+    vaapi = gpu is not None and enc in ("h264_vaapi", "hevc_vaapi")
 
     chains: list[str] = []
     labels: list[str] = []
@@ -284,12 +308,17 @@ def build_reencode_cmd(
                 )
             labels.append(f"[a{i}]")
     n = len(facts)
+    vout = "[vc]" if vaapi else "[v]"
     if any_audio:
-        chains.append(f"{''.join(labels)}concat=n={n}:v=1:a=1[v][a]")
+        chains.append(f"{''.join(labels)}concat=n={n}:v=1:a=1{vout}[a]")
     else:
-        chains.append(f"{''.join(labels)}concat=n={n}:v=1:a=0[v]")
+        chains.append(f"{''.join(labels)}concat=n={n}:v=1:a=0{vout}")
+    if vaapi:
+        chains.append("[vc]format=nv12,hwupload[v]")
 
     cmd = ["ffmpeg", "-y"]
+    if vaapi:
+        cmd += ["-init_hw_device", f"vaapi=va:{gpu.index}", "-filter_hw_device", "va"]
     for f in facts:
         cmd += ["-i", f.path]
     if chapters_path:
@@ -299,7 +328,7 @@ def build_reencode_cmd(
         cmd += ["-map", "[a]"]
     if chapters_path:
         cmd += ["-map_chapters", str(n)]
-    cmd += _encoder_args(encoder or _resolve_encoder(codec), codec, crf, speed, gpu)
+    cmd += _encoder_args(enc, codec, crf, speed, gpu)
     if codec == "hevc" and output_path.lower().endswith((".mp4", ".m4v", ".mov")):
         cmd += ["-tag:v", "hvc1"]
     if any_audio:
@@ -331,13 +360,13 @@ def move_to_originals(path: str, file_id: int) -> str:
     os.makedirs(originals, exist_ok=True)
     name = os.path.basename(path)
     dest = os.path.join(originals, name)
-    if os.path.exists(dest):
+    if os.path.exists(dest):  # same `_<id>` convention as the audio bulk delete
         base, ext = os.path.splitext(name)
-        n = 1
-        dest = os.path.join(originals, f"{base}_{n}{ext}")
+        dest = os.path.join(originals, f"{base}_{file_id}{ext}")
+        n = 0
         while os.path.exists(dest):
             n += 1
-            dest = os.path.join(originals, f"{base}_{n}{ext}")
+            dest = os.path.join(originals, f"{base}_{file_id}_{n}{ext}")
     shutil.move(path, dest)
     return dest
 
@@ -428,18 +457,18 @@ def perform_merge(
                 else _resolve_encoder(reencode["codec"])
             )
             family = family_for_encoder(encoder)
-            if family not in ("nvenc", "software"):
-                # Splice builds no VAAPI/QSV/AMF device or hwupload plumbing, so those
-                # encoders would always fail — encode in software instead.
-                note_cb(f"{family} encoding isn't supported for merges — using the CPU encoder")
+            if family in ("nvenc", "vaapi"):
+                pool = GpuPool.build(family, 1)
+                gpu = pool.acquire_any() if pool.has_devices else None
+            if family == "vaapi" and gpu is None:
+                # VAAPI can't run without a render node to upload frames to.
+                note_cb("No VAAPI device available — encoding on the CPU")
                 encoder = software_encoder(reencode["codec"])
                 family = "software"
-            used_hw_encoder = family == "nvenc"
-            if family == "nvenc":
-                pool = GpuPool.build(family, 1)
-                gpu = pool.acquire_any() if pool._devices else None
-                if gpu is None:
-                    note_cb("No GPU slot available — encoding on CPU decode path")
+            elif family == "nvenc" and gpu is None:
+                note_cb("No NVIDIA device reported — trying the NVENC encoder anyway")
+            # qsv/amf get no device plumbing in Compress/Toolbox either: run as resolved.
+            used_hw_encoder = family != "software"
             cmd = build_reencode_cmd(
                 facts,
                 ref,
@@ -473,17 +502,26 @@ def perform_merge(
             raise RuntimeError(f"{os.path.basename(final)} already exists")
 
         moved: list[tuple[str, str]] = []
+        final_attempted = False
         try:
             for fid, p in zip(ids, paths, strict=True):
                 moved.append((p, move_to_originals(p, fid)))
+            final_attempted = True
             shutil.move(tmp, final)  # tmp may live on SCRATCH_DIR (another filesystem)
         except Exception as e:
+            if final_attempted:
+                _remove(final)  # a failed cross-fs move can leave a partial file behind
+            stuck: list[str] = []
             for orig, dest in reversed(moved):
                 try:
                     shutil.move(dest, orig)
                 except OSError:
-                    pass
-            raise RuntimeError(f"Could not move originals: {e}") from e
+                    stuck.append(dest)
+            msg = f"Could not finish the merge: {e}"
+            if stuck:
+                msg += ". These originals could not be restored and are still in _originals/: "
+                msg += ", ".join(stuck)
+            raise RuntimeError(msg) from e
         return final
     finally:
         with _RESERVED_LOCK:
@@ -538,9 +576,15 @@ def run_splice_job(job_id: int, ids: list[int], paths: list[str], settings: dict
         try:  # immediate library refresh: prunes the moved sources, ingests the output
             from app.services import fs_watcher
 
-            fs_watcher._apply("video", job.library_id, frozenset({final}))
-        except Exception:
-            pass  # the watcher's own debounce will catch up
+            if not fs_watcher._apply("video", job.library_id, frozenset({final})):
+                logger.info(
+                    "Splice: library %s is scanning; the watcher will pick up %s",
+                    job.library_id,
+                    final,
+                )
+        except Exception as e:
+            # Best effort — the watcher's own debounce will catch up — but say so.
+            logger.warning("Splice: library refresh after merge failed: %s", e, exc_info=True)
 
         job.status = JobStatus.COMPLETED
         job.progress = 100.0

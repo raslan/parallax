@@ -3,6 +3,7 @@ import subprocess
 
 import pytest
 
+from app.services.gpu_pool import GPUDevice
 from app.services.splice import SpliceCancelled, perform_merge, probe_facts
 
 
@@ -64,13 +65,20 @@ def test_output_may_reuse_first_source_name(tmp_path):
     assert os.path.exists(tmp_path / "_originals" / "a.mp4")
 
 
-def test_originals_collision_gets_id_suffix(tmp_path):
+def test_originals_collision_gets_the_file_id_suffix(tmp_path):
     _clip(tmp_path / "a.mp4")
     _clip(tmp_path / "b.mp4")
     (tmp_path / "_originals").mkdir()
     (tmp_path / "_originals" / "a.mp4").write_bytes(b"old")
-    _run(tmp_path, ["a.mp4", "b.mp4"], _settings())
-    assert sorted(os.listdir(tmp_path / "_originals")) == ["a.mp4", "a_1.mp4", "b.mp4"]
+    (tmp_path / "_originals" / "a_7.mp4").write_bytes(b"older")
+    paths = [str(tmp_path / "a.mp4"), str(tmp_path / "b.mp4")]
+    perform_merge([7, 8], paths, _settings(), lambda f: None, lambda: False)
+    assert sorted(os.listdir(tmp_path / "_originals")) == [
+        "a.mp4",
+        "a_7.mp4",
+        "a_7_1.mp4",
+        "b.mp4",
+    ]
 
 
 def test_cancel_leaves_sources_and_no_temp(tmp_path):
@@ -123,18 +131,35 @@ def _two_mismatched_clips(tmp_path):
     _clip(tmp_path / "b.mp4", size="160x120")
 
 
-def test_gpu_failure_raises_marker_then_cpu_retry_succeeds(tmp_path, monkeypatch):
+def _fake_gpus(monkeypatch, devices):
+    from app.services import gpu_pool
+
+    monkeypatch.setattr(gpu_pool, "detect_gpus", lambda: devices)
+
+
+_NVIDIA = GPUDevice(vendor="nvidia", index="0", label="RTX", family="nvenc")
+_INTEL = GPUDevice(vendor="intel", index="/dev/dri/renderD128", label="iGPU", family="vaapi")
+
+
+@pytest.mark.parametrize(
+    "encoder,devices",
+    [("h264_nvenc", [_NVIDIA]), ("h264_vaapi", [_INTEL]), ("h264_qsv", [])],
+)
+def test_any_hardware_encoder_failure_raises_marker_then_cpu_retry_succeeds(
+    tmp_path, monkeypatch, encoder, devices
+):
     import app.services.splice as sp
 
     _two_mismatched_clips(tmp_path)
+    _fake_gpus(monkeypatch, devices)
     real = sp._run_ffmpeg
 
     def fake(cmd, total, progress_cb, is_cancelled):
-        if "h264_nvenc" in cmd:
-            raise RuntimeError("no nvenc device")  # stands in for a broken GPU
+        if encoder in cmd:
+            raise RuntimeError("device init failed")  # stands in for a broken GPU
         return real(cmd, total, progress_cb, is_cancelled)
 
-    monkeypatch.setattr(sp, "_resolve_encoder", lambda codec: "h264_nvenc")
+    monkeypatch.setattr(sp, "_resolve_encoder", lambda codec: encoder)
     monkeypatch.setattr(sp, "_run_ffmpeg", fake)
     with pytest.raises(sp.GpuEncodeFailed, match="GPU encode failed"):
         _run(tmp_path, ["a.mp4", "b.mp4"], _reencode_settings())
@@ -143,10 +168,11 @@ def test_gpu_failure_raises_marker_then_cpu_retry_succeeds(tmp_path, monkeypatch
     assert os.path.exists(out) and probe_facts(out).vcodec == "h264"
 
 
-def test_vaapi_encoder_falls_back_to_software_instead_of_failing(tmp_path, monkeypatch):
+def test_vaapi_without_a_vaapi_device_falls_back_to_software(tmp_path, monkeypatch):
     import app.services.splice as sp
 
     _two_mismatched_clips(tmp_path)
+    _fake_gpus(monkeypatch, [])
     real = sp._run_ffmpeg
     seen = []
 
@@ -154,11 +180,19 @@ def test_vaapi_encoder_falls_back_to_software_instead_of_failing(tmp_path, monke
         seen.append(cmd[cmd.index("-c:v") + 1])
         return real(cmd, total, progress_cb, is_cancelled)
 
-    # Splice builds no VAAPI device/hwupload plumbing, so a vaapi encoder would always fail
+    notes = []
     monkeypatch.setattr(sp, "_resolve_encoder", lambda codec: "h264_vaapi")
     monkeypatch.setattr(sp, "_run_ffmpeg", spy)
-    out = _run(tmp_path, ["a.mp4", "b.mp4"], _reencode_settings())
+    out = sp.perform_merge(
+        [1, 2],
+        [str(tmp_path / "a.mp4"), str(tmp_path / "b.mp4")],
+        _reencode_settings(),
+        lambda f: None,
+        lambda: False,
+        notes.append,
+    )
     assert seen == ["libx264"] and os.path.exists(out)
+    assert any("no vaapi device" in n.lower() for n in notes)
 
 
 def test_concurrent_merge_to_the_same_output_name_is_refused(tmp_path):
@@ -214,3 +248,52 @@ def test_source_with_apostrophe_and_spaces(tmp_path):
     _clip(tmp_path / "ünï b.mp4")
     out = _run(tmp_path, ["it's a clip.mp4", "ünï b.mp4"], _settings())
     assert os.path.exists(out)
+
+
+def test_failed_rollback_names_the_files_left_in_originals(tmp_path, monkeypatch):
+    import app.services.splice as sp
+
+    _clip(tmp_path / "a.mp4")
+    _clip(tmp_path / "b.mp4")
+    real_originals = sp.move_to_originals
+    real_move = sp.shutil.move
+    calls = {"n": 0}
+
+    def flaky(path, file_id):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise OSError("disk full")
+        return real_originals(path, file_id)
+
+    def move(src, dst):
+        if str(src).endswith("_originals/a.mp4"):
+            raise OSError("cannot restore")  # the rollback of the first move
+        return real_move(src, dst)
+
+    monkeypatch.setattr(sp, "move_to_originals", flaky)
+    monkeypatch.setattr(sp.shutil, "move", move)
+    with pytest.raises(RuntimeError) as exc:
+        _run(tmp_path, ["a.mp4", "b.mp4"], _settings())
+    assert "_originals/a.mp4" in str(exc.value)  # the user is told where a.mp4 is stuck
+
+
+def test_failed_final_move_leaves_no_partial_output_and_restores_sources(tmp_path, monkeypatch):
+    import app.services.splice as sp
+
+    _clip(tmp_path / "a.mp4")
+    _clip(tmp_path / "b.mp4")
+    final = str(tmp_path / "joined.mp4")
+    real_move = sp.shutil.move
+
+    def move(src, dst):
+        if str(dst) == final:
+            with open(dst, "wb") as fh:
+                fh.write(b"partial")
+            raise OSError("no space left")
+        return real_move(src, dst)
+
+    monkeypatch.setattr(sp.shutil, "move", move)
+    with pytest.raises(RuntimeError):
+        _run(tmp_path, ["a.mp4", "b.mp4"], _settings())
+    assert sorted(os.listdir(tmp_path)) == ["_originals", "a.mp4", "b.mp4"]
+    assert os.listdir(tmp_path / "_originals") == []

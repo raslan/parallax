@@ -228,3 +228,11 @@ def test_gpu_pool_active_count_decreases_on_release():
     pool.release(a)
     c = pool.acquire_any(timeout=0.5)
     assert c is not None
+
+
+def test_has_devices_reflects_whether_the_family_has_any_device():
+    from app.services.gpu_pool import GPUDevice, GpuPool
+
+    dev = GPUDevice(vendor="intel", index="/dev/dri/renderD128", label="x", family="vaapi")
+    assert GpuPool([dev], 1).has_devices is True
+    assert GpuPool([], 1).has_devices is False

@@ -2,9 +2,10 @@ import json
 import os
 import shutil
 from dataclasses import dataclass
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from app.database import SessionLocal
@@ -16,18 +17,23 @@ from app.services import splice as sp
 router = APIRouter()
 
 
+Codec = Literal["h264", "hevc", "av1"]
+Speed = Literal["slow", "medium", "fast"]
+
+
 class SpliceReencode(BaseModel):
-    codec: str = "h264"
-    crf: int = 23
-    speed: str = "medium"
+    codec: Codec = "h264"
+    crf: int = Field(23, ge=0, le=63)
+    speed: Speed = "medium"
     reference_file_id: int | None = None
+    force_cpu: bool = False  # skip any hardware encoder (GPU unusable on this host)
 
 
 class SplicePreflightRequest(BaseModel):
     file_ids: list[int]
     reference_file_id: int | None = None
     output_name: str | None = None
-    codec: str = "h264"
+    codec: Codec = "h264"
 
 
 class SpliceMergeRequest(BaseModel):
@@ -86,7 +92,10 @@ def _target(files: list[_Source], stem: str, ext: str) -> tuple[str, bool]:
 
 
 def _facts_for(files: list[_Source]) -> list[sp.StreamFacts]:
-    return [sp.probe_facts(f.path) for f in files]
+    try:
+        return [sp.probe_facts(f.path) for f in files]
+    except sp.ProbeError as e:
+        raise HTTPException(422, str(e)) from e
 
 
 def _reference_index(files: list[_Source], reference_file_id: int | None) -> int:
@@ -179,9 +188,13 @@ async def start_merge(req: SpliceMergeRequest):
         "output_name": stem,
         "chapters": req.chapters,
         "verdict": verdict,
-        "reencode": req.reencode.model_dump() if (req.reencode and verdict == "reencode") else None,
+        "reencode": (
+            req.reencode.model_dump(exclude={"force_cpu"})
+            if (req.reencode and verdict == "reencode")
+            else None
+        ),
         "reference_index": ref_idx,
-        "force_cpu": False,
+        "force_cpu": bool(req.reencode and req.reencode.force_cpu),
     }
     job_id = _create_job(files, settings)
     await enqueue(
@@ -206,6 +219,18 @@ async def retry_on_cpu(job_id: int):
                 409, "Only a splice job that failed on the GPU can be retried on CPU"
             )
         settings = {**json.loads(old.settings or "{}"), "force_cpu": True}
+        active = (
+            db.query(Job)
+            .filter(
+                Job.type == JobType.SPLICE_MERGE,
+                Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+            )
+            .all()
+        )
+        for j in active:
+            other = json.loads(j.settings or "{}")
+            if other.get("force_cpu") and other.get("file_ids") == settings["file_ids"]:
+                raise HTTPException(409, "A CPU retry of this merge is already queued or running")
     finally:
         db.close()
 

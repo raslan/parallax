@@ -1,6 +1,8 @@
 import pytest
 
+from app.services.gpu_pool import GPUDevice
 from app.services.splice import (
+    ProbeError,
     StreamFacts,
     build_chapters_ffmetadata,
     build_concat_list,
@@ -10,6 +12,7 @@ from app.services.splice import (
     mismatch_reasons,
     parse_probe,
     pick_output_ext,
+    probe_facts,
     software_encoder,
     validate_output_name,
     verdict_for,
@@ -227,3 +230,46 @@ def test_reencode_swaps_target_size_for_a_rotated_reference():
     ref = _facts(width=320, height=180, rotation=90)  # displays as 180x320 portrait
     cmd = build_reencode_cmd([ref, ref], ref, "/t/o.mkv", "h264", 23, "fast", None, None)
     assert "scale=180:320" in cmd[cmd.index("-filter_complex") + 1]
+
+
+_INTEL = GPUDevice(vendor="intel", index="/dev/dri/renderD128", label="renderD128", family="vaapi")
+
+
+def test_vaapi_cmd_uploads_frames_to_the_device_after_the_software_graph():
+    ref = _facts()
+    cmd = build_reencode_cmd(
+        [ref, ref], ref, "/t/o.mp4", "h264", 23, "medium", None, _INTEL, encoder="h264_vaapi"
+    )
+    assert cmd[cmd.index("-init_hw_device") + 1] == "vaapi=va:/dev/dri/renderD128"
+    assert cmd[cmd.index("-filter_hw_device") + 1] == "va"
+    assert cmd.index("-init_hw_device") < cmd.index("-i")  # global option, before the inputs
+    graph = cmd[cmd.index("-filter_complex") + 1]
+    assert graph.endswith("[vc]format=nv12,hwupload[v]")
+    assert cmd[cmd.index("-c:v") + 1] == "h264_vaapi"
+
+
+def test_non_vaapi_cmds_have_no_hardware_device_plumbing():
+    ref = _facts()
+    for enc in ("libx264", "h264_nvenc", "h264_qsv"):
+        cmd = build_reencode_cmd(
+            [ref, ref], ref, "/t/o.mp4", "h264", 23, "medium", None, None, encoder=enc
+        )
+        graph = cmd[cmd.index("-filter_complex") + 1]
+        assert "-init_hw_device" not in cmd and "hwupload" not in graph
+        assert "[vc]" not in graph and cmd[cmd.index("-map") + 1] == "[v]"
+
+
+def test_probe_facts_raises_a_typed_error_for_a_missing_file():
+    with pytest.raises(ProbeError, match="missing-clip.mp4"):
+        probe_facts("/definitely/not/here/missing-clip.mp4")
+
+
+def test_probe_facts_raises_a_typed_error_on_timeout(monkeypatch):
+    import subprocess
+
+    def boom(*a, **kw):
+        raise subprocess.TimeoutExpired(cmd="ffprobe", timeout=60)
+
+    monkeypatch.setattr("app.services.splice.subprocess.run", boom)
+    with pytest.raises(ProbeError, match="timed out"):
+        probe_facts("/lib/slow.mp4")

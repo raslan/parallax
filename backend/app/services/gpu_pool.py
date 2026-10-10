@@ -121,6 +121,11 @@ class GpuPool:
         devices = [d for d in detect_gpus() if d.family == family]
         return cls(devices, capacity)
 
+    @property
+    def has_devices(self) -> bool:
+        """True if the family detected at least one device (degraded ones count)."""
+        return bool(self._devices)
+
     def acquire_any(
         self, exclude: frozenset[str] = frozenset(), timeout: float | None = None
     ) -> GPUDevice | None:
