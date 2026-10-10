@@ -206,3 +206,24 @@ def test_reencode_hevc_mp4_gets_hvc1_tag():
 )
 def test_pick_output_ext(verdict, first_ext, codec, expected):
     assert pick_output_ext(verdict, first_ext, codec) == expected
+
+
+def test_parse_probe_reads_display_matrix_and_legacy_rotate_tag():
+    base = {"codec_type": "video", "width": 320, "height": 180}
+    matrix = {**base, "side_data_list": [{"side_data_type": "Display Matrix", "rotation": -90}]}
+    legacy = {**base, "tags": {"rotate": "270"}}
+    assert parse_probe("/x.mp4", {"format": {}, "streams": [matrix]}).rotation == 90
+    assert parse_probe("/x.mp4", {"format": {}, "streams": [legacy]}).rotation == 270
+    assert parse_probe("/x.mp4", {"format": {}, "streams": [base]}).rotation == 0
+
+
+def test_rotation_difference_forces_reencode():
+    a, b = _facts(), _facts(path="/lib/b.mp4", rotation=90)
+    assert any("rotation" in r for r in mismatch_reasons(a, b))
+    assert verdict_for(a, [a, b]) == "reencode"
+
+
+def test_reencode_swaps_target_size_for_a_rotated_reference():
+    ref = _facts(width=320, height=180, rotation=90)  # displays as 180x320 portrait
+    cmd = build_reencode_cmd([ref, ref], ref, "/t/o.mkv", "h264", 23, "fast", None, None)
+    assert "scale=180:320" in cmd[cmd.index("-filter_complex") + 1]

@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -46,6 +47,7 @@ class StreamFacts:
     acodec: str | None
     sample_rate: int | None
     channels: int | None
+    rotation: int = 0  # display rotation in degrees, legacy `rotate` tag convention (0/90/180/270)
 
     @property
     def has_audio(self) -> bool:
@@ -71,6 +73,21 @@ def _int(value) -> int | None:
         return None
 
 
+def _rotation(video: dict) -> int:
+    """Display rotation of a video stream, normalised to the legacy `rotate` tag
+    convention. ffprobe reports a Display Matrix rotation with the opposite sign."""
+    for side in video.get("side_data_list") or []:
+        if "rotation" in side:
+            try:
+                return round(-float(side["rotation"])) % 360
+            except (TypeError, ValueError):
+                return 0
+    try:
+        return round(float((video.get("tags") or {}).get("rotate", 0))) % 360
+    except (TypeError, ValueError):
+        return 0
+
+
 def parse_probe(path: str, data: dict) -> StreamFacts:
     streams = data.get("streams") or []
     video = next((s for s in streams if s.get("codec_type") == "video"), {})
@@ -90,6 +107,7 @@ def parse_probe(path: str, data: dict) -> StreamFacts:
         acodec=audio.get("codec_name"),
         sample_rate=_int(audio.get("sample_rate")),
         channels=_int(audio.get("channels")),
+        rotation=_rotation(video),
     )
 
 
@@ -122,6 +140,8 @@ def mismatch_reasons(ref: StreamFacts, other: StreamFacts) -> list[str]:
         other.fps is not None and ref.fps is not None and abs(other.fps - ref.fps) > _FPS_TOLERANCE
     ):
         reasons.append(f"frame rate {other.fps} ≠ {ref.fps}")
+    if other.rotation != ref.rotation:
+        reasons.append(f"rotation {other.rotation}° ≠ {ref.rotation}°")
     if other.pix_fmt != ref.pix_fmt:
         reasons.append(f"pixel format {other.pix_fmt} ≠ {ref.pix_fmt}")
     if ref.has_audio and not other.has_audio:
@@ -236,6 +256,8 @@ def build_reencode_cmd(
     encoder: str | None = None,
 ) -> list[str]:
     w, h = _even(ref.width, 1280), _even(ref.height, 720)
+    if ref.rotation in (90, 270):  # the filters auto-rotate, so the target is the displayed size
+        w, h = h, w
     fps = _fmt(ref.fps or 24.0)
     rate = ref.sample_rate or 48000
     layout = "mono" if (ref.channels or 2) == 1 else "stereo"
@@ -287,6 +309,13 @@ def build_reencode_cmd(
 
 
 GPU_FAILED_PREFIX = "GPU encode failed"  # job.error marker the UI/retry route key off
+
+
+# Final output paths currently owned by a running merge: two concurrent jobs to the same
+# folder + name would otherwise both pass the exists-check and the later move would
+# silently replace the earlier job's finished output.
+_RESERVED: set[str] = set()
+_RESERVED_LOCK = threading.Lock()
 
 
 class SpliceCancelled(Exception):
@@ -370,6 +399,10 @@ def perform_merge(
     used_hw_encoder = False
     aux: list[str] = []
     gpu = pool = None
+    with _RESERVED_LOCK:
+        if final in _RESERVED:
+            raise RuntimeError(f"{os.path.basename(final)} is in use by another merge")
+        _RESERVED.add(final)
     try:
         chapters_path = None
         if settings.get("chapters"):
@@ -395,8 +428,14 @@ def perform_merge(
                 else _resolve_encoder(reencode["codec"])
             )
             family = family_for_encoder(encoder)
-            used_hw_encoder = family != "software"
-            if family in ("nvenc", "vaapi"):
+            if family not in ("nvenc", "software"):
+                # Splice builds no VAAPI/QSV/AMF device or hwupload plumbing, so those
+                # encoders would always fail — encode in software instead.
+                note_cb(f"{family} encoding isn't supported for merges — using the CPU encoder")
+                encoder = software_encoder(reencode["codec"])
+                family = "software"
+            used_hw_encoder = family == "nvenc"
+            if family == "nvenc":
                 pool = GpuPool.build(family, 1)
                 gpu = pool.acquire_any() if pool._devices else None
                 if gpu is None:
@@ -430,6 +469,9 @@ def perform_merge(
                 f"Output failed verification: duration {out.duration:.1f}s vs expected {total:.1f}s"
             )
 
+        if os.path.exists(final) and final not in paths:
+            raise RuntimeError(f"{os.path.basename(final)} already exists")
+
         moved: list[tuple[str, str]] = []
         try:
             for fid, p in zip(ids, paths, strict=True):
@@ -444,6 +486,8 @@ def perform_merge(
             raise RuntimeError(f"Could not move originals: {e}") from e
         return final
     finally:
+        with _RESERVED_LOCK:
+            _RESERVED.discard(final)
         if pool is not None and gpu is not None:
             pool.release(gpu)
         _remove(tmp)

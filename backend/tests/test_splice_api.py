@@ -197,3 +197,43 @@ def test_merge_enqueues_job(client, seeded, monkeypatch):
         json={"file_ids": [ids["a.mp4"], ids["b.mp4"]], "output_name": "joined", "chapters": True},
     )
     assert r.status_code == 200 and r.json()["job_id"] == queued["job_id"]
+
+
+def test_routes_probe_without_holding_a_db_session(client, seeded, monkeypatch):
+    ids, _ = seeded
+    import app.api.splice as api
+    import app.services.splice as sp
+
+    real_factory = api.SessionLocal
+    open_sessions = {"n": 0}
+
+    def tracking():
+        s = real_factory()
+        open_sessions["n"] += 1
+        real_close = s.close
+
+        def close():
+            open_sessions["n"] -= 1
+            real_close()
+
+        s.close = close
+        return s
+
+    seen = []
+    real_probe = sp.probe_facts
+
+    def probe(path):
+        seen.append(open_sessions["n"])
+        return real_probe(path)
+
+    async def fake_enqueue(job_id, fn, *args):
+        pass
+
+    monkeypatch.setattr(api, "SessionLocal", tracking)
+    monkeypatch.setattr(sp, "probe_facts", probe)
+    monkeypatch.setattr(api, "enqueue", fake_enqueue)
+    pair = [ids["a.mp4"], ids["b.mp4"]]
+    assert client.post("/api/splice/preflight", json={"file_ids": pair}).status_code == 200
+    r = client.post("/api/splice/merge", json={"file_ids": pair, "output_name": "joined2"})
+    assert r.status_code == 200
+    assert len(seen) == 4 and seen == [0, 0, 0, 0]

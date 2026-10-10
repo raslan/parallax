@@ -111,22 +111,102 @@ def test_second_move_failure_rolls_back_first(tmp_path, monkeypatch):
     assert [p for p in os.listdir(tmp_path) if p.startswith(".") or p == "joined.mp4"] == []
 
 
-def test_gpu_failure_raises_marker_then_cpu_retry_succeeds(tmp_path, monkeypatch):
-    import app.services.splice as sp
-
-    _clip(tmp_path / "a.mp4")
-    _clip(tmp_path / "b.mp4", size="160x120")
-    s = _settings(
+def _reencode_settings():
+    return _settings(
         verdict="reencode",
         reencode={"codec": "h264", "crf": 28, "speed": "fast", "reference_file_id": None},
     )
-    # h264_vaapi with no device fails in ffmpeg, standing in for a broken GPU
-    monkeypatch.setattr(sp, "_resolve_encoder", lambda codec: "h264_vaapi")
-    with pytest.raises(sp.GpuEncodeFailed):
-        _run(tmp_path, ["a.mp4", "b.mp4"], s)
+
+
+def _two_mismatched_clips(tmp_path):
+    _clip(tmp_path / "a.mp4")
+    _clip(tmp_path / "b.mp4", size="160x120")
+
+
+def test_gpu_failure_raises_marker_then_cpu_retry_succeeds(tmp_path, monkeypatch):
+    import app.services.splice as sp
+
+    _two_mismatched_clips(tmp_path)
+    real = sp._run_ffmpeg
+
+    def fake(cmd, total, progress_cb, is_cancelled):
+        if "h264_nvenc" in cmd:
+            raise RuntimeError("no nvenc device")  # stands in for a broken GPU
+        return real(cmd, total, progress_cb, is_cancelled)
+
+    monkeypatch.setattr(sp, "_resolve_encoder", lambda codec: "h264_nvenc")
+    monkeypatch.setattr(sp, "_run_ffmpeg", fake)
+    with pytest.raises(sp.GpuEncodeFailed, match="GPU encode failed"):
+        _run(tmp_path, ["a.mp4", "b.mp4"], _reencode_settings())
     assert sorted(os.listdir(tmp_path)) == ["a.mp4", "b.mp4"]  # untouched, no temp
-    out = _run(tmp_path, ["a.mp4", "b.mp4"], {**s, "force_cpu": True})
+    out = _run(tmp_path, ["a.mp4", "b.mp4"], {**_reencode_settings(), "force_cpu": True})
     assert os.path.exists(out) and probe_facts(out).vcodec == "h264"
+
+
+def test_vaapi_encoder_falls_back_to_software_instead_of_failing(tmp_path, monkeypatch):
+    import app.services.splice as sp
+
+    _two_mismatched_clips(tmp_path)
+    real = sp._run_ffmpeg
+    seen = []
+
+    def spy(cmd, total, progress_cb, is_cancelled):
+        seen.append(cmd[cmd.index("-c:v") + 1])
+        return real(cmd, total, progress_cb, is_cancelled)
+
+    # Splice builds no VAAPI device/hwupload plumbing, so a vaapi encoder would always fail
+    monkeypatch.setattr(sp, "_resolve_encoder", lambda codec: "h264_vaapi")
+    monkeypatch.setattr(sp, "_run_ffmpeg", spy)
+    out = _run(tmp_path, ["a.mp4", "b.mp4"], _reencode_settings())
+    assert seen == ["libx264"] and os.path.exists(out)
+
+
+def test_concurrent_merge_to_the_same_output_name_is_refused(tmp_path):
+    import app.services.splice as sp
+
+    _clip(tmp_path / "a.mp4")
+    _clip(tmp_path / "b.mp4")
+    final = str(tmp_path / "joined.mp4")
+    sp._RESERVED.add(final)  # another running merge already owns this name
+    try:
+        with pytest.raises(RuntimeError, match="in use"):
+            _run(tmp_path, ["a.mp4", "b.mp4"], _settings())
+    finally:
+        sp._RESERVED.discard(final)
+    assert sorted(os.listdir(tmp_path)) == ["a.mp4", "b.mp4"]
+
+
+def test_reservation_is_released_after_success_and_failure(tmp_path, monkeypatch):
+    import app.services.splice as sp
+
+    _clip(tmp_path / "a.mp4")
+    _clip(tmp_path / "b.mp4")
+    _run(tmp_path, ["a.mp4", "b.mp4"], _settings())
+    assert sp._RESERVED == set()
+    monkeypatch.setattr(sp, "duration_ok", lambda a, e: False)
+    _clip(tmp_path / "c.mp4")
+    _clip(tmp_path / "d.mp4")
+    with pytest.raises(RuntimeError):
+        _run(tmp_path, ["c.mp4", "d.mp4"], _settings(name="other"))
+    assert sp._RESERVED == set()
+
+
+def test_output_name_appearing_during_the_encode_is_not_overwritten(tmp_path, monkeypatch):
+    import app.services.splice as sp
+
+    _clip(tmp_path / "a.mp4")
+    _clip(tmp_path / "b.mp4")
+    real = sp._run_ffmpeg
+
+    def run_then_squat(cmd, total, progress_cb, is_cancelled):
+        real(cmd, total, progress_cb, is_cancelled)
+        (tmp_path / "joined.mp4").write_bytes(b"someone else's output")
+
+    monkeypatch.setattr(sp, "_run_ffmpeg", run_then_squat)
+    with pytest.raises(RuntimeError, match="already exists"):
+        _run(tmp_path, ["a.mp4", "b.mp4"], _settings())
+    assert (tmp_path / "joined.mp4").read_bytes() == b"someone else's output"
+    assert (tmp_path / "a.mp4").exists() and (tmp_path / "b.mp4").exists()
 
 
 def test_source_with_apostrophe_and_spaces(tmp_path):
