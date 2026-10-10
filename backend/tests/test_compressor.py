@@ -134,7 +134,15 @@ def test_run_compress_job_retries_on_hwaccel_failure_then_succeeds(engine, tmp_p
     calls = []
 
     def fake_compress_one(
-        path, codec, crf, speed, job_id, progress_cb=None, keep_original=True, gpu=None
+        path,
+        codec,
+        crf,
+        speed,
+        job_id,
+        progress_cb=None,
+        keep_original=True,
+        gpu=None,
+        max_resolution=None,
     ):
         calls.append(gpu.index if gpu else None)
         if len(calls) == 1:
@@ -181,7 +189,15 @@ def test_run_compress_job_scales_total_workers_by_gpu_count(engine, tmp_path, mo
     barrier = threading.Barrier(4, timeout=5)
 
     def fake_compress_one(
-        path, codec, crf, speed, job_id, progress_cb=None, keep_original=True, gpu=None
+        path,
+        codec,
+        crf,
+        speed,
+        job_id,
+        progress_cb=None,
+        keep_original=True,
+        gpu=None,
+        max_resolution=None,
     ):
         barrier.wait()  # only returns once all 4 workers are running at once
         return True, None, path
@@ -210,7 +226,15 @@ def test_run_compress_job_zero_gpus_behaves_like_before(engine, tmp_path, monkey
     calls = []
 
     def fake_compress_one(
-        path, codec, crf, speed, job_id, progress_cb=None, keep_original=True, gpu=None
+        path,
+        codec,
+        crf,
+        speed,
+        job_id,
+        progress_cb=None,
+        keep_original=True,
+        gpu=None,
+        max_resolution=None,
     ):
         calls.append(gpu)
         return True, None, path
