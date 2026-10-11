@@ -91,6 +91,50 @@ def test_enqueue_creates_rows(client, monkeypatch):
     assert all(row["status"] == "pending" for row in rows)
 
 
+def test_enqueue_file_mode_expands_urls_to_paste_rows(client, engine, monkeypatch, tmp_path):
+    import app.api.galleries as mod
+    from app.schemas import GalleryOptions
+
+    async def _noop(*a, **k):
+        return None
+
+    urls = tmp_path / "urls.txt"
+    urls.write_text("https://x.com/a\n\n# skipped\n  https://youtube.com/@b  \n")
+    monkeypatch.setattr(mod, "run_gallery", _noop)
+    monkeypatch.setattr(mod, "URLS_FILE", str(urls))
+    client.put(
+        "/api/galleries/options",
+        json={
+            **client.get("/api/galleries/options").json(),
+            "baseDir": "/tmp/g",
+            "inputMode": "file",
+        },
+    )
+    r = client.post("/api/galleries", json={"urls": []})
+    assert r.status_code == 200
+    assert len(r.json()["ids"]) == 2
+    rows = sorted(client.get("/api/galleries").json(), key=lambda x: x["id"])
+    assert [x["url"] for x in rows] == ["https://x.com/a", "https://youtube.com/@b"]
+    with Session(engine) as s:
+        snap = s.query(GalleryDownload).first().options
+    assert GalleryOptions.model_validate_json(snap).inputMode == "paste"
+
+
+def test_enqueue_file_mode_empty_file_is_400(client, monkeypatch, tmp_path):
+    import app.api.galleries as mod
+
+    monkeypatch.setattr(mod, "URLS_FILE", str(tmp_path / "missing.txt"))
+    client.put(
+        "/api/galleries/options",
+        json={
+            **client.get("/api/galleries/options").json(),
+            "baseDir": "/tmp/g",
+            "inputMode": "file",
+        },
+    )
+    assert client.post("/api/galleries", json={"urls": []}).status_code == 400
+
+
 def test_gdl_update_failure_returns_502(client, monkeypatch):
     import app.api.galleries as mod
 

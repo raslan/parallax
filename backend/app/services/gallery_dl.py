@@ -358,9 +358,15 @@ def _split_prefix(url: str) -> tuple[str, str]:
     return "native", url
 
 
+_YOUTUBE_URL = re.compile(
+    r"https?://([\w-]+\.)*(youtube\.com|youtu\.be)(?=[/:?#]|$)", re.IGNORECASE
+)
+
+
 def _ladder(url: str, opts: GalleryOptions) -> list[str]:
     """Backends to try in order. gallery-dl's own extractors first; a plain http(s) URL it has
-    no extractor for (exit 64) falls through to yt-dlp, then to gallery-dl's generic scraper.
+    no extractor for (exit 64) falls through to yt-dlp, then to gallery-dl's generic scraper;
+    YouTube URLs skip the native rung since it can never match.
     A URL the user already routed with `ytdl:` / `generic:` runs only that backend, once; any
     other prefix (`recursive:`, …) and file mode run as given. directlink needs no rung — it
     matches file-extension URLs natively."""
@@ -368,6 +374,9 @@ def _ladder(url: str, opts: GalleryOptions) -> list[str]:
     if backend != "native":
         return [backend]
     if opts.inputMode == "paste" and re.match(r"https?://", url, re.IGNORECASE):
+        # gallery-dl has no YouTube extractor, so the native attempt only burns a process spawn.
+        if _YOUTUBE_URL.match(url):
+            return ["ytdl", "generic"]
         return ["native", "ytdl", "generic"]
     return ["native"]
 

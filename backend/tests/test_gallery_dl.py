@@ -346,6 +346,10 @@ def test_build_cmd_native_backend_unchanged():
 def test_ladder():
     assert _ladder("https://x.com/g", _opts()) == ["native", "ytdl", "generic"]
     assert _ladder("HTTPS://x.com/g", _opts()) == ["native", "ytdl", "generic"]
+    # YouTube has no native extractor — skip straight to ytdl (look-alike hosts don't count)
+    assert _ladder("https://www.youtube.com/@x/videos", _opts()) == ["ytdl", "generic"]
+    assert _ladder("https://youtu.be/abc", _opts()) == ["ytdl", "generic"]
+    assert _ladder("https://notyoutube.com/g", _opts()) == ["native", "ytdl", "generic"]
     # a hand-typed backend prefix runs that backend only
     assert _ladder("ytdl:https://x.com/g", _opts()) == ["ytdl"]
     assert _ladder("generic:https://x.com/g", _opts()) == ["generic"]

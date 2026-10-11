@@ -59,18 +59,35 @@ def list_galleries(db: Session = Depends(get_db)):
     return [serialize(r) for r in rows]
 
 
+def _read_urlfile_urls() -> list[str]:
+    """URLs in urls.txt, one per line; blank lines and `#` comments skipped (as `gallery-dl -i`)."""
+    try:
+        with open(URLS_FILE, encoding="utf-8") as f:
+            lines = [ln.strip() for ln in f]
+    except FileNotFoundError:
+        return []
+    return [ln for ln in lines if ln and not ln.startswith("#")]
+
+
 @router.post("")
 async def enqueue(req: GalleryEnqueueRequest, db: Session = Depends(get_db)):
     opts = load_options(db)
     if not opts.baseDir.strip():
         raise HTTPException(400, "Pick a base directory in options first")
 
+    # File mode expands urls.txt into one row per line, snapshotted as paste mode, so every
+    # URL gets its own ladder / progress / retry and shares the maxParallel semaphore.
+    if opts.inputMode == "file":
+        urls = _read_urlfile_urls()
+        opts = opts.model_copy(update={"inputMode": "paste"})
+    else:
+        urls = [u.strip() for u in req.urls if u.strip()]
     snapshot = opts.model_dump_json()
     created: list[int] = []
 
-    if opts.inputMode == "file":
+    for url in urls:
         row = GalleryDownload(
-            url="file:urls.txt",
+            url=url,
             status=GalleryDownloadStatus.PENDING,
             output_dir=opts.baseDir,
             options=snapshot,
@@ -78,17 +95,6 @@ async def enqueue(req: GalleryEnqueueRequest, db: Session = Depends(get_db)):
         db.add(row)
         db.flush()
         created.append(row.id)
-    else:
-        for url in [u.strip() for u in req.urls if u.strip()]:
-            row = GalleryDownload(
-                url=url,
-                status=GalleryDownloadStatus.PENDING,
-                output_dir=opts.baseDir,
-                options=snapshot,
-            )
-            db.add(row)
-            db.flush()
-            created.append(row.id)
 
     if not created:
         raise HTTPException(400, "No URLs given")
