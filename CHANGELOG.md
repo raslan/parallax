@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [3.4.0](https://github.com/raslan/parallax/compare/v3.3.0...v3.4.0) (2026-10-11)
+
+
+### Features
+
+* add better gallery parsing for youtube and better file layout ([cf292c2](https://github.com/raslan/parallax/commit/cf292c2977bd6d7f7d2a3bb2ee10dc2f488ba8d6))
+* add subtitle fallback ([8f949e0](https://github.com/raslan/parallax/commit/8f949e035c822012d45d66586d3423b0153e37e3))
+* **splice:** add copy and re-encode ffmpeg builders ([baf7a8d](https://github.com/raslan/parallax/commit/baf7a8d4431b3e883869b3dc0030c13d4ccd544d))
+* **splice:** add merge compatibility and concat helpers ([6af276f](https://github.com/raslan/parallax/commit/6af276ff5cb787bd4bc15513dae1dde9ad435351))
+* **splice:** add preflight, merge and cpu-retry endpoints ([5ca6eb1](https://github.com/raslan/parallax/commit/5ca6eb1230267b888a70919af7763fad6fd5a120))
+* **splice:** add Splice page with merge tab and nav entry ([7903834](https://github.com/raslan/parallax/commit/7903834936f9ed938a181540b82e606534e22d64))
+* **splice:** run merge job with verify and safe originals move ([691ec05](https://github.com/raslan/parallax/commit/691ec058ad3690cb2e927dbfdd7b182d4f31dab1))
+
+
+### Bug Fixes
+
+* **splice:** debounce the output name before preflight ([55db519](https://github.com/raslan/parallax/commit/55db519fb2b55ba0410da26a05ffe97ef084ae1d))
+* **splice:** handle rotation, vaapi, session scope and name races ([c32059b](https://github.com/raslan/parallax/commit/c32059b8190bf641a2b02b6646077dce7b49b42b))
+* **splice:** keep order list visible and word the progress banner ([cd4f4d8](https://github.com/raslan/parallax/commit/cd4f4d88ae0ea3cf9c40bf1cbfd500d7932d94db))
+* **splice:** show preflight errors, add CPU switch, reorder by id ([d2da012](https://github.com/raslan/parallax/commit/d2da012c965ab1c6c0071d00a75c917d2bde114c))
+* **splice:** support vaapi like compress and harden failure paths ([ee74b01](https://github.com/raslan/parallax/commit/ee74b01132a76c7623fb828b09c07560b737abdb))
+
 ## [3.3.0](https://github.com/raslan/parallax/compare/v3.2.0...v3.3.0) (2026-09-25)
 
 
