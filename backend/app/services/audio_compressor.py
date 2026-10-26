@@ -285,7 +285,7 @@ def _compress_one(
             os.makedirs(originals_dir, exist_ok=True)
             shutil.move(src, os.path.join(originals_dir, os.path.basename(src)))
 
-        os.replace(tmp, final)
+        shutil.move(tmp, final)  # tmp may live on SCRATCH_DIR (another filesystem)
 
         if (
             not keep_original

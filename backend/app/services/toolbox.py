@@ -10,7 +10,15 @@ from collections.abc import Callable
 
 from app.database import SessionLocal
 from app.models.job import Job, JobStatus
-from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
+from app.services.common import (
+    arm_cancel,
+    clear_cancel,
+    fail_job,
+    log,
+    now,
+    should_cancel,
+    temp_sibling_path,
+)
 from app.services.compressor import _NEEDS_REMUX, _cleanup, _read_and_remove, _rescan_after_job
 from app.services.encoder import encoder_for_codec, family_for_encoder
 from app.services.gpu_pool import GPUDevice, GpuPool, is_hwaccel_failure
@@ -314,7 +322,7 @@ def _toolbox_fix_one(
         out_ext = ".mkv"
     else:
         out_ext = ext.lower() or ".mkv"
-    tmp = base + ".fixing" + out_ext
+    tmp = temp_sibling_path(src, out_ext, "compressing")  # fs watcher skips `.compressing*`
     dst = src if out_ext == ext.lower() else (base + out_ext)
 
     # Matroska (the only remux target, and a source that's already native .mkv)

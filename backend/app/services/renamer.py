@@ -225,7 +225,7 @@ def apply_ops(
     for op in file_ops:
         try:
             os.makedirs(os.path.dirname(op["new_path"]), exist_ok=True)
-            os.rename(op["old_path"], op["new_path"])
+            shutil.move(op["old_path"], op["new_path"])  # new_path may sit on another mount
             f = db.query(File).filter(File.path == op["old_path"]).first()
             if f:
                 f.path = op["new_path"]

@@ -302,7 +302,7 @@ def _toolbox_fix_one(
                     dest = os.path.join(originals_dir, f"{b}_{rid}_{n}{e}")
                     n += 1
             shutil.move(src, dest)
-        os.replace(tmp, src)
+        shutil.move(tmp, src)  # tmp may live on SCRATCH_DIR (another filesystem)
 
         db = SessionLocal()
         try:
