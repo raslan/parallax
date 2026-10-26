@@ -11,8 +11,13 @@ vi.mock("@/lib/api", async (importOriginal) => {
     api: {
       ...actual.api,
       getGalleryOptions: vi.fn().mockResolvedValue({}),
-      getGalleryUrlfile: vi.fn().mockResolvedValue({ text: "" }),
+      getGalleryArchive: vi
+        .fn()
+        .mockResolvedValue({ path: "/a.sqlite3", exists: false, size: 0, entries: 0 }),
+      getGalleryUrlLists: vi.fn().mockResolvedValue({ lists: [] }),
+      getGalleryUrlList: vi.fn().mockResolvedValue({ name: "default", text: "" }),
       galleryDlInfo: vi.fn().mockResolvedValue({ installed: true, version: "1.27.0", path: "/x" }),
+      galleryYtdlImpersonateTargets: vi.fn().mockResolvedValue({ targets: [] }),
     },
   };
 });
@@ -28,14 +33,17 @@ vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 afterEach(cleanup);
 
 import { Galleries } from "./Galleries";
+import { ConfirmProvider } from "@/components/ConfirmProvider";
 
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
-        <Galleries />
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter>
+          <Galleries />
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }

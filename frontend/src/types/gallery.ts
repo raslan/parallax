@@ -15,6 +15,20 @@ export interface GalleryDownload {
   finished_at: string | null;
 }
 
+/** The `--download-archive` file (`GET /galleries/archive`); `entries` null = couldn't be counted. */
+export interface ArchiveInfo {
+  path: string;
+  exists: boolean;
+  size: number;
+  entries: number | null;
+}
+
+/** A named file-mode URL list (`GET /galleries/urllists`); `count` = URLs in it. */
+export interface UrlListInfo {
+  name: string;
+  count: number;
+}
+
 export interface GalleryEnqueuePayload {
   urls: string[];
   cookies: string;

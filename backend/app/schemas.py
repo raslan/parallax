@@ -234,6 +234,20 @@ class GalleryOptions(BaseModel):
     filenameTemplate: str = ""
     extraArgs: str = ""
     inputMode: Literal["paste", "file"] = "paste"
+    urlList: str = Field(default="default", max_length=64)  # selected list in file mode
+    # yt-dlp (ytdl backend) options — same vocabulary as the Downloads page.
+    ytAudioOnly: bool = False
+    ytQuality: Literal["best", "2160", "1440", "1080", "720", "480", "360"] = "best"
+    ytCodec: str = "auto"  # video: auto/h264/hevc/av1/vp9 · audio: mp3/m4a/opus
+    ytConcurrentFragments: int = Field(default=4, ge=1, le=64)
+    ytDownloadSubs: bool = False
+    ytSubLangs: str = "en"
+    ytImpersonate: str = ""
+    ytRefererMode: Literal["none", "site", "url", "custom"] = "none"
+    ytReferer: str = ""
+    ytThrottledRateValue: str = Field(default="", pattern=r"^\d*\.?\d*$")
+    ytThrottledRateUnit: Literal["K", "M", "G"] = "M"
+    ytExtraArgs: str = ""
 
 
 class GalleryEnqueueRequest(BaseModel):
@@ -247,6 +261,10 @@ class ClearGalleriesRequest(BaseModel):
 
 class UrlFileBody(BaseModel):
     text: str = ""
+
+
+class UrlListRename(BaseModel):
+    name: str
 
 
 # ── Audio library schemas ────────────────────────────────────────────────────

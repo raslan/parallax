@@ -1,5 +1,5 @@
 import { BASE, req } from "./client";
-import type { GalleryEnqueuePayload } from "@/types/gallery";
+import type { ArchiveInfo, GalleryEnqueuePayload, UrlListInfo } from "@/types/gallery";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
 
 export const galleriesApi = {
@@ -16,11 +16,28 @@ export const galleriesApi = {
   getGalleryOptions: () => req<GalleryOptions>("/galleries/options"),
   putGalleryOptions: (opts: GalleryOptions) =>
     req<{ ok: true }>("/galleries/options", { method: "PUT", body: JSON.stringify(opts) }),
-  getGalleryUrlfile: () => req<{ text: string }>("/galleries/urlfile"),
-  putGalleryUrlfile: (text: string) =>
-    req<{ ok: true }>("/galleries/urlfile", { method: "PUT", body: JSON.stringify({ text }) }),
+  getGalleryArchive: () => req<ArchiveInfo>("/galleries/archive"),
+  resetGalleryArchive: () => req<ArchiveInfo>("/galleries/archive/reset", { method: "POST" }),
+  getGalleryUrlLists: () => req<{ lists: UrlListInfo[] }>("/galleries/urllists"),
+  getGalleryUrlList: (name: string) =>
+    req<{ name: string; text: string }>(`/galleries/urllists/${encodeURIComponent(name)}`),
+  /** Create or overwrite a list. */
+  putGalleryUrlList: (name: string, text: string) =>
+    req<{ ok: true }>(`/galleries/urllists/${encodeURIComponent(name)}`, {
+      method: "PUT",
+      body: JSON.stringify({ text }),
+    }),
+  deleteGalleryUrlList: (name: string) =>
+    req<void>(`/galleries/urllists/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  renameGalleryUrlList: (name: string, newName: string) =>
+    req<{ name: string }>(`/galleries/urllists/${encodeURIComponent(name)}/rename`, {
+      method: "POST",
+      body: JSON.stringify({ name: newName }),
+    }),
   galleryDlInfo: () =>
     req<{ installed: boolean; version: string | null; path: string | null }>("/galleries/gdl/info"),
   galleryDlUpdate: () => req<{ message: string }>("/galleries/gdl/update", { method: "POST" }),
+  galleryYtdlImpersonateTargets: () =>
+    req<{ targets: string[] }>("/galleries/ytdl/impersonate-targets"),
   galleriesSseUrl: () => `${BASE}/galleries/stream`,
 };

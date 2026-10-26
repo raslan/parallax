@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -13,16 +12,27 @@ from app.schemas import (
     GalleryEnqueueRequest,
     GalleryOptions,
     UrlFileBody,
+    UrlListRename,
 )
+from app.services.gallery_archive import archive_info, reset_archive
 from app.services.gallery_dl import (
-    URLS_FILE,
+    archive_path,
     cancel_gallery,
     get_gallerydl_info,
     install_gallerydl,
+    list_ytdl_impersonate_targets,
     run_gallery,
     set_gallery_max_parallel,
 )
 from app.services.gallery_options import load_options, save_options
+from app.services.gallery_urllists import (
+    delete_list,
+    list_lists,
+    read_list,
+    read_urls,
+    rename_list,
+    write_list,
+)
 
 router = APIRouter(prefix="/galleries", tags=["galleries"])
 
@@ -59,26 +69,21 @@ def list_galleries(db: Session = Depends(get_db)):
     return [serialize(r) for r in rows]
 
 
-def _read_urlfile_urls() -> list[str]:
-    """URLs in urls.txt, one per line; blank lines and `#` comments skipped (as `gallery-dl -i`)."""
-    try:
-        with open(URLS_FILE, encoding="utf-8") as f:
-            lines = [ln.strip() for ln in f]
-    except FileNotFoundError:
-        return []
-    return [ln for ln in lines if ln and not ln.startswith("#")]
-
-
 @router.post("")
 async def enqueue(req: GalleryEnqueueRequest, db: Session = Depends(get_db)):
     opts = load_options(db)
     if not opts.baseDir.strip():
         raise HTTPException(400, "Pick a base directory in options first")
 
-    # File mode expands urls.txt into one row per line, snapshotted as paste mode, so every
-    # URL gets its own ladder / progress / retry and shares the maxParallel semaphore.
+    # File mode expands the selected URL list into one row per line, snapshotted as paste mode,
+    # so every URL gets its own ladder / progress / retry and shares the maxParallel semaphore.
     if opts.inputMode == "file":
-        urls = _read_urlfile_urls()
+        try:
+            urls = read_urls(opts.urlList)
+        except FileNotFoundError:
+            raise HTTPException(400, f"URL list '{opts.urlList}' not found") from None
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
         opts = opts.model_copy(update={"inputMode": "paste"})
     else:
         urls = [u.strip() for u in req.urls if u.strip()]
@@ -211,26 +216,86 @@ def put_options(opts: GalleryOptions, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-@router.get("/urlfile")
-def get_urlfile():
+@router.get("/archive")
+def get_archive(db: Session = Depends(get_db)):
+    return archive_info(archive_path(load_options(db)))
+
+
+@router.post("/archive/reset")
+def reset_gallery_archive(db: Session = Depends(get_db)):
+    """Delete the download archive so already-fetched items become eligible again.
+
+    409 while a gallery is pending/running — gallery-dl has the file open and would write
+    back into (or recreate) it mid-reset.
+    """
+    if db.query(GalleryDownload).filter(GalleryDownload.status.in_(_ACTIVE)).first():
+        raise HTTPException(409, "Stop or wait for active galleries before resetting the archive")
+    path = archive_path(load_options(db))
     try:
-        with open(URLS_FILE, encoding="utf-8") as f:
-            return {"text": f.read()}
+        reset_archive(path)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    except OSError as e:
+        raise HTTPException(500, f"Couldn't delete the archive: {e}") from None
+    return archive_info(path)
+
+
+@router.get("/urllists")
+def get_urllists():
+    return {"lists": list_lists()}
+
+
+@router.get("/urllists/{name}")
+def get_urllist(name: str):
+    try:
+        return {"name": name, "text": read_list(name)}
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
     except FileNotFoundError:
-        return {"text": ""}
+        raise HTTPException(404, f"URL list '{name}' not found") from None
 
 
-@router.put("/urlfile")
-def put_urlfile(body: UrlFileBody):
-    os.makedirs(os.path.dirname(URLS_FILE), exist_ok=True)
-    with open(URLS_FILE, "w", encoding="utf-8") as f:
-        f.write(body.text)
+@router.put("/urllists/{name}")
+def put_urllist(name: str, body: UrlFileBody):
+    """Create or overwrite a list."""
+    try:
+        write_list(name, body.text)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
     return {"ok": True}
+
+
+@router.delete("/urllists/{name}", status_code=204)
+def delete_urllist(name: str):
+    try:
+        delete_list(name)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    except FileNotFoundError:
+        raise HTTPException(404, f"URL list '{name}' not found") from None
+
+
+@router.post("/urllists/{name}/rename")
+def rename_urllist(name: str, body: UrlListRename):
+    try:
+        return {"name": rename_list(name, body.name)}
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    except FileNotFoundError:
+        raise HTTPException(404, f"URL list '{name}' not found") from None
+    except FileExistsError:
+        raise HTTPException(409, f"A list named '{body.name.strip()}' already exists") from None
 
 
 @router.get("/gdl/info")
 def gdl_info():
     return get_gallerydl_info()
+
+
+@router.get("/ytdl/impersonate-targets")
+async def ytdl_impersonate_targets():
+    targets = await asyncio.to_thread(list_ytdl_impersonate_targets)
+    return {"targets": targets}
 
 
 @router.post("/gdl/update")

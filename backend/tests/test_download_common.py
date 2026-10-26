@@ -189,3 +189,43 @@ def test_install_zip_binary_missing_member_leaves_nothing(tmp_path):
     with pytest.raises(KeyError):
         install_zip_binary(archive.as_uri(), "tool", str(dest))
     assert list(tmp_path.glob("tool*")) == [archive]
+
+
+def test_format_sort_caps_the_short_side_and_selector_has_no_height_filter():
+    from app.services.download_common import format_selector, format_sort
+
+    assert format_sort("best") is None
+    assert format_sort("1080") == "res:1080"
+    for codec in ("auto", "h264", "hevc", "av1", "vp9"):
+        fmt, _ = format_selector("1080", codec)
+        # a [height<=N] filter would turn a 1080x1920 portrait video into ~480p
+        assert "height" not in fmt
+        assert fmt.endswith("/best")
+
+
+def test_build_ytdlp_cmd_caps_resolution_with_sort_not_height():
+    from app.services.downloader import build_ytdlp_cmd
+
+    capped = build_ytdlp_cmd("http://x/v", "/out", {"quality": "720"})
+    assert capped[capped.index("-S") + 1] == "res:720"
+    assert "height" not in capped[capped.index("-f") + 1]
+    assert "-S" not in build_ytdlp_cmd("http://x/v", "/out", {})
+    assert "-S" not in build_ytdlp_cmd("http://x/v", "/out", {"quality": "720", "audio_only": True})
+
+
+def test_parse_impersonate_targets_skips_headers_rules_and_unavailable():
+    from app.services.download_common import parse_impersonate_targets
+
+    out = """[info] Available impersonate targets
+Client    OS          Source
+--------------------------------------------
+Chrome    windows-10  curl_cffi
+Chrome    macos-14    curl_cffi
+Edge      -           curl_cffi (unavailable)
+Safari    -           curl_cffi
+"""
+    assert parse_impersonate_targets(out) == ["Chrome", "Safari"]
+    # legacy layout without the [info] banner / Client header
+    legacy = "Available impersonate targets:\n----\n  chrome-131   curl_cffi\n"
+    assert parse_impersonate_targets(legacy) == ["chrome-131"]
+    assert parse_impersonate_targets("") == []

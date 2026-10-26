@@ -55,7 +55,10 @@ export const qk = {
 
   galleryOptions: () => ["galleries", "options"] as const,
   galleryDlInfo: () => ["gallery-dl", "info"] as const,
-  galleryUrlfile: () => ["galleries", "urlfile"] as const,
+  galleryYtdlImpersonateTargets: () => ["gallery-dl", "ytdl-impersonate-targets"] as const,
+  galleryArchive: () => ["galleries", "archive"] as const,
+  galleryUrlLists: () => ["galleries", "urllists"] as const,
+  galleryUrlList: (name: string) => ["galleries", "urllists", name] as const,
 
   settings: () => ["settings"] as const,
 

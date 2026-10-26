@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
+import { RotateCcw } from "lucide-react";
+import { formatSize } from "@/lib/format";
+import type { ArchiveInfo } from "@/types/gallery";
 import { DirPicker } from "@/components/DirPicker";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -32,7 +35,16 @@ const Label = ({ children }: { children: ReactNode }) => (
   </p>
 );
 
-export function GalleryOptionsPanel({ form }: { form: UseFormReturn<GalleryOptions> }) {
+export function GalleryOptionsPanel({
+  form,
+  archive,
+  onResetArchive,
+}: {
+  form: UseFormReturn<GalleryOptions>;
+  /** undefined while loading */
+  archive: ArchiveInfo | undefined;
+  onResetArchive: () => void;
+}) {
   const { register, setValue, watch } = form;
   const o = watch();
   const set = <K extends keyof GalleryOptions>(k: K, v: GalleryOptions[K]) =>
@@ -241,12 +253,32 @@ export function GalleryOptionsPanel({ form }: { form: UseFormReturn<GalleryOptio
           <span className="text-xs text-foreground">Skip already-downloaded (archive)</span>
         </label>
         {o.useArchive && (
-          <input
-            type="text"
-            placeholder="Custom archive path (optional)"
-            {...register("archivePath")}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-          />
+          <>
+            <input
+              type="text"
+              placeholder="Custom archive path (optional)"
+              {...register("archivePath")}
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            />
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground/60">
+                {!archive
+                  ? "…"
+                  : !archive.exists
+                    ? "Archive is empty"
+                    : `${archive.entries === null ? "?" : archive.entries.toLocaleString()} entries · ${formatSize(archive.size)}`}
+              </span>
+              <button
+                type="button"
+                onClick={onResetArchive}
+                disabled={!archive?.exists}
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-border/50 px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset archive
+              </button>
+            </div>
+          </>
         )}
       </div>
 

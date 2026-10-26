@@ -18,6 +18,7 @@ from app.services.gallery_dl import (
     install_gallerydl,
     safe_folder_name,
     type_filter_expr,
+    ytdlp_args,
 )
 
 
@@ -238,7 +239,7 @@ def test_run_gallery_sync_nonzero_exit_fails_with_stderr_tail(tmp_path, monkeypa
 def test_ytdlp_nightly_spec_allows_prereleases_for_ytdlp_only():
     # a `.dev0` bound lets pip pick yt-dlp nightlies without a global --pre
     # (which would also open up pre-release *dependencies*)
-    assert YTDLP_NIGHTLY_SPEC.startswith("yt-dlp[default]>=")
+    assert YTDLP_NIGHTLY_SPEC.startswith("yt-dlp[default,curl-cffi]>=")
     assert YTDLP_NIGHTLY_SPEC.endswith(".dev0")
 
 
@@ -513,3 +514,62 @@ def test_subprocess_env_pins_caches_into_the_data_volume(monkeypatch):
     assert gallery_dl._gallery_dl_env()["XDG_CACHE_HOME"] == want
     monkeypatch.setenv("XDG_CACHE_HOME", "/somewhere/else")
     assert gallery_dl._gallery_dl_env()["XDG_CACHE_HOME"] == want
+
+
+def test_ytdl_backend_passes_cmdline_args_but_native_does_not():
+    ytdl = build_gallerydl_cmd("https://youtube.com/@x", _opts(), None, backend="ytdl")
+    assert any(a.startswith("extractor.ytdl.cmdline-args=") for a in ytdl)
+    native = build_gallerydl_cmd("https://x.com/g/1", _opts(), None)
+    assert not any("extractor.ytdl" in a for a in native)
+
+
+def test_ytdlp_args_defaults_match_downloads_selector():
+    args = ytdlp_args(_opts(), "https://youtube.com/@x")
+    assert args[args.index("-f") + 1] == "bestvideo+bestaudio/best"
+    assert args[args.index("--merge-output-format") + 1] == "mkv"
+    assert args[args.index("--concurrent-fragments") + 1] == "4"
+    assert "--embed-metadata" in args and "--embed-chapters" in args
+    # gallery-dl drops its own retry/timeout defaults when cmdline-args is set
+    assert "--retries" in args and "--socket-timeout" in args
+    for absent in ("-x", "--write-subs", "--impersonate", "--referer", "--throttled-rate"):
+        assert absent not in args
+
+
+def test_ytdlp_args_quality_codec_and_audio_only():
+    args = ytdlp_args(_opts(ytQuality="1080", ytCodec="hevc"), "u")
+    # cap is a short-side sort (`res`), never a height filter — vertical videos would break
+    assert "height" not in args[args.index("-f") + 1]
+    assert args[args.index("-S") + 1] == "res:1080"
+    assert args[args.index("--merge-output-format") + 1] == "mp4"
+    assert "-S" not in ytdlp_args(_opts(), "u")  # "best" = no cap
+    assert "-S" not in ytdlp_args(_opts(ytAudioOnly=True, ytQuality="720"), "u")
+    audio = ytdlp_args(_opts(ytAudioOnly=True, ytCodec="opus"), "u")
+    assert audio[audio.index("--audio-format") + 1] == "opus"
+    assert "-f" not in audio
+    # a video codec left over from video mode falls back to mp3
+    assert ytdlp_args(_opts(ytAudioOnly=True, ytCodec="av1"), "u").count("mp3") == 1
+
+
+def test_ytdlp_args_subs_impersonate_referer_throttle_and_extra():
+    url = "https://www.youtube.com/watch?v=1"
+    args = ytdlp_args(
+        _opts(
+            ytDownloadSubs=True,
+            ytSubLangs="en,fr",
+            ytImpersonate="chrome",
+            ytRefererMode="site",
+            ytThrottledRateValue="100",
+            ytThrottledRateUnit="K",
+            ytExtraArgs="--no-mtime --sleep-interval 2",
+        ),
+        url,
+    )
+    assert args[args.index("--sub-langs") + 1] == "en,fr"
+    assert "--write-auto-subs" in args
+    assert args[args.index("--impersonate") + 1] == "chrome"
+    assert args[args.index("--referer") + 1] == "https://www.youtube.com/"
+    assert args[args.index("--throttled-rate") + 1] == "100K"
+    assert args[-3:] == ["--no-mtime", "--sleep-interval", "2"]
+    assert ytdlp_args(_opts(ytRefererMode="url"), url)[-1] == url
+    custom = ytdlp_args(_opts(ytRefererMode="custom", ytReferer="https://r/"), url)
+    assert custom[custom.index("--referer") + 1] == "https://r/"

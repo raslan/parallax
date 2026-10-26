@@ -21,12 +21,22 @@ from app.database import SessionLocal
 from app.models.download import Download, DownloadStatus
 from app.services.common import now
 from app.services.download_common import (
+    AUDIO_CONTAINERS as _AUDIO_CONTAINERS,
+)
+from app.services.download_common import (
     ProcessGroup,
     ResizableSemaphore,
     cookies_to_tempfile,
     install_binary,
+    parse_impersonate_targets,
     probe_version,
     resolve_binary,
+)
+from app.services.download_common import (
+    format_selector as _format_selector,
+)
+from app.services.download_common import (
+    format_sort as _format_sort,
 )
 
 # ---------------------------------------------------------------------------
@@ -79,48 +89,6 @@ def install_ytdlp(channel: str = "stable") -> None:
 # ---------------------------------------------------------------------------
 # Command builder
 # ---------------------------------------------------------------------------
-
-
-_CODEC_VCODEC: dict[str, str] = {
-    "h264": "avc",
-    "hevc": "hev",  # matches hev1, hevc; hvc1 handled via fallback
-    "av1": "av01",
-    "vp9": "vp9",
-}
-_CODEC_CONTAINER: dict[str, str] = {
-    "h264": "mp4",
-    "hevc": "mp4",
-    "av1": "webm",
-    "vp9": "webm",
-    "auto": "mkv",
-}
-_AUDIO_CONTAINERS = {"mp3", "m4a", "opus", "flac", "wav"}
-
-
-def _format_selector(quality: str, codec: str) -> tuple[str, str]:
-    """Return (format_string, merge_container) for a quality+codec combination."""
-    h = f"[height<={quality}]" if quality != "best" else ""
-    vc = _CODEC_VCODEC.get(codec, "")
-    container = _CODEC_CONTAINER.get(codec, "mkv")
-
-    # Fallback chain priority: preferred codec → any codec (quality preserved) → combined stream
-    # This ensures quality is never sacrificed — codec degrades gracefully instead.
-    any_at_quality = f"bestvideo{h}+bestaudio"  # no codec filter, respects height limit
-    combined = f"best{h}"  # last resort: pre-muxed stream
-
-    if not vc:  # auto
-        fmt = f"{any_at_quality}/{combined}"
-    elif codec == "hevc":
-        # HEVC streams tagged as hev1/hevc or hvc1 — try both naming conventions
-        fmt = (
-            f"bestvideo{h}[vcodec*={vc}]+bestaudio"
-            f"/bestvideo{h}[vcodec*=hvc]+bestaudio"
-            f"/{any_at_quality}/{combined}"
-        )
-    else:
-        fmt = f"bestvideo{h}[vcodec*={vc}]+bestaudio/{any_at_quality}/{combined}"
-
-    return fmt, container
 
 
 def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
@@ -189,6 +157,9 @@ def build_ytdlp_cmd(url: str, output_dir: str, options: dict) -> list[str]:
     else:
         fmt, container = _format_selector(quality, codec)
         cmd += ["-f", fmt, "--merge-output-format", container]
+        # Caps the *short* side (so a 1080p portrait video is 1080x1920), not the height.
+        if sort := _format_sort(quality):
+            cmd += ["-S", sort]
 
     # Trim / sections
     if trim_start or trim_end:
@@ -246,20 +217,7 @@ def list_impersonate_targets() -> list[str]:
             text=True,
             timeout=15,
         )
-        targets = []
-        for line in result.stdout.splitlines():
-            # Each line: "  chrome-131      curl_cffi"
-            stripped = line.strip()
-            if (
-                not stripped
-                or stripped.startswith("Available")
-                or stripped.startswith("Target")
-                or set(stripped) <= {"-", "─"}
-            ):
-                continue
-            target = stripped.split()[0]
-            targets.append(target)
-        return targets
+        return parse_impersonate_targets(result.stdout)
     except Exception:
         return []
 

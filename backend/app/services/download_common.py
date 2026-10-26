@@ -215,3 +215,83 @@ class ProcessGroup:
                 on_escalated(key)
             except Exception:
                 logger.exception("on_escalated callback failed for key %s", key)
+
+
+# yt-dlp quality/codec -> `-f` selector. Shared by Downloads and Galleries' ytdl backend.
+CODEC_VCODEC: dict[str, str] = {
+    "h264": "avc",
+    "hevc": "hev",  # matches hev1, hevc; hvc1 handled via fallback
+    "av1": "av01",
+    "vp9": "vp9",
+}
+CODEC_CONTAINER: dict[str, str] = {
+    "h264": "mp4",
+    "hevc": "mp4",
+    "av1": "webm",
+    "vp9": "webm",
+    "auto": "mkv",
+}
+AUDIO_CONTAINERS = {"mp3", "m4a", "opus", "flac", "wav"}
+
+
+def format_sort(quality: str) -> str | None:
+    """`-S` value that caps the video's *short* side at `quality` px, or None for "best".
+
+    yt-dlp's `res` sort field is the smallest dimension, so 1080 means 1920x1080 landscape and
+    1080x1920 portrait alike. A `[height<=N]` filter would cap the height instead and silently
+    drop a 1080-wide vertical video to ~480p. Sorting (not filtering) means a source with
+    nothing at or under N still downloads its smallest stream rather than failing.
+    """
+    return f"res:{quality}" if quality != "best" else None
+
+
+def format_selector(quality: str, codec: str) -> tuple[str, str]:
+    """Return (format_string, merge_container) for a codec preference.
+
+    Resolution is *not* part of the selector — pair it with `format_sort(quality)` (`-S`).
+    `quality` is accepted so callers keep one call shape.
+    """
+    del quality  # applied via -S, see format_sort
+    vc = CODEC_VCODEC.get(codec, "")
+    container = CODEC_CONTAINER.get(codec, "mkv")
+
+    # Fallback chain priority: preferred codec → any codec → combined stream.
+    # Codec degrades gracefully; the resolution cap lives in the sort order, not here.
+    any_codec = "bestvideo+bestaudio"
+    combined = "best"  # last resort: pre-muxed stream
+
+    if not vc:  # auto
+        fmt = f"{any_codec}/{combined}"
+    elif codec == "hevc":
+        # HEVC streams tagged as hev1/hevc or hvc1 — try both naming conventions
+        fmt = (
+            f"bestvideo[vcodec*={vc}]+bestaudio"
+            f"/bestvideo[vcodec*=hvc]+bestaudio"
+            f"/{any_codec}/{combined}"
+        )
+    else:
+        fmt = f"bestvideo[vcodec*={vc}]+bestaudio/{any_codec}/{combined}"
+
+    return fmt, container
+
+
+def parse_impersonate_targets(stdout: str) -> list[str]:
+    """Targets from `yt-dlp --list-impersonate-targets` output.
+
+    Skips the `[info]`/header/rule lines and any row marked `(unavailable)` — the pip module
+    lists every client even when curl_cffi isn't installed, and picking one would fail the run.
+    """
+    targets: list[str] = []
+    for line in stdout.splitlines():
+        s = line.strip()
+        if (
+            not s
+            or s.startswith(("[", "Available", "Client", "Target"))
+            or set(s) <= {"-", "─"}
+            or "(unavailable)" in s
+        ):
+            continue
+        client = s.split()[0]
+        if client not in targets:  # one row per client+OS; a bare client name is a valid target
+            targets.append(client)
+    return targets

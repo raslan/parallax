@@ -28,4 +28,15 @@ describe("galleryOptionsSchema", () => {
     expect(parsed.retries).toBe(3);
     expect(parsed.httpTimeout).toBe(30);
   });
+
+  it("defaults the yt-dlp options to Downloads-page parity (best / auto, 4 fragments)", () => {
+    const d = galleryOptionsSchema.parse({});
+    expect(d.ytAudioOnly).toBe(false);
+    expect(d.ytQuality).toBe("best");
+    expect(d.ytCodec).toBe("auto");
+    expect(d.ytConcurrentFragments).toBe(4);
+    expect(d.ytRefererMode).toBe("none");
+    expect(() => galleryOptionsSchema.parse({ ytQuality: "999" })).toThrow();
+    expect(() => galleryOptionsSchema.parse({ ytThrottledRateValue: "fast" })).toThrow();
+  });
 });

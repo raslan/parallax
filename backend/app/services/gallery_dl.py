@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from collections import deque
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -30,10 +31,14 @@ from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
 from app.schemas import GalleryOptions
 from app.services.common import now
 from app.services.download_common import (
+    AUDIO_CONTAINERS,
     ProcessGroup,
     ResizableSemaphore,
     cookies_to_tempfile,
+    format_selector,
+    format_sort,
     install_zip_binary,
+    parse_impersonate_targets,
 )
 from app.services.gallery_options import load_options
 
@@ -46,8 +51,10 @@ GALLERY_DL_NIGHTLY_SPEC = "gallery-dl @ https://codeberg.org/mikf/gallery-dl/arc
 # gallery-dl's `ytdl:` backend imports yt-dlp as a Python module (the standalone binary the
 # Downloads page uses can't be imported), so it rides along in the same --target dir. The
 # `.dev0` bound makes pip prefer yt-dlp's nightly builds without a global --pre, which would
-# also admit pre-release *dependencies*.
-YTDLP_NIGHTLY_SPEC = "yt-dlp[default]>=2026.1.1.dev0"
+# also admit pre-release *dependencies*. `curl-cffi` is its own extra (not part of `default`):
+# without it `--impersonate` has no targets and the module can't fetch from sites that
+# fingerprint TLS.
+YTDLP_NIGHTLY_SPEC = "yt-dlp[default,curl-cffi]>=2026.1.1.dev0"
 
 # yt-dlp needs a JS runtime to solve YouTube's challenges. deno is one binary in a release
 # zip; stored beside the other binaries (DATA_DIR/yt-dlp, DATA_DIR/alass).
@@ -161,6 +168,28 @@ def probe_ytdl_folder(url: str, cookies_file: str | None) -> str | None:
         return None
 
 
+def list_ytdl_impersonate_targets() -> list[str]:
+    """Impersonate targets the *pip* yt-dlp (gallery-dl's ytdl backend) can actually use.
+
+    Asked of the module in `_gallery_dl_env()` rather than the Downloads page's standalone
+    binary — they are separate installs, and only the module needs curl_cffi to be present.
+    Blocking — wrap in asyncio.to_thread. [] when yt-dlp can't be run.
+    """
+    cmd = [sys.executable, "-m", "yt_dlp", "--list-impersonate-targets"]
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=30, env=_gallery_dl_env()
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return parse_impersonate_targets(result.stdout)
+
+
+def archive_path(opts: GalleryOptions) -> str:
+    """The `--download-archive` file these options resolve to (custom path, else the default)."""
+    return opts.archivePath.strip() or DEFAULT_ARCHIVE
+
+
 def type_filter_expr(opts: GalleryOptions) -> str | None:
     """`extension in (...)` for the ticked types, or None (typeAny / none ticked)."""
     if opts.typeAny:
@@ -177,6 +206,63 @@ def type_filter_expr(opts: GalleryOptions) -> str | None:
         return None
     inner = ",".join(f"'{e}'" for e in picked)
     return f"extension in ({inner})"
+
+
+def ytdlp_args(opts: GalleryOptions, url: str) -> list[str]:
+    """yt-dlp CLI args for the ytdl backend — Downloads-page parity (quality/codec/audio-only,
+    fragments, subtitles, impersonation, referer, throttle, extra args).
+
+    Passed as `extractor.ytdl.cmdline-args`. gallery-dl then builds yt-dlp's options from this
+    argv *instead of* its own defaults, so retries and the socket timeout are restated here;
+    `raw-options` (ignoreerrors, js_runtimes) is still merged over the result.
+    """
+    args = [
+        "--retries",
+        str(opts.retries),
+        "--socket-timeout",
+        str(opts.httpTimeout),
+        "--concurrent-fragments",
+        str(opts.ytConcurrentFragments),
+        # Same always-on tags as Downloads: upload date / title / description / chapters.
+        "--embed-metadata",
+        "--embed-chapters",
+    ]
+    if opts.ytAudioOnly:
+        fmt = opts.ytCodec if opts.ytCodec in AUDIO_CONTAINERS else "mp3"
+        args += ["-x", "--audio-format", fmt]
+    else:
+        fmt, container = format_selector(opts.ytQuality, opts.ytCodec)
+        args += ["-f", fmt, "--merge-output-format", container]
+        # Caps the *short* side (a 1080p portrait video is 1080x1920), not the height.
+        if sort := format_sort(opts.ytQuality):
+            args += ["-S", sort]
+    if opts.ytDownloadSubs:
+        args += [
+            "--write-subs",
+            "--write-auto-subs",
+            "--sub-langs",
+            opts.ytSubLangs.strip() or "en",
+        ]
+    if opts.ytImpersonate.strip():
+        args += ["--impersonate", opts.ytImpersonate.strip()]
+    referer = {"none": "", "site": "origin", "url": "auto"}.get(
+        opts.ytRefererMode, opts.ytReferer.strip()
+    )
+    if referer == "auto":
+        args += ["--referer", url]
+    elif referer == "origin":
+        p = urlsplit(url)
+        args += ["--referer", f"{p.scheme}://{p.netloc}/"]
+    elif referer:
+        args += ["--referer", referer]
+    if opts.ytThrottledRateValue:
+        args += ["--throttled-rate", f"{opts.ytThrottledRateValue}{opts.ytThrottledRateUnit}"]
+    if opts.ytExtraArgs.strip():
+        try:
+            args += shlex.split(opts.ytExtraArgs)
+        except ValueError:
+            args.append(opts.ytExtraArgs)
+    return args
 
 
 def build_gallerydl_cmd(
@@ -216,6 +302,7 @@ def build_gallerydl_cmd(
         directory = ["{extractor}", folder or "{channel|uploader}"]
         cmd += ["-o", "extractor.ytdl.generic=false"]
         cmd += ["-o", f"extractor.ytdl.raw-options={json.dumps(raw)}"]
+        cmd += ["-o", f"extractor.ytdl.cmdline-args={json.dumps(ytdlp_args(opts, url))}"]
         cmd += ["-o", f"extractor.ytdl.directory={json.dumps(directory)}"]
 
     if opts.maxSizeValue is not None:
@@ -227,7 +314,7 @@ def build_gallerydl_cmd(
         cmd += ["-T", str(opts.stopAfterExisting)]
 
     if opts.useArchive:
-        cmd += ["--download-archive", opts.archivePath or DEFAULT_ARCHIVE]
+        cmd += ["--download-archive", archive_path(opts)]
 
     if opts.range.strip():
         cmd += ["--range", opts.range.strip()]

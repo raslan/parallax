@@ -31,6 +31,26 @@ export const galleryOptionsSchema = z.object({
   filenameTemplate: z.string().default(""),
   extraArgs: z.string().default(""),
   inputMode: z.enum(["paste", "file"]).default("paste"),
+  urlList: z.string().max(64).default("default"), // selected URL list in file mode
+  // yt-dlp (ytdl backend) — same vocabulary as the Downloads options form.
+  ytAudioOnly: z.boolean().default(false),
+  ytQuality: z.enum(["best", "2160", "1440", "1080", "720", "480", "360"]).default("best"),
+  ytCodec: z.string().default("auto"), // video: auto/h264/hevc/av1/vp9 · audio: mp3/m4a/opus
+  ytConcurrentFragments: z.preprocess(
+    (v) => (typeof v === "number" && Number.isNaN(v) ? undefined : v),
+    z.number().int().min(1).max(64).default(4),
+  ),
+  ytDownloadSubs: z.boolean().default(false),
+  ytSubLangs: z.string().default("en"),
+  ytImpersonate: z.string().default(""),
+  ytRefererMode: z.enum(["none", "site", "url", "custom"]).default("none"),
+  ytReferer: z.string().default(""),
+  ytThrottledRateValue: z
+    .string()
+    .regex(/^\d*\.?\d*$/, "number only")
+    .default(""),
+  ytThrottledRateUnit: z.enum(["K", "M", "G"]).default("M"),
+  ytExtraArgs: z.string().default(""),
 });
 
 export type GalleryOptions = z.infer<typeof galleryOptionsSchema>;
