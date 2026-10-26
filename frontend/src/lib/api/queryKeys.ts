@@ -59,6 +59,7 @@ export const qk = {
   galleryArchive: () => ["galleries", "archive"] as const,
   galleryUrlLists: () => ["galleries", "urllists"] as const,
   galleryUrlList: (name: string) => ["galleries", "urllists", name] as const,
+  galleryListTypes: (name: string) => ["galleries", "urllists", name, "types"] as const,
 
   settings: () => ["settings"] as const,
 

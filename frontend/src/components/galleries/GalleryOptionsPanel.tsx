@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { RotateCcw } from "lucide-react";
 import { formatSize } from "@/lib/format";
-import type { ArchiveInfo } from "@/types/gallery";
+import type { ArchiveInfo, GalleryContentTypes, ListTypesResponse } from "@/types/gallery";
 import { DirPicker } from "@/components/DirPicker";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -39,16 +39,41 @@ export function GalleryOptionsPanel({
   form,
   archive,
   onResetArchive,
+  listTypes,
 }: {
   form: UseFormReturn<GalleryOptions>;
   /** undefined while loading */
   archive: ArchiveInfo | undefined;
   onResetArchive: () => void;
+  /** File mode with a real selected list: the list's content-type override. null = paste mode. */
+  listTypes: {
+    /** undefined while loading */
+    data: ListTypesResponse | undefined;
+    onSave: (types: GalleryContentTypes) => void;
+    onClear: () => void;
+  } | null;
 }) {
   const { register, setValue, watch } = form;
   const o = watch();
   const set = <K extends keyof GalleryOptions>(k: K, v: GalleryOptions[K]) =>
     setValue(k, v as never, { shouldDirty: true });
+  // Which content-type set the checkboxes edit. "All lists" is the form (global autosave);
+  // "This list" bypasses the form so the global PUT can never absorb a list's values.
+  const [scope, setScope] = useState<"list" | "all">("list");
+  const listScope = !!listTypes && scope === "list";
+  const listData = listScope ? listTypes.data : undefined;
+  const types: GalleryContentTypes = listData
+    ? (listData.override ?? listData.effective)
+    : {
+        typeVideo: o.typeVideo,
+        typeAudio: o.typeAudio,
+        typeImage: o.typeImage,
+        typeAny: o.typeAny,
+      };
+  const toggleType = (key: keyof GalleryContentTypes, checked: boolean) => {
+    if (listScope) listTypes.onSave({ ...types, [key]: checked });
+    else set(key, checked);
+  };
   const [showDirPicker, setShowDirPicker] = useState(false);
   const [showMin, setShowMin] = useState(o.minSizeValue != null);
 
@@ -103,7 +128,33 @@ export function GalleryOptionsPanel({
 
       {/* Content type */}
       <div className="space-y-1.5">
-        <Label>Content type</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label>Content type</Label>
+          {listTypes && (
+            <div className="flex rounded border border-border/50 text-[10px] overflow-hidden">
+              {(
+                [
+                  ["list", "This list"],
+                  ["all", "All lists"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setScope(id)}
+                  className={cn(
+                    "px-2 py-0.5 transition-colors",
+                    scope === id
+                      ? "bg-primary/15 text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-1.5">
           {(
             [
@@ -113,13 +164,13 @@ export function GalleryOptionsPanel({
               ["typeAny", "Any"],
             ] as const
           ).map(([key, label]) => {
-            const disabled = key !== "typeAny" && o.typeAny;
+            const disabled = (key !== "typeAny" && types.typeAny) || (listScope && !listTypes.data);
             return (
               <label
                 key={key}
                 className={cn(
                   "flex items-center gap-2 px-2.5 py-1.5 rounded border text-xs cursor-pointer transition-colors",
-                  o[key]
+                  types[key]
                     ? "border-primary/60 bg-primary/10 text-foreground"
                     : "border-border/50 text-muted-foreground hover:border-border",
                   disabled && "opacity-40 cursor-not-allowed",
@@ -127,15 +178,27 @@ export function GalleryOptionsPanel({
               >
                 <Checkbox
                   className="h-3.5 w-3.5"
-                  checked={o[key]}
+                  checked={types[key]}
                   disabled={disabled}
-                  onCheckedChange={(c) => set(key, c === true)}
+                  onCheckedChange={(c) => toggleType(key, c === true)}
                 />
                 {label}
               </label>
             );
           })}
         </div>
+        {listScope && listTypes.data?.override && (
+          <p className="text-[10px] text-muted-foreground/70">
+            Overrides the global setting for this list ·{" "}
+            <button
+              type="button"
+              onClick={listTypes.onClear}
+              className="text-primary/70 hover:text-primary underline underline-offset-2"
+            >
+              Use global
+            </button>
+          </p>
+        )}
       </div>
 
       {/* Max size (+ min) */}

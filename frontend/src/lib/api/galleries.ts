@@ -1,5 +1,11 @@
 import { BASE, req } from "./client";
-import type { ArchiveInfo, GalleryEnqueuePayload, UrlListInfo } from "@/types/gallery";
+import type {
+  ArchiveInfo,
+  GalleryContentTypes,
+  GalleryEnqueuePayload,
+  ListTypesResponse,
+  UrlListInfo,
+} from "@/types/gallery";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
 
 export const galleriesApi = {
@@ -34,6 +40,15 @@ export const galleriesApi = {
       method: "POST",
       body: JSON.stringify({ name: newName }),
     }),
+  getGalleryListTypes: (name: string) =>
+    req<ListTypesResponse>(`/galleries/urllists/${encodeURIComponent(name)}/types`),
+  putGalleryListTypes: (name: string, types: GalleryContentTypes) =>
+    req<ListTypesResponse>(`/galleries/urllists/${encodeURIComponent(name)}/types`, {
+      method: "PUT",
+      body: JSON.stringify(types),
+    }),
+  deleteGalleryListTypes: (name: string) =>
+    req<void>(`/galleries/urllists/${encodeURIComponent(name)}/types`, { method: "DELETE" }),
   galleryDlInfo: () =>
     req<{ installed: boolean; version: string | null; path: string | null }>("/galleries/gdl/info"),
   galleryDlUpdate: () => req<{ message: string }>("/galleries/gdl/update", { method: "POST" }),

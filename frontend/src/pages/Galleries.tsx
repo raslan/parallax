@@ -9,7 +9,7 @@ import { useGalleryDlStatus } from "@/hooks/useGalleryDlStatus";
 import { zodResolver } from "@/lib/zodResolver";
 import { galleryOptionsSchema, GALLERY_OPTIONS_DEFAULTS } from "@/lib/schemas/gallery";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
-import type { GalleryDownload } from "@/types/gallery";
+import type { GalleryContentTypes, GalleryDownload } from "@/types/gallery";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -149,6 +149,23 @@ export function Galleries() {
     queryKey: qk.galleryUrlList(urlList),
     queryFn: () => api.getGalleryUrlList(urlList),
     enabled: inputMode === "file" && selectedExists,
+  });
+
+  // Per-list content-type override (file mode only). Saved straight to its own endpoint, never
+  // through `form`, so the global autosave can't write a list's values into the global blob.
+  const listTypesKey = qk.galleryListTypes(urlList);
+  const { data: listTypes } = useQuery({
+    queryKey: listTypesKey,
+    queryFn: () => api.getGalleryListTypes(urlList),
+    enabled: isSeeded && inputMode === "file" && selectedExists,
+  });
+  const saveListTypes = useMutation({
+    mutationFn: (types: GalleryContentTypes) => api.putGalleryListTypes(urlList, types),
+    onSuccess: (data) => qc.setQueryData(listTypesKey, data),
+  });
+  const clearListTypes = useMutation({
+    mutationFn: () => api.deleteGalleryListTypes(urlList),
+    onSuccess: () => qc.invalidateQueries({ queryKey: listTypesKey }),
   });
 
   const [editor, setEditor] = useState<ListEditor | null>(null);
@@ -388,6 +405,15 @@ export function Galleries() {
                 form={form}
                 archive={archive}
                 onResetArchive={() => void resetArchive()}
+                listTypes={
+                  inputMode === "file" && selectedExists
+                    ? {
+                        data: listTypes,
+                        onSave: (t) => saveListTypes.mutate(t),
+                        onClear: () => clearListTypes.mutate(),
+                      }
+                    : null
+                }
               />
             ) : (
               <div className="flex justify-center py-8">

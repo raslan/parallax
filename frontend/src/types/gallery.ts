@@ -33,3 +33,17 @@ export interface GalleryEnqueuePayload {
   urls: string[];
   cookies: string;
 }
+
+/** The four content-type flags of `GalleryOptions`, as one unit. */
+export interface GalleryContentTypes {
+  typeVideo: boolean;
+  typeAudio: boolean;
+  typeImage: boolean;
+  typeAny: boolean;
+}
+
+/** `GET /galleries/urllists/{name}/types`; `override` null = the list inherits the global types. */
+export interface ListTypesResponse {
+  override: GalleryContentTypes | null;
+  effective: GalleryContentTypes;
+}
