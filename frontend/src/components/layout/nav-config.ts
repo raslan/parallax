@@ -27,16 +27,6 @@ export type Section = { id: SectionId; label: string; icon: LucideIcon; items: N
 
 export const SECTIONS: Section[] = [
   {
-    id: "tools",
-    label: "Tools",
-    icon: Wrench,
-    items: [
-      { to: "/identify", icon: Wand2, label: "Identify" },
-      { to: "/subtitles", icon: Captions, label: "Subtitles" },
-      { to: "/downloads", icon: Download, label: "Downloads" },
-    ],
-  },
-  {
     id: "videos",
     label: "Videos",
     icon: Film,
@@ -75,6 +65,16 @@ export const SECTIONS: Section[] = [
       { to: "/audio-compress", icon: Minimize2, label: "Compress" },
       { to: "/audio-toolbox", icon: Wrench, label: "Toolbox" },
       { to: "/audio-originals", icon: Archive, label: "Originals" },
+    ],
+  },
+  {
+    id: "tools",
+    label: "Tools",
+    icon: Wrench,
+    items: [
+      { to: "/identify", icon: Wand2, label: "Identify" },
+      { to: "/subtitles", icon: Captions, label: "Subtitles" },
+      { to: "/downloads", icon: Download, label: "Downloads" },
     ],
   },
 ];
