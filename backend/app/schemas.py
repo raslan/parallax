@@ -250,6 +250,15 @@ class GalleryOptions(BaseModel):
     ytExtraArgs: str = ""
 
 
+class GalleryListTypes(BaseModel):
+    """Per-URL-list content-type override: the four `GalleryOptions.type*` flags, atomically."""
+
+    typeVideo: bool = True
+    typeAudio: bool = False
+    typeImage: bool = False
+    typeAny: bool = False
+
+
 class GalleryEnqueueRequest(BaseModel):
     urls: list[str] = []
     cookies: str = ""

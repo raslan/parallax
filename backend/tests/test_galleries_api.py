@@ -13,7 +13,7 @@ def _clean_gallery_state(engine):
     from a known-empty state regardless of ordering."""
     with Session(engine) as s:
         s.query(GalleryDownload).delete()
-        s.query(Setting).filter(Setting.key == "gallery_options").delete()
+        s.query(Setting).filter(Setting.key.in_(["gallery_options", "gallery_list_types"])).delete()
         s.commit()
     yield
 
@@ -252,3 +252,125 @@ def test_clear_only_terminal(client, engine):
     r = client.post("/api/galleries/clear", json={"statuses": ["completed", "running"]})
     assert r.json()["cleared"] == 1
     assert len(client.get("/api/galleries").json()) == 1
+
+
+def _lists_in(monkeypatch, tmp_path):
+    import app.services.gallery_urllists as lists
+
+    monkeypatch.setattr(lists, "LISTS_DIR", str(tmp_path / "lists"))
+    monkeypatch.setattr(lists, "LEGACY_FILE", str(tmp_path / "none.txt"))
+    return lists
+
+
+def test_list_types_default_roundtrip_and_clear(client, monkeypatch, tmp_path):
+    lists = _lists_in(monkeypatch, tmp_path)
+    lists.write_list("mine", "https://x.com/a\n")
+    url = "/api/galleries/urllists/mine/types"
+
+    got = client.get(url).json()
+    assert got["override"] is None
+    assert got["effective"]["typeVideo"] is True  # global default
+
+    body = {"typeVideo": False, "typeAudio": False, "typeImage": True, "typeAny": False}
+    got = client.put(url, json=body).json()
+    assert got["override"] == body and got["effective"] == body
+    assert client.get(url).json()["override"] == body
+
+    assert client.delete(url).status_code == 204
+    assert client.get(url).json()["override"] is None
+
+
+def test_list_types_unknown_list_404_bad_name_400(client, monkeypatch, tmp_path):
+    _lists_in(monkeypatch, tmp_path)
+    body = {"typeVideo": True, "typeAudio": False, "typeImage": False, "typeAny": False}
+    assert client.get("/api/galleries/urllists/nope/types").status_code == 404
+    assert client.put("/api/galleries/urllists/nope/types", json=body).status_code == 404
+    assert client.get("/api/galleries/urllists/.hidden/types").status_code == 400
+
+
+def test_enqueue_file_mode_snapshots_list_types_override(client, engine, monkeypatch, tmp_path):
+    import app.api.galleries as mod
+    from app.schemas import GalleryOptions
+
+    async def _noop(*a, **k):
+        return None
+
+    lists = _lists_in(monkeypatch, tmp_path)
+    lists.write_list("pics", "https://x.com/a\n")
+    lists.write_list("plain", "https://x.com/b\n")
+    monkeypatch.setattr(mod, "run_gallery", _noop)
+    client.put(
+        "/api/galleries/urllists/pics/types",
+        json={"typeVideo": False, "typeAudio": False, "typeImage": True, "typeAny": False},
+    )
+
+    def enqueue(name):
+        client.put(
+            "/api/galleries/options",
+            json={
+                **client.get("/api/galleries/options").json(),
+                "baseDir": "/tmp/g",
+                "inputMode": "file",
+                "urlList": name,
+            },
+        )
+        ids = client.post("/api/galleries", json={"urls": []}).json()["ids"]
+        with Session(engine) as s:
+            return GalleryOptions.model_validate_json(s.get(GalleryDownload, ids[0]).options)
+
+    pics = enqueue("pics")
+    assert (pics.typeImage, pics.typeVideo) == (True, False)
+    plain = enqueue("plain")  # no override -> global (video only by default)
+    assert (plain.typeImage, plain.typeVideo) == (False, True)
+
+
+def test_paste_mode_ignores_list_types_override(client, engine, monkeypatch, tmp_path):
+    import app.api.galleries as mod
+    from app.schemas import GalleryOptions
+
+    async def _noop(*a, **k):
+        return None
+
+    lists = _lists_in(monkeypatch, tmp_path)
+    lists.write_list("pics", "https://x.com/a\n")
+    monkeypatch.setattr(mod, "run_gallery", _noop)
+    client.put(
+        "/api/galleries/urllists/pics/types",
+        json={"typeVideo": False, "typeAudio": False, "typeImage": True, "typeAny": False},
+    )
+    client.put(
+        "/api/galleries/options",
+        json={
+            **client.get("/api/galleries/options").json(),
+            "baseDir": "/tmp/g",
+            "inputMode": "paste",
+            "urlList": "pics",
+        },
+    )
+    ids = client.post("/api/galleries", json={"urls": ["https://x.com/p"]}).json()["ids"]
+    with Session(engine) as s:
+        snap = GalleryOptions.model_validate_json(s.get(GalleryDownload, ids[0]).options)
+    assert (snap.typeVideo, snap.typeImage) == (True, False)
+
+
+def test_list_types_follow_rename_and_die_with_delete(client, monkeypatch, tmp_path):
+    lists = _lists_in(monkeypatch, tmp_path)
+    lists.write_list("a", "https://x.com/a\n")
+    body = {"typeVideo": False, "typeAudio": True, "typeImage": False, "typeAny": False}
+    client.put("/api/galleries/urllists/a/types", json=body)
+
+    client.post("/api/galleries/urllists/a/rename", json={"name": "b"})
+    assert client.get("/api/galleries/urllists/b/types").json()["override"] == body
+
+    client.delete("/api/galleries/urllists/b")
+    lists.write_list("b", "https://x.com/a\n")  # recreated under the old name
+    assert client.get("/api/galleries/urllists/b/types").json()["override"] is None
+
+
+def test_corrupt_list_types_blob_is_treated_as_empty(client, engine, monkeypatch, tmp_path):
+    lists = _lists_in(monkeypatch, tmp_path)
+    lists.write_list("a", "https://x.com/a\n")
+    with Session(engine) as s:
+        s.add(Setting(key="gallery_list_types", value="{not json"))
+        s.commit()
+    assert client.get("/api/galleries/urllists/a/types").json()["override"] is None

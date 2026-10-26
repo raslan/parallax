@@ -10,6 +10,7 @@ from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
 from app.schemas import (
     ClearGalleriesRequest,
     GalleryEnqueueRequest,
+    GalleryListTypes,
     GalleryOptions,
     UrlFileBody,
     UrlListRename,
@@ -24,13 +25,23 @@ from app.services.gallery_dl import (
     run_gallery,
     set_gallery_max_parallel,
 )
-from app.services.gallery_options import load_options, save_options
+from app.services.gallery_options import (
+    clear_list_types,
+    effective_options,
+    load_list_types,
+    load_options,
+    rename_list_types,
+    save_options,
+    set_list_types,
+)
 from app.services.gallery_urllists import (
     delete_list,
+    list_exists,
     list_lists,
     read_list,
     read_urls,
     rename_list,
+    validate_name,
     write_list,
 )
 
@@ -84,7 +95,7 @@ async def enqueue(req: GalleryEnqueueRequest, db: Session = Depends(get_db)):
             raise HTTPException(400, f"URL list '{opts.urlList}' not found") from None
         except ValueError as e:
             raise HTTPException(400, str(e)) from None
-        opts = opts.model_copy(update={"inputMode": "paste"})
+        opts = effective_options(db, opts, opts.urlList).model_copy(update={"inputMode": "paste"})
     else:
         urls = [u.strip() for u in req.urls if u.strip()]
     snapshot = opts.model_dump_json()
@@ -266,25 +277,73 @@ def put_urllist(name: str, body: UrlFileBody):
 
 
 @router.delete("/urllists/{name}", status_code=204)
-def delete_urllist(name: str):
+def delete_urllist(name: str, db: Session = Depends(get_db)):
     try:
         delete_list(name)
     except ValueError as e:
         raise HTTPException(400, str(e)) from None
     except FileNotFoundError:
         raise HTTPException(404, f"URL list '{name}' not found") from None
+    # a list recreated under this name must not inherit the old content-type override
+    clear_list_types(db, validate_name(name))
 
 
 @router.post("/urllists/{name}/rename")
-def rename_urllist(name: str, body: UrlListRename):
+def rename_urllist(name: str, body: UrlListRename, db: Session = Depends(get_db)):
     try:
-        return {"name": rename_list(name, body.name)}
+        new = rename_list(name, body.name)
+        rename_list_types(db, validate_name(name), new)
+        return {"name": new}
     except ValueError as e:
         raise HTTPException(400, str(e)) from None
     except FileNotFoundError:
         raise HTTPException(404, f"URL list '{name}' not found") from None
     except FileExistsError:
         raise HTTPException(409, f"A list named '{body.name.strip()}' already exists") from None
+
+
+def _types_view(db: Session, name: str) -> dict:
+    override = load_list_types(db).get(name)
+    opts = load_options(db)
+    effective = override or GalleryListTypes(
+        typeVideo=opts.typeVideo,
+        typeAudio=opts.typeAudio,
+        typeImage=opts.typeImage,
+        typeAny=opts.typeAny,
+    )
+    return {
+        "override": override.model_dump() if override else None,
+        "effective": effective.model_dump(),
+    }
+
+
+def _checked_list_name(name: str) -> str:
+    """The validated list name; 400 for a bad one, 404 when no such list exists."""
+    try:
+        clean = validate_name(name)
+        exists = list_exists(clean)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    if not exists:
+        raise HTTPException(404, f"URL list '{name}' not found")
+    return clean
+
+
+@router.get("/urllists/{name}/types")
+def get_urllist_types(name: str, db: Session = Depends(get_db)):
+    return _types_view(db, _checked_list_name(name))
+
+
+@router.put("/urllists/{name}/types")
+def put_urllist_types(name: str, body: GalleryListTypes, db: Session = Depends(get_db)):
+    clean = _checked_list_name(name)
+    set_list_types(db, clean, body)
+    return _types_view(db, clean)
+
+
+@router.delete("/urllists/{name}/types", status_code=204)
+def delete_urllist_types(name: str, db: Session = Depends(get_db)):
+    clear_list_types(db, _checked_list_name(name))
 
 
 @router.get("/gdl/info")

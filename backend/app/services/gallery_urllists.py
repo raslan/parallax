@@ -38,6 +38,12 @@ def _path(name: str) -> str:
     return os.path.join(LISTS_DIR, validate_name(name) + ".txt")
 
 
+def list_exists(name: str) -> bool:
+    """True when `name` is a valid name and its file exists (ValueError on a bad name)."""
+    _migrate_legacy()
+    return os.path.isfile(_path(name))
+
+
 def parse_urls(text: str) -> list[str]:
     lines = [ln.strip() for ln in text.splitlines()]
     return [ln for ln in lines if ln and not ln.startswith("#")]
