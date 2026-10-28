@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/EmptyState";
 import { api, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import type { VideoFile } from "@/types/file";
@@ -330,26 +331,19 @@ export function Cleanup() {
       {loading && <ListSkeleton />}
 
       {!loading && allFiles === null && !displayError && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">Ready to search</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Add a filter above to narrow these files down. All active filters stack — results must
-              match every condition.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Scissors}
+          title="Ready to search"
+          description="Add a filter above to narrow these files down. All active filters stack — results must match every condition."
+        />
       )}
 
       {!loading && sortedResults !== null && sortedResults.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No files match</h3>
-            <p className="text-sm text-muted-foreground">Try adjusting the filters.</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Scissors}
+          title="No files match"
+          description="Try adjusting the filters."
+        />
       )}
 
       {!loading && sortedResults !== null && sortedResults.length > 0 && (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { imageApi, qk } from "@/lib/api";
@@ -318,16 +319,11 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
       {!extracting && loading && <GridSkeleton count={8} minColumnWidth={260} />}
 
       {!extracting && !loading && clusters.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Copy className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No duplicates found</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Click Find Duplicates to extract perceptual hashes for any new images and compare
-              them.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Copy}
+          title="No duplicates found"
+          description="Click Find Duplicates to extract perceptual hashes for any new images and compare them."
+        />
       )}
 
       {clusters.length > 0 && resultsStale && (

@@ -5,7 +5,7 @@ import { imageApi, qk } from "@/lib/api";
 import { ImageThumbnail } from "@/components/ImageThumbnail";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/EmptyState";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
@@ -278,15 +278,11 @@ export function Images() {
       )}
 
       {visibleImages.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <ImagesIcon className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No images found</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Add an image library and run a scan to populate this view.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={ImagesIcon}
+          title="No images found"
+          description="Add an image library and run a scan to populate this view."
+        />
       )}
 
       {selectionMode && (

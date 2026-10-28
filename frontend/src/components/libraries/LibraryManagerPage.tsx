@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen, Plus, Trash2 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { GridSkeleton } from "@/components/Skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,13 +96,12 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
       {loading ? (
         <GridSkeleton count={3} minColumnWidth={320} />
       ) : libraries.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <EmptyIcon className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">{kind.emptyTitle}</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">{kind.emptyBody}</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={EmptyIcon}
+          title={kind.emptyTitle}
+          description={kind.emptyBody}
+          action={<Button onClick={() => setDialogOpen(true)}>Add library</Button>}
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {libraries.map((lib) => {

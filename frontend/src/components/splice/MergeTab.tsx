@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Cpu, LayoutGrid, List, Loader2, Merge, Search } from "lucide-react";
+import { Cpu, Film, LayoutGrid, List, Loader2, Merge, Search, SearchX } from "lucide-react";
+import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { api, compressApi, qk, spliceApi } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import {
@@ -422,9 +423,10 @@ export function MergeTab() {
           </div>
 
           {filteredFiles.length === 0 ? (
-            <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-              {search.trim() ? "No files match your search" : "No files in this library"}
-            </div>
+            <EmptyState
+              icon={search.trim() ? SearchX : Film}
+              title={search.trim() ? "No files match your search" : "No files in this library"}
+            />
           ) : viewMode === "grid" ? (
             <div className="flex-1 min-h-[200px]">
               <VirtualizedGrid
@@ -516,11 +518,7 @@ export function MergeTab() {
         </div>
       )}
 
-      {libraries.length === 0 && !loadingFiles && (
-        <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-          No video libraries yet — add one on the Libraries page
-        </div>
-      )}
+      {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="video" />}
 
       <MergeSheet
         open={sheetOpen && ids.length >= 2}

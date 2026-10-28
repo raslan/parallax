@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/EmptyState";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -295,15 +296,11 @@ export function Jobs() {
       {loading ? (
         <ListSkeleton rows={5} />
       ) : jobs.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Activity className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No jobs yet</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Trigger a scan from the Libraries page.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Activity}
+          title="No jobs yet"
+          description="Trigger a scan from the Libraries page."
+        />
       ) : (
         <div className="space-y-6">
           {running.length > 0 && (

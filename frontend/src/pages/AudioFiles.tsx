@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ArrowDown, Film } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { ListSkeleton } from "@/components/Skeletons";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import type { AudioFile } from "@/types/audio";
@@ -180,23 +180,19 @@ export function AudioFiles() {
 
       <div className="flex-1 min-h-0">
         {libraryId == null ? (
-          <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-            {libraries.length === 0
-              ? "No audio libraries yet — add one on the Libraries page"
-              : "Select a library"}
-          </div>
+          libraries.length === 0 ? (
+            <NoLibrariesState kind="audio" />
+          ) : (
+            <EmptyState icon={Film} title="Select a library" />
+          )
         ) : loading ? (
           <ListSkeleton />
         ) : sortedFiles.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <Film className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="font-semibold text-lg mb-1">No files found</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                Add a library and run a scan to populate this view.
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Film}
+            title="No files found"
+            description="Add a library and run a scan to populate this view."
+          />
         ) : (
           <div className="h-full flex flex-col gap-3">
             <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">

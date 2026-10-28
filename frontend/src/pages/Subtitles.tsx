@@ -13,6 +13,7 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { subtitlesApi, api, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
@@ -622,24 +623,18 @@ export function Subtitles() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed rounded-lg">
-              <Captions className="h-8 w-8 text-muted-foreground/40 mb-3" />
-              <p className="text-sm text-muted-foreground">
-                No video files found in this directory.
-              </p>
-            </div>
+            <EmptyState icon={Captions} title="No video files found in this directory" size="sm" />
           )}
         </div>
       )}
 
       {/* Empty state before any scan */}
       {!files && !scanning && (
-        <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed rounded-lg">
-          <Captions className="h-10 w-10 text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            Enter a folder path and click Scan to see subtitle status.
-          </p>
-        </div>
+        <EmptyState
+          icon={Captions}
+          title="Nothing scanned yet"
+          description="Enter a folder path and click Scan to see subtitle status."
+        />
       )}
     </div>
   );

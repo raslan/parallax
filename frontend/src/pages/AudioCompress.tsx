@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Zap, Loader2, Search } from "lucide-react";
+import { AudioLines, Zap, Loader2, Search, SearchX } from "lucide-react";
+import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, audioCompressApi, audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
@@ -328,9 +329,10 @@ export function AudioCompress() {
           </div>
 
           {filteredFiles.length === 0 ? (
-            <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-              {search.trim() ? "No files match your search" : "No files in this library"}
-            </div>
+            <EmptyState
+              icon={search.trim() ? SearchX : AudioLines}
+              title={search.trim() ? "No files match your search" : "No files in this library"}
+            />
           ) : (
             <div className="flex-1 min-h-0 flex flex-col border border-border/50 rounded-lg overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border/30 bg-muted/20 shrink-0">
@@ -405,11 +407,7 @@ export function AudioCompress() {
         </div>
       )}
 
-      {libraries.length === 0 && !loadingFiles && (
-        <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-          No audio libraries yet — add one on the Libraries page
-        </div>
-      )}
+      {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="audio" />}
     </div>
   );
 }

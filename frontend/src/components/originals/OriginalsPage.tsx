@@ -11,6 +11,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/EmptyState";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -375,16 +376,11 @@ export function OriginalsPage({ kind }: { kind: OriginalsKind }) {
       {loading && !summary ? (
         <ListSkeleton rows={5} />
       ) : !hasEntries ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Archive className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No originals</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Original files will appear here after modification. They're kept as backups until you
-              delete them.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Archive}
+          title="No originals"
+          description="Original files will appear here after modification. They're kept as backups until you delete them."
+        />
       ) : (
         <div className="space-y-3">
           {byLibrary.map((group) => (

@@ -3,7 +3,7 @@ import { Scissors, Loader2, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import type { AudioFile } from "@/types/audio";
@@ -192,33 +192,22 @@ export function AudioCleanup() {
 
       {loading && <ListSkeleton />}
 
-      {!loading && libraries.length === 0 && (
-        <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-          No audio libraries yet — add one on the Libraries page
-        </div>
-      )}
+      {!loading && libraries.length === 0 && <NoLibrariesState kind="audio" />}
 
       {!loading && libraries.length > 0 && allFiles === null && !displayError && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">Ready to search</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Add a filter above to narrow these files down. All active filters stack — results must
-              match every condition.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Scissors}
+          title="Ready to search"
+          description="Add a filter above to narrow these files down. All active filters stack — results must match every condition."
+        />
       )}
 
       {!loading && sortedResults !== null && sortedResults.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Scissors className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No files match</h3>
-            <p className="text-sm text-muted-foreground">Try adjusting the filters.</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Scissors}
+          title="No files match"
+          description="Try adjusting the filters."
+        />
       )}
 
       {!loading && sortedResults !== null && sortedResults.length > 0 && (

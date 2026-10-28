@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
@@ -480,16 +481,11 @@ export function Duplicates() {
         )}
 
         {!filesLoading && files.length > 0 && groups.length === 0 && !extracting && !clustering && (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <Copy className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="font-semibold text-lg mb-1">No duplicates found</h3>
-              <p className="text-sm text-muted-foreground">
-                No files match every enabled criterion. Adjust criteria above, or Extract if a
-                signal is missing.
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Copy}
+            title="No duplicates found"
+            description="No files match every enabled criterion. Adjust criteria above, or Extract if a signal is missing."
+          />
         )}
 
         {groups.length > 0 && (

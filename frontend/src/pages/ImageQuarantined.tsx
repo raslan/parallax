@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderX, Loader2, Trash2, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/EmptyState";
 import { GridSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { imageApi, qk } from "@/lib/api";
@@ -296,16 +297,11 @@ export function ImageQuarantined() {
       {loading && !hasEntries ? (
         <GridSkeleton />
       ) : !hasEntries ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <FolderX className="h-10 w-10 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">No quarantined images</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Images flagged in content review will appear here. You can restore or permanently
-              delete them.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={FolderX}
+          title="No quarantined images"
+          description="Images flagged in content review will appear here. You can restore or permanently delete them."
+        />
       ) : (
         <div className="space-y-3">
           {byLibrary.map((group) => (

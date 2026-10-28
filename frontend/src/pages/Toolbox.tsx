@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Wrench, X, Loader2, LayoutGrid, List, Search } from "lucide-react";
+import { Film, Wrench, X, Loader2, LayoutGrid, List, Search, SearchX } from "lucide-react";
+import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { toolboxApi, api, qk } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import {
@@ -382,9 +383,10 @@ export function Toolbox() {
           </div>
 
           {filteredFiles.length === 0 ? (
-            <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-              {search.trim() ? "No files match your search" : "No files in this library"}
-            </div>
+            <EmptyState
+              icon={search.trim() ? SearchX : Film}
+              title={search.trim() ? "No files match your search" : "No files in this library"}
+            />
           ) : viewMode === "grid" ? (
             <div className="flex-1 min-h-[200px]">
               <VirtualizedGrid
@@ -476,11 +478,7 @@ export function Toolbox() {
         </div>
       )}
 
-      {libraries.length === 0 && !loadingFiles && (
-        <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">
-          No video libraries yet — add one on the Libraries page
-        </div>
-      )}
+      {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="video" />}
     </div>
   );
 }
