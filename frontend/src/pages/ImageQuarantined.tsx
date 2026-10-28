@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderX, Loader2, Trash2, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { GridSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { imageApi, qk } from "@/lib/api";
@@ -229,6 +230,8 @@ export function ImageQuarantined() {
     data: quarantined,
     isLoading: loading,
     isFetching,
+    error: listError,
+    refetch: refetchQuarantined,
   } = useQuery({
     queryKey: qk.imageQuarantined(),
     queryFn: () => imageApi.listQuarantined(1, 10000),
@@ -296,6 +299,8 @@ export function ImageQuarantined() {
       {/* Content */}
       {loading && !hasEntries ? (
         <GridSkeleton />
+      ) : listError && !quarantined ? (
+        <QueryError error={listError} onRetry={() => void refetchQuarantined()} />
       ) : !hasEntries ? (
         <EmptyState
           icon={FolderX}

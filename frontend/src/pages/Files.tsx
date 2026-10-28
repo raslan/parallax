@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { GridSkeleton } from "@/components/Skeletons";
 import { api, qk } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
@@ -226,7 +227,12 @@ function LibraryBrowser({
     setPath("");
   }, [library.id]);
 
-  const { data: browse, isLoading: loading } = useQuery<BrowseResponse>({
+  const {
+    data: browse,
+    isLoading: loading,
+    error: browseError,
+    refetch: refetchBrowse,
+  } = useQuery<BrowseResponse>({
     queryKey: qk.libraryBrowse(library.id, path, sortBy, sortDir),
     queryFn: () => api.browseLibrary(library.id, path, undefined, sortBy, sortDir),
   });
@@ -238,6 +244,8 @@ function LibraryBrowser({
       <Breadcrumb library={library} path={path} onNavigate={setPath} />
       {loading ? (
         <GridSkeleton />
+      ) : browseError ? (
+        <QueryError error={browseError} onRetry={() => void refetchBrowse()} />
       ) : !browse || (browse.dirs.length === 0 && browse.files.length === 0) ? (
         <EmptyState icon={Film} title="No files in this folder" size="sm" />
       ) : (
@@ -319,7 +327,12 @@ function FlatView({
   search: string;
   onPlay: (f: VideoFile) => void;
 }) {
-  const { data, isLoading: loading } = useQuery({
+  const {
+    data,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: qk.files({ sortBy, sortDir }),
     queryFn: () =>
       api.getFiles({
@@ -333,6 +346,7 @@ function FlatView({
   const total = data?.total ?? 0;
 
   if (loading) return <GridSkeleton />;
+  if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
   const visibleFiles = search.trim()
     ? files.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase()))

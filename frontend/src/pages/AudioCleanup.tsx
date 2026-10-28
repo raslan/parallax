@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import type { AudioFile } from "@/types/audio";
@@ -83,6 +84,7 @@ export function AudioCleanup() {
     data: allFilesData,
     isLoading: loading,
     error: fetchError,
+    refetch: refetchFiles,
   } = useQuery({
     queryKey: qk.audioFiles(selectedId ?? -1),
     queryFn: () => audioFilesApi.list(selectedId as number),
@@ -188,7 +190,11 @@ export function AudioCleanup() {
         />
       </div>
 
-      {displayError && <p className="text-sm text-destructive">{displayError}</p>}
+      {fetchError ? (
+        <QueryError error={fetchError} onRetry={() => void refetchFiles()} />
+      ) : (
+        error && <p className="text-sm text-destructive">{error}</p>
+      )}
 
       {loading && <ListSkeleton />}
 

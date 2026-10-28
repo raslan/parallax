@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Film, Zap, Loader2, TrendingDown, LayoutGrid, List, Search, SearchX } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { compressApi, api, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
@@ -205,12 +206,12 @@ export function Compress() {
     data: files = null,
     isLoading: loadingFiles,
     error: filesError,
+    refetch: refetchFiles,
   } = useQuery({
     queryKey: qk.compressFiles(libraryId ?? -1),
     queryFn: () => compressApi.libraryFiles(libraryId as number),
     enabled: libraryId != null,
   });
-  const loadError = filesError ? String(filesError) : null;
 
   // Clear selection when switching libraries.
   useEffect(() => {
@@ -420,7 +421,7 @@ export function Compress() {
           <Loader2 className="h-4 w-4 animate-spin" /> Loading library files…
         </div>
       )}
-      {loadError && <p className="text-sm text-red-400">{loadError}</p>}
+      {filesError && <QueryError error={filesError} onRetry={() => void refetchFiles()} />}
 
       {/* File list */}
       {filteredFiles && !loadingFiles && (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, ArrowDown, Film } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { ListSkeleton } from "@/components/Skeletons";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import type { AudioFile } from "@/types/audio";
@@ -124,7 +125,12 @@ export function AudioFiles() {
     }
   }, [libraries, libraryId]);
 
-  const { data: files = null, isLoading: loading } = useQuery({
+  const {
+    data: files = null,
+    isLoading: loading,
+    error: filesError,
+    refetch: refetchFiles,
+  } = useQuery({
     queryKey: qk.audioFiles(libraryId ?? -1),
     queryFn: () => audioFilesApi.list(libraryId as number),
     enabled: libraryId != null,
@@ -187,6 +193,8 @@ export function AudioFiles() {
           )
         ) : loading ? (
           <ListSkeleton />
+        ) : filesError ? (
+          <QueryError error={filesError} onRetry={() => void refetchFiles()} />
         ) : sortedFiles.length === 0 ? (
           <EmptyState
             icon={Film}

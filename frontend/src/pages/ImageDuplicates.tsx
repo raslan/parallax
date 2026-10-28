@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { imageApi, qk } from "@/lib/api";
@@ -144,6 +145,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const {
     data,
     isLoading: loading,
+    error: loadError,
     refetch,
   } = useQuery({
     queryKey: qk.imageDuplicates(libraryId ?? -1, { threshold: appliedThreshold }),
@@ -318,7 +320,11 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
 
       {!extracting && loading && <GridSkeleton count={8} minColumnWidth={260} />}
 
-      {!extracting && !loading && clusters.length === 0 && (
+      {!extracting && !loading && loadError && (
+        <QueryError error={loadError} onRetry={() => void refetch()} />
+      )}
+
+      {!extracting && !loading && !loadError && clusters.length === 0 && (
         <EmptyState
           icon={Copy}
           title="No duplicates found"

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -314,6 +315,7 @@ export function OriginalsPage({ kind }: { kind: OriginalsKind }) {
     data: summary = null,
     isLoading: loading,
     isFetching,
+    error,
     refetch,
   } = useQuery({
     queryKey: kind.listKey(),
@@ -375,6 +377,8 @@ export function OriginalsPage({ kind }: { kind: OriginalsKind }) {
       {/* Content */}
       {loading && !summary ? (
         <ListSkeleton rows={5} />
+      ) : error && !summary ? (
+        <QueryError error={error} onRetry={() => void refetch()} />
       ) : !hasEntries ? (
         <EmptyState
           icon={Archive}

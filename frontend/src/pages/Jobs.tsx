@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -228,7 +229,12 @@ export function Jobs() {
   const [clearing, setClearing] = useState(false);
   const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
 
-  const { data: jobs = [], isLoading: loading } = useQuery<Job[]>({
+  const {
+    data: jobs = [],
+    isLoading: loading,
+    error: jobsError,
+    refetch: refetchJobs,
+  } = useQuery<Job[]>({
     queryKey: qk.jobs(),
     queryFn: () => api.getJobs(),
   });
@@ -295,6 +301,8 @@ export function Jobs() {
 
       {loading ? (
         <ListSkeleton rows={5} />
+      ) : jobsError ? (
+        <QueryError error={jobsError} onRetry={() => void refetchJobs()} />
       ) : jobs.length === 0 ? (
         <EmptyState
           icon={Activity}

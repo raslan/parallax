@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Loader2, ScanSearch, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
@@ -195,7 +196,12 @@ export function AudioDuplicates() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, allJobs]);
 
-  const { data: files = EMPTY_FILES, isLoading: filesLoading } = useQuery({
+  const {
+    data: files = EMPTY_FILES,
+    isLoading: filesLoading,
+    error: filesError,
+    refetch: refetchFiles,
+  } = useQuery({
     queryKey: qk.audioFiles(selectedId ?? -1),
     queryFn: () => audioFilesApi.list(selectedId as number),
     enabled: selectedId != null,
@@ -377,6 +383,7 @@ export function AudioDuplicates() {
 
       <div className="flex-1 min-h-0 flex flex-col">
         {filesLoading && <ListSkeleton rows={6} />}
+        {filesError && <QueryError error={filesError} onRetry={() => void refetchFiles()} />}
 
         {!filesLoading && files.length > 0 && groups.length === 0 && (extracting || clustering) && (
           <WorkingState

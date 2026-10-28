@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { api, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import type { VideoFile } from "@/types/file";
@@ -219,6 +220,7 @@ export function Cleanup() {
     data: allFilesData,
     isLoading: loading,
     error: fetchError,
+    refetch: refetchFiles,
   } = useQuery({
     queryKey: qk.cleanupFiles(selectedId ?? -1),
     queryFn: () => api.getCleanupFiles(selectedId as number),
@@ -326,7 +328,11 @@ export function Cleanup() {
         />
       </div>
 
-      {displayError && <p className="text-sm text-destructive">{displayError}</p>}
+      {fetchError ? (
+        <QueryError error={fetchError} onRetry={() => void refetchFiles()} />
+      ) : (
+        error && <p className="text-sm text-destructive">{error}</p>
+      )}
 
       {loading && <ListSkeleton />}
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Film, Wrench, X, Loader2, LayoutGrid, List, Search, SearchX } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { toolboxApi, api, qk } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import {
@@ -114,12 +115,12 @@ export function Toolbox() {
     data: files = null,
     isLoading: loadingFiles,
     error: filesError,
+    refetch: refetchFiles,
   } = useQuery({
     queryKey: qk.toolboxFiles(libraryId ?? -1),
     queryFn: () => toolboxApi.libraryFiles(libraryId as number),
     enabled: libraryId != null,
   });
-  const loadError = filesError ? String(filesError) : null;
 
   // Clear selection when switching libraries.
   useEffect(() => {
@@ -308,7 +309,7 @@ export function Toolbox() {
           <Loader2 className="h-4 w-4 animate-spin" /> Loading library files…
         </div>
       )}
-      {loadError && <p className="text-sm text-red-400">{loadError}</p>}
+      {filesError && <QueryError error={filesError} onRetry={() => void refetchFiles()} />}
 
       {filteredFiles && !loadingFiles && (
         <div className="flex-1 min-h-0 flex flex-col gap-3">

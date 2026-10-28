@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Cpu, Film, LayoutGrid, List, Loader2, Merge, Search, SearchX } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { api, compressApi, qk, spliceApi } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import {
@@ -116,12 +117,12 @@ export function MergeTab() {
     data: files = null,
     isLoading: loadingFiles,
     error: filesError,
+    refetch: refetchFiles,
   } = useQuery({
     queryKey: qk.spliceFiles(libraryId ?? -1),
     queryFn: () => spliceApi.libraryFiles(libraryId as number),
     enabled: libraryId != null,
   });
-  const loadError = filesError ? String(filesError) : null;
 
   const { data: codecs = [] } = useQuery({
     queryKey: qk.compressCodecs(),
@@ -353,7 +354,7 @@ export function MergeTab() {
           <Loader2 className="h-4 w-4 animate-spin" /> Loading library files…
         </div>
       )}
-      {loadError && <p className="text-sm text-red-400">{loadError}</p>}
+      {filesError && <QueryError error={filesError} onRetry={() => void refetchFiles()} />}
 
       {filteredFiles && !loadingFiles && (
         <div className="flex-1 min-h-0 flex flex-col gap-3">

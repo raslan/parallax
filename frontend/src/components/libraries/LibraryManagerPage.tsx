@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen, Plus, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryError } from "@/components/QueryError";
 import { Button } from "@/components/ui/button";
 import { GridSkeleton } from "@/components/Skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +44,12 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
     );
   }, [jobs, kind.jobType]);
 
-  const { data: libraries = [], isLoading: loading } = useQuery<T[]>({
+  const {
+    data: libraries = [],
+    isLoading: loading,
+    error: listError,
+    refetch: refetchLibraries,
+  } = useQuery<T[]>({
     queryKey: kind.listKey(),
     queryFn: () => kind.list(),
     refetchInterval: scanningIds.size > 0 ? 5000 : false,
@@ -95,6 +101,8 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
 
       {loading ? (
         <GridSkeleton count={3} minColumnWidth={320} />
+      ) : listError ? (
+        <QueryError error={listError} onRetry={() => void refetchLibraries()} />
       ) : libraries.length === 0 ? (
         <EmptyState
           icon={EmptyIcon}
