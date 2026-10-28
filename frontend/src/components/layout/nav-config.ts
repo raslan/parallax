@@ -94,6 +94,27 @@ export function routeToTab(pathname: string): SectionId | null {
 }
 
 /**
+ * Human label for the current route ("Compress · Audio"), from `SECTIONS` so a
+ * route outside the nav (e.g. a deliberately hidden page) yields no label.
+ *
+ * @public
+ */
+export function routeLabel(pathname: string): string | null {
+  if (pathname === "/jobs") return "Jobs";
+  if (pathname === "/settings") return "Settings";
+  let best: { label: string; len: number } | null = null;
+  for (const section of SECTIONS) {
+    for (const item of section.items) {
+      const hit = pathname === item.to || pathname.startsWith(item.to + "/");
+      if (hit && (!best || item.to.length > best.len)) {
+        best = { label: `${item.label} · ${section.label}`, len: item.to.length };
+      }
+    }
+  }
+  return best?.label ?? null;
+}
+
+/**
  * The video/image pages other than Libraries are useless without a library of
  * that type, so hide them until one exists. The first item of each media
  * section is its Libraries entry.

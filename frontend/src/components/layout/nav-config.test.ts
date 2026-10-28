@@ -1,7 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { routeToTab, filterSectionItems, SECTIONS, sectionItemsById } from "./nav-config";
+import {
+  routeToTab,
+  routeLabel,
+  filterSectionItems,
+  SECTIONS,
+  sectionItemsById,
+} from "./nav-config";
 
 const byId = (id: string) => SECTIONS.find((s) => s.id === id)!;
+
+describe("routeLabel", () => {
+  it("labels a page with its section so twins are distinguishable", () => {
+    expect(routeLabel("/files")).toBe("Files · Videos");
+    expect(routeLabel("/audio-files")).toBe("Files · Audio");
+  });
+  it("labels Jobs and Settings", () => {
+    expect(routeLabel("/jobs")).toBe("Jobs");
+    expect(routeLabel("/settings")).toBe("Settings");
+  });
+  it("gives no label to a route outside the nav", () => {
+    expect(routeLabel("/galleries")).toBeNull();
+  });
+});
 
 describe("filterSectionItems", () => {
   it("collapses the videos section to just Libraries when there are no video libraries", () => {
