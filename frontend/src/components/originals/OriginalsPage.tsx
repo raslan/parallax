@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { RowContextMenu, buildRowActions } from "@/components/RowMenu";
 import { QueryError } from "@/components/QueryError";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
@@ -241,64 +242,85 @@ function LibraryGroup({
               const busy = busyPaths.has(entry.path);
               const missing = entry.current_path === null;
               return (
-                <div key={entry.path} className="flex items-center gap-4 px-5 py-3">
-                  {/* Filename */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate" title={entry.path}>
-                      {entry.filename}
-                    </p>
-                    {missing && (
-                      <p className="text-xs text-amber-400 flex items-center gap-1 mt-0.5">
-                        <AlertTriangle className="h-3 w-3" /> Modified file missing
+                <RowContextMenu
+                  key={entry.path}
+                  actions={buildRowActions({
+                    path: entry.path,
+                    extra: [
+                      {
+                        label: "Restore original",
+                        icon: RotateCcw,
+                        onSelect: () => handleRestore(entry.path),
+                      },
+                      {
+                        label: "Delete original",
+                        icon: Trash2,
+                        onSelect: () => handleDelete(entry.path),
+                        destructive: true,
+                        separatorBefore: true,
+                      },
+                    ],
+                  })}
+                >
+                  <div className="flex items-center gap-4 px-5 py-3">
+                    {/* Filename */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate" title={entry.path}>
+                        {entry.filename}
                       </p>
-                    )}
-                  </div>
-
-                  {/* Size comparison */}
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 tabular-nums">
-                    <span className="font-mono">{formatSize(entry.original_size)}</span>
-                    {entry.current_size !== null && (
-                      <>
-                        <ArrowRight className="h-3 w-3" />
-                        <span className="font-mono">{formatSize(entry.current_size)}</span>
-                      </>
-                    )}
-                  </div>
-
-                  <SavingsBadge bytes={entry.savings_bytes} />
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      title="Restore original (replaces modified file)"
-                      disabled={busy}
-                      onClick={() => handleRestore(entry.path)}
-                    >
-                      {busy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <RotateCcw className="h-3.5 w-3.5" />
+                      {missing && (
+                        <p className="text-xs text-amber-400 flex items-center gap-1 mt-0.5">
+                          <AlertTriangle className="h-3 w-3" /> Modified file missing
+                        </p>
                       )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      title="Delete original (frees disk space)"
-                      disabled={busy}
-                      onClick={() => handleDelete(entry.path)}
-                    >
-                      {busy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
+                    </div>
+
+                    {/* Size comparison */}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 tabular-nums">
+                      <span className="font-mono">{formatSize(entry.original_size)}</span>
+                      {entry.current_size !== null && (
+                        <>
+                          <ArrowRight className="h-3 w-3" />
+                          <span className="font-mono">{formatSize(entry.current_size)}</span>
+                        </>
                       )}
-                    </Button>
+                    </div>
+
+                    <SavingsBadge bytes={entry.savings_bytes} />
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        title="Restore original (replaces modified file)"
+                        disabled={busy}
+                        onClick={() => handleRestore(entry.path)}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        title="Delete original (frees disk space)"
+                        disabled={busy}
+                        onClick={() => handleDelete(entry.path)}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                </RowContextMenu>
               );
             })}
           </div>

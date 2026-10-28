@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { RowContextMenu, RowMoreMenu, buildRowActions } from "@/components/RowMenu";
 import { QueryError } from "@/components/QueryError";
 import { GridSkeleton } from "@/components/Skeletons";
 import { api, qk } from "@/lib/api";
@@ -39,90 +40,102 @@ const FETCH_ALL_PAGE_SIZE = 10000;
 // ─── Thumbnail card ───────────────────────────────────────────────────────────
 
 function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
+  const actions = buildRowActions({ onPlay, path: file.path });
   return (
-    <Card
-      className="overflow-hidden cursor-pointer group transition-shadow hover:ring-1 hover:ring-primary"
-      onClick={onPlay}
-    >
-      <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
-        <VideoThumbnail
-          fileId={file.id}
-          scannedAt={file.scanned_at}
-          alt={file.filename}
-          imgClassName="w-full h-full object-cover"
-        />
-      </div>
-      <CardContent className="p-2.5 space-y-0.5 border-t border-border bg-px-elevated">
-        <p className="text-xs font-medium truncate" title={file.filename}>
-          {file.filename}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {formatSize(file.size)}
-          {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
-          {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
-          {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
-        </p>
-      </CardContent>
-    </Card>
+    <RowContextMenu actions={actions}>
+      <Card
+        className="overflow-hidden cursor-pointer group transition-shadow hover:ring-1 hover:ring-primary"
+        onClick={onPlay}
+      >
+        <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
+          <VideoThumbnail
+            fileId={file.id}
+            scannedAt={file.scanned_at}
+            alt={file.filename}
+            imgClassName="w-full h-full object-cover"
+          />
+          <div className="absolute bottom-1.5 left-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+            <RowMoreMenu actions={actions} className="bg-black/60 text-white hover:bg-black/80" />
+          </div>
+        </div>
+        <CardContent className="p-2.5 space-y-0.5 border-t border-border bg-px-elevated">
+          <p className="text-xs font-medium truncate" title={file.filename}>
+            {file.filename}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {formatSize(file.size)}
+            {file.duration ? ` · ${formatDuration(file.duration)}` : ""}
+            {file.codec_name ? ` · ${file.codec_name.toUpperCase()}` : ""}
+            {file.video_bitrate ? ` · ${formatBitrate(file.video_bitrate)}` : ""}
+          </p>
+        </CardContent>
+      </Card>
+    </RowContextMenu>
   );
 }
 
 // ─── List row ────────────────────────────────────────────────────────────────
 
 function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) {
+  const actions = buildRowActions({ onPlay, path: file.path });
   return (
-    <div
-      className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors"
-      onClick={onPlay}
-    >
-      <button
-        type="button"
-        className="relative group/thumb h-8 w-14 shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPlay();
-        }}
-        title="Play video"
+    <RowContextMenu actions={actions}>
+      <div
+        className="relative group/row flex items-center gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors"
+        onClick={onPlay}
       >
-        <VideoThumbnail
-          fileId={file.id}
-          scannedAt={file.scanned_at}
-          alt={file.filename}
-          imgClassName="h-8 w-14 object-cover rounded"
-          iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
-          fallbackClassName="h-8 w-14 bg-muted rounded"
-        />
-        <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-          <Play className="h-3.5 w-3.5 text-white fill-white" />
+        <button
+          type="button"
+          className="relative group/thumb h-8 w-14 shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlay();
+          }}
+          title="Play video"
+        >
+          <VideoThumbnail
+            fileId={file.id}
+            scannedAt={file.scanned_at}
+            alt={file.filename}
+            imgClassName="h-8 w-14 object-cover rounded"
+            iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
+            fallbackClassName="h-8 w-14 bg-muted rounded"
+          />
+          <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+            <Play className="h-3.5 w-3.5 text-white fill-white" />
+          </div>
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="truncate text-sm font-medium" title={file.filename}>
+            {file.filename}
+          </p>
+          <p className="truncate text-xs text-muted-foreground" title={file.path}>
+            {file.path}
+          </p>
         </div>
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className="truncate text-sm font-medium" title={file.filename}>
-          {file.filename}
-        </p>
-        <p className="truncate text-xs text-muted-foreground" title={file.path}>
-          {file.path}
-        </p>
+        <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+          {file.codec_name ? file.codec_name.toUpperCase() : "—"}
+        </span>
+        <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+          {formatDuration(file.duration)}
+        </span>
+        <span className="w-20 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+          {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
+        </span>
+        <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+          {formatUnixDate(file.file_date)}
+        </span>
+        <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+          {formatUnixDate(file.file_mtime)}
+        </span>
+        <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
+          {formatSize(file.size)}
+        </span>
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100">
+          <RowMoreMenu actions={actions} />
+        </div>
       </div>
-      <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
-        {file.codec_name ? file.codec_name.toUpperCase() : "—"}
-      </span>
-      <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
-        {formatDuration(file.duration)}
-      </span>
-      <span className="w-20 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
-        {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
-      </span>
-      <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
-        {formatUnixDate(file.file_date)}
-      </span>
-      <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
-        {formatUnixDate(file.file_mtime)}
-      </span>
-      <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
-        {formatSize(file.size)}
-      </span>
-    </div>
+    </RowContextMenu>
   );
 }
 

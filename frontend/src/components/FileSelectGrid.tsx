@@ -1,6 +1,7 @@
 import { Check, Play, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { VideoFile } from "@/types/file";
 import { Card } from "@/components/ui/card";
+import { RowContextMenu, RowMoreMenu, buildRowActions, type RowAction } from "@/components/RowMenu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { cn } from "@/lib/utils";
@@ -23,69 +24,82 @@ export function FileGridCard({
   onToggle,
   onPlay,
   badge,
+  actions,
 }: {
   file: VideoFile;
   selected: boolean;
   onToggle: () => void;
   onPlay: () => void;
   badge?: React.ReactNode;
+  /** Page-specific entries appended after Play / Copy path in the card's menu. */
+  actions?: RowAction[];
 }) {
+  const menuActions = buildRowActions({ onPlay, path: file.path, extra: actions });
   return (
-    <Card
-      className={cn(
-        "overflow-hidden cursor-pointer group transition-shadow hover:ring-1",
-        selected ? "ring-2 ring-primary" : "hover:ring-primary",
-      )}
-      onClick={onToggle}
-    >
-      <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
-        <VideoThumbnail
-          fileId={file.id}
-          scannedAt={file.scanned_at}
-          alt={file.filename}
-          imgClassName="w-full h-full object-cover"
-        />
+    <RowContextMenu actions={menuActions}>
+      <Card
+        className={cn(
+          "overflow-hidden cursor-pointer group transition-shadow hover:ring-1",
+          selected ? "ring-2 ring-primary" : "hover:ring-primary",
+        )}
+        onClick={onToggle}
+      >
+        <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
+          <VideoThumbnail
+            fileId={file.id}
+            scannedAt={file.scanned_at}
+            alt={file.filename}
+            imgClassName="w-full h-full object-cover"
+          />
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          className={cn(
-            "absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
-            selected ? "bg-primary border-primary" : "bg-black/50 border-white/70",
-          )}
-        >
-          {selected && <Check className="h-2.5 w-2.5 text-white" />}
-        </button>
-
-        {badge && <div className="absolute top-1.5 right-1.5">{badge}</div>}
-
-        <div className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onPlay();
+              onToggle();
             }}
-            title="Preview"
-            className="bg-black/60 hover:bg-black/80 rounded p-1"
+            className={cn(
+              "absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
+              selected ? "bg-primary border-primary" : "bg-black/50 border-white/70",
+            )}
           >
-            <Play className="h-3.5 w-3.5 text-white" />
+            {selected && <Check className="h-2.5 w-2.5 text-white" />}
           </button>
-        </div>
-      </div>
 
-      <div className="px-2 py-1.5 space-y-0.5 border-t border-border bg-px-elevated">
-        <p className="text-xs font-mono truncate text-foreground/90" title={file.filename}>
-          {file.filename}
-        </p>
-        <div className="flex items-center gap-2 text-3xs text-muted-foreground">
-          {file.codec_name && <span className="uppercase font-mono">{file.codec_name}</span>}
-          <span>{formatSize(file.size)}</span>
-          {file.duration != null && <span>{formatDuration(file.duration)}</span>}
+          {badge && <div className="absolute top-1.5 right-1.5">{badge}</div>}
+
+          <div className="absolute bottom-1.5 left-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+            <RowMoreMenu
+              actions={menuActions}
+              className="bg-black/60 text-white hover:bg-black/80"
+            />
+          </div>
+
+          <div className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlay();
+              }}
+              title="Preview"
+              className="bg-black/60 hover:bg-black/80 rounded p-1"
+            >
+              <Play className="h-3.5 w-3.5 text-white" />
+            </button>
+          </div>
         </div>
-      </div>
-    </Card>
+
+        <div className="px-2 py-1.5 space-y-0.5 border-t border-border bg-px-elevated">
+          <p className="text-xs font-mono truncate text-foreground/90" title={file.filename}>
+            {file.filename}
+          </p>
+          <div className="flex items-center gap-2 text-3xs text-muted-foreground">
+            {file.codec_name && <span className="uppercase font-mono">{file.codec_name}</span>}
+            <span>{formatSize(file.size)}</span>
+            {file.duration != null && <span>{formatDuration(file.duration)}</span>}
+          </div>
+        </div>
+      </Card>
+    </RowContextMenu>
   );
 }
 
@@ -139,6 +153,7 @@ export function FileListRow({
   clickAction = "select",
   columns,
   className,
+  actions,
 }: {
   file: {
     id: number;
@@ -162,81 +177,90 @@ export function FileListRow({
   columns?: React.ReactNode;
   /** Merged onto the row root — escape hatch for e.g. a bordered card row. */
   className?: string;
+  /** Page-specific entries appended after Play / Copy path in the row's menu. */
+  actions?: RowAction[];
 }) {
+  const menuActions = buildRowActions({ onPlay, path: file.path, extra: actions });
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none",
-        selected && "bg-primary/5",
-        className,
-      )}
-      onClick={clickAction === "play" ? onPlay : onToggle}
-    >
-      {selectable && (
-        <Checkbox
-          checked={selected}
-          onCheckedChange={onToggle}
-          onClick={(e) => e.stopPropagation()}
-          className="shrink-0"
-        />
-      )}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPlay();
-        }}
-        title="Play"
-        className="relative group/thumb h-8 w-14 shrink-0"
-      >
-        {thumbnail ? (
-          <>
-            {thumbnail}
-            {/* hover overlay — the thumbnail already reads as content, so the
-                play glyph only appears on hover */}
-            <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-              <Play className="h-3.5 w-3.5 text-white fill-white" />
-            </div>
-          </>
-        ) : (
-          // no real thumbnail (audio) — a softly mottled placeholder (layered
-          // radial gradients, no hard lines) with the play glyph always visible
-          <div
-            className="h-8 w-14 overflow-hidden rounded bg-muted flex items-center justify-center text-muted-foreground/70 group-hover/thumb:text-foreground transition-colors"
-            style={{
-              backgroundImage: [
-                "radial-gradient(130% 150% at 12% 18%, color-mix(in srgb, var(--px-text-muted) 16%, transparent) 0%, transparent 58%)",
-                "radial-gradient(120% 130% at 88% 82%, color-mix(in srgb, var(--px-text-muted) 11%, transparent) 0%, transparent 55%)",
-                "radial-gradient(90% 100% at 60% 40%, color-mix(in srgb, var(--px-bg-elevated) 55%, transparent) 0%, transparent 60%)",
-              ].join(", "),
-            }}
-          >
-            <Play className="h-3.5 w-3.5 fill-current" />
-          </div>
+    <RowContextMenu actions={menuActions}>
+      <div
+        className={cn(
+          "relative group/row flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none",
+          selected && "bg-primary/5",
+          className,
         )}
-      </button>
-      <span
-        className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"
-        title={file.path}
+        onClick={clickAction === "play" ? onPlay : onToggle}
       >
-        {file.filename}
-      </span>
-      {columns ?? (
-        <>
-          {file.codec_name && (
-            <span className="text-xs text-muted-foreground/60 font-mono shrink-0 w-14 text-right uppercase">
-              {file.codec_name}
-            </span>
+        {selectable && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onToggle}
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0"
+          />
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlay();
+          }}
+          title="Play"
+          className="relative group/thumb h-8 w-14 shrink-0"
+        >
+          {thumbnail ? (
+            <>
+              {thumbnail}
+              {/* hover overlay — the thumbnail already reads as content, so the
+                play glyph only appears on hover */}
+              <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                <Play className="h-3.5 w-3.5 text-white fill-white" />
+              </div>
+            </>
+          ) : (
+            // no real thumbnail (audio) — a softly mottled placeholder (layered
+            // radial gradients, no hard lines) with the play glyph always visible
+            <div
+              className="h-8 w-14 overflow-hidden rounded bg-muted flex items-center justify-center text-muted-foreground/70 group-hover/thumb:text-foreground transition-colors"
+              style={{
+                backgroundImage: [
+                  "radial-gradient(130% 150% at 12% 18%, color-mix(in srgb, var(--px-text-muted) 16%, transparent) 0%, transparent 58%)",
+                  "radial-gradient(120% 130% at 88% 82%, color-mix(in srgb, var(--px-text-muted) 11%, transparent) 0%, transparent 55%)",
+                  "radial-gradient(90% 100% at 60% 40%, color-mix(in srgb, var(--px-bg-elevated) 55%, transparent) 0%, transparent 60%)",
+                ].join(", "),
+              }}
+            >
+              <Play className="h-3.5 w-3.5 fill-current" />
+            </div>
           )}
-          <span className="text-xs text-muted-foreground/50 shrink-0 w-14 text-right">
-            {file.duration != null ? formatDuration(file.duration) : "—"}
-          </span>
-          <span className="text-xs text-muted-foreground/70 shrink-0 w-16 text-right font-mono">
-            {formatSize(file.size)}
-          </span>
-        </>
-      )}
-      {trailing}
-    </div>
+        </button>
+        <span
+          className="flex-1 text-sm font-mono truncate text-muted-foreground min-w-0"
+          title={file.path}
+        >
+          {file.filename}
+        </span>
+        {columns ?? (
+          <>
+            {file.codec_name && (
+              <span className="text-xs text-muted-foreground/60 font-mono shrink-0 w-14 text-right uppercase">
+                {file.codec_name}
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground/50 shrink-0 w-14 text-right">
+              {file.duration != null ? formatDuration(file.duration) : "—"}
+            </span>
+            <span className="text-xs text-muted-foreground/70 shrink-0 w-16 text-right font-mono">
+              {formatSize(file.size)}
+            </span>
+          </>
+        )}
+        {trailing}
+        {/* Overlaid so the columns (and their headers) don't shift to make room. */}
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100">
+          <RowMoreMenu actions={menuActions} />
+        </div>
+      </div>
+    </RowContextMenu>
   );
 }

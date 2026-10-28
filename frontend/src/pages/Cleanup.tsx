@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { RowContextMenu, RowMoreMenu, buildRowActions } from "@/components/RowMenu";
 import { QueryError } from "@/components/QueryError";
 import { api, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
@@ -54,56 +55,59 @@ function CleanupCard({
   onToggle: () => void;
   onPlay: () => void;
 }) {
+  const actions = buildRowActions({ onPlay, path: file.path });
   return (
-    <Card
-      className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isSelected ? "ring-1 ring-primary" : "hover:ring-primary/60"}`}
-      onClick={onToggle}
-    >
-      <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
-        <VideoThumbnail
-          fileId={file.id}
-          scannedAt={file.scanned_at}
-          alt={file.filename}
-          imgClassName="w-full h-full object-cover"
-        />
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          title="Toggle selection"
-          className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100 bg-primary border-primary" : "opacity-0 group-hover:opacity-100 bg-black/50 border-white/70"}`}
-        >
-          {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlay();
-          }}
-          title="Play video"
-          className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto"
-        >
-          <Play className="h-8 w-8 text-white fill-white" />
-        </button>
-      </div>
-      <CardContent className="p-2.5 space-y-0.5 border-t border-border bg-px-elevated">
-        <p className="text-xs font-medium truncate" title={file.filename}>
-          {file.filename}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {file.file_width && file.file_height ? (
-            <span className="font-mono">
-              {file.file_width}×{file.file_height}
-            </span>
-          ) : null}
-          {file.file_width && file.file_height ? " · " : ""}
-          <span className="font-mono">{formatDuration(file.duration)}</span>
-          {" · "}
-          <span className="font-mono">{formatSize(file.size)}</span>
-        </p>
-      </CardContent>
-    </Card>
+    <RowContextMenu actions={actions}>
+      <Card
+        className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isSelected ? "ring-1 ring-primary" : "hover:ring-primary/60"}`}
+        onClick={onToggle}
+      >
+        <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
+          <VideoThumbnail
+            fileId={file.id}
+            scannedAt={file.scanned_at}
+            alt={file.filename}
+            imgClassName="w-full h-full object-cover"
+          />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
+            title="Toggle selection"
+            className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100 bg-primary border-primary" : "opacity-0 group-hover:opacity-100 bg-black/50 border-white/70"}`}
+          >
+            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay();
+            }}
+            title="Play video"
+            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto"
+          >
+            <Play className="h-8 w-8 text-white fill-white" />
+          </button>
+        </div>
+        <CardContent className="p-2.5 space-y-0.5 border-t border-border bg-px-elevated">
+          <p className="text-xs font-medium truncate" title={file.filename}>
+            {file.filename}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {file.file_width && file.file_height ? (
+              <span className="font-mono">
+                {file.file_width}×{file.file_height}
+              </span>
+            ) : null}
+            {file.file_width && file.file_height ? " · " : ""}
+            <span className="font-mono">{formatDuration(file.duration)}</span>
+            {" · "}
+            <span className="font-mono">{formatSize(file.size)}</span>
+          </p>
+        </CardContent>
+      </Card>
+    </RowContextMenu>
   );
 }
 
@@ -118,67 +122,73 @@ function CleanupListRow({
   onToggle: () => void;
   onPlay: () => void;
 }) {
+  const actions = buildRowActions({ onPlay, path: file.path });
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-3 py-2 border-b border-border/50 last:border-0 hover:bg-muted/20 cursor-pointer transition-colors",
-        selected && "bg-primary/5",
-      )}
-      onClick={onToggle}
-    >
-      <Checkbox
-        className="shrink-0"
-        checked={selected}
-        onCheckedChange={() => onToggle()}
-        onClick={(e) => e.stopPropagation()}
-      />
-      <button
-        className="relative group/thumb h-8 w-14 shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPlay();
-        }}
-        title="Play video"
+    <RowContextMenu actions={actions}>
+      <div
+        className={cn(
+          "relative group/row flex items-center gap-3 px-3 py-2 border-b border-border/50 last:border-0 hover:bg-muted/20 cursor-pointer transition-colors",
+          selected && "bg-primary/5",
+        )}
+        onClick={onToggle}
       >
-        <VideoThumbnail
-          fileId={file.id}
-          scannedAt={file.scanned_at}
-          alt={file.filename}
-          imgClassName="h-8 w-14 object-cover rounded"
-          iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
-          fallbackClassName="h-8 w-14 bg-muted rounded"
+        <Checkbox
+          className="shrink-0"
+          checked={selected}
+          onCheckedChange={() => onToggle()}
+          onClick={(e) => e.stopPropagation()}
         />
-        <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-          <Play className="h-3.5 w-3.5 text-white fill-white" />
+        <button
+          className="relative group/thumb h-8 w-14 shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlay();
+          }}
+          title="Play video"
+        >
+          <VideoThumbnail
+            fileId={file.id}
+            scannedAt={file.scanned_at}
+            alt={file.filename}
+            imgClassName="h-8 w-14 object-cover rounded"
+            iconClassName="h-3.5 w-3.5 text-muted-foreground/40"
+            fallbackClassName="h-8 w-14 bg-muted rounded"
+          />
+          <div className="absolute inset-0 flex items-center justify-center rounded bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+            <Play className="h-3.5 w-3.5 text-white fill-white" />
+          </div>
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="truncate font-medium text-sm" title={file.filename}>
+            {file.filename}
+          </p>
+          <p className="truncate text-xs text-muted-foreground" title={file.path}>
+            {file.path}
+          </p>
         </div>
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className="truncate font-medium text-sm" title={file.filename}>
-          {file.filename}
-        </p>
-        <p className="truncate text-xs text-muted-foreground" title={file.path}>
-          {file.path}
-        </p>
+        <span className="text-xs text-muted-foreground font-mono w-20 text-right shrink-0">
+          {file.file_width && file.file_height ? `${file.file_width}×${file.file_height}` : "—"}
+        </span>
+        <span className="text-xs text-muted-foreground font-mono w-14 text-right shrink-0">
+          {file.file_fps != null ? file.file_fps.toFixed(2) : "—"}
+        </span>
+        <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
+          {formatDuration(file.duration)}
+        </span>
+        <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
+          {formatUnixDate(file.file_date)}
+        </span>
+        <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
+          {formatUnixDate(file.file_mtime)}
+        </span>
+        <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
+          {formatSize(file.size)}
+        </span>
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100">
+          <RowMoreMenu actions={actions} />
+        </div>
       </div>
-      <span className="text-xs text-muted-foreground font-mono w-20 text-right shrink-0">
-        {file.file_width && file.file_height ? `${file.file_width}×${file.file_height}` : "—"}
-      </span>
-      <span className="text-xs text-muted-foreground font-mono w-14 text-right shrink-0">
-        {file.file_fps != null ? file.file_fps.toFixed(2) : "—"}
-      </span>
-      <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
-        {formatDuration(file.duration)}
-      </span>
-      <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
-        {formatUnixDate(file.file_date)}
-      </span>
-      <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
-        {formatUnixDate(file.file_mtime)}
-      </span>
-      <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
-        {formatSize(file.size)}
-      </span>
-    </div>
+    </RowContextMenu>
   );
 }
 

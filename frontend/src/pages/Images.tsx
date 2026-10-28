@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Search } from "lucide-react";
+import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Maximize2, Search } from "lucide-react";
+import { RowContextMenu, buildRowActions } from "@/components/RowMenu";
 import { imageApi, qk } from "@/lib/api";
 import { ImageThumbnail } from "@/components/ImageThumbnail";
 import type { ImageFile } from "@/types/image";
@@ -46,50 +47,59 @@ function ImageCard({
   onQuarantine: () => void;
   onOpen: () => void;
 }) {
+  const actions = buildRowActions({
+    path: img.path,
+    extra: [
+      { label: "Open", icon: Maximize2, onSelect: onOpen },
+      { label: "Quarantine", icon: FolderX, onSelect: onQuarantine, destructive: true },
+    ],
+  });
   return (
-    <div
-      className={`relative group rounded-md overflow-hidden border cursor-pointer transition-all ${
-        selected ? "ring-2 ring-primary border-primary" : "border-border"
-      }`}
-      onClick={() => {
-        if (selectionMode) onToggle();
-        else onOpen();
-      }}
-    >
-      <div className="relative w-full aspect-square bg-muted">
-        <ImageThumbnail
-          imageId={img.id}
-          scannedAt={img.scanned_at}
-          alt={img.filename}
-          imgClassName="object-cover"
-        />
-      </div>
-
-      {selectionMode && (
-        <div
-          className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center ${
-            selected ? "bg-primary border-primary" : "bg-background/80 border-muted-foreground"
-          }`}
-        >
-          {selected && <span className="text-3xs text-primary-foreground font-bold">✓</span>}
+    <RowContextMenu actions={actions}>
+      <div
+        className={`relative group rounded-md overflow-hidden border cursor-pointer transition-all ${
+          selected ? "ring-2 ring-primary border-primary" : "border-border"
+        }`}
+        onClick={() => {
+          if (selectionMode) onToggle();
+          else onOpen();
+        }}
+      >
+        <div className="relative w-full aspect-square bg-muted">
+          <ImageThumbnail
+            imageId={img.id}
+            scannedAt={img.scanned_at}
+            alt={img.filename}
+            imgClassName="object-cover"
+          />
         </div>
-      )}
 
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <p className="truncate text-2xs text-white">{img.filename}</p>
-        {!selectionMode && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onQuarantine();
-            }}
-            className="mt-1 text-3xs text-white/70 hover:text-white"
+        {selectionMode && (
+          <div
+            className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center ${
+              selected ? "bg-primary border-primary" : "bg-background/80 border-muted-foreground"
+            }`}
           >
-            Quarantine
-          </button>
+            {selected && <span className="text-3xs text-primary-foreground font-bold">✓</span>}
+          </div>
         )}
+
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <p className="truncate text-2xs text-white">{img.filename}</p>
+          {!selectionMode && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuarantine();
+              }}
+              className="mt-1 text-3xs text-white/70 hover:text-white"
+            >
+              Quarantine
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </RowContextMenu>
   );
 }
 

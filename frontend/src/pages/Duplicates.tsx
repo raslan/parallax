@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { RowContextMenu, buildRowActions } from "@/components/RowMenu";
 import { QueryError } from "@/components/QueryError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -45,66 +46,69 @@ function FileCard({
   onToggle: () => void;
   onPlay: () => void;
 }) {
+  const actions = buildRowActions({ onPlay, path: file.path });
   return (
-    <div
-      className={`h-full rounded-lg border p-3 space-y-2 transition-colors ${
-        isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
-      }`}
-    >
-      <div className="relative aspect-video w-full rounded overflow-hidden bg-muted group/thumb">
-        <VideoThumbnail
-          fileId={file.id}
-          alt={file.filename}
-          imgClassName="w-full h-full object-cover"
-          iconClassName="h-6 w-6 text-muted-foreground"
-        />
-        <button
-          onClick={onPlay}
-          title="Play video"
-          className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity"
-        >
-          <Play className="h-6 w-6 text-white fill-white" />
-        </button>
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors z-10 ${
-            isChecked
-              ? "bg-destructive border-destructive"
-              : "bg-background/80 border-muted-foreground hover:border-foreground"
-          }`}
-        >
-          {isChecked && <Check className="h-3 w-3 text-white" />}
-        </div>
-        {isSuggested && (
-          <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-3xs font-semibold px-1.5 py-0.5 rounded z-10">
-            KEEP
+    <RowContextMenu actions={actions}>
+      <div
+        className={`h-full rounded-lg border p-3 space-y-2 transition-colors ${
+          isChecked ? "border-destructive/40 bg-destructive/5" : "border-border"
+        }`}
+      >
+        <div className="relative aspect-video w-full rounded overflow-hidden bg-muted group/thumb">
+          <VideoThumbnail
+            fileId={file.id}
+            alt={file.filename}
+            imgClassName="w-full h-full object-cover"
+            iconClassName="h-6 w-6 text-muted-foreground"
+          />
+          <button
+            onClick={onPlay}
+            title="Play video"
+            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+          >
+            <Play className="h-6 w-6 text-white fill-white" />
+          </button>
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
+            className={`absolute top-1.5 left-1.5 h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors z-10 ${
+              isChecked
+                ? "bg-destructive border-destructive"
+                : "bg-background/80 border-muted-foreground hover:border-foreground"
+            }`}
+          >
+            {isChecked && <Check className="h-3 w-3 text-white" />}
           </div>
-        )}
+          {isSuggested && (
+            <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-3xs font-semibold px-1.5 py-0.5 rounded z-10">
+              KEEP
+            </div>
+          )}
+        </div>
+        <p className="text-xs font-medium truncate" title={file.filename}>
+          {file.filename}
+        </p>
+        <p className="text-xs text-muted-foreground truncate" title={file.path}>
+          {file.path}
+        </p>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
+          <span className="font-mono">{formatSize(file.size)}</span>
+          {file.duration != null && (
+            <span className="font-mono">{formatDuration(file.duration)}</span>
+          )}
+          {file.video_bitrate != null && (
+            <span className="font-mono">{formatBitrate(file.video_bitrate)}</span>
+          )}
+          {file.codec_name && (
+            <Badge variant="secondary" className="text-xs px-1 py-0">
+              {file.codec_name}
+            </Badge>
+          )}
+        </div>
       </div>
-      <p className="text-xs font-medium truncate" title={file.filename}>
-        {file.filename}
-      </p>
-      <p className="text-xs text-muted-foreground truncate" title={file.path}>
-        {file.path}
-      </p>
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
-        <span className="font-mono">{formatSize(file.size)}</span>
-        {file.duration != null && (
-          <span className="font-mono">{formatDuration(file.duration)}</span>
-        )}
-        {file.video_bitrate != null && (
-          <span className="font-mono">{formatBitrate(file.video_bitrate)}</span>
-        )}
-        {file.codec_name && (
-          <Badge variant="secondary" className="text-xs px-1 py-0">
-            {file.codec_name}
-          </Badge>
-        )}
-      </div>
-    </div>
+    </RowContextMenu>
   );
 }
 
