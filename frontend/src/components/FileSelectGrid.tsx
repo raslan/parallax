@@ -108,6 +108,7 @@ export function ColHeader<K extends string>({
   return (
     <button
       onClick={() => onSort(sortKey)}
+      aria-label={`Sort by ${label}${active ? (dir === "asc" ? ", ascending" : ", descending") : ""}`}
       className={cn(
         "flex items-center gap-1 text-3xs uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground transition-colors",
         className,

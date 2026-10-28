@@ -14,10 +14,20 @@ export function Layout() {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden md:flex" />
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto pb-16 outline-none md:pb-0"
+        >
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />
           </Suspense>

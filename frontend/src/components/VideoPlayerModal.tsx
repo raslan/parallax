@@ -183,6 +183,7 @@ export function VideoPlayerModal({
           </p>
           <button
             onClick={onClose}
+            aria-label="Close player"
             className="text-white/70 hover:text-white transition-colors shrink-0"
           >
             <X className="h-5 w-5" />

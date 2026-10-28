@@ -10,6 +10,7 @@ export function GalleryDlBanner({ onDismiss }: { onDismiss: () => void }) {
       </p>
       <button
         onClick={onDismiss}
+        aria-label="Dismiss"
         className="text-amber-400/60 hover:text-amber-400 transition-colors shrink-0"
       >
         <X className="h-3.5 w-3.5" />

@@ -48,7 +48,7 @@ export function CompressProgress({
     >
       <div className="flex items-center gap-3">
         {isRunning && <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />}
-        <span className="text-sm font-medium flex-1">
+        <span role="status" className="text-sm font-medium flex-1">
           {jobStatus === "completed"
             ? labels.done
             : jobStatus === "cancelled"

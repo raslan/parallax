@@ -26,6 +26,7 @@ export function ImageViewerModal({ img, onClose }: { img: ImageFile; onClose: ()
           </p>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="text-white/70 hover:text-white transition-colors shrink-0"
           >
             <X className="h-5 w-5" />
