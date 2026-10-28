@@ -23,6 +23,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { DownloadCard } from "@/components/downloads/DownloadCard";
 import { PlaylistGroup } from "@/components/downloads/PlaylistGroup";
 import { OptionsPanel } from "@/components/downloads/OptionsPanel";
+import { TwoColumnShell } from "@/components/TwoColumnShell";
 import { downloadOptionsSchema, type DownloadOptions } from "@/lib/schemas/download";
 import { zodResolver } from "@/lib/zodResolver";
 import { YtdlpBanner } from "@/components/downloads/YtdlpBanner";
@@ -293,7 +294,7 @@ export function Downloads() {
 
       {/* Two-column layout: left = header + URL input + queue, right = options
           (options card sits in its own grid column so it top-aligns with the title) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
+      <TwoColumnShell id="downloads-split">
         {/* Left: header + URL input + queue */}
         <div className="space-y-6 min-w-0">
           {/* Header */}
@@ -563,7 +564,7 @@ export function Downloads() {
             <OptionsPanel form={optsForm} impersonateTargets={ytdlp.impersonateTargets} />
           </div>
         </Card>
-      </div>
+      </TwoColumnShell>
 
       {/* Cookies modal */}
       <CookiesModal

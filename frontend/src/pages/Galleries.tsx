@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { CookiesModal } from "@/components/downloads-common/CookiesModal";
 import { GalleryQueue } from "@/components/galleries/GalleryQueue";
 import { GalleryOptionsPanel } from "@/components/galleries/GalleryOptionsPanel";
+import { TwoColumnShell } from "@/components/TwoColumnShell";
 import { UrlInput } from "@/components/galleries/UrlInput";
 import { UrlListEditorDialog } from "@/components/galleries/UrlListEditorDialog";
 import { useConfirm } from "@/components/ConfirmProvider";
@@ -291,7 +292,7 @@ export function Galleries() {
     <div className="p-4 md:p-8">
       {/* Two-column layout: left = header + input + queue, right = options
           (options card sits in its own grid column so it top-aligns with the title) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
+      <TwoColumnShell id="galleries-split">
         <div className="space-y-6 min-w-0">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Galleries</h1>
@@ -422,7 +423,7 @@ export function Galleries() {
             )}
           </div>
         </Card>
-      </div>
+      </TwoColumnShell>
 
       {isSeeded && (
         <YtdlOptionsSheet
