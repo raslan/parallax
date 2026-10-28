@@ -185,7 +185,7 @@ export function FileListRow({
     <RowContextMenu actions={menuActions}>
       <div
         className={cn(
-          "relative group/row flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none",
+          "relative group/row flex items-center gap-3 pl-4 pr-10 md:pr-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer select-none",
           selected && "bg-primary/5",
           className,
         )}

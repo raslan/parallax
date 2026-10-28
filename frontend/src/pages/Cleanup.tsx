@@ -135,7 +135,7 @@ function CleanupListRow({
     <RowContextMenu actions={actions}>
       <div
         className={cn(
-          "relative group/row flex items-center gap-3 px-3 py-2 border-b border-border/50 last:border-0 hover:bg-muted/20 cursor-pointer transition-colors",
+          "relative group/row flex items-center gap-3 pl-3 pr-10 md:pr-3 py-2 border-b border-border/50 last:border-0 hover:bg-muted/20 cursor-pointer transition-colors",
           selected && "bg-primary/5",
         )}
         onClick={onToggle}
@@ -174,19 +174,20 @@ function CleanupListRow({
             {file.path}
           </p>
         </div>
-        <span className="text-xs text-muted-foreground font-mono w-20 text-right shrink-0">
+        {/* Secondary columns drop away on narrow screens so the name and size stay readable. */}
+        <span className="hidden md:block text-xs text-muted-foreground font-mono w-20 text-right shrink-0">
           {file.file_width && file.file_height ? `${file.file_width}×${file.file_height}` : "—"}
         </span>
-        <span className="text-xs text-muted-foreground font-mono w-14 text-right shrink-0">
+        <span className="hidden lg:block text-xs text-muted-foreground font-mono w-14 text-right shrink-0">
           {file.file_fps != null ? file.file_fps.toFixed(2) : "—"}
         </span>
         <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
           {formatDuration(file.duration)}
         </span>
-        <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
+        <span className="hidden lg:block text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
           {formatUnixDate(file.file_date)}
         </span>
-        <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
+        <span className="hidden lg:block text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
           <RelativeTime unix={file.file_mtime} fallback="—" />
         </span>
         <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
@@ -461,11 +462,11 @@ export function Cleanup() {
                 <span className="h-4 w-4 shrink-0" />
                 <span className="h-8 w-14 shrink-0" />
                 <span className="flex-1 min-w-0">Filename</span>
-                <span className="w-20 text-right shrink-0">Resolution</span>
-                <span className="w-14 text-right shrink-0">FPS</span>
+                <span className="hidden md:block w-20 text-right shrink-0">Resolution</span>
+                <span className="hidden lg:block w-14 text-right shrink-0">FPS</span>
                 <span className="w-16 text-right shrink-0">Duration</span>
-                <span className="w-24 text-right shrink-0">Content date</span>
-                <span className="w-24 text-right shrink-0">File added</span>
+                <span className="hidden lg:block w-24 text-right shrink-0">Content date</span>
+                <span className="hidden lg:block w-24 text-right shrink-0">File added</span>
                 <span className="w-16 text-right shrink-0">Size</span>
               </div>
               <div className="flex-1 min-h-0">

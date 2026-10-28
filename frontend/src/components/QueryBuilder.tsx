@@ -418,7 +418,7 @@ function ExpandedClause<T>({
   return (
     <div
       ref={ref}
-      className="flex w-fit min-w-[240px] max-w-[380px] flex-col gap-3 rounded-lg border-2 bg-px-elevated p-3.5"
+      className="flex w-fit min-w-[240px] max-w-[min(380px,calc(100vw-2rem))] flex-col gap-3 rounded-lg border-2 bg-px-elevated p-3.5"
       style={{
         borderColor: "var(--px-accent)",
         boxShadow: "0 0 0 4px var(--px-accent-dim)",
