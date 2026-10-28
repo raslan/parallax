@@ -27,7 +27,13 @@ import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
-import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
+import {
+  formatSize,
+  formatDuration,
+  formatUnixDate,
+  describeSelection,
+  sumSizeOf,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { QueryBuilder } from "@/components/QueryBuilder";
 import { LibraryBar } from "@/components/LibraryBar";
@@ -293,7 +299,7 @@ export function Cleanup() {
     if (
       !(await confirm({
         title: "Move to originals?",
-        description: `Move ${selected.size} file(s) to _originals/ and remove from library?`,
+        description: `Move ${describeSelection(selected.size, "file", sumSizeOf(allFiles, selected))} to _originals/ and remove from library?`,
         confirmText: "Move",
         destructive: true,
       }))

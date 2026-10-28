@@ -25,6 +25,22 @@ export function formatBitrate(bps: number | null): string {
   return `${bps} bps`;
 }
 
+/** "14 files (8.2 GB)" — a count with its noun pluralised, plus the total size when known. */
+export function describeSelection(count: number, noun: string, bytes?: number): string {
+  const text = `${count} ${noun}${count === 1 ? "" : "s"}`;
+  return bytes != null && bytes > 0 ? `${text} (${formatSize(bytes)})` : text;
+}
+
+/** Combined `size` of the items whose id is in `ids`. */
+export function sumSizeOf(
+  items: readonly { id: number; size: number }[],
+  ids: ReadonlySet<number>,
+): number {
+  let total = 0;
+  for (const item of items) if (ids.has(item.id)) total += item.size;
+  return total;
+}
+
 /** Parse a server timestamp; naive ISO strings from the backend are UTC. */
 export function parseServerDate(iso: string): Date {
   return new Date(iso + (iso.endsWith("Z") ? "" : "Z"));

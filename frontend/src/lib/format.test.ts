@@ -1,5 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { formatSize, formatDuration, formatBitrate, formatRelative } from "./format";
+import {
+  formatSize,
+  formatDuration,
+  formatBitrate,
+  formatRelative,
+  describeSelection,
+  sumSizeOf,
+} from "./format";
+
+describe("describeSelection", () => {
+  it("pluralises and appends the size when known", () => {
+    expect(describeSelection(1, "file")).toBe("1 file");
+    expect(describeSelection(14, "file", 8.2 * 1024 ** 3)).toBe("14 files (8.2 GB)");
+  });
+  it("omits an unknown or zero size", () => {
+    expect(describeSelection(3, "image", 0)).toBe("3 images");
+  });
+});
+
+describe("sumSizeOf", () => {
+  it("adds up only the selected items", () => {
+    const items = [
+      { id: 1, size: 10 },
+      { id: 2, size: 20 },
+      { id: 3, size: 40 },
+    ];
+    expect(sumSizeOf(items, new Set([1, 3]))).toBe(50);
+    expect(sumSizeOf(items, new Set())).toBe(0);
+  });
+});
 
 describe("formatRelative", () => {
   const now = new Date("2026-06-15T12:00:00Z");

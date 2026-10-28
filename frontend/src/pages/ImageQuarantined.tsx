@@ -8,7 +8,7 @@ import { GridSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
-import { formatSize } from "@/lib/format";
+import { formatSize, describeSelection } from "@/lib/format";
 import { StatPanel } from "@/components/StatPanel";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { IconButton } from "@/components/IconButton";
@@ -82,7 +82,7 @@ function LibraryGroup({
     if (
       !(await confirm({
         title: "Restore all images?",
-        description: `Restore all ${entries.length} images in "${libraryName}" to their library?`,
+        description: `Restore all ${describeSelection(entries.length, "image", totalSize)} in "${libraryName}" to their library?`,
         confirmText: "Restore all",
       }))
     )
@@ -100,7 +100,7 @@ function LibraryGroup({
     if (
       !(await confirm({
         title: "Delete all images?",
-        description: `Permanently delete all ${entries.length} images in "${libraryName}"? This cannot be undone.`,
+        description: `Permanently delete all ${describeSelection(entries.length, "image", totalSize)} in "${libraryName}"? This cannot be undone.`,
         confirmText: "Delete all",
         destructive: true,
       }))

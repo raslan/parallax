@@ -18,7 +18,13 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { DuplicateCriteriaPanel } from "@/components/duplicates/DuplicateCriteriaPanel";
 import { LibraryBar } from "@/components/LibraryBar";
-import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
+import {
+  formatSize,
+  formatDuration,
+  formatBitrate,
+  describeSelection,
+  sumSizeOf,
+} from "@/lib/format";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
@@ -324,7 +330,7 @@ export function Duplicates() {
     if (
       !(await confirm({
         title: "Move to originals?",
-        description: `Move ${deleteIds.size} file(s) to _originals/ and remove from library?`,
+        description: `Move ${describeSelection(deleteIds.size, "file", sumSizeOf(files, deleteIds))} to _originals/ and remove from library?`,
         confirmText: "Move",
         destructive: true,
       }))

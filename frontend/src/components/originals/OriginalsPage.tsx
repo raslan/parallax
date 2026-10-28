@@ -17,7 +17,7 @@ import { QueryError } from "@/components/QueryError";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatSize } from "@/lib/format";
+import { formatSize, describeSelection } from "@/lib/format";
 import { StatPanel } from "@/components/StatPanel";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { IconButton } from "@/components/IconButton";
@@ -165,7 +165,11 @@ function LibraryGroup({
     if (
       !(await confirm({
         title: "Delete all originals?",
-        description: `Delete all ${entries.length} originals for "${libraryName}"? This cannot be undone.`,
+        description: `Delete all ${describeSelection(
+          entries.length,
+          "original",
+          entries.reduce((sum, e) => sum + e.original_size, 0),
+        )} for "${libraryName}"? This cannot be undone.`,
         confirmText: "Delete all",
         destructive: true,
       }))

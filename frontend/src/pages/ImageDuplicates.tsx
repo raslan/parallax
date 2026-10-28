@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { WorkingState } from "@/components/WorkingState";
 import { Slider } from "@/components/ui/slider";
-import { formatSize } from "@/lib/format";
+import { formatSize, describeSelection, sumSizeOf } from "@/lib/format";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
@@ -234,7 +234,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     if (
       !(await confirm({
         title: "Quarantine images?",
-        description: `Quarantine ${deleteIds.size} image(s)?`,
+        description: `Quarantine ${describeSelection(deleteIds.size, "image", sumSizeOf([...allImages.values()], deleteIds))}?`,
         confirmText: "Quarantine",
         destructive: true,
       }))

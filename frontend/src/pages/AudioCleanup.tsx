@@ -12,7 +12,13 @@ import type { AudioFile } from "@/types/audio";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { FileListRow } from "@/components/FileSelectGrid";
-import { formatSize, formatDuration, formatUnixDate } from "@/lib/format";
+import {
+  formatSize,
+  formatDuration,
+  formatUnixDate,
+  describeSelection,
+  sumSizeOf,
+} from "@/lib/format";
 import { QueryBuilder } from "@/components/QueryBuilder";
 import { LibraryBar } from "@/components/LibraryBar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -146,7 +152,7 @@ export function AudioCleanup() {
     if (
       !(await confirm({
         title: "Move to originals?",
-        description: `Move ${selected.size} file(s) to _originals/ and remove from library?`,
+        description: `Move ${describeSelection(selected.size, "file", sumSizeOf(allFiles, selected))} to _originals/ and remove from library?`,
         confirmText: "Move",
         destructive: true,
       }))
