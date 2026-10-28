@@ -1,5 +1,6 @@
 import { Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PercentSlider } from "@/components/QueryBuilder";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import { cn } from "@/lib/utils";
@@ -148,22 +149,17 @@ const CRITERIA: CritDef[] = [
           value={phashPct(c.phash_threshold)}
           onChange={(v) => onChange({ phash_threshold: phashThreshold(v) })}
         />
-        <div className="flex items-center gap-3">
-          {(["all_frames", "first_frame"] as const).map((mode) => (
-            <label key={mode} className="flex cursor-pointer select-none items-center gap-1.5">
-              <input
-                type="radio"
-                name="phash_mode"
-                checked={c.phash_mode === mode}
-                onChange={() => onChange({ phash_mode: mode })}
-                className="accent-[var(--px-accent)]"
-              />
-              <span className="text-xs text-muted-foreground">
-                {mode === "all_frames" ? "All frames" : "First frame only"}
-              </span>
-            </label>
-          ))}
-        </div>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          variant="outline"
+          className="justify-start"
+          value={c.phash_mode}
+          onValueChange={(v) => v && onChange({ phash_mode: v as DuplicateCriteria["phash_mode"] })}
+        >
+          <ToggleGroupItem value="all_frames">All frames</ToggleGroupItem>
+          <ToggleGroupItem value="first_frame">First frame only</ToggleGroupItem>
+        </ToggleGroup>
         <div
           className={cn("flex items-center gap-2", c.phash_mode === "first_frame" && "opacity-40")}
         >
