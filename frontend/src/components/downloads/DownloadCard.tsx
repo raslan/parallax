@@ -93,7 +93,7 @@ export function DownloadCard({
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+              <span className="text-3xs text-muted-foreground/50 tabular-nums">
                 {item.progress > 0
                   ? `${Math.round(item.progress)}%`
                   : item.status === "running"
@@ -101,7 +101,7 @@ export function DownloadCard({
                     : "Waiting…"}
               </span>
               {(item.speed || item.eta) && (
-                <span className="text-[10px] text-muted-foreground/50 font-mono">
+                <span className="text-3xs text-muted-foreground/50 font-mono">
                   {item.speed}
                   {item.speed && item.eta ? " · " : ""}
                   {item.eta ? `ETA ${item.eta}` : ""}
@@ -115,11 +115,11 @@ export function DownloadCard({
         {item.error && (
           <button onClick={() => setErrorExpanded((v) => !v)} className="text-left w-full">
             {errorExpanded ? (
-              <pre className="text-[11px] text-red-400 whitespace-pre-wrap break-all font-mono leading-relaxed">
+              <pre className="text-2xs text-red-400 whitespace-pre-wrap break-all font-mono leading-relaxed">
                 {item.error}
               </pre>
             ) : (
-              <p className="text-[11px] text-red-400 line-clamp-2">{item.error.split("\n")[0]}</p>
+              <p className="text-2xs text-red-400 line-clamp-2">{item.error.split("\n")[0]}</p>
             )}
           </button>
         )}
@@ -127,7 +127,7 @@ export function DownloadCard({
         {/* Output path */}
         {isCompleted && item.output_path && (
           <p
-            className="text-[10px] text-muted-foreground/40 font-mono truncate"
+            className="text-3xs text-muted-foreground/40 font-mono truncate"
             title={item.output_path}
           >
             {item.output_path}

@@ -55,14 +55,14 @@ function ImageGrid({
             }`}
           >
             {selectedIds.has(img.id) && (
-              <span className="text-[10px] text-primary-foreground font-bold">✓</span>
+              <span className="text-3xs text-primary-foreground font-bold">✓</span>
             )}
           </div>
           {img.detections.length > 0 && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="absolute top-1 right-1 rounded bg-destructive/90 px-1 py-0.5 text-[10px] text-white cursor-default">
+                  <div className="absolute top-1 right-1 rounded bg-destructive/90 px-1 py-0.5 text-3xs text-white cursor-default">
                     {img.detections.length}
                   </div>
                 </TooltipTrigger>

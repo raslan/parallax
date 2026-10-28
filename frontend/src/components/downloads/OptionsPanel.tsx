@@ -56,7 +56,7 @@ export function OptionsPanel({
     <div className="space-y-4">
       {/* Mode */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
           Mode
         </p>
         <div className="grid grid-cols-2 gap-1.5">
@@ -85,7 +85,7 @@ export function OptionsPanel({
       {/* Quality — only for video */}
       {!opts.audioOnly && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
             Quality
           </p>
           <div className="grid grid-cols-3 gap-1">
@@ -110,7 +110,7 @@ export function OptionsPanel({
 
       {/* Codec */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
           {opts.audioOnly ? "Format" : "Codec"}
         </p>
         <div className="flex gap-1 flex-wrap">
@@ -139,7 +139,7 @@ export function OptionsPanel({
 
       {/* Parallel fragments */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
           Parallel fragments
         </p>
         <div className="flex items-center gap-2">
@@ -150,7 +150,7 @@ export function OptionsPanel({
             {...register("concurrentFragments", { valueAsNumber: true })}
             className="w-16 h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
           />
-          <span className="text-[10px] text-muted-foreground/50">
+          <span className="text-3xs text-muted-foreground/50">
             per-file download connections · 4 default, higher = faster on fragmented sources
             (YouTube)
           </span>
@@ -159,12 +159,12 @@ export function OptionsPanel({
 
       {/* Trim */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
           Trim
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-0.5">
-            <label className="text-[10px] text-muted-foreground/50">Start</label>
+            <label className="text-3xs text-muted-foreground/50">Start</label>
             <input
               type="text"
               placeholder="HH:MM:SS"
@@ -173,7 +173,7 @@ export function OptionsPanel({
             />
           </div>
           <div className="space-y-0.5">
-            <label className="text-[10px] text-muted-foreground/50">End</label>
+            <label className="text-3xs text-muted-foreground/50">End</label>
             <input
               type="text"
               placeholder="HH:MM:SS"
@@ -186,7 +186,7 @@ export function OptionsPanel({
 
       {/* Output directory */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
           Output directory
         </p>
         <div className="flex items-center gap-2 rounded border border-border/50 bg-muted/20 px-3 py-2">
@@ -200,7 +200,7 @@ export function OptionsPanel({
           <button
             type="button"
             onClick={() => setShowDirPicker(!showDirPicker)}
-            className="text-[10px] text-primary/70 hover:text-primary transition-colors shrink-0 underline underline-offset-2"
+            className="text-3xs text-primary/70 hover:text-primary transition-colors shrink-0 underline underline-offset-2"
           >
             Change
           </button>
@@ -288,7 +288,7 @@ export function OptionsPanel({
 
       {/* Anti-throttle */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
           Anti-throttle
         </p>
         <div className="flex gap-1">
@@ -305,7 +305,7 @@ export function OptionsPanel({
               type="button"
               onClick={() => set("refererMode", id)}
               className={cn(
-                "flex-1 px-2 py-1 rounded border text-[11px] font-medium transition-colors",
+                "flex-1 px-2 py-1 rounded border text-2xs font-medium transition-colors",
                 opts.refererMode === id
                   ? "border-primary/60 bg-primary/10 text-foreground"
                   : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
@@ -350,7 +350,7 @@ export function OptionsPanel({
             </SelectContent>
           </Select>
         </div>
-        <p className="text-[10px] text-muted-foreground/50">
+        <p className="text-3xs text-muted-foreground/50">
           For sites (mainly YouTube) that stream fine but throttle the download partway. Try Referer
           + cookies first.
         </p>
@@ -358,7 +358,7 @@ export function OptionsPanel({
 
       {/* Extra args */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
+        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/40">
           Extra yt-dlp args
         </p>
         <textarea

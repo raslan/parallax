@@ -61,7 +61,7 @@ function FixEditor({
   if (fixKey === "trim") {
     return (
       <div className="space-y-3">
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-2xs text-muted-foreground/60">
           Cut seconds off the start and/or end. Stream-copied — instant.
         </p>
         <div className="flex items-center gap-4">
@@ -96,7 +96,7 @@ function FixEditor({
   if (fixKey === "audio") {
     return (
       <div className="space-y-3">
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-2xs text-muted-foreground/60">
           Fix one-ear audio by copying one channel to both.
         </p>
         <div className="flex gap-2">
@@ -116,7 +116,7 @@ function FixEditor({
   if (fixKey === "rotate") {
     return (
       <div className="space-y-3">
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-2xs text-muted-foreground/60">
           Actually rotates pixels — forces a re-encode (near-lossless CRF 18).
         </p>
         <div className="flex gap-2">
@@ -145,7 +145,7 @@ function FixEditor({
   if (fixKey === "sync") {
     return (
       <div className="space-y-3">
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-2xs text-muted-foreground/60">
           Shift audio relative to video. Positive delays audio, negative advances it.
         </p>
         <label className="flex items-center gap-2 text-sm">
@@ -162,7 +162,7 @@ function FixEditor({
     );
   }
   return (
-    <p className="text-[11px] text-muted-foreground/60">
+    <p className="text-2xs text-muted-foreground/60">
       {fixKey === "normalize"
         ? "Even out loudness (EBU R128, single-pass). No settings."
         : "Move moov atom to front — fixes slow-to-seek mp4/m4v/mov. No settings."}

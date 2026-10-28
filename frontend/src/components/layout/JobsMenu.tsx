@@ -87,7 +87,7 @@ export function JobsMenu() {
           )}
 
           {active.length > 0 && (
-            <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            <p className="px-2 pb-1 pt-2 text-3xs font-semibold uppercase tracking-widest text-muted-foreground/60">
               Active
             </p>
           )}
@@ -100,7 +100,7 @@ export function JobsMenu() {
               <StatusDot status={DOT[j.status] ?? "running"} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{label(j.type)}</span>
-                <span className="block text-[11px] text-muted-foreground">
+                <span className="block text-2xs text-muted-foreground">
                   {j.total_files > 0
                     ? `${j.processed_files} / ${j.total_files} · ${Math.round(j.progress)}%`
                     : `${Math.round(j.progress)}%`}
@@ -128,7 +128,7 @@ export function JobsMenu() {
           ))}
 
           {recent.length > 0 && (
-            <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            <p className="px-2 pb-1 pt-3 text-3xs font-semibold uppercase tracking-widest text-muted-foreground/60">
               Recent
             </p>
           )}
@@ -144,7 +144,7 @@ export function JobsMenu() {
               <StatusDot status={DOT[j.status] ?? "error"} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{label(j.type)}</span>
-                <span className="block text-[11px] text-muted-foreground">
+                <span className="block text-2xs text-muted-foreground">
                   {j.status} · {formatDate(j.created_at)}
                 </span>
               </span>

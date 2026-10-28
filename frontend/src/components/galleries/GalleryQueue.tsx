@@ -56,7 +56,7 @@ export function GalleryQueue({
           {activeCount > 0 && (
             <Badge
               variant="secondary"
-              className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20"
+              className="text-3xs font-mono bg-primary/10 text-primary border-primary/20"
             >
               {activeCount} active
             </Badge>
@@ -75,7 +75,7 @@ export function GalleryQueue({
 
         <div className="flex items-center gap-3">
           {gdl.version && (
-            <span className="text-[10px] text-muted-foreground/40 font-mono">
+            <span className="text-3xs text-muted-foreground/40 font-mono">
               gallery-dl {gdl.version}
             </span>
           )}

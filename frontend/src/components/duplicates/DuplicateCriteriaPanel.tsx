@@ -236,7 +236,7 @@ export function DuplicateCriteriaPanel({
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-[20rem] p-3">
                   <p className="text-sm font-semibold">{def.label}</p>
-                  <p className="mb-3 mt-0.5 text-[11px] text-muted-foreground/70">{def.hint}</p>
+                  <p className="mb-3 mt-0.5 text-2xs text-muted-foreground/70">{def.hint}</p>
                   {def.editor(criteria, onChange)}
                 </PopoverContent>
               </Popover>

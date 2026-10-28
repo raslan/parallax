@@ -33,7 +33,7 @@ export function StatusDot({ status }: { status: DotStatus }) {
         />
       </span>
       <span
-        className="text-[10px] font-mono font-bold uppercase tracking-[0.1em]"
+        className="text-3xs font-mono font-bold uppercase tracking-[0.1em]"
         style={{
           color: isError
             ? "hsl(var(--destructive))"

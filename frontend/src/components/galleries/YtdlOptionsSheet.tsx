@@ -29,7 +29,7 @@ const REFERER_MODES = [
 ] as const;
 
 const Label = ({ children }: { children: ReactNode }) => (
-  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+  <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
     {children}
   </p>
 );
@@ -130,7 +130,7 @@ export function YtdlOptionsSheet({
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground/50">
+              <p className="text-3xs text-muted-foreground/50">
                 Caps the shorter side, so 1080p is 1920×1080 and a vertical video is 1080×1920.
               </p>
             </div>
@@ -166,7 +166,7 @@ export function YtdlOptionsSheet({
                 {...register("ytConcurrentFragments", { valueAsNumber: true })}
                 className={cn(inputCls, "w-16")}
               />
-              <span className="text-[10px] text-muted-foreground/50">
+              <span className="text-3xs text-muted-foreground/50">
                 per-file download connections · 4 default, higher = faster on fragmented sources
                 (YouTube)
               </span>

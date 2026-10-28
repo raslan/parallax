@@ -98,7 +98,7 @@ export function UrlInput({
                     {(lists ?? []).map((l) => (
                       <SelectItem key={l.name} value={l.name}>
                         {l.name}
-                        <span className="ml-2 font-mono text-[10px] text-muted-foreground/50">
+                        <span className="ml-2 font-mono text-3xs text-muted-foreground/50">
                           {l.count}
                         </span>
                       </SelectItem>
@@ -123,7 +123,7 @@ export function UrlInput({
                   New list
                 </button>
                 {selected && (
-                  <span className="text-[10px] text-muted-foreground/50">
+                  <span className="text-3xs text-muted-foreground/50">
                     {selected.count} URL{selected.count === 1 ? "" : "s"}
                   </span>
                 )}

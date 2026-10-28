@@ -138,12 +138,12 @@ export function AudioEstimatePanel({
                   <p className="text-xs font-medium text-foreground">
                     Target codec
                     {selectedCodec && (
-                      <span className="ml-2 font-mono text-[10px] text-muted-foreground/40">
+                      <span className="ml-2 font-mono text-3xs text-muted-foreground/40">
                         via {selectedCodec.encoder} · {selectedCodec.ext}
                       </span>
                     )}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground/60">Output audio format</p>
+                  <p className="mt-0.5 text-2xs text-muted-foreground/60">Output audio format</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {codecs.map((c) => {
@@ -176,7 +176,7 @@ export function AudioEstimatePanel({
               <div className="space-y-2 px-4 py-4">
                 <div>
                   <p className="text-xs font-medium text-foreground">Bitrate</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                  <p className="mt-0.5 text-2xs text-muted-foreground/60">
                     Higher = better quality, larger file. Output is never up-converted past the
                     source.
                   </p>
@@ -214,7 +214,7 @@ export function AudioEstimatePanel({
                   key={label}
                   className="rounded-lg border border-border/50 bg-muted/10 px-4 py-3"
                 >
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                     {label}
                   </p>
                   <p
@@ -225,7 +225,7 @@ export function AudioEstimatePanel({
                   >
                     {value}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground/60">{sub}</p>
+                  <p className="mt-0.5 text-2xs text-muted-foreground/60">{sub}</p>
                 </div>
               ))}
             </div>

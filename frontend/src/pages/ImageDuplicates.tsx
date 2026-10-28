@@ -71,15 +71,15 @@ function ImageCard({
 
       {/* Suggested keep badge top-right */}
       {isSuggested && (
-        <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded z-10">
+        <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-3xs font-semibold px-1.5 py-0.5 rounded z-10">
           KEEP
         </div>
       )}
 
       {/* Filename + size overlay bottom */}
       <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1.5 py-1">
-        <p className="truncate text-[10px] text-white leading-tight">{img.filename}</p>
-        <p className="text-[10px] text-white/60">{formatSize(img.size)}</p>
+        <p className="truncate text-3xs text-white leading-tight">{img.filename}</p>
+        <p className="text-3xs text-white/60">{formatSize(img.size)}</p>
       </div>
     </div>
   );

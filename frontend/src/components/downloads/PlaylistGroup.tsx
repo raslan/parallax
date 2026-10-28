@@ -43,9 +43,9 @@ export function PlaylistGroup({
         <span className="flex-1 text-sm font-medium text-foreground/90 truncate">{title}</span>
         <div className="flex items-center gap-2 shrink-0">
           {active > 0 && (
-            <span className="text-[10px] text-primary font-mono tabular-nums">{overallPct}%</span>
+            <span className="text-3xs text-primary font-mono tabular-nums">{overallPct}%</span>
           )}
-          <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+          <span className="text-3xs text-muted-foreground font-mono tabular-nums">
             {done}/{total}
             {failed > 0 && <span className="text-red-400 ml-1">({failed} failed)</span>}
           </span>

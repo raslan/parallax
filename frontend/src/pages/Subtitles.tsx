@@ -62,7 +62,7 @@ function LangBadges({
           <span
             key={code}
             title={`${code}: present — click × to remove`}
-            className="group/badge flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase leading-none bg-green-500/15 text-green-500"
+            className="group/badge flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-3xs font-mono font-medium uppercase leading-none bg-green-500/15 text-green-500"
           >
             {code}
             <button
@@ -80,7 +80,7 @@ function LangBadges({
           <span
             key={code}
             title={`${code}: missing`}
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase leading-none bg-muted/50 text-muted-foreground/40"
+            className="px-1.5 py-0.5 rounded text-3xs font-mono font-medium uppercase leading-none bg-muted/50 text-muted-foreground/40"
           >
             {code}
           </span>

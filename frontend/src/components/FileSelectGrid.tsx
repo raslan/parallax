@@ -82,7 +82,7 @@ export function FileGridCard({
         <p className="text-xs font-mono truncate text-foreground/90" title={file.filename}>
           {file.filename}
         </p>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-3xs text-muted-foreground">
           {file.codec_name && <span className="uppercase font-mono">{file.codec_name}</span>}
           <span>{formatSize(file.size)}</span>
           {file.duration != null && <span>{formatDuration(file.duration)}</span>}
@@ -112,7 +112,7 @@ export function ColHeader<K extends string>({
     <button
       onClick={() => onSort(sortKey)}
       className={cn(
-        "flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground transition-colors",
+        "flex items-center gap-1 text-3xs uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground transition-colors",
         className,
       )}
     >

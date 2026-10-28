@@ -40,7 +40,7 @@ function MatchPct({ score }: { score: number }) {
   return (
     <span
       className={cn(
-        "text-[11px] font-medium tabular-nums shrink-0 w-9 text-right",
+        "text-2xs font-medium tabular-nums shrink-0 w-9 text-right",
         pct >= 70 ? "text-green-500" : pct >= 40 ? "text-amber-500" : "text-muted-foreground/60",
       )}
     >
@@ -365,7 +365,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
           yearOverride == null &&
           (tmdbSearching || tmdbResults.length > 0 || tmdbError) && (
             <div className="mt-3 border border-border rounded-md p-2 space-y-1 max-h-40 overflow-y-auto">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground px-1">
+              <span className="text-3xs font-medium uppercase tracking-wide text-muted-foreground px-1">
                 TMDB matches — pick one to set exact title/year
               </span>
               {tmdbSearching && (
@@ -427,7 +427,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
                       : "border-border hover:bg-muted/30",
                   )}
                 >
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 bg-primary/15 text-primary">
+                  <span className="text-3xs font-semibold px-1.5 py-0.5 rounded shrink-0 bg-primary/15 text-primary">
                     {c.provider.slice(0, 4).toUpperCase()}
                   </span>
 

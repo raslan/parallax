@@ -20,7 +20,7 @@ export function BottomBar({ onOpenSection }: { onOpenSection: (id: SectionId) =>
           data-active={String(active === s.id)}
           onClick={() => onOpenSection(s.id)}
           className={cn(
-            "flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-h-11",
+            "flex flex-1 flex-col items-center justify-center gap-0.5 text-3xs font-medium transition-colors min-h-11",
             active === s.id ? "text-primary" : "text-muted-foreground hover:text-foreground",
           )}
         >

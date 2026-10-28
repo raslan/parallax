@@ -101,17 +101,17 @@ export function ModelCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium">{model.name}</span>
             {model.active && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">
+              <span className="text-3xs font-semibold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">
                 Active
               </span>
             )}
             {model.bundled && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              <span className="text-3xs font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                 Bundled
               </span>
             )}
             {!model.bundled && (
-              <span className="text-[10px] text-muted-foreground font-mono">
+              <span className="text-3xs text-muted-foreground font-mono">
                 {formatSize(model.size_mb * 1024 * 1024)}
               </span>
             )}
@@ -120,10 +120,10 @@ export function ModelCard({
           {downloading && (
             <div className="mt-2 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                <span className="text-2xs text-muted-foreground truncate max-w-[200px]">
                   {jobStatus}
                 </span>
-                <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
+                <span className="text-2xs text-muted-foreground shrink-0 ml-2">
                   {Math.round(jobProgress)}%
                 </span>
               </div>
@@ -185,7 +185,7 @@ export function ModelCard({
             </>
           )}
           {model.active && !model.bundled && (
-            <span className="text-[10px] text-muted-foreground">In use</span>
+            <span className="text-3xs text-muted-foreground">In use</span>
           )}
         </div>
       </div>

@@ -124,7 +124,7 @@ function GroupCard({
                 columns={<DuplicateColumns file={f} />}
                 trailing={
                   isSuggested ? (
-                    <span className="shrink-0 rounded bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
+                    <span className="shrink-0 rounded bg-primary/90 px-1.5 py-0.5 text-3xs font-semibold text-primary-foreground">
                       KEEP
                     </span>
                   ) : null

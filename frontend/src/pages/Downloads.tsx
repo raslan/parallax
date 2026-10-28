@@ -333,7 +333,7 @@ export function Downloads() {
                 <label className="text-xs font-medium text-muted-foreground">
                   URLs
                   {urlCount > 1 && (
-                    <span className="ml-1.5 text-[10px] text-primary/70 font-mono">
+                    <span className="ml-1.5 text-3xs text-primary/70 font-mono">
                       {urlCount} URLs
                     </span>
                   )}
@@ -368,7 +368,7 @@ export function Downloads() {
                 )}
                 {submitting ? "Adding…" : urlCount > 1 ? `Add ${urlCount} URLs` : "Add to queue"}
               </Button>
-              <span className="text-[10px] text-muted-foreground/40">Ctrl+Enter to submit</span>
+              <span className="text-3xs text-muted-foreground/40">Ctrl+Enter to submit</span>
               {submitError && <span className="text-xs text-red-400 ml-auto">{submitError}</span>}
             </div>
 
@@ -380,7 +380,7 @@ export function Downloads() {
                   {activeCount > 0 && (
                     <Badge
                       variant="secondary"
-                      className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20"
+                      className="text-3xs font-mono bg-primary/10 text-primary border-primary/20"
                     >
                       {activeCount} active
                     </Badge>
@@ -392,7 +392,7 @@ export function Downloads() {
                           key={f}
                           onClick={() => setStatusFilter(f)}
                           className={cn(
-                            "px-2 py-0.5 rounded text-[10px] font-medium transition-colors capitalize",
+                            "px-2 py-0.5 rounded text-3xs font-medium transition-colors capitalize",
                             statusFilter === f
                               ? "bg-primary/15 text-primary border border-primary/30"
                               : "text-muted-foreground/50 hover:text-muted-foreground border border-transparent",
@@ -406,7 +406,7 @@ export function Downloads() {
                 </div>
                 <div className="flex items-center gap-3">
                   {ytdlp.version && (
-                    <span className="text-[10px] text-muted-foreground/40 font-mono">
+                    <span className="text-3xs text-muted-foreground/40 font-mono">
                       yt-dlp {ytdlp.version}
                     </span>
                   )}
@@ -553,7 +553,7 @@ export function Downloads() {
               <ShieldCheck className="h-3 w-3" />
               Cookies
               {activeCookies && (
-                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-amber-500 text-3xs font-bold text-black flex items-center justify-center">
                   1
                 </span>
               )}

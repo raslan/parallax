@@ -76,7 +76,7 @@ function FileCard({
           {isChecked && <Check className="h-3 w-3 text-white" />}
         </div>
         {isSuggested && (
-          <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded z-10">
+          <div className="absolute top-1.5 right-1.5 bg-primary/90 text-primary-foreground text-3xs font-semibold px-1.5 py-0.5 rounded z-10">
             KEEP
           </div>
         )}

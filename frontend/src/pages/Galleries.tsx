@@ -331,7 +331,7 @@ export function Galleries() {
                 )}
                 {submitting ? "Adding…" : "Fetch"}
               </Button>
-              <span className="text-[10px] text-muted-foreground/40">Ctrl+Enter to submit</span>
+              <span className="text-3xs text-muted-foreground/40">Ctrl+Enter to submit</span>
               <button
                 type="button"
                 onClick={() => setShowYtdl(true)}
@@ -340,7 +340,7 @@ export function Galleries() {
                 <MonitorPlay className="h-3.5 w-3.5" />
                 YouTube options
                 {isSeeded && (
-                  <span className="font-mono text-[10px] text-muted-foreground/50">
+                  <span className="font-mono text-3xs text-muted-foreground/50">
                     {ytdlSummary(form.watch())}
                   </span>
                 )}

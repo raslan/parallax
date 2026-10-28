@@ -37,6 +37,11 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      // Two micro sizes for dense UI (badges, hints, table meta). 10px is the floor.
+      fontSize: {
+        "2xs": "0.6875rem",
+        "3xs": "0.625rem",
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

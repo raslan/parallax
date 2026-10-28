@@ -30,7 +30,7 @@ const BROWSERS = [
 ];
 
 const Label = ({ children }: { children: ReactNode }) => (
-  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+  <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
     {children}
   </p>
 );
@@ -92,7 +92,7 @@ export function GalleryOptionsPanel({
           <button
             type="button"
             onClick={() => setShowDirPicker((v) => !v)}
-            className="text-[10px] text-primary/70 hover:text-primary underline underline-offset-2 shrink-0"
+            className="text-3xs text-primary/70 hover:text-primary underline underline-offset-2 shrink-0"
           >
             Change
           </button>
@@ -131,7 +131,7 @@ export function GalleryOptionsPanel({
         <div className="flex items-center justify-between gap-2">
           <Label>Content type</Label>
           {listTypes && (
-            <div className="flex rounded border border-border/50 text-[10px] overflow-hidden">
+            <div className="flex rounded border border-border/50 text-3xs overflow-hidden">
               {(
                 [
                   ["list", "This list"],
@@ -188,7 +188,7 @@ export function GalleryOptionsPanel({
           })}
         </div>
         {listScope && listTypes.data?.override && (
-          <p className="text-[10px] text-muted-foreground/70">
+          <p className="text-3xs text-muted-foreground/70">
             Overrides the global setting for this list ·{" "}
             <button
               type="button"
@@ -235,7 +235,7 @@ export function GalleryOptionsPanel({
           <button
             type="button"
             onClick={() => setShowMin(true)}
-            className="text-[10px] text-primary/70 hover:text-primary underline underline-offset-2"
+            className="text-3xs text-primary/70 hover:text-primary underline underline-offset-2"
           >
             ＋ min size
           </button>
@@ -324,7 +324,7 @@ export function GalleryOptionsPanel({
               className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
             <div className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground/60">
+              <span className="min-w-0 flex-1 truncate text-3xs text-muted-foreground/60">
                 {!archive
                   ? "…"
                   : !archive.exists
@@ -335,7 +335,7 @@ export function GalleryOptionsPanel({
                 type="button"
                 onClick={onResetArchive}
                 disabled={!archive?.exists}
-                className="inline-flex shrink-0 items-center gap-1 rounded border border-border/50 px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-border/50 px-2 py-1 text-3xs text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <RotateCcw className="h-3 w-3" />
                 Reset archive

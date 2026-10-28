@@ -59,9 +59,7 @@ function FixEditor({
   if (fixKey === "trim") {
     return (
       <div className="space-y-3">
-        <p className="text-[11px] text-muted-foreground/60">
-          Cut seconds off the start and/or end.
-        </p>
+        <p className="text-2xs text-muted-foreground/60">Cut seconds off the start and/or end.</p>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm">
             Start
@@ -94,7 +92,7 @@ function FixEditor({
   if (fixKey === "channel") {
     return (
       <div className="space-y-3">
-        <p className="text-[11px] text-muted-foreground/60">
+        <p className="text-2xs text-muted-foreground/60">
           Remap channels — fix one-ear audio or collapse to mono.
         </p>
         <Select
@@ -116,7 +114,7 @@ function FixEditor({
     );
   }
   return (
-    <p className="text-[11px] text-muted-foreground/60">
+    <p className="text-2xs text-muted-foreground/60">
       Even out loudness to EBU R128 (two-pass). No settings.
     </p>
   );

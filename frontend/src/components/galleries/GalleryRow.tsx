@@ -63,11 +63,11 @@ export function GalleryRow({
   const errorBlock = row.error ? (
     <button onClick={() => setErrorExpanded((v) => !v)} className="text-left w-full">
       {errorExpanded ? (
-        <pre className="text-[11px] text-destructive whitespace-pre-wrap break-all font-mono leading-relaxed">
+        <pre className="text-2xs text-destructive whitespace-pre-wrap break-all font-mono leading-relaxed">
           {row.error}
         </pre>
       ) : (
-        <p className="text-[11px] text-destructive line-clamp-2">{row.error.split("\n")[0]}</p>
+        <p className="text-2xs text-destructive line-clamp-2">{row.error.split("\n")[0]}</p>
       )}
     </button>
   ) : null;
@@ -76,14 +76,14 @@ export function GalleryRow({
     <div>
       <button
         onClick={() => setLogExpanded((v) => !v)}
-        className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground inline-flex items-center gap-1 transition-colors"
+        className="text-2xs text-muted-foreground/60 hover:text-muted-foreground inline-flex items-center gap-1 transition-colors"
       >
         <ChevronRight className={cn("h-3 w-3 transition-transform", logExpanded && "rotate-90")} />
         <Terminal className="h-3 w-3" />
         output
       </button>
       {logExpanded && row.log_tail && (
-        <pre className="mt-1 max-h-48 overflow-y-auto rounded bg-muted/40 p-2 text-[11px] font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
+        <pre className="mt-1 max-h-48 overflow-y-auto rounded bg-muted/40 p-2 text-2xs font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
           {row.log_tail}
         </pre>
       )}
@@ -149,7 +149,7 @@ export function GalleryRow({
           </div>
 
           {row.last_filename && (
-            <p className="text-[10px] text-muted-foreground/40 font-mono truncate">
+            <p className="text-3xs text-muted-foreground/40 font-mono truncate">
               last: {row.last_filename}
             </p>
           )}
@@ -189,7 +189,7 @@ export function GalleryRow({
             {recent.map((f, i) => (
               <p
                 key={`${f}-${i}`}
-                className="pl-5 text-[11px] font-mono text-muted-foreground/40 truncate"
+                className="pl-5 text-2xs font-mono text-muted-foreground/40 truncate"
               >
                 {f}
               </p>
@@ -207,7 +207,7 @@ export function GalleryRow({
               <Check className="h-4 w-4 shrink-0" />
               {row.files_done}
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+            <span className="text-3xs uppercase tracking-widest text-muted-foreground/60">
               done
             </span>
           </div>
@@ -220,7 +220,7 @@ export function GalleryRow({
               <SkipForward className="h-4 w-4 shrink-0" />
               {row.files_skipped}
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+            <span className="text-3xs uppercase tracking-widest text-muted-foreground/60">
               skipped
             </span>
           </div>
@@ -234,7 +234,7 @@ export function GalleryRow({
                 <X className="h-4 w-4 shrink-0" />
                 {row.files_failed}
               </span>
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+              <span className="text-3xs uppercase tracking-widest text-muted-foreground/60">
                 failed
               </span>
             </div>

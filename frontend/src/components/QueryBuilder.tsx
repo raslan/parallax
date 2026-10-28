@@ -398,13 +398,13 @@ function JoinerSwitch({ value, onToggle }: { value: "AND" | "OR"; onToggle: () =
         }}
       />
       <span
-        className="relative z-10 flex-1 text-center text-[11px] font-bold"
+        className="relative z-10 flex-1 text-center text-2xs font-bold"
         style={{ color: isOr ? undefined : "#0a0a0f" }}
       >
         AND
       </span>
       <span
-        className="relative z-10 flex-1 text-center text-[11px] font-bold"
+        className="relative z-10 flex-1 text-center text-2xs font-bold"
         style={{ color: isOr ? "#0a0a0f" : undefined }}
       >
         OR
@@ -555,7 +555,7 @@ export function QueryBuilder<T>({
                       className="h-2 w-2 rounded-sm"
                       style={{ background: sectionColor[section] }}
                     />
-                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-2xs font-extrabold uppercase tracking-wide text-muted-foreground">
                       {section}
                     </span>
                   </div>

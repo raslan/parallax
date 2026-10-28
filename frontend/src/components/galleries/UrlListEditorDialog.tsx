@@ -64,7 +64,7 @@ export function UrlListEditorDialog({
 
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="space-y-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+            <label className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
               Name
             </label>
             <Input
@@ -77,7 +77,7 @@ export function UrlListEditorDialog({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col space-y-1">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+            <label className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
               URLs — one per line, <span className="font-mono"># comment</span> lines are skipped
             </label>
             <textarea

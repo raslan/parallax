@@ -73,7 +73,7 @@ export function KeepOriginalsToggle({
       <label htmlFor={id} className="shrink-0 cursor-pointer select-none text-sm">
         Keep originals
       </label>
-      <span className="text-[11px] leading-tight text-muted-foreground/60">{hint}</span>
+      <span className="text-2xs leading-tight text-muted-foreground/60">{hint}</span>
     </div>
   );
 }

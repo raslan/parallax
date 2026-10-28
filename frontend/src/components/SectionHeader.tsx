@@ -7,7 +7,7 @@ export function SectionHeader({
 }) {
   return (
     <p
-      className={`text-[10px] font-mono font-bold uppercase tracking-[0.12em] ${className}`}
+      className={`text-3xs font-mono font-bold uppercase tracking-[0.12em] ${className}`}
       style={{ color: "var(--px-accent)" }}
     >
       {children}

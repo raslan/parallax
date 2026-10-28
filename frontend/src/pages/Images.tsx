@@ -71,19 +71,19 @@ function ImageCard({
             selected ? "bg-primary border-primary" : "bg-background/80 border-muted-foreground"
           }`}
         >
-          {selected && <span className="text-[10px] text-primary-foreground font-bold">✓</span>}
+          {selected && <span className="text-3xs text-primary-foreground font-bold">✓</span>}
         </div>
       )}
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <p className="truncate text-[11px] text-white">{img.filename}</p>
+        <p className="truncate text-2xs text-white">{img.filename}</p>
         {!selectionMode && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onQuarantine();
             }}
-            className="mt-1 text-[10px] text-white/70 hover:text-white"
+            className="mt-1 text-3xs text-white/70 hover:text-white"
           >
             Quarantine
           </button>

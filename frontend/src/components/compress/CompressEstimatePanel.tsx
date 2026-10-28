@@ -266,14 +266,12 @@ export function CompressEstimatePanel({
                     <p className="text-xs font-medium text-foreground">
                       Target codec
                       {selectedCodec && (
-                        <span className="ml-2 font-mono text-[10px] text-muted-foreground/40">
+                        <span className="ml-2 font-mono text-3xs text-muted-foreground/40">
                           via {selectedCodec.encoder}
                         </span>
                       )}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
-                      Output video format
-                    </p>
+                    <p className="mt-0.5 text-2xs text-muted-foreground/60">Output video format</p>
                   </div>
                   <RadioToggle
                     value={codec}
@@ -286,7 +284,7 @@ export function CompressEstimatePanel({
                 <div className="space-y-2 px-4 py-4">
                   <div>
                     <p className="text-xs font-medium text-foreground">Encoding speed</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                    <p className="mt-0.5 text-2xs text-muted-foreground/60">
                       Slower = smaller file, more time.
                     </p>
                   </div>
@@ -305,7 +303,7 @@ export function CompressEstimatePanel({
                 <div className="space-y-2 px-4 py-4">
                   <div>
                     <p className="text-xs font-medium text-foreground">Quality (CRF)</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                    <p className="mt-0.5 text-2xs text-muted-foreground/60">
                       Lower = better quality, larger file. Each +6 roughly halves the bitrate.
                     </p>
                   </div>
@@ -333,7 +331,7 @@ export function CompressEstimatePanel({
                 <div className="space-y-2 px-4 py-4">
                   <div>
                     <p className="text-xs font-medium text-foreground">Max resolution</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                    <p className="mt-0.5 text-2xs text-muted-foreground/60">
                       Downscale sources above this size (short side) — an approximation, not an
                       exact pixel match. Quality stays governed by CRF above.
                     </p>
@@ -357,7 +355,7 @@ export function CompressEstimatePanel({
                         warn ? "border-orange-500/30" : "border-border/50",
                       )}
                     >
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                         {label}
                       </p>
                       <p
@@ -368,7 +366,7 @@ export function CompressEstimatePanel({
                       >
                         {value}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground/60">{sub}</p>
+                      <p className="mt-0.5 text-2xs text-muted-foreground/60">{sub}</p>
                     </div>
                   ))}
                 </div>

@@ -52,7 +52,7 @@ export function JobRadialIcon({
           data-testid="job-badge"
           className={cn(
             "absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center animate-pop",
-            "rounded-full bg-primary px-1 text-[9px] font-semibold leading-none text-primary-foreground",
+            "rounded-full bg-primary px-1 text-3xs font-semibold leading-none text-primary-foreground",
           )}
         >
           {count}

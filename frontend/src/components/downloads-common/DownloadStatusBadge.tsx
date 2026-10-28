@@ -22,7 +22,7 @@ export function DownloadStatusBadge({ status }: { status: DownloadStatusValue })
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide",
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-semibold uppercase tracking-wide",
         cfg.color,
         cfg.bg,
       )}

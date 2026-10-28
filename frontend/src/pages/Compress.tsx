@@ -554,7 +554,7 @@ export function Compress() {
                     badge={
                       <span
                         className={cn(
-                          "text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/60 font-mono",
+                          "text-3xs font-semibold px-1.5 py-0.5 rounded bg-black/60 font-mono",
                           estimateSize(f, codec, crf, speed, maxShortSide) > f.size
                             ? "text-red-400"
                             : savingsPct(f, codec, crf, speed, maxShortSide) > 0
@@ -612,7 +612,7 @@ export function Compress() {
                   onSort={handleSort}
                   className="w-16 justify-end shrink-0"
                 />
-                <span className="w-16 text-right shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground/40">
+                <span className="w-16 text-right shrink-0 text-3xs uppercase tracking-wider text-muted-foreground/40">
                   Estimated
                 </span>
                 <ColHeader

@@ -72,7 +72,7 @@ export function MergeOrderRow({
             <Badge
               key={r}
               variant="outline"
-              className="border-orange-500/40 px-1.5 py-0 text-[10px] text-orange-400"
+              className="border-orange-500/40 px-1.5 py-0 text-3xs text-orange-400"
             >
               {r}
             </Badge>

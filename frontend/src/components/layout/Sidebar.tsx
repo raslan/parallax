@@ -37,7 +37,7 @@ export function Sidebar({ className }: { className?: string }) {
       </nav>
 
       <div className="px-4 py-3">
-        <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+        <span className="text-3xs text-muted-foreground/40 tabular-nums">
           {import.meta.env.VITE_APP_VERSION ?? "dev"}
         </span>
       </div>
