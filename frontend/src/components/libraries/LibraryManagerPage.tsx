@@ -8,7 +8,7 @@ import { GridSkeleton } from "@/components/Skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, qk } from "@/lib/api";
 import type { Job } from "@/types/job";
-import { formatDate } from "@/lib/format";
+import { RelativeTime } from "@/components/RelativeTime";
 import { DeleteLibraryDialog } from "./DeleteLibraryDialog";
 import { DeleteAllLibrariesDialog } from "./DeleteAllLibrariesDialog";
 import type { LibraryBase, LibraryKind } from "./types";
@@ -152,9 +152,13 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {kind.isScanned(lib)
-                      ? `Last scanned: ${formatDate(lib.last_scanned_at)}`
-                      : kind.notScannedHint}
+                    {kind.isScanned(lib) ? (
+                      <>
+                        Last scanned: <RelativeTime iso={lib.last_scanned_at} />
+                      </>
+                    ) : (
+                      kind.notScannedHint
+                    )}
                   </p>
                 </CardContent>
               </Card>

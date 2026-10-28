@@ -25,9 +25,30 @@ export function formatBitrate(bps: number | null): string {
   return `${bps} bps`;
 }
 
-export function formatDate(iso: string | null): string {
-  if (!iso) return "Never";
-  return new Date(iso + (iso.endsWith("Z") ? "" : "Z")).toLocaleString();
+/** Parse a server timestamp; naive ISO strings from the backend are UTC. */
+export function parseServerDate(iso: string): Date {
+  return new Date(iso + (iso.endsWith("Z") ? "" : "Z"));
+}
+
+const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+const RELATIVE_STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["second", 60],
+  ["minute", 60],
+  ["hour", 24],
+  ["day", 30],
+  ["month", 12],
+  ["year", Infinity],
+];
+
+/** "2 days ago", "just now", "in 3 hours" — coarse, for scanning a list at a glance. */
+export function formatRelative(date: Date, now: Date = new Date()): string {
+  let delta = (date.getTime() - now.getTime()) / 1000;
+  if (Math.abs(delta) < 45) return RELATIVE.format(0, "second");
+  for (const [unit, size] of RELATIVE_STEPS) {
+    if (Math.abs(delta) < size) return RELATIVE.format(Math.round(delta), unit);
+    delta /= size;
+  }
+  return RELATIVE.format(Math.round(delta), "year");
 }
 
 export function formatUnixDate(ts: number | null): string {

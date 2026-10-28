@@ -8,7 +8,7 @@ import { JobRadialIcon } from "./JobRadialIcon";
 import { useJobsFeed } from "@/hooks/useJobsFeed";
 import { api, qk } from "@/lib/api";
 import type { Job } from "@/types/job";
-import { formatDate } from "@/lib/format";
+import { RelativeTime } from "@/components/RelativeTime";
 import { jobLabel } from "@/lib/jobs";
 import { StatusDot } from "@/components/StatusDot";
 import { cn } from "@/lib/utils";
@@ -134,7 +134,7 @@ export function JobsMenu() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{label(j.type)}</span>
                 <span className="block text-2xs text-muted-foreground">
-                  {j.status} · {formatDate(j.created_at)}
+                  {j.status} · <RelativeTime iso={j.created_at} />
                 </span>
               </span>
             </button>

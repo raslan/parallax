@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { RelativeTime } from "@/components/RelativeTime";
 import { RowContextMenu, RowMoreMenu, buildRowActions } from "@/components/RowMenu";
 import { QueryError } from "@/components/QueryError";
 import { GridSkeleton } from "@/components/Skeletons";
@@ -126,7 +127,7 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
           {formatUnixDate(file.file_date)}
         </span>
         <span className="w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
-          {formatUnixDate(file.file_mtime)}
+          <RelativeTime unix={file.file_mtime} fallback="—" />
         </span>
         <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
           {formatSize(file.size)}

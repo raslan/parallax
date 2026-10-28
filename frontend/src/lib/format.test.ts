@@ -1,5 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { formatSize, formatDuration, formatBitrate } from "./format";
+import { formatSize, formatDuration, formatBitrate, formatRelative } from "./format";
+
+describe("formatRelative", () => {
+  const now = new Date("2026-06-15T12:00:00Z");
+  const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000);
+
+  it("says just now for the last few seconds", () => {
+    expect(formatRelative(ago(5), now)).toBe("now");
+  });
+  it("steps through minutes, hours, days, months and years", () => {
+    expect(formatRelative(ago(5 * 60), now)).toBe("5 minutes ago");
+    expect(formatRelative(ago(3 * 3600), now)).toBe("3 hours ago");
+    expect(formatRelative(ago(2 * 86400), now)).toBe("2 days ago");
+    expect(formatRelative(ago(90 * 86400), now)).toBe("3 months ago");
+    expect(formatRelative(ago(800 * 86400), now)).toBe("2 years ago");
+  });
+  it("handles the future", () => {
+    expect(formatRelative(new Date(now.getTime() + 2 * 3600 * 1000), now)).toBe("in 2 hours");
+  });
+});
 
 describe("formatSize", () => {
   it("returns '0 B' for a real zero", () => {

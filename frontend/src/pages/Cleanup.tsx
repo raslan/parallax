@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { RelativeTime } from "@/components/RelativeTime";
 import { RowContextMenu, RowMoreMenu, buildRowActions } from "@/components/RowMenu";
 import { SelectionBar } from "@/components/SelectionBar";
 import { QueryError } from "@/components/QueryError";
@@ -180,7 +181,7 @@ function CleanupListRow({
           {formatUnixDate(file.file_date)}
         </span>
         <span className="text-xs text-muted-foreground font-mono w-24 text-right shrink-0">
-          {formatUnixDate(file.file_mtime)}
+          <RelativeTime unix={file.file_mtime} fallback="—" />
         </span>
         <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
           {formatSize(file.size)}

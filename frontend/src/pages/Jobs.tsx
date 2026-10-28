@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, qk } from "@/lib/api";
 import type { Job, JobLog } from "@/types/job";
-import { formatDate } from "@/lib/format";
+import { RelativeTime } from "@/components/RelativeTime";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/SectionHeader";
 import { StatusDot } from "@/components/StatusDot";
@@ -176,7 +176,7 @@ function JobRow({
         )}
 
         <div className="text-xs text-muted-foreground shrink-0 text-right min-w-[100px]">
-          {formatDate(job.created_at)}
+          <RelativeTime iso={job.created_at} />
         </div>
       </div>
 
