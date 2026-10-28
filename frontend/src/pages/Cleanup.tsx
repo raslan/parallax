@@ -84,10 +84,7 @@ function CleanupCard({
           <Play className="h-8 w-8 text-white fill-white" />
         </button>
       </div>
-      <CardContent
-        className="p-2.5 space-y-0.5 border-t border-border"
-        style={{ background: "var(--px-bg-elevated)" }}
-      >
+      <CardContent className="p-2.5 space-y-0.5 border-t border-border bg-px-elevated">
         <p className="text-xs font-medium truncate" title={file.filename}>
           {file.filename}
         </p>

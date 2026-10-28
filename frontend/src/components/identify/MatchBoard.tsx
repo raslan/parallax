@@ -24,7 +24,7 @@ function FileCard({ filePath, onRemove }: { filePath: string; onRemove?: () => v
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: filePath });
   return (
     <div
-      className={`flex items-center gap-2 rounded-md border border-border bg-[var(--px-bg-elevated)] pr-1.5 ${
+      className={`flex items-center gap-2 rounded-md border border-border bg-px-elevated pr-1.5 ${
         isDragging ? "opacity-30" : ""
       }`}
     >
@@ -351,7 +351,7 @@ export function MatchBoard({
 
       <DragOverlay>
         {activeFile && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-[var(--px-bg-elevated)] px-2 py-1.5 shadow-lg">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-px-elevated px-2 py-1.5 shadow-lg">
             <Film className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate font-mono text-xs">{filename(activeFile)}</span>
           </div>

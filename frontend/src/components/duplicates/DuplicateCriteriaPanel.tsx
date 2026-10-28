@@ -4,7 +4,7 @@ import { PercentSlider } from "@/components/QueryBuilder";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import { cn } from "@/lib/utils";
 
-const CATEGORY_COLOR = { free: "#38bdf8", extraction: "#a78bfa" } as const;
+const CATEGORY_COLOR = { free: "var(--px-cat-1)", extraction: "var(--px-cat-2)" } as const;
 
 type Patch = Partial<DuplicateCriteria>;
 

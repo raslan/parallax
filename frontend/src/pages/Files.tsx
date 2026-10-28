@@ -50,10 +50,7 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
           imgClassName="w-full h-full object-cover"
         />
       </div>
-      <CardContent
-        className="p-2.5 space-y-0.5 border-t border-border"
-        style={{ background: "var(--px-bg-elevated)" }}
-      >
+      <CardContent className="p-2.5 space-y-0.5 border-t border-border bg-px-elevated">
         <p className="text-xs font-medium truncate" title={file.filename}>
           {file.filename}
         </p>

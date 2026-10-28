@@ -6,6 +6,13 @@
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
   --radius: 0.4rem;
+  /* Categorical hues for filter/criteria chips: fixed across themes so they stay
+     distinct from the theme accent. --px-on-accent is dark text for use on an
+     accent- or category-filled surface. */
+  --px-cat-1: #38bdf8;
+  --px-cat-2: #a78bfa;
+  --px-cat-3: #fbbf24;
+  --px-on-accent: #0a0a0f;
   /* opt every native control (select popups, scrollbars, form widgets) into dark
      rendering — without this, Windows paints <select>/<option> with the OS light
      theme regardless of our CSS */

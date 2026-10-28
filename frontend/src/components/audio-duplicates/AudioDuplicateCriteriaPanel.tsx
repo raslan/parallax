@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PercentSlider } from "@/components/QueryBuilder";
 import type { AudioDuplicateCriteria } from "@/types/audioDuplicate";
 
-const CATEGORY_COLOR = { free: "#38bdf8", extraction: "#a78bfa" } as const;
+const CATEGORY_COLOR = { free: "var(--px-cat-1)", extraction: "var(--px-cat-2)" } as const;
 
 type Patch = Partial<AudioDuplicateCriteria>;
 

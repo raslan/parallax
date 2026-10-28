@@ -12,9 +12,9 @@ import type { Clause, FieldDef, Operator } from "@/hooks/useQueryBuilder";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_COLOR: Record<string, string> = {
-  numeric: "#38bdf8",
-  label: "#a78bfa",
-  search: "#fbbf24",
+  numeric: "var(--px-cat-1)",
+  label: "var(--px-cat-2)",
+  search: "var(--px-cat-3)",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -345,11 +345,10 @@ function ExpandedClause<T>({
   return (
     <div
       ref={ref}
-      className="flex w-fit min-w-[240px] max-w-[380px] flex-col gap-3 rounded-lg border-2 p-3.5"
+      className="flex w-fit min-w-[240px] max-w-[380px] flex-col gap-3 rounded-lg border-2 bg-px-elevated p-3.5"
       style={{
         borderColor: "var(--px-accent)",
-        boxShadow: "0 0 0 4px var(--px-accent-dim, rgba(139,92,246,0.16))",
-        background: "var(--px-bg-elevated, #1e1e24)",
+        boxShadow: "0 0 0 4px var(--px-accent-dim)",
       }}
     >
       <div className="flex items-center justify-between gap-3">
@@ -385,27 +384,28 @@ function JoinerSwitch({ value, onToggle }: { value: "AND" | "OR"; onToggle: () =
     <button
       type="button"
       onClick={onToggle}
-      className="relative flex h-[34px] w-[88px] shrink-0 items-center rounded-full border border-border p-[3px]"
-      style={{
-        background: "var(--px-bg-elevated, #1e1e24)",
-      }}
+      className="relative flex h-[34px] w-[88px] shrink-0 items-center rounded-full border border-border bg-px-elevated p-[3px]"
     >
       <span
         className="absolute top-[3px] h-[26px] w-[41px] rounded-full transition-all"
         style={{
           left: isOr ? "44px" : "3px",
-          background: isOr ? "#fbbf24" : "var(--px-accent)",
+          background: isOr ? "var(--px-cat-3)" : "var(--px-accent)",
         }}
       />
       <span
-        className="relative z-10 flex-1 text-center text-2xs font-bold"
-        style={{ color: isOr ? undefined : "#0a0a0f" }}
+        className={cn(
+          "relative z-10 flex-1 text-center text-2xs font-bold",
+          !isOr && "text-px-on-accent",
+        )}
       >
         AND
       </span>
       <span
-        className="relative z-10 flex-1 text-center text-2xs font-bold"
-        style={{ color: isOr ? "#0a0a0f" : undefined }}
+        className={cn(
+          "relative z-10 flex-1 text-center text-2xs font-bold",
+          isOr && "text-px-on-accent",
+        )}
       >
         OR
       </span>
@@ -533,10 +533,7 @@ export function QueryBuilder<T>({
           Add filter
         </button>
         {menuOpen && (
-          <div
-            className="absolute top-full z-20 mt-2 w-[720px] max-w-[92vw] rounded-lg border border-border shadow-2xl"
-            style={{ background: "var(--px-bg-elevated, #1e1e24)" }}
-          >
+          <div className="absolute top-full z-20 mt-2 w-[720px] max-w-[92vw] rounded-lg border border-border bg-px-elevated shadow-2xl">
             <div className="border-b border-border p-4">
               <input
                 autoFocus
@@ -564,8 +561,7 @@ export function QueryBuilder<T>({
                       <div
                         key={f.key}
                         onClick={() => handleAdd(f.key)}
-                        className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-2.5 text-xs font-semibold transition-all hover:-translate-y-px hover:border-primary hover:text-primary"
-                        style={{ background: "var(--px-bg-surface, transparent)" }}
+                        className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-px-surface px-3 py-2.5 text-xs font-semibold transition-all hover:-translate-y-px hover:border-primary hover:text-primary"
                       >
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full"

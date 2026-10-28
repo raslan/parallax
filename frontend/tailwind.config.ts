@@ -7,6 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Theme surfaces/ink as utilities (`bg-px-elevated`), instead of inline styles.
+        px: {
+          surface: "var(--px-bg-surface)",
+          elevated: "var(--px-bg-elevated)",
+          "on-accent": "var(--px-on-accent)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

@@ -72,10 +72,7 @@ const FILE_VERB: Record<string, string> = {
 function ProgressBar({ value }: { value: number }) {
   return (
     <div className="w-24 shrink-0">
-      <div
-        className="h-1.5 rounded-full overflow-hidden"
-        style={{ background: "var(--px-bg-elevated)" }}
-      >
+      <div className="h-1.5 rounded-full overflow-hidden bg-px-elevated">
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{

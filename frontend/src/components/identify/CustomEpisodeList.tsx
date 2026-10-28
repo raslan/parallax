@@ -99,7 +99,7 @@ function EpisodeNumberInput({
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
         }}
-        className="w-14 rounded-md border border-primary/40 bg-[var(--px-bg-elevated)] px-2 py-1 text-center text-sm font-semibold text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-14 rounded-md border border-primary/40 bg-px-elevated px-2 py-1 text-center text-sm font-semibold text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
       />
     </label>
   );
