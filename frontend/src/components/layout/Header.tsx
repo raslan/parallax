@@ -15,7 +15,7 @@ export function Header({ onOpenPalette }: { onOpenPalette?: () => void } = {}) {
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-[hsl(var(--sidebar))] px-4 border-[hsl(var(--sidebar-border))]">
-      <Link to="/libraries" className="flex items-center gap-2.5">
+      <Link to="/" aria-label="Parallax home" className="flex items-center gap-2.5">
         <ParallaxLogo className="h-5 w-5 shrink-0" />
         <span className="hidden text-sm font-semibold tracking-tight text-foreground sm:inline">
           Parallax

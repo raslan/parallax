@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Activity, Palette, Settings } from "lucide-react";
+import { Activity, House, Palette, Settings } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import {
   Command,
@@ -77,6 +77,10 @@ export function CommandPalette({
           ))}
           <CommandSeparator />
           <CommandGroup heading="Actions">
+            <CommandItem value="Open Home overview" onSelect={() => run(() => navigate("/"))}>
+              <House />
+              Home
+            </CommandItem>
             <CommandItem value="Open Jobs" onSelect={() => run(() => navigate("/jobs"))}>
               <Activity />
               Jobs

@@ -100,6 +100,7 @@ export function routeToTab(pathname: string): SectionId | null {
  * @public
  */
 export function routeLabel(pathname: string): string | null {
+  if (pathname === "/") return "Home";
   if (pathname === "/jobs") return "Jobs";
   if (pathname === "/settings") return "Settings";
   let best: { label: string; len: number } | null = null;

@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ComponentType } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Toaster } from "@/components/ui/sonner";
@@ -12,6 +12,7 @@ function page<K extends string>(load: () => Promise<Record<K, ComponentType>>, n
   return lazy(async () => ({ default: (await load())[name] }));
 }
 
+const Home = page(() => import("@/pages/Home"), "Home");
 const Libraries = page(() => import("@/pages/Libraries"), "Libraries");
 const Files = page(() => import("@/pages/Files"), "Files");
 const Jobs = page(() => import("@/pages/Jobs"), "Jobs");
@@ -55,7 +56,7 @@ export default function App() {
             <Toaster />
             <Routes>
               <Route element={<Layout />}>
-                <Route path="/" element={<Navigate to="/libraries" replace />} />
+                <Route path="/" element={<Home />} />
                 {/* Video routes */}
                 <Route path="/libraries" element={<Libraries />} />
                 <Route path="/files" element={<Files />} />
