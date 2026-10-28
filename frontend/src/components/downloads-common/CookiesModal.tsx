@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { useDropzone } from "react-dropzone";
 
 export function CookiesModal({
   open,
@@ -19,6 +20,22 @@ export function CookiesModal({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setDraft(value);
   }, [open, value]);
+
+  // Read a dropped/chosen cookies file into the draft (the user still reviews and applies it).
+  const {
+    getRootProps,
+    getInputProps,
+    isDragActive,
+    open: openPicker,
+  } = useDropzone({
+    noClick: true,
+    noKeyboard: true,
+    multiple: false,
+    accept: { "text/plain": [".txt"] },
+    onDrop: ([file]) => {
+      if (file) void file.text().then(setDraft);
+    },
+  });
 
   if (!open) return null;
 
@@ -45,13 +62,28 @@ export function CookiesModal({
           Paste cookies in Netscape format (exported via a browser extension like "Get
           cookies.txt"). Active for this session only — navigating away clears them.
         </p>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={"# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t..."}
-          rows={8}
-          className="w-full rounded border border-input bg-muted/30 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/30"
-        />
+        <div {...getRootProps()} className="relative">
+          <input {...getInputProps()} />
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={"# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t..."}
+            rows={8}
+            className="w-full rounded border border-input bg-muted/30 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/30"
+          />
+          {isDragActive && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded border-2 border-dashed border-primary bg-primary/10 text-sm text-primary">
+              Drop a cookies.txt file
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={openPicker}
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          …or drop / choose a cookies.txt file
+        </button>
         <div className="flex gap-2 justify-end">
           {value && (
             <button
