@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import Plyr from "plyr";
-import "plyr/dist/plyr.css";
+import type Plyr from "plyr";
 import { Loader2, X } from "lucide-react";
 import { streamApi } from "@/lib/api";
 import type { SubtitleTrack } from "@/types/subtitle";
@@ -148,15 +147,22 @@ export function VideoPlayerModal({
       : hasTracks
         ? [...baseControls, "captions", "settings", "fullscreen"]
         : [...baseControls, "fullscreen"];
-    playerRef.current = new Plyr(videoRef.current as HTMLVideoElement, {
-      controls,
-      keyboard: { focused: true, global: false },
-      tooltips: { controls: true, seek: true },
-      speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
-      captions: { active: true, language: "auto" },
-      settings: ["captions", "speed"],
+    // Plyr + its CSS are loaded on first open so they stay out of the main bundle.
+    let cancelled = false;
+    const el = videoRef.current as HTMLVideoElement;
+    Promise.all([import("plyr"), import("plyr/dist/plyr.css")]).then(([{ default: Plyr }]) => {
+      if (cancelled) return;
+      playerRef.current = new Plyr(el, {
+        controls,
+        keyboard: { focused: true, global: false },
+        tooltips: { controls: true, seek: true },
+        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+        captions: { active: true, language: "auto" },
+        settings: ["captions", "speed"],
+      });
     });
     return () => {
+      cancelled = true;
       playerRef.current?.destroy();
       playerRef.current = null;
     };

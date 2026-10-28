@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Outlet } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { BottomBar } from "./BottomBar";
@@ -15,7 +16,15 @@ export function Layout() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <BottomBar onOpenSection={setSheetSection} />
