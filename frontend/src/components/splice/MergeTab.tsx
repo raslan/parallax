@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Cpu, Film, LayoutGrid, List, Loader2, Merge, Search, SearchX } from "lucide-react";
+import { Cpu, Film, Loader2, Merge, SearchX } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
+import { ToolbarSearch, ViewToggle } from "@/components/DataToolbar";
 import { api, compressApi, qk, spliceApi } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import {
@@ -33,7 +34,6 @@ import {
   syncOrder,
   type SortMode,
 } from "@/lib/spliceOrder";
-import { cn } from "@/lib/utils";
 import { MergeSheet } from "./MergeSheet";
 
 // Mirrors `GPU_FAILED_PREFIX` in backend/app/services/splice.py.
@@ -374,42 +374,10 @@ export function MergeTab() {
             >
               None
             </button>
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search files…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-7 pr-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring w-48"
-              />
-            </div>
+            <ToolbarSearch value={search} onChange={setSearch} />
             <div className="flex-1" />
 
-            <div className="flex border border-border rounded-md overflow-hidden">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={cn(
-                  "h-8 w-8 flex items-center justify-center transition-colors",
-                  viewMode === "grid"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-                )}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={cn(
-                  "h-8 w-8 flex items-center justify-center transition-colors",
-                  viewMode === "list"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-                )}
-              >
-                <List className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
 
             {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
 

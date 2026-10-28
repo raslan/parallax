@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AudioLines, Zap, Loader2, Search, SearchX } from "lucide-react";
+import { AudioLines, Zap, Loader2, SearchX } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
+import { ToolbarSearch } from "@/components/DataToolbar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, audioCompressApi, audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
@@ -304,16 +305,7 @@ export function AudioCompress() {
             >
               Larger than target
             </button>
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search files…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-7 pr-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring w-48"
-              />
-            </div>
+            <ToolbarSearch value={search} onChange={setSearch} />
             <div className="flex-1" />
             <Button
               onClick={handleStart}
