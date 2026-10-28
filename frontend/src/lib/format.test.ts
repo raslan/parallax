@@ -2,10 +2,14 @@ import { describe, it, expect } from "vitest";
 import { formatSize, formatDuration, formatBitrate } from "./format";
 
 describe("formatSize", () => {
-  it("returns '0 B' for 0, negatives and NaN", () => {
+  it("returns '0 B' for a real zero", () => {
     expect(formatSize(0)).toBe("0 B");
-    expect(formatSize(-5)).toBe("0 B");
-    expect(formatSize(NaN)).toBe("0 B");
+  });
+  it("returns an em dash for missing or invalid sizes", () => {
+    expect(formatSize(null)).toBe("—");
+    expect(formatSize(undefined)).toBe("—");
+    expect(formatSize(-5)).toBe("—");
+    expect(formatSize(NaN)).toBe("—");
   });
   it("scales through the units", () => {
     expect(formatSize(512)).toBe("512.0 B");
@@ -33,9 +37,9 @@ describe("formatDuration", () => {
 });
 
 describe("formatBitrate", () => {
-  it("returns '' for null / 0", () => {
-    expect(formatBitrate(null)).toBe("");
-    expect(formatBitrate(0)).toBe("");
+  it("returns an em dash for null / 0", () => {
+    expect(formatBitrate(null)).toBe("—");
+    expect(formatBitrate(0)).toBe("—");
   });
   it("uses bps / kbps / Mbps bands", () => {
     expect(formatBitrate(800)).toBe("800 bps");
