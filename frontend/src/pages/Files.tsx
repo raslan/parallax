@@ -82,6 +82,7 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
   return (
     <RowContextMenu actions={actions}>
       <div
+        role="row"
         className="relative group/row flex items-center gap-3 pl-3 pr-10 md:pr-3 py-2 border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer transition-colors"
         onClick={onPlay}
       >
@@ -106,7 +107,7 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
             <Play className="h-3.5 w-3.5 text-white fill-white" />
           </div>
         </button>
-        <div className="flex-1 min-w-0">
+        <div role="cell" className="flex-1 min-w-0">
           <p className="truncate text-sm font-medium" title={file.filename}>
             {file.filename}
           </p>
@@ -115,22 +116,40 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
           </p>
         </div>
         {/* Secondary columns drop away on narrow screens so the name and size stay readable. */}
-        <span className="hidden md:block w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        <span
+          role="cell"
+          className="hidden md:block w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono"
+        >
           {file.codec_name ? file.codec_name.toUpperCase() : "—"}
         </span>
-        <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        <span
+          role="cell"
+          className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono"
+        >
           {formatDuration(file.duration)}
         </span>
-        <span className="hidden md:block w-20 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        <span
+          role="cell"
+          className="hidden md:block w-20 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono"
+        >
           {file.video_bitrate ? formatBitrate(file.video_bitrate) : "—"}
         </span>
-        <span className="hidden lg:block w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        <span
+          role="cell"
+          className="hidden lg:block w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono"
+        >
           {formatUnixDate(file.file_date)}
         </span>
-        <span className="hidden lg:block w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono">
+        <span
+          role="cell"
+          className="hidden lg:block w-24 shrink-0 text-right tabular-nums text-xs text-muted-foreground font-mono"
+        >
           <RelativeTime unix={file.file_mtime} fallback="—" />
         </span>
-        <span className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
+        <span
+          role="cell"
+          className="w-16 shrink-0 text-right tabular-nums text-xs text-muted-foreground"
+        >
           {formatSize(file.size)}
         </span>
         <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100">
@@ -143,15 +162,32 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
 
 function FileListHeader() {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg">
-      <div className="w-14 shrink-0" />
-      <div className="flex-1">Filename</div>
-      <div className="hidden md:block w-16 shrink-0 text-right">Codec</div>
-      <div className="w-16 shrink-0 text-right">Duration</div>
-      <div className="hidden md:block w-20 shrink-0 text-right">Bitrate</div>
-      <div className="hidden lg:block w-24 shrink-0 text-right">Content date</div>
-      <div className="hidden lg:block w-24 shrink-0 text-right">File added</div>
-      <div className="w-16 shrink-0 text-right">Size</div>
+    <div
+      role="row"
+      className="flex items-center gap-3 px-3 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider rounded-t-lg"
+    >
+      <div className="w-14 shrink-0" aria-hidden />
+      <div role="columnheader" className="flex-1">
+        Filename
+      </div>
+      <div role="columnheader" className="hidden md:block w-16 shrink-0 text-right">
+        Codec
+      </div>
+      <div role="columnheader" className="w-16 shrink-0 text-right">
+        Duration
+      </div>
+      <div role="columnheader" className="hidden md:block w-20 shrink-0 text-right">
+        Bitrate
+      </div>
+      <div role="columnheader" className="hidden lg:block w-24 shrink-0 text-right">
+        Content date
+      </div>
+      <div role="columnheader" className="hidden lg:block w-24 shrink-0 text-right">
+        File added
+      </div>
+      <div role="columnheader" className="w-16 shrink-0 text-right">
+        Size
+      </div>
     </div>
   );
 }
@@ -301,7 +337,11 @@ function LibraryBrowser({
                     />
                   </div>
                 ) : (
-                  <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
+                  <div
+                    role="table"
+                    aria-label="Files"
+                    className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden"
+                  >
                     <FileListHeader />
                     <div className="flex-1 min-h-0">
                       <VirtualizedGrid
@@ -405,7 +445,11 @@ function FlatView({
           />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
+        <div
+          role="table"
+          aria-label="Files"
+          className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden"
+        >
           <FileListHeader />
           <div className="flex-1 min-h-0">
             <VirtualizedGrid
