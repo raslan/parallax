@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
@@ -326,11 +327,7 @@ export function Cleanup() {
 
       {displayError && <p className="text-sm text-destructive">{displayError}</p>}
 
-      {loading && (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      {loading && <ListSkeleton />}
 
       {!loading && allFiles === null && !displayError && (
         <Card className="border-dashed">

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, ArrowDown, Film, Loader2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Film } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { ListSkeleton } from "@/components/Skeletons";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import type { AudioFile } from "@/types/audio";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -185,9 +186,7 @@ export function AudioFiles() {
               : "Select a library"}
           </div>
         ) : loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
+          <ListSkeleton />
         ) : sortedFiles.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">

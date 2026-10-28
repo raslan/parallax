@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { imageApi, qk } from "@/lib/api";
 import { ImageThumbnail } from "@/components/ImageThumbnail";
+import { GridSkeleton } from "@/components/Skeletons";
 import { getErrorMessage } from "@/lib/api/client";
 import type { ImageFile } from "@/types/image";
 import { Button } from "@/components/ui/button";
@@ -314,11 +315,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
         />
       )}
 
-      {!extracting && loading && (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      {!extracting && loading && <GridSkeleton count={8} minColumnWidth={260} />}
 
       {!extracting && !loading && clusters.length === 0 && (
         <Card className="border-dashed">

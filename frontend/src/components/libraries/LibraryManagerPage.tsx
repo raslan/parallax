@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderOpen, Loader2, Plus, Trash2 } from "lucide-react";
+import { FolderOpen, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GridSkeleton } from "@/components/Skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, qk } from "@/lib/api";
 import type { Job } from "@/types/job";
@@ -92,9 +93,7 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
       <AddDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={refresh} />
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <GridSkeleton count={3} minColumnWidth={320} />
       ) : libraries.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">

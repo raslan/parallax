@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Film,
-  Loader2,
   Folder,
   ChevronRight as Caret,
   ArrowUp,
@@ -13,6 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { GridSkeleton } from "@/components/Skeletons";
 import { api, qk } from "@/lib/api";
 import type { VideoFile } from "@/types/file";
 import type { Library, BrowseResponse } from "@/types/library";
@@ -236,9 +236,7 @@ function LibraryBrowser({
     <div className="h-full flex flex-col gap-4">
       <Breadcrumb library={library} path={path} onNavigate={setPath} />
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <GridSkeleton />
       ) : !browse || (browse.dirs.length === 0 && browse.files.length === 0) ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -338,12 +336,7 @@ function FlatView({
   const files = data?.items ?? [];
   const total = data?.total ?? 0;
 
-  if (loading)
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+  if (loading) return <GridSkeleton />;
 
   const visibleFiles = search.trim()
     ? files.filter((f) => f.filename.toLowerCase().includes(search.toLowerCase()))

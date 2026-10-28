@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Scissors, Loader2, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
@@ -189,11 +190,7 @@ export function AudioCleanup() {
 
       {displayError && <p className="text-sm text-destructive">{displayError}</p>}
 
-      {loading && (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      {loading && <ListSkeleton />}
 
       {!loading && libraries.length === 0 && (
         <div className="flex items-center justify-center py-16 border border-dashed rounded-lg text-muted-foreground/40 text-sm">

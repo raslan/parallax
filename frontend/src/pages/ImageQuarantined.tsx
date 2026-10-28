@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderX, Loader2, Trash2, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { GridSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { imageApi, qk } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
@@ -293,9 +294,7 @@ export function ImageQuarantined() {
 
       {/* Content */}
       {loading && !hasEntries ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <GridSkeleton />
       ) : !hasEntries ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">

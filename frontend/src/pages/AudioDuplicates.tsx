@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { audioDuplicatesApi, audioFilesApi, audioLibrariesApi, api, qk } from "@/lib/api";
@@ -374,11 +375,7 @@ export function AudioDuplicates() {
       )}
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {filesLoading && (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
+        {filesLoading && <ListSkeleton rows={6} />}
 
         {!filesLoading && files.length > 0 && groups.length === 0 && (extracting || clustering) && (
           <WorkingState
