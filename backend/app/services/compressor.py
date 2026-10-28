@@ -22,6 +22,7 @@ from app.services.common import (
 from app.services.encoder import _get_encoders, family_for_encoder
 from app.services.gpu_pool import GPUDevice, GpuPool, is_hwaccel_failure
 from app.services.scanner import rescan_file
+from app.services.stats import note_bytes
 
 _SOURCE_EFFICIENCY: dict[str, float] = {
     "h264": 1.0,
@@ -518,6 +519,10 @@ def run_compress_job(
         def do_one(path: str) -> tuple[str, bool, str | None]:
             fname = os.path.basename(path)
             log_q.put(("info", f"Compressing: {fname}"))
+            try:
+                src_size = os.path.getsize(path)
+            except OSError:
+                src_size = 0
             gpu = gpu_pool.acquire_any() if gpu_pool else None
             ok, err, final_path = _compress_one(
                 path,
@@ -557,6 +562,10 @@ def run_compress_job(
                 fracs.pop(path, None)
             if ok and final_path:
                 _rescan_after_job(path, final_path)
+                try:
+                    note_bytes(job_id, src_size, os.path.getsize(final_path))
+                except OSError:
+                    pass
             return path, ok, err
 
         def flush_to_db() -> None:

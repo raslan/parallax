@@ -28,6 +28,7 @@ from app.api.models import router as models_router
 from app.api.originals import router as originals_router
 from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
+from app.api.stats import router as stats_router
 from app.api.stream import router as stream_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
@@ -315,6 +316,7 @@ app.include_router(compress_router, prefix="/api")
 app.include_router(audio_compress_router, prefix="/api")
 app.include_router(audio_toolbox_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
+app.include_router(stats_router, prefix="/api")
 app.include_router(galleries_router, prefix="/api")
 app.include_router(splice_router, prefix="/api")
 app.include_router(toolbox_router, prefix="/api")

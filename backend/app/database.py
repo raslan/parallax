@@ -52,6 +52,7 @@ def init_db():
         library,
         schedule,
         settings,
+        stats,
     )
 
     Base.metadata.create_all(bind=engine)

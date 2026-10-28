@@ -10,6 +10,12 @@
  */
 
 export const qk = {
+  // ── stats (durable, file-agnostic usage metrics) ──
+  stats: () => ["stats"] as const,
+  statsSummary: (days: number) => ["stats", "summary", days] as const,
+  statsTimeseries: (bucket: string, days: number) => ["stats", "timeseries", bucket, days] as const,
+  statsBreakdown: (by: string, days: number) => ["stats", "breakdown", by, days] as const,
+
   libraries: () => ["libraries"] as const,
   libraryStats: () => ["libraries", "stats"] as const,
   libraryLeftovers: (id: number) => ["libraries", id, "leftovers"] as const,

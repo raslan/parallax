@@ -6,6 +6,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import type { Theme } from "@/types/theme";
 import { generalSettingsSchema, seedGeneral } from "@/lib/schemas/settings";
 import { DangerZone } from "./DangerZone";
+import { StatsCard } from "./StatsCard";
 import { SaveButton } from "./SaveButton";
 import { useSettingsForm } from "./useSettingsForm";
 
@@ -154,6 +155,7 @@ export function GeneralTab() {
           )}
         </CardContent>
       </Card>
+      <StatsCard />
       <DangerZone />
     </>
   );

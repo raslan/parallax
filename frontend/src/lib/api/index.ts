@@ -34,6 +34,7 @@ export { streamApi } from "./stream";
 export { compressApi } from "./compress";
 export { toolboxApi } from "./toolbox";
 export { spliceApi } from "./splice";
+export { statsApi } from "./stats";
 export { audioLibrariesApi } from "./audioLibraries";
 export { audioFilesApi } from "./audioFiles";
 export { audioDuplicatesApi } from "./audioDuplicates";

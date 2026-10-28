@@ -113,6 +113,10 @@ async def start_worker() -> None:
             except Exception as exc:
                 logger.exception("job %s (%s) crashed", job_id, getattr(fn, "__name__", fn))
                 await loop.run_in_executor(None, _mark_job_crashed, job_id, exc)
+            # One durable, file-agnostic stat event per finished job (never raises).
+            from app.services.stats import record_finished_job
+
+            await loop.run_in_executor(None, record_finished_job, job_id)
 
     async def _dispatcher() -> None:
         while True:

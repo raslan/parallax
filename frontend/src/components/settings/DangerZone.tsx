@@ -36,7 +36,8 @@ export function DangerZone() {
             <p className="text-sm font-medium">Purge all library data</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Removes all libraries, file records, thumbnails, and keyframes from Parallax. Settings
-              and downloaded AI models are kept. Files on disk are not touched.
+              and downloaded AI models are kept, as are your usage statistics (clear those under
+              Statistics). Files on disk are not touched.
             </p>
           </div>
           <Button

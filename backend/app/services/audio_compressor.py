@@ -35,6 +35,7 @@ from app.services.common import (
     should_cancel,
     temp_sibling_path,
 )
+from app.services.stats import note_bytes
 
 # Static codec metadata. `get_available_audio_codecs()` returns a deep copy with
 # aac's `encoder` resolved against the local ffmpeg build. `tiers` is ascending
@@ -383,6 +384,10 @@ def run_audio_compress_job(
                 return path, "skipped", None
 
             log_q.put(("info", f"Compressing: {fname}"))
+            try:
+                src_size = os.path.getsize(path)
+            except OSError:
+                src_size = 0
             ok, err = _compress_one(
                 path,
                 encoder,
@@ -396,6 +401,15 @@ def run_audio_compress_job(
             with fracs_lock:
                 fracs.pop(path, None)
             if ok:
+                try:
+                    note_bytes(
+                        job_id,
+                        src_size,
+                        os.path.getsize(os.path.splitext(path)[0] + ext),
+                        meta.get("duration") or 0.0,
+                    )
+                except OSError:
+                    pass
                 return path, "ok", None
             if err == "Cancelled":
                 return path, "cancelled", None
