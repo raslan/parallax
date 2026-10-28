@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { Settings } from "lucide-react";
+import { Search, Settings } from "lucide-react";
 import { ParallaxLogo } from "@/components/ParallaxLogo";
 import { Separator } from "@/components/ui/separator";
 import { SECTIONS, useSectionNav } from "./nav-config";
@@ -7,7 +7,7 @@ import { JobsMenu } from "./JobsMenu";
 import { cn } from "@/lib/utils";
 
 /** @public */
-export function Header() {
+export function Header({ onOpenPalette }: { onOpenPalette?: () => void } = {}) {
   const { activeTab } = useSectionNav();
   const n = SECTIONS.length;
   const activeIdx = SECTIONS.findIndex((s) => s.id === activeTab);
@@ -62,6 +62,19 @@ export function Header() {
       </nav>
 
       <div className="ml-auto flex items-center gap-1">
+        {onOpenPalette && (
+          <button
+            type="button"
+            onClick={onOpenPalette}
+            aria-label="Search pages and actions"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2.5 text-muted-foreground transition-colors hover:bg-[hsl(var(--sidebar-accent))] hover:text-foreground"
+          >
+            <Search className="h-4 w-4" />
+            <kbd className="hidden rounded border border-border px-1.5 py-0.5 font-mono text-3xs lg:inline">
+              ⌘K
+            </kbd>
+          </button>
+        )}
         <JobsMenu />
         <NavLink
           to="/settings"

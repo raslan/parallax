@@ -5,11 +5,13 @@ import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { BottomBar } from "./BottomBar";
 import { SectionSheet } from "./SectionSheet";
+import { CommandPalette } from "./CommandPalette";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import type { SectionId } from "./nav-config";
 
 export function Layout() {
   const [sheetSection, setSheetSection] = useState<SectionId | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   useDocumentTitle();
 
   return (
@@ -20,7 +22,8 @@ export function Layout() {
       >
         Skip to content
       </a>
-      <Header />
+      <Header onOpenPalette={() => setPaletteOpen(true)} />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden md:flex" />
         <main
