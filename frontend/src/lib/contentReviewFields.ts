@@ -1,5 +1,6 @@
 import type { FieldDef } from "@/hooks/useQueryBuilder";
 import type { ImageFile } from "@/types/image";
+import { dateCutoffSeconds, type DateValue } from "@/lib/dateValue";
 
 const LABEL_GROUPS: { label: string; labels: string[] }[] = [
   {
@@ -57,12 +58,6 @@ function labelField(label: string, group: string): FieldDef<ImageFile> {
   };
 }
 
-const DATE_UNIT_SECONDS: Record<string, number> = {
-  days: 86400,
-  weeks: 604800,
-  months: 2592000,
-};
-
 const generalFields: FieldDef<ImageFile>[] = [
   {
     key: "size",
@@ -115,8 +110,7 @@ const generalFields: FieldDef<ImageFile>[] = [
     defaultValue: { n: 30, unit: "days" },
     test: (row, operator, value) => {
       if (row.file_mtime == null) return false;
-      const v = value as { n: number; unit: string };
-      const cutoff = Date.now() / 1000 - v.n * (DATE_UNIT_SECONDS[v.unit] ?? 86400);
+      const cutoff = dateCutoffSeconds(value as DateValue);
       return operator === "gt" ? row.file_mtime > cutoff : row.file_mtime < cutoff;
     },
   },

@@ -1,5 +1,6 @@
 import type { FieldDef } from "@/hooks/useQueryBuilder";
 import type { VideoFile } from "@/types/file";
+import { dateCutoffSeconds, type DateValue } from "@/lib/dateValue";
 
 export function bigramSimilarity(a: string, b: string): number {
   const s = a.toLowerCase();
@@ -20,12 +21,6 @@ export function bigramSimilarity(a: string, b: string): number {
   for (const [bg, cnt] of tb) intersection += Math.min(cnt, sa.get(bg) ?? 0);
   return (2 * intersection) / (s.length - 1 + t.length - 1);
 }
-
-const DATE_UNIT_SECONDS: Record<string, number> = {
-  days: 86400,
-  weeks: 604800,
-  months: 2592000,
-};
 
 export const cleanupFields: FieldDef<VideoFile>[] = [
   {
@@ -68,8 +63,7 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
     defaultValue: { n: 30, unit: "days" },
     test: (row, operator, value) => {
       if (row.file_date == null) return false;
-      const v = value as { n: number; unit: string };
-      const cutoff = Date.now() / 1000 - v.n * (DATE_UNIT_SECONDS[v.unit] ?? 86400);
+      const cutoff = dateCutoffSeconds(value as DateValue);
       return operator === "gt" ? row.file_date > cutoff : row.file_date < cutoff;
     },
   },
@@ -83,8 +77,7 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
     defaultValue: { n: 30, unit: "days" },
     test: (row, operator, value) => {
       if (row.file_mtime == null) return false;
-      const v = value as { n: number; unit: string };
-      const cutoff = Date.now() / 1000 - v.n * (DATE_UNIT_SECONDS[v.unit] ?? 86400);
+      const cutoff = dateCutoffSeconds(value as DateValue);
       return operator === "gt" ? row.file_mtime > cutoff : row.file_mtime < cutoff;
     },
   },

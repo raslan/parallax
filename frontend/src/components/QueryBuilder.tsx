@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -8,6 +8,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  formatDateValue,
+  isAbsoluteDate,
+  parseIsoDate,
+  toIsoDate,
+  type DateValue,
+} from "@/lib/dateValue";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -205,12 +213,71 @@ function ValueEditor<T>({
     );
   }
   if (field.valueType === "date_offset") {
-    const v = (value as { n: number; unit: "days" | "weeks" | "months" }) ?? {
-      n: 30,
-      unit: "days",
-    };
+    const dv: DateValue = (value as DateValue) ?? { n: 30, unit: "days" };
+    const absolute = isAbsoluteDate(dv);
+    const modeBtn = (active: boolean) =>
+      cn(
+        "flex-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-primary bg-primary/15 text-primary"
+          : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+      );
+    const modeToggle = (
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          className={modeBtn(!absolute)}
+          onClick={() => absolute && onChange({ n: 30, unit: "days" })}
+        >
+          Relative
+        </button>
+        <button
+          type="button"
+          className={modeBtn(absolute)}
+          onClick={() => !absolute && onChange({ date: toIsoDate(new Date()) })}
+        >
+          Date
+        </button>
+      </div>
+    );
+    if (isAbsoluteDate(dv)) {
+      return (
+        <div className="flex flex-col gap-2.5">
+          {modeToggle}
+          <div className="flex flex-wrap items-center gap-2">
+            <PhraseOperatorSelect
+              field={field}
+              value={operator}
+              onChange={onOperatorChange}
+              phraseMap={DATE_OPERATOR_PHRASE}
+            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 font-mono text-sm"
+                >
+                  <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  {dv.date}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={parseIsoDate(dv.date)}
+                  defaultMonth={parseIsoDate(dv.date)}
+                  onSelect={(d) => d && onChange({ date: toIsoDate(d) })}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      );
+    }
+    const v = dv as { n: number; unit: "days" | "weeks" | "months" };
     return (
       <div className="flex flex-col gap-2.5">
+        {modeToggle}
         <div className="flex flex-wrap items-center gap-2">
           <PhraseOperatorSelect
             field={field}
@@ -298,10 +365,7 @@ function ValueEditor<T>({
 function formatValue<T>(field: FieldDef<T>, operator: Operator, value: unknown): string {
   if (field.valueType === "number") return String(value);
   if (field.valueType === "percent") return `${value}%`;
-  if (field.valueType === "date_offset") {
-    const v = value as { n: number; unit: string };
-    return `${v.n} ${v.unit}`;
-  }
+  if (field.valueType === "date_offset") return formatDateValue(value as DateValue);
   if (field.valueType === "select") {
     return field.options?.find((o) => o.value === value)?.label ?? String(value);
   }

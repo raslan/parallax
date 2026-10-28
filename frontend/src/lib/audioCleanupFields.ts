@@ -1,12 +1,7 @@
 import { bigramSimilarity } from "./cleanupFields";
 import type { FieldDef } from "@/hooks/useQueryBuilder";
 import type { AudioFile } from "@/types/audio";
-
-const DATE_UNIT_SECONDS: Record<string, number> = {
-  days: 86400,
-  weeks: 604800,
-  months: 2592000,
-};
+import { dateCutoffSeconds, type DateValue } from "@/lib/dateValue";
 
 export const audioCleanupFields: FieldDef<AudioFile>[] = [
   {
@@ -34,8 +29,7 @@ export const audioCleanupFields: FieldDef<AudioFile>[] = [
     defaultValue: { n: 30, unit: "days" },
     test: (row, operator, value) => {
       if (row.file_date == null) return false;
-      const v = value as { n: number; unit: string };
-      const cutoff = Date.now() / 1000 - v.n * (DATE_UNIT_SECONDS[v.unit] ?? 86400);
+      const cutoff = dateCutoffSeconds(value as DateValue);
       return operator === "gt" ? row.file_date > cutoff : row.file_date < cutoff;
     },
   },
