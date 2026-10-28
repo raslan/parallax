@@ -5,7 +5,7 @@ import { QueryError } from "@/components/QueryError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { compressApi, api, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -156,6 +156,7 @@ export function Compress() {
     toggle: toggleFile,
     selectAll: selectAllIds,
     selectNone,
+    setOrder,
   } = useSelection();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [gridSize, setGridSize] = useGridSize(200);
@@ -246,6 +247,8 @@ export function Compress() {
     () => (displayFiles ? filterByFilename(displayFiles, search) : null),
     [displayFiles, search],
   );
+  const orderedIds = useMemo(() => (filteredFiles ?? []).map((f) => f.id), [filteredFiles]);
+  useSelectionOrder(setOrder, orderedIds);
 
   const selectAll = () => filteredFiles && selectAllIds(filteredFiles.map((f) => f.id));
   const selectCandidates = () =>

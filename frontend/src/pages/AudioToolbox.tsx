@@ -15,7 +15,7 @@ import {
 } from "@/components/FileSelectGrid";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
@@ -86,6 +86,7 @@ export function AudioToolbox() {
     toggle: toggleFile,
     selectAll: selectAllIds,
     selectNone,
+    setOrder,
   } = useSelection();
   const { sortKey, sortDir, toggleSort: handleSort } = useSort<SortKey>("filename");
   const [playingFile, setPlayingFile] = useState<AudioFile | null>(null);
@@ -140,6 +141,8 @@ export function AudioToolbox() {
     () => (displayFiles ? filterByFilename(displayFiles, search) : null),
     [displayFiles, search],
   );
+  const orderedIds = useMemo(() => (filteredFiles ?? []).map((f) => f.id), [filteredFiles]);
+  useSelectionOrder(setOrder, orderedIds);
 
   const selectAll = () => filteredFiles && selectAllIds(filteredFiles.map((f) => f.id));
 

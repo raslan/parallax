@@ -39,7 +39,7 @@ import {
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { cleanupFields } from "@/lib/cleanupFields";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
-import { useSelection } from "@/hooks/useSelection";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -190,7 +190,13 @@ export function Cleanup() {
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(cleanupFields);
 
-  const { selected, setSelected, toggle: toggleOne, selectAll: selectAllIds } = useSelection();
+  const {
+    selected,
+    setSelected,
+    toggle: toggleOne,
+    selectAll: selectAllIds,
+    setOrder,
+  } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
@@ -258,6 +264,8 @@ export function Cleanup() {
       return String(av).localeCompare(String(bv)) * dir;
     });
   }, [filteredResults, sortBy, sortDir]);
+  const orderedIds = useMemo(() => (sortedResults ?? []).map((f) => f.id), [sortedResults]);
+  useSelectionOrder(setOrder, orderedIds);
 
   const toggleAll = () => {
     if (!sortedResults) return;

@@ -5,7 +5,7 @@ import { QueryError } from "@/components/QueryError";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, audioCompressApi, audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import type { AudioFile } from "@/types/audio";
@@ -65,7 +65,7 @@ export function AudioCompress() {
   const [bitrate, setBitrate] = useState(128);
   const [keepOriginal, setKeepOriginal] = useState(true);
 
-  const { selected, setSelected, toggle, selectAll, selectNone } = useSelection<number>();
+  const { selected, setSelected, toggle, selectAll, selectNone, setOrder } = useSelection<number>();
   const { sortKey, sortDir, toggleSort } = useSort<SortKey>("filename");
   const [playing, setPlaying] = useState<AudioFile | null>(null);
   const [search, setSearch] = useState("");
@@ -139,6 +139,8 @@ export function AudioCompress() {
     () => (displayFiles ? filterByFilename(displayFiles, search) : null),
     [displayFiles, search],
   );
+  const orderedIds = useMemo(() => (filteredFiles ?? []).map((f) => f.id), [filteredFiles]);
+  useSelectionOrder(setOrder, orderedIds);
 
   const selectedFiles = useMemo(
     () => (filteredFiles ?? []).filter((f) => selected.has(f.id)),

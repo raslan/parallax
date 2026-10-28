@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { WorkingState } from "@/components/WorkingState";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { QueryBuilder } from "@/components/QueryBuilder";
 import { contentReviewFields } from "@/lib/contentReviewFields";
@@ -93,7 +93,12 @@ export function ContentReview() {
   const queryClient = useQueryClient();
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(contentReviewFields);
-  const { selected: selectedIds, setSelected: setSelectedIds, toggle: toggleId } = useSelection();
+  const {
+    selected: selectedIds,
+    setSelected: setSelectedIds,
+    toggle: toggleId,
+    setOrder,
+  } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +125,8 @@ export function ContentReview() {
     () => (allImages ? allImages.filter((img) => evaluate(img)) : []),
     [allImages, evaluate],
   );
+  const orderedIds = useMemo(() => allResults.map((i) => i.id), [allResults]);
+  useSelectionOrder(setOrder, orderedIds);
 
   // NudeNet detections are written at scan time, so images the filesystem
   // watcher added have none and would silently never match a label filter (or

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
-import { useSelection } from "@/hooks/useSelection";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { filterByFilename } from "@/components/FileSelectGrid";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
@@ -106,7 +106,12 @@ export function Images() {
   const [detectionFilter, setDetectionFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
-  const { selected: selectedIds, setSelected: setSelectedIds, toggle: toggleId } = useSelection();
+  const {
+    selected: selectedIds,
+    setSelected: setSelectedIds,
+    toggle: toggleId,
+    setOrder,
+  } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
 
@@ -155,6 +160,10 @@ export function Images() {
   }
 
   const visibleImages = filterByFilename(images, search);
+  useSelectionOrder(
+    setOrder,
+    visibleImages.map((i) => i.id),
+  );
 
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">

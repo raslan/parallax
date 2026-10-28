@@ -15,7 +15,7 @@ import {
 } from "@/components/FileSelectGrid";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
@@ -88,6 +88,7 @@ export function Toolbox() {
     toggle: toggleFile,
     selectAll: selectAllIds,
     selectNone,
+    setOrder,
   } = useSelection();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [gridSize, setGridSize] = useGridSize(200);
@@ -144,6 +145,8 @@ export function Toolbox() {
     () => (displayFiles ? filterByFilename(displayFiles, search) : null),
     [displayFiles, search],
   );
+  const orderedIds = useMemo(() => (filteredFiles ?? []).map((f) => f.id), [filteredFiles]);
+  useSelectionOrder(setOrder, orderedIds);
 
   const selectAll = () => filteredFiles && selectAllIds(filteredFiles.map((f) => f.id));
 
