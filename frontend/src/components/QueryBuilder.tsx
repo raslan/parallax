@@ -8,6 +8,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import type { Clause, FieldDef, Operator } from "@/hooks/useQueryBuilder";
 import { cn } from "@/lib/utils";
 
@@ -430,30 +439,9 @@ export function QueryBuilder<T>({
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuFilter, setMenuFilter] = useState("");
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [menuOpen]);
 
   const sectionColor: Record<string, string> = {};
   const grouped = registry.reduce<Record<string, FieldDef<T>[]>>((acc, f) => {
-    if (menuFilter && !f.label.toLowerCase().includes(menuFilter.toLowerCase())) return acc;
     const section = f.group ?? CATEGORY_LABEL[f.category] ?? f.category;
     sectionColor[section] = CATEGORY_COLOR[f.category] ?? "";
     (acc[section] ??= []).push(f);
@@ -463,7 +451,6 @@ export function QueryBuilder<T>({
   function handleAdd(fieldKey: string) {
     const newId = onAdd(fieldKey);
     setMenuOpen(false);
-    setMenuFilter("");
     setExpandedId(newId);
   }
 
@@ -523,60 +510,49 @@ export function QueryBuilder<T>({
         );
       })}
 
-      <div className="relative" ref={menuRef}>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:border-solid"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add filter
-        </button>
-        {menuOpen && (
-          <div className="absolute top-full z-20 mt-2 w-[720px] max-w-[92vw] rounded-lg border border-border bg-px-elevated shadow-2xl">
-            <div className="border-b border-border p-4">
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search fields…"
-                value={menuFilter}
-                onChange={(e) => setMenuFilter(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm"
-              />
-            </div>
-            <div className="max-h-[440px] overflow-y-auto p-4">
-              {Object.entries(grouped).map(([section, fields], idx) => (
-                <div key={section} className={idx > 0 ? "mt-5" : undefined}>
-                  <div className="mb-2.5 flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 rounded-sm"
-                      style={{ background: sectionColor[section] }}
-                    />
-                    <span className="text-2xs font-extrabold uppercase tracking-wide text-muted-foreground">
+      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:border-solid"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add filter
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[min(360px,92vw)] p-0">
+          <Command>
+            <CommandInput placeholder="Search fields…" />
+            <CommandList className="max-h-[360px]">
+              <CommandEmpty>No fields match.</CommandEmpty>
+              {Object.entries(grouped).map(([section, fields]) => (
+                <CommandGroup
+                  key={section}
+                  heading={
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-sm"
+                        style={{ background: sectionColor[section] }}
+                      />
                       {section}
                     </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {fields.map((f) => (
-                      <div
-                        key={f.key}
-                        onClick={() => handleAdd(f.key)}
-                        className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-px-surface px-3 py-2.5 text-xs font-semibold transition-all hover:-translate-y-px hover:border-primary hover:text-primary"
-                      >
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ background: CATEGORY_COLOR[f.category] }}
-                        />
-                        <span>{f.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                  }
+                >
+                  {fields.map((f) => (
+                    <CommandItem
+                      key={f.key}
+                      value={`${section} ${f.label}`}
+                      onSelect={() => handleAdd(f.key)}
+                    >
+                      {f.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
               ))}
-            </div>
-          </div>
-        )}
-      </div>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
