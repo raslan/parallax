@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Maximize2, Search } from "lucide-react";
 import { RowContextMenu, buildRowActions } from "@/components/RowMenu";
+import { SelectionBar } from "@/components/SelectionBar";
 import { imageApi, qk } from "@/lib/api";
 import { ImageThumbnail } from "@/components/ImageThumbnail";
 import type { ImageFile } from "@/types/image";
@@ -304,28 +305,26 @@ export function Images() {
         />
       )}
 
-      {selectionMode && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-xl">
-          {selectedIds.size === 0 ? (
-            <span className="text-sm text-muted-foreground">Click images to select</span>
-          ) : (
-            <>
-              <span className="text-sm font-medium">{selectedIds.size} selected</span>
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={quarantining}
-                onClick={quarantineSelected}
-              >
-                <FolderX className="h-3.5 w-3.5" />
-                Quarantine
-              </Button>
-            </>
-          )}
+      {selectionMode && selectedIds.size === 0 && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 z-30 -translate-x-1/2 flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-xl">
+          <span className="text-sm text-muted-foreground">Click images to select</span>
           <Button size="sm" variant="ghost" onClick={toggleSelectionMode}>
             Cancel
           </Button>
         </div>
+      )}
+      {selectionMode && (
+        <SelectionBar count={selectedIds.size} onClear={toggleSelectionMode}>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={quarantining}
+            onClick={quarantineSelected}
+          >
+            <FolderX className="h-3.5 w-3.5" />
+            Quarantine
+          </Button>
+        </SelectionBar>
       )}
 
       {viewingImg && <ImageViewerModal img={viewingImg} onClose={() => setViewingImg(null)} />}

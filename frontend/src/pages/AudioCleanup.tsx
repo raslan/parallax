@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
+import { SelectionBar } from "@/components/SelectionBar";
 import { audioFilesApi, audioLibrariesApi, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import type { AudioFile } from "@/types/audio";
@@ -264,26 +265,23 @@ export function AudioCleanup() {
                   <ArrowDown className="h-3.5 w-3.5" />
                 )}
               </button>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={selected.size === 0 || deleting}
-                onClick={handleDelete}
-              >
-                {deleting ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                    Deleting…
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                    Delete Selected ({selected.size})
-                  </>
-                )}
-              </Button>
             </div>
           </div>
+          <SelectionBar count={selected.size} onClear={() => setSelected(new Set())}>
+            <Button variant="destructive" size="sm" disabled={deleting} onClick={handleDelete}>
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </SelectionBar>
 
           <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-2 bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider shrink-0">

@@ -16,6 +16,7 @@ import { ListSkeleton } from "@/components/Skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
 import { RowContextMenu, RowMoreMenu, buildRowActions } from "@/components/RowMenu";
+import { SelectionBar } from "@/components/SelectionBar";
 import { QueryError } from "@/components/QueryError";
 import { api, qk } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
@@ -429,26 +430,23 @@ export function Cleanup() {
                 </button>
               </div>
               {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={selected.size === 0 || deleting}
-                onClick={handleDelete}
-              >
-                {deleting ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                    Deleting…
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                    Delete Selected ({selected.size})
-                  </>
-                )}
-              </Button>
             </div>
           </div>
+          <SelectionBar count={selected.size} onClear={() => setSelected(new Set())}>
+            <Button variant="destructive" size="sm" disabled={deleting} onClick={handleDelete}>
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </SelectionBar>
 
           {viewMode === "list" ? (
             <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-border overflow-hidden">
