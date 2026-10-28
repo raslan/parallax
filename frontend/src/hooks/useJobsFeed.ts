@@ -1,6 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api, qk } from "@/lib/api";
+import { jobLabel, newlyCompleted } from "@/lib/jobs";
 import { useEventSource } from "@/hooks/useEventSource";
 import type { Job } from "@/types/job";
 
@@ -32,6 +35,7 @@ export function useJobsFeed(): {
   aggregateProgress: number | "pending" | null;
 } {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: jobs = [] } = useQuery<Job[]>({
     queryKey: qk.jobs(),
@@ -63,6 +67,18 @@ export function useJobsFeed(): {
   };
 
   useEventSource<Job[]>(api.jobsStreamUrl(), applyLiveUpdate, () => loadAll());
+
+  // Announce a job finishing, whichever page started it (or none, e.g. a
+  // library scan kicked off from Libraries while you're elsewhere).
+  const prevStatuses = useRef<ReadonlyMap<number, string>>(new Map());
+  useEffect(() => {
+    for (const j of newlyCompleted(prevStatuses.current, jobs)) {
+      toast.success(`${jobLabel(j.type)} finished`, {
+        action: { label: "View job", onClick: () => navigate(`/jobs?focus=${j.id}`) },
+      });
+    }
+    prevStatuses.current = new Map(jobs.map((j) => [j.id, j.status]));
+  }, [jobs, navigate]);
 
   return useMemo(
     () => ({

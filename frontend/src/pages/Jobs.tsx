@@ -13,6 +13,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/api/client";
+import { jobLabel } from "@/lib/jobs";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
 import { ListSkeleton } from "@/components/Skeletons";
@@ -32,27 +35,6 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   completed: <CheckCircle2 className="h-4 w-4 text-green-400" />,
   failed: <XCircle className="h-4 w-4 text-destructive" />,
   cancelled: <XCircle className="h-4 w-4 text-muted-foreground" />,
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  scan: "Scan",
-  image_scan: "Image scan",
-  image_duplicates: "Image pHash",
-  image_content_scan: "Content scan",
-  phash_scan: "pHash scan",
-  transcode: "Transcode",
-  duplicates: "Duplicate scan",
-  subtitle_download: "Subtitle download",
-  subtitle_sync: "Subtitle sync",
-  model_download: "Model download",
-  compress: "Compress",
-  audio_scan: "Audio scan",
-  audio_compress: "Audio compress",
-  audio_toolbox: "Audio Toolbox",
-  audio_duplicates: "Audio Duplicates",
-  toolbox_fix: "Toolbox fix",
-  splice_merge: "Splice",
-  thumbnail_warm: "Generating thumbnails",
 };
 
 // Job types whose `current_file` is shown bare (a scan's file is just a name).
@@ -130,7 +112,7 @@ function JobRow({
         <div className="shrink-0">{STATUS_ICON[job.status] ?? <Clock className="h-4 w-4" />}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium">{TYPE_LABEL[job.type] ?? job.type}</span>
+            <span className="text-sm font-medium">{jobLabel(job.type)}</span>
             <Badge variant="secondary" className="text-xs capitalize">
               {job.status}
             </Badge>
@@ -245,8 +227,8 @@ export function Jobs() {
     setCancellingIds((s) => new Set(s).add(id));
     try {
       await api.cancelJob(id);
-    } catch {
-      // ignore
+    } catch (e) {
+      toast.error(`Couldn't cancel the job: ${getErrorMessage(e)}`);
     } finally {
       setCancellingIds((s) => {
         const n = new Set(s);

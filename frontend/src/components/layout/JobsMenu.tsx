@@ -9,22 +9,11 @@ import { useJobsFeed } from "@/hooks/useJobsFeed";
 import { api, qk } from "@/lib/api";
 import type { Job } from "@/types/job";
 import { formatDate } from "@/lib/format";
+import { jobLabel } from "@/lib/jobs";
 import { StatusDot } from "@/components/StatusDot";
 import { cn } from "@/lib/utils";
 
-const TYPE_LABEL: Record<string, string> = {
-  scan: "Scan",
-  transcode: "Transcode",
-  duplicates: "Duplicate scan",
-  subtitle_download: "Subtitle download",
-  subtitle_sync: "Subtitle sync",
-  model_download: "Model download",
-  compress: "Compress",
-  toolbox_fix: "Toolbox fix",
-  splice_merge: "Splice",
-  thumbnail_warm: "Generating thumbnails",
-};
-const label = (t: string) => TYPE_LABEL[t] ?? t;
+const label = jobLabel;
 const isActive = (s: string) => s === "running" || s === "pending";
 
 const DOT: Record<string, "running" | "idle" | "done" | "error"> = {
