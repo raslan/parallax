@@ -17,6 +17,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { OptionSection } from "@/components/OptionSection";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
 import { VIDEO_CODECS, VIDEO_QUALITIES } from "@/lib/galleryYtdl";
 
@@ -232,72 +233,74 @@ export function YtdlOptionsSheet({
             </div>
           )}
 
-          {/* Referer */}
-          <div className="space-y-1.5">
-            <Label>Referer</Label>
-            <div className="grid grid-cols-4 gap-1">
-              {REFERER_MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => set("ytRefererMode", m.id)}
-                  className={chipCls(o.ytRefererMode === m.id)}
+          <OptionSection title="Advanced">
+            {/* Referer */}
+            <div className="space-y-1.5">
+              <Label>Referer</Label>
+              <div className="grid grid-cols-4 gap-1">
+                {REFERER_MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => set("ytRefererMode", m.id)}
+                    className={chipCls(o.ytRefererMode === m.id)}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              {o.ytRefererMode === "custom" && (
+                <input
+                  type="text"
+                  placeholder="https://example.com/"
+                  {...register("ytReferer")}
+                  className={inputCls}
+                />
+              )}
+            </div>
+
+            {/* Throttle recovery */}
+            <div className="space-y-1.5">
+              <Label>Re-extract if slower than</Label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="off"
+                  {...register("ytThrottledRateValue")}
+                  className={inputCls}
+                />
+                <Select
+                  value={o.ytThrottledRateUnit}
+                  onValueChange={(v) =>
+                    set("ytThrottledRateUnit", v as GalleryOptions["ytThrottledRateUnit"])
+                  }
                 >
-                  {m.label}
-                </button>
-              ))}
+                  <SelectTrigger className="h-8 w-[5.5rem] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["K", "M", "G"] as const).map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}B/s
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            {o.ytRefererMode === "custom" && (
-              <input
-                type="text"
-                placeholder="https://example.com/"
-                {...register("ytReferer")}
-                className={inputCls}
-              />
-            )}
-          </div>
 
-          {/* Throttle recovery */}
-          <div className="space-y-1.5">
-            <Label>Re-extract if slower than</Label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="off"
-                {...register("ytThrottledRateValue")}
-                className={inputCls}
+            {/* Extra args */}
+            <div className="pt-2 border-t border-border/30 space-y-1.5">
+              <Label>Extra yt-dlp args</Label>
+              <textarea
+                rows={3}
+                placeholder="--sleep-interval 2 --no-mtime"
+                {...register("ytExtraArgs")}
+                className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
               />
-              <Select
-                value={o.ytThrottledRateUnit}
-                onValueChange={(v) =>
-                  set("ytThrottledRateUnit", v as GalleryOptions["ytThrottledRateUnit"])
-                }
-              >
-                <SelectTrigger className="h-8 w-[5.5rem] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(["K", "M", "G"] as const).map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}B/s
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-          </div>
-
-          {/* Extra args */}
-          <div className="pt-2 border-t border-border/30 space-y-1.5">
-            <Label>Extra yt-dlp args</Label>
-            <textarea
-              rows={3}
-              placeholder="--sleep-interval 2 --no-mtime"
-              {...register("ytExtraArgs")}
-              className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
-            />
-          </div>
+          </OptionSection>
         </div>
       </SheetContent>
     </Sheet>

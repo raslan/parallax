@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { DownloadOptions } from "@/lib/schemas/download";
 import { Checkbox } from "@/components/ui/checkbox";
+import { OptionSection } from "@/components/OptionSection";
 
 export type { DownloadOptions };
 
@@ -254,120 +255,122 @@ export function OptionsPanel({
         </label>
       </div>
 
-      {/* Impersonate */}
-      {impersonateTargets.length > 0 && (
+      <OptionSection title="Advanced">
+        {/* Impersonate */}
+        {impersonateTargets.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={!!opts.impersonate}
+                onCheckedChange={(c) =>
+                  set("impersonate", c === true ? (impersonateTargets[0] ?? "") : "")
+                }
+              />
+              <span className="text-xs text-foreground flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5 text-muted-foreground/60" />
+                Impersonate browser
+              </span>
+            </label>
+            {opts.impersonate && (
+              <Select value={opts.impersonate} onValueChange={(v) => set("impersonate", v)}>
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {impersonateTargets.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+
+        {/* Anti-throttle */}
         <div className="space-y-1.5">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={!!opts.impersonate}
-              onCheckedChange={(c) =>
-                set("impersonate", c === true ? (impersonateTargets[0] ?? "") : "")
-              }
+          <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
+            Anti-throttle
+          </p>
+          <div className="flex gap-1">
+            {(
+              [
+                ["none", "None"],
+                ["site", "Site"],
+                ["url", "URL"],
+                ["custom", "Custom"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => set("refererMode", id)}
+                className={cn(
+                  "flex-1 px-2 py-1 rounded border text-2xs font-medium transition-colors",
+                  opts.refererMode === id
+                    ? "border-primary/60 bg-primary/10 text-foreground"
+                    : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {opts.refererMode === "custom" && (
+            <input
+              type="text"
+              placeholder="Referer header to send (e.g. https://example.com)"
+              {...register("referer")}
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
-            <span className="text-xs text-foreground flex items-center gap-1.5">
-              <Globe className="h-3.5 w-3.5 text-muted-foreground/60" />
-              Impersonate browser
-            </span>
-          </label>
-          {opts.impersonate && (
-            <Select value={opts.impersonate} onValueChange={(v) => set("impersonate", v)}>
-              <SelectTrigger className="h-8 w-full text-xs">
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Reconnect if slower than…"
+              title="Re-connect to a fresh stream if the download speed drops below this"
+              {...register("throttledRateValue")}
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            />
+            <Select
+              value={watch("throttledRateUnit")}
+              onValueChange={(v) =>
+                setValue("throttledRateUnit", v as DownloadOptions["throttledRateUnit"], {
+                  shouldDirty: true,
+                })
+              }
+            >
+              <SelectTrigger className="h-8 w-[5rem] shrink-0 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {impersonateTargets.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
+                <SelectItem value="K">KB/s</SelectItem>
+                <SelectItem value="M">MB/s</SelectItem>
+                <SelectItem value="G">GB/s</SelectItem>
               </SelectContent>
             </Select>
-          )}
+          </div>
+          <p className="text-3xs text-muted-foreground/50">
+            For sites (mainly YouTube) that stream fine but throttle the download partway. Try
+            Referer + cookies first.
+          </p>
         </div>
-      )}
 
-      {/* Anti-throttle */}
-      <div className="space-y-1.5">
-        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/60">
-          Anti-throttle
-        </p>
-        <div className="flex gap-1">
-          {(
-            [
-              ["none", "None"],
-              ["site", "Site"],
-              ["url", "URL"],
-              ["custom", "Custom"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => set("refererMode", id)}
-              className={cn(
-                "flex-1 px-2 py-1 rounded border text-2xs font-medium transition-colors",
-                opts.refererMode === id
-                  ? "border-primary/60 bg-primary/10 text-foreground"
-                  : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {opts.refererMode === "custom" && (
-          <input
-            type="text"
-            placeholder="Referer header to send (e.g. https://example.com)"
-            {...register("referer")}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+        {/* Extra args */}
+        <div className="space-y-1.5">
+          <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/40">
+            Extra yt-dlp args
+          </p>
+          <textarea
+            rows={3}
+            placeholder="--no-playlist --write-thumbnail"
+            {...register("extraArgs")}
+            className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
           />
-        )}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="Reconnect if slower than…"
-            title="Re-connect to a fresh stream if the download speed drops below this"
-            {...register("throttledRateValue")}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-          />
-          <Select
-            value={watch("throttledRateUnit")}
-            onValueChange={(v) =>
-              setValue("throttledRateUnit", v as DownloadOptions["throttledRateUnit"], {
-                shouldDirty: true,
-              })
-            }
-          >
-            <SelectTrigger className="h-8 w-[5rem] shrink-0 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="K">KB/s</SelectItem>
-              <SelectItem value="M">MB/s</SelectItem>
-              <SelectItem value="G">GB/s</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-        <p className="text-3xs text-muted-foreground/50">
-          For sites (mainly YouTube) that stream fine but throttle the download partway. Try Referer
-          + cookies first.
-        </p>
-      </div>
-
-      {/* Extra args */}
-      <div className="space-y-1.5">
-        <p className="text-3xs font-medium uppercase tracking-wider text-muted-foreground/40">
-          Extra yt-dlp args
-        </p>
-        <textarea
-          rows={3}
-          placeholder="--no-playlist --write-thumbnail"
-          {...register("extraArgs")}
-          className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
-        />
-      </div>
+      </OptionSection>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
 import { Checkbox } from "@/components/ui/checkbox";
+import { OptionSection } from "@/components/OptionSection";
 
 const UNITS = ["K", "M", "G", "T"] as const;
 const BROWSERS = [
@@ -345,86 +346,88 @@ export function GalleryOptionsPanel({
         )}
       </div>
 
-      {/* Range */}
-      <div className="space-y-0.5">
-        <Label>Range</Label>
-        <input
-          type="text"
-          placeholder="e.g. 30-50"
-          {...register("range")}
-          className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-        />
-      </div>
-
-      {/* Impersonation */}
-      <div className="space-y-1.5">
-        <Label>Browser impersonation</Label>
-        <Select
-          value={o.browser || "__none__"}
-          onValueChange={(v) => set("browser", v === "__none__" ? "" : v)}
-        >
-          <SelectTrigger className="h-8 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {BROWSERS.map((b) => (
-              <SelectItem key={b || "none"} value={b || "__none__"}>
-                {b || "None"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <input
-          type="text"
-          placeholder="Custom User-Agent (optional)"
-          {...register("userAgent")}
-          className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-        />
-      </div>
-
-      {/* Rate limit + sleep */}
-      <div className="grid grid-cols-2 gap-2">
+      <OptionSection title="Advanced">
+        {/* Range */}
         <div className="space-y-0.5">
-          <Label>Rate limit</Label>
+          <Label>Range</Label>
           <input
             type="text"
-            placeholder="1M"
-            {...register("limitRate")}
+            placeholder="e.g. 30-50"
+            {...register("range")}
             className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         </div>
-        <div className="space-y-0.5">
-          <Label>Sleep / request</Label>
+
+        {/* Impersonation */}
+        <div className="space-y-1.5">
+          <Label>Browser impersonation</Label>
+          <Select
+            value={o.browser || "__none__"}
+            onValueChange={(v) => set("browser", v === "__none__" ? "" : v)}
+          >
+            <SelectTrigger className="h-8 w-full text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {BROWSERS.map((b) => (
+                <SelectItem key={b || "none"} value={b || "__none__"}>
+                  {b || "None"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <input
             type="text"
-            placeholder="0.5-1.5"
-            {...register("sleepRequest")}
+            placeholder="Custom User-Agent (optional)"
+            {...register("userAgent")}
             className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         </div>
-      </div>
 
-      {/* Advanced */}
-      <div className="pt-2 border-t border-border/30 space-y-1.5">
-        <Label>Advanced — filename template</Label>
-        <input
-          type="text"
-          placeholder="{id}.{extension}"
-          {...register("filenameTemplate")}
-          className="w-full h-8 rounded border border-border/40 bg-transparent px-2 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20"
-        />
-      </div>
+        {/* Rate limit + sleep */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-0.5">
+            <Label>Rate limit</Label>
+            <input
+              type="text"
+              placeholder="1M"
+              {...register("limitRate")}
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            />
+          </div>
+          <div className="space-y-0.5">
+            <Label>Sleep / request</Label>
+            <input
+              type="text"
+              placeholder="0.5-1.5"
+              {...register("sleepRequest")}
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            />
+          </div>
+        </div>
 
-      {/* Extra args */}
-      <div className="space-y-1.5">
-        <Label>Extra gallery-dl args</Label>
-        <textarea
-          rows={3}
-          placeholder="--verbose --no-skip"
-          {...register("extraArgs")}
-          className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
-        />
-      </div>
+        {/* Advanced */}
+        <div className="pt-2 border-t border-border/30 space-y-1.5">
+          <Label>Advanced — filename template</Label>
+          <input
+            type="text"
+            placeholder="{id}.{extension}"
+            {...register("filenameTemplate")}
+            className="w-full h-8 rounded border border-border/40 bg-transparent px-2 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20"
+          />
+        </div>
+
+        {/* Extra args */}
+        <div className="space-y-1.5">
+          <Label>Extra gallery-dl args</Label>
+          <textarea
+            rows={3}
+            placeholder="--verbose --no-skip"
+            {...register("extraArgs")}
+            className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
+          />
+        </div>
+      </OptionSection>
     </div>
   );
 }
