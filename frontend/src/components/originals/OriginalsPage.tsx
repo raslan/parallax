@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatSize } from "@/lib/format";
 import { StatPanel } from "@/components/StatPanel";
 import { useConfirm } from "@/components/ConfirmProvider";
+import { IconButton } from "@/components/IconButton";
+import { Tip } from "@/components/Tip";
 import type { Original as OriginalEntry } from "@/types/original";
 
 // ── Kind config ───────────────────────────────────────────────────────────────
@@ -372,13 +374,13 @@ export function OriginalsPage({ kind }: { kind: OriginalsKind }) {
           <h1 className="text-2xl font-semibold tracking-tight">{kind.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">{kind.subtitle}</p>
         </div>
-        <button
+        <IconButton
+          label="Refresh"
           onClick={load}
           className="text-muted-foreground hover:text-foreground transition-colors"
-          title="Refresh"
         >
           <Loader2 className={`h-4 w-4 ${isFetching ? "animate-spin" : "opacity-0"}`} />
-        </button>
+        </IconButton>
       </div>
 
       {/* Summary stats */}

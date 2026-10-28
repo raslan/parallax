@@ -11,6 +11,8 @@ import type { ImageFile } from "@/types/image";
 import { formatSize } from "@/lib/format";
 import { StatPanel } from "@/components/StatPanel";
 import { useConfirm } from "@/components/ConfirmProvider";
+import { IconButton } from "@/components/IconButton";
+import { Tip } from "@/components/Tip";
 
 // ── Per-library group ─────────────────────────────────────────────────────────
 
@@ -183,34 +185,38 @@ function LibraryGroup({
                   </span>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                      title="Restore image"
-                      disabled={busy}
-                      onClick={() => handleRestore(img)}
-                    >
-                      {busy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      title="Permanently delete image"
-                      disabled={busy}
-                      onClick={() => handleDelete(img)}
-                    >
-                      {busy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
+                    <Tip label="Restore image">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        aria-label="Restore image"
+                        disabled={busy}
+                        onClick={() => handleRestore(img)}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </Tip>
+                    <Tip label="Permanently delete image">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        aria-label="Permanently delete image"
+                        disabled={busy}
+                        onClick={() => handleDelete(img)}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </Tip>
                   </div>
                 </div>
               );
@@ -277,13 +283,13 @@ export function ImageQuarantined() {
             permanently.
           </p>
         </div>
-        <button
+        <IconButton
+          label="Refresh"
           onClick={load}
           className="text-muted-foreground hover:text-foreground transition-colors"
-          title="Refresh"
         >
           <Loader2 className={`h-4 w-4 ${isFetching ? "animate-spin" : "opacity-0"}`} />
-        </button>
+        </IconButton>
       </div>
 
       {/* Summary stats */}

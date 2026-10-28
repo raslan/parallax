@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api/client";
 import { jobLabel } from "@/lib/jobs";
 import { EmptyState } from "@/components/EmptyState";
+import { IconButton } from "@/components/IconButton";
+import { Tip } from "@/components/Tip";
 import { QueryError } from "@/components/QueryError";
 import { ListSkeleton } from "@/components/Skeletons";
 import { Badge } from "@/components/ui/badge";
@@ -148,15 +150,17 @@ function JobRow({
         {job.status === "running" && <JobProgress value={job.progress} />}
 
         {canCancel && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-            title="Stop this job"
-            onClick={() => onCancel(job.id)}
-          >
-            <Square className="h-3.5 w-3.5" />
-          </Button>
+          <Tip label="Stop this job">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+              aria-label="Stop this job"
+              onClick={() => onCancel(job.id)}
+            >
+              <Square className="h-3.5 w-3.5" />
+            </Button>
+          </Tip>
         )}
 
         {isFinished && (
@@ -271,13 +275,13 @@ export function Jobs() {
               Clear history
             </Button>
           )}
-          <button
+          <IconButton
+            label="Refresh"
             onClick={loadAll}
             className="text-muted-foreground hover:text-foreground transition-colors"
-            title="Refresh"
           >
             <RefreshCw className="h-4 w-4" />
-          </button>
+          </IconButton>
         </div>
       </div>
 

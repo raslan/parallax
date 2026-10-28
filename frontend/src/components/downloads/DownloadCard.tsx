@@ -4,6 +4,8 @@ import type { DownloadItem } from "@/types/download";
 import { formatDuration } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
 import { ProgressBar } from "@/components/ProgressBar";
+import { IconButton } from "@/components/IconButton";
+import { Tip } from "@/components/Tip";
 
 export function DownloadCard({
   item,
@@ -154,59 +156,61 @@ export function DownloadCard({
         </div>
       ) : (
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open source URL"
-            className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
+          <Tip label="Open source URL">
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open source URL"
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Tip>
           {canPlay && (
-            <button
+            <IconButton
+              label="Play"
               onClick={() => onPlay(item)}
-              title="Play"
               className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
             >
               <Play className="h-3.5 w-3.5" />
-            </button>
+            </IconButton>
           )}
           {isActive && (
-            <button
+            <IconButton
+              label="Stop download"
               onClick={() => onClear(item.id)}
-              title="Stop download"
               className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
             >
               <StopCircle className="h-3.5 w-3.5" />
-            </button>
+            </IconButton>
           )}
           {!isActive && (
-            <button
+            <IconButton
+              label="Remove from list"
               onClick={() => onClear(item.id)}
-              title="Remove from list"
               className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </IconButton>
           )}
           {(item.status === "failed" || item.status === "cancelled") && (
-            <button
+            <IconButton
+              label="Retry download"
               onClick={() => onRetry(item.id)}
-              title="Retry download"
               className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-primary transition-colors"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-            </button>
+            </IconButton>
           )}
           {isCompleted && (
-            <button
+            <IconButton
+              label="Delete file from disk (Shift+click to skip confirm)"
               onClick={handleDeleteFile}
-              title="Delete file from disk (Shift+click to skip confirm)"
               className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            </IconButton>
           )}
         </div>
       )}

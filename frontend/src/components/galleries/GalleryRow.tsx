@@ -14,6 +14,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { GalleryDownload } from "@/types/gallery";
 import { DownloadStatusBadge } from "@/components/downloads-common/DownloadStatusBadge";
 import { cn } from "@/lib/utils";
+import { IconButton } from "@/components/IconButton";
 
 export function GalleryRow({
   row,
@@ -93,31 +94,31 @@ export function GalleryRow({
   const actions = (
     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
       {isActive && (
-        <button
+        <IconButton
+          label="Stop"
           onClick={() => onStop(row.id)}
-          title="Stop"
           className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-red-400 transition-colors"
         >
           <StopCircle className="h-3.5 w-3.5" />
-        </button>
+        </IconButton>
       )}
       {canRetry && (
-        <button
+        <IconButton
+          label="Retry"
           onClick={() => onRetry(row.id)}
-          title="Retry"
           className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-primary transition-colors"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-        </button>
+        </IconButton>
       )}
       {!isActive && (
-        <button
+        <IconButton
+          label="Remove from list"
           onClick={() => onRemove(row.id)}
-          title="Remove from list"
           className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
         >
           <X className="h-3.5 w-3.5" />
-        </button>
+        </IconButton>
       )}
     </div>
   );
