@@ -14,13 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PanelSheetContent } from "@/components/PanelSheetContent";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -110,8 +105,7 @@ export function MergeSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-      <SheetContent
-        side="right"
+      <PanelSheetContent
         overlay={false}
         className="w-full overflow-y-auto sm:w-[30rem]"
         onInteractOutside={(e) => e.preventDefault()}
@@ -269,7 +263,7 @@ export function MergeSheet({
             Merge {files.length} files
           </Button>
         </div>
-      </SheetContent>
+      </PanelSheetContent>
     </Sheet>
   );
 }

@@ -6,12 +6,12 @@ import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
 import { Slider } from "@/components/ui/slider";
 import {
   Sheet,
-  SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { PanelSheetContent } from "@/components/PanelSheetContent";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
 import { audioSavingsPct } from "@/lib/audioCompress";
@@ -117,8 +117,7 @@ export function AudioEstimatePanel({
           </button>
         </SheetTrigger>
 
-        <SheetContent
-          side="right"
+        <PanelSheetContent
           overlay={false}
           onInteractOutside={() => setOpen(false)}
           className="w-[34rem] max-w-[92vw] gap-4 overflow-y-auto bg-card sm:w-[38rem]"
@@ -230,7 +229,7 @@ export function AudioEstimatePanel({
               ))}
             </div>
           </div>
-        </SheetContent>
+        </PanelSheetContent>
       </Sheet>
     </div>
   );

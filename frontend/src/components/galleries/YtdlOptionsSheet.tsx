@@ -9,13 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PanelSheetContent } from "@/components/PanelSheetContent";
 import { cn } from "@/lib/utils";
 import { OptionSection } from "@/components/OptionSection";
 import type { GalleryOptions } from "@/lib/schemas/gallery";
@@ -74,8 +69,7 @@ export function YtdlOptionsSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
-      <SheetContent
-        side="right"
+      <PanelSheetContent
         overlay={false}
         onInteractOutside={() => onOpenChange(false)}
         className="w-[28rem] max-w-[92vw] gap-4 overflow-y-auto bg-card"
@@ -302,7 +296,7 @@ export function YtdlOptionsSheet({
             </div>
           </OptionSection>
         </div>
-      </SheetContent>
+      </PanelSheetContent>
     </Sheet>
   );
 }
