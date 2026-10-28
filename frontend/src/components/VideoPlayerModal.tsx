@@ -4,6 +4,7 @@ import { Loader2, X } from "lucide-react";
 import { streamApi } from "@/lib/api";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
+import { ProgressBar } from "@/components/ProgressBar";
 
 interface PlayableFile {
   id: number;
@@ -195,12 +196,12 @@ export function VideoPlayerModal({
                 This file's audio isn't supported by your browser — converting it for playback…
               </p>
               {prepStatus === "running" && (
-                <div className="w-48 h-1 rounded-full bg-white/15 overflow-hidden">
-                  <div
-                    className="h-full bg-white/70 transition-all"
-                    style={{ width: `${Math.max(2, prepProgress)}%` }}
-                  />
-                </div>
+                <ProgressBar
+                  value={Math.max(2, prepProgress)}
+                  label="Converting audio for playback"
+                  className="w-48 h-1 bg-white/15"
+                  barClassName="bg-white/70"
+                />
               )}
             </div>
           )}

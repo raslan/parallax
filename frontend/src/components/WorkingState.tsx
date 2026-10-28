@@ -1,4 +1,5 @@
 import { ScanSearch } from "lucide-react";
+import { ProgressBar } from "@/components/ProgressBar";
 
 /**
  * Shown in place of an empty state while a background extraction/scan job is
@@ -30,17 +31,10 @@ export function WorkingState({
           <div className="text-3xl font-bold font-mono tabular-nums tracking-tight">
             {Math.round(progress)}%
           </div>
-          <div className="w-full max-w-xs h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          <ProgressBar value={progress} label={title} className="max-w-xs" />
         </>
       ) : (
-        <div className="w-40 h-1.5 rounded-full bg-muted overflow-hidden relative">
-          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-primary to-transparent" />
-        </div>
+        <ProgressBar value={null} label={title} className="w-40" />
       )}
 
       <p className="text-sm text-muted-foreground max-w-xs">{message}</p>

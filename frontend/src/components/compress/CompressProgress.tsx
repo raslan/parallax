@@ -1,5 +1,6 @@
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProgressBar } from "@/components/ProgressBar";
 import { cn } from "@/lib/utils";
 
 const COMPRESS_LABELS = {
@@ -69,12 +70,7 @@ export function CompressProgress({
           </Button>
         )}
       </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full rounded-full bg-primary transition-all duration-300"
-          style={{ width: `${jobProgress}%` }}
-        />
-      </div>
+      <ProgressBar value={jobProgress} label="Job progress" />
       {(jobError || startError) && <p className="text-xs text-red-400">{jobError || startError}</p>}
     </div>
   );

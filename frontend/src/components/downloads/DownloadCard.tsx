@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { ExternalLink, ImageOff, Play, RotateCcw, StopCircle, Trash2, X } from "lucide-react";
 import type { DownloadItem } from "@/types/download";
-import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
+import { ProgressBar } from "@/components/ProgressBar";
 
 export function DownloadCard({
   item,
@@ -81,17 +81,11 @@ export function DownloadCard({
         {/* Progress bar */}
         {isActive && (
           <div className="space-y-0.5">
-            <div className="h-1 rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full bg-primary transition-all duration-500",
-                  item.status === "running" &&
-                    item.progress === 0 &&
-                    "animate-pulse w-full opacity-40",
-                )}
-                style={item.progress > 0 ? { width: `${item.progress}%` } : undefined}
-              />
-            </div>
+            <ProgressBar
+              value={item.progress > 0 ? item.progress : item.status === "running" ? null : 0}
+              label="Download progress"
+              className="h-1"
+            />
             <div className="flex items-center justify-between">
               <span className="text-3xs text-muted-foreground/50 tabular-nums">
                 {item.progress > 0

@@ -6,6 +6,7 @@ import { toast } from "sonner"; // sonner toast fn works independently of Toaste
 import { Button } from "@/components/ui/button";
 import { formatSize } from "@/lib/format";
 import { useJobPoll } from "@/hooks/useJobPoll";
+import { ProgressBar } from "@/components/ProgressBar";
 
 export function ModelCard({
   model,
@@ -127,12 +128,7 @@ export function ModelCard({
                   {Math.round(jobProgress)}%
                 </span>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${jobProgress}%` }}
-                />
-              </div>
+              <ProgressBar value={jobProgress} label="Model download progress" />
             </div>
           )}
           {error && (

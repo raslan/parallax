@@ -23,6 +23,7 @@ import { useGridSize } from "@/hooks/useGridSize";
 import { ToolboxFixChips, type FixKey, type FixValues } from "@/components/toolbox/ToolboxFixChips";
 import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
 import { Button } from "@/components/ui/button";
+import { ProgressBar } from "@/components/ProgressBar";
 import { cn } from "@/lib/utils";
 
 type SortKey = "filename" | "codec" | "duration" | "size";
@@ -294,12 +295,7 @@ export function Toolbox() {
               </Button>
             )}
           </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${jobProgress}%` }}
-            />
-          </div>
+          <ProgressBar value={jobProgress} label="Job progress" />
           {(jobError || startError) && (
             <p className="text-xs text-red-400">{jobError || startError}</p>
           )}

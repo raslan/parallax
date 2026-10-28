@@ -21,6 +21,7 @@ import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/SectionHeader";
 import { StatusDot } from "@/components/StatusDot";
+import { ProgressBar } from "@/components/ProgressBar";
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   pending: <Clock className="h-4 w-4 text-muted-foreground" />,
@@ -69,18 +70,15 @@ const FILE_VERB: Record<string, string> = {
   audio_toolbox: "Transcoding",
 };
 
-function ProgressBar({ value }: { value: number }) {
+function JobProgress({ value }: { value: number }) {
   return (
     <div className="w-24 shrink-0">
-      <div className="h-1.5 rounded-full overflow-hidden bg-px-elevated">
-        <div
-          className="h-full rounded-full transition-all duration-300"
-          style={{
-            width: `${value}%`,
-            background: "linear-gradient(90deg, var(--px-accent), var(--px-accent-secondary))",
-          }}
-        />
-      </div>
+      <ProgressBar
+        value={value}
+        label="Job progress"
+        className="bg-px-elevated"
+        barClassName="bg-gradient-to-r from-[var(--px-accent)] to-[var(--px-accent-secondary)]"
+      />
     </div>
   );
 }
@@ -162,7 +160,7 @@ function JobRow({
           )}
         </div>
 
-        {job.status === "running" && <ProgressBar value={job.progress} />}
+        {job.status === "running" && <JobProgress value={job.progress} />}
 
         {canCancel && (
           <Button
