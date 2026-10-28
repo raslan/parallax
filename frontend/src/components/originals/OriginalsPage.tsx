@@ -292,34 +292,38 @@ function LibraryGroup({
 
                     {/* Actions */}
                     <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                        title="Restore original (replaces modified file)"
-                        disabled={busy}
-                        onClick={() => handleRestore(entry.path)}
-                      >
-                        {busy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        title="Delete original (frees disk space)"
-                        disabled={busy}
-                        onClick={() => handleDelete(entry.path)}
-                      >
-                        {busy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
+                      <Tip label="Restore original (replaces modified file)">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          aria-label="Restore original"
+                          disabled={busy}
+                          onClick={() => handleRestore(entry.path)}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </Tip>
+                      <Tip label="Delete original (frees disk space)">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          aria-label="Delete original"
+                          disabled={busy}
+                          onClick={() => handleDelete(entry.path)}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </Tip>
                     </div>
                   </div>
                 </RowContextMenu>
