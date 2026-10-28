@@ -2,6 +2,7 @@ import { Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PercentSlider } from "@/components/QueryBuilder";
 import type { AudioDuplicateCriteria } from "@/types/audioDuplicate";
+import { UnitInput } from "@/components/UnitInput";
 
 const CATEGORY_COLOR = { free: "var(--px-cat-1)", extraction: "var(--px-cat-2)" } as const;
 
@@ -21,16 +22,15 @@ function ToleranceInput({
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <span>±</span>
-      <input
-        type="number"
+      <UnitInput
         min={0}
         max={max}
         step={0.5}
         value={value}
         onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
-        className="w-16 rounded-md border border-border bg-muted px-2 py-1 text-sm text-foreground tabular-nums"
+        unit={unit}
+        className="w-24"
       />
-      <span>{unit}</span>
     </div>
   );
 }

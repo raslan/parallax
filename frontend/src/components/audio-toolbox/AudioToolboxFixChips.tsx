@@ -1,5 +1,6 @@
 import { Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { UnitInput } from "@/components/UnitInput";
 import {
   Select,
   SelectContent,
@@ -44,9 +45,6 @@ function chipSummary(key: AudioFixKey, v: AudioFixValues): string | null {
   }
 }
 
-const numInput =
-  "h-9 w-24 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
-
 function FixEditor({
   fixKey,
   values,
@@ -63,27 +61,25 @@ function FixEditor({
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm">
             Start
-            <input
-              type="number"
+            <UnitInput
               min={0}
               step={0.5}
               value={values.trimStart}
               onChange={(e) => onChange({ trimStart: Math.max(0, Number(e.target.value)) })}
-              className={numInput}
+              unit="sec"
+              className="w-28"
             />
-            sec
           </label>
           <label className="flex items-center gap-2 text-sm">
             End
-            <input
-              type="number"
+            <UnitInput
               min={0}
               step={0.5}
               value={values.trimEnd}
               onChange={(e) => onChange({ trimEnd: Math.max(0, Number(e.target.value)) })}
-              className={numInput}
+              unit="sec"
+              className="w-28"
             />
-            sec
           </label>
         </div>
       </div>
