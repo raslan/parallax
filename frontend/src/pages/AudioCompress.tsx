@@ -66,7 +66,8 @@ export function AudioCompress() {
   const [bitrate, setBitrate] = useState(128);
   const [keepOriginal, setKeepOriginal] = useState(true);
 
-  const { selected, setSelected, toggle, selectAll, selectNone, setOrder } = useSelection<number>();
+  const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
+    useSelection<number>();
   const { sortKey, sortDir, toggleSort } = useSort<SortKey>("filename");
   const [playing, setPlaying] = useState<AudioFile | null>(null);
   const [search, setSearch] = useState("");
@@ -376,6 +377,7 @@ export function AudioCompress() {
               </div>
               <div className="flex-1 min-h-[200px]">
                 <VirtualizedGrid
+                  {...marqueeProps}
                   items={filteredFiles}
                   getKey={(f) => f.id}
                   mode="list"

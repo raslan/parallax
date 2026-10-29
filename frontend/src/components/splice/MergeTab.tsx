@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Cpu, Film, Loader2, Merge, SearchX } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
@@ -78,6 +78,7 @@ export function MergeTab() {
   const [libraryId, setLibraryId] = useState<number | null>(null);
 
   const { selected, setSelected } = useSelection();
+  const marqueeBase = useRef<ReadonlySet<number>>(new Set());
   const [order, setOrder] = useState<number[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode | null>(null);
@@ -167,6 +168,14 @@ export function MergeTab() {
     setSelected(next);
     setOrder((prev) => syncOrder(prev, next, byId));
     if (referenceId != null && !next.has(referenceId)) setReferenceId(null);
+  };
+  // Drag-to-select goes through `applySelection` too, so the merge order stays in step.
+  const marqueeProps = {
+    onMarqueeStart: (additive: boolean) => {
+      marqueeBase.current = additive ? new Set(selected) : new Set();
+    },
+    onMarquee: (keys: readonly (string | number)[]) =>
+      applySelection(new Set([...marqueeBase.current, ...(keys as readonly number[])])),
   };
   const toggleFile = (id: number) => {
     const next = new Set(selected);
@@ -399,6 +408,7 @@ export function MergeTab() {
           ) : viewMode === "grid" ? (
             <div className="flex-1 min-h-[200px]">
               <VirtualizedGrid
+                {...marqueeProps}
                 items={filteredFiles}
                 getKey={(f) => f.id}
                 mode="grid"
@@ -457,6 +467,7 @@ export function MergeTab() {
               </div>
               <div className="flex-1 min-h-[200px]">
                 <VirtualizedGrid
+                  {...marqueeProps}
                   items={filteredFiles}
                   getKey={(f) => f.id}
                   mode="list"

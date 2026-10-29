@@ -1,5 +1,7 @@
 import { useRef, useState, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useMarquee } from "@/hooks/useMarquee";
+import { cn } from "@/lib/utils";
 
 export interface VirtualizedGridProps<T> {
   items: T[];
@@ -48,6 +50,15 @@ export interface VirtualizedGridProps<T> {
    * viewport stranded mid-list against a shorter result set.
    */
   resetKey?: string | number;
+  /**
+   * Drag-to-select: called once when a drag begins (`additive` = a modifier key is
+   * held, so the existing selection should be kept), then `onMarquee` with the keys
+   * of every item under the box on each pointer move. Spread `marqueeProps` from
+   * `useSelection` onto both. Not supported with `dynamicHeight` (row positions are
+   * only known after measuring).
+   */
+  onMarqueeStart?: (additive: boolean) => void;
+  onMarquee?: (keys: readonly (string | number)[]) => void;
 }
 
 export function VirtualizedGrid<T>({
@@ -63,8 +74,11 @@ export function VirtualizedGrid<T>({
   gap = 12,
   maxHeight,
   resetKey,
+  onMarqueeStart,
+  onMarquee,
 }: VirtualizedGridProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
   const [columnWidth, setColumnWidth] = useState(0);
 
@@ -131,19 +145,56 @@ export function VirtualizedGrid<T>({
     parentRef.current?.scrollTo({ top: 0 });
   }, [resetKey]);
 
+  const marquee = useMarquee({
+    scrollRef: parentRef,
+    contentRef,
+    enabled: !!onMarquee && !dynamicHeight,
+    geometry: {
+      count: items.length,
+      columns: columnCount,
+      // A list row spans the full width, so any width past the pointer will do.
+      colWidth: mode === "list" ? 1e9 : columnWidth,
+      colGap: mode === "list" ? 0 : gap,
+      rowHeight,
+      rowGap,
+    },
+    onStart: (additive) => onMarqueeStart?.(additive),
+    onChange: (indexes) =>
+      onMarquee?.(
+        indexes.flatMap((i) => {
+          const item = items[i];
+          return item === undefined ? [] : [getKey(item)];
+        }),
+      ),
+  });
+
   return (
     <div
       ref={parentRef}
-      className="p-1"
+      className={cn("p-1", marquee.box && "select-none")}
       style={maxHeight ? { overflow: "auto", maxHeight } : { overflow: "auto", height: "100%" }}
+      onPointerDown={marquee.onPointerDown}
     >
       <div
+        ref={contentRef}
         style={{
           height: rowVirtualizer.getTotalSize(),
           position: "relative",
           width: "100%",
         }}
       >
+        {marquee.box && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute z-20 rounded-sm border border-primary bg-primary/15"
+            style={{
+              left: marquee.box.left,
+              top: marquee.box.top,
+              width: marquee.box.right - marquee.box.left,
+              height: marquee.box.bottom - marquee.box.top,
+            }}
+          />
+        )}
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
           const start = virtualRow.index * columnCount;
           const rowItems = items.slice(start, start + columnCount);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Inclusive slice of `order` between two ids, in either direction. Empty when
@@ -64,7 +64,26 @@ export function useSelection<T = number>() {
     setSelected(new Set<T>());
   }, []);
 
-  return { selected, setSelected, toggle, selectAll, selectNone, setOrder };
+  // Drag-to-select: the selection before the drag is the base; every pointer move
+  // reports the full set under the box, so the result is always base ∪ box.
+  const selectedRef = useRef(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+  const baseRef = useRef<ReadonlySet<T>>(new Set());
+  const marqueeProps = useMemo(
+    () => ({
+      onMarqueeStart: (additive: boolean) => {
+        baseRef.current = additive ? new Set(selectedRef.current) : new Set<T>();
+      },
+      onMarquee: (keys: readonly (string | number)[]) => {
+        setSelected(new Set([...baseRef.current, ...(keys as readonly T[])]));
+      },
+    }),
+    [],
+  );
+
+  return { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps };
 }
 
 /** Keeps the selection's range-select order in step with what the page shows. */

@@ -30,11 +30,6 @@ export function SelectionBar({
       <span className="text-sm font-medium tabular-nums" role="status">
         {count} selected{bytes ? ` · ${formatSize(bytes)}` : ""}
       </span>
-      {count === 1 && (
-        <span className="hidden text-xs text-muted-foreground md:inline">
-          Shift-click another to select everything between
-        </span>
-      )}
       {children}
       <Button size="sm" variant="ghost" onClick={onClear} className="px-2">
         <X className="mr-1 h-3.5 w-3.5" />

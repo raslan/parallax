@@ -90,6 +90,7 @@ export function Toolbox() {
     selectAll: selectAllIds,
     selectNone,
     setOrder,
+    marqueeProps,
   } = useSelection();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [gridSize, setGridSize] = useGridSize(200);
@@ -363,6 +364,7 @@ export function Toolbox() {
           ) : viewMode === "grid" ? (
             <div className="flex-1 min-h-[200px]">
               <VirtualizedGrid
+                {...marqueeProps}
                 items={filteredFiles}
                 getKey={(f) => f.id}
                 mode="grid"
@@ -421,6 +423,7 @@ export function Toolbox() {
               </div>
               <div className="flex-1 min-h-[200px]">
                 <VirtualizedGrid
+                  {...marqueeProps}
                   items={filteredFiles}
                   getKey={(f) => f.id}
                   mode="list"

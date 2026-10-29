@@ -88,6 +88,7 @@ export function AudioToolbox() {
     selectAll: selectAllIds,
     selectNone,
     setOrder,
+    marqueeProps,
   } = useSelection();
   const { sortKey, sortDir, toggleSort: handleSort } = useSort<SortKey>("filename");
   const [playingFile, setPlayingFile] = useState<AudioFile | null>(null);
@@ -388,6 +389,7 @@ export function AudioToolbox() {
               </div>
               <div className="flex-1 min-h-[200px]">
                 <VirtualizedGrid
+                  {...marqueeProps}
                   items={filteredFiles}
                   getKey={(f) => f.id}
                   mode="list"

@@ -123,6 +123,7 @@ export function Images() {
     setSelected: setSelectedIds,
     toggle: toggleId,
     setOrder,
+    marqueeProps,
   } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
@@ -276,6 +277,7 @@ export function Images() {
       {visibleImages.length > 0 && (
         <div className="flex-1 min-h-0">
           <VirtualizedGrid
+            {...marqueeProps}
             items={visibleImages}
             getKey={(img) => img.id}
             mode="grid"

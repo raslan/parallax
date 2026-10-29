@@ -69,6 +69,7 @@ export function AudioCleanup() {
     toggle: toggleOne,
     selectAll: selectAllIds,
     setOrder,
+    marqueeProps,
   } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -305,6 +306,7 @@ export function AudioCleanup() {
             </div>
             <div className="flex-1 min-h-0">
               <VirtualizedGrid
+                {...marqueeProps}
                 items={sortedResults}
                 getKey={(f) => f.id}
                 mode="list"
