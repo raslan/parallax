@@ -40,6 +40,8 @@ MEDIA_BY_JOB_TYPE = {
 
 # Not a job: the reversal written when an original is restored (see `record_restore`).
 RESTORE_KIND = "restore"
+# Not a queue job either, but it is user work: files removed from a library.
+REMOVAL_KIND = "delete"
 
 # Housekeeping the user didn't ask for; a stat for it would only be noise.
 _SKIPPED_TYPES = {JobType.THUMBNAIL_WARM, JobType.MODEL_DOWNLOAD}
@@ -102,27 +104,52 @@ def record_finished_job(job_id: int | None) -> None:
 def record_restore(media: str, bytes_original: int, bytes_current: int | None) -> None:
     """Take back the space a restored original had saved.
 
-    Restoring swaps the compressed file for its original, so the library grows by
-    `bytes_original - bytes_current`. The event stores the negated sizes, which
-    cancels the matching compress event in every sum while counting as no job.
+    Restoring swaps the compressed file (or nothing, after a Cleanup) for its
+    original, so the library grows by `bytes_original - bytes_current`. The event
+    stores the negated sizes, which cancels the matching compress event in every
+    sum while counting as no job.
     """
-    if bytes_current is None:
+    # No current file means the original was removed by Cleanup, not compressed.
+    _add_event(
+        StatEvent(
+            kind=RESTORE_KIND,
+            media=media,
+            status=JobStatus.COMPLETED,
+            bytes_in=-int(bytes_original),
+            bytes_out=-int(bytes_current or 0),
+        )
+    )
+
+
+def record_removal(media: str, files: int, bytes_removed: int) -> None:
+    """Credit files removed from a library (Cleanup, duplicates, image delete).
+
+    Counted whether or not the originals are kept: like Compress, the saving is
+    credited when the library shrinks. Call after the request's own commit so the
+    separate session below doesn't contend for SQLite's write lock.
+    """
+    if files <= 0:
         return
+    _add_event(
+        StatEvent(
+            kind=REMOVAL_KIND,
+            media=media,
+            status=JobStatus.COMPLETED,
+            files=files,
+            bytes_in=max(0, int(bytes_removed)),
+            bytes_out=0,
+        )
+    )
+
+
+def _add_event(event: StatEvent) -> None:
     db = SessionLocal()
     try:
-        db.add(
-            StatEvent(
-                kind=RESTORE_KIND,
-                media=media,
-                status=JobStatus.COMPLETED,
-                bytes_in=-int(bytes_original),
-                bytes_out=-int(bytes_current),
-            )
-        )
+        db.add(event)
         db.commit()
     except Exception:
         db.rollback()
-        logger.exception("could not record restore stats")
+        logger.exception("could not record stats event")
     finally:
         db.close()
 

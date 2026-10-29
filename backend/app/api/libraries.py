@@ -21,6 +21,7 @@ from app.schemas import (
     LibraryUpdate,
     StatsRead,
 )
+from app.services import stats
 from app.services.scanner import clear_thumbnail_failed_marker, scan_library, thumbnail_path
 
 router = APIRouter(prefix="/libraries", tags=["libraries"])
@@ -393,6 +394,7 @@ def delete_duplicates_endpoint(
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
+    removed = removed_bytes = 0
     for file_id in body.file_ids:
         f = db.get(File, file_id)
         if not f or f.library_id != library_id:
@@ -406,8 +408,11 @@ def delete_duplicates_endpoint(
         except FileNotFoundError:
             pass
         clear_thumbnail_failed_marker(f.id)
+        removed += 1
+        removed_bytes += f.size or 0
         db.delete(f)
     db.commit()
+    stats.record_removal("video", removed, removed_bytes)
 
 
 @router.get("/{library_id}/cleanup", response_model=list[FileRead])
@@ -461,6 +466,7 @@ def delete_cleanup_files(
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
+    removed = removed_bytes = 0
     for file_id in body.file_ids:
         f = db.get(File, file_id)
         if not f or f.library_id != library_id:
@@ -478,5 +484,8 @@ def delete_cleanup_files(
         except FileNotFoundError:
             pass
         clear_thumbnail_failed_marker(f.id)
+        removed += 1
+        removed_bytes += f.size or 0
         db.delete(f)
     db.commit()
+    stats.record_removal("video", removed, removed_bytes)

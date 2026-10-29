@@ -19,6 +19,8 @@ const TYPE_LABEL: Record<string, string> = {
   toolbox_fix: "Toolbox fix",
   splice_merge: "Splice",
   thumbnail_warm: "Generating thumbnails",
+  // Stat-only kind: files removed by Cleanup, duplicates or image delete (no queue job).
+  delete: "Cleanup",
 };
 
 /** Human label for a job type; falls back to the raw type string. */

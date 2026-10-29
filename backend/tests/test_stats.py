@@ -120,3 +120,15 @@ class _Keep:
 
     def close(self):
         pass
+
+
+def test_removal_counts_as_savings_and_restore_without_current_file_undoes_it(db, monkeypatch):
+    monkeypatch.setattr(stats_service, "SessionLocal", lambda: _Keep(db))
+    stats_service.record_removal("video", 3, 900)
+    s = stats_service.summary(db)
+    assert (s["bytes_saved"], s["files"], s["jobs_completed"]) == (900, 3, 1)
+    assert stats_service.breakdown(db)[0]["key"] == "delete"
+    stats_service.record_removal("video", 0, 0)  # nothing removed, nothing recorded
+    assert stats_service.summary(db)["jobs"] == 1
+    stats_service.record_restore("video", 300, None)
+    assert stats_service.summary(db)["bytes_saved"] == 600

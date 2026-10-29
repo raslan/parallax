@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from app.database import SessionLocal, get_db
 from app.models.audio_file import AudioFile
 from app.schemas import AudioFileRead
+from app.services import stats
 
 router = APIRouter(prefix="/audio-files", tags=["audio-files"])
 
@@ -99,10 +100,13 @@ class AudioFileDeleteRequest(BaseModel):
 
 @router.post("/delete", status_code=204)
 def delete_audio_files(body: AudioFileDeleteRequest, db: Session = Depends(get_db)):
+    removed = removed_bytes = 0
     for file_id in body.file_ids:
         row = db.get(AudioFile, file_id)
         if row is None:
             continue
+        removed += 1
+        removed_bytes += row.size or 0
         if os.path.isfile(row.path):
             if body.keep_original:
                 originals_dir = os.path.join(os.path.dirname(row.path), "_originals")
@@ -123,3 +127,4 @@ def delete_audio_files(body: AudioFileDeleteRequest, db: Session = Depends(get_d
                     pass
         db.delete(row)
     db.commit()
+    stats.record_removal("audio", removed, removed_bytes)

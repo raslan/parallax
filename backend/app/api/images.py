@@ -14,6 +14,7 @@ from app.models.image import ImageDetection, ImageFile, ImageStatus
 from app.models.image_library import ImageLibrary
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import ImageDetectionRead, ImageRead, ImagesResponse
+from app.services import stats
 from app.services.image_scanner import get_or_create_image_thumbnail
 
 
@@ -366,11 +367,12 @@ def restore_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
 
 @router.post("/delete-bulk", status_code=200)
 def delete_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
-    deleted = 0
+    deleted = removed_bytes = 0
     for image_id in body.ids:
         f = db.get(ImageFile, image_id)
         if not f:
             continue
+        removed_bytes += f.size or 0
         parent_dir = os.path.dirname(f.path)
         if os.path.exists(f.path):
             os.remove(f.path)
@@ -386,6 +388,7 @@ def delete_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
             except OSError:
                 pass
     db.commit()
+    stats.record_removal("image", deleted, removed_bytes)
     return {"deleted": deleted}
 
 
@@ -474,8 +477,10 @@ def delete_image(image_id: int, db: Session = Depends(get_db)):
     if os.path.exists(thumb):
         os.remove(thumb)
     db.query(ImageDetection).filter(ImageDetection.image_id == image_id).delete()
+    size = f.size or 0
     db.delete(f)
     db.commit()
+    stats.record_removal("image", 1, size)
     if os.path.basename(parent_dir) == "_quarantine":
         try:
             os.rmdir(parent_dir)
