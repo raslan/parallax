@@ -6,15 +6,14 @@ import {
   Play,
   LayoutGrid,
   List,
-  Check,
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/Skeletons";
-import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { FileGridCard } from "@/components/FileSelectGrid";
 import { RelativeTime } from "@/components/RelativeTime";
 import { RowContextMenu, RowMoreMenu, buildRowActions } from "@/components/RowMenu";
 import { SelectionBar } from "@/components/SelectionBar";
@@ -51,73 +50,6 @@ import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { useConfirm } from "@/components/ConfirmProvider";
-
-function CleanupCard({
-  file,
-  isSelected,
-  onToggle,
-  onPlay,
-}: {
-  file: VideoFile;
-  isSelected: boolean;
-  onToggle: () => void;
-  onPlay: () => void;
-}) {
-  const actions = buildRowActions({ onPlay, path: file.path });
-  return (
-    <RowContextMenu actions={actions}>
-      <Card
-        className={`overflow-hidden cursor-pointer group transition-shadow hover:ring-1 ${isSelected ? "ring-1 ring-primary" : "hover:ring-primary/60"}`}
-        onClick={onToggle}
-      >
-        <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
-          <VideoThumbnail
-            fileId={file.id}
-            scannedAt={file.scanned_at}
-            alt={file.filename}
-            imgClassName="w-full h-full object-cover"
-          />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle();
-            }}
-            title="Toggle selection"
-            className={`absolute top-1.5 left-1.5 z-10 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100 bg-primary border-primary" : "opacity-0 group-hover:opacity-100 bg-black/50 border-white/70"}`}
-          >
-            {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onPlay();
-            }}
-            title="Play video"
-            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto"
-          >
-            <Play className="h-8 w-8 text-white fill-white" />
-          </button>
-        </div>
-        <CardContent className="p-2.5 space-y-0.5 border-t border-border bg-px-elevated">
-          <p className="text-xs font-medium truncate" title={file.filename}>
-            {file.filename}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {file.file_width && file.file_height ? (
-              <span className="font-mono">
-                {file.file_width}×{file.file_height}
-              </span>
-            ) : null}
-            {file.file_width && file.file_height ? " · " : ""}
-            <span className="font-mono">{formatDuration(file.duration)}</span>
-            {" · "}
-            <span className="font-mono">{formatSize(file.size)}</span>
-          </p>
-        </CardContent>
-      </Card>
-    </RowContextMenu>
-  );
-}
 
 function CleanupListRow({
   file,
@@ -440,7 +372,11 @@ export function Cleanup() {
               {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
             </div>
           </div>
-          <SelectionBar count={selected.size} onClear={() => setSelected(new Set())}>
+          <SelectionBar
+            count={selected.size}
+            bytes={sumSizeOf(allFiles ?? [], selected)}
+            onClear={() => setSelected(new Set())}
+          >
             <Button variant="destructive" size="sm" disabled={deleting} onClick={handleDelete}>
               {deleting ? (
                 <>
@@ -499,9 +435,9 @@ export function Cleanup() {
                 minColumnWidth={gridSize}
                 resetKey={`${selectedId}-${sortBy}-${sortDir}-${gridSize}`}
                 renderItem={(f) => (
-                  <CleanupCard
+                  <FileGridCard
                     file={f}
-                    isSelected={selected.has(f.id)}
+                    selected={selected.has(f.id)}
                     onToggle={() => toggleOne(f.id)}
                     onPlay={() => setPlayingFile(f)}
                   />
