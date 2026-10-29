@@ -42,6 +42,10 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
       },
       // Two micro sizes for dense UI (badges, hints, table meta). 10px is the floor.
       fontSize: {

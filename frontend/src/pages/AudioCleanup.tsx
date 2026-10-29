@@ -273,7 +273,11 @@ export function AudioCleanup() {
               </button>
             </div>
           </div>
-          <SelectionBar count={selected.size} onClear={() => setSelected(new Set())}>
+          <SelectionBar
+            count={selected.size}
+            bytes={allFiles ? sumSizeOf(allFiles, selected) : undefined}
+            onClear={() => setSelected(new Set())}
+          >
             <Button variant="destructive" size="sm" disabled={deleting} onClick={handleDelete}>
               {deleting ? (
                 <>

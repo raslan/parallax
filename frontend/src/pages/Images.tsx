@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Images as ImagesIcon, FolderX, ArrowUp, ArrowDown, Maximize2, Search } from "lucide-react";
 import { RowContextMenu, buildRowActions } from "@/components/RowMenu";
 import { SelectionBar } from "@/components/SelectionBar";
+import { sumSizeOf } from "@/lib/format";
 import { imageApi, qk } from "@/lib/api";
 import { ImageThumbnail } from "@/components/ImageThumbnail";
 import type { ImageFile } from "@/types/image";
@@ -314,7 +315,11 @@ export function Images() {
         </div>
       )}
       {selectionMode && (
-        <SelectionBar count={selectedIds.size} onClear={toggleSelectionMode}>
+        <SelectionBar
+          count={selectedIds.size}
+          bytes={sumSizeOf(images, selectedIds)}
+          onClear={toggleSelectionMode}
+        >
           <Button
             size="sm"
             variant="destructive"
