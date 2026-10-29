@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from app.models.file import FileStatus
+from app.services import stats
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,7 @@ class OriginalsKind:
     rescan_fn: Callable  # scanner.rescan_file | audio_scanner.rescan_audio_file
     route_prefix: str  # "/originals" | "/audio-originals"
     reset_at_field: str = "transcoded_at"  # File.transcoded_at | AudioFile.compressed_at
+    media: str = "video"  # stats media bucket: video | audio
 
 
 def scan_library_originals(kind: OriginalsKind, library, db) -> list[dict]:
@@ -144,12 +146,15 @@ def restore_one(kind: OriginalsKind, db, path: str) -> str:
 
     # Delete the transcoded file (use DB path so we get the right extension)
     transcoded_path = file_obj.path if file_obj else restore_path
+    original_size = os.path.getsize(path)
+    current_size = os.path.getsize(transcoded_path) if os.path.exists(transcoded_path) else None
     if os.path.exists(transcoded_path) and transcoded_path != restore_path:
         os.remove(transcoded_path)
     elif os.path.exists(restore_path):
         os.remove(restore_path)
 
     shutil.move(path, restore_path)
+    stats.record_restore(kind.media, original_size, current_size)
 
     # Clean up empty _originals dir
     try:

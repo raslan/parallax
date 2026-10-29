@@ -38,6 +38,9 @@ MEDIA_BY_JOB_TYPE = {
     JobType.AUDIO_DUPLICATES: "audio",
 }
 
+# Not a job: the reversal written when an original is restored (see `record_restore`).
+RESTORE_KIND = "restore"
+
 # Housekeeping the user didn't ask for; a stat for it would only be noise.
 _SKIPPED_TYPES = {JobType.THUMBNAIL_WARM, JobType.MODEL_DOWNLOAD}
 _TERMINAL = {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}
@@ -96,6 +99,34 @@ def record_finished_job(job_id: int | None) -> None:
 # ─── Aggregation ──────────────────────────────────────────────────────────────
 
 
+def record_restore(media: str, bytes_original: int, bytes_current: int | None) -> None:
+    """Take back the space a restored original had saved.
+
+    Restoring swaps the compressed file for its original, so the library grows by
+    `bytes_original - bytes_current`. The event stores the negated sizes, which
+    cancels the matching compress event in every sum while counting as no job.
+    """
+    if bytes_current is None:
+        return
+    db = SessionLocal()
+    try:
+        db.add(
+            StatEvent(
+                kind=RESTORE_KIND,
+                media=media,
+                status=JobStatus.COMPLETED,
+                bytes_in=-int(bytes_original),
+                bytes_out=-int(bytes_current),
+            )
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("could not record restore stats")
+    finally:
+        db.close()
+
+
 def _since(days: int | None) -> datetime | None:
     return datetime.utcnow() - timedelta(days=days) if days else None
 
@@ -117,16 +148,19 @@ def _saved(event: StatEvent) -> int:
 
 def summary(db: Session, days: int | None = None) -> dict:
     events = _events(db, days)
-    done = [e for e in events if e.status == JobStatus.COMPLETED]
+    jobs = [e for e in events if e.kind != RESTORE_KIND]
+    done = [e for e in jobs if e.status == JobStatus.COMPLETED]
+    # Restores adjust the byte totals but are not jobs.
+    sized = done + [e for e in events if e.kind == RESTORE_KIND]
     return {
-        "jobs": len(events),
+        "jobs": len(jobs),
         "jobs_completed": len(done),
         "files": sum(e.files for e in done),
-        "bytes_in": sum(e.bytes_in or 0 for e in done),
-        "bytes_out": sum(e.bytes_out or 0 for e in done),
-        "bytes_saved": sum(_saved(e) for e in done),
+        "bytes_in": sum(e.bytes_in or 0 for e in sized),
+        "bytes_out": sum(e.bytes_out or 0 for e in sized),
+        "bytes_saved": sum(_saved(e) for e in sized),
         "media_seconds": sum(e.media_seconds or 0.0 for e in done),
-        "busy_seconds": sum(e.duration_s for e in events),
+        "busy_seconds": sum(e.duration_s for e in jobs),
         "first_event": events[0].ts if events else None,
     }
 
@@ -148,8 +182,9 @@ def timeseries(db: Session, bucket: str = "day", days: int | None = 30) -> list[
             continue
         key = _bucket_key(e.ts, bucket)
         row = rows.setdefault(key, {"t": key, "jobs": 0, "files": 0, "bytes_saved": 0})
-        row["jobs"] += 1
-        row["files"] += e.files
+        if e.kind != RESTORE_KIND:
+            row["jobs"] += 1
+            row["files"] += e.files
         row["bytes_saved"] += _saved(e)
     return [rows[k] for k in sorted(rows)]
 
@@ -162,6 +197,8 @@ def breakdown(db: Session, by: str = "kind", days: int | None = None) -> list[di
     attr = _BREAKDOWN_FIELDS[by]
     groups: dict[str, dict] = {}
     for e in _events(db, days):
+        if e.kind == RESTORE_KIND:
+            continue
         key = getattr(e, attr)
         g = groups.setdefault(key, {"key": key, "jobs": 0, "files": 0, "bytes_saved": 0})
         g["jobs"] += 1

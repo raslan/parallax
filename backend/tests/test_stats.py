@@ -84,3 +84,39 @@ def test_events_survive_deleting_a_library(db):
 def test_stat_event_has_no_file_or_library_columns():
     columns = set(StatEvent.__table__.columns.keys())
     assert not columns & {"path", "filename", "url", "library_id", "library_name", "file_id"}
+
+
+def test_restore_cancels_the_matching_savings_without_counting_a_job(db, monkeypatch):
+    _event(db, bytes_in=1000, bytes_out=400)
+    # record_restore opens its own session; point it at the test one.
+    monkeypatch.setattr(stats_service, "SessionLocal", lambda: _Keep(db))
+    stats_service.record_restore("video", 1000, 400)
+    s = stats_service.summary(db)
+    assert s["bytes_saved"] == 0
+    assert s["bytes_in"] == 0 and s["bytes_out"] == 0
+    assert s["jobs"] == 1
+    assert stats_service.breakdown(db) == [
+        {"key": "compress", "jobs": 1, "files": 1, "bytes_saved": 600}
+    ]
+    assert sum(r["jobs"] for r in stats_service.timeseries(db)) == 1
+
+
+def test_restore_without_a_current_file_records_nothing(db):
+    stats_service.record_restore("video", 1000, None)
+    assert stats_service.summary(db)["bytes_saved"] == 0
+
+
+class _Keep:
+    """Session proxy whose close/rollback leave the shared test session open."""
+
+    def __init__(self, db):
+        self._db = db
+
+    def __getattr__(self, name):
+        return getattr(self._db, name)
+
+    def commit(self):
+        self._db.flush()
+
+    def close(self):
+        pass

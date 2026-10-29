@@ -25,6 +25,7 @@ AUDIO_ORIGINALS = OriginalsKind(
     rescan_fn=rescan_audio_file,
     route_prefix="/audio-originals",
     reset_at_field="compressed_at",
+    media="audio",
 )
 
 
