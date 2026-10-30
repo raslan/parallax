@@ -1,7 +1,7 @@
 // Dev-time theme importer: converts a pasted tweakcn/shadcn export (the `.dark` block, OKLCH or HSL,
 // or a shadcn registry-item JSON) into src/themes/<id>.css.
 //
-//   npm run theme:import -- <id> "<Label>" [--group Parallax|Colour] [--source "<attribution>"] [--force] [<file>]
+//   npm run theme:import -- <id> "<Label>" [--group Parallax|Colour|"Classic palettes"][--source "<attribution>"] [--force] [<file>]
 //
 // Reads <file>, or stdin when omitted. Prints the THEME_META line to paste into
 // src/themes/registry.ts; it never edits the registry itself.
@@ -15,10 +15,10 @@ import {
   renderThemeCss,
 } from "../src/themes/importer.ts";
 
-const USAGE = `Usage: npm run theme:import -- <id> "<Label>" [--group Parallax|Colour] [--source "<attribution>"] [--force] [<file>]
+const USAGE = `Usage: npm run theme:import -- <id> "<Label>" [--group Parallax|Colour|"Classic palettes"][--source "<attribution>"] [--force] [<file>]
   Reads the pasted CSS/JSON from <file> or stdin; writes src/themes/<id>.css.`;
 
-const GROUPS = ["Parallax", "Colour"];
+const GROUPS = ["Parallax", "Colour", "Classic palettes"];
 
 function parseArgs(argv: string[]) {
   const positional: string[] = [];

@@ -32,6 +32,28 @@ describe("theme registry", () => {
     }
   });
 
+  it("lists every group in order, each non-empty", () => {
+    expect(THEME_GROUPS).toEqual(["Parallax", "Colour", "Classic palettes"]);
+    for (const g of THEME_GROUPS)
+      expect(
+        THEME_META.some((t) => t.group === g),
+        g,
+      ).toBe(true);
+  });
+
+  it("keeps the original eight themes first, in order", () => {
+    expect(THEMES.slice(0, 8)).toEqual([
+      "parallax",
+      "graphite",
+      "nightfall",
+      "rose",
+      "oled",
+      "violet",
+      "cyan",
+      "emerald",
+    ]);
+  });
+
   it("has a registry entry for every css file", () => {
     expect(themeFiles.map((f) => f.replace(/\.css$/, "")).sort()).toEqual([...THEMES].sort());
   });

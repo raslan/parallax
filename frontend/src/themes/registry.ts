@@ -6,7 +6,7 @@ import "./base.css";
 // Eagerly pulls every theme stylesheet into the bundle; nothing is read from the result.
 import.meta.glob("./*.css", { eager: true });
 
-export const THEME_GROUPS = ["Parallax", "Colour"] as const;
+export const THEME_GROUPS = ["Parallax", "Colour", "Classic palettes"] as const;
 type ThemeGroup = (typeof THEME_GROUPS)[number];
 
 interface ThemeEntry {
@@ -25,6 +25,14 @@ export const THEME_META = [
   { id: "violet", label: "Deep Space", group: "Colour" },
   { id: "cyan", label: "Modern HUD", group: "Colour" },
   { id: "emerald", label: "Neon Grid", group: "Colour" },
+  { id: "catppuccin", label: "Catppuccin Mocha", group: "Classic palettes" },
+  { id: "dracula", label: "Dracula", group: "Classic palettes" },
+  { id: "nord", label: "Nord", group: "Classic palettes" },
+  { id: "tokyo-night", label: "Tokyo Night", group: "Classic palettes" },
+  { id: "gruvbox", label: "Gruvbox Dark", group: "Classic palettes" },
+  { id: "solarized", label: "Solarized Dark", group: "Classic palettes" },
+  { id: "one-dark", label: "One Dark", group: "Classic palettes" },
+  { id: "rose-pine", label: "Rose Pine", group: "Classic palettes" },
 ] as const satisfies readonly ThemeEntry[];
 
 export type ThemeMeta = (typeof THEME_META)[number];
