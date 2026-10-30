@@ -18,7 +18,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
   - **Custom Show mode** — no TMDB entry needed: point at a folder of YouTube downloads (a playlist, a channel, an abridged series) and it becomes a one-season show. Order episodes by filename, embedded upload date, date added, drag-and-drop, or by typing an episode number to slot a file in place; titles auto-cleaned from filenames
   - **Metadata & artwork** — writes Kodi/Jellyfin/Plex `.nfo` sidecars (show + per-episode) and generates a poster and backdrop from a frame of the first episode, show title set in Inter, colour keyed to the frame — all offline, no scraping
   - Optional **move to** a destination folder as part of the rename (works across filesystems); preview every rename, `.nfo`, and image before applying
-- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); multiple subtitle tracks shown in the Plyr player with a language picker
+- **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); multiple subtitle tracks shown in the built-in player with a language picker
 - **Splice (Merge)** — pick two or more videos from one library, set the order by dragging, and join them into one new file next to the first. When every file matches (codec, resolution, frame rate, pixel format, audio) it is an instant, lossless stream copy; otherwise it re-encodes with letterboxing and silence for audio-less clips, using the codec/CRF/speed you choose. Optional one-chapter-per-file. Originals are always kept in `_originals/`, and only move after the output is verified; a failed or cancelled merge leaves everything untouched. If a hardware encoder fails, one click retries on the CPU
 
 ### Audio
@@ -50,7 +50,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 - **Subtitles** — optionally download subtitle files alongside the video
 - **yt-dlp management** — install/update from Settings → Downloads; stable or nightly channel; binary lives in the data volume and persists across rebuilds; quick Update button on the Downloads page shows current version
 - **Download history** — persists across restarts; clear from list (file kept) or delete with file (shift-click skips confirm)
-- **Playback** — completed downloads play in the built-in Plyr player with subtitle support
+- **Playback** — completed downloads play in the built-in player with subtitle support
 
 ### General
 
