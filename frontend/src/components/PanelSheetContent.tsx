@@ -9,14 +9,13 @@ import { cn } from "@/lib/utils";
  * sheet capped at 60% of the screen, so the list above it stays visible and
  * tappable instead of being covered edge to edge.
  */
-export const PanelSheetContent = React.forwardRef<
-  React.ElementRef<typeof SheetContent>,
-  Omit<React.ComponentPropsWithoutRef<typeof SheetContent>, "side">
->(({ className, ...props }, ref) => {
+export function PanelSheetContent({
+  className,
+  ...props
+}: Omit<React.ComponentProps<typeof SheetContent>, "side">) {
   const mobile = useMediaQuery("(max-width: 767px)");
   return (
     <SheetContent
-      ref={ref}
       side={mobile ? "bottom" : "right"}
       className={cn(
         className,
@@ -25,5 +24,5 @@ export const PanelSheetContent = React.forwardRef<
       {...props}
     />
   );
-});
+}
 PanelSheetContent.displayName = "PanelSheetContent";
