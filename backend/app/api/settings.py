@@ -1,4 +1,5 @@
 import os
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -45,14 +46,24 @@ _YTDLP_CHANNEL_KEY = "ytdlp_channel"
 _YTDLP_CHANNEL_DEFAULT = "stable"
 _THEME_KEY = "theme"
 _THEME_DEFAULT = "parallax"
-# Mirrors `THEMES` in frontend/src/types/theme.ts.
-THEME_IDS = ("parallax", "violet", "cyan", "oled", "emerald", "graphite", "nightfall", "rose")
+# Themes live in the frontend (src/themes registry); the backend only checks the id is a safe
+# slug, because it is stamped into index.html's `data-theme` attribute. The frontend falls back
+# to its default for an id it has no theme for.
+THEME_ID_PATTERN = r"^[a-z0-9-]{1,32}$"
+THEME_DEFAULT = _THEME_DEFAULT
+_THEME_ID_RE = re.compile(r"[a-z0-9-]{1,32}")
+
+
+def safe_theme_id(value: object) -> str:
+    """`value` if it is a safe theme slug, else the default theme."""
+    if isinstance(value, str) and _THEME_ID_RE.fullmatch(value):
+        return value
+    return _THEME_DEFAULT
 
 
 def get_theme(db: Session) -> str:
-    """The saved theme id; anything unknown (hand-edited row) falls back to the default."""
-    theme = get_setting(db, _THEME_KEY, _THEME_DEFAULT)
-    return theme if theme in THEME_IDS else _THEME_DEFAULT
+    """The saved theme id; anything malformed (hand-edited row) falls back to the default."""
+    return safe_theme_id(get_setting(db, _THEME_KEY, _THEME_DEFAULT))
 
 
 class GPUInfo(BaseModel):
@@ -94,7 +105,7 @@ class SettingsUpdate(BaseModel):
     download_dir: str | None = Field(default=None, max_length=512)
     max_concurrent_downloads: int | None = Field(default=None, ge=1, le=5)
     ytdlp_channel: str | None = Field(default=None, pattern="^(stable|nightly)$")
-    theme: str | None = Field(default=None, pattern="^(" + "|".join(THEME_IDS) + ")$")
+    theme: str | None = Field(default=None, pattern=THEME_ID_PATTERN)
 
 
 def _read_settings(db: Session) -> SettingsRead:

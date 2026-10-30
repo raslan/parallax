@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_get_settings_includes_detected_gpus_empty(client, monkeypatch):
     import app.api.settings as settings_api
 
@@ -77,13 +80,51 @@ def test_max_concurrent_audio_transcodes_is_independent(client):
 def test_theme_is_saved_server_side_and_validated(client):
     assert client.patch("/api/settings", json={"theme": "rose"}).json()["theme"] == "rose"
     assert client.get("/api/settings").json()["theme"] == "rose"
-    assert client.patch("/api/settings", json={"theme": "neon-pink"}).status_code == 422
     assert client.get("/api/settings").json()["theme"] == "rose"
 
 
-def test_unknown_saved_theme_falls_back_to_default(db):
+def test_theme_accepts_any_safe_id(client):
+    for theme in ("neon-pink", "a", "x" * 32, "theme-2"):
+        r = client.patch("/api/settings", json={"theme": theme})
+        assert r.status_code == 200
+        assert r.json()["theme"] == theme
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["neon pink", 'x" onload="alert(1)', "<script>", "", "x" * 33, "Rose", "a_b", "rose\n"],
+)
+def test_theme_rejects_unsafe_ids(client, bad):
+    client.patch("/api/settings", json={"theme": "rose"})
+    assert client.patch("/api/settings", json={"theme": bad}).status_code == 422
+    assert client.get("/api/settings").json()["theme"] == "rose"
+
+
+@pytest.mark.parametrize("bad", ["hand edited", '"><script>', "", "x" * 33, "Rose"])
+def test_malformed_saved_theme_falls_back_to_default(db, bad):
     from app.api.settings import get_theme
     from app.models.settings import set_setting
 
-    set_setting(db, "theme", "hand-edited")
+    set_setting(db, "theme", bad)
     assert get_theme(db) == "parallax"
+
+
+def test_stamp_theme_stamps_exactly_one_safe_attribute():
+    from app.main import stamp_theme
+
+    html = '<!doctype html><html lang="en" class="dark"><head></head></html>'
+    out = stamp_theme(html, "graphite")
+    assert out.count("data-theme=") == 1
+    assert '<html data-theme="graphite" lang="en"' in out
+
+
+@pytest.mark.parametrize(
+    "bad", ['x" onload="alert(1)', "<script>", "a b", "", "x" * 33, '"><img src=x onerror=1>']
+)
+def test_stamp_theme_never_emits_an_unsafe_value(bad):
+    from app.main import stamp_theme
+
+    out = stamp_theme('<html lang="en"><head></head></html>', bad)
+    assert out.count("data-theme=") == 1
+    assert 'data-theme="parallax"' in out
+    assert "onload" not in out and "<script" not in out and "onerror" not in out

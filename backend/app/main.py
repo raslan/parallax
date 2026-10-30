@@ -27,7 +27,7 @@ from app.api.jobs import router as jobs_router
 from app.api.libraries import router as libraries_router
 from app.api.models import router as models_router
 from app.api.originals import router as originals_router
-from app.api.settings import get_theme
+from app.api.settings import get_theme, safe_theme_id
 from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
 from app.api.stats import router as stats_router
@@ -45,6 +45,12 @@ logging.basicConfig(
 )
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "../static")
+
+
+def stamp_theme(html: str, theme: str) -> str:
+    """Stamp `data-theme` on index.html's <html> tag. The id is re-validated here (not only on
+    the settings write), so a bad value can never inject markup into the page."""
+    return html.replace("<html ", f'<html data-theme="{safe_theme_id(theme)}" ', 1)
 
 
 def _cleanup_legacy_dirs():
@@ -338,8 +344,7 @@ if os.path.isdir(STATIC_DIR):
             theme = get_theme(db)
         finally:
             db.close()
-        html = html.replace("<html ", f'<html data-theme="{theme}" ', 1)
-        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(stamp_theme(html, theme), headers={"Cache-Control": "no-cache"})
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
