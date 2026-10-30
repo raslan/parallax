@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import type Plyr from "plyr";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { streamApi } from "@/lib/api";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { ProgressBar } from "@/components/ProgressBar";
+
+// Video.js and its skin CSS load on first open so they stay out of the main bundle.
+const VideoJsPlayer = lazy(() => import("./VideoJsPlayer"));
+const VideoJsAudioPlayer = lazy(() => import("./VideoJsAudioPlayer"));
 
 interface PlayableFile {
   id: number;
@@ -29,8 +32,6 @@ export function VideoPlayerModal({
   isAudio?: boolean;
   onClose: () => void;
 }) {
-  const videoRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
-  const playerRef = useRef<Plyr | null>(null);
   const [tracks, setTracks] = useState<SubtitleTrack[]>([]);
   const [tracksReady, setTracksReady] = useState(false);
 
@@ -112,8 +113,8 @@ export function VideoPlayerModal({
     };
   }, [file.path]);
 
-  // Fetch subtitle tracks before initialising Plyr so <track> elements
-  // are in the DOM when Plyr scans them.
+  // Fetch subtitle tracks before mounting the player so its <track> children
+  // are in the DOM from the first render.
   useEffect(() => {
     if (prepStatus !== "ready" && prepStatus !== "error") return;
     if (!subtitleTracksUrl) {
@@ -131,51 +132,12 @@ export function VideoPlayerModal({
       .catch(() => setTracksReady(true));
   }, [subtitleTracksUrl, prepStatus]);
 
-  useEffect(() => {
-    if (!tracksReady || !videoRef.current) return;
-    const hasTracks = tracks.length > 0;
-    const baseControls = [
-      "play-large",
-      "play",
-      "progress",
-      "current-time",
-      "duration",
-      "mute",
-      "volume",
-    ];
-    const controls = isAudio
-      ? [...baseControls, "settings"]
-      : hasTracks
-        ? [...baseControls, "captions", "settings", "fullscreen"]
-        : [...baseControls, "fullscreen"];
-    // Plyr + its CSS are loaded on first open so they stay out of the main bundle.
-    let cancelled = false;
-    const el = videoRef.current as HTMLVideoElement;
-    Promise.all([import("plyr"), import("plyr/dist/plyr.css")]).then(([{ default: Plyr }]) => {
-      if (cancelled) return;
-      playerRef.current = new Plyr(el, {
-        controls,
-        keyboard: { focused: true, global: false },
-        tooltips: { controls: true, seek: true },
-        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
-        captions: { active: true, language: "auto" },
-        settings: ["captions", "speed"],
-      });
-    });
-    return () => {
-      cancelled = true;
-      playerRef.current?.destroy();
-      playerRef.current = null;
-    };
-  }, [file.id, tracksReady, tracks.length]);
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center" onClick={onClose}>
       <div className="fixed inset-0 bg-black/85" />
       <div
         className={`relative z-10 w-full px-4 flex flex-col gap-3 max-h-screen py-4 ${isAudio ? "max-w-lg" : "max-w-5xl"}`}
         onClick={(e) => e.stopPropagation()}
-        style={{ "--plyr-color-main": "hsl(var(--primary))" } as React.CSSProperties}
       >
         <div className="flex items-center justify-between shrink-0">
           <p className="text-white text-sm font-medium truncate pr-4" title={file.path}>
@@ -211,34 +173,21 @@ export function VideoPlayerModal({
               Couldn't convert this file's audio — playing original (audio may be silent).
             </p>
           )}
-          {(prepStatus === "ready" || prepStatus === "error") &&
-            tracksReady &&
-            (isAudio ? (
-              <audio
-                ref={videoRef as React.RefObject<HTMLAudioElement>}
-                src={streamUrl}
-                autoPlay
-                className="w-full"
-              />
-            ) : (
-              <video
-                ref={videoRef as React.RefObject<HTMLVideoElement>}
-                src={streamUrl}
-                autoPlay
-                className="w-full h-full rounded-lg"
-                style={{ maxHeight: "calc(100vh - 8rem)" }}
-              >
-                {tracks.map((t) => (
-                  <track
-                    key={t.url}
-                    kind="subtitles"
-                    label={t.label}
-                    srcLang={t.lang}
-                    src={t.url}
-                  />
-                ))}
-              </video>
-            ))}
+          {(prepStatus === "ready" || prepStatus === "error") && tracksReady && (
+            <Suspense
+              fallback={
+                <div className="flex justify-center py-24">
+                  <Loader2 className="h-6 w-6 animate-spin text-white/70" />
+                </div>
+              }
+            >
+              {isAudio ? (
+                <VideoJsAudioPlayer key={file.id} streamUrl={streamUrl} />
+              ) : (
+                <VideoJsPlayer key={file.id} streamUrl={streamUrl} tracks={tracks} />
+              )}
+            </Suspense>
+          )}
         </div>
         <p className="text-white/50 text-xs text-center shrink-0">
           {file.size ? formatSize(file.size) : ""}
