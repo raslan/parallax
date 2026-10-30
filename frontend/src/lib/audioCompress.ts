@@ -11,6 +11,26 @@ export function estimateAudioSize(
   return Math.floor(((durationS * bitrateKbps * 1000) / 8) * 1.02);
 }
 
+/** A lossy encode lands a little above the bitrate it was asked for (VBR, container
+ *  overhead): Opus @128k measures roughly 116-140k. Mirrors the backend's
+ *  `SAME_CODEC_HEADROOM` — keep identical. */
+const SAME_CODEC_HEADROOM = 1.15;
+
+/** True when re-encoding can't help: the source is at/below the target bitrate, or is
+ *  already the target codec within the headroom above it (so a file this app already
+ *  compressed is not picked up again). Unknown bitrate → false. Mirrors the backend's
+ *  `is_already_at_target` — keep identical. */
+export function isAlreadyAtTarget(
+  srcCodec: string | null | undefined,
+  srcBitrateBps: number | null | undefined,
+  targetCodec: string,
+  targetKbps: number,
+): boolean {
+  if (!srcBitrateBps) return false;
+  const limit = targetKbps * 1000 * (srcCodec === targetCodec ? SAME_CODEC_HEADROOM : 1);
+  return srcBitrateBps <= limit;
+}
+
 /** Percent smaller the estimate is vs the source, floored at 0, one decimal.
  *  Mirrors the backend's `audio_savings_pct` — keep identical. */
 export function audioSavingsPct(sourceBytes: number, estBytes: number): number {

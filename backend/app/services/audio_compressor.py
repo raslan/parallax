@@ -140,6 +140,29 @@ def estimate_audio_size(duration_s: float | None, bitrate_kbps: int) -> int:
     return int(duration_s * bitrate_kbps * 1000 / 8 * 1.02)
 
 
+# A lossy encode lands a little above the bitrate it was asked for (VBR, container
+# overhead): Opus @128k typically measures 116-140k. Without headroom, files this app
+# already compressed would be picked up and re-encoded again, losing quality for no gain.
+SAME_CODEC_HEADROOM = 1.15
+
+
+def is_already_at_target(
+    src_codec: str | None, src_bitrate_bps: int | None, target_codec: str, target_kbps: int
+) -> bool:
+    """True when re-encoding can't help: the source is at/below the target bitrate, or is
+    already the target codec within `SAME_CODEC_HEADROOM` of it. Unknown bitrate → False.
+
+    Mirrored in TS (`isAlreadyAtTarget`) for the Compress page's quick selection — keep
+    the arithmetic identical.
+    """
+    if not src_bitrate_bps:
+        return False
+    limit = target_kbps * 1000
+    if src_codec == target_codec:
+        limit *= SAME_CODEC_HEADROOM
+    return src_bitrate_bps <= limit
+
+
 def audio_savings_pct(source_bytes: int, est_bytes: int) -> float:
     """Percent smaller the estimate is vs the source, floored at 0, 1 decimal.
 
@@ -324,9 +347,10 @@ def run_audio_compress_job(
 ) -> None:
     """Job body: re-encode `paths` to `codec` @ `bitrate_kbps`.
 
-    Mirrors `compressor.run_compress_job`. Files whose source bitrate is already
-    at or below the target are recorded as *skipped* (not failed) and left
-    alone — no lossy upconvert. The endpoint (Task 7) creates the `Job` row
+    Mirrors `compressor.run_compress_job`. Files already at the target
+    (`is_already_at_target`: at/below the bitrate, or the same codec within the VBR
+    headroom) are recorded as *skipped* (not failed) and left alone — no lossy
+    upconvert, no generation loss. The endpoint (Task 7) creates the `Job` row
     PENDING; this drives it RUNNING → COMPLETED and writes a result summary
     (including the skipped count) into `job.settings`.
     """
@@ -378,9 +402,9 @@ def run_audio_compress_job(
                 return path, "cancelled", None
 
             meta = audio_scanner._probe_audio_metadata(path)
-            src_bitrate = meta.get("bitrate")
-            if src_bitrate and src_bitrate <= bitrate_kbps * 1000:
-                log_q.put(("info", f"Skipped (already ≤ target bitrate): {fname}"))
+            src_codec, src_bitrate = meta.get("codec_name"), meta.get("bitrate")
+            if is_already_at_target(src_codec, src_bitrate, codec, bitrate_kbps):
+                log_q.put(("info", f"Skipped (already at target): {fname}"))
                 return path, "skipped", None
 
             log_q.put(("info", f"Compressing: {fname}"))

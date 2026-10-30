@@ -26,6 +26,25 @@ def test_savings_pct_never_negative():
     assert ac.audio_savings_pct(0, 500) == 0.0
 
 
+def test_already_at_target_covers_own_vbr_output():
+    # Opus encoded at 128k measures a little over 128k; that is not worth re-encoding.
+    assert ac.is_already_at_target("opus", 134_000, "opus", 128)
+    assert ac.is_already_at_target("opus", 128_000, "opus", 128)
+    assert not ac.is_already_at_target("opus", 175_000, "opus", 128)
+
+
+def test_already_at_target_is_strict_across_codecs():
+    # mp3 -> opus can still save space, so only the plain "at/below target" guard applies.
+    assert not ac.is_already_at_target("mp3", 134_000, "opus", 128)
+    assert ac.is_already_at_target("mp3", 128_000, "opus", 128)
+    assert ac.is_already_at_target("mp3", 96_000, "opus", 128)
+
+
+def test_already_at_target_unknown_bitrate_is_not_skipped():
+    assert not ac.is_already_at_target("opus", None, "opus", 128)
+    assert not ac.is_already_at_target(None, 0, "opus", 128)
+
+
 def test_build_cmd_preserves_metadata_and_drops_video():
     cmd = ac._build_audio_cmd("/in.mp3", "/out.opus", "libopus", 96)
     s = " ".join(cmd)

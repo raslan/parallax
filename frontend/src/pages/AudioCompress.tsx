@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
-import { estimateAudioSize } from "@/lib/audioCompress";
+import { estimateAudioSize, isAlreadyAtTarget } from "@/lib/audioCompress";
 import {
   FileListRow,
   filterByFilename,
@@ -185,12 +185,12 @@ export function AudioCompress() {
       set(
         "bitrate",
         `above ${bitrate}k`,
-        `Files whose bitrate is above the ${bitrate}k target`,
-        (f) => (f.bitrate ?? 0) / 1000 > bitrate,
+        `Files above the ${bitrate}k target. A ${codec} file already within 15% of it is left out: re-encoding it would only lose quality`,
+        (f) => !!f.bitrate && !isAlreadyAtTarget(f.codec_name, f.bitrate, codec, bitrate),
       ),
       set("big", "over 50 MB", "Files larger than 50 MB", (f) => f.size > 50 * 1024 ** 2),
     ];
-  }, [filteredFiles, bitrate]);
+  }, [filteredFiles, bitrate, codec]);
   const smartOptions: SmartSelectOption[] = smartSets.map(({ ids, ...s }) => ({
     ...s,
     active: ids.length > 0 && ids.length === selected.size && ids.every((id) => selected.has(id)),
