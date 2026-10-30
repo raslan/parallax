@@ -367,14 +367,15 @@ def restore_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
 
 @router.post("/delete-bulk", status_code=200)
 def delete_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
-    deleted = removed_bytes = 0
+    deleted = removed_files = removed_bytes = 0
     for image_id in body.ids:
         f = db.get(ImageFile, image_id)
         if not f:
             continue
-        removed_bytes += f.size or 0
         parent_dir = os.path.dirname(f.path)
         if os.path.exists(f.path):
+            removed_files += 1
+            removed_bytes += f.size or 0
             os.remove(f.path)
         thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
         if os.path.exists(thumb):
@@ -388,7 +389,7 @@ def delete_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
             except OSError:
                 pass
     db.commit()
-    stats.record_removal("image", deleted, removed_bytes)
+    stats.record_removal("image", removed_files, removed_bytes)
     return {"deleted": deleted}
 
 
@@ -471,16 +472,18 @@ def delete_image(image_id: int, db: Session = Depends(get_db)):
     if not f:
         raise HTTPException(404, "Image not found")
     parent_dir = os.path.dirname(f.path)
+    size = 0
     if os.path.exists(f.path):
+        size = f.size or 0
         os.remove(f.path)
     thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
     if os.path.exists(thumb):
         os.remove(thumb)
     db.query(ImageDetection).filter(ImageDetection.image_id == image_id).delete()
-    size = f.size or 0
     db.delete(f)
     db.commit()
-    stats.record_removal("image", 1, size)
+    if size:
+        stats.record_removal("image", 1, size)
     if os.path.basename(parent_dir) == "_quarantine":
         try:
             os.rmdir(parent_dir)

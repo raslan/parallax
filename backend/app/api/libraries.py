@@ -403,13 +403,14 @@ def delete_duplicates_endpoint(
             originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
             os.makedirs(originals_dir, exist_ok=True)
             shutil.move(f.path, os.path.join(originals_dir, f.filename))
+            # Only a file that was really on disk counts as removed.
+            removed += 1
+            removed_bytes += f.size or 0
         try:
             os.remove(thumbnail_path(f.id))
         except FileNotFoundError:
             pass
         clear_thumbnail_failed_marker(f.id)
-        removed += 1
-        removed_bytes += f.size or 0
         db.delete(f)
     db.commit()
     stats.record_removal("video", removed, removed_bytes)
@@ -479,13 +480,13 @@ def delete_cleanup_files(
                 base, ext = os.path.splitext(f.filename)
                 dest = os.path.join(originals_dir, f"{base}_{f.id}{ext}")
             shutil.move(f.path, dest)
+            removed += 1
+            removed_bytes += f.size or 0
         try:
             os.remove(thumbnail_path(f.id))
         except FileNotFoundError:
             pass
         clear_thumbnail_failed_marker(f.id)
-        removed += 1
-        removed_bytes += f.size or 0
         db.delete(f)
     db.commit()
     stats.record_removal("video", removed, removed_bytes)

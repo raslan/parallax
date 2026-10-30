@@ -49,6 +49,13 @@ export function useMarquee({
       if (!enabled || !scroller || !content) return;
       if (e.button !== 0 || e.pointerType === "touch") return;
       if ((e.target as HTMLElement).closest(INTERACTIVE)) return;
+      // The scrollbar belongs to scrolling, not selecting.
+      const bounds = scroller.getBoundingClientRect();
+      if (
+        e.clientX - bounds.left >= scroller.clientWidth ||
+        e.clientY - bounds.top >= scroller.clientHeight
+      )
+        return;
 
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
       const toContent = (cx: number, cy: number) => {

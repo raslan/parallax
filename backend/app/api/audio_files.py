@@ -105,9 +105,10 @@ def delete_audio_files(body: AudioFileDeleteRequest, db: Session = Depends(get_d
         row = db.get(AudioFile, file_id)
         if row is None:
             continue
-        removed += 1
-        removed_bytes += row.size or 0
         if os.path.isfile(row.path):
+            # Only a file that was really on disk counts as removed.
+            removed += 1
+            removed_bytes += row.size or 0
             if body.keep_original:
                 originals_dir = os.path.join(os.path.dirname(row.path), "_originals")
                 os.makedirs(originals_dir, exist_ok=True)

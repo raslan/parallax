@@ -154,7 +154,6 @@ def restore_one(kind: OriginalsKind, db, path: str) -> str:
         os.remove(restore_path)
 
     shutil.move(path, restore_path)
-    stats.record_restore(kind.media, original_size, current_size)
 
     # Clean up empty _originals dir
     try:
@@ -176,6 +175,8 @@ def restore_one(kind: OriginalsKind, db, path: str) -> str:
         db.commit()
         kind.rescan_fn(db, file_obj)
 
+    # After the commit: the stat has its own session and must not contend for the lock.
+    stats.record_restore(kind.media, original_size, current_size)
     return restore_path
 
 

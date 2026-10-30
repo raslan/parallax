@@ -12,15 +12,16 @@ def _event(db, **kw):
     db.flush()
 
 
-def test_summary_counts_savings_for_completed_jobs_only(db):
+def test_summary_counts_bytes_from_unfinished_jobs_but_not_their_files(db):
     _event(db, bytes_in=1000, bytes_out=400, files=2)
     _event(db, bytes_in=500, bytes_out=500)
-    _event(db, status="failed", bytes_in=9999, bytes_out=1)
+    # A cancelled/failed Compress still replaced the files it got through.
+    _event(db, status="cancelled", bytes_in=300, bytes_out=100, files=7)
     s = stats_service.summary(db)
     assert s["jobs"] == 3
     assert s["jobs_completed"] == 2
-    assert s["bytes_saved"] == 600
-    assert s["files"] == 3
+    assert s["bytes_saved"] == 800
+    assert s["files"] == 2
 
 
 def test_growth_is_negative_savings(db):

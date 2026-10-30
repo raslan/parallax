@@ -177,8 +177,9 @@ def summary(db: Session, days: int | None = None) -> dict:
     events = _events(db, days)
     jobs = [e for e in events if e.kind != RESTORE_KIND]
     done = [e for e in jobs if e.status == JobStatus.COMPLETED]
-    # Restores adjust the byte totals but are not jobs.
-    sized = done + [e for e in events if e.kind == RESTORE_KIND]
+    # Bytes count from every event: a cancelled or failed Compress still replaced the
+    # files it got through, and a restore (not a job) takes some of that back.
+    sized = events
     return {
         "jobs": len(jobs),
         "jobs_completed": len(done),
@@ -202,14 +203,12 @@ def _bucket_key(ts: datetime, bucket: str) -> str:
 
 
 def timeseries(db: Session, bucket: str = "day", days: int | None = 30) -> list[dict]:
-    """Per-bucket jobs/files/bytes-saved for completed jobs, ascending by bucket."""
+    """Per-bucket jobs/files (completed jobs) and bytes saved (any event), ascending."""
     rows: dict[str, dict] = {}
     for e in _events(db, days):
-        if e.status != JobStatus.COMPLETED:
-            continue
         key = _bucket_key(e.ts, bucket)
         row = rows.setdefault(key, {"t": key, "jobs": 0, "files": 0, "bytes_saved": 0})
-        if e.kind != RESTORE_KIND:
+        if e.kind != RESTORE_KIND and e.status == JobStatus.COMPLETED:
             row["jobs"] += 1
             row["files"] += e.files
         row["bytes_saved"] += _saved(e)
@@ -230,7 +229,7 @@ def breakdown(db: Session, by: str = "kind", days: int | None = None) -> list[di
         g = groups.setdefault(key, {"key": key, "jobs": 0, "files": 0, "bytes_saved": 0})
         g["jobs"] += 1
         g["files"] += e.files
-        g["bytes_saved"] += _saved(e) if e.status == JobStatus.COMPLETED else 0
+        g["bytes_saved"] += _saved(e)
     return sorted(groups.values(), key=lambda g: (-g["bytes_saved"], -g["jobs"], g["key"]))
 
 
