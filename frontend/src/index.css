@@ -40,6 +40,12 @@
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
 
+  /* Tailwind v4's default sans stack leads with -apple-system/Segoe UI; keep the v3
+     system stack the app was designed against. */
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+
   --text-2xs: 0.6875rem;
   --text-3xs: 0.625rem;
 
