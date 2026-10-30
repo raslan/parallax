@@ -45,6 +45,10 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 
 ### General
 
+- **Home dashboard** — lifetime space saved (what went in vs. what came out), a savings curve, work by operation, a 26-week activity grid, quick-start links and live jobs, over 7d/30d/90d/1y/all. Stats are metrics only (no filenames or paths), survive removing a library or "Purge all", and can be cleared in Settings → General → Statistics. Removing files (Cleanup, Duplicates, quarantine) counts as space saved; restoring an original takes it back
+- **Drag-to-select** — drag a box over files in any grid or list, Windows-desktop style; Ctrl/Cmd/Shift adds to the selection. A bottom action bar shows the count and total size next to the action button
+- **Smart select** — Compress shows "select all that are…" cards (e.g. not HEVC, above your max resolution, over 1 GB) with file count, size and estimated result, so you decide what to pick
+- **Command palette** — ⌘K / Ctrl+K (or the header search button) jumps to any page or switches theme
 - **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
 - **Library delete safety** — when deleting a library that has `_originals/` or `_quarantine/` leftovers, prompts to delete them, review them, or keep them on disk
 - **Eight themes** in two groups — Parallax set: Parallax (default), Graphite, Nightfall, Rose Quartz, OLED · Colour set: Deep Space, Modern HUD, Neon Grid — selectable in Settings → General
