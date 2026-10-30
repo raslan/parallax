@@ -43,8 +43,8 @@
   /* Tailwind v4's default sans stack leads with -apple-system/Segoe UI; keep the v3
      system stack the app was designed against. */
   --font-sans:
-    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-    "Segoe UI Symbol", "Noto Color Emoji";
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
 
   /* Same line-heights as v3, but as fixed rem lengths: v4 defaults them to unitless
      ratios, which descendants of a different size (text-2xs/3xs inside text-xs/sm)
