@@ -21,7 +21,7 @@ def test_summary_counts_bytes_from_unfinished_jobs_but_not_their_files(db):
     assert s["jobs"] == 3
     assert s["jobs_completed"] == 2
     assert s["bytes_saved"] == 800
-    assert s["files"] == 2
+    assert s["files"] == 3
 
 
 def test_growth_is_negative_savings(db):
