@@ -46,8 +46,23 @@
     ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
     "Segoe UI Symbol", "Noto Color Emoji";
 
+  /* Same line-heights as v3, but as fixed rem lengths: v4 defaults them to unitless
+     ratios, which descendants of a different size (text-2xs/3xs inside text-xs/sm)
+     would multiply by their own font size, shrinking their line box. */
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+
+  /* No line-height of their own (as in v3): inherit it from the surrounding text. */
   --text-2xs: 0.6875rem;
+  --text-2xs--line-height: inherit;
   --text-3xs: 0.625rem;
+  --text-3xs--line-height: inherit;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
