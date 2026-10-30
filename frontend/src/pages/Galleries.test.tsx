@@ -97,10 +97,15 @@ describe("Galleries per-list content type", () => {
   it("saves a toggle to the list endpoint, not the global options", async () => {
     fileModeApi();
     renderPage();
-    const image = await screen.findByRole("checkbox", { name: "Image" });
-    // disabled until the list's types have loaded
-    await waitFor(() => expect((image as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(image);
+    // the checkbox is enabled (global scope) before the seeded file mode lands, so wait for the
+    // per-list scope toggle first, then for the list's types to load
+    await screen.findByText("This list");
+    await waitFor(() =>
+      expect((screen.getByRole("checkbox", { name: "Image" }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Image" }));
     await waitFor(() =>
       expect(api.putGalleryListTypes).toHaveBeenCalledWith("mine", { ...types, typeImage: true }),
     );
