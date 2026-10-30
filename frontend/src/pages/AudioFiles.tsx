@@ -159,7 +159,7 @@ export function AudioFiles() {
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         <div className="flex flex-wrap items-center gap-1 ml-auto">
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger className="h-8 w-[9rem] text-xs">
+            <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

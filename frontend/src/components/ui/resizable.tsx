@@ -11,7 +11,7 @@ function ResizableHandle({ className, ...props }: React.ComponentProps<typeof Se
   return (
     <Separator
       className={cn(
-        "group relative flex w-3 shrink-0 items-center justify-center outline-none",
+        "group relative flex w-3 shrink-0 items-center justify-center outline-hidden",
         "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-border after:transition-colors",
         "hover:after:bg-primary/60 focus-visible:after:bg-primary data-[separator=active]:after:bg-primary",
         className,

@@ -353,7 +353,7 @@ export function Downloads() {
                   "Paste one or more URLs, one per line\nhttps://youtube.com/watch?v=…\nhttps://vimeo.com/…"
                 }
                 rows={4}
-                className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30 placeholder:font-sans"
+                className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm font-mono resize-none focus:outline-hidden focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30 placeholder:font-sans"
               />
             </div>
             <div className="flex items-center gap-3">
@@ -577,7 +577,7 @@ export function Downloads() {
 
       {/* Duplicate URL confirmation dialog */}
       {dupeUrls.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs">
           <div className="bg-background border border-border rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 space-y-4">
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />

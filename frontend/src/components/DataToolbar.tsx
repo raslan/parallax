@@ -20,7 +20,7 @@ export function ToolbarSearch({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 w-48 rounded-md border border-input bg-transparent pl-7 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        className="h-8 w-48 rounded-md border border-input bg-transparent pl-7 pr-3 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring"
       />
     </div>
   );

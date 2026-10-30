@@ -34,7 +34,7 @@ export function MergeOrderRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex items-center gap-2 border-b border-border bg-[var(--px-bg-base)] px-2 py-2 last:border-0",
+        "flex items-center gap-2 border-b border-border bg-(--px-bg-base) px-2 py-2 last:border-0",
         isDragging && "relative z-10 shadow-lg",
       )}
     >

@@ -68,7 +68,7 @@ export function UrlInput({
             onKeyDown={submitOnCtrlEnter}
             placeholder={"One gallery URL per line\nhttps://…"}
             rows={4}
-            className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30 placeholder:font-sans"
+            className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm font-mono resize-none focus:outline-hidden focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30 placeholder:font-sans"
           />
         </TabsContent>
 

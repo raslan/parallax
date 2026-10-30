@@ -248,7 +248,7 @@ export function CompressEstimatePanel({
           <PanelSheetContent
             overlay={false}
             onInteractOutside={() => setOpen(false)}
-            className="w-[34rem] max-w-[92vw] gap-4 overflow-y-auto bg-card sm:w-[38rem]"
+            className="w-136 max-w-[92vw] gap-4 overflow-y-auto bg-card sm:w-152"
           >
             <SheetHeader>
               <SheetTitle>Encoding settings</SheetTitle>

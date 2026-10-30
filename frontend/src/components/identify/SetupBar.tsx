@@ -180,7 +180,7 @@ export function SetupBar({
               value={showName}
               onChange={(e) => onShowNameChange(e.target.value)}
               placeholder="Show name"
-              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
             />
             <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
               Season
@@ -189,7 +189,7 @@ export function SetupBar({
                 min={0}
                 value={season}
                 onChange={(e) => onSeasonChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                className="w-14 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-14 rounded-md border border-input bg-background px-2 py-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
               />
             </label>
           </div>

@@ -107,7 +107,7 @@ export function MergeSheet({
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <PanelSheetContent
         overlay={false}
-        className="w-full overflow-y-auto sm:w-[30rem]"
+        className="w-full overflow-y-auto sm:w-120"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <SheetHeader>

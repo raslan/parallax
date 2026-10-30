@@ -45,7 +45,7 @@ export function CredentialsTab() {
                 type="password"
                 {...form.register("tmdbKey")}
                 placeholder="Paste your TMDB API key…"
-                className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-hidden focus:ring-1 focus:ring-primary"
               />
             </CardContent>
           </Card>

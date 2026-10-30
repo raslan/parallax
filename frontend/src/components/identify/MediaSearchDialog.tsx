@@ -97,7 +97,7 @@ export function MediaSearchDialog({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && doSearch(query, mediaType)}
             placeholder="Breaking Bad…"
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
           />
           <Button
             type="button"
@@ -136,7 +136,7 @@ export function MediaSearchDialog({
                         : "border-border hover:border-primary/50"
                     }`}
                   >
-                    <div className="relative aspect-[2/3] overflow-hidden bg-muted">
+                    <div className="relative aspect-2/3 overflow-hidden bg-muted">
                       {r.poster_path ? (
                         <img
                           src={`https://image.tmdb.org/t/p/w200${r.poster_path}`}
@@ -150,7 +150,7 @@ export function MediaSearchDialog({
                       )}
                       {isActive && (
                         <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
-                          <Check className="h-6 w-6 text-primary drop-shadow" />
+                          <Check className="h-6 w-6 text-primary drop-shadow-sm" />
                         </div>
                       )}
                     </div>

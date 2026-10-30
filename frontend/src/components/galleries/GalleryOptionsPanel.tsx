@@ -214,13 +214,13 @@ export function GalleryOptionsPanel({
             onChange={(e) =>
               set("maxSizeValue", e.target.value === "" ? null : Number(e.target.value))
             }
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring"
           />
           <Select
             value={o.maxSizeUnit}
             onValueChange={(v) => set("maxSizeUnit", v as GalleryOptions["maxSizeUnit"])}
           >
-            <SelectTrigger className="h-8 w-[4.5rem] text-xs">
+            <SelectTrigger className="h-8 w-18 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -250,13 +250,13 @@ export function GalleryOptionsPanel({
               onChange={(e) =>
                 set("minSizeValue", e.target.value === "" ? null : Number(e.target.value))
               }
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring"
             />
             <Select
               value={o.minSizeUnit}
               onValueChange={(v) => set("minSizeUnit", v as GalleryOptions["minSizeUnit"])}
             >
-              <SelectTrigger className="h-8 w-[4.5rem] text-xs">
+              <SelectTrigger className="h-8 w-18 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -280,7 +280,7 @@ export function GalleryOptionsPanel({
             min={0}
             max={20}
             {...register("retries", { valueAsNumber: true })}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring"
           />
         </div>
         <div className="space-y-0.5">
@@ -290,7 +290,7 @@ export function GalleryOptionsPanel({
             min={1}
             max={600}
             {...register("httpTimeout", { valueAsNumber: true })}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -306,7 +306,7 @@ export function GalleryOptionsPanel({
           onChange={(e) =>
             set("stopAfterExisting", e.target.value === "" ? null : Number(e.target.value))
           }
-          className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring"
         />
       </div>
 
@@ -322,7 +322,7 @@ export function GalleryOptionsPanel({
               type="text"
               placeholder="Custom archive path (optional)"
               {...register("archivePath")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
             <div className="flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-3xs text-muted-foreground/60">
@@ -354,7 +354,7 @@ export function GalleryOptionsPanel({
             type="text"
             placeholder="e.g. 30-50"
             {...register("range")}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         </div>
 
@@ -380,7 +380,7 @@ export function GalleryOptionsPanel({
             type="text"
             placeholder="Custom User-Agent (optional)"
             {...register("userAgent")}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         </div>
 
@@ -392,7 +392,7 @@ export function GalleryOptionsPanel({
               type="text"
               placeholder="1M"
               {...register("limitRate")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
           <div className="space-y-0.5">
@@ -401,7 +401,7 @@ export function GalleryOptionsPanel({
               type="text"
               placeholder="0.5-1.5"
               {...register("sleepRequest")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
         </div>
@@ -413,7 +413,7 @@ export function GalleryOptionsPanel({
             type="text"
             placeholder="{id}.{extension}"
             {...register("filenameTemplate")}
-            className="w-full h-8 rounded border border-border/40 bg-transparent px-2 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20"
+            className="w-full h-8 rounded border border-border/40 bg-transparent px-2 text-xs font-mono text-muted-foreground/70 focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20"
           />
         </div>
 
@@ -424,7 +424,7 @@ export function GalleryOptionsPanel({
             rows={3}
             placeholder="--verbose --no-skip"
             {...register("extraArgs")}
-            className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
+            className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
           />
         </div>
       </OptionSection>

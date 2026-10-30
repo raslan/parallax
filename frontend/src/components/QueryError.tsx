@@ -20,7 +20,7 @@ export function QueryError({
     <Alert variant="destructive">
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>{title}</AlertTitle>
-      <AlertDescription className="break-words">{getErrorMessage(error)}</AlertDescription>
+      <AlertDescription className="wrap-break-word">{getErrorMessage(error)}</AlertDescription>
       {onRetry && (
         <Button size="sm" variant="outline" onClick={onRetry} className="mt-3">
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />

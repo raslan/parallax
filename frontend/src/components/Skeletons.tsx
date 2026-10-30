@@ -25,7 +25,7 @@ export function GridSkeleton({
       >
         {Array.from({ length: count }, (_, i) => (
           <div key={i} className="overflow-hidden rounded-lg border border-border">
-            <Skeleton className="aspect-[4/3] rounded-none" />
+            <Skeleton className="aspect-4/3 rounded-none" />
             <div className="space-y-1.5 border-t border-border bg-px-elevated p-2.5">
               <Skeleton className="h-3 w-4/5" />
               <Skeleton className="h-3 w-3/5" />

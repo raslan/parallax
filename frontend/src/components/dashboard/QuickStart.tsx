@@ -19,7 +19,7 @@ export function QuickStart({ items }: { items: readonly QuickStartItem[] }) {
         <li key={to} className="bg-px-surface">
           <Link
             to={to}
-            className="group flex h-full items-start gap-3 p-4 transition-colors hover:bg-px-elevated focus-visible:bg-px-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+            className="group flex h-full items-start gap-3 p-4 transition-colors hover:bg-px-elevated focus-visible:bg-px-elevated focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span>

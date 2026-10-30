@@ -64,7 +64,7 @@ function JobProgress({ value }: { value: number }) {
         value={value}
         label="Job progress"
         className="bg-px-elevated"
-        barClassName="bg-gradient-to-r from-[var(--px-accent)] to-[var(--px-accent-secondary)]"
+        barClassName="bg-linear-to-r from-(--px-accent) to-(--px-accent-secondary)"
       />
     </div>
   );

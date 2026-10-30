@@ -86,7 +86,7 @@ function ImageCard({
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <p className="truncate text-2xs text-white">{img.filename}</p>
           {!selectionMode && (
             <button
@@ -192,7 +192,7 @@ export function Images() {
           value={statusFilter || "all"}
           onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}
         >
-          <SelectTrigger className="h-8 w-[8.5rem] text-xs">
+          <SelectTrigger className="h-8 w-34 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -206,7 +206,7 @@ export function Images() {
           value={detectionFilter || "all"}
           onValueChange={(v) => setDetectionFilter(v === "all" ? "" : v)}
         >
-          <SelectTrigger className="h-8 w-[9rem] text-xs">
+          <SelectTrigger className="h-8 w-36 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -224,13 +224,13 @@ export function Images() {
             placeholder="Search images…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8 pl-7 pr-3 rounded-md border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring w-44"
+            className="h-8 pl-7 pr-3 rounded-md border border-input bg-background text-xs focus:outline-hidden focus:ring-1 focus:ring-ring w-44"
           />
         </div>
 
         <div className="flex items-center gap-1 ml-auto">
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="h-8 w-[9rem] text-xs">
+            <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

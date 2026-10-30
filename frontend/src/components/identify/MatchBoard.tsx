@@ -79,7 +79,7 @@ function AssignMenu({ pool, onPick }: { pool: string[]; onPick: (filePath: strin
           <ChevronDown className="ml-auto h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[22rem] p-1">
+      <PopoverContent align="start" className="w-88 p-1">
         {pool.length === 0 ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">No unassigned files left.</p>
         ) : (
@@ -118,7 +118,7 @@ function AssignMenu({ pool, onPick }: { pool: string[]; onPick: (filePath: strin
 function EpisodeStill({ path, alt }: { path: string | null; alt: string }) {
   const [broken, setBroken] = useState(false);
   return (
-    <div className="relative h-14 w-[6.25rem] shrink-0 overflow-hidden rounded bg-muted">
+    <div className="relative h-14 w-25 shrink-0 overflow-hidden rounded bg-muted">
       {path && !broken ? (
         <img
           src={`https://image.tmdb.org/t/p/w300${path}`}

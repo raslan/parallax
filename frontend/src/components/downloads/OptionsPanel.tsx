@@ -149,7 +149,7 @@ export function OptionsPanel({
             min={1}
             max={64}
             {...register("concurrentFragments", { valueAsNumber: true })}
-            className="w-16 h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-16 h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring"
           />
           <span className="text-3xs text-muted-foreground/50">
             per-file download connections · 4 default, higher = faster on fragmented sources
@@ -170,7 +170,7 @@ export function OptionsPanel({
               type="text"
               placeholder="HH:MM:SS"
               {...register("trimStart")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
           <div className="space-y-0.5">
@@ -179,7 +179,7 @@ export function OptionsPanel({
               type="text"
               placeholder="HH:MM:SS"
               {...register("trimEnd")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
         </div>
@@ -236,7 +236,7 @@ export function OptionsPanel({
             type="text"
             placeholder="Languages (e.g. en,fr)"
             {...register("subLangs")}
-            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         )}
       </div>
@@ -322,7 +322,7 @@ export function OptionsPanel({
               type="text"
               placeholder="Referer header to send (e.g. https://example.com)"
               {...register("referer")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           )}
           <div className="flex gap-2">
@@ -332,7 +332,7 @@ export function OptionsPanel({
               placeholder="Reconnect if slower than…"
               title="Re-connect to a fresh stream if the download speed drops below this"
               {...register("throttledRateValue")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
             <Select
               value={watch("throttledRateUnit")}
@@ -342,7 +342,7 @@ export function OptionsPanel({
                 })
               }
             >
-              <SelectTrigger className="h-8 w-[5rem] shrink-0 text-xs">
+              <SelectTrigger className="h-8 w-20 shrink-0 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -367,7 +367,7 @@ export function OptionsPanel({
             rows={3}
             placeholder="--no-playlist --write-thumbnail"
             {...register("extraArgs")}
-            className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
+            className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
           />
         </div>
       </OptionSection>

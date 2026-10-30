@@ -31,7 +31,7 @@ const Label = ({ children }: { children: ReactNode }) => (
 );
 
 const inputCls =
-  "w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30";
+  "w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30";
 
 const chipCls = (active: boolean) =>
   cn(
@@ -72,7 +72,7 @@ export function YtdlOptionsSheet({
       <PanelSheetContent
         overlay={false}
         onInteractOutside={() => onOpenChange(false)}
-        className="w-[28rem] max-w-[92vw] gap-4 overflow-y-auto bg-card"
+        className="w-md max-w-[92vw] gap-4 overflow-y-auto bg-card"
       >
         <SheetHeader>
           <SheetTitle>YouTube options</SheetTitle>
@@ -270,7 +270,7 @@ export function YtdlOptionsSheet({
                     set("ytThrottledRateUnit", v as GalleryOptions["ytThrottledRateUnit"])
                   }
                 >
-                  <SelectTrigger className="h-8 w-[5.5rem] text-xs">
+                  <SelectTrigger className="h-8 w-22 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -291,7 +291,7 @@ export function YtdlOptionsSheet({
                 rows={3}
                 placeholder="--sleep-interval 2 --no-mtime"
                 {...register("ytExtraArgs")}
-                className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
+                className="w-full rounded border border-border/40 bg-transparent px-2 py-1.5 text-xs font-mono text-muted-foreground/70 focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/20 resize-none"
               />
             </div>
           </OptionSection>

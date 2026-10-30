@@ -33,7 +33,7 @@ function LibraryCombobox({
           role="combobox"
           aria-expanded={open}
           aria-label="Library"
-          className="flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-left text-sm shadow-sm hover:bg-accent/40"
+          className="flex h-9 min-w-0 flex-1 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-left text-sm shadow-xs hover:bg-accent/40"
         >
           <span className={cn("truncate", !selected && "text-muted-foreground")}>
             {selected ? selected.name || selected.path : "Select a library"}
@@ -41,7 +41,7 @@ function LibraryCombobox({
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[--radix-popover-trigger-width] min-w-56 p-0">
+      <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-56 p-0">
         <Command>
           <CommandInput placeholder="Search libraries…" />
           <CommandList>

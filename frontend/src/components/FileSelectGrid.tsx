@@ -44,7 +44,7 @@ export function FileGridCard({
         )}
         onClick={onToggle}
       >
-        <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
+        <div className="aspect-4/3 bg-muted relative flex items-center justify-center">
           <VideoThumbnail
             fileId={file.id}
             scannedAt={file.scanned_at}

@@ -154,7 +154,7 @@ export function AudioToolboxFixChips({
                   )}
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-[22rem] p-3">
+              <PopoverContent align="start" className="w-88 p-3">
                 <p className="mb-3 text-sm font-semibold">{FIX_LABEL[key]}</p>
                 <FixEditor fixKey={key} values={values} onChange={onChange} />
               </PopoverContent>

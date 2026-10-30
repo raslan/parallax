@@ -151,7 +151,7 @@ function FixEditor({
             step={10}
             value={values.syncOffsetMs}
             onChange={(e) => onChange({ syncOffsetMs: Number(e.target.value) })}
-            className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-ring"
           />
           ms
         </label>
@@ -205,7 +205,7 @@ export function ToolboxFixChips({
                   )}
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-[22rem] p-3">
+              <PopoverContent align="start" className="w-88 p-3">
                 <p className="mb-3 text-sm font-semibold">{FIX_LABEL[key]}</p>
                 <FixEditor fixKey={key} values={values} onChange={onChange} />
               </PopoverContent>

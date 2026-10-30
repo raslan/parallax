@@ -99,7 +99,7 @@ function EpisodeNumberInput({
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
         }}
-        className="w-14 rounded-md border border-primary/40 bg-px-elevated px-2 py-1 text-center text-sm font-semibold text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-14 rounded-md border border-primary/40 bg-px-elevated px-2 py-1 text-center text-sm font-semibold text-foreground transition-colors hover:border-primary focus:border-primary focus:outline-hidden focus:ring-1 focus:ring-primary"
       />
     </label>
   );
@@ -127,7 +127,7 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-3 border-b border-border bg-[var(--px-bg-base)] px-3 py-2.5 last:border-0 ${
+      className={`flex items-center gap-3 border-b border-border bg-(--px-bg-base) px-3 py-2.5 last:border-0 ${
         isDragging ? "relative z-10 shadow-lg" : ""
       }`}
     >
@@ -144,7 +144,7 @@ function SortableRow({
       <img
         src={api.identifyThumbnailUrl(row.path)}
         alt=""
-        className="h-12 w-[5.5rem] shrink-0 rounded bg-muted object-cover"
+        className="h-12 w-22 shrink-0 rounded bg-muted object-cover"
         loading="lazy"
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
@@ -164,7 +164,7 @@ function SortableRow({
           value={row.title}
           onChange={(e) => onTitleEdit(row.path, e.target.value)}
           disabled={genericTitles}
-          className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+          className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-primary disabled:opacity-60"
         />
         <p className="mt-1 truncate font-mono text-xs text-muted-foreground" title={row.path}>
           {filename(row.path)}

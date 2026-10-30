@@ -69,7 +69,7 @@ export function CookiesModal({
             onChange={(e) => setDraft(e.target.value)}
             placeholder={"# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tTRUE\t..."}
             rows={8}
-            className="w-full rounded border border-input bg-muted/30 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/30"
+            className="w-full rounded border border-input bg-muted/30 px-3 py-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/30"
           />
           {isDragActive && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded border-2 border-dashed border-primary bg-primary/10 text-sm text-primary">

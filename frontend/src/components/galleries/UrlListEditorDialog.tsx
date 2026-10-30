@@ -88,7 +88,7 @@ export function UrlListEditorDialog({
               wrap="off"
               autoFocus={!isNew}
               placeholder={"https://…\nhttps://youtube.com/@channel\n# a comment"}
-              className="h-[55vh] min-h-48 w-full resize-none overflow-auto rounded-md border border-input bg-background px-3 py-2.5 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="h-[55vh] min-h-48 w-full resize-none overflow-auto rounded-md border border-input bg-background px-3 py-2.5 font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
 

@@ -250,7 +250,7 @@ export function AudioCleanup() {
                 Select all
               </label>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-8 w-[9rem]">
+                <SelectTrigger className="h-8 w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

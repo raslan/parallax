@@ -48,7 +48,7 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
         className="overflow-hidden cursor-pointer group transition-shadow hover:ring-1 hover:ring-primary"
         onClick={onPlay}
       >
-        <div className="aspect-[4/3] bg-muted relative flex items-center justify-center">
+        <div className="aspect-4/3 bg-muted relative flex items-center justify-center">
           <VideoThumbnail
             fileId={file.id}
             scannedAt={file.scanned_at}
@@ -480,7 +480,7 @@ const SORT_OPTIONS = [
 ];
 
 const selectCls =
-  "h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring";
+  "h-8 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-ring";
 
 export function Files() {
   const queryClient = useQueryClient();
@@ -520,7 +520,7 @@ export function Files() {
           value={selectedLibraryId === "all" ? "all" : String(selectedLibraryId)}
           onValueChange={(v) => setSelectedLibraryId(v === "all" ? "all" : Number(v))}
         >
-          <SelectTrigger className="h-8 w-[13rem] text-xs">
+          <SelectTrigger className="h-8 w-52 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -546,7 +546,7 @@ export function Files() {
 
         <div className="flex flex-wrap items-center gap-1 ml-auto">
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="h-8 w-[9rem] text-xs">
+            <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
