@@ -328,7 +328,7 @@ async def scan_image_content_endpoint(
 
 @router.post("/quarantine-bulk", status_code=200)
 def quarantine_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
-    moved = 0
+    moved = moved_bytes = 0
     for image_id in body.ids:
         f = db.get(ImageFile, image_id)
         if not f or f.status == ImageStatus.QUARANTINED:
@@ -342,13 +342,17 @@ def quarantine_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
         f.path = dest
         f.status = ImageStatus.QUARANTINED
         moved += 1
+        moved_bytes += f.size or 0
     db.commit()
+    # Quarantine is the image twin of `_originals/`: credited when the file leaves the library.
+    stats.record_removal("image", moved, moved_bytes)
     return {"moved": moved}
 
 
 @router.post("/restore-bulk", status_code=200)
 def restore_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
     restored = 0
+    sizes: list[int] = []
     for image_id in body.ids:
         f = db.get(ImageFile, image_id)
         if not f or f.status != ImageStatus.QUARANTINED:
@@ -361,7 +365,10 @@ def restore_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
         f.path = dest
         f.status = ImageStatus.SCANNED
         restored += 1
+        sizes.append(f.size or 0)
     db.commit()
+    for size in sizes:
+        stats.record_restore("image", size, None)
     return {"restored": restored}
 
 
@@ -374,8 +381,10 @@ def delete_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
             continue
         parent_dir = os.path.dirname(f.path)
         if os.path.exists(f.path):
-            removed_files += 1
-            removed_bytes += f.size or 0
+            # A quarantined image was already credited when it was quarantined.
+            if f.status != ImageStatus.QUARANTINED:
+                removed_files += 1
+                removed_bytes += f.size or 0
             os.remove(f.path)
         thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
         if os.path.exists(thumb):
@@ -440,7 +449,9 @@ def quarantine_image(image_id: int, db: Session = Depends(get_db)):
     shutil.move(f.path, dest)
     f.path = dest
     f.status = ImageStatus.QUARANTINED
+    size = f.size or 0
     db.commit()
+    stats.record_removal("image", 1, size)
     return {"message": "Quarantined"}
 
 
@@ -462,7 +473,9 @@ def restore_image(image_id: int, db: Session = Depends(get_db)):
     shutil.move(f.path, dest)
     f.path = dest
     f.status = ImageStatus.SCANNED
+    size = f.size or 0
     db.commit()
+    stats.record_restore("image", size, None)
     return {"message": "Restored"}
 
 
@@ -474,7 +487,8 @@ def delete_image(image_id: int, db: Session = Depends(get_db)):
     parent_dir = os.path.dirname(f.path)
     size = 0
     if os.path.exists(f.path):
-        size = f.size or 0
+        # A quarantined image was already credited when it was quarantined.
+        size = 0 if f.status == ImageStatus.QUARANTINED else (f.size or 0)
         os.remove(f.path)
     thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
     if os.path.exists(thumb):
