@@ -50,7 +50,7 @@ const Devtools = import.meta.env.DEV
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ConfirmProvider>
           <TooltipProvider delayDuration={200}>
             <Toaster />
