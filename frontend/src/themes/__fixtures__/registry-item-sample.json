@@ -1,0 +1,30 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "sample-hsl",
+  "type": "registry:style",
+  "cssVars": {
+    "theme": {
+      "font-sans": "Inter, sans-serif",
+      "radius": "0.5rem"
+    },
+    "light": {
+      "background": "0 0% 100%",
+      "foreground": "222 47% 11%",
+      "primary": "262 83% 58%"
+    },
+    "dark": {
+      "background": "hsl(224 30% 7%)",
+      "foreground": "210 20% 92%",
+      "card": "224 28% 10%",
+      "card-foreground": "210 20% 92%",
+      "primary": "oklch(0.7 0.15 150)",
+      "primary-foreground": "224 30% 7%",
+      "muted-foreground": "215 14% 60%",
+      "border": "hsl(224 20% 18%)",
+      "input": "oklch(1 0 0 / 15%)",
+      "destructive": "0 62% 45%",
+      "radius": "0.5rem",
+      "font-sans": "Inter"
+    }
+  }
+}

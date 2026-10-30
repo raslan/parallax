@@ -1,0 +1,108 @@
+/* Sample in the shape of tweakcn's "Copy CSS" export (Tailwind v4). Values are invented for tests. */
+:root {
+  --background: oklch(0.9824 0.0013 286.3757);
+  --foreground: oklch(0.3211 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.3211 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.3211 0 0);
+  --primary: oklch(0.5702 0.2166 276.4);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.9611 0.0069 286.3);
+  --secondary-foreground: oklch(0.3211 0 0);
+  --muted: oklch(0.9611 0.0069 286.3);
+  --muted-foreground: oklch(0.5517 0.0138 285.9);
+  --accent: oklch(0.9611 0.0069 286.3);
+  --accent-foreground: oklch(0.3211 0 0);
+  --destructive: oklch(0.6368 0.2078 25.3);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.9119 0.0102 286.3);
+  --input: oklch(0.9119 0.0102 286.3);
+  --ring: oklch(0.5702 0.2166 276.4);
+  --chart-1: oklch(0.5702 0.2166 276.4);
+  --chart-2: oklch(0.6959 0.1491 162.5);
+  --chart-3: oklch(0.7692 0.1881 70.1);
+  --chart-4: oklch(0.6368 0.2078 25.3);
+  --chart-5: oklch(0.6055 0.2188 292.7);
+  --sidebar: oklch(0.9824 0.0013 286.3757);
+  --sidebar-foreground: oklch(0.3211 0 0);
+  --sidebar-primary: oklch(0.5702 0.2166 276.4);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.9611 0.0069 286.3);
+  --sidebar-accent-foreground: oklch(0.3211 0 0);
+  --sidebar-border: oklch(0.9119 0.0102 286.3);
+  --sidebar-ring: oklch(0.5702 0.2166 276.4);
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: Lora, ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius: 0.75rem;
+  --shadow-2xs: 0px 2px 3px 0px hsl(0 0% 0% / 0.08);
+  --shadow-xs: 0px 2px 3px 0px hsl(0 0% 0% / 0.08);
+  --shadow-sm: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 1px 2px -1px hsl(0 0% 0% / 0.16);
+  --shadow: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 1px 2px -1px hsl(0 0% 0% / 0.16);
+  --shadow-md: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 2px 4px -1px hsl(0 0% 0% / 0.16);
+  --shadow-lg: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 4px 6px -1px hsl(0 0% 0% / 0.16);
+  --shadow-xl: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 8px 10px -1px hsl(0 0% 0% / 0.16);
+  --shadow-2xl: 0px 2px 3px 0px hsl(0 0% 0% / 0.4);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: oklch(0.2223 0.006 271.1393);
+  --foreground: oklch(0.9551 0 0);
+  --card: oklch(0.2568 0.0076 274.6528);
+  --card-foreground: oklch(0.9551 0 0);
+  --popover: oklch(0.2568 0.0076 274.6528);
+  --popover-foreground: oklch(0.9551 0 0);
+  --primary: oklch(0.6801 0.1583 276.9349);
+  --primary-foreground: oklch(0.2223 0.006 271.1393);
+  --secondary: oklch(0.3092 0.0111 274.6);
+  --secondary-foreground: oklch(0.9551 0 0);
+  --muted: oklch(0.2568 0.0076 274.6528);
+  --muted-foreground: oklch(0.7058 0 0);
+  --accent: oklch(0.3092 0.0111 274.6);
+  --accent-foreground: oklch(0.9551 0 0);
+  --destructive: oklch(0.7106 0.1661 22.2162);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.3289 0.0092 268.3843);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.6801 0.1583 276.9349);
+  --chart-1: oklch(0.6801 0.1583 276.9349);
+  --chart-2: oklch(0.7845 0.1325 181.912);
+  --chart-3: oklch(0.8003 0.1682 82.4);
+  --chart-4: oklch(0.7106 0.1661 22.2162);
+  --chart-5: oklch(0.7137 0.1434 292.6);
+  --sidebar: oklch(0.1884 0.0128 248.5103);
+  --sidebar-foreground: oklch(0.9551 0 0);
+  --sidebar-primary: oklch(0.6801 0.1583 276.9349);
+  --sidebar-primary-foreground: oklch(0.2223 0.006 271.1393);
+  --sidebar-accent: oklch(0.2568 0.0076 274.6528);
+  --sidebar-accent-foreground: oklch(0.9551 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.6801 0.1583 276.9349);
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: Lora, ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius: 0.75rem;
+  --shadow-2xs: 0px 2px 3px 0px hsl(0 0% 0% / 0.08);
+  --shadow-sm: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 1px 2px -1px hsl(0 0% 0% / 0.16);
+  --shadow-2xl: 0px 2px 3px 0px hsl(0 0% 0% / 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-sidebar: var(--sidebar);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --shadow-sm: var(--shadow-sm);
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+}
