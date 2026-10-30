@@ -43,6 +43,16 @@ _MAX_DOWNLOADS_KEY = "max_concurrent_downloads"
 _MAX_DOWNLOADS_DEFAULT = "2"
 _YTDLP_CHANNEL_KEY = "ytdlp_channel"
 _YTDLP_CHANNEL_DEFAULT = "stable"
+_THEME_KEY = "theme"
+_THEME_DEFAULT = "parallax"
+# Mirrors `THEMES` in frontend/src/types/theme.ts.
+THEME_IDS = ("parallax", "violet", "cyan", "oled", "emerald", "graphite", "nightfall", "rose")
+
+
+def get_theme(db: Session) -> str:
+    """The saved theme id; anything unknown (hand-edited row) falls back to the default."""
+    theme = get_setting(db, _THEME_KEY, _THEME_DEFAULT)
+    return theme if theme in THEME_IDS else _THEME_DEFAULT
 
 
 class GPUInfo(BaseModel):
@@ -64,6 +74,7 @@ class SettingsRead(BaseModel):
     download_dir: str
     max_concurrent_downloads: int
     ytdlp_channel: str
+    theme: str
     encoder_family: str
     concurrent_limit_hint: int | None
     detected_gpus: list[GPUInfo]
@@ -83,6 +94,7 @@ class SettingsUpdate(BaseModel):
     download_dir: str | None = Field(default=None, max_length=512)
     max_concurrent_downloads: int | None = Field(default=None, ge=1, le=5)
     ytdlp_channel: str | None = Field(default=None, pattern="^(stable|nightly)$")
+    theme: str | None = Field(default=None, pattern="^(" + "|".join(THEME_IDS) + ")$")
 
 
 def _read_settings(db: Session) -> SettingsRead:
@@ -107,6 +119,7 @@ def _read_settings(db: Session) -> SettingsRead:
         download_dir=get_setting(db, _DOWNLOAD_DIR_KEY, _DOWNLOAD_DIR_DEFAULT),
         max_concurrent_downloads=int(get_setting(db, _MAX_DOWNLOADS_KEY, _MAX_DOWNLOADS_DEFAULT)),
         ytdlp_channel=get_setting(db, _YTDLP_CHANNEL_KEY, _YTDLP_CHANNEL_DEFAULT),
+        theme=get_theme(db),
         encoder_family=get_encoder_family(),
         concurrent_limit_hint=get_concurrent_limit_hint(),
         detected_gpus=[GPUInfo(vendor=d.vendor, label=d.label) for d in detect_gpus()],
@@ -169,6 +182,9 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
         set_max_concurrent_downloads(body.max_concurrent_downloads)
     if body.ytdlp_channel is not None:
         set_setting(db, _YTDLP_CHANNEL_KEY, body.ytdlp_channel)
+
+    if body.theme is not None:
+        set_setting(db, _THEME_KEY, body.theme)
 
     if model_changed:
         release_sessions()

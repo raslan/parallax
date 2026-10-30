@@ -17,6 +17,7 @@ export interface Settings {
   download_dir: string;
   max_concurrent_downloads: number;
   ytdlp_channel: string;
+  theme: string;
   encoder_family: string;
   concurrent_limit_hint: number | null;
   detected_gpus: DetectedGpu[];
@@ -36,4 +37,5 @@ export interface UpdateSettingsBody {
   download_dir?: string;
   max_concurrent_downloads?: number;
   ytdlp_channel?: string;
+  theme?: string;
 }

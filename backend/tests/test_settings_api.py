@@ -72,3 +72,18 @@ def test_max_concurrent_audio_transcodes_is_independent(client):
     r2 = client.patch("/api/settings", json={"max_concurrent_transcodes": 9})
     assert r2.status_code == 200
     assert r2.json()["max_concurrent_audio_transcodes"] == 5
+
+
+def test_theme_is_saved_server_side_and_validated(client):
+    assert client.patch("/api/settings", json={"theme": "rose"}).json()["theme"] == "rose"
+    assert client.get("/api/settings").json()["theme"] == "rose"
+    assert client.patch("/api/settings", json={"theme": "neon-pink"}).status_code == 422
+    assert client.get("/api/settings").json()["theme"] == "rose"
+
+
+def test_unknown_saved_theme_falls_back_to_default(db):
+    from app.api.settings import get_theme
+    from app.models.settings import set_setting
+
+    set_setting(db, "theme", "hand-edited")
+    assert get_theme(db) == "parallax"

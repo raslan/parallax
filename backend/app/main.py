@@ -6,8 +6,9 @@ from datetime import UTC
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from app.api.audio_compress import router as audio_compress_router
 from app.api.audio_files import router as audio_files_router
@@ -26,6 +27,7 @@ from app.api.jobs import router as jobs_router
 from app.api.libraries import router as libraries_router
 from app.api.models import router as models_router
 from app.api.originals import router as originals_router
+from app.api.settings import get_theme
 from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
 from app.api.stats import router as stats_router
@@ -33,7 +35,7 @@ from app.api.stream import router as stream_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
 from app.config import GALLERY_DL_DIR
-from app.database import init_db
+from app.database import SessionLocal, init_db
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
 
@@ -326,12 +328,25 @@ app.include_router(stream_router, prefix="/api")
 if os.path.isdir(STATIC_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
 
+    def _index_html() -> HTMLResponse:
+        """index.html with the saved theme stamped on <html>, so the first paint is already
+        themed (no flash of the default theme, even in a fresh browser or incognito)."""
+        with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as fh:
+            html = fh.read()
+        db = SessionLocal()
+        try:
+            theme = get_theme(db)
+        finally:
+            db.close()
+        html = html.replace("<html ", f'<html data-theme="{theme}" ', 1)
+        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         candidate = os.path.join(STATIC_DIR, full_path)
         if full_path and os.path.isfile(candidate):
             return FileResponse(candidate)
-        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+        return await run_in_threadpool(_index_html)
 else:
 
     @app.get("/{full_path:path}")
