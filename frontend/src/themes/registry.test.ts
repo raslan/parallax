@@ -1,31 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { THEME_GROUPS, THEME_META, THEMES } from "./registry";
 
-const SAFE_ID = /^[a-z0-9-]{1,32}$/;
-
-const REQUIRED_VARS = [
-  "background",
-  "foreground",
-  "card",
-  "card-foreground",
-  "popover",
-  "popover-foreground",
-  "primary",
-  "primary-foreground",
-  "secondary",
-  "secondary-foreground",
-  "muted",
-  "muted-foreground",
-  "accent",
-  "accent-foreground",
-  "border",
-  "input",
-  "ring",
-  "sidebar",
-  "sidebar-foreground",
-  "sidebar-border",
-  "sidebar-accent",
-];
+import { REQUIRED_VARS, SAFE_THEME_ID as SAFE_ID } from "./importer";
 
 // Raw source of every stylesheet in this folder, keyed by "<name>.css".
 const sources = Object.fromEntries(
