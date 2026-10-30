@@ -54,6 +54,17 @@ def test_timeseries_buckets_by_day_and_month(db):
     assert [p["t"] for p in monthly] == ["2026-05-01", "2026-06-01"]
 
 
+def test_timeseries_cuts_days_in_the_callers_timezone(db):
+    # 02:30 UTC is still the previous evening for someone five hours behind UTC.
+    _event(db, ts=datetime(2026, 5, 3, 2, 30), bytes_in=10, bytes_out=0)
+    assert [p["t"] for p in stats_service.timeseries(db, "day", None)] == ["2026-05-03"]
+    assert [p["t"] for p in stats_service.timeseries(db, "day", None, 300)] == ["2026-05-02"]
+    # ...and the next day for someone ten hours ahead (JS offset is negative east of UTC).
+    _event(db, ts=datetime(2026, 5, 3, 20, 0), bytes_in=10, bytes_out=0)
+    east = stats_service.timeseries(db, "day", None, -600)
+    assert [p["t"] for p in east] == ["2026-05-03", "2026-05-04"]
+
+
 def test_breakdown_orders_biggest_savers_first(db):
     _event(db, kind="compress", bytes_in=100, bytes_out=10)
     _event(db, kind="audio_compress", media="audio", bytes_in=1000, bytes_out=100)

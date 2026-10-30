@@ -11,6 +11,7 @@ import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+from sqlalchemy import and_, case, func
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
@@ -158,38 +159,62 @@ def _since(days: int | None) -> datetime | None:
     return datetime.utcnow() - timedelta(days=days) if days else None
 
 
-def _events(db: Session, days: int | None) -> list[StatEvent]:
-    query = db.query(StatEvent)
+def _in_range(query, days: int | None):
     cutoff = _since(days)
-    if cutoff is not None:
-        query = query.filter(StatEvent.ts >= cutoff)
-    return query.order_by(StatEvent.ts).all()
+    return query.filter(StatEvent.ts >= cutoff) if cutoff is not None else query
 
 
-def _saved(event: StatEvent) -> int:
-    """Bytes saved by one event; 0 when it has no before/after sizes."""
-    if event.bytes_in is None or event.bytes_out is None:
-        return 0
-    return event.bytes_in - event.bytes_out
+# Aggregation happens in SQL so the cost doesn't grow with the number of events.
+# A restore is not a job; a job counts as done only when it completed.
+_IS_JOB = StatEvent.kind != RESTORE_KIND
+_IS_DONE = and_(_IS_JOB, StatEvent.status == JobStatus.COMPLETED)
+
+
+def _sum_if(condition, column):
+    return func.coalesce(func.sum(case((condition, column), else_=0)), 0)
+
+
+# Bytes count from every event that has both sizes: a cancelled or failed Compress still
+# replaced the files it got through, and a restore takes some of that back.
+_SAVED = func.coalesce(
+    func.sum(
+        case(
+            (
+                and_(StatEvent.bytes_in.isnot(None), StatEvent.bytes_out.isnot(None)),
+                StatEvent.bytes_in - StatEvent.bytes_out,
+            ),
+            else_=0,
+        )
+    ),
+    0,
+)
 
 
 def summary(db: Session, days: int | None = None) -> dict:
-    events = _events(db, days)
-    jobs = [e for e in events if e.kind != RESTORE_KIND]
-    done = [e for e in jobs if e.status == JobStatus.COMPLETED]
-    # Bytes count from every event: a cancelled or failed Compress still replaced the
-    # files it got through, and a restore (not a job) takes some of that back.
-    sized = events
+    jobs, done, files, b_in, b_out, saved, seconds, busy, first = _in_range(
+        db.query(
+            _sum_if(_IS_JOB, 1),
+            _sum_if(_IS_DONE, 1),
+            _sum_if(_IS_DONE, StatEvent.files),
+            func.coalesce(func.sum(StatEvent.bytes_in), 0),
+            func.coalesce(func.sum(StatEvent.bytes_out), 0),
+            _SAVED,
+            _sum_if(_IS_DONE, StatEvent.media_seconds),
+            _sum_if(_IS_JOB, StatEvent.duration_s),
+            func.min(StatEvent.ts),
+        ),
+        days,
+    ).one()
     return {
-        "jobs": len(jobs),
-        "jobs_completed": len(done),
-        "files": sum(e.files for e in done),
-        "bytes_in": sum(e.bytes_in or 0 for e in sized),
-        "bytes_out": sum(e.bytes_out or 0 for e in sized),
-        "bytes_saved": sum(_saved(e) for e in sized),
-        "media_seconds": sum(e.media_seconds or 0.0 for e in done),
-        "busy_seconds": sum(e.duration_s for e in jobs),
-        "first_event": events[0].ts if events else None,
+        "jobs": int(jobs),
+        "jobs_completed": int(done),
+        "files": int(files),
+        "bytes_in": int(b_in),
+        "bytes_out": int(b_out),
+        "bytes_saved": int(saved),
+        "media_seconds": float(seconds),
+        "busy_seconds": float(busy),
+        "first_event": first,
     }
 
 
@@ -202,16 +227,32 @@ def _bucket_key(ts: datetime, bucket: str) -> str:
     return ts.strftime("%Y-%m-%d")
 
 
-def timeseries(db: Session, bucket: str = "day", days: int | None = 30) -> list[dict]:
-    """Per-bucket jobs/files (completed jobs) and bytes saved (any event), ascending."""
+def timeseries(
+    db: Session, bucket: str = "day", days: int | None = 30, tz_offset: int = 0
+) -> list[dict]:
+    """Per-bucket jobs/files (completed jobs) and bytes saved (any event), ascending.
+
+    Days are cut in the caller's timezone: `tz_offset` is JavaScript's
+    `getTimezoneOffset()` (minutes UTC is ahead of local time), so a job run just before
+    local midnight lands on the day the user saw it happen. Grouping is one SQL row per
+    day; weeks and months are rolled up from those.
+    """
+    day = func.strftime("%Y-%m-%d", func.datetime(StatEvent.ts, f"{-int(tz_offset):+d} minutes"))
+    per_day = (
+        _in_range(
+            db.query(day, _sum_if(_IS_DONE, 1), _sum_if(_IS_DONE, StatEvent.files), _SAVED),
+            days,
+        )
+        .group_by(day)
+        .all()
+    )
     rows: dict[str, dict] = {}
-    for e in _events(db, days):
-        key = _bucket_key(e.ts, bucket)
+    for date_str, jobs, files, saved in per_day:
+        key = _bucket_key(datetime.strptime(date_str, "%Y-%m-%d"), bucket)
         row = rows.setdefault(key, {"t": key, "jobs": 0, "files": 0, "bytes_saved": 0})
-        if e.kind != RESTORE_KIND and e.status == JobStatus.COMPLETED:
-            row["jobs"] += 1
-            row["files"] += e.files
-        row["bytes_saved"] += _saved(e)
+        row["jobs"] += int(jobs)
+        row["files"] += int(files)
+        row["bytes_saved"] += int(saved)
     return [rows[k] for k in sorted(rows)]
 
 
@@ -220,17 +261,21 @@ _BREAKDOWN_FIELDS = {"kind": "kind", "media": "media", "status": "status"}
 
 def breakdown(db: Session, by: str = "kind", days: int | None = None) -> list[dict]:
     """Group events by `kind`, `media` or `status`; biggest savers first."""
-    attr = _BREAKDOWN_FIELDS[by]
-    groups: dict[str, dict] = {}
-    for e in _events(db, days):
-        if e.kind == RESTORE_KIND:
-            continue
-        key = getattr(e, attr)
-        g = groups.setdefault(key, {"key": key, "jobs": 0, "files": 0, "bytes_saved": 0})
-        g["jobs"] += 1
-        g["files"] += e.files
-        g["bytes_saved"] += _saved(e)
-    return sorted(groups.values(), key=lambda g: (-g["bytes_saved"], -g["jobs"], g["key"]))
+    column = getattr(StatEvent, _BREAKDOWN_FIELDS[by])
+    rows = (
+        _in_range(
+            db.query(column, func.count(), func.coalesce(func.sum(StatEvent.files), 0), _SAVED),
+            days,
+        )
+        .filter(_IS_JOB)
+        .group_by(column)
+        .all()
+    )
+    groups = [
+        {"key": key, "jobs": int(jobs), "files": int(files), "bytes_saved": int(saved)}
+        for key, jobs, files, saved in rows
+    ]
+    return sorted(groups, key=lambda g: (-g["bytes_saved"], -g["jobs"], g["key"]))
 
 
 def clear(db: Session) -> int:

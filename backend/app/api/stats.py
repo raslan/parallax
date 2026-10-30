@@ -49,9 +49,10 @@ def get_summary(days: int = Days, db: Session = Depends(get_db)):
 def get_timeseries(
     bucket: Literal["day", "week", "month"] = "day",
     days: int = Days,
+    tz: int = Query(0, ge=-1440, le=1440, description="Minutes UTC is ahead of local time"),
     db: Session = Depends(get_db),
 ):
-    return stats_service.timeseries(db, bucket, days or None)
+    return stats_service.timeseries(db, bucket, days or None, tz)
 
 
 @router.get("/breakdown", response_model=list[BreakdownRow])
