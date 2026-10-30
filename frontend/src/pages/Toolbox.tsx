@@ -25,6 +25,8 @@ import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { ToolboxFixChips, type FixKey, type FixValues } from "@/components/toolbox/ToolboxFixChips";
 import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
+import { SelectionBar } from "@/components/SelectionBar";
+import { sumSizeOf } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
 import { cn } from "@/lib/utils";
@@ -340,20 +342,6 @@ export function Toolbox() {
             <ViewToggle value={viewMode} onChange={setViewMode} />
 
             {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
-
-            <Button
-              onClick={handleStart}
-              disabled={selected.size === 0 || !hasFix || isRunning || starting}
-              title={!hasFix ? "Pick at least one fix" : undefined}
-            >
-              {starting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Wrench className="h-4 w-4 mr-2" />
-              )}
-              Fix{" "}
-              {selected.size > 0 ? `${selected.size} file${selected.size !== 1 ? "s" : ""}` : ""}
-            </Button>
           </div>
 
           {filteredFiles.length === 0 ? (
@@ -453,6 +441,26 @@ export function Toolbox() {
           )}
         </div>
       )}
+
+      <SelectionBar
+        count={selected.size}
+        bytes={sumSizeOf(filteredFiles ?? [], selected)}
+        onClear={selectNone}
+      >
+        <Button
+          size="sm"
+          onClick={handleStart}
+          disabled={!hasFix || isRunning || starting}
+          title={!hasFix ? "Pick at least one fix" : undefined}
+        >
+          {starting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Wrench className="h-4 w-4 mr-2" />
+          )}
+          Fix
+        </Button>
+      </SelectionBar>
 
       {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="video" />}
     </div>

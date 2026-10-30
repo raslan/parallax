@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AudioLines, Zap, Loader2, SearchX } from "lucide-react";
+import { AudioLines, Zap, Loader2, SearchX, TrendingDown } from "lucide-react";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
 import { ToolbarSearch } from "@/components/DataToolbar";
@@ -14,8 +14,12 @@ import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { AudioEstimatePanel } from "@/components/audio-compress/AudioEstimatePanel";
 import { CompressProgress } from "@/components/compress/CompressProgress";
+import { SelectionBar } from "@/components/SelectionBar";
+import { SmartSelect, type SmartSelectOption } from "@/components/SmartSelect";
+import { Tip } from "@/components/Tip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
 import { estimateAudioSize } from "@/lib/audioCompress";
 import {
@@ -161,11 +165,37 @@ export function AudioCompress() {
     0,
   );
 
-  const selectLargerThanTarget = () => {
-    if (!filteredFiles) return;
-    selectNone();
-    selectAll(filteredFiles.filter((f) => (f.bitrate ?? 0) / 1000 > bitrate).map((f) => f.id));
-  };
+  // Quick selections with their totals; recomputes when the target bitrate moves,
+  // not on every selection change.
+  const smartSets = useMemo(() => {
+    const all = filteredFiles ?? [];
+    const set = (id: string, label: string, hint: string, pick: (f: AudioFile) => boolean) => {
+      const picked = all.filter(pick);
+      return {
+        id,
+        label,
+        hint,
+        ids: picked.map((f) => f.id),
+        count: picked.length,
+        bytes: picked.reduce((s, f) => s + f.size, 0),
+        estBytes: picked.reduce((s, f) => s + estimateAudioSize(f.duration, bitrate), 0),
+      };
+    };
+    return [
+      set(
+        "bitrate",
+        `Above ${bitrate}k`,
+        `Files whose bitrate is above the ${bitrate}k target`,
+        (f) => (f.bitrate ?? 0) / 1000 > bitrate,
+      ),
+      set("big", "Over 50 MB", "Files larger than 50 MB", (f) => f.size > 50 * 1024 ** 2),
+    ];
+  }, [filteredFiles, bitrate]);
+  const smartOptions: SmartSelectOption[] = smartSets.map(({ ids, ...s }) => ({
+    ...s,
+    active: ids.length > 0 && ids.length === selected.size && ids.every((id) => selected.has(id)),
+    onSelect: () => selectAll(ids),
+  }));
 
   const {
     jobId,
@@ -283,9 +313,11 @@ export function AudioCompress() {
 
       {filteredFiles && !loadingFiles && (
         <div className="flex-1 min-h-0 flex flex-col gap-3">
+          <SmartSelect options={smartOptions} />
           <div className="flex items-center gap-3 flex-wrap shrink-0">
             <span className="text-sm text-muted-foreground">
               {filteredFiles.length} file{filteredFiles.length !== 1 ? "s" : ""}
+              <span className="hidden text-muted-foreground/50 md:inline"> · drag to select</span>
             </span>
             <button
               onClick={() => filteredFiles && selectAll(filteredFiles.map((f) => f.id))}
@@ -299,29 +331,7 @@ export function AudioCompress() {
             >
               None
             </button>
-            <button
-              onClick={selectLargerThanTarget}
-              className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
-              title={`Select files whose bitrate is above ${bitrate}k`}
-            >
-              Larger than target
-            </button>
             <ToolbarSearch value={search} onChange={setSearch} />
-            <div className="flex-1" />
-            <Button
-              onClick={handleStart}
-              disabled={selectedFiles.length === 0 || isRunning || starting}
-            >
-              {starting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Zap className="h-4 w-4 mr-2" />
-              )}
-              Compress{" "}
-              {selectedFiles.length > 0
-                ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? "s" : ""}`
-                : ""}
-            </Button>
           </div>
 
           {filteredFiles.length === 0 ? (
@@ -403,6 +413,47 @@ export function AudioCompress() {
           )}
         </div>
       )}
+
+      <SelectionBar
+        count={selected.size}
+        bytes={currentBytes}
+        onClear={selectNone}
+        summary={
+          <span className="flex items-center gap-2 text-sm">
+            <span aria-hidden className="text-muted-foreground">
+              →
+            </span>
+            <span className="tabular-nums">{formatSize(estimatedBytes)}</span>
+            <Tip label="Estimate. The real size can differ.">
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "font-mono text-xs",
+                  estimatedBytes < currentBytes
+                    ? "text-green-400 bg-green-400/10"
+                    : "text-red-400 bg-red-400/10",
+                )}
+              >
+                <TrendingDown className="h-3 w-3 mr-1" />
+                {estimatedBytes < currentBytes ? "-" : "+"}
+                {currentBytes > 0
+                  ? Math.abs(Math.round(((currentBytes - estimatedBytes) / currentBytes) * 100))
+                  : 0}
+                %
+              </Badge>
+            </Tip>
+          </span>
+        }
+      >
+        <Button size="sm" onClick={handleStart} disabled={isRunning || starting}>
+          {starting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Zap className="h-4 w-4 mr-2" />
+          )}
+          Compress
+        </Button>
+      </SelectionBar>
 
       {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="audio" />}
     </div>

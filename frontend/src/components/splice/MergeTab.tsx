@@ -20,6 +20,8 @@ import { LibraryBar } from "@/components/LibraryBar";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
+import { SelectionBar } from "@/components/SelectionBar";
+import { sumSizeOf } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useGridSize } from "@/hooks/useGridSize";
@@ -389,15 +391,6 @@ export function MergeTab() {
             <ViewToggle value={viewMode} onChange={setViewMode} />
 
             {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
-
-            <Button
-              onClick={() => setSheetOpen(true)}
-              disabled={selected.size < 2 || isRunning}
-              title={selected.size < 2 ? "Select at least two files" : undefined}
-            >
-              <Merge className="h-4 w-4 mr-2" />
-              Merge {selected.size > 0 ? `${selected.size} files` : ""}
-            </Button>
           </div>
 
           {filteredFiles.length === 0 ? (
@@ -497,6 +490,22 @@ export function MergeTab() {
           )}
         </div>
       )}
+
+      <SelectionBar
+        count={selected.size}
+        bytes={sumSizeOf(filteredFiles ?? [], selected)}
+        onClear={selectNone}
+      >
+        <Button
+          size="sm"
+          onClick={() => setSheetOpen(true)}
+          disabled={selected.size < 2 || isRunning}
+          title={selected.size < 2 ? "Select at least two files" : undefined}
+        >
+          <Merge className="h-4 w-4 mr-2" />
+          Merge
+        </Button>
+      </SelectionBar>
 
       {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="video" />}
 

@@ -28,7 +28,7 @@ export function SelectionBar({
     <div
       role="region"
       aria-label="Selection actions"
-      className="fixed bottom-20 left-1/2 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 animate-slide-up-fade items-center gap-3 whitespace-nowrap rounded-xl border border-border bg-card px-4 py-2.5 shadow-xl md:bottom-6"
+      className="fixed inset-x-4 bottom-20 z-30 flex animate-slide-up-fade md:inset-x-auto md:left-1/2 md:w-max md:max-w-[calc(100vw-2rem)] md:-translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl border border-border bg-card px-4 py-2.5 shadow-xl md:bottom-6 md:flex-nowrap md:whitespace-nowrap"
     >
       <span className="text-sm font-medium tabular-nums" role="status">
         {count} selected{bytes ? ` · ${formatSize(bytes)}` : ""}

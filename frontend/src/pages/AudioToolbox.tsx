@@ -26,6 +26,8 @@ import {
   type AudioFixValues,
 } from "@/components/audio-toolbox/AudioToolboxFixChips";
 import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
+import { SelectionBar } from "@/components/SelectionBar";
+import { sumSizeOf } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
 import { cn } from "@/lib/utils";
@@ -327,21 +329,6 @@ export function AudioToolbox() {
               None
             </button>
             <ToolbarSearch value={search} onChange={setSearch} />
-            <div className="flex-1" />
-
-            <Button
-              onClick={handleStart}
-              disabled={selected.size === 0 || !hasFix || isRunning || starting}
-              title={!hasFix ? "Pick at least one fix" : undefined}
-            >
-              {starting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Wrench className="h-4 w-4 mr-2" />
-              )}
-              Fix{" "}
-              {selected.size > 0 ? `${selected.size} file${selected.size !== 1 ? "s" : ""}` : ""}
-            </Button>
           </div>
 
           {filteredFiles.length === 0 ? (
@@ -410,6 +397,26 @@ export function AudioToolbox() {
           )}
         </div>
       )}
+
+      <SelectionBar
+        count={selected.size}
+        bytes={sumSizeOf(filteredFiles ?? [], selected)}
+        onClear={selectNone}
+      >
+        <Button
+          size="sm"
+          onClick={handleStart}
+          disabled={!hasFix || isRunning || starting}
+          title={!hasFix ? "Pick at least one fix" : undefined}
+        >
+          {starting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Wrench className="h-4 w-4 mr-2" />
+          )}
+          Fix
+        </Button>
+      </SelectionBar>
 
       {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="audio" />}
     </div>
