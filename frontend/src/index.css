@@ -420,6 +420,12 @@
     @apply bg-background text-foreground antialiased;
   }
 
+  /* v4 preflight dims placeholders to 50% of currentColor; v3 used gray-400. */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
   /* Tailwind v4 preflight leaves buttons with the default arrow cursor. */
   button:not(:disabled),
   [role="button"]:not(:disabled) {
