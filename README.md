@@ -19,6 +19,15 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
   - **Metadata & artwork** — writes Kodi/Jellyfin/Plex `.nfo` sidecars (show + per-episode) and generates a poster and backdrop from a frame of the first episode, show title set in Inter, colour keyed to the frame — all offline, no scraping
   - Optional **move to** a destination folder as part of the rename (works across filesystems); preview every rename, `.nfo`, and image before applying
 - **Subtitles** — scan a folder for missing subtitle files; bulk-download best matches or open a Plex-style search dialog; powered by subf2m.co (no account, no daily limit, multi-language); multiple subtitle tracks shown in the Plyr player with a language picker
+- **Splice (Merge)** — pick two or more videos from one library, set the order by dragging, and join them into one new file next to the first. When every file matches (codec, resolution, frame rate, pixel format, audio) it is an instant, lossless stream copy; otherwise it re-encodes with letterboxing and silence for audio-less clips, using the codec/CRF/speed you choose. Optional one-chapter-per-file. Originals are always kept in `_originals/`, and only move after the output is verified; a failed or cancelled merge leaves everything untouched. If a hardware encoder fails, one click retries on the CPU
+
+### Audio
+
+- **Library management** — scan audio folders (codec, bitrate, sample rate, channels, duration; no thumbnails); libraries auto-rescan when files change on disk. The Audio section appears once you add an audio library
+- **Compression** — re-encode to Opus, AAC, or MP3 at a target bitrate with a live size estimate; files already at or below the target are skipped, so nothing is ever up-converted; metadata tags preserved; originals preserved in `_originals/` (toggleable), with their own Originals page to browse and restore
+- **Toolbox** — normalize loudness (two-pass EBU R128), fix channels (mono, downmix to stereo, left or right to both), and trim, in a single pass per file; originals preserved in `_originals/` (toggleable)
+- **Duplicate detection** — exact size, duration, content date, and audio fingerprint (Chromaprint); matching runs client-side like video
+- **Cleanup** — filter and bulk-delete by duration, content date, file size, or filename; all filters stack with invert/exclude support
 
 ### Images
 
