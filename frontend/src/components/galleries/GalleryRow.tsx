@@ -53,7 +53,7 @@ export function GalleryRow({
           href={row.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground shrink-0"
+          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-foreground shrink-0"
         >
           <ExternalLink className="h-3 w-3" />
         </a>
@@ -92,7 +92,7 @@ export function GalleryRow({
   ) : null;
 
   const actions = (
-    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
       {isActive && (
         <IconButton
           label="Stop"

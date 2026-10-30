@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+/* v4 gates hover:/group-hover: behind (hover: hover); hover-revealed controls add
+   touch:opacity-100 so they stay reachable on touch-only devices. */
+@custom-variant touch (@media (hover: none));
 
 /* Theme variables are bare HSL triplets, so the colour tokens wrap them in hsl()
    and are resolved at use time (`inline`) — opacity modifiers keep working. */

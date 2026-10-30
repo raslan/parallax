@@ -72,7 +72,7 @@ function LangBadges({
                 onDelete(code);
               }}
               title={`Delete ${code} subtitle`}
-              className="opacity-0 group-hover/badge:opacity-100 transition-opacity rounded hover:bg-green-500/20"
+              className="opacity-0 group-hover/badge:opacity-100 touch:opacity-100 transition-opacity rounded hover:bg-green-500/20"
             >
               <X className="h-2.5 w-2.5" />
             </button>
@@ -126,7 +126,7 @@ function FileRow({
       <button
         onClick={onSearch}
         title="Search subtitles"
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
+        className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
       >
         <Search className="h-3.5 w-3.5" />
       </button>
@@ -135,7 +135,7 @@ function FileRow({
           onClick={onSync}
           disabled={syncing || syncDisabled}
           title="Sync subtitle timing to audio"
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
+          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
         </button>
@@ -144,7 +144,7 @@ function FileRow({
         <button
           onClick={onPlay}
           title="Preview with subtitle"
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
+          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
         >
           <Play className="h-3.5 w-3.5" />
         </button>

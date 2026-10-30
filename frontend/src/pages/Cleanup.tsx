@@ -125,7 +125,7 @@ function CleanupListRow({
         <span className="text-xs text-muted-foreground font-mono w-16 text-right shrink-0">
           {formatSize(file.size)}
         </span>
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100">
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100 touch:opacity-100">
           <RowMoreMenu actions={actions} />
         </div>
       </div>

@@ -67,7 +67,7 @@ export function FileGridCard({
 
           {badge && <div className="absolute top-1.5 right-1.5">{badge}</div>}
 
-          <div className="absolute bottom-1.5 left-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+          <div className="absolute bottom-1.5 left-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 touch:opacity-100">
             <RowMoreMenu
               actions={menuActions}
               className="bg-black/60 text-white hover:bg-black/80"
@@ -257,7 +257,7 @@ export function FileListRow({
         )}
         {trailing}
         {/* Overlaid so the columns (and their headers) don't shift to make room. */}
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100">
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100 touch:opacity-100">
           <RowMoreMenu actions={menuActions} />
         </div>
       </div>

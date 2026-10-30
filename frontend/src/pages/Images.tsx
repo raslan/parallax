@@ -86,7 +86,7 @@ function ImageCard({
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
           <p className="truncate text-2xs text-white">{img.filename}</p>
           {!selectionMode && (
             <button

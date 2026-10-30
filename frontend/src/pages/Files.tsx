@@ -55,7 +55,7 @@ function ThumbnailCard({ file, onPlay }: { file: VideoFile; onPlay: () => void }
             alt={file.filename}
             imgClassName="w-full h-full object-cover"
           />
-          <div className="absolute bottom-1.5 left-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+          <div className="absolute bottom-1.5 left-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 touch:opacity-100">
             <RowMoreMenu actions={actions} className="bg-black/60 text-white hover:bg-black/80" />
           </div>
         </div>
@@ -152,7 +152,7 @@ function FileListRow({ file, onPlay }: { file: VideoFile; onPlay: () => void }) 
         >
           {formatSize(file.size)}
         </span>
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100">
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-card/90 opacity-100 md:opacity-0 md:group-hover/row:opacity-100 md:focus-within:opacity-100 touch:opacity-100">
           <RowMoreMenu actions={actions} />
         </div>
       </div>
