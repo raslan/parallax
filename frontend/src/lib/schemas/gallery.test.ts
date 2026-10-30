@@ -38,5 +38,11 @@ describe("galleryOptionsSchema", () => {
     expect(d.ytRefererMode).toBe("none");
     expect(() => galleryOptionsSchema.parse({ ytQuality: "999" })).toThrow();
     expect(() => galleryOptionsSchema.parse({ ytThrottledRateValue: "fast" })).toThrow();
+    expect(() => galleryOptionsSchema.parse({ ytThrottledRateValue: "." })).toThrow();
+    for (const ok of ["", "5", "5.", "0.5", ".5"]) {
+      expect(galleryOptionsSchema.parse({ ytThrottledRateValue: ok }).ytThrottledRateValue).toBe(
+        ok,
+      );
+    }
   });
 });

@@ -47,7 +47,7 @@ export const galleryOptionsSchema = z.object({
   ytReferer: z.string().default(""),
   ytThrottledRateValue: z
     .string()
-    .regex(/^\d*\.?\d*$/, "number only")
+    .regex(/^(\d+\.?\d*|\.\d+)?$/, "number only")
     .default(""),
   ytThrottledRateUnit: z.enum(["K", "M", "G"]).default("M"),
   ytExtraArgs: z.string().default(""),

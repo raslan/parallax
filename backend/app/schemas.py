@@ -245,7 +245,7 @@ class GalleryOptions(BaseModel):
     ytImpersonate: str = ""
     ytRefererMode: Literal["none", "site", "url", "custom"] = "none"
     ytReferer: str = ""
-    ytThrottledRateValue: str = Field(default="", pattern=r"^\d*\.?\d*$")
+    ytThrottledRateValue: str = Field(default="", pattern=r"^(\d+\.?\d*|\.\d+)?$")
     ytThrottledRateUnit: Literal["K", "M", "G"] = "M"
     ytExtraArgs: str = ""
 

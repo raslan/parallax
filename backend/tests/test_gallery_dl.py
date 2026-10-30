@@ -2,6 +2,9 @@ import json
 import os
 import sys
 
+import pytest
+from pydantic import ValidationError
+
 import app.services.gallery_dl as gallery_dl
 from app.database import SessionLocal, init_db
 from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
@@ -42,6 +45,14 @@ def test_gallery_options_defaults():
     assert o.maxSizeUnit == "M"
     assert o.useArchive is True
     assert o.inputMode == "paste"
+
+
+def test_throttled_rate_must_contain_a_digit():
+    for ok in ("", "5", "5.", "0.5", ".5", "100"):
+        GalleryOptions(ytThrottledRateValue=ok)
+    for bad in (".", "..", "fast", "1.2.3"):
+        with pytest.raises(ValidationError):
+            GalleryOptions(ytThrottledRateValue=bad)
 
 
 def test_gallery_options_parses_partial_blob():

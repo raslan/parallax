@@ -36,6 +36,8 @@ type ListEditor = {
   error: string | null;
 };
 
+const archiveKeyOf = (o: GalleryOptions) => `${o.useArchive}|${o.archivePath}`;
+
 export function Galleries() {
   const qc = useQueryClient();
   const confirm = useConfirm();
@@ -73,10 +75,18 @@ export function Galleries() {
   // panel's mount to one render past the seed so its `showMin` (a mount-time
   // useState) initialises from the real saved blob, not the empty defaults.
   const seeded = useRef(false);
+  // `${useArchive}|${archivePath}` of the last saved options — the archive query only refetches
+  // when this changes.
+  const archiveKey = useRef("");
+  // True while the list editor is saving: the new/renamed list isn't in the cached index yet,
+  // so the stale-selection repair below must not repoint the selection away from it.
+  const savingListName = useRef(false);
   const [isSeeded, setIsSeeded] = useState(false);
   useEffect(() => {
     if (!fetchedOptions || seeded.current) return;
-    form.reset(galleryOptionsSchema.parse(fetchedOptions));
+    const parsed = galleryOptionsSchema.parse(fetchedOptions);
+    form.reset(parsed);
+    archiveKey.current = archiveKeyOf(parsed);
     seeded.current = true;
     setIsSeeded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,8 +94,14 @@ export function Galleries() {
 
   const putOptions = useMutation({
     mutationFn: (opts: GalleryOptions) => api.putGalleryOptions(opts),
-    // the archive shown is whatever the *saved* options resolve to (custom path / on-off)
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.galleryArchive() }),
+    // the archive shown is whatever the *saved* options resolve to (custom path / on-off), so
+    // only a change to those refetches it — counting a big archive on every autosave is wasteful
+    onSuccess: (_data, opts) => {
+      const key = archiveKeyOf(opts);
+      if (key === archiveKey.current) return;
+      archiveKey.current = key;
+      void qc.invalidateQueries({ queryKey: qk.galleryArchive() });
+    },
   });
 
   // ── Download archive: entry count + reset ──────────────────────────────────
@@ -142,7 +158,7 @@ export function Galleries() {
   // renamed elsewhere) — repoint it so a Fetch never 400s on a stale name.
   useEffect(() => {
     const first = lists?.[0];
-    if (!isSeeded || !first || selectedExists) return;
+    if (!isSeeded || !first || selectedExists || savingListName.current) return;
     form.setValue("urlList", first.name, { shouldDirty: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lists, selectedExists, isSeeded]);
@@ -228,6 +244,7 @@ export function Galleries() {
           finalName = (await api.renameGalleryUrlList(editor.originalName, name)).name;
         }
       }
+      savingListName.current = true;
       form.setValue("urlList", finalName, { shouldDirty: true });
       // prefix-invalidates the lists index and every cached list body
       await qc.invalidateQueries({ queryKey: qk.galleryUrlLists() });
@@ -235,6 +252,7 @@ export function Galleries() {
     } catch (e) {
       patchEditor({ error: getErrorMessage(e) });
     } finally {
+      savingListName.current = false;
       setSavingList(false);
     }
   };
