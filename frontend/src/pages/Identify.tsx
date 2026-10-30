@@ -31,7 +31,7 @@ import {
   groupBySeasonFolder,
   reorderWithinGroup,
 } from "@/lib/customShow";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 interface ApplyResult {
   successes: string[];

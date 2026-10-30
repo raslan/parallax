@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, qk } from "@/lib/api";
 import type { Job } from "@/types/job";

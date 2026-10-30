@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Palette, KeyRound, Cpu, Clapperboard, Download } from "lucide-react";
 import { GeneralTab } from "@/components/settings/GeneralTab";
 import { TranscodingTab } from "@/components/settings/TranscodingTab";

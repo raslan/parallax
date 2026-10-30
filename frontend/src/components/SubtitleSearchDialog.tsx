@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Download, CheckCircle2, Search, Settings } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, subtitlesApi } from "@/lib/api";
 import type { SearchResult } from "@/types/identify";
 import type { SubtitleCandidate, SubtitleFile } from "@/types/subtitle";

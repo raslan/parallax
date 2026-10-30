@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { SECTIONS, routeToTab, type SectionId } from "./nav-config";
 import { cn } from "@/lib/utils";
 

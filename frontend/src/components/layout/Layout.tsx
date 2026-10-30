@@ -1,5 +1,5 @@
 import { Suspense, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { PageSkeleton } from "@/components/Skeletons";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Activity, House, Palette, Settings } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import {

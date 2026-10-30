@@ -1,4 +1,4 @@
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink } from "react-router";
 import { AlertTriangle, X } from "lucide-react";
 
 export function YtdlpBanner({ onDismiss }: { onDismiss: () => void }) {

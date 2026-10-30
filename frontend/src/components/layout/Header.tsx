@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router";
 import { Search, Settings } from "lucide-react";
 import { ParallaxLogo } from "@/components/ParallaxLogo";
 import { Separator } from "@/components/ui/separator";
