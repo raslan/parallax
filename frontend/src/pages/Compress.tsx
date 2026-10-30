@@ -16,6 +16,9 @@ import { GridSizeControl } from "@/components/GridSizeControl";
 import { useGridSize } from "@/hooks/useGridSize";
 import { CompressEstimatePanel } from "@/components/compress/CompressEstimatePanel";
 import { CompressProgress } from "@/components/compress/CompressProgress";
+import { SelectionBar } from "@/components/SelectionBar";
+import { SmartSelect, type SmartSelectOption } from "@/components/SmartSelect";
+import { Tip } from "@/components/Tip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -253,16 +256,46 @@ export function Compress() {
   useSelectionOrder(setOrder, orderedIds);
 
   const selectAll = () => filteredFiles && selectAllIds(filteredFiles.map((f) => f.id));
-  const selectCandidates = () =>
-    filteredFiles &&
-    setSelected(
-      new Set(filteredFiles.filter((f) => f.codec_name?.toLowerCase() !== codec).map((f) => f.id)),
-    );
-  const selectOversized = () =>
-    filteredFiles &&
-    setSelected(
-      new Set(filteredFiles.filter((f) => exceedsMaxResolution(f, maxShortSide)).map((f) => f.id)),
-    );
+  // Each quick selection with its totals; the estimate depends on the settings, so
+  // this recomputes on a settings change but not on every selection change.
+  const smartSets = useMemo(() => {
+    const all = filteredFiles ?? [];
+    const set = (id: string, label: string, hint: string, pick: (f: VideoFile) => boolean) => {
+      const picked = all.filter(pick);
+      return {
+        id,
+        label,
+        hint,
+        ids: picked.map((f) => f.id),
+        count: picked.length,
+        bytes: picked.reduce((s, f) => s + f.size, 0),
+        estBytes: picked.reduce((s, f) => s + estimateSize(f, codec, crf, speed, maxShortSide), 0),
+      };
+    };
+    const codecLabel = codecs.find((c) => c.id === codec)?.label ?? codec.toUpperCase();
+    const capLabel = resolutions.find((r) => r.id === maxResolution)?.label ?? maxResolution;
+    return [
+      set(
+        "codec",
+        `Not ${codecLabel}`,
+        `Files not already encoded as ${codecLabel}`,
+        (f) => f.codec_name?.toLowerCase() !== codec,
+      ),
+      ...(maxShortSide != null
+        ? [
+            set("res", `Above ${capLabel}`, `Files larger than ${capLabel}`, (f) =>
+              exceedsMaxResolution(f, maxShortSide),
+            ),
+          ]
+        : []),
+      set("big", "Over 1 GB", "Files larger than 1 GB", (f) => f.size > 1024 ** 3),
+    ];
+  }, [filteredFiles, codecs, codec, crf, speed, maxShortSide, resolutions, maxResolution]);
+  const smartOptions: SmartSelectOption[] = smartSets.map(({ ids, ...s }) => ({
+    ...s,
+    active: ids.length > 0 && ids.length === selected.size && ids.every((id) => selected.has(id)),
+    onSelect: () => setSelected(new Set(ids)),
+  }));
   const selectedFiles = useMemo(
     () => (filteredFiles ?? []).filter((f) => selected.has(f.id)),
     [filteredFiles, selected],
@@ -357,7 +390,6 @@ export function Compress() {
 
   const isRunning = jobStatus === "running" || jobStatus === "pending";
   const isDone = jobStatus === "completed" || jobStatus === "failed" || jobStatus === "cancelled";
-  const selectedCodec = codecs.find((c) => c.id === codec);
 
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
@@ -432,9 +464,11 @@ export function Compress() {
       {filteredFiles && !loadingFiles && (
         <div className="flex-1 min-h-0 flex flex-col gap-3">
           {/* Toolbar */}
+          <SmartSelect options={smartOptions} />
           <div className="flex items-center gap-3 flex-wrap shrink-0">
             <span className="text-sm text-muted-foreground">
               {filteredFiles.length} file{filteredFiles.length !== 1 ? "s" : ""}
+              <span className="hidden text-muted-foreground/50 md:inline"> · drag to select</span>
             </span>
             <button
               onClick={selectAll}
@@ -448,60 +482,10 @@ export function Compress() {
             >
               None
             </button>
-            <button
-              onClick={selectCandidates}
-              className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
-              title={`Select files not already ${selectedCodec?.label ?? codec}`}
-            >
-              Non-{selectedCodec?.label ?? codec.toUpperCase()}
-            </button>
-            {maxShortSide != null && (
-              <button
-                onClick={selectOversized}
-                className="text-xs text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
-                title={`Select files above ${resolutions.find((r) => r.id === maxResolution)?.label ?? maxResolution}`}
-              >
-                Above {resolutions.find((r) => r.id === maxResolution)?.label ?? maxResolution}
-              </button>
-            )}
             <ToolbarSearch value={search} onChange={setSearch} />
             <div className="flex-1" />
-
-            {selected.size > 0 && (
-              <div className="flex items-center gap-3 text-sm">
-                <span className="text-muted-foreground/70">
-                  {formatSize(totalSourceSize)} →{" "}
-                  <span className="text-foreground">{formatSize(totalEstSize)}</span>
-                </span>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "font-mono text-xs",
-                    totalSavingsPct > 0
-                      ? "text-green-400 bg-green-400/10"
-                      : "text-red-400 bg-red-400/10",
-                  )}
-                >
-                  <TrendingDown className="h-3 w-3 mr-1" />
-                  {totalSavingsPct > 0 ? `-${totalSavingsPct}%` : `+${Math.abs(totalSavingsPct)}%`}
-                </Badge>
-                <span className="text-xs text-muted-foreground/40">est. ±20%</span>
-              </div>
-            )}
-
             <ViewToggle value={viewMode} onChange={setViewMode} />
-
             {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
-
-            <Button onClick={handleStart} disabled={selected.size === 0 || isRunning || starting}>
-              {starting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Zap className="h-4 w-4 mr-2" />
-              )}
-              Compress{" "}
-              {selected.size > 0 ? `${selected.size} file${selected.size !== 1 ? "s" : ""}` : ""}
-            </Button>
           </div>
 
           {filteredFiles.length === 0 ? (
@@ -663,6 +647,43 @@ export function Compress() {
           )}
         </div>
       )}
+
+      <SelectionBar
+        count={selected.size}
+        bytes={totalSourceSize}
+        onClear={selectNone}
+        summary={
+          <span className="flex items-center gap-2 text-sm">
+            <span aria-hidden className="text-muted-foreground">
+              →
+            </span>
+            <span className="tabular-nums">{formatSize(totalEstSize)}</span>
+            <Tip label="Estimate. The real size can differ by about 20%.">
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "font-mono text-xs",
+                  totalSavingsPct > 0
+                    ? "text-green-400 bg-green-400/10"
+                    : "text-red-400 bg-red-400/10",
+                )}
+              >
+                <TrendingDown className="h-3 w-3 mr-1" />
+                {totalSavingsPct > 0 ? `-${totalSavingsPct}%` : `+${Math.abs(totalSavingsPct)}%`}
+              </Badge>
+            </Tip>
+          </span>
+        }
+      >
+        <Button size="sm" onClick={handleStart} disabled={isRunning || starting}>
+          {starting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Zap className="h-4 w-4 mr-2" />
+          )}
+          Compress
+        </Button>
+      </SelectionBar>
 
       {libraries.length === 0 && !loadingFiles && <NoLibrariesState kind="video" />}
     </div>

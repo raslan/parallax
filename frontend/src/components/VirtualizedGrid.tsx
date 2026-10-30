@@ -186,7 +186,7 @@ export function VirtualizedGrid<T>({
         {marquee.box && (
           <div
             aria-hidden
-            className="pointer-events-none absolute z-20 rounded-sm border border-primary bg-primary/15"
+            className="pointer-events-none absolute z-20 rounded-sm border border-primary bg-primary/20"
             style={{
               left: marquee.box.left,
               top: marquee.box.top,

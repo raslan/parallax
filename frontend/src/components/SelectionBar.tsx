@@ -11,12 +11,15 @@ import { formatSize } from "@/lib/format";
 export function SelectionBar({
   count,
   bytes,
+  summary,
   onClear,
   children,
 }: {
   count: number;
   /** Combined size of the selection, shown beside the count when known. */
   bytes?: number;
+  /** What the action will do to the selection (e.g. "→ 15 GB −59%"), between the count and the buttons. */
+  summary?: ReactNode;
   onClear: () => void;
   children: ReactNode;
 }) {
@@ -25,11 +28,12 @@ export function SelectionBar({
     <div
       role="region"
       aria-label="Selection actions"
-      className="fixed bottom-20 left-1/2 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 animate-slide-up-fade items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-xl md:bottom-6"
+      className="fixed bottom-20 left-1/2 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 animate-slide-up-fade items-center gap-3 whitespace-nowrap rounded-xl border border-border bg-card px-4 py-2.5 shadow-xl md:bottom-6"
     >
       <span className="text-sm font-medium tabular-nums" role="status">
         {count} selected{bytes ? ` · ${formatSize(bytes)}` : ""}
       </span>
+      {summary}
       {children}
       <Button size="sm" variant="ghost" onClick={onClear} className="px-2">
         <X className="mr-1 h-3.5 w-3.5" />
