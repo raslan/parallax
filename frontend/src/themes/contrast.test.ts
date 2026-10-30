@@ -19,6 +19,7 @@ const sources = Object.fromEntries(
 const TEXT = 4.5;
 const BORDER = 1.3;
 const RING = 3;
+const UI_TEXT = 3.5;
 
 interface Rule {
   name: string;
@@ -34,6 +35,9 @@ interface ThemeVars {
   accent: string;
   /** Effective `--px-on-accent`: the theme's override, else the global one. */
   onAccent: string;
+  /** Effective `--destructive` / `--destructive-foreground`: the theme's override, else the global `:root` one. */
+  destructive: string;
+  destructiveFg: string;
 }
 
 function readVars(css: string): ThemeVars {
@@ -47,8 +51,19 @@ function readVars(css: string): ThemeVars {
   const hsl = (name: string) => `hsl(${triplet(name)})`;
   const globalOnAccent = /--px-on-accent:\s*([^;]+);/.exec(indexCss)?.[1]?.trim();
   if (!globalOnAccent) throw new Error("global --px-on-accent missing from index.css");
+  const globalTriplet = (name: string): string => {
+    const m = new RegExp(`--${name}:\\s*(\\d{1,3} \\d{1,3}% \\d{1,3}%);`).exec(indexCss);
+    if (!m) throw new Error(`global --${name} missing from index.css`);
+    return `hsl(${m[1] ?? ""})`;
+  };
+  const effective = (name: string): string => {
+    const own = override(name);
+    return own ? `hsl(${own})` : globalTriplet(name);
+  };
   return {
     hsl,
+    destructive: effective("destructive"),
+    destructiveFg: effective("destructive-foreground"),
     accent: override("px-accent") ?? hsl("primary"),
     onAccent: override("px-on-accent") ?? globalOnAccent,
   };
@@ -98,6 +113,19 @@ const RULES: Rule[] = [
   { name: "border/background", min: BORDER, pair: (t) => [t.hsl("border"), t.hsl("background")] },
   { name: "ring/background", min: RING, pair: (t) => [t.hsl("ring"), t.hsl("background")] },
   { name: "px-on-accent/px-accent", min: TEXT, pair: (t) => [t.onAccent, t.accent] },
+  // Destructive is used for error text, badges and borders (large-ish UI): 3.5, not full text.
+  {
+    name: "destructive/background",
+    min: UI_TEXT,
+    pair: (t) => [t.destructive, t.hsl("background")],
+  },
+  { name: "destructive/card", min: UI_TEXT, pair: (t) => [t.destructive, t.hsl("card")] },
+  { name: "destructive/popover", min: UI_TEXT, pair: (t) => [t.destructive, t.hsl("popover")] },
+  {
+    name: "destructive-foreground/destructive",
+    min: TEXT,
+    pair: (t) => [t.destructiveFg, t.destructive],
+  },
 ];
 
 interface LegacyException {
