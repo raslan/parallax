@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { settingsApi } from "@/lib/api/settings";
-import { THEMES, type Theme } from "@/types/theme";
+import { DEFAULT_THEME, isTheme, type Theme } from "@/themes/registry";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -8,16 +8,12 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "parallax",
+  theme: DEFAULT_THEME,
   setTheme: () => {},
 });
 
 export function useTheme() {
   return useContext(ThemeContext);
-}
-
-function isTheme(value: string | null | undefined): value is Theme {
-  return !!value && (THEMES as string[]).includes(value);
 }
 
 // The server stamps the saved theme on <html data-theme> before first paint, so it wins; the
@@ -31,7 +27,7 @@ function getInitialTheme(): Theme {
   } catch {
     // storage blocked: fall through to the default
   }
-  return isTheme(stored) ? stored : "parallax";
+  return isTheme(stored) ? stored : DEFAULT_THEME;
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

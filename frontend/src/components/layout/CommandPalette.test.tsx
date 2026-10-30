@@ -49,7 +49,7 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Downloads")).toBeDefined();
     expect(screen.getByText("Jobs")).toBeDefined();
     expect(screen.getByText("Settings")).toBeDefined();
-    expect(screen.getByText("oled")).toBeDefined();
+    expect(screen.getByText("OLED")).toBeDefined();
   });
 
   it("never offers the hidden Galleries page", () => {

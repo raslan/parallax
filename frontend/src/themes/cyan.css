@@ -1,0 +1,29 @@
+/* Cyan / Modern HUD */
+[data-theme="cyan"] {
+  --background: 210 78% 5%;
+  --foreground: 188 80% 94%;
+  --card: 210 73% 8%;
+  --card-foreground: 188 80% 94%;
+  --popover: 210 73% 8%;
+  --popover-foreground: 188 80% 94%;
+  --primary: 188 83% 53%;
+  --primary-foreground: 210 78% 5%;
+  --secondary: 210 65% 11%;
+  --secondary-foreground: 188 40% 80%;
+  --muted: 210 65% 11%;
+  --muted-foreground: 210 25% 65%;
+  --accent: 210 65% 11%;
+  --accent-foreground: 188 80% 94%;
+  --border: 210 55% 20%;
+  --input: 210 65% 11%;
+  --ring: 188 83% 53%;
+  --sidebar: 210 80% 4%;
+  --sidebar-foreground: 188 80% 94%;
+  --sidebar-border: 210 60% 18%;
+  --sidebar-accent: 210 65% 9%;
+
+  /* Overrides: the derivation is >3/255 off the original hand-tuned look. */
+  --px-accent: #22d3ee; /* exact, so the alpha tints stay exact too */
+  --px-accent-secondary: #0891b2;
+  --px-text-muted: #7ab0c8;
+}

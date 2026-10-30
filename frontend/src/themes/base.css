@@ -1,0 +1,18 @@
+/* Parallax design-language tokens, derived from the standard shadcn variables so a theme
+   only has to define those. `:root, [data-theme]` (not just :root) re-resolves them on every
+   themed element, which is what lets the Settings preview cards render other themes in place.
+   Layered, so a theme file (unlayered) can override any token the derivation can't reproduce. */
+@layer base {
+  :root,
+  [data-theme] {
+    --px-accent: hsl(var(--primary));
+    --px-accent-secondary: color-mix(in srgb, var(--px-accent) 90%, black);
+    --px-accent-dim: rgb(from var(--px-accent) r g b / 0.12);
+    --px-accent-border: rgb(from var(--px-accent) r g b / 0.25);
+    --px-bg-surface: color-mix(in srgb, hsl(var(--background)), hsl(var(--foreground)) 3%);
+    --px-bg-elevated: color-mix(in srgb, hsl(var(--card)), hsl(var(--foreground)) 4%);
+    --px-text-muted: hsl(var(--muted-foreground));
+    /* Opaque page-level background, for sticky bars/rows that sit over scrolling content. */
+    --px-bg-base: hsl(var(--background));
+  }
+}

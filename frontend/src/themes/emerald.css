@@ -1,0 +1,31 @@
+/* Emerald / Neon Grid */
+[data-theme="emerald"] {
+  --background: 160 55% 3%;
+  --foreground: 155 70% 98%;
+  --card: 160 50% 6%;
+  --card-foreground: 155 70% 98%;
+  --popover: 160 50% 6%;
+  --popover-foreground: 155 70% 98%;
+  --primary: 160 70% 50%;
+  --primary-foreground: 160 55% 3%;
+  --secondary: 160 42% 10%;
+  --secondary-foreground: 155 40% 90%;
+  --muted: 160 42% 9%;
+  --muted-foreground: 160 20% 75%;
+  --accent: 160 42% 10%;
+  --accent-foreground: 155 70% 98%;
+  --border: 160 38% 18%;
+  --input: 160 42% 10%;
+  --ring: 160 70% 50%;
+  --sidebar: 160 60% 2%;
+  --sidebar-foreground: 155 70% 98%;
+  --sidebar-border: 160 45% 15%;
+  --sidebar-accent: 160 42% 8%;
+
+  /* Overrides: the derivation is >3/255 off the original hand-tuned look. */
+  --px-accent: #34d399; /* the --primary triplet is a different green */
+  --px-accent-secondary: #059669;
+  --px-bg-elevated: #071a10;
+  --px-bg-surface: #030f0a; /* nearly the page background; the foreground mix is too bright */
+  --px-text-muted: #9ecfb8;
+}

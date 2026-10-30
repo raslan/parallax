@@ -12,7 +12,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useTheme } from "@/components/ThemeProvider";
-import { THEMES } from "@/types/theme";
+import { THEME_META } from "@/themes/registry";
 import { SECTIONS, filterSectionItems, useSectionNav } from "./nav-config";
 
 /**
@@ -91,14 +91,14 @@ export function CommandPalette({
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Theme">
-            {THEMES.map((t) => (
+            {THEME_META.map((t) => (
               <CommandItem
-                key={t}
-                value={`Switch theme ${t}`}
-                onSelect={() => run(() => setTheme(t))}
+                key={t.id}
+                value={`Switch theme ${t.label} ${t.id}`}
+                onSelect={() => run(() => setTheme(t.id))}
               >
                 <Palette />
-                <span className="capitalize">{t}</span>
+                <span>{t.label}</span>
               </CommandItem>
             ))}
           </CommandGroup>

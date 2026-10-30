@@ -1,0 +1,30 @@
+/* Parallax (default): canonical Ayu Dark palette (bg #0B0E14, accent #E6B450, fg #BFBDB6). */
+[data-theme="parallax"] {
+  --background: 220 28% 6%;
+  --foreground: 45 7% 73%;
+  --card: 220 25% 8%;
+  --card-foreground: 45 7% 73%;
+  --popover: 220 25% 8%;
+  --popover-foreground: 45 7% 73%;
+  --primary: 40 74% 61%;
+  --primary-foreground: 220 28% 6%;
+  --secondary: 220 18% 14%;
+  --secondary-foreground: 45 7% 80%;
+  --muted: 220 18% 13%;
+  --muted-foreground: 215 12% 52%;
+  --accent: 220 18% 14%;
+  --accent-foreground: 45 7% 73%;
+  --border: 210 16% 18%;
+  --input: 220 18% 13%;
+  --ring: 40 74% 61%;
+  --sidebar: 220 30% 5%;
+  --sidebar-foreground: 45 7% 73%;
+  --sidebar-border: 210 15% 15%;
+  --sidebar-accent: 220 18% 11%;
+
+  /* Overrides: the derivation is >3/255 off the original hand-tuned look. */
+  --px-accent: #e6b450; /* exact, so the alpha tints stay exact too */
+  --px-accent-secondary: #d9a441;
+  --px-bg-elevated: #161b24;
+  --px-text-muted: #8b929c;
+}

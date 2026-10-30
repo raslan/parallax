@@ -1,0 +1,29 @@
+/* Rose Quartz */
+[data-theme="rose"] {
+  --background: 220 14% 5%;
+  --foreground: 220 10% 93%;
+  --card: 220 12% 8%;
+  --card-foreground: 220 10% 93%;
+  --popover: 220 12% 8%;
+  --popover-foreground: 220 10% 93%;
+  --primary: 330 76% 68%;
+  --primary-foreground: 220 14% 5%;
+  --secondary: 220 10% 13%;
+  --secondary-foreground: 220 12% 82%;
+  --muted: 220 10% 12%;
+  --muted-foreground: 220 8% 63%;
+  --accent: 220 10% 13%;
+  --accent-foreground: 220 10% 93%;
+  --border: 220 10% 19%;
+  --input: 220 10% 13%;
+  --ring: 330 76% 68%;
+  --sidebar: 220 16% 4%;
+  --sidebar-foreground: 220 10% 93%;
+  --sidebar-border: 220 10% 15%;
+  --sidebar-accent: 220 10% 11%;
+
+  /* Overrides: the derivation is >3/255 off the original hand-tuned look. */
+  --px-accent: #ec6fb2; /* exact, so the alpha tints stay exact too */
+  --px-accent-secondary: #c94f92;
+  --px-text-muted: #9fa0a4;
+}

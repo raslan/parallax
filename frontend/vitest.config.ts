@@ -9,6 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // theme tests read the stylesheets as raw text
+    css: { include: [/src\/themes\/.*\.css/] },
     setupFiles: ["./src/test-setup.ts"],
   },
 });

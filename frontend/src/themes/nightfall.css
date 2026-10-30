@@ -1,0 +1,29 @@
+/* Nightfall */
+[data-theme="nightfall"] {
+  --background: 220 16% 4%;
+  --foreground: 220 10% 93%;
+  --card: 220 14% 6%;
+  --card-foreground: 220 10% 93%;
+  --popover: 220 14% 6%;
+  --popover-foreground: 220 10% 93%;
+  --primary: 236 100% 74%;
+  --primary-foreground: 220 16% 4%;
+  --secondary: 220 12% 12%;
+  --secondary-foreground: 220 12% 82%;
+  --muted: 220 12% 11%;
+  --muted-foreground: 220 8% 64%;
+  --accent: 220 12% 12%;
+  --accent-foreground: 220 10% 93%;
+  --border: 220 12% 18%;
+  --input: 220 12% 12%;
+  --ring: 236 100% 74%;
+  --sidebar: 220 18% 3%;
+  --sidebar-foreground: 220 10% 93%;
+  --sidebar-border: 220 12% 14%;
+  --sidebar-accent: 220 12% 10%;
+
+  /* Overrides: the derivation is >3/255 off the original hand-tuned look. */
+  --px-accent-secondary: #545ae0;
+  --px-accent-dim: rgb(from var(--px-accent) r g b / 0.14); /* stronger tints */
+  --px-accent-border: rgb(from var(--px-accent) r g b / 0.3);
+}

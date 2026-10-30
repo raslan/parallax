@@ -1,0 +1,36 @@
+/* Violet / Deep Space. `:root` is kept as a last-resort fallback if data-theme is ever
+   unset on <html>; :where() zeroes its specificity so any other theme block wins regardless
+   of file order. */
+:where(:root),
+[data-theme="violet"] {
+  --background: 258 62% 5%;
+  --foreground: 263 60% 93%;
+  --card: 258 52% 8%;
+  --card-foreground: 263 60% 93%;
+  --popover: 258 52% 8%;
+  --popover-foreground: 263 60% 93%;
+  --primary: 263 87% 76%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 258 45% 12%;
+  --secondary-foreground: 263 40% 80%;
+  --muted: 258 45% 10%;
+  --muted-foreground: 258 20% 68%;
+  --accent: 258 45% 12%;
+  --accent-foreground: 263 60% 93%;
+  --border: 258 40% 22%;
+  --input: 258 45% 12%;
+  --ring: 263 87% 76%;
+  --sidebar: 258 70% 4%;
+  --sidebar-foreground: 263 60% 93%;
+  --sidebar-border: 258 45% 18%;
+  --sidebar-accent: 258 45% 11%;
+}
+
+/* Kept out of the fallback rule above so they can't leak onto other themes' :root. */
+[data-theme="violet"] {
+  /* Overrides: the derivation is >3/255 off the original hand-tuned look. */
+  --px-accent: #a78bfa; /* the --primary triplet is a different violet */
+  --px-accent-secondary: #7c3aed; /* a saturated violet, not a darker accent */
+  --px-bg-elevated: #1a1430;
+  --px-text-muted: #9d93c8;
+}

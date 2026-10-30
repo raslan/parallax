@@ -3,33 +3,17 @@ import { Controller } from "react-hook-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { useTheme } from "@/components/ThemeProvider";
-import type { Theme } from "@/types/theme";
+import { THEME_GROUPS, THEME_META, type ThemeMeta } from "@/themes/registry";
 import { generalSettingsSchema, seedGeneral } from "@/lib/schemas/settings";
 import { DangerZone } from "./DangerZone";
 import { StatsCard } from "./StatsCard";
 import { SaveButton } from "./SaveButton";
 import { useSettingsForm } from "./useSettingsForm";
 
-type ThemeOption = { id: Theme; label: string };
-
 // Each preview card wraps its mock in `[data-theme=<id>]`, so the theme's
-// tokens from index.css cascade scoped to that subtree — no per-theme colour
-// list to keep in sync here.
-const PARALLAX_THEMES: ThemeOption[] = [
-  { id: "parallax", label: "Parallax" },
-  { id: "graphite", label: "Graphite" },
-  { id: "nightfall", label: "Nightfall" },
-  { id: "rose", label: "Rose Quartz" },
-  { id: "oled", label: "OLED" },
-];
-
-const COLOUR_THEMES: ThemeOption[] = [
-  { id: "violet", label: "Deep Space" },
-  { id: "cyan", label: "Modern HUD" },
-  { id: "emerald", label: "Neon Grid" },
-];
-
-function ThemePreview({ option }: { option: ThemeOption }) {
+// tokens from src/themes cascade scoped to that subtree — no per-theme colour
+// list to keep in sync here. The theme list and groups come from the registry.
+function ThemePreview({ option }: { option: ThemeMeta }) {
   const { theme, setTheme } = useTheme();
   const isActive = theme === option.id;
 
@@ -85,7 +69,7 @@ function ThemePreview({ option }: { option: ThemeOption }) {
   );
 }
 
-function ThemeGroup({ title, options }: { title: string; options: ThemeOption[] }) {
+function ThemeGroup({ title, options }: { title: string; options: readonly ThemeMeta[] }) {
   return (
     <div>
       <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -113,8 +97,9 @@ export function GeneralTab() {
             <p className="text-sm font-medium">Colour theme</p>
             <p className="text-xs text-muted-foreground">Takes effect immediately.</p>
           </div>
-          <ThemeGroup title="Parallax" options={PARALLAX_THEMES} />
-          <ThemeGroup title="Colour" options={COLOUR_THEMES} />
+          {THEME_GROUPS.map((g) => (
+            <ThemeGroup key={g} title={g} options={THEME_META.filter((t) => t.group === g)} />
+          ))}
         </CardContent>
       </Card>
       <Card>
