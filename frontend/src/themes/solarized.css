@@ -19,6 +19,9 @@
   --border: 193 58% 25%;
   --input: 193 72% 18%;
   --ring: 204 72% 56%;
+  /* The global red is only ~2.7:1 on Solarized surfaces: lift it and flip its foreground to dark. */
+  --destructive: 0 75% 68%;
+  --destructive-foreground: 192 100% 11%;
   --sidebar: 194 100% 8%;
   --sidebar-foreground: 46 42% 88%;
   --sidebar-border: 192 81% 14%;

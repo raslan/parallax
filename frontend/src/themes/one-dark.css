@@ -19,6 +19,9 @@
   --border: 220 13% 32%;
   --input: 218 13% 24%;
   --ring: 207 82% 66%;
+  /* The global red is only ~2.7:1 on One Dark surfaces: lift it and flip its foreground to dark. */
+  --destructive: 0 75% 68%;
+  --destructive-foreground: 220 13% 18%;
   --sidebar: 216 13% 15%;
   --sidebar-foreground: 219 14% 71%;
   --sidebar-border: 218 13% 24%;
