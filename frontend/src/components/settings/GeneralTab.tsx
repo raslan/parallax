@@ -19,8 +19,10 @@ function ThemePreview({ option }: { option: ThemeMeta }) {
 
   return (
     <button
+      type="button"
       onClick={() => setTheme(option.id)}
-      className={`group w-[168px] rounded-[0.4rem] border p-1 text-left transition-colors ${
+      aria-pressed={isActive}
+      className={`group w-full min-w-0 rounded-[0.4rem] border p-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
         isActive ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/40"
       }`}
     >
@@ -62,7 +64,7 @@ function ThemePreview({ option }: { option: ThemeMeta }) {
         </div>
       </div>
       <div className="flex items-center justify-between px-1.5 pb-0.5 pt-1.5">
-        <span className="text-xs font-medium">{option.label}</span>
+        <span className="truncate text-xs font-medium">{option.label}</span>
         {isActive && <Check className="h-3 w-3 text-primary" />}
       </div>
     </button>
@@ -71,11 +73,11 @@ function ThemePreview({ option }: { option: ThemeMeta }) {
 
 function ThemeGroup({ title, options }: { title: string; options: readonly ThemeMeta[] }) {
   return (
-    <div>
+    <div role="group" aria-label={`${title} themes`}>
       <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
         {title}
       </p>
-      <div className="flex flex-wrap gap-2.5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
         {options.map((o) => (
           <ThemePreview key={o.id} option={o} />
         ))}
