@@ -170,7 +170,7 @@ export function OptionsPanel({
               type="text"
               placeholder="HH:MM:SS"
               {...register("trimStart")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="mt-0.5 w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
           <div className="space-y-0.5">
@@ -179,7 +179,7 @@ export function OptionsPanel({
               type="text"
               placeholder="HH:MM:SS"
               {...register("trimEnd")}
-              className="w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+              className="mt-0.5 w-full h-8 rounded border border-input bg-background px-2 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
             />
           </div>
         </div>
