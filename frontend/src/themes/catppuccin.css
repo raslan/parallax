@@ -19,6 +19,9 @@
   --border: 234 13% 31%;
   --input: 237 16% 23%;
   --ring: 267 84% 81%;
+  /* Catppuccin red: the global one is ~3.4:1 on the card; a light red with dark text clears 3.5 / 4.5. */
+  --destructive: 343 81% 68%;
+  --destructive-foreground: 240 21% 12%;
   --sidebar: 240 23% 9%;
   --sidebar-foreground: 226 64% 88%;
   --sidebar-border: 237 16% 23%;

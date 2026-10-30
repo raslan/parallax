@@ -20,8 +20,8 @@
   --input: 222 16% 28%;
   --ring: 193 43% 67%;
   /* The global red is only ~2.3:1 on Nord's lighter surfaces: lift it and flip its foreground to dark. */
-  --destructive: 0 75% 68%;
-  --destructive-foreground: 220 16% 22%;
+  --destructive: 355 60% 70%;
+  --destructive-foreground: 220 16% 16%;
   --sidebar: 220 16% 18%;
   --sidebar-foreground: 218 27% 92%;
   --sidebar-border: 222 16% 28%;

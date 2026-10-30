@@ -19,6 +19,9 @@
   --border: 22 7% 29%;
   --input: 20 5% 22%;
   --ring: 42 95% 58%;
+  /* Gruvbox bright red (#fb4934): the global red is only ~3.0:1 on the card. Dark text on it. */
+  --destructive: 6 96% 60%;
+  --destructive-foreground: 195 6% 9%;
   --sidebar: 200 6% 10%;
   --sidebar-foreground: 43 59% 81%;
   --sidebar-border: 20 5% 22%;

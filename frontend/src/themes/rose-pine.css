@@ -19,6 +19,9 @@
   --border: 249 15% 28%;
   --input: 248 25% 18%;
   --ring: 2 55% 83%;
+  /* Rose Pine love (#eb6f92): the global red is ~3.4:1 on the card. Dark text on it. */
+  --destructive: 343 76% 68%;
+  --destructive-foreground: 249 22% 9%;
   --sidebar: 248 31% 10%;
   --sidebar-foreground: 245 50% 91%;
   --sidebar-border: 248 25% 18%;

@@ -19,6 +19,9 @@
   --border: 229 24% 31%;
   --input: 228 23% 21%;
   --ring: 221 89% 72%;
+  /* Tokyo Night red (#f7768e family): the global red is ~3.3:1 on the card. Dark text on it. */
+  --destructive: 349 89% 72%;
+  --destructive-foreground: 235 19% 10%;
   --sidebar: 240 15% 10%;
   --sidebar-foreground: 229 73% 86%;
   --sidebar-border: 228 23% 21%;

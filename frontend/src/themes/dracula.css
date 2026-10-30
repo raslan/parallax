@@ -19,6 +19,9 @@
   --border: 232 14% 31%;
   --input: 230 15% 24%;
   --ring: 265 89% 78%;
+  /* Dracula's own red (#ff5555): the global red is only ~3.0:1 on the card. Dark text on it. */
+  --destructive: 0 100% 67%;
+  --destructive-foreground: 233 14% 11%;
   --sidebar: 233 14% 11%;
   --sidebar-foreground: 60 30% 96%;
   --sidebar-border: 230 15% 24%;
