@@ -184,11 +184,11 @@ export function AudioCompress() {
     return [
       set(
         "bitrate",
-        `Above ${bitrate}k`,
+        `above ${bitrate}k`,
         `Files whose bitrate is above the ${bitrate}k target`,
         (f) => (f.bitrate ?? 0) / 1000 > bitrate,
       ),
-      set("big", "Over 50 MB", "Files larger than 50 MB", (f) => f.size > 50 * 1024 ** 2),
+      set("big", "over 50 MB", "Files larger than 50 MB", (f) => f.size > 50 * 1024 ** 2),
     ];
   }, [filteredFiles, bitrate]);
   const smartOptions: SmartSelectOption[] = smartSets.map(({ ids, ...s }) => ({

@@ -277,18 +277,18 @@ export function Compress() {
     return [
       set(
         "codec",
-        `Not ${codecLabel}`,
+        `not ${codecLabel}`,
         `Files not already encoded as ${codecLabel}`,
         (f) => f.codec_name?.toLowerCase() !== codec,
       ),
       ...(maxShortSide != null
         ? [
-            set("res", `Above ${capLabel}`, `Files larger than ${capLabel}`, (f) =>
+            set("res", `above ${capLabel}`, `Files larger than ${capLabel}`, (f) =>
               exceedsMaxResolution(f, maxShortSide),
             ),
           ]
         : []),
-      set("big", "Over 1 GB", "Files larger than 1 GB", (f) => f.size > 1024 ** 3),
+      set("big", "over 1 GB", "Files larger than 1 GB", (f) => f.size > 1024 ** 3),
     ];
   }, [filteredFiles, codecs, codec, crf, speed, maxShortSide, resolutions, maxResolution]);
   const smartOptions: SmartSelectOption[] = smartSets.map(({ ids, ...s }) => ({

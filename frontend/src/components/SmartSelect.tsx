@@ -1,4 +1,4 @@
-import { TrendingDown } from "lucide-react";
+import { ListChecks, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
 
@@ -50,6 +50,10 @@ export function SmartSelect({ options }: { options: SmartSelectOption[] }) {
                 : "border-border bg-px-surface hover:border-primary/50",
             )}
           >
+            <div className="mb-0.5 flex items-center gap-1 text-2xs text-primary/80">
+              <ListChecks className="h-3 w-3" />
+              Select all that are
+            </div>
             <div className="flex items-baseline gap-2">
               <span className="text-sm font-medium">{o.label}</span>
               <span className="text-2xs tabular-nums text-muted-foreground">
