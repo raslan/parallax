@@ -66,8 +66,14 @@ function ThemePreview({ option }: { option: ThemeOption }) {
             />
           </div>
           <div className="flex gap-1">
-            <div className="h-3 w-8 rounded-lg" style={{ background: "hsl(var(--primary))" }} />
-            <div className="h-3 w-5 rounded-lg" style={{ background: "hsl(var(--secondary))" }} />
+            <div
+              className="h-3 w-8 rounded-[0.25rem]"
+              style={{ background: "hsl(var(--primary))" }}
+            />
+            <div
+              className="h-3 w-5 rounded-[0.25rem]"
+              style={{ background: "hsl(var(--secondary))" }}
+            />
           </div>
         </div>
       </div>
