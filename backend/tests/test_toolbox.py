@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 
 import pytest
@@ -533,8 +534,11 @@ class _FakePopen:
         _FakePopen.last_cmd = cmd
         self.stdout = _EmptyReadline()
         self.returncode = 0
-        with open(cmd[-1], "wb") as f:
-            f.write(b"fake output")
+        # Only real outputs are absolute paths; the encoder probe (`ffmpeg -encoders`) also lands
+        # here and its last argv element must not become a file in the working directory.
+        if os.path.isabs(cmd[-1]):
+            with open(cmd[-1], "wb") as f:
+                f.write(b"fake output")
 
     def wait(self):
         return 0
@@ -616,7 +620,10 @@ def test_toolbox_fix_one_remuxes_webm_to_mkv_on_forced_reencode(monkeypatch, tmp
     assert ok is True
     expected_dst = str(tmp_path / "movie.mkv")
     assert final_path == expected_dst
-    assert _FakePopen.last_cmd[-1] == str(tmp_path / "movie.fixing.mkv")
+    # ffmpeg writes to a short `.compressing-<pid>-<tid>.mkv` sibling, then it moves to movie.mkv
+    out = _FakePopen.last_cmd[-1]
+    assert os.path.dirname(out) == str(tmp_path)
+    assert re.fullmatch(r"\.compressing-\d+-\d+\.mkv", os.path.basename(out))
     assert _FakePopen.last_cmd[_FakePopen.last_cmd.index("-c:v") + 1] != "copy"
     vf = _FakePopen.last_cmd[_FakePopen.last_cmd.index("-vf") + 1]
     assert "setpts=PTS-STARTPTS" in vf
