@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { streamApi } from "@/lib/api";
+import { BASE } from "@/lib/api/client";
+import type { StreamPrepareStatus } from "@/types/stream";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -37,11 +39,12 @@ export function VideoPlayerModal({
 
   // Some source files carry an audio codec (AC3/DTS/TrueHD 5.1 etc.) the
   // browser can't decode natively — video plays, audio is silent. The backend
-  // remuxes those to AAC on demand and caches the result; this checks/starts
-  // that before the player opens so playback never silently hangs mid-remux.
+  // converts those to a live HLS stream (video copied, audio to AAC) that is
+  // playable within seconds; this checks/starts it before the player opens.
   const [prepStatus, setPrepStatus] = useState<"checking" | "ready" | "running" | "error">(
     "checking",
   );
+  const [hlsUrl, setHlsUrl] = useState<string | null>(null);
   const [prepProgress, setPrepProgress] = useState(0);
   const [prepError, setPrepError] = useState<string | null>(null);
   const prepPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -68,13 +71,25 @@ export function VideoPlayerModal({
     setPrepStatus("checking");
     setPrepProgress(0);
     setPrepError(null);
+    setHlsUrl(null);
+
+    // Audio files never get a converted stream; play them as-is.
+    if (isAudio) {
+      setPrepStatus("ready");
+      return;
+    }
+
+    const play = (s: StreamPrepareStatus) => {
+      setHlsUrl(s.mode === "hls" && s.url ? `${window.location.origin}${BASE}${s.url}` : null);
+      setPrepStatus("ready");
+    };
 
     streamApi
       .prepare(file.path)
       .then((s) => {
         if (cancelled) return;
-        if (s.status === "ready") {
-          setPrepStatus("ready");
+        if (s.status === "ready" || s.status === "playable") {
+          play(s);
           return;
         }
         if (s.status === "error") {
@@ -90,9 +105,9 @@ export function VideoPlayerModal({
             const poll = await streamApi.status(file.path);
             if (cancelled) return;
             setPrepProgress(poll.progress);
-            if (poll.status === "ready") {
+            if (poll.status === "ready" || poll.status === "playable") {
               stopPrepPoll();
-              setPrepStatus("ready");
+              play(poll);
             } else if (poll.status === "error") {
               stopPrepPoll();
               setPrepStatus("error");
@@ -111,7 +126,7 @@ export function VideoPlayerModal({
       cancelled = true;
       stopPrepPoll();
     };
-  }, [file.path]);
+  }, [file.path, isAudio]);
 
   // Fetch subtitle tracks before mounting the player so its <track> children
   // are in the DOM from the first render.
@@ -184,7 +199,12 @@ export function VideoPlayerModal({
               {isAudio ? (
                 <VideoJsAudioPlayer key={file.id} streamUrl={streamUrl} />
               ) : (
-                <VideoJsPlayer key={file.id} streamUrl={streamUrl} tracks={tracks} />
+                <VideoJsPlayer
+                  key={file.id}
+                  streamUrl={streamUrl}
+                  hlsUrl={hlsUrl}
+                  tracks={tracks}
+                />
               )}
             </Suspense>
           )}
