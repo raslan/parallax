@@ -88,7 +88,7 @@ export function VideoPlayerModal({
       .prepare(file.path)
       .then((s) => {
         if (cancelled) return;
-        if (s.status === "ready" || s.status === "playable") {
+        if (s.status === "ready") {
           play(s);
           return;
         }
@@ -105,7 +105,7 @@ export function VideoPlayerModal({
             const poll = await streamApi.status(file.path);
             if (cancelled) return;
             setPrepProgress(poll.progress);
-            if (poll.status === "ready" || poll.status === "playable") {
+            if (poll.status === "ready") {
               stopPrepPoll();
               play(poll);
             } else if (poll.status === "error") {

@@ -1,11 +1,13 @@
-import json
 import shutil
 import subprocess
 import time
 
 import pytest
 
+from app.services import hls_plan, keyframes
 from app.services import stream_cache as sc
+
+needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
 
 
 @pytest.fixture(autouse=True)
@@ -13,7 +15,6 @@ def cache(tmp_path, monkeypatch):
     """Point the single-slot cache at tmp_path and start from a blank state."""
     monkeypatch.setattr(sc, "CACHE_DIR", str(tmp_path))
     monkeypatch.setattr(sc, "_sweeper_thread", None)
-    monkeypatch.setattr(sc, "_proc", None)
     monkeypatch.setattr(
         sc,
         "_state",
@@ -24,22 +25,18 @@ def cache(tmp_path, monkeypatch):
             "progress": 0.0,
             "error": None,
             "touched": 0.0,
+            "plan": [],
+            "playlist": None,
+            "master": None,
+            "run": None,
+            "next_run": 0,
+            "last_requested": 0,
+            "video_codec": None,
         },
     )
-    return tmp_path
-
-
-def _session(tmp_path, sid="abcd1234", *, segments=0, ended=False):
-    d = tmp_path / sid
-    d.mkdir()
-    lines = ["#EXTM3U", "#EXT-X-VERSION:7"]
-    for i in range(segments):
-        lines += ["#EXTINF:6.0,", f"seg_{i:05d}.m4s"]
-    if ended:
-        lines.append("#EXT-X-ENDLIST")
-    (d / "index.m3u8").write_text("\n".join(lines))
-    (d / "master.m3u8").write_text("#EXTM3U\n")
-    return d
+    yield tmp_path
+    with sc._lock:
+        sc._stop_run_locked()
 
 
 def test_video_codec_string_h264():
@@ -52,33 +49,17 @@ def test_video_codec_string_hevc():
     assert sc._video_codec_string(b"xx" + hvcc) == "hvc1.1.6.L120.90"
 
 
+def test_video_codec_string_hevc_profile_space_letter():
+    hvcc = b"hvcC" + bytes([1, 0x41]) + (0).to_bytes(4, "big") + bytes([0] * 6) + bytes([90])
+    assert sc._video_codec_string(hvcc) == "hvc1.A1.0.L90"
+
+
 def test_video_codec_string_unknown():
     assert sc._video_codec_string(b"nothing here") is None
 
 
-def test_read_playlist_drops_partial_tail(tmp_path):
-    p = tmp_path / "index.m3u8"
-    p.write_text(
-        "#EXTM3U\n#EXTINF:6.0,\nseg_00000.m4s\n#EXTINF:6.0,\nseg_00001.m4s\n#EXTINF:6.0,\nseg_0"
-    )
-    assert (
-        sc.read_playlist(str(p))
-        == b"#EXTM3U\n#EXTINF:6.0,\nseg_00000.m4s\n#EXTINF:6.0,\nseg_00001.m4s\n"
-    )
-    p.write_text("#EXTM3U\n#EXTINF:6.0,\nseg_00000.m4s\n#EXTINF:6.0,\n")
-    assert sc.read_playlist(str(p)) == b"#EXTM3U\n#EXTINF:6.0,\nseg_00000.m4s\n"
-    p.write_text("#EXTM3U\n#EXTINF:6.0,\nseg_00000.m4s\n#EXT-X-ENDLIST\n")
-    assert sc.read_playlist(str(p)).endswith(b"#EXT-X-ENDLIST\n")
-
-
-def test_playable_needs_master(cache):
-    d = _session(cache, segments=3)
-    (d / "master.m3u8").unlink()
-    assert not sc._playable("abcd1234", done=False)
-
-
 def test_start_sweeper_clears_leftover_unconditionally(cache):
-    _session(cache)
+    (cache / "abcd1234").mkdir()
     (cache / "current.mp4").write_bytes(b"x")  # pre-HLS leftover
     try:
         sc.start_sweeper()
@@ -87,114 +68,134 @@ def test_start_sweeper_clears_leftover_unconditionally(cache):
         sc.stop_sweeper()
 
 
-def test_sweep_evicts_idle_finished_session(cache):
-    d = _session(cache, segments=3, ended=True)
-    sc._state.update(
-        path="/a.mkv", sid="abcd1234", status="done", touched=time.time() - sc._IDLE_TTL_SECONDS - 1
-    )
+def test_sweep_evicts_idle_session(cache):
+    d = cache / "abcd1234"
+    d.mkdir()
+    sc._state.update(path="/a.mkv", sid="abcd1234", status="ready", touched=1.0)
     with sc._lock:
         sc._sweep_locked()
     assert not d.exists()
     assert sc._state["sid"] is None
 
 
-def test_sweep_keeps_recent_finished_session(cache):
-    d = _session(cache, segments=3, ended=True)
-    sc._state.update(path="/a.mkv", sid="abcd1234", status="done", touched=time.time())
+def test_sweep_keeps_recent_session(cache):
+    d = cache / "abcd1234"
+    d.mkdir()
+    sc._state.update(path="/a.mkv", sid="abcd1234", status="ready", touched=time.time())
     with sc._lock:
         sc._sweep_locked()
     assert d.exists()
 
 
 def test_sweep_stops_stalled_run(cache):
-    _session(cache)
+    (cache / "abcd1234").mkdir()
     proc = subprocess.Popen(["sleep", "30"])
-    sc._proc = proc
+    run = {"proc": proc, "cancelled": False, "finished": False}
     sc._state.update(
-        path="/a.mkv", sid="abcd1234", status="running", touched=time.time() - sc._STALL_SECONDS - 1
+        sid="abcd1234", status="ready", run=run, touched=time.time() - sc._STALL_SECONDS - 1
     )
     try:
         with sc._lock:
             sc._sweep_locked()
         proc.wait(timeout=5)
-        assert sc._state["status"] == "stopped"
+        assert run["cancelled"]
     finally:
         proc.kill()
 
 
-def test_playable_needs_two_segments_until_done(cache):
-    _session(cache, segments=1)
-    assert not sc._playable("abcd1234", done=False)
-    assert sc._playable("abcd1234", done=True)
-    shutil.rmtree(cache / "abcd1234")
-    _session(cache, segments=2)
-    assert sc._playable("abcd1234", done=False)
+def test_hls_resource_serves_only_the_live_ready_session(cache):
+    sc._state.update(
+        sid="abcd1234", status="ready", master="#EXTM3U\nm\n", playlist="#EXTM3U\np\n", plan=[1]
+    )
+    assert sc.hls_resource("abcd1234", "master.m3u8") == ("bytes", b"#EXTM3U\nm\n")
+    assert sc.hls_resource("abcd1234", "index.m3u8") == ("bytes", b"#EXTM3U\np\n")
+    assert sc.hls_resource("ffffffff", "index.m3u8") is None  # not the live session
+    assert sc.hls_resource("abcd1234", "../index.m3u8") is None
+    assert sc.hls_resource("abcd1234", "x.txt") is None
+    assert sc.hls_resource("abcd1234", "init.mp4") is None  # not written yet
+    sc._state["status"] = "planning"
+    assert sc.hls_resource("abcd1234", "index.m3u8") is None
 
 
-def test_playable_false_without_playlist(cache):
-    assert not sc._playable("abcd1234", done=False)
+# ── end to end against real ffmpeg ────────────────────────────────────────────
 
 
-def test_hls_file_path_only_serves_current_session(cache):
-    d = _session(cache)
-    (d / "seg_00000.m4s").write_bytes(b"x")
-    sc._state.update(sid="abcd1234", status="running")
-    assert sc.hls_file_path("abcd1234", "index.m3u8") == str(d / "index.m3u8")
-    assert sc.hls_file_path("abcd1234", "seg_00000.m4s") == str(d / "seg_00000.m4s")
-    assert sc.hls_file_path("abcd1234", "seg_00009.m4s") is None  # not on disk
-    assert sc.hls_file_path("ffffffff", "index.m3u8") is None  # not the live session
-    assert sc.hls_file_path("abcd1234", "../index.m3u8") is None
-    assert sc.hls_file_path("abcd1234", "x.txt") is None
-    assert sc.hls_file_path("../", "index.m3u8") is None
-
-
-@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
-def test_ac3_source_is_served_as_aac_hls(cache, tmp_path_factory):
-    src = tmp_path_factory.mktemp("src") / "movie.mkv"
+def _make_ac3_movie(path, seconds=150, keyframes_at=None):
+    force = keyframes_at or "4,9.5,17,18,31,40,52,60.5,71,83,90,101,118,125,139"
     subprocess.run(
         [
-            "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=24:duration=14",
-            "-f", "lavfi", "-i", "sine=duration=14", "-c:v", "libx264", "-g", "24",
-            "-c:a", "ac3", "-ac", "6", str(src),
+            "ffmpeg", "-v", "error", "-y",
+            "-f", "lavfi", "-i", f"testsrc2=size=160x90:rate=24:duration={seconds}",
+            "-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}",
+            "-c:v", "libx264", "-preset", "ultrafast", "-g", "100000", "-keyint_min", "1",
+            "-sc_threshold", "0", "-force_key_frames", force, "-c:a", "ac3", "-ac", "6", str(path),
         ],
         check=True,
     )  # fmt: skip
 
-    assert sc.needs_prepare(str(src))["status"] == "not_started"
+
+def _wait_ready(src, timeout=60):
     status = sc.start_prepare(str(src))
-    assert status["mode"] == "hls"
-
-    deadline = time.time() + 60
-    while status["status"] != "ready" and time.time() < deadline:
-        assert status["status"] != "error", status["error"]
-        time.sleep(0.3)
+    deadline = time.time() + timeout
+    while status["status"] == "running" and time.time() < deadline:
+        time.sleep(0.1)
         status = sc.needs_prepare(str(src))
-    assert status["status"] == "ready"
-    assert status["url"] == f"/stream/hls/{sc._state['sid']}/master.m3u8"
-
-    d = cache / sc._state["sid"]
-    playlist = (d / "index.m3u8").read_text()
-    assert "#EXT-X-ENDLIST" in playlist and "#EXT-X-MAP" in playlist
-    assert 'CODECS="avc1.' in (d / "master.m3u8").read_text()
-    assert (d / "init.mp4").is_file() and (d / "seg_00000.m4s").is_file()
-
-    probe = json.loads(
-        subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_entries",
-             "stream=codec_type,codec_name,channels", str(d / "init.mp4")],
-            capture_output=True, text=True, check=True,
-        ).stdout
-    )  # fmt: skip
-    codecs = {s["codec_type"]: s["codec_name"] for s in probe["streams"]}
-    assert codecs == {"video": "h264", "audio": "aac"}
+    return status
 
 
-@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+def _first_video_pts(cache, sid, segment) -> float:
+    """Presentation time of the first video packet of a served segment (init + segment)."""
+    init = sc.hls_resource(sid, "init.mp4")[1]
+    seg = sc.hls_resource(sid, segment)[1]
+    blob = cache / "probe.mp4"
+    blob.write_bytes(open(init, "rb").read() + open(seg, "rb").read())
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "packet=pts_time", "-select_streams", "v:0",
+         "-of", "csv", str(blob)],
+        capture_output=True, text=True, check=True,
+    ).stdout  # fmt: skip
+    return float(out.splitlines()[0].split(",")[1])
+
+
+@needs_ffmpeg
+def test_ac3_source_is_planned_and_converted_on_demand(cache, tmp_path_factory):
+    src = tmp_path_factory.mktemp("src") / "movie.mkv"
+    _make_ac3_movie(src)
+
+    assert sc.needs_prepare(str(src))["status"] == "not_started"
+    status = _wait_ready(src)
+    assert status["status"] == "ready", status
+    assert status["mode"] == "hls"
+    sid = sc._state["sid"]
+    assert status["url"] == f"/stream/hls/{sid}/master.m3u8"
+
+    master = sc.hls_resource(sid, "master.m3u8")[1].decode()
+    assert 'CODECS="avc1.' in master and "mp4a.40.2" in master
+
+    # the full VOD playlist exists immediately and covers the whole file
+    playlist = sc.hls_resource(sid, "index.m3u8")[1].decode()
+    assert "#EXT-X-ENDLIST" in playlist and "#EXT-X-PLAYLIST-TYPE:VOD" in playlist
+    plan = sc._state["plan"]
+    assert len(plan) > hls_plan.CHUNK_SEGMENTS // 2
+    assert sum(s.duration for s in plan) == pytest.approx(150.0, abs=0.2)
+
+    # segments in later chunks are produced on request (ffmpeg restarts there) and start
+    # exactly where the playlist says they do
+    last = len(plan) - 1
+    for index in (0, last // 2, last, 1):
+        name = f"seg_{index:05d}.m4s"
+        assert _first_video_pts(cache, sid, name) == pytest.approx(
+            plan[index].start if index else 0.0, abs=0.06
+        )
+
+
+@needs_ffmpeg
 def test_web_safe_audio_plays_direct(cache, tmp_path_factory):
     src = tmp_path_factory.mktemp("src") / "movie.mp4"
     subprocess.run(
         [
-            "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=24:duration=2",
+            "ffmpeg", "-v", "error", "-y",
+            "-f", "lavfi", "-i", "testsrc=size=160x90:rate=24:duration=2",
             "-f", "lavfi", "-i", "sine=duration=2", "-c:v", "libx264", "-c:a", "aac", str(src),
         ],
         check=True,
@@ -202,3 +203,13 @@ def test_web_safe_audio_plays_direct(cache, tmp_path_factory):
     status = sc.start_prepare(str(src))
     assert (status["status"], status["mode"], status["url"]) == ("ready", "direct", None)
     assert sc._state["sid"] is None
+
+
+@needs_ffmpeg
+def test_unreadable_keyframes_report_an_error(cache, monkeypatch, tmp_path_factory):
+    src = tmp_path_factory.mktemp("src") / "movie.mkv"
+    _make_ac3_movie(src, seconds=10, keyframes_at="3")
+    monkeypatch.setattr(keyframes, "extract_keyframes", lambda *a: None)
+    status = _wait_ready(src)
+    assert status["status"] == "error"
+    assert "keyframes" in status["error"]
