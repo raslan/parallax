@@ -36,6 +36,8 @@ _LOOKAHEAD_SEGMENTS = hls_plan.CHUNK_SEGMENTS * 2
 # keyframe's presentation time (B-frame reorder delay); 0.2 s lands on it for every file tried.
 _SEEK_MARGIN_SECONDS = 0.2
 _POLL_SECONDS = 0.05
+# How long a superseded ffmpeg gets to exit after SIGTERM before it is killed.
+_TERMINATE_GRACE_SECONDS = 3
 
 # Codecs browsers can decode natively in an HTML5 <video> element — anything
 # else (AC3/DTS/TrueHD etc, common in movie rips) plays with no audio.
@@ -190,7 +192,13 @@ def _stop_run_locked() -> None:
     run["cancelled"] = True
     proc = run["proc"]
     if proc is not None and proc.poll() is None:
+        # Wait for it to exit so two ffmpeg processes never overlap.
         proc.terminate()
+        try:
+            proc.wait(timeout=_TERMINATE_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
 
 
 def _start_run_locked(chunk: int) -> None:

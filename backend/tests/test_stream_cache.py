@@ -103,6 +103,24 @@ def test_sweep_stops_stalled_run(cache):
         proc.kill()
 
 
+def test_stopping_a_run_waits_for_ffmpeg_to_exit(cache):
+    proc = subprocess.Popen(["sleep", "30"])
+    sc._state["run"] = {"proc": proc, "cancelled": False, "finished": False}
+    with sc._lock:
+        sc._stop_run_locked()
+    assert proc.poll() is not None  # gone before a replacement could be started
+
+
+def test_stopping_a_run_kills_one_that_ignores_sigterm(cache, monkeypatch):
+    monkeypatch.setattr(sc, "_TERMINATE_GRACE_SECONDS", 0.2)
+    proc = subprocess.Popen(["sh", "-c", "trap '' TERM; sleep 30"])
+    time.sleep(0.2)  # let the shell install its trap
+    sc._state["run"] = {"proc": proc, "cancelled": False, "finished": False}
+    with sc._lock:
+        sc._stop_run_locked()
+    assert proc.poll() is not None
+
+
 def test_hls_resource_serves_only_the_live_ready_session(cache):
     sc._state.update(
         sid="abcd1234", status="ready", master="#EXTM3U\nm\n", playlist="#EXTM3U\np\n", plan=[1]
