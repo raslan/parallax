@@ -37,9 +37,12 @@ export default function VideoJsPlayer({
   return (
     <div ref={focusPlayer}>
       <VideoPlayer>
+        {/* The skin's <video> is width/height 100% of an auto-height box, so a tall video gets a
+            box taller than the screen. Cap the video itself (not the skin, which would clip it)
+            and object-fit: contain letterboxes it inside. */}
         <NeutralVideoSkin
-          className="bg-black"
-          style={{ ...MEDIA_THEME_STYLE, maxHeight: "calc(100vh - 8rem)" }}
+          className="bg-black [&_video]:max-h-[calc(100vh-8rem)]"
+          style={MEDIA_THEME_STYLE}
         >
           {hlsUrl ? (
             <HlsVideo src={hlsUrl} autoPlay playsInline>
