@@ -22,6 +22,7 @@ from app.services.gallery_dl import (
     safe_folder_name,
     type_filter_expr,
     ytdlp_args,
+    ytdlp_sleep_requests,
 )
 
 
@@ -590,3 +591,14 @@ def test_ytdlp_args_use_their_own_archive_only_when_the_archive_is_on():
     on = ytdlp_args(_opts(archivePath="/d/a.sqlite3"), "u")
     assert on[on.index("--download-archive") + 1] == "/d/a.sqlite3.yt-dlp.txt"
     assert "--download-archive" not in ytdlp_args(_opts(useArchive=False), "u")
+
+
+def test_ytdlp_sleep_requests_translates_gallery_dl_format():
+    assert ytdlp_sleep_requests("2.5") == "2.5"
+    assert ytdlp_sleep_requests("3") == "3"
+    assert ytdlp_sleep_requests("0.5-1.5") == "1.5"  # yt-dlp has no range: use the upper bound
+    for bad in ("", "  ", "abc", "0", "1-x"):
+        assert ytdlp_sleep_requests(bad) is None
+    args = ytdlp_args(_opts(sleepRequest="2.5"), "u")
+    assert args[args.index("--sleep-requests") + 1] == "2.5"
+    assert "--sleep-requests" not in ytdlp_args(_opts(), "u")

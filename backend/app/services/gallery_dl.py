@@ -209,6 +209,20 @@ def type_filter_expr(opts: GalleryOptions) -> str | None:
     return f"extension in ({inner})"
 
 
+def ytdlp_sleep_requests(sleep_request: str) -> str | None:
+    """gallery-dl's `sleep-request` ("2.5" or a "0.5-1.5" range) as yt-dlp's `--sleep-requests`.
+
+    gallery-dl only throttles its own HTTP session; the ytdl backend's per-video lookups go
+    through yt-dlp, which takes a single number of seconds, so a range maps to its upper bound.
+    None when empty, unparseable or not positive.
+    """
+    try:
+        secs = max(float(p) for p in sleep_request.strip().split("-") if p.strip())
+    except ValueError:
+        return None
+    return _num(secs) if secs > 0 else None
+
+
 def ytdlp_args(opts: GalleryOptions, url: str) -> list[str]:
     """yt-dlp CLI args for the ytdl backend — Downloads-page parity (quality/codec/audio-only,
     fragments, subtitles, impersonation, referer, throttle, extra args).
@@ -232,6 +246,8 @@ def ytdlp_args(opts: GalleryOptions, url: str) -> list[str]:
     # request. gallery-dl's archive is only consulted after each playlist entry is resolved.
     if opts.useArchive:
         args += ["--download-archive", ytdlp_archive_path(archive_path(opts))]
+    if (sleep := ytdlp_sleep_requests(opts.sleepRequest)) is not None:
+        args += ["--sleep-requests", sleep]
     if opts.ytAudioOnly:
         fmt = opts.ytCodec if opts.ytCodec in AUDIO_CONTAINERS else "mp3"
         args += ["-x", "--audio-format", fmt]
