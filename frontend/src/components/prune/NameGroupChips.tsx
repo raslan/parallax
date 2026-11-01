@@ -19,7 +19,14 @@ function Chip({
   const [open, setOpen] = useState(false);
   const hasKids = group.children.length > 0;
   return (
-    <li className={cn("flex flex-col items-start", nested && "animate-fade-in")}>
+    <li
+      className={cn(
+        "flex flex-col items-start",
+        // An expanded chip takes the whole row so its narrower groups flow beneath it.
+        open && hasKids && "basis-full",
+        nested && "animate-fade-in",
+      )}
+    >
       <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-md border bg-px-surface text-xs transition-colors duration-100 hover:border-primary/50">
         <Tip label={`Add a filter: name contains "${group.text}"`}>
           <button
@@ -56,7 +63,9 @@ function Chip({
       {hasKids && (
         <div
           className={cn(
-            "grid w-full transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+            // w-0 + min-w-full: the (collapsed, clipped) children must not widen the <li>,
+            // or every chip with children claims a row-wide box and the rest hang in gaps.
+            "grid w-0 min-w-full transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
             open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
           )}
         >
