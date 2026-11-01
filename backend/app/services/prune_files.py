@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 
 from app.config import DATA_DIR
-from app.services import audio_scanner, image_scanner, prune_scan, scanner
+from app.services import audio_scanner, image_scanner, prune_scan, scanner, stats
 from app.services.prune_sandbox import (
     DeleteFailed,
     FolderNotEmpty,
@@ -237,6 +237,7 @@ def delete_files(root: str, paths: list[str]) -> dict:
     deleted: list[str] = []
     failed: list[dict] = []
     per_folder: dict[str, Counts] = {}
+    removed: dict[str, list[int]] = {}  # media kind -> [files, bytes], successes only
     for path in dict.fromkeys(paths):
         try:
             folder, counts = _delete_one(root, path)
@@ -248,6 +249,13 @@ def delete_files(root: str, paths: list[str]) -> dict:
             continue
         deleted.append(path)
         per_folder.setdefault(folder, Counts()).add(counts)
+        tally = removed.setdefault(kind_of(os.path.basename(_strip_trailing_seps(path))), [0, 0])
+        tally[0] += 1
+        tally[1] += counts.bytes  # lstat size taken just before the unlink
+    # Home dashboard parity with the other delete paths: one file-agnostic event per
+    # media kind (no paths, names or root). Folder deletes are deliberately not counted.
+    for media, (files, size) in removed.items():
+        stats.record_removal(media, files, size)
     empty: list[str] = []
     for folder, counts in per_folder.items():
         prune_scan.apply_deleted_files(folder, counts)

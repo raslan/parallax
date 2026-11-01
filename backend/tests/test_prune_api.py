@@ -258,7 +258,11 @@ def test_files_endpoint_errors(client, tmp_path):
     assert client.get("/api/prune/files", params={"path": "\x00"}).status_code == 400
 
 
-def test_delete_endpoint(client, tmp_path):
+def test_delete_endpoint(client, tmp_path, monkeypatch):
+    from app.services import stats
+
+    removals: list[tuple] = []
+    monkeypatch.setattr(stats, "record_removal", lambda *a: removals.append(a))
     (tmp_path / "a.jpg").write_bytes(b"x")
     _put_root(client, tmp_path)
     r = client.post(
@@ -269,6 +273,7 @@ def test_delete_endpoint(client, tmp_path):
     assert body["deleted"] == [str(tmp_path / "a.jpg")]
     assert [f["path"] for f in body["failed"]] == [str(tmp_path / "gone.jpg")]
     assert body["empty_folders"] == []  # the root is never offered for deletion
+    assert removals == [("image", 1, 1)]  # only the file really deleted is credited
 
 
 def test_delete_endpoint_requires_root(client, tmp_path):

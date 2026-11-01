@@ -60,6 +60,47 @@ def test_delete_files_updates_cache_and_reports_empty_folder(tmp_path):
     assert prune_scan.get_node(os.path.join(root, "sub")).direct.files == 0
 
 
+@pytest.fixture
+def removals(monkeypatch):
+    from app.services import stats
+
+    calls: list[tuple] = []
+    monkeypatch.setattr(stats, "record_removal", lambda *a: calls.append(a))
+    return calls
+
+
+def test_delete_files_records_one_removal_per_media_kind(tmp_path, removals):
+    """Dashboard parity with Cleanup/audio/image deletes: file-agnostic events
+    (media, file count, bytes) for the files actually deleted, nothing else."""
+    root = str(tmp_path.resolve())
+    for name, size in (("a.jpg", 3), ("b.png", 2), ("v.mp4", 5), ("n.txt", 1), ("s.mp3", 7)):
+        (tmp_path / name).write_bytes(b"x" * size)
+    (tmp_path / "d").mkdir()
+    paths = [str(tmp_path / n) for n in ("a.jpg", "b.png", "v.mp4", "n.txt", "s.mp3")]
+    res = prune_files.delete_files(root, [*paths, str(tmp_path / "gone.jpg"), str(tmp_path / "d")])
+    assert len(res["deleted"]) == 5 and len(res["failed"]) == 2
+    assert sorted(removals) == [
+        ("audio", 1, 7),
+        ("image", 2, 5),
+        ("other", 1, 1),
+        ("video", 1, 5),
+    ]
+
+
+def test_delete_files_records_nothing_when_nothing_deleted(tmp_path, removals):
+    res = prune_files.delete_files(str(tmp_path), [str(tmp_path / "gone.jpg")])
+    assert res["deleted"] == [] and removals == []
+
+
+def test_delete_folder_records_no_stats(tmp_path, removals):
+    (tmp_path / "d").mkdir()
+    (tmp_path / "d" / "a.jpg").write_bytes(b"xx")
+    (tmp_path / "e").mkdir()
+    prune_files.delete_folder(str(tmp_path), str(tmp_path / "d"))
+    prune_files.delete_folder(str(tmp_path), str(tmp_path / "e"), only_if_empty=True)
+    assert removals == []
+
+
 def test_delete_does_not_report_folder_with_hidden_entry(tmp_path):
     root = str(tmp_path.resolve())
     (tmp_path / "sub").mkdir()
