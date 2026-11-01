@@ -324,3 +324,14 @@ class AudioFileRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Prune schemas ────────────────────────────────────────────────────────────
+
+
+class PruneRoot(BaseModel):
+    root: str | None = None
+
+
+class PruneRootBody(BaseModel):
+    path: str

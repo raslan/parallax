@@ -27,6 +27,7 @@ from app.api.jobs import router as jobs_router
 from app.api.libraries import router as libraries_router
 from app.api.models import router as models_router
 from app.api.originals import router as originals_router
+from app.api.prune import router as prune_router
 from app.api.settings import get_theme, safe_theme_id
 from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
@@ -314,6 +315,7 @@ app.include_router(audio_files_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(originals_router, prefix="/api")
+app.include_router(prune_router, prefix="/api")
 app.include_router(audio_originals_router, prefix="/api")
 app.include_router(identify_router, prefix="/api")
 app.include_router(image_libraries_router, prefix="/api")
