@@ -18,9 +18,10 @@ from app.schemas import (
     PruneRoot,
     PruneRootBody,
     PruneScanState,
+    PruneStreamBody,
     PruneSubfolder,
 )
-from app.services import prune_files, prune_scan
+from app.services import prune_files, prune_scan, stream_cache
 from app.services.prune_sandbox import SandboxError, kind_of, resolve_inside, validate_root
 
 router = APIRouter(prefix="/prune", tags=["prune"])
@@ -186,6 +187,27 @@ def read_audio(path: str, db: Session = Depends(get_db)):
         media_type="audio/mpeg",
         headers={"Cache-Control": "no-store"},
     )
+
+
+def _streamable(db: Session, path: str) -> str:
+    real = _servable(db, path)
+    if kind_of(real) != "video":
+        raise HTTPException(415, "Not a video file")
+    return real
+
+
+@router.post("/stream/prepare")
+def prune_stream_prepare(body: PruneStreamBody, db: Session = Depends(get_db)):
+    """Sandboxed twin of ``POST /stream/prepare`` (same response). The HLS playlist and
+    segments it points at (``/stream/hls/{sid}/…``) are keyed by the opaque session id
+    of a file that already passed this sandbox, so they need no Prune twin."""
+    return stream_cache.start_prepare(_streamable(db, body.path))
+
+
+@router.get("/stream/prepare-status")
+def prune_stream_status(path: str, db: Session = Depends(get_db)):
+    """Sandboxed twin of ``GET /stream/prepare-status`` (same response)."""
+    return stream_cache.needs_prepare(_streamable(db, path))
 
 
 @router.post("/delete", response_model=PruneDeleteResult)

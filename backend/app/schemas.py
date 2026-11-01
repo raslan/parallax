@@ -415,5 +415,9 @@ class PruneDetails(BaseModel):
     bitrate: int | None
 
 
+class PruneStreamBody(BaseModel):
+    path: str
+
+
 class PruneDetailsResult(BaseModel):
     details: dict[str, PruneDetails | None]
