@@ -276,7 +276,7 @@ export function FileBrowser({
   filtered,
   viewMode,
   cardSize,
-  scrollElement = null,
+  scrollElement,
   marquee,
 }: {
   files: PruneFile[] | undefined;
@@ -286,7 +286,10 @@ export function FileBrowser({
   viewMode: ViewMode;
   /** Shared card size (px); owned by the page. */
   cardSize: number;
-  /** The page scroller the grid virtualises against. */
+  /**
+   * The page scroller the grid virtualises against (null while it is being found).
+   * Omit it and the grid owns its own scroller.
+   */
   scrollElement?: HTMLElement | null;
   /** Drag-to-select handlers (`marqueeProps` from `useSelection`); omit to disable. */
   marquee?: {
@@ -299,7 +302,11 @@ export function FileBrowser({
   /** True when a filter is active, so an empty list reads as "nothing matches". */
   filtered?: boolean;
 }) {
-  const gridSize = cardSize;
+  // Without a shared page scroller the grid owns one, capped so it doesn't run away.
+  const own =
+    scrollElement === undefined
+      ? { maxHeight: "70vh", resetKey: `${files?.[0]?.path ?? ""}-${cardSize}-${viewMode}` }
+      : {};
   const [preview, setPreview] = useState<PruneFile | null>(null);
 
   const detailsLoading = !progress.done;
@@ -333,7 +340,7 @@ export function FileBrowser({
 
       {!files ? (
         viewMode === "grid" ? (
-          <GridSkeleton count={8} minColumnWidth={gridSize} />
+          <GridSkeleton count={8} minColumnWidth={cardSize} />
         ) : (
           <ListSkeleton rows={6} />
         )
@@ -353,11 +360,12 @@ export function FileBrowser({
           items={files}
           getKey={(f) => f.path}
           mode="grid"
-          itemHeight={CARD_CHROME + gridSize * 0.75}
+          itemHeight={CARD_CHROME + cardSize * 0.75}
           itemAspectRatio={4 / 3}
           itemChromeHeight={CARD_CHROME}
-          minColumnWidth={gridSize}
+          minColumnWidth={cardSize}
           scrollElement={scrollElement}
+          {...own}
           {...marquee}
           renderItem={renderItem("grid")}
         />
@@ -369,6 +377,7 @@ export function FileBrowser({
             mode="list"
             itemHeight={ROW_HEIGHT}
             scrollElement={scrollElement}
+            {...own}
             {...marquee}
             renderItem={renderItem("list")}
           />

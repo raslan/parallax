@@ -22,6 +22,7 @@ import {
   sumBytes,
 } from "@/lib/pruneSelect";
 import { pruneFields } from "@/lib/pruneSearch";
+import { clauseSignature } from "@/lib/pruneScroll";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryBuilder } from "@/components/QueryBuilder";
@@ -82,6 +83,16 @@ export function Prune() {
   const [scroller, pageRef] = useScrollParent();
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(pruneFields);
+  // Shared-scroll grids can't reset themselves, so a changed filter (a different
+  // result set) scrolls back to the top. Navigation does its own reset; refetches
+  // and streaming details never change the signature, so they never jump the page.
+  const filterSig = clauseSignature(clauses);
+  const lastFilterSig = useRef(filterSig);
+  useEffect(() => {
+    if (lastFilterSig.current === filterSig) return;
+    lastFilterSig.current = filterSig;
+    scroller?.scrollTo({ top: 0 });
+  }, [filterSig, scroller]);
   const [confirmingFiles, setConfirmingFiles] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FolderToDelete | null>(null);
   const [emptyPrompt, setEmptyPrompt] = useState<{ id: number; paths: string[] } | null>(null);

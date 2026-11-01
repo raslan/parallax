@@ -1,7 +1,8 @@
 import { useDeferredValue, useMemo, useState } from "react";
-import { ChevronRight, Search, Sparkles } from "lucide-react";
+import { ChevronRight, Loader2, Search, Sparkles } from "lucide-react";
 import { Tip } from "@/components/Tip";
-import { detectNameGroups, filterGroups, type NameGroup } from "@/lib/nameGroups";
+import { useNameGroups } from "@/hooks/useNameGroups";
+import { filterGroups, type NameGroup } from "@/lib/nameGroups";
 import { cn } from "@/lib/utils";
 
 const INITIAL_ROOTS = 16;
@@ -78,8 +79,8 @@ function Chip({
 /**
  * Words and phrases shared by names in the open folder (`text · count`), each a
  * one-click `name contains` filter. Expanding a chip reveals narrower groups;
- * typing narrows the chips. Detection is O(names x length), so it runs on a deferred
- * copy of `names` (pass a referentially stable array) and only recomputes when
+ * typing narrows the chips. Detection is O(names x length), so it runs in a worker
+ * (`useNameGroups`; pass a referentially stable array) and only recomputes when
  * the folder's file list changes, never per render or keystroke.
  */
 export function NameGroupChips({
@@ -89,14 +90,23 @@ export function NameGroupChips({
   names: string[];
   onPick: (text: string) => void;
 }) {
-  const deferredNames = useDeferredValue(names);
-  const groups = useMemo(() => detectNameGroups(deferredNames), [deferredNames]);
+  const { groups, pending } = useNameGroups(names);
   const [typed, setTyped] = useState("");
   const deferredTyped = useDeferredValue(typed);
   const shown = useMemo(() => filterGroups(groups, deferredTyped), [groups, deferredTyped]);
   const [all, setAll] = useState(false);
 
-  if (groups.length === 0) return null;
+  if (groups.length === 0) {
+    return pending ? (
+      <p
+        role="status"
+        className="flex animate-fade-in items-center gap-1.5 text-xs text-muted-foreground"
+      >
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Finding common names…
+      </p>
+    ) : null;
+  }
   const visible = all ? shown : shown.slice(0, INITIAL_ROOTS);
 
   return (
@@ -105,6 +115,7 @@ export function NameGroupChips({
         <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           <Sparkles className="h-3 w-3" />
           Common names
+          {pending && <Loader2 className="h-3 w-3 animate-spin" aria-label="Updating" />}
         </span>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />

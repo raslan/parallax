@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
 
-/** Nearest ancestor that scrolls vertically, or null when only the document does. */
+/** Nearest ancestor that scrolls vertically, else the document's own scroller. */
 function findScrollParent(el: HTMLElement): HTMLElement | null {
   for (let p = el.parentElement; p; p = p.parentElement) {
     const { overflowY } = getComputedStyle(p);
     if (overflowY === "auto" || overflowY === "scroll") return p;
   }
-  return null;
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
 /**

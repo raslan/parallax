@@ -25,6 +25,10 @@
 
 export type NameGroup = { text: string; count: number; children: NameGroup[] };
 
+/** Messages for `nameGroups.worker.ts`; the worker just calls `detectNameGroups`. */
+export type NameGroupsRequest = { requestId: number; names: string[] };
+export type NameGroupsResponse = { requestId: number; groups: NameGroup[] };
+
 interface Options {
   /** Minimum files per group. Default scales with the folder: max(5, 0.5% of names). */
   minCount?: number;
