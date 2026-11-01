@@ -1,11 +1,20 @@
 import os
+from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.settings import get_setting, set_setting
-from app.schemas import PruneRoot, PruneRootBody
+from app.schemas import (
+    PruneCrumb,
+    PruneFolder,
+    PruneRoot,
+    PruneRootBody,
+    PruneScanState,
+    PruneSubfolder,
+)
+from app.services import prune_scan
 from app.services.prune_sandbox import SandboxError, resolve_inside, validate_root
 
 router = APIRouter(prefix="/prune", tags=["prune"])
@@ -46,5 +55,48 @@ def write_root(body: PruneRootBody, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(400, "Invalid path") from e
     set_setting(db, _ROOT_KEY, root)
-    # Scan-cache invalidation is wired in Task 3 (prune_scan.invalidate()).
+    prune_scan.invalidate()
     return PruneRoot(root=root)
+
+
+@router.post("/scan", response_model=PruneScanState)
+def start_scan(db: Session = Depends(get_db)):
+    prune_scan.start_scan(get_root(db))
+    return prune_scan.scan_state()
+
+
+@router.get("/scan", response_model=PruneScanState)
+def read_scan(db: Session = Depends(get_db)):
+    get_root(db)
+    return prune_scan.scan_state()
+
+
+@router.get("/folder", response_model=PruneFolder)
+def read_folder(path: str, db: Session = Depends(get_db)):
+    root = get_root(db)
+    real = _sandboxed(root, path)
+    if prune_scan.scan_state()["status"] == "running":
+        raise HTTPException(409, "scanning")
+    node = prune_scan.get_node(real)
+    if node is None:
+        raise HTTPException(404, "Folder not found")
+    crumbs = [PruneCrumb(name=os.path.basename(root) or root, path=root)]
+    cur = root
+    rel = os.path.relpath(real, root)
+    if rel != ".":
+        for part in rel.split(os.sep):
+            cur = os.path.join(cur, part)
+            crumbs.append(PruneCrumb(name=part, path=cur))
+    subs = sorted(node.children.values(), key=lambda c: c.name.casefold())
+    return PruneFolder(
+        path=node.path,
+        name=node.name,
+        parent=os.path.dirname(real) if real != root else None,
+        breadcrumbs=crumbs,
+        direct=asdict(node.direct),
+        total=asdict(node.total),
+        subfolders=[
+            PruneSubfolder(name=c.name, path=c.path, direct=asdict(c.direct), total=asdict(c.total))
+            for c in subs
+        ],
+    )

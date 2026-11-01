@@ -335,3 +335,40 @@ class PruneRoot(BaseModel):
 
 class PruneRootBody(BaseModel):
     path: str
+
+
+class PruneCounts(BaseModel):
+    files: int = 0
+    images: int = 0
+    videos: int = 0
+    audio: int = 0
+    other: int = 0
+    bytes: int = 0
+
+
+class PruneScanState(BaseModel):
+    status: Literal["idle", "running", "done", "error"]
+    folders_scanned: int
+    root: str | None = None
+
+
+class PruneCrumb(BaseModel):
+    name: str
+    path: str
+
+
+class PruneSubfolder(BaseModel):
+    name: str
+    path: str
+    direct: PruneCounts
+    total: PruneCounts
+
+
+class PruneFolder(BaseModel):
+    path: str
+    name: str
+    parent: str | None = None
+    breadcrumbs: list[PruneCrumb]
+    direct: PruneCounts
+    total: PruneCounts
+    subfolders: list[PruneSubfolder]
