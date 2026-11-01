@@ -12,7 +12,12 @@ import { StatPanel } from "@/components/StatPanel";
 import { FolderBrowser } from "@/components/prune/FolderBrowser";
 import { PruneFolderPicker } from "@/components/prune/PruneFolderPicker";
 import { PruneRootBar } from "@/components/prune/PruneRootBar";
-import type { ScanState } from "@/types/prune";
+import { FileBrowser } from "@/components/prune/FileBrowser";
+import { usePruneDetails } from "@/hooks/usePruneDetails";
+import type { PruneFile, ScanState } from "@/types/prune";
+
+/** Stable identity while the file list loads, so the details hook doesn't restart. */
+const NO_FILES: PruneFile[] = [];
 
 /** The backend answers 409 for "no folder selected" / "folder is no longer available". */
 const isConflict = (e: unknown) => getErrorMessage(e, "").startsWith("409");
@@ -85,6 +90,17 @@ export function Prune() {
     enabled: !!currentPath && scanDone && !unavailable,
     retry: false,
   });
+
+  // Direct files only exist to list when the open folder has some.
+  const hasFiles = (folderQ.data?.direct.files ?? 0) > 0;
+  const filesQ = useQuery({
+    queryKey: qk.pruneFiles(currentPath ?? ""),
+    queryFn: () => api.getPruneFiles(currentPath ?? ""),
+    enabled: !!currentPath && hasFiles && !unavailable,
+    retry: false,
+  });
+  const fileList = filesQ.data ?? NO_FILES;
+  const detailsProgress = usePruneDetails(currentPath ?? "", fileList);
 
   const picker = (
     <PruneFolderPicker open={picking} onOpenChange={setPicking} onSelect={saveRoot.mutate} />
@@ -187,6 +203,16 @@ export function Prune() {
             ]}
           />
           <FolderBrowser folder={folderQ.data} onNavigate={navigate} />
+          {hasFiles &&
+            (filesQ.isError ? (
+              <QueryError error={filesQ.error} onRetry={() => void filesQ.refetch()} />
+            ) : (
+              <FileBrowser
+                files={filesQ.data}
+                details={detailsProgress.details}
+                progress={detailsProgress}
+              />
+            ))}
         </div>
       ) : (
         <EmptyState

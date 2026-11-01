@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, FolderOpen, FolderTree } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, FolderTree } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { Tip } from "@/components/Tip";
@@ -152,15 +152,14 @@ export function FolderBrowser({
           <ListSkeleton rows={6} />
         )
       ) : sorted.length === 0 ? (
-        <EmptyState
-          icon={folder.direct.files > 0 ? FolderOpen : FolderTree}
-          title={folder.direct.files > 0 ? "No subfolders here" : "This folder is empty"}
-          description={
-            folder.direct.files > 0
-              ? `${folder.direct.files.toLocaleString()} ${folder.direct.files === 1 ? "file lives" : "files live"} directly in ${folder.name}. Nothing deeper to browse.`
-              : `${folder.name} has no files or subfolders that Prune can see (hidden entries are skipped).`
-          }
-        />
+        // A folder with only files is not empty: the file browser below shows them.
+        folder.direct.files > 0 ? null : (
+          <EmptyState
+            icon={FolderTree}
+            title="This folder is empty"
+            description={`${folder.name} has no files or subfolders that Prune can see (hidden entries are skipped).`}
+          />
+        )
       ) : viewMode === "grid" ? (
         <VirtualizedGrid
           items={sorted}

@@ -4,7 +4,16 @@ import { imageApi } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { formatSize } from "@/lib/format";
 
-export function ImageViewerModal({ img, onClose }: { img: ImageFile; onClose: () => void }) {
+/** `src` overrides the image-library full-size URL for files that are not library rows (Prune). */
+export function ImageViewerModal({
+  img,
+  src,
+  onClose,
+}: {
+  img: Pick<ImageFile, "id" | "path" | "filename" | "width" | "height" | "size">;
+  src?: string;
+  onClose: () => void;
+}) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -33,7 +42,7 @@ export function ImageViewerModal({ img, onClose }: { img: ImageFile; onClose: ()
           </button>
         </div>
         <img
-          src={imageApi.fullUrl(img.id)}
+          src={src ?? imageApi.fullUrl(img.id)}
           alt={img.filename}
           className="max-h-[80vh] w-auto mx-auto rounded-lg object-contain"
         />
