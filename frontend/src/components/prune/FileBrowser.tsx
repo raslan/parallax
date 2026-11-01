@@ -390,6 +390,8 @@ export function FileBrowser({
               : api.pruneFileUrl(preview.path)
           }
           isAudio={preview.kind === "audio"}
+          prepareFn={api.pruneStreamPrepare}
+          statusFn={api.pruneStreamPrepareStatus}
           onClose={() => setPreview(null)}
         />
       )}

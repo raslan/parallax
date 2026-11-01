@@ -6,6 +6,7 @@ import type {
   PruneFolder,
   ScanState,
 } from "@/types/prune";
+import type { StreamPrepareStatus } from "@/types/stream";
 
 const q = (path: string) => `path=${encodeURIComponent(path)}`;
 
@@ -32,6 +33,14 @@ export const pruneApi = {
       method: "POST",
       body: JSON.stringify({ path, only_if_empty: onlyIfEmpty }),
     }),
+  /** Sandboxed twins of `streamApi.prepare/status`: the path is checked against the chosen folder. */
+  pruneStreamPrepare: (path: string) =>
+    req<StreamPrepareStatus>("/prune/stream/prepare", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    }),
+  pruneStreamPrepareStatus: (path: string) =>
+    req<StreamPrepareStatus>(`/prune/stream/prepare-status?${q(path)}`),
   pruneThumbnailUrl: (path: string) => `${BASE}/prune/thumbnail?${q(path)}`,
   pruneFileUrl: (path: string) => `${BASE}/prune/file?${q(path)}`,
   pruneAudioUrl: (path: string) => `${BASE}/prune/audio?${q(path)}`,
