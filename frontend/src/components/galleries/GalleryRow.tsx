@@ -36,6 +36,13 @@ export function GalleryRow({
   const isActive = row.status === "pending" || row.status === "running";
   const isRunning = row.status === "running";
   const canRetry = row.status === "failed" || row.status === "cancelled";
+  // Finished clean with nothing fetched: everything was already archived (the archive skips
+  // silently, so "0 skipped" would read as if nothing happened).
+  const upToDate =
+    row.status === "completed" &&
+    row.files_done === 0 &&
+    row.files_skipped === 0 &&
+    row.files_failed === 0;
   const isFileMode = row.url.startsWith("file:");
   const isHttp = !isFileMode && /^https?:\/\//i.test(row.url);
   const urlLabel = isFileMode ? "urls.txt (file mode)" : row.url;
@@ -73,23 +80,26 @@ export function GalleryRow({
     </button>
   ) : null;
 
-  const logBlock = row.log_tail ? (
-    <div>
-      <button
-        onClick={() => setLogExpanded((v) => !v)}
-        className="text-2xs text-muted-foreground/60 hover:text-muted-foreground inline-flex items-center gap-1 transition-colors"
-      >
-        <ChevronRight className={cn("h-3 w-3 transition-transform", logExpanded && "rotate-90")} />
-        <Terminal className="h-3 w-3" />
-        output
-      </button>
-      {logExpanded && row.log_tail && (
-        <pre className="mt-1 max-h-48 overflow-y-auto rounded bg-muted/40 p-2 text-2xs font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
-          {row.log_tail}
-        </pre>
-      )}
-    </div>
-  ) : null;
+  const logBlock =
+    row.log_tail && !upToDate ? (
+      <div>
+        <button
+          onClick={() => setLogExpanded((v) => !v)}
+          className="text-2xs text-muted-foreground/60 hover:text-muted-foreground inline-flex items-center gap-1 transition-colors"
+        >
+          <ChevronRight
+            className={cn("h-3 w-3 transition-transform", logExpanded && "rotate-90")}
+          />
+          <Terminal className="h-3 w-3" />
+          output
+        </button>
+        {logExpanded && row.log_tail && (
+          <pre className="mt-1 max-h-48 overflow-y-auto rounded bg-muted/40 p-2 text-2xs font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
+            {row.log_tail}
+          </pre>
+        )}
+      </div>
+    ) : null;
 
   const actions = (
     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
@@ -132,22 +142,31 @@ export function GalleryRow({
         <div className="flex-1 min-w-0 space-y-1">
           {urlLine}
 
-          <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
-            <span className="inline-flex items-center gap-1 text-emerald-400">
-              <Check className="h-3 w-3 shrink-0" />
-              {row.files_done}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <SkipForward className="h-3 w-3 shrink-0" />
-              {row.files_skipped} skipped
-            </span>
-            {row.files_failed > 0 && (
-              <span className="inline-flex items-center gap-1 text-destructive">
-                <X className="h-3 w-3 shrink-0" />
-                {row.files_failed} failed
+          {upToDate ? (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Check className="h-3 w-3 shrink-0 text-emerald-400" />
+              Up to date — nothing new to download
+            </p>
+          ) : (
+            <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-emerald-400">
+                <Check className="h-3 w-3 shrink-0" />
+                {row.files_done} downloaded
               </span>
-            )}
-          </div>
+              {row.files_skipped > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <SkipForward className="h-3 w-3 shrink-0" />
+                  {row.files_skipped} skipped
+                </span>
+              )}
+              {row.files_failed > 0 && (
+                <span className="inline-flex items-center gap-1 text-destructive">
+                  <X className="h-3 w-3 shrink-0" />
+                  {row.files_failed} failed
+                </span>
+              )}
+            </div>
+          )}
 
           {row.last_filename && (
             <p className="text-3xs text-muted-foreground/40 font-mono truncate">
@@ -213,18 +232,20 @@ export function GalleryRow({
             </span>
           </div>
 
-          <div className="flex flex-col items-center min-w-14">
-            <span
-              key={row.files_skipped}
-              className="inline-flex items-center gap-1 text-xl font-bold font-mono tabular-nums tracking-tight text-muted-foreground animate-pop"
-            >
-              <SkipForward className="h-4 w-4 shrink-0" />
-              {row.files_skipped}
-            </span>
-            <span className="text-3xs uppercase tracking-widest text-muted-foreground/60">
-              skipped
-            </span>
-          </div>
+          {row.files_skipped > 0 && (
+            <div className="flex flex-col items-center min-w-14">
+              <span
+                key={row.files_skipped}
+                className="inline-flex items-center gap-1 text-xl font-bold font-mono tabular-nums tracking-tight text-muted-foreground animate-pop"
+              >
+                <SkipForward className="h-4 w-4 shrink-0" />
+                {row.files_skipped}
+              </span>
+              <span className="text-3xs uppercase tracking-widest text-muted-foreground/60">
+                skipped
+              </span>
+            </div>
+          )}
 
           {row.files_failed > 0 && (
             <div className="flex flex-col items-center min-w-14">
