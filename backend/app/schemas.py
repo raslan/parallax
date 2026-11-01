@@ -383,7 +383,8 @@ class PruneFile(BaseModel):
 
 
 class PruneDeleteBody(BaseModel):
-    paths: list[str]
+    # The client sends chunks of 500; the cap bounds one synchronous request.
+    paths: list[str] = Field(max_length=5000)
 
 
 class PruneDeleteFailure(BaseModel):
@@ -399,6 +400,7 @@ class PruneDeleteResult(BaseModel):
 
 class PruneDeleteFolderBody(BaseModel):
     path: str
+    only_if_empty: bool = False  # rmdir, 409 if the folder gained entries
 
 
 class PruneDetailsBody(BaseModel):

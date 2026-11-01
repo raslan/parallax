@@ -1,3 +1,4 @@
+import os
 import shutil
 
 import pytest
@@ -28,10 +29,10 @@ def test_put_then_get_root(client, tmp_path):
     assert client.get("/api/prune/root").json() == {"root": str(tmp_path.resolve())}
 
 
-def _scan_via_api(client):
+def _scan_via_api(client, **params):
     import time
 
-    assert client.post("/api/prune/scan").status_code == 200
+    assert client.post("/api/prune/scan", params=params).status_code == 200
     for _ in range(200):
         s = client.get("/api/prune/scan").json()
         if s["status"] != "running":
@@ -326,6 +327,139 @@ def test_audio_endpoint_only_for_non_native_extension(client, tmp_path):
     assert (
         client.get("/api/prune/audio", params={"path": str(tmp_path / "b.wma")}).status_code == 404
     )
+
+
+def test_scan_reuses_cache_unless_forced_or_root_changed(client, engine, tmp_path, _scan_reset):
+    from app.models.settings import set_setting
+
+    a, b = tmp_path / "a", tmp_path / "b"
+    for d in (a, b):
+        d.mkdir()
+        (d / "x.jpg").write_bytes(b"x")
+    _put_root(client, a)
+    assert _scan_via_api(client)["status"] == "done"
+    (a / "y.jpg").write_bytes(b"x")
+
+    def total(root):
+        return client.get("/api/prune/folder", params={"path": str(root)}).json()["total"]
+
+    r = client.post("/api/prune/scan")  # done + same root: no rescan
+    assert r.json()["status"] == "done"
+    assert total(a)["files"] == 1
+
+    assert _scan_via_api(client, force="true")["status"] == "done"
+    assert total(a)["files"] == 2
+
+    with Session(engine) as s:  # root swapped behind the cache's back
+        set_setting(s, "prune_root", str(b))
+    _scan_via_api(client)
+    assert client.get("/api/prune/scan").json()["root"] == str(b)
+    assert total(b)["files"] == 1
+
+
+def test_hidden_symlink_and_other_files_refused(client, tmp_path, monkeypatch):
+    from app.services import prune_files
+
+    monkeypatch.setattr(prune_files, "THUMB_DIR", str(tmp_path / "thumbs"))
+    root = tmp_path / "root"
+    (root / ".git" / "objects").mkdir(parents=True)
+    (root / ".hidden").mkdir()
+    for n in (".hidden/x.jpg", ".hidden/a.wma", ".hidden/v.mp4", "a.jpg", "a.wma", "n.html"):
+        (root / n).write_bytes(b"<html>x</html>")
+    (root / "ln.jpg").symlink_to(root / "a.jpg")
+    (root / "ln.wma").symlink_to(root / "a.wma")
+    _put_root(client, root)
+    hidden = [
+        ("post", "/api/prune/delete-folder", {"json": {"path": str(root / ".git")}}),
+        ("get", "/api/prune/files", {"params": {"path": str(root / ".hidden")}}),
+        ("get", "/api/prune/file", {"params": {"path": str(root / ".hidden/x.jpg")}}),
+        ("get", "/api/prune/thumbnail", {"params": {"path": str(root / ".hidden/x.jpg")}}),
+        ("get", "/api/prune/audio", {"params": {"path": str(root / ".hidden/a.wma")}}),
+        ("post", "/api/prune/details", {"json": {"paths": [str(root / ".hidden/v.mp4")]}}),
+    ]
+    for method, url, kw in hidden:
+        assert getattr(client, method)(url, **kw).status_code == 400, url
+    assert (root / ".git" / "objects").is_dir()
+    for url, name in (("/api/prune/file", "ln.jpg"), ("/api/prune/audio", "ln.wma")):
+        assert client.get(url, params={"path": str(root / name)}).status_code == 404, name
+    assert client.get("/api/prune/file", params={"path": str(root / "n.html")}).status_code == 415
+    ok = client.get("/api/prune/file", params={"path": str(root / "a.jpg")})
+    assert ok.status_code == 200 and ok.headers["x-content-type-options"] == "nosniff"
+
+
+def test_root_gone_or_swapped_is_409_everywhere(client, tmp_path):
+    d = tmp_path / "root"
+    d.mkdir()
+    _put_root(client, d)
+    p = str(d / "a.jpg")
+    routes = [
+        ("get", "/api/prune/scan", {}),
+        ("post", "/api/prune/scan", {}),
+        ("get", "/api/prune/folder", {"params": {"path": str(d)}}),
+        ("get", "/api/prune/files", {"params": {"path": str(d)}}),
+        ("post", "/api/prune/details", {"json": {"paths": [p]}}),
+        ("get", "/api/prune/thumbnail", {"params": {"path": p}}),
+        ("get", "/api/prune/file", {"params": {"path": p}}),
+        ("get", "/api/prune/audio", {"params": {"path": p}}),
+        ("post", "/api/prune/delete", {"json": {"paths": [p]}}),
+        ("post", "/api/prune/delete-folder", {"json": {"path": str(d / "x")}}),
+    ]
+    shutil.rmtree(d)
+    for method, url, kw in routes:
+        assert getattr(client, method)(url, **kw).status_code == 409, (url, "deleted")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "x").mkdir()
+    d.symlink_to(elsewhere)  # saved root is now a symlink to another folder
+    for method, url, kw in routes:
+        assert getattr(client, method)(url, **kw).status_code == 409, (url, "swapped")
+    assert (elsewhere / "x").is_dir()
+
+
+def test_delete_folder_only_if_empty_api(client, tmp_path):
+    (tmp_path / "e").mkdir()
+    (tmp_path / "f").mkdir()
+    (tmp_path / "f" / "a.jpg").write_bytes(b"x")
+    _put_root(client, tmp_path)
+    body = {"path": str(tmp_path / "f"), "only_if_empty": True}
+    r = client.post("/api/prune/delete-folder", json=body)
+    assert r.status_code == 409 and r.json()["detail"] == "Folder is no longer empty"
+    assert (tmp_path / "f" / "a.jpg").exists()
+    body = {"path": str(tmp_path / "e"), "only_if_empty": True}
+    assert client.post("/api/prune/delete-folder", json=body).status_code == 204
+    assert not (tmp_path / "e").exists()
+
+
+def test_details_missing_null_thumbnail_key_and_delete_cap(client, tmp_path, monkeypatch):
+    from app.services import prune_files
+
+    monkeypatch.setattr(
+        prune_files,
+        "probe_file",
+        lambda p: {"streams": [{"codec_name": "h264"}], "format": {}},
+    )
+    prune_files.clear_details_cache()
+    thumbs = tmp_path / "thumbs"
+    monkeypatch.setattr(prune_files, "THUMB_DIR", str(thumbs))
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "v.mp4").write_bytes(b"x")
+    from PIL import Image
+
+    Image.new("RGB", (40, 30), "red").save(root / "a.png")
+    _put_root(client, root)
+    v, gone = str(root / "v.mp4"), str(root / "gone.mp4")
+    r = client.post("/api/prune/details", json={"paths": [v, gone]})
+    assert r.status_code == 200
+    d = r.json()["details"]
+    assert d[v]["codec"] == "h264" and d[gone] is None
+
+    for spelling in (f"{root}/a.png", f"{root}/./a.png", f"{root}//a.png"):
+        assert client.get("/api/prune/thumbnail", params={"path": spelling}).status_code == 200
+    assert len([n for n in os.listdir(thumbs) if n.endswith(".jpg")]) == 1
+
+    paths = [str(root / f"{i}.jpg") for i in range(5001)]
+    assert client.post("/api/prune/delete", json={"paths": paths}).status_code == 422
 
 
 def test_thumbnail_endpoint_404_for_audio(client, tmp_path):

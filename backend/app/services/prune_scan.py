@@ -73,9 +73,14 @@ def invalidate() -> None:
         _state.update(status="idle", folders_scanned=0, root=None)
 
 
-def start_scan(root: str) -> None:
+def start_scan(root: str, force: bool = False) -> None:
+    """Start a background scan unless one is running, or (without ``force``) a
+    finished tree for this same root is already cached."""
     with _lock:
         if _state["status"] == "running":
+            return
+        cached = _state["status"] == "done" and _state["root"] == root and _tree is not None
+        if cached and not force:
             return
         gen = _generation
         _state.update(status="running", folders_scanned=0, root=root)

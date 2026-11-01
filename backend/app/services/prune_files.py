@@ -6,6 +6,7 @@ Plain sync functions (routers call them via ``run_in_threadpool``). Because
 """
 
 import contextlib
+import errno
 import hashlib
 import os
 import shutil
@@ -204,8 +205,12 @@ def delete_files(root: str, paths: list[str]) -> dict:
     return {"deleted": deleted, "failed": failed, "empty_folders": empty}
 
 
-def delete_folder(root: str, path: str) -> None:
-    """Recursively delete a folder inside ``root`` (never the root, never a symlink)."""
+def delete_folder(root: str, path: str, only_if_empty: bool = False) -> None:
+    """Recursively delete a folder inside ``root`` (never the root, never a symlink).
+
+    ``only_if_empty`` uses ``os.rmdir`` instead, so a folder that gained an
+    entry since it was offered as empty is kept (409).
+    """
     path = _strip_trailing_seps(path)
     try:
         if os.path.islink(path):
@@ -217,6 +222,15 @@ def delete_folder(root: str, path: str) -> None:
         raise SandboxError(400, "The root folder cannot be deleted")
     if not os.path.isdir(real):
         raise SandboxError(400, "Not a folder")
+    if only_if_empty:
+        try:
+            os.rmdir(real)
+        except OSError as e:
+            if e.errno in (errno.ENOTEMPTY, errno.EEXIST):
+                raise SandboxError(409, "Folder is no longer empty") from e
+            raise SandboxError(500, f"Could not delete folder: {e.strerror or e}") from e
+        prune_scan.remove_folder(real)
+        return
     try:
         shutil.rmtree(real)
     except OSError as e:

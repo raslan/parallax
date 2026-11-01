@@ -30,11 +30,12 @@ _ROOT_KEY = "prune_root"
 
 
 def get_root(db: Session) -> str:
-    """Saved root, or 409 when unset or no longer a directory."""
+    """Saved root, or 409 when unset, no longer a directory, or no longer itself
+    (the saved realpath became a symlink, or a parent was swapped)."""
     root = get_setting(db, _ROOT_KEY, "")
     if not root:
         raise HTTPException(409, "No folder selected")
-    if not os.path.isdir(root):
+    if not os.path.isdir(root) or os.path.realpath(root) != root:
         raise HTTPException(409, "Folder is no longer available")
     return root
 
@@ -67,8 +68,9 @@ def write_root(body: PruneRootBody, db: Session = Depends(get_db)):
 
 
 @router.post("/scan", response_model=PruneScanState)
-def start_scan(db: Session = Depends(get_db)):
-    prune_scan.start_scan(get_root(db))
+def start_scan(force: bool = False, db: Session = Depends(get_db)):
+    """Scan the root; without ``force`` a finished scan of the same root is reused."""
+    prune_scan.start_scan(get_root(db), force=force)
     return prune_scan.scan_state()
 
 
@@ -130,7 +132,11 @@ async def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
     db.close()
     paths = list(dict.fromkeys(body.paths))
     for p in paths:
-        _sandboxed(root, p)  # 403/400 on escape; the service lstat()s the unresolved path
+        try:
+            _sandboxed(root, p)  # 403/400 fail the batch; the service lstat()s the raw path
+        except HTTPException as e:
+            if e.status_code != 404:
+                raise  # a file that vanished just comes back null
     return PruneDetailsResult(details=await run_in_threadpool(prune_files.get_details, paths))
 
 
@@ -147,7 +153,7 @@ def _servable(db: Session, path: str) -> str:
 @router.get("/thumbnail")
 async def read_thumbnail(path: str, db: Session = Depends(get_db)):
     real = _servable(db, path)
-    thumb = await run_in_threadpool(prune_files.thumbnail_for, path)
+    thumb = await run_in_threadpool(prune_files.thumbnail_for, real)  # one cache key per file
     if thumb is None or not os.path.exists(real):
         raise HTTPException(404, "No thumbnail")
     return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
@@ -155,8 +161,13 @@ async def read_thumbnail(path: str, db: Session = Depends(get_db)):
 
 @router.get("/file")
 def read_file(path: str, db: Session = Depends(get_db)):
+    real = _servable(db, path)
+    if kind_of(real) == "other":  # media only: never serve e.g. HTML same-origin
+        raise HTTPException(415, "Not a media file")
     # FileResponse handles Range (206) for video/audio seeking.
-    return FileResponse(_servable(db, path), headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        real, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+    )
 
 
 @router.get("/audio")
@@ -184,6 +195,6 @@ async def delete_folder(body: PruneDeleteFolderBody, db: Session = Depends(get_d
     root = get_root(db)
     db.close()
     try:
-        await run_in_threadpool(prune_files.delete_folder, root, body.path)
+        await run_in_threadpool(prune_files.delete_folder, root, body.path, body.only_if_empty)
     except SandboxError as e:
         raise HTTPException(e.status, str(e)) from e

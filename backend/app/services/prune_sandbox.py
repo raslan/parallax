@@ -34,8 +34,9 @@ def validate_root(path: str) -> str:
 def resolve_inside(root: str, path: str) -> str:
     """Return the realpath of ``path`` if it is ``root`` or inside it.
 
-    403 when it escapes the root, 404 when it does not exist. Callers decide
-    whether the root itself is acceptable.
+    403 when it escapes the root, 404 when it does not exist, 400 when any
+    path component below the root (as written or as resolved) is hidden.
+    Callers decide whether the root itself is acceptable.
     """
     root_real = os.path.realpath(root)
     real = os.path.realpath(path)
@@ -47,7 +48,18 @@ def resolve_inside(root: str, path: str) -> str:
         raise SandboxError(403, "Path is outside the root folder")
     if not os.path.lexists(real):
         raise SandboxError(404, "Path does not exist")
+    if _has_hidden_component(root_real, real) or _has_hidden_component(
+        root_real, os.path.normpath(path)
+    ):
+        raise SandboxError(400, "Hidden entries are not managed here")
     return real
+
+
+def _has_hidden_component(root: str, path: str) -> bool:
+    rel = os.path.relpath(path, root)
+    if rel == "." or rel == os.pardir or rel.startswith(os.pardir + os.sep):
+        return False  # the root itself, or a spelling outside it (realpath decides)
+    return any(is_hidden(part) for part in rel.split(os.sep))
 
 
 def kind_of(name: str) -> Kind:

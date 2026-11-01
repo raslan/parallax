@@ -213,6 +213,32 @@ def test_delete_folder_refuses_file_and_symlink(tmp_path):
     assert outside.exists() and (root / "ln").is_symlink()
 
 
+def test_delete_folder_refuses_hidden_dir(tmp_path):
+    (tmp_path / ".git" / "objects").mkdir(parents=True)
+    for p in (tmp_path / ".git", tmp_path / ".git" / "objects"):
+        with pytest.raises(SandboxError) as e:
+            prune_files.delete_folder(str(tmp_path), str(p))
+        assert e.value.status == 400
+    assert (tmp_path / ".git" / "objects").is_dir()
+
+
+def test_delete_folder_only_if_empty(tmp_path):
+    root = tmp_path.resolve()
+    (root / "empty").mkdir()
+    (root / "full").mkdir()
+    (root / "full" / ".keep").write_bytes(b"x")
+    (root / "a.jpg").write_bytes(b"x")
+    scan(root)
+    prune_files.delete_folder(str(root), str(root / "empty"), only_if_empty=True)
+    assert not (root / "empty").exists()
+    assert "empty" not in prune_scan.get_node(str(root)).children
+    with pytest.raises(SandboxError) as e:
+        prune_files.delete_folder(str(root), str(root / "full"), only_if_empty=True)
+    assert e.value.status == 409 and str(e.value) == "Folder is no longer empty"
+    assert (root / "full" / ".keep").exists()
+    assert "full" in prune_scan.get_node(str(root)).children  # cache untouched
+
+
 def test_delete_folder_outside_root_and_nul(tmp_path):
     root = tmp_path / "root"
     root.mkdir()

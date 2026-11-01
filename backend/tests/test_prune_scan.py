@@ -165,3 +165,22 @@ def test_start_scan_idempotent_while_running(tmp_path, monkeypatch):
     monkeypatch.setattr(prune_scan.threading, "Thread", lambda **kw: started.append(kw))
     prune_scan.start_scan(str(tmp_path))
     assert started == []
+
+
+def test_start_scan_reuses_done_cache_for_same_root(tmp_path, monkeypatch):
+    root = str(make_tree(tmp_path).resolve())
+    scan(root)
+    started = []
+
+    class FakeThread:
+        def __init__(self, **kw):
+            started.append(kw)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(prune_scan.threading, "Thread", FakeThread)
+    prune_scan.start_scan(root)  # done + same root: cache kept, no new scan
+    assert started == [] and prune_scan.scan_state()["status"] == "done"
+    prune_scan.start_scan(root, force=True)
+    assert len(started) == 1
