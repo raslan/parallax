@@ -23,6 +23,7 @@ const Cleanup = page(() => import("@/pages/Cleanup"), "Cleanup");
 const Identify = page(() => import("@/pages/Identify"), "Identify");
 const Subtitles = page(() => import("@/pages/Subtitles"), "Subtitles");
 const Downloads = page(() => import("@/pages/Downloads"), "Downloads");
+const Prune = page(() => import("@/pages/Prune"), "Prune");
 const Galleries = page(() => import("@/pages/Galleries"), "Galleries");
 const Compress = page(() => import("@/pages/Compress"), "Compress");
 const Toolbox = page(() => import("@/pages/Toolbox"), "Toolbox");
@@ -67,6 +68,7 @@ export default function App() {
                 <Route path="/identify" element={<Identify />} />
                 <Route path="/subtitles" element={<Subtitles />} />
                 <Route path="/downloads" element={<Downloads />} />
+                <Route path="/prune" element={<Prune />} />
                 <Route path="/galleries" element={<Galleries />} />
                 <Route path="/compress" element={<Compress />} />
                 <Route path="/toolbox" element={<Toolbox />} />

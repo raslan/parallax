@@ -59,6 +59,11 @@ export const qk = {
 
   downloads: () => ["downloads"] as const,
 
+  pruneRoot: () => ["prune", "root"] as const,
+  pruneScan: () => ["prune", "scan"] as const,
+  pruneFolder: (path: string) => ["prune", "folder", path] as const,
+  pruneFiles: (path: string) => ["prune", "files", path] as const,
+
   galleryOptions: () => ["galleries", "options"] as const,
   galleryDlInfo: () => ["gallery-dl", "info"] as const,
   galleryYtdlImpersonateTargets: () => ["gallery-dl", "ytdl-impersonate-targets"] as const,

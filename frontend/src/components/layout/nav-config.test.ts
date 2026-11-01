@@ -89,7 +89,15 @@ describe("sectionItemsById", () => {
       "Identify",
       "Subtitles",
       "Downloads",
+      "Prune",
     ]);
+  });
+
+  it("lists Prune under Tools and routes it to the tools section", () => {
+    const tools = SECTIONS.find((s) => s.id === "tools")!;
+    expect(tools.items.map((i) => i.to)).toContain("/prune");
+    expect(routeToTab("/prune")).toBe("tools");
+    expect(routeLabel("/prune")).toBe("Prune · Tools");
   });
 
   it("collapses videos to just Libraries when there are no video libraries", () => {

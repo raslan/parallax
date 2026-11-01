@@ -16,6 +16,7 @@ import {
   Captions,
   Combine,
   Download,
+  Eraser,
   AudioLines,
   type LucideIcon,
 } from "lucide-react";
@@ -75,6 +76,7 @@ export const SECTIONS: Section[] = [
       { to: "/identify", icon: Wand2, label: "Identify" },
       { to: "/subtitles", icon: Captions, label: "Subtitles" },
       { to: "/downloads", icon: Download, label: "Downloads" },
+      { to: "/prune", icon: Eraser, label: "Prune" },
     ],
   },
 ];
