@@ -76,9 +76,9 @@ function Chip({
 }
 
 /**
- * Repeated name fragments in the open folder (`text · count`), each a one-click
- * `name contains` filter. Expanding a chip reveals narrower groups; typing
- * narrows the chips. Detection is O(names x length), so it runs on a deferred
+ * Words and phrases shared by names in the open folder (`text · count`), each a
+ * one-click `name contains` filter. Expanding a chip reveals narrower groups;
+ * typing narrows the chips. Detection is O(names x length), so it runs on a deferred
  * copy of `names` (pass a referentially stable array) and only recomputes when
  * the folder's file list changes, never per render or keystroke.
  */
