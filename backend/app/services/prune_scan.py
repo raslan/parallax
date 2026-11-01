@@ -3,6 +3,11 @@
 One background scan of the saved root builds a tree of per-folder counts
 (never file lists). The finished tree is swapped in atomically, so readers
 never see a half-built tree. Hidden entries and symlinks are skipped.
+
+Races: ``invalidate()`` bumps a generation; a scan from an older generation stops
+at its next folder and never touches the progress or the cached tree. A delete
+while a scan runs marks it dirty, and a dirty scan walks again on completion
+(status stays ``running``), so the result never counts deleted entries.
 """
 
 import os
@@ -40,7 +45,18 @@ class FolderNode:
 _lock = threading.Lock()
 _tree: FolderNode | None = None
 _state: dict = {"status": "idle", "folders_scanned": 0, "root": None}
-_generation = 0  # bumped by invalidate() so a stale scan discards its result
+# Bumped by invalidate(): a scan carries the generation it started under and only
+# reports progress / swaps in its tree while that is still current; a superseded
+# walk stops at the next folder.
+_generation = 0
+# Set by a delete while a scan runs: the walk may have counted the deleted entries,
+# so the finished tree is not trusted and the scan walks again (bounded).
+_dirty = False
+_MAX_PASSES = 3
+
+
+class _Stale(Exception):
+    """The scan's generation was superseded mid-walk."""
 
 
 def scan_state() -> dict:
@@ -66,9 +82,10 @@ def get_node(path: str) -> FolderNode | None:
 
 
 def invalidate() -> None:
-    global _tree, _generation
+    global _tree, _generation, _dirty
     with _lock:
         _generation += 1
+        _dirty = False
         _tree = None
         _state.update(status="idle", folders_scanned=0, root=None)
 
@@ -88,22 +105,39 @@ def start_scan(root: str, force: bool = False) -> None:
 
 
 def _run(root: str, gen: int) -> None:
-    global _tree
-    try:
-        tree = _build(root)
-    except Exception:
+    """Walk until a pass finishes with no delete landing during it (at most
+    ``_MAX_PASSES``; the last pass is then trusted). Status stays ``running``
+    across passes."""
+    global _tree, _dirty
+    for attempt in range(1, _MAX_PASSES + 1):
         with _lock:
-            if gen == _generation:
-                _state["status"] = "error"
-        return
-    with _lock:
-        if gen != _generation:
+            if gen != _generation:
+                return
+            _dirty = False
+            _state["folders_scanned"] = 0
+        try:
+            tree = _build(root, gen)
+        except _Stale:
             return
-        _tree = tree
-        _state["status"] = "done"
+        except Exception:
+            with _lock:
+                if gen == _generation:
+                    _state["status"] = "error"
+            return
+        with _lock:
+            if gen != _generation:
+                return
+            if _dirty and attempt < _MAX_PASSES:
+                continue
+            _dirty = False
+            _tree = tree
+            _state["status"] = "done"
+            return
 
 
-def _build(path: str) -> FolderNode:
+def _build(path: str, gen: int) -> FolderNode:
+    if gen != _generation:
+        raise _Stale
     node = FolderNode(path=path, name=os.path.basename(path) or path)
     subdirs: list[str] = []
     try:
@@ -128,12 +162,20 @@ def _build(path: str) -> FolderNode:
         pass  # unreadable directory: counted as empty, scan carries on
     node.total.add(node.direct)
     for name in subdirs:
-        child = _build(os.path.join(path, name))
+        child = _build(os.path.join(path, name), gen)
         node.children[name] = child
         node.total.add(child.total)
     with _lock:
+        if gen != _generation:
+            raise _Stale
         _state["folders_scanned"] += 1
     return node
+
+
+def _mark_dirty_locked() -> None:
+    global _dirty
+    if _state["status"] == "running":
+        _dirty = True
 
 
 def _ancestors(path: str) -> list[FolderNode] | None:
@@ -195,6 +237,7 @@ def snapshot(path: str) -> dict | None:
 def apply_deleted_files(folder: str, counts: Counts) -> None:
     """Subtract deleted files from ``folder``'s direct and every total up the chain."""
     with _lock:
+        _mark_dirty_locked()
         chain = _ancestors(folder)
         if not chain:
             return
@@ -206,6 +249,7 @@ def apply_deleted_files(folder: str, counts: Counts) -> None:
 def remove_folder(path: str) -> None:
     """Drop a folder (and its subtree) from the tree and from ancestors' totals."""
     with _lock:
+        _mark_dirty_locked()
         chain = _ancestors(path)
         if not chain or len(chain) < 2:
             return

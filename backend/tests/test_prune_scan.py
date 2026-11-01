@@ -184,3 +184,136 @@ def test_start_scan_reuses_done_cache_for_same_root(tmp_path, monkeypatch):
     assert started == [] and prune_scan.scan_state()["status"] == "done"
     prune_scan.start_scan(root, force=True)
     assert len(started) == 1
+
+
+# ── scan races: generation + dirty rescans, driven synchronously ──────────────
+
+
+@pytest.fixture
+def threads(monkeypatch):
+    """Capture scan threads instead of starting them; tests run them by hand."""
+    captured: list[tuple] = []
+
+    class FakeThread:
+        def __init__(self, target, args, daemon=None):
+            captured.append((target, args))
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(prune_scan.threading, "Thread", FakeThread)
+    return captured
+
+
+@pytest.fixture
+def on_scandir(monkeypatch):
+    """Run a callback once, right before the walk lists a given folder."""
+    hooks: dict[str, list] = {}
+    calls: list[str] = []
+    real = prune_scan.os.scandir
+
+    def fake(path):
+        calls.append(str(path))
+        for fn in hooks.pop(str(path), []):
+            fn()
+        return real(path)
+
+    monkeypatch.setattr(prune_scan.os, "scandir", fake)
+
+    def add(path, fn):
+        hooks.setdefault(str(path), []).append(fn)
+
+    add.calls = calls
+    return add
+
+
+def _run(captured):
+    target, args = captured
+    target(*args)
+
+
+def test_stale_scan_cannot_report_progress_or_swap_result(tmp_path, threads, on_scandir):
+    root = str(make_tree(tmp_path).resolve())
+    prune_scan.start_scan(root)
+    prune_scan.invalidate()
+    other = tmp_path / "sub"
+    prune_scan.start_scan(str(other))
+    _run(threads[0])  # the superseded scan
+    assert on_scandir.calls == []  # stopped before walking anything
+    state = prune_scan.scan_state()
+    assert state == {"status": "running", "folders_scanned": 0, "root": str(other)}
+    assert prune_scan.get_node(root) is None
+    _run(threads[1])
+    assert prune_scan.scan_state()["status"] == "done"
+    assert prune_scan.get_node(str(other)).total.files == 3
+
+
+def test_scan_invalidated_mid_walk_stops_early(tmp_path, threads, on_scandir):
+    root = str(make_tree(tmp_path).resolve())
+    sub = os.path.join(root, "sub")
+    prune_scan.start_scan(root)
+
+    def supersede():
+        prune_scan.invalidate()
+        prune_scan.start_scan(sub)
+
+    on_scandir(sub, supersede)
+    _run(threads[0])
+    # the stale walk never reached sub/deep and touched nothing
+    assert os.path.join(sub, "deep") not in on_scandir.calls
+    assert prune_scan.scan_state() == {"status": "running", "folders_scanned": 0, "root": sub}
+    assert prune_scan.get_node(root) is None
+
+
+def test_file_delete_during_scan_is_not_lost(tmp_path, threads, on_scandir):
+    root = str(make_tree(tmp_path).resolve())
+    prune_scan.start_scan(root)
+    deep = os.path.join(root, "sub", "deep")
+
+    def delete_counted_file():  # a.jpg in the root was already counted
+        os.remove(os.path.join(root, "a.jpg"))
+        prune_scan.apply_deleted_files(root, prune_scan.file_counts("a.jpg", 10))
+
+    on_scandir(deep, delete_counted_file)
+    _run(threads[0])
+    assert prune_scan.scan_state()["status"] == "done"
+    assert prune_scan.get_node(root).direct == Counts(files=1, other=1, bytes=5)
+    assert prune_scan.get_node(root).total.files == 4
+    assert on_scandir.calls.count(root) == 2  # exactly one extra pass, no loop
+
+
+def test_folder_delete_during_scan_is_not_lost(tmp_path, threads, on_scandir):
+    import shutil
+
+    root = str(make_tree(tmp_path).resolve())
+    sub = os.path.join(root, "sub")
+    deep = os.path.join(sub, "deep")
+    prune_scan.start_scan(root)
+
+    def delete_walked_folder():  # sub was listed, deep is about to be
+        shutil.rmtree(deep)
+        prune_scan.remove_folder(deep)
+
+    on_scandir(deep, delete_walked_folder)
+    _run(threads[0])
+    assert prune_scan.scan_state()["status"] == "done"
+    assert prune_scan.get_node(deep) is None
+    assert prune_scan.get_node(sub).total == Counts(files=1, videos=1, bytes=100)
+    assert prune_scan.scan_state()["folders_scanned"] == 2  # progress of the final pass only
+
+
+def test_dirty_rescans_are_bounded(tmp_path, threads, on_scandir):
+    root = str(make_tree(tmp_path).resolve())
+    prune_scan.start_scan(root)
+    hits = []
+
+    def keep_deleting():  # a delete lands during every single pass
+        hits.append(1)
+        prune_scan.apply_deleted_files(root, Counts())
+        on_scandir(root, keep_deleting)
+
+    on_scandir(root, keep_deleting)
+    _run(threads[0])
+    assert prune_scan.scan_state()["status"] == "done"
+    assert len(hits) == prune_scan._MAX_PASSES
+    assert prune_scan.get_node(root) is not None

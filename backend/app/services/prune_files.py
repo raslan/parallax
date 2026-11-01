@@ -1,6 +1,7 @@
 """File listing and safe deletion for the Prune page.
 
-Plain sync functions (routers call them via ``run_in_threadpool``). Because
+Plain sync, blocking functions (the routers are sync ``def``s, so FastAPI runs
+them in its threadpool). Because
 ``resolve_inside`` follows the final symlink, every delete also inspects the
 *unresolved* path and refuses symlinks outright.
 """

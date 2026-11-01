@@ -16,6 +16,17 @@ def _clean_prune_root(engine):
     yield
 
 
+def test_routes_run_off_the_event_loop():
+    """Every Prune route is a plain ``def`` (FastAPI runs it in the threadpool), so a
+    stale mount stalling get_root / isdir / lstat can never freeze the event loop."""
+    import inspect
+
+    from app.api.prune import router
+
+    coros = [r.path for r in router.routes if inspect.iscoroutinefunction(r.endpoint)]
+    assert coros == []
+
+
 def test_get_root_empty(client):
     r = client.get("/api/prune/root")
     assert r.status_code == 200

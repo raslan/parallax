@@ -3,7 +3,6 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
 
 from app.database import get_db
 from app.models.settings import get_setting, set_setting
@@ -108,15 +107,21 @@ def read_folder(path: str, db: Session = Depends(get_db)):
     )
 
 
+# Every route here is a plain ``def``: FastAPI runs it in the threadpool, so the
+# settings query, isdir/realpath/lstat and the service calls (any of which can hang
+# on a stale network mount) never block the event loop. ``db.close()`` comes before
+# any filesystem work so no pooled connection is held across slow I/O.
+
+
 @router.get("/files", response_model=list[PruneFile])
-async def read_files(path: str, db: Session = Depends(get_db)):
+def read_files(path: str, db: Session = Depends(get_db)):
     root = get_root(db)
     db.close()  # no connection held across the directory read
     real = _sandboxed(root, path)
     if not os.path.isdir(real):
         raise HTTPException(400, "Not a folder")
     try:
-        return await run_in_threadpool(prune_files.list_files, real)
+        return prune_files.list_files(real)
     except OSError as e:
         raise HTTPException(409, "Folder could not be read") from e
 
@@ -125,7 +130,7 @@ _MAX_DETAILS = 50
 
 
 @router.post("/details", response_model=PruneDetailsResult)
-async def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
+def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
     if len(body.paths) > _MAX_DETAILS:
         raise HTTPException(400, f"At most {_MAX_DETAILS} paths per request")
     root = get_root(db)
@@ -137,7 +142,7 @@ async def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
         except HTTPException as e:
             if e.status_code != 404:
                 raise  # a file that vanished just comes back null
-    return PruneDetailsResult(details=await run_in_threadpool(prune_files.get_details, paths))
+    return PruneDetailsResult(details=prune_files.get_details(paths))
 
 
 def _servable(db: Session, path: str) -> str:
@@ -151,9 +156,9 @@ def _servable(db: Session, path: str) -> str:
 
 
 @router.get("/thumbnail")
-async def read_thumbnail(path: str, db: Session = Depends(get_db)):
-    real = _servable(db, path)
-    thumb = await run_in_threadpool(prune_files.thumbnail_for, real)  # one cache key per file
+def read_thumbnail(path: str, db: Session = Depends(get_db)):
+    real = _servable(db, path)  # session closed: none held during generation
+    thumb = prune_files.thumbnail_for(real)  # one cache key per file
     if thumb is None or not os.path.exists(real):
         raise HTTPException(404, "No thumbnail")
     return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
@@ -184,17 +189,17 @@ def read_audio(path: str, db: Session = Depends(get_db)):
 
 
 @router.post("/delete", response_model=PruneDeleteResult)
-async def delete_files(body: PruneDeleteBody, db: Session = Depends(get_db)):
+def delete_files(body: PruneDeleteBody, db: Session = Depends(get_db)):
     root = get_root(db)
     db.close()
-    return await run_in_threadpool(prune_files.delete_files, root, body.paths)
+    return prune_files.delete_files(root, body.paths)
 
 
 @router.post("/delete-folder", status_code=204)
-async def delete_folder(body: PruneDeleteFolderBody, db: Session = Depends(get_db)):
+def delete_folder(body: PruneDeleteFolderBody, db: Session = Depends(get_db)):
     root = get_root(db)
     db.close()
     try:
-        await run_in_threadpool(prune_files.delete_folder, root, body.path, body.only_if_empty)
+        prune_files.delete_folder(root, body.path, body.only_if_empty)
     except SandboxError as e:
         raise HTTPException(e.status, str(e)) from e
