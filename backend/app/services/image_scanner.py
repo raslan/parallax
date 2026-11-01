@@ -23,6 +23,11 @@ from app.services.common import (
     now,
     should_cancel,
 )
+from app.services.thumbnail_common import (
+    IMAGE_THUMB_SEMAPHORE,
+    THUMBNAIL_GEN_LIMIT,
+    get_or_create,
+)
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 THUMBNAIL_DIR = os.path.join(DATA_DIR, "image-thumbnails")
@@ -118,11 +123,9 @@ def generate_thumbnail(src_path: str, out_path: str) -> None:
         img.save(out_path, "JPEG", quality=85)
 
 
-# Caps concurrent thumbnail generation: a grid page fires one request per card
-# and the post-scan warm-up queues a whole library, so without this a cold
-# library saturates every core. Same sizing as the video pool in scanner.py.
-_THUMBNAIL_GEN_LIMIT = max(1, (os.cpu_count() or 4) // 2)
-_thumbnail_gen_semaphore = threading.Semaphore(_THUMBNAIL_GEN_LIMIT)
+# Concurrent generations (grid pages + the post-scan warm-up) share one Pillow
+# pool, sized like the video one: see thumbnail_common.
+_THUMBNAIL_GEN_LIMIT = THUMBNAIL_GEN_LIMIT
 
 
 def get_or_create_image_thumbnail(image_id: int, src_path: str) -> str | None:
@@ -130,25 +133,28 @@ def get_or_create_image_thumbnail(image_id: int, src_path: str) -> str | None:
 
     Scanning deliberately skips thumbnails (see scan_image_library) — they're
     made here on first view or by the post-scan `_warm_image_thumbnails` job,
-    whichever comes first. Returns None if the source can't be decoded. Written
-    to a temp file then renamed, so a concurrent reader never sees a
-    half-written JPEG.
+    whichever comes first. Returns None if the source can't be decoded (no
+    failure marker: the next request tries again). Written to a temp file then
+    renamed, so a concurrent reader never sees a half-written JPEG.
     """
     out_path = _thumbnail_path(image_id)
-    if os.path.exists(out_path):
-        return out_path
-    tmp_path = f"{out_path}.{threading.get_ident()}.tmp"
-    with _thumbnail_gen_semaphore:
+
+    def generate() -> bool:
+        # No per-id lock here: re-check once we hold a pool slot, since a request
+        # for the same image may have made it while we waited.
         if os.path.exists(out_path):
-            return out_path
+            return True
+        tmp_path = f"{out_path}.{threading.get_ident()}.tmp"
         try:
             generate_thumbnail(src_path, tmp_path)
             os.replace(tmp_path, out_path)
         except Exception:
             with contextlib.suppress(FileNotFoundError):
                 os.remove(tmp_path)
-            return None
-    return out_path
+            return False
+        return True
+
+    return get_or_create(out_path, generate, semaphore=IMAGE_THUMB_SEMAPHORE)
 
 
 def _warm_image_thumbnails(library_id: int) -> None:

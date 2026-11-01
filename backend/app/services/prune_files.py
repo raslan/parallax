@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 
 from app.config import DATA_DIR
-from app.services import image_scanner, prune_scan, scanner
+from app.services import image_scanner, prune_scan
 from app.services.audio_scanner import probe_audio
 from app.services.prune_sandbox import (
     DeleteFailed,
@@ -36,6 +36,11 @@ from app.services.prune_sandbox import (
 )
 from app.services.prune_scan import Counts
 from app.services.scanner import grab_frame, probe_file
+from app.services.thumbnail_common import (
+    IMAGE_THUMB_SEMAPHORE,
+    VIDEO_THUMB_SEMAPHORE,
+    get_or_create,
+)
 
 THUMB_DIR = os.path.join(DATA_DIR, "prune-thumbnails")
 
@@ -312,40 +317,36 @@ def thumbnail_for(path: str) -> str | None:
     maybe_evict_thumbnails()
     key = hashlib.sha1(f"{path}|{st.st_size}|{st.st_mtime_ns}".encode("utf-8", "surrogateescape"))
     stem = os.path.join(THUMB_DIR, key.hexdigest())
-    out, failed = f"{stem}.jpg", f"{stem}.jpg.failed"
-    if os.path.exists(out):
-        _touch(out)
-        return out
-    if os.path.exists(failed):
-        _touch(failed)
-        return None
-    with _LOCK_STRIPES[int(key.hexdigest(), 16) % len(_LOCK_STRIPES)]:
-        if os.path.exists(out):
-            return out
-        if os.path.exists(failed):
-            return None
+    out = f"{stem}.jpg"
+
+    def generate() -> bool:
         os.makedirs(THUMB_DIR, exist_ok=True)
-        tmp = f"{stem}.{threading.get_ident()}.tmp.jpg"
-        ok = False
+        tmp = f"{stem}.{threading.get_ident()}.tmp.jpg"  # name matched by eviction
         try:
             if kind == "image":
-                with image_scanner._thumbnail_gen_semaphore:
-                    image_scanner.generate_thumbnail(path, tmp)
+                image_scanner.generate_thumbnail(path, tmp)
                 ok = os.path.exists(tmp)
             else:
-                with scanner._thumbnail_gen_semaphore:
-                    ok = grab_frame(path, tmp) and os.path.exists(tmp)
+                ok = grab_frame(path, tmp) and os.path.exists(tmp)
             if ok:
                 os.replace(tmp, out)
+            return ok
         except Exception:
-            ok = False
+            return False
         finally:
             with contextlib.suppress(OSError):
                 os.remove(tmp)
-        if ok:
-            return out
-        with contextlib.suppress(OSError):
-            open(failed, "w").close()
+
+    try:
+        return get_or_create(
+            out,
+            generate,
+            semaphore=IMAGE_THUMB_SEMAPHORE if kind == "image" else VIDEO_THUMB_SEMAPHORE,
+            lock=lambda: _LOCK_STRIPES[int(key.hexdigest(), 16) % len(_LOCK_STRIPES)],
+            failed_path=f"{out}.failed",
+            on_hit=_touch,
+        )
+    except OSError:  # e.g. the .failed marker could not be written: just no thumbnail
         return None
 
 
