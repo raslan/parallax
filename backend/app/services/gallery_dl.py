@@ -19,6 +19,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections import deque
 from urllib.parse import urlsplit
@@ -169,6 +170,55 @@ def probe_ytdl_folder(url: str, cookies_file: str | None) -> str | None:
         return None
 
 
+def ytdl_stop_position(
+    url: str, cookies_file: str | None, stop_after: int, ytdlp_archive: str
+) -> int | None:
+    """1-based playlist position at which "stop after N existing" would have ended the run.
+
+    yt-dlp skips archived videos silently, so gallery-dl's `-T` never sees a skip and can't
+    fire. This redoes it up front over the cheap flat listing (ids only, no per-video
+    lookups, streamed and killed early): the position of the N-th *consecutive* archived entry
+    — gallery-dl's `-T` semantics, any new entry resets the count. Returned for
+    `--playlist-end`. None when it is never reached, the listing fails, or times out.
+    """
+    try:
+        with open(ytdlp_archive, encoding="utf-8") as f:
+            archived = {line.strip() for line in f}
+    except OSError:
+        return None
+    cmd = [sys.executable, "-m", "yt_dlp", "--flat-playlist", "--lazy-playlist"]
+    cmd += ["--print", "%(ie_key)s %(id)s", "--js-runtimes", f"deno:{DENO_BIN}", "--no-warnings"]
+    if cookies_file:
+        cmd += ["--cookies", cookies_file]
+    cmd.append(url)
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=_gallery_dl_env(),
+        )
+    except OSError:
+        return None
+    timer = threading.Timer(90, proc.kill)
+    timer.start()
+    try:
+        streak = 0
+        for position, line in enumerate(proc.stdout or (), start=1):
+            # yt-dlp lowercases only the extractor key in an archive id; video ids are
+            # case-sensitive.
+            key, _, vid = line.strip().partition(" ")
+            streak = streak + 1 if f"{key.lower()} {vid}" in archived else 0
+            if streak >= stop_after:
+                return position
+        return None
+    finally:
+        timer.cancel()
+        proc.kill()
+        proc.wait()
+
+
 def list_ytdl_impersonate_targets() -> list[str]:
     """Impersonate targets the *pip* yt-dlp (gallery-dl's ytdl backend) can actually use.
 
@@ -223,7 +273,7 @@ def ytdlp_sleep_requests(sleep_request: str) -> str | None:
     return _num(secs) if secs > 0 else None
 
 
-def ytdlp_args(opts: GalleryOptions, url: str) -> list[str]:
+def ytdlp_args(opts: GalleryOptions, url: str, playlist_end: int | None = None) -> list[str]:
     """yt-dlp CLI args for the ytdl backend — Downloads-page parity (quality/codec/audio-only,
     fragments, subtitles, impersonation, referer, throttle, extra args).
 
@@ -246,6 +296,8 @@ def ytdlp_args(opts: GalleryOptions, url: str) -> list[str]:
     # request. gallery-dl's archive is only consulted after each playlist entry is resolved.
     if opts.useArchive:
         args += ["--download-archive", ytdlp_archive_path(archive_path(opts))]
+    if playlist_end:
+        args += ["--playlist-end", str(playlist_end)]
     if (sleep := ytdlp_sleep_requests(opts.sleepRequest)) is not None:
         args += ["--sleep-requests", sleep]
     if opts.ytAudioOnly:
@@ -293,6 +345,7 @@ def build_gallerydl_cmd(
     *,
     backend: str = "native",
     folder: str | None = None,
+    playlist_end: int | None = None,
 ) -> list[str]:
     """argv for one gallery-dl run. *backend* is "native" (the URL as given), "ytdl" or
     "generic" (the URL behind gallery-dl's `ytdl:` / `generic:` prefix). *folder* names the
@@ -323,7 +376,8 @@ def build_gallerydl_cmd(
         directory = ["{extractor}", folder or "{channel|uploader}"]
         cmd += ["-o", "extractor.ytdl.generic=false"]
         cmd += ["-o", f"extractor.ytdl.raw-options={json.dumps(raw)}"]
-        cmd += ["-o", f"extractor.ytdl.cmdline-args={json.dumps(ytdlp_args(opts, url))}"]
+        yt_args = ytdlp_args(opts, url, playlist_end)
+        cmd += ["-o", f"extractor.ytdl.cmdline-args={json.dumps(yt_args)}"]
         cmd += ["-o", f"extractor.ytdl.directory={json.dumps(directory)}"]
 
     if opts.maxSizeValue is not None:
@@ -654,7 +708,22 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
         for i, backend in enumerate(rungs):
             target = url if backend == "native" else bare
             folder = _prepare_ytdl(target, cookies_tmp, state, opts) if backend == "ytdl" else None
-            cmd = build_gallerydl_cmd(target, opts, cookies_tmp, backend=backend, folder=folder)
+            playlist_end = None
+            if (
+                backend == "ytdl"
+                and opts.stopAfterExisting
+                and opts.useArchive
+                and not opts.range.strip()
+            ):
+                playlist_end = ytdl_stop_position(
+                    target,
+                    cookies_tmp,
+                    opts.stopAfterExisting,
+                    ytdlp_archive_path(archive_path(opts)),
+                )
+            cmd = build_gallerydl_cmd(
+                target, opts, cookies_tmp, backend=backend, folder=folder, playlist_end=playlist_end
+            )
             logger.info(
                 "gallery-dl row %s: backend=%s baseDir=%s argv=%s",
                 row_id,

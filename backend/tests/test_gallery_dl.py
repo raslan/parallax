@@ -21,6 +21,7 @@ from app.services.gallery_dl import (
     install_gallerydl,
     safe_folder_name,
     type_filter_expr,
+    ytdl_stop_position,
     ytdlp_args,
     ytdlp_sleep_requests,
 )
@@ -602,3 +603,53 @@ def test_ytdlp_sleep_requests_translates_gallery_dl_format():
     args = ytdlp_args(_opts(sleepRequest="2.5"), "u")
     assert args[args.index("--sleep-requests") + 1] == "2.5"
     assert "--sleep-requests" not in ytdlp_args(_opts(), "u")
+
+
+def test_ytdlp_args_playlist_end():
+    args = ytdlp_args(_opts(), "u", playlist_end=7)
+    assert args[args.index("--playlist-end") + 1] == "7"
+    assert "--playlist-end" not in ytdlp_args(_opts(), "u")
+
+
+class _FakeProc:
+    def __init__(self, lines):
+        self.stdout = iter(lines)
+
+    def kill(self):
+        pass
+
+    def wait(self):
+        pass
+
+
+def _stop_position(monkeypatch, tmp_path, listing, archived, stop_after):
+    archive = tmp_path / "yt.txt"
+    archive.write_text("".join(f"youtube {i}\n" for i in archived))
+    monkeypatch.setattr(
+        gallery_dl.subprocess,
+        "Popen",
+        lambda *a, **k: _FakeProc([f"Youtube {i}\n" for i in listing]),
+    )
+    return ytdl_stop_position("u", None, stop_after, str(archive))
+
+
+def test_ytdl_stop_position_is_the_nth_consecutive_archived_entry(monkeypatch, tmp_path):
+    # two new videos, then the archive begins: stop 2 archived in a row -> position 4
+    assert _stop_position(monkeypatch, tmp_path, ["n1", "n2", "a", "b", "c"], "abc", 2) == 4
+    assert _stop_position(monkeypatch, tmp_path, ["n1", "n2", "a", "b", "c"], "abc", 1) == 3
+
+
+def test_ytdl_stop_position_a_new_entry_resets_the_streak(monkeypatch, tmp_path):
+    # a(arch) n(new) b(arch) c(arch): the streak of 2 only completes at position 4
+    assert _stop_position(monkeypatch, tmp_path, ["a", "n", "b", "c"], "abc", 2) == 4
+
+
+def test_ytdl_stop_position_ids_are_case_sensitive_and_extractor_key_is_not(monkeypatch, tmp_path):
+    # real YouTube ids mix case; only the "Youtube" key is lowercased in the archive
+    assert _stop_position(monkeypatch, tmp_path, ["_d0vSZxixBE", "x"], ["_d0vSZxixBE"], 1) == 1
+    assert _stop_position(monkeypatch, tmp_path, ["_d0vSZxixBE"], ["_d0vszxixbe"], 1) is None
+
+
+def test_ytdl_stop_position_never_reached_or_no_archive(monkeypatch, tmp_path):
+    assert _stop_position(monkeypatch, tmp_path, ["n1", "a", "n2"], "a", 2) is None
+    assert ytdl_stop_position("u", None, 2, str(tmp_path / "missing.txt")) is None
