@@ -125,6 +125,7 @@ function FileCard({
   detailsLoading,
   index,
   selected,
+  leaving,
   onOpen,
   onToggleSelect,
 }: {
@@ -133,6 +134,7 @@ function FileCard({
   detailsLoading: boolean;
   index: number;
   selected: boolean;
+  leaving: boolean;
   onOpen: (f: PruneFile) => void;
   onToggleSelect?: (f: PruneFile, e: React.MouseEvent) => void;
 }) {
@@ -142,6 +144,7 @@ function FileCard({
     <div
       className={cn(
         "group relative flex h-full animate-slide-up-fade flex-col overflow-hidden rounded-lg border bg-px-elevated transition-all duration-150 ease-out [animation-fill-mode:backwards]",
+        leaving && "pointer-events-none scale-95 opacity-0 duration-200 motion-reduce:scale-100",
         selected
           ? "border-primary ring-1 ring-primary"
           : "hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg",
@@ -196,6 +199,7 @@ function FileRow({
   detailsLoading,
   index,
   selected,
+  leaving,
   onOpen,
   onToggleSelect,
 }: {
@@ -204,6 +208,7 @@ function FileRow({
   detailsLoading: boolean;
   index: number;
   selected: boolean;
+  leaving: boolean;
   onOpen: (f: PruneFile) => void;
   onToggleSelect?: (f: PruneFile, e: React.MouseEvent) => void;
 }) {
@@ -211,7 +216,9 @@ function FileRow({
   return (
     <div
       className={cn(
-        "group relative flex h-full animate-slide-up-fade items-center gap-3 border-b px-3 transition-colors duration-100 [animation-fill-mode:backwards] last:border-b-0",
+        "group relative flex h-full animate-slide-up-fade items-center gap-3 border-b px-3 transition-all duration-100 [animation-fill-mode:backwards] last:border-b-0",
+        leaving &&
+          "pointer-events-none -translate-x-2 opacity-0 duration-200 motion-reduce:translate-x-0",
         selected ? "bg-accent/60" : "hover:bg-accent/40",
       )}
       style={{ animationDelay: `${Math.min(index, 14) * 28}ms` }}
@@ -257,21 +264,27 @@ function FileRow({
  * The open folder's direct files as a thumbnail grid or list, with click-to-preview
  * (video/audio in the player modal, images in the lightbox). Props-in/callbacks-out:
  * `files` arrives already filtered (undefined = loading) and `details` streams in
- * from `usePruneDetails`. Selection is optional (`selected` + `onToggleSelect`) so
- * the toolbar/bulk-delete layer can be added around this without changing it.
+ * from `usePruneDetails`. Selection is optional (`selected` + `onToggleSelect`);
+ * `leaving` paths play the delete exit animation before the list refetches.
+ * `filtered` swaps the empty-state copy when a filter hides everything.
  */
 export function FileBrowser({
   files,
   details,
   progress,
   selected,
+  leaving,
   onToggleSelect,
+  filtered,
 }: {
   files: PruneFile[] | undefined;
   details: DetailsMap;
   progress: { loaded: number; total: number; done: boolean };
   selected?: ReadonlySet<string>;
+  leaving?: ReadonlySet<string>;
   onToggleSelect?: (file: PruneFile, e: React.MouseEvent) => void;
+  /** True when a filter is active, so an empty list reads as "nothing matches". */
+  filtered?: boolean;
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [gridSize, setGridSize] = useGridSize(240);
@@ -288,6 +301,7 @@ export function FileBrowser({
       detailsLoading,
       index: files?.indexOf(f) ?? 0,
       selected: sel.has(f.path),
+      leaving: leaving?.has(f.path) ?? false,
       onOpen: setPreview,
       onToggleSelect,
     };
@@ -319,8 +333,12 @@ export function FileBrowser({
         <EmptyState
           size="sm"
           icon={FolderOpen}
-          title="No files here"
-          description="Files in this folder were moved or deleted since the last scan. Rescan to refresh."
+          title={filtered ? "No files match" : "No files here"}
+          description={
+            filtered
+              ? "Nothing in this folder matches the current filters. Adjust or remove a filter to see files again."
+              : "Files in this folder were moved or deleted since the last scan. Rescan to refresh."
+          }
         />
       ) : viewMode === "grid" ? (
         <VirtualizedGrid

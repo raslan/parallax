@@ -66,7 +66,6 @@ function compareNumber(actual: number, operator: Operator, v: number): boolean {
   return operator === "gt" ? actual > v : actual < v;
 }
 
-/** @public — consumed by the Prune page in the page-wiring task. */
 export const pruneFields: FieldDef<PruneRow>[] = [
   {
     key: "name",

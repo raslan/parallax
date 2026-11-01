@@ -20,7 +20,6 @@
  *    nested under the tightest such parent (bitset subset test).
  */
 
-/** @public — consumed by the Prune page in the page-wiring task. */
 export type NameGroup = { text: string; count: number; children: NameGroup[] };
 
 interface Options {
@@ -69,7 +68,6 @@ function sameFiles(a: number[], b: number[]): boolean {
   return true;
 }
 
-/** @public — consumed by the Prune page in the page-wiring task. */
 export function detectNameGroups(names: string[], opts: Options = {}): NameGroup[] {
   const minCount = Math.max(2, opts.minCount ?? 5);
   const minLength = Math.max(1, opts.minLength ?? 2);
@@ -349,8 +347,6 @@ function buildTree(groups: RawGroup[], fileCount: number, maxGroups: number): Na
  * Narrow groups by a typed string (case-insensitive contains). A group that
  * matches keeps its whole subtree; otherwise it survives only through
  * matching descendants.
- *
- * @public
  */
 export function filterGroups(groups: NameGroup[], typed: string): NameGroup[] {
   const q = typed.normalize("NFC").trim().toLowerCase();

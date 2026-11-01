@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, FolderTree } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, FolderTree, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { GridSizeControl } from "@/components/GridSizeControl";
+import { IconButton } from "@/components/IconButton";
 import { Tip } from "@/components/Tip";
 import { ViewToggle, type ViewMode } from "@/components/DataToolbar";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
@@ -35,10 +36,17 @@ export function FolderBrowser({
   folder,
   onNavigate,
   onDelete,
+  onDeleteOpen,
+  leaving,
 }: {
   folder: PruneFolder | undefined;
   onNavigate: (path: string) => void;
+  /** Delete one of the listed subfolders. */
   onDelete?: (folder: FolderNodeInfo) => void;
+  /** Delete the open folder itself (header action); omit at the root. */
+  onDeleteOpen?: () => void;
+  /** Subfolder paths playing their delete exit animation. */
+  leaving?: ReadonlySet<string>;
 }) {
   const [sortKey, setSortKey] = useState<FolderSortKey>("files");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -67,7 +75,7 @@ export function FolderBrowser({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <nav aria-label="Folder path" className="min-w-0">
+        <nav aria-label="Folder path" className="flex min-w-0 flex-wrap items-center">
           <ol className="flex flex-wrap items-center gap-0.5 text-sm">
             {crumbs.map((c, i) => {
               const last = i === crumbs.length - 1;
@@ -95,6 +103,15 @@ export function FolderBrowser({
               );
             })}
           </ol>
+          {onDeleteOpen && folder && (
+            <IconButton
+              label={`Delete ${folder.name}`}
+              onClick={onDeleteOpen}
+              className="ml-1 flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors duration-100 hover:border-destructive/50 hover:text-destructive focus-visible:border-destructive/50 focus-visible:outline-hidden"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </IconButton>
+          )}
         </nav>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -176,6 +193,7 @@ export function FolderBrowser({
               shareBy={shareBy}
               layout="grid"
               index={sorted.indexOf(f)}
+              leaving={leaving?.has(f.path)}
               onOpen={onNavigate}
               onDelete={onDelete}
             />
@@ -197,6 +215,7 @@ export function FolderBrowser({
                 shareBy={shareBy}
                 layout="list"
                 index={sorted.indexOf(f)}
+                leaving={leaving?.has(f.path)}
                 onOpen={onNavigate}
                 onDelete={onDelete}
               />

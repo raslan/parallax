@@ -75,6 +75,7 @@ export function FolderCard({
   shareBy,
   layout,
   index,
+  leaving = false,
   onOpen,
   onDelete,
 }: {
@@ -84,9 +85,14 @@ export function FolderCard({
   layout: "grid" | "list";
   /** Position in the list; drives the staggered enter delay (capped). */
   index: number;
+  /** Plays the delete exit animation. */
+  leaving?: boolean;
   onOpen: (path: string) => void;
   onDelete?: (folder: FolderNodeInfo) => void;
 }) {
+  const exit = leaving
+    ? "pointer-events-none scale-95 opacity-0 transition-all duration-200 motion-reduce:scale-100"
+    : "";
   const share = shareOf(folder.total, parentTotal, shareBy);
   const files = folder.total.files;
   const style = { animationDelay: `${Math.min(index, 14) * 28}ms` };
@@ -107,7 +113,10 @@ export function FolderCard({
   if (layout === "list") {
     return (
       <div
-        className="group relative h-full animate-slide-up-fade border-b [animation-fill-mode:backwards] last:border-b-0"
+        className={cn(
+          "group relative h-full animate-slide-up-fade border-b [animation-fill-mode:backwards] last:border-b-0",
+          exit,
+        )}
         style={style}
       >
         <button
@@ -138,7 +147,10 @@ export function FolderCard({
 
   return (
     <div
-      className="group relative h-full animate-slide-up-fade [animation-fill-mode:backwards]"
+      className={cn(
+        "group relative h-full animate-slide-up-fade [animation-fill-mode:backwards]",
+        exit,
+      )}
       style={style}
     >
       <button

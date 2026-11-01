@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tip } from "@/components/Tip";
 import { formatSize } from "@/lib/format";
 
 /**
@@ -35,10 +36,12 @@ export function SelectionBar({
       </span>
       {summary}
       {children}
-      <Button size="sm" variant="ghost" onClick={onClear} className="px-2">
-        <X className="mr-1 h-3.5 w-3.5" />
-        Clear
-      </Button>
+      <Tip label="Clear the selection (files are not touched)">
+        <Button size="sm" variant="ghost" onClick={onClear} className="px-2">
+          <X className="mr-1 h-3.5 w-3.5" />
+          Clear
+        </Button>
+      </Tip>
     </div>
   );
 }
