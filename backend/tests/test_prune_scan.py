@@ -151,6 +151,32 @@ def test_snapshot_copies_node(tmp_path):
     assert prune_scan.snapshot(os.path.join(root, "sub")) is None
 
 
+def test_folder_view_breadcrumbs_parent_and_sorted_subfolders(tmp_path):
+    root_p = make_tree(tmp_path)
+    for n in ("B", "a", "한글"):
+        (root_p / "sub" / n).mkdir()
+    root = str(root_p.resolve())
+    scan(root)
+
+    top = prune_scan.folder_view(root, root)
+    assert top["parent"] is None
+    assert top["breadcrumbs"] == [{"name": os.path.basename(root), "path": root}]
+    assert top["total"]["files"] == 5 and top["direct"]["files"] == 2
+
+    sub = os.path.join(root, "sub")
+    view = prune_scan.folder_view(root, sub)
+    assert view["path"] == sub and view["name"] == "sub" and view["parent"] == root
+    assert [s["name"] for s in view["subfolders"]] == ["a", "B", "deep", "한글"]  # casefold
+
+    deep = prune_scan.folder_view(root, os.path.join(sub, "deep"))
+    assert deep["breadcrumbs"] == [
+        {"name": os.path.basename(root), "path": root},
+        {"name": "sub", "path": sub},
+        {"name": "deep", "path": os.path.join(sub, "deep")},
+    ]
+    assert prune_scan.folder_view(root, os.path.join(root, "nope")) is None
+
+
 def test_invalidate_clears(tmp_path):
     root = str(make_tree(tmp_path).resolve())
     scan(root)

@@ -66,19 +66,8 @@ def scan_state() -> dict:
 
 def get_node(path: str) -> FolderNode | None:
     with _lock:
-        node = _tree
-        if node is None:
-            return None
-        rel = os.path.relpath(path, node.path)
-        if rel == ".":
-            return node
-        if rel.startswith(".."):
-            return None
-        for part in rel.split(os.sep):
-            node = node.children.get(part)
-            if node is None:
-                return None
-        return node
+        chain = _ancestors(path)
+        return chain[-1] if chain else None
 
 
 def invalidate() -> None:
@@ -232,6 +221,31 @@ def snapshot(path: str) -> dict | None:
                 for c in node.children.values()
             ],
         }
+
+
+def folder_view(root: str, real: str) -> dict | None:
+    """``snapshot(real)`` shaped for the folder page: breadcrumbs from ``root`` down,
+    ``parent`` (None at the root) and subfolders sorted case-insensitively.
+    ``real`` must already be sandboxed inside ``root``. None when not cached."""
+    node = snapshot(real)
+    if node is None:
+        return None
+    crumbs = [{"name": os.path.basename(root) or root, "path": root}]
+    cur = root
+    rel = os.path.relpath(real, root)
+    if rel != ".":
+        for part in rel.split(os.sep):
+            cur = os.path.join(cur, part)
+            crumbs.append({"name": part, "path": cur})
+    return {
+        "path": node["path"],
+        "name": node["name"],
+        "parent": os.path.dirname(real) if real != root else None,
+        "breadcrumbs": crumbs,
+        "direct": node["direct"],
+        "total": node["total"],
+        "subfolders": sorted(node["children"], key=lambda c: c["name"].casefold()),
+    }
 
 
 def apply_deleted_files(folder: str, counts: Counts) -> None:
