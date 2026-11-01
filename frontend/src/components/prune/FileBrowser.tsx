@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Check, FileIcon, Film, FolderOpen, ImageIcon, Music, Play } from "lucide-react";
+import { FileIcon, Film, FolderOpen, ImageIcon, Music } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/EmptyState";
+import { FileGridCard, FileListRow } from "@/components/FileSelectGrid";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tip } from "@/components/Tip";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import type { ViewMode } from "@/components/DataToolbar";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
@@ -25,8 +25,10 @@ const KIND_ICON: Record<PruneFile["kind"], LucideIcon> = {
 /** Chrome plays these natively; the backend 400s `/prune/audio` for them. */
 const NATIVE_AUDIO = new Set([".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".flac"]);
 
-const CARD_CHROME = 64; // footer height under the 4:3 thumbnail
-const ROW_HEIGHT = 52;
+// Real heights of the shared FileGridCard footer (filename + one meta line) and
+// FileListRow (~48px + border); Compress/Toolbox use the same numbers.
+const CARD_CHROME = 48;
+const ROW_HEIGHT = 50;
 
 type DetailsMap = Record<string, FileDetails | null>;
 
@@ -35,7 +37,10 @@ function extensionOf(name: string): string {
   return i < 0 ? "" : name.slice(i).toLowerCase();
 }
 
-/** Stand-in for the modals' library-row shape; only these fields are read. */
+/**
+ * Stand-in for the library-row shape the modals and the shared card/row read
+ * (`id` is unused: a custom thumbnail is always passed).
+ */
 function asPlayable(file: PruneFile, d: FileDetails | null | undefined) {
   return {
     id: 0,
@@ -85,9 +90,17 @@ function Thumb({ file, className }: { file: PruneFile; className?: string }) {
 }
 
 /** "12:04 · 1920×1080 · h264" with a shimmer while details are still loading. */
-function Meta({ d, loading }: { d: FileDetails | null | undefined; loading: boolean }) {
+function Meta({
+  d,
+  loading,
+  className,
+}: {
+  d: FileDetails | null | undefined;
+  loading: boolean;
+  className?: string;
+}) {
   if (d === undefined) {
-    return loading ? <Skeleton className="h-3 w-24" /> : null;
+    return loading ? <Skeleton className="h-3 w-24 shrink-0" /> : null;
   }
   if (d === null) return null;
   const parts = [
@@ -98,173 +111,32 @@ function Meta({ d, loading }: { d: FileDetails | null | undefined; loading: bool
   ].filter(Boolean);
   if (parts.length === 0) return null;
   return (
-    <span className="block animate-fade-in truncate font-mono text-2xs tabular-nums text-muted-foreground">
+    <span className={cn("animate-fade-in truncate font-mono tabular-nums", className)}>
       {parts.join(" · ")}
     </span>
   );
 }
 
-function SelectMark({ selected }: { selected: boolean }) {
-  return (
-    <span
-      className={cn(
-        "flex h-5 w-5 items-center justify-center rounded-md border bg-px-elevated transition-all duration-100",
-        selected ? "border-primary bg-primary text-px-on-accent" : "text-transparent",
-      )}
-    >
-      <Check className="h-3 w-3" />
-    </span>
-  );
-}
-
-function FileCard({
-  file,
-  d,
-  detailsLoading,
-  index,
-  selected,
-  leaving,
-  onOpen,
-  onToggleSelect,
-}: {
-  file: PruneFile;
-  d: FileDetails | null | undefined;
-  detailsLoading: boolean;
-  index: number;
-  selected: boolean;
-  leaving: boolean;
-  onOpen: (f: PruneFile) => void;
-  onToggleSelect?: (f: PruneFile, e: React.MouseEvent) => void;
-}) {
-  const playable = file.kind !== "other";
-  const thumb = <Thumb file={file} className="aspect-4/3 w-full" />;
-  return (
-    <div
-      className={cn(
-        "group relative flex h-full animate-slide-up-fade flex-col overflow-hidden rounded-lg border bg-px-elevated transition-all duration-150 ease-out [animation-fill-mode:backwards]",
-        leaving && "pointer-events-none scale-95 opacity-0 duration-200 motion-reduce:scale-100",
-        selected
-          ? "border-primary ring-1 ring-primary"
-          : "hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg",
-      )}
-      style={{ animationDelay: `${Math.min(index, 14) * 28}ms` }}
-    >
-      {playable ? (
-        <button
-          type="button"
-          onClick={() => onOpen(file)}
-          aria-label={`${file.kind === "image" ? "View" : "Play"} ${file.name}`}
-          className="relative block w-full focus-visible:outline-hidden"
-        >
-          {thumb}
-          <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 touch:opacity-0">
-            <Play className="h-7 w-7 fill-white text-white" />
-          </span>
-        </button>
-      ) : (
-        thumb
-      )}
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-0.5 border-t px-2.5 py-1.5">
-        <Tip label={file.name}>
-          <span className="truncate text-sm font-medium">{file.name}</span>
-        </Tip>
-        <span className="font-mono text-2xs tabular-nums text-muted-foreground">
-          {formatSize(file.size)}
-        </span>
-        <Meta d={d} loading={detailsLoading} />
-      </div>
-      {onToggleSelect && (
-        <button
-          type="button"
-          aria-label={`${selected ? "Deselect" : "Select"} ${file.name}`}
-          aria-pressed={selected}
-          onClick={(e) => onToggleSelect(file, e)}
-          className={cn(
-            "absolute left-2 top-2 z-10 transition-opacity duration-100 focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100",
-            selected ? "opacity-100" : "opacity-0",
-          )}
-        >
-          <SelectMark selected={selected} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function FileRow({
-  file,
-  d,
-  detailsLoading,
-  index,
-  selected,
-  leaving,
-  onOpen,
-  onToggleSelect,
-}: {
-  file: PruneFile;
-  d: FileDetails | null | undefined;
-  detailsLoading: boolean;
-  index: number;
-  selected: boolean;
-  leaving: boolean;
-  onOpen: (f: PruneFile) => void;
-  onToggleSelect?: (f: PruneFile, e: React.MouseEvent) => void;
-}) {
-  const playable = file.kind !== "other";
-  return (
-    <div
-      className={cn(
-        "group relative flex h-full animate-slide-up-fade items-center gap-3 border-b px-3 transition-all duration-100 [animation-fill-mode:backwards] last:border-b-0",
-        leaving &&
-          "pointer-events-none -translate-x-2 opacity-0 duration-200 motion-reduce:translate-x-0",
-        selected ? "bg-accent/60" : "hover:bg-accent/40",
-      )}
-      style={{ animationDelay: `${Math.min(index, 14) * 28}ms` }}
-    >
-      {onToggleSelect && (
-        <button
-          type="button"
-          aria-label={`${selected ? "Deselect" : "Select"} ${file.name}`}
-          aria-pressed={selected}
-          onClick={(e) => onToggleSelect(file, e)}
-        >
-          <SelectMark selected={selected} />
-        </button>
-      )}
-      <button
-        type="button"
-        disabled={!playable}
-        onClick={() => onOpen(file)}
-        aria-label={`${file.kind === "image" ? "View" : "Play"} ${file.name}`}
-        className="relative h-8 w-14 shrink-0 overflow-hidden rounded-md focus-visible:outline-hidden disabled:cursor-default"
-      >
-        <Thumb file={file} className="h-full w-full" />
-        {playable && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-150 group-hover:opacity-100 touch:opacity-0">
-            <Play className="h-3.5 w-3.5 fill-white text-white" />
-          </span>
-        )}
-      </button>
-      <span className="min-w-0 flex-1">
-        <Tip label={file.name}>
-          <span className="block truncate text-sm font-medium">{file.name}</span>
-        </Tip>
-        <Meta d={d} loading={detailsLoading} />
-      </span>
-      <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
-        {formatSize(file.size)}
-      </span>
-    </div>
+/** Delete exit animation (before the refetch drops the row) + the enter fade. */
+function motionClass(layout: "grid" | "list", leaving: boolean) {
+  return cn(
+    "animate-slide-up-fade",
+    leaving &&
+      (layout === "grid"
+        ? "pointer-events-none scale-95 opacity-0 transition-all duration-200 motion-reduce:scale-100"
+        : "pointer-events-none -translate-x-2 opacity-0 transition-all duration-200 motion-reduce:translate-x-0"),
   );
 }
 
 /**
  * The open folder's direct files as a thumbnail grid or list, with click-to-preview
- * (video/audio in the player modal, images in the lightbox). Props-in/callbacks-out:
- * `files` arrives already filtered (undefined = loading) and `details` streams in
- * from `usePruneDetails`. Selection is optional (`selected` + `onToggleSelect`);
- * `leaving` paths play the delete exit animation before the list refetches.
- * `filtered` swaps the empty-state copy when a filter hides everything.
+ * (video/audio in the player modal, images in the lightbox). Renders the app's shared
+ * `FileGridCard` / `FileListRow`, passing Prune's path thumbnail and details line in
+ * through their slots. Props-in/callbacks-out: `files` arrives already filtered
+ * (undefined = loading) and `details` streams in from `usePruneDetails`. Selection is
+ * optional (`selected` + `onToggleSelect`); `leaving` paths play the delete exit
+ * animation before the list refetches. `filtered` swaps the empty-state copy when a
+ * filter hides everything.
  */
 export function FileBrowser({
   files,
@@ -298,7 +170,7 @@ export function FileBrowser({
   };
   selected?: ReadonlySet<string>;
   leaving?: ReadonlySet<string>;
-  onToggleSelect?: (file: PruneFile, e: React.MouseEvent) => void;
+  onToggleSelect?: (file: PruneFile) => void;
   /** True when a filter is active, so an empty list reads as "nothing matches". */
   filtered?: boolean;
 }) {
@@ -313,19 +185,48 @@ export function FileBrowser({
   const none: ReadonlySet<string> = new Set();
   const sel = selected ?? none;
 
-  const renderItem = (layout: "grid" | "list") => (f: PruneFile) => {
-    const props = {
-      file: f,
-      d: details[f.path],
-      detailsLoading,
-      index: files?.indexOf(f) ?? 0,
-      selected: sel.has(f.path),
-      leaving: leaving?.has(f.path) ?? false,
-      onOpen: setPreview,
-      onToggleSelect,
-    };
-    return layout === "grid" ? <FileCard {...props} /> : <FileRow {...props} />;
-  };
+  const shared = (f: PruneFile) => ({
+    file: asPlayable(f, details[f.path]),
+    selected: sel.has(f.path),
+    selectable: onToggleSelect !== undefined,
+    onToggle: () => onToggleSelect?.(f),
+    onPlay: () => setPreview(f),
+    playable: f.kind !== "other",
+  });
+
+  const renderGrid = (f: PruneFile) => (
+    <FileGridCard
+      {...shared(f)}
+      className={motionClass("grid", leaving?.has(f.path) ?? false)}
+      thumbnail={<Thumb file={f} className="h-full w-full" />}
+      footer={
+        <div className="flex min-w-0 items-center gap-2 text-3xs text-muted-foreground">
+          <span className="shrink-0">{formatSize(f.size)}</span>
+          <Meta d={details[f.path]} loading={detailsLoading} className="min-w-0" />
+        </div>
+      }
+    />
+  );
+
+  const renderList = (f: PruneFile) => (
+    <FileListRow
+      {...shared(f)}
+      className={motionClass("list", leaving?.has(f.path) ?? false)}
+      thumbnail={<Thumb file={f} className="h-8 w-14 rounded" />}
+      columns={
+        <>
+          <Meta
+            d={details[f.path]}
+            loading={detailsLoading}
+            className="hidden max-w-[45%] shrink text-right text-xs text-muted-foreground/60 sm:block"
+          />
+          <span className="w-16 shrink-0 text-right font-mono text-xs text-muted-foreground/70">
+            {formatSize(f.size)}
+          </span>
+        </>
+      }
+    />
+  );
 
   return (
     <div className="space-y-3">
@@ -367,7 +268,7 @@ export function FileBrowser({
           scrollElement={scrollElement}
           {...own}
           {...marquee}
-          renderItem={renderItem("grid")}
+          renderItem={renderGrid}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-px-elevated">
@@ -379,7 +280,7 @@ export function FileBrowser({
             scrollElement={scrollElement}
             {...own}
             {...marquee}
-            renderItem={renderItem("list")}
+            renderItem={renderList}
           />
         </div>
       )}
