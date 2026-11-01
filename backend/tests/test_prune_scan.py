@@ -103,6 +103,54 @@ def test_remove_folder_updates_ancestors(tmp_path):
     assert prune_scan.get_node(root) is not None
 
 
+def test_apply_deleted_files_unknown_path_is_noop(tmp_path):
+    root = str(make_tree(tmp_path).resolve())
+    scan(root)
+    before = prune_scan.get_node(root).total
+    snap = Counts(**vars(before))
+    prune_scan.apply_deleted_files(os.path.join(root, "nope"), Counts(files=1, bytes=5))
+    prune_scan.apply_deleted_files("/elsewhere", Counts(files=1, bytes=5))
+    assert prune_scan.get_node(root).total == snap
+
+
+def test_apply_deleted_files_clamps_at_zero(tmp_path):
+    root = str(make_tree(tmp_path).resolve())
+    scan(root)
+    deep = os.path.join(root, "sub", "deep")
+    prune_scan.apply_deleted_files(deep, Counts(files=9, audio=9, images=9, bytes=99999))
+    node = prune_scan.get_node(deep)
+    assert node.direct == Counts() and node.total == Counts()
+    for p in (root, os.path.join(root, "sub")):
+        t = prune_scan.get_node(p).total
+        assert min(vars(t).values()) >= 0
+
+
+def test_remove_folder_clamps_and_unknown_noop(tmp_path):
+    root = str(make_tree(tmp_path).resolve())
+    scan(root)
+    sub = prune_scan.get_node(os.path.join(root, "sub"))
+    # simulate drift: the parent total is already lower than the child's
+    prune_scan.get_node(root).total.files = 0
+    prune_scan.get_node(root).total.bytes = 0
+    prune_scan.remove_folder(os.path.join(root, "nope"))
+    assert "sub" in prune_scan.get_node(root).children
+    prune_scan.remove_folder(sub.path)
+    t = prune_scan.get_node(root).total
+    assert min(vars(t).values()) >= 0
+
+
+def test_snapshot_copies_node(tmp_path):
+    root = str(make_tree(tmp_path).resolve())
+    scan(root)
+    snap = prune_scan.snapshot(root)
+    assert snap["name"] == os.path.basename(root)
+    assert [c["name"] for c in snap["children"]] == ["sub"]
+    assert snap["total"]["files"] == 5
+    prune_scan.remove_folder(os.path.join(root, "sub"))
+    assert [c["name"] for c in snap["children"]] == ["sub"]  # detached copy
+    assert prune_scan.snapshot(os.path.join(root, "sub")) is None
+
+
 def test_invalidate_clears(tmp_path):
     root = str(make_tree(tmp_path).resolve())
     scan(root)

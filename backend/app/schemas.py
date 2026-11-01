@@ -372,3 +372,30 @@ class PruneFolder(BaseModel):
     direct: PruneCounts
     total: PruneCounts
     subfolders: list[PruneSubfolder]
+
+
+class PruneFile(BaseModel):
+    name: str
+    path: str
+    kind: Literal["image", "video", "audio", "other"]
+    size: int
+    mtime: float
+
+
+class PruneDeleteBody(BaseModel):
+    paths: list[str]
+
+
+class PruneDeleteFailure(BaseModel):
+    path: str
+    error: str
+
+
+class PruneDeleteResult(BaseModel):
+    deleted: list[str]
+    failed: list[PruneDeleteFailure]
+    empty_folders: list[str]
+
+
+class PruneDeleteFolderBody(BaseModel):
+    path: str

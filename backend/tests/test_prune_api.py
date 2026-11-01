@@ -163,3 +163,94 @@ def test_sandboxed_maps_errors(tmp_path):
         with pytest.raises(HTTPException) as e:
             _sandboxed(root, path)
         assert e.value.status_code == status
+
+
+def _put_root(client, path):
+    assert client.put("/api/prune/root", json={"path": str(path)}).status_code == 200
+
+
+def test_files_endpoint_lists_unicode_and_other(client, tmp_path):
+    (tmp_path / "한글.jpg").write_bytes(b"x")
+    (tmp_path / "n.txt").write_bytes(b"x")
+    (tmp_path / ".h.jpg").write_bytes(b"x")
+    _put_root(client, tmp_path)
+    r = client.get("/api/prune/files", params={"path": str(tmp_path)})
+    assert r.status_code == 200
+    got = {f["name"]: f["kind"] for f in r.json()}
+    assert got == {"한글.jpg": "image", "n.txt": "other"}
+
+
+def test_files_endpoint_errors(client, tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "f.txt").write_bytes(b"x")
+    assert client.get("/api/prune/files", params={"path": str(root)}).status_code == 409
+    _put_root(client, root)
+    assert client.get("/api/prune/files", params={"path": str(tmp_path)}).status_code == 403
+    assert client.get("/api/prune/files", params={"path": str(root / "f.txt")}).status_code == 400
+    assert client.get("/api/prune/files", params={"path": str(root / "zz")}).status_code == 404
+    assert client.get("/api/prune/files", params={"path": "\x00"}).status_code == 400
+
+
+def test_delete_endpoint(client, tmp_path):
+    (tmp_path / "a.jpg").write_bytes(b"x")
+    _put_root(client, tmp_path)
+    r = client.post(
+        "/api/prune/delete", json={"paths": [str(tmp_path / "a.jpg"), str(tmp_path / "gone.jpg")]}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["deleted"] == [str(tmp_path / "a.jpg")]
+    assert [f["path"] for f in body["failed"]] == [str(tmp_path / "gone.jpg")]
+    assert body["empty_folders"] == []  # the root is never offered for deletion
+
+
+def test_delete_endpoint_requires_root(client, tmp_path):
+    assert client.post("/api/prune/delete", json={"paths": []}).status_code == 409
+
+
+def test_delete_folder_requires_dir(client, tmp_path):
+    (tmp_path / "f.txt").write_bytes(b"x")
+    (tmp_path / "d").mkdir()
+    _put_root(client, tmp_path)
+    r = client.post("/api/prune/delete-folder", json={"path": str(tmp_path / "f.txt")})
+    assert r.status_code == 400
+    assert client.post("/api/prune/delete-folder", json={"path": str(tmp_path)}).status_code == 400
+    assert client.post("/api/prune/delete-folder", json={"path": "\x00"}).status_code == 400
+    assert (
+        client.post("/api/prune/delete-folder", json={"path": str(tmp_path / "x")}).status_code
+        == 404
+    )
+    assert (
+        client.post("/api/prune/delete-folder", json={"path": str(tmp_path / "d")}).status_code
+        == 204
+    )
+    assert not (tmp_path / "d").exists()
+
+
+def test_folder_endpoint_survives_concurrent_remove(client, tmp_path, _scan_reset):
+    import threading
+
+    from app.services import prune_scan
+
+    for i in range(300):
+        (tmp_path / f"d{i}").mkdir()
+    _put_root(client, tmp_path)
+    _scan_via_api(client)
+    root = str(tmp_path.resolve())
+    stop = threading.Event()
+
+    def churn():
+        for i in range(300):
+            if stop.is_set():
+                break
+            prune_scan.remove_folder(f"{root}/d{i}")
+
+    t = threading.Thread(target=churn)
+    t.start()
+    try:
+        for _ in range(20):
+            assert client.get("/api/prune/folder", params={"path": root}).status_code == 200
+    finally:
+        stop.set()
+        t.join()

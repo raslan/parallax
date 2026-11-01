@@ -7,7 +7,7 @@ never see a half-built tree. Hidden entries and symlinks are skipped.
 
 import os
 import threading
-from dataclasses import dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields
 
 from app.services.prune_sandbox import is_hidden, kind_of
 
@@ -150,15 +150,52 @@ def _ancestors(path: str) -> list[FolderNode] | None:
     return chain
 
 
+def file_counts(name: str, size: int) -> Counts:
+    """Counts for a single file, as the scan would have recorded it."""
+    c = Counts(files=1, bytes=size)
+    setattr(c, _KIND_FIELD[kind_of(name)], 1)
+    return c
+
+
+def _subtract(target: Counts, counts: Counts) -> None:
+    """Subtract, clamping at zero (the cache can lag the disk)."""
+    for f in fields(target):
+        setattr(target, f.name, max(0, getattr(target, f.name) - getattr(counts, f.name)))
+
+
+def snapshot(path: str) -> dict | None:
+    """Detached copy of a node's own data and its children, taken under the lock."""
+    with _lock:
+        chain = _ancestors(path)
+        if not chain:
+            return None
+        node = chain[-1]
+        return {
+            "path": node.path,
+            "name": node.name,
+            "direct": asdict(node.direct),
+            "total": asdict(node.total),
+            "children": [
+                {
+                    "path": c.path,
+                    "name": c.name,
+                    "direct": asdict(c.direct),
+                    "total": asdict(c.total),
+                }
+                for c in node.children.values()
+            ],
+        }
+
+
 def apply_deleted_files(folder: str, counts: Counts) -> None:
     """Subtract deleted files from ``folder``'s direct and every total up the chain."""
     with _lock:
         chain = _ancestors(folder)
         if not chain:
             return
-        chain[-1].direct.add(counts, -1)
+        _subtract(chain[-1].direct, counts)
         for n in chain:
-            n.total.add(counts, -1)
+            _subtract(n.total, counts)
 
 
 def remove_folder(path: str) -> None:
@@ -169,5 +206,5 @@ def remove_folder(path: str) -> None:
             return
         node = chain[-1]
         for n in chain[:-1]:
-            n.total.add(node.total, -1)
+            _subtract(n.total, node.total)
         del chain[-2].children[node.name]

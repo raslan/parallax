@@ -1,20 +1,24 @@
 import os
-from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.database import get_db
 from app.models.settings import get_setting, set_setting
 from app.schemas import (
     PruneCrumb,
+    PruneDeleteBody,
+    PruneDeleteFolderBody,
+    PruneDeleteResult,
+    PruneFile,
     PruneFolder,
     PruneRoot,
     PruneRootBody,
     PruneScanState,
     PruneSubfolder,
 )
-from app.services import prune_scan
+from app.services import prune_files, prune_scan
 from app.services.prune_sandbox import SandboxError, resolve_inside, validate_root
 
 router = APIRouter(prefix="/prune", tags=["prune"])
@@ -77,7 +81,7 @@ def read_folder(path: str, db: Session = Depends(get_db)):
     real = _sandboxed(root, path)
     if prune_scan.scan_state()["status"] == "running":
         raise HTTPException(409, "scanning")
-    node = prune_scan.get_node(real)
+    node = prune_scan.snapshot(real)
     if node is None:
         raise HTTPException(404, "Folder not found")
     crumbs = [PruneCrumb(name=os.path.basename(root) or root, path=root)]
@@ -87,16 +91,43 @@ def read_folder(path: str, db: Session = Depends(get_db)):
         for part in rel.split(os.sep):
             cur = os.path.join(cur, part)
             crumbs.append(PruneCrumb(name=part, path=cur))
-    subs = sorted(node.children.values(), key=lambda c: c.name.casefold())
+    subs = sorted(node["children"], key=lambda c: c["name"].casefold())
     return PruneFolder(
-        path=node.path,
-        name=node.name,
+        path=node["path"],
+        name=node["name"],
         parent=os.path.dirname(real) if real != root else None,
         breadcrumbs=crumbs,
-        direct=asdict(node.direct),
-        total=asdict(node.total),
-        subfolders=[
-            PruneSubfolder(name=c.name, path=c.path, direct=asdict(c.direct), total=asdict(c.total))
-            for c in subs
-        ],
+        direct=node["direct"],
+        total=node["total"],
+        subfolders=[PruneSubfolder(**c) for c in subs],
     )
+
+
+@router.get("/files", response_model=list[PruneFile])
+async def read_files(path: str, db: Session = Depends(get_db)):
+    root = get_root(db)
+    db.close()  # no connection held across the directory read
+    real = _sandboxed(root, path)
+    if not os.path.isdir(real):
+        raise HTTPException(400, "Not a folder")
+    try:
+        return await run_in_threadpool(prune_files.list_files, real)
+    except OSError as e:
+        raise HTTPException(409, "Folder could not be read") from e
+
+
+@router.post("/delete", response_model=PruneDeleteResult)
+async def delete_files(body: PruneDeleteBody, db: Session = Depends(get_db)):
+    root = get_root(db)
+    db.close()
+    return await run_in_threadpool(prune_files.delete_files, root, body.paths)
+
+
+@router.post("/delete-folder", status_code=204)
+async def delete_folder(body: PruneDeleteFolderBody, db: Session = Depends(get_db)):
+    root = get_root(db)
+    db.close()
+    try:
+        await run_in_threadpool(prune_files.delete_folder, root, body.path)
+    except SandboxError as e:
+        raise HTTPException(e.status, str(e)) from e
