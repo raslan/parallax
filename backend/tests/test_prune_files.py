@@ -4,7 +4,7 @@ import time
 import pytest
 
 from app.services import prune_files, prune_scan
-from app.services.prune_sandbox import SandboxError
+from app.services.prune_sandbox import FolderNotEmpty, InvalidPath, OutsideRoot
 
 
 @pytest.fixture(autouse=True)
@@ -131,9 +131,8 @@ def test_delete_folder_trailing_slash_symlink_refused(tmp_path):
     (root / "real" / "a.jpg").write_bytes(b"x")
     (root / "ln").symlink_to(root / "real")
     for suffix in ("/", "//"):
-        with pytest.raises(SandboxError) as e:
+        with pytest.raises(InvalidPath):
             prune_files.delete_folder(str(root), str(root / "ln") + suffix)
-        assert e.value.status == 400
     assert (root / "real" / "a.jpg").exists() and (root / "ln").is_symlink()
 
 
@@ -193,9 +192,8 @@ def test_delete_folder_recursive_with_hidden_and_symlink_inside(tmp_path):
 
 
 def test_delete_folder_refuses_root(tmp_path):
-    with pytest.raises(SandboxError) as e:
+    with pytest.raises(InvalidPath):
         prune_files.delete_folder(str(tmp_path), str(tmp_path))
-    assert e.value.status == 400
     assert tmp_path.exists()
 
 
@@ -207,18 +205,16 @@ def test_delete_folder_refuses_file_and_symlink(tmp_path):
     (root / "f.txt").write_bytes(b"x")
     (root / "ln").symlink_to(outside)
     for p in (root / "f.txt", root / "ln"):
-        with pytest.raises(SandboxError) as e:
+        with pytest.raises(InvalidPath):
             prune_files.delete_folder(str(root), str(p))
-        assert e.value.status == 400
     assert outside.exists() and (root / "ln").is_symlink()
 
 
 def test_delete_folder_refuses_hidden_dir(tmp_path):
     (tmp_path / ".git" / "objects").mkdir(parents=True)
     for p in (tmp_path / ".git", tmp_path / ".git" / "objects"):
-        with pytest.raises(SandboxError) as e:
+        with pytest.raises(InvalidPath):
             prune_files.delete_folder(str(tmp_path), str(p))
-        assert e.value.status == 400
     assert (tmp_path / ".git" / "objects").is_dir()
 
 
@@ -232,11 +228,25 @@ def test_delete_folder_only_if_empty(tmp_path):
     prune_files.delete_folder(str(root), str(root / "empty"), only_if_empty=True)
     assert not (root / "empty").exists()
     assert "empty" not in prune_scan.get_node(str(root)).children
-    with pytest.raises(SandboxError) as e:
+    with pytest.raises(FolderNotEmpty) as e:
         prune_files.delete_folder(str(root), str(root / "full"), only_if_empty=True)
-    assert e.value.status == 409 and str(e.value) == "Folder is no longer empty"
+    assert str(e.value) == "Folder is no longer empty"
     assert (root / "full" / ".keep").exists()
     assert "full" in prune_scan.get_node(str(root)).children  # cache untouched
+
+
+def test_delete_folder_rmtree_failure_is_delete_failed(tmp_path, monkeypatch):
+    from app.services.prune_sandbox import DeleteFailed
+
+    (tmp_path / "d").mkdir()
+
+    def boom(path):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(prune_files.shutil, "rmtree", boom)
+    with pytest.raises(DeleteFailed) as e:
+        prune_files.delete_folder(str(tmp_path), str(tmp_path / "d"))
+    assert str(e.value) == "Could not delete folder: Permission denied"
 
 
 def test_delete_folder_outside_root_and_nul(tmp_path):
@@ -244,12 +254,10 @@ def test_delete_folder_outside_root_and_nul(tmp_path):
     root.mkdir()
     other = tmp_path / "root-evil"
     other.mkdir()
-    with pytest.raises(SandboxError) as e:
+    with pytest.raises(OutsideRoot):
         prune_files.delete_folder(str(root), str(other))
-    assert e.value.status == 403
-    with pytest.raises(SandboxError) as e:
+    with pytest.raises(InvalidPath):
         prune_files.delete_folder(str(root), str(root) + "/\x00")
-    assert e.value.status == 400
     assert other.exists()
 
 

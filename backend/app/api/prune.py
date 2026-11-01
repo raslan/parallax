@@ -1,7 +1,8 @@
+import contextlib
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -22,7 +23,17 @@ from app.schemas import (
     PruneSubfolder,
 )
 from app.services import prune_files, prune_scan, stream_cache
-from app.services.prune_sandbox import SandboxError, kind_of, resolve_inside, validate_root
+from app.services.prune_sandbox import (
+    DeleteFailed,
+    FolderNotEmpty,
+    InvalidPath,
+    OutsideRoot,
+    PathNotFound,
+    SandboxError,
+    kind_of,
+    resolve_inside,
+    validate_root,
+)
 
 router = APIRouter(prefix="/prune", tags=["prune"])
 
@@ -45,13 +56,21 @@ def get_root(db: Session) -> str:
     return root
 
 
-def _sandboxed(root: str, path: str) -> str:
-    try:
-        return resolve_inside(root, path)
-    except SandboxError as e:
-        raise HTTPException(e.status, str(e)) from e
-    except ValueError as e:  # e.g. NUL byte in the path
-        raise HTTPException(400, "Invalid path") from e
+# The one place a sandbox refusal becomes an HTTP status (CODE_CONVENTIONS B3):
+# registered app-wide in main.py, so no route maps SandboxError by hand.
+_SANDBOX_STATUS: dict[type[SandboxError], int] = {
+    InvalidPath: 400,
+    OutsideRoot: 403,
+    PathNotFound: 404,
+    FolderNotEmpty: 409,
+    DeleteFailed: 500,
+}
+
+
+def sandbox_error_handler(request: Request | None, exc: SandboxError) -> JSONResponse:
+    """``SandboxError`` -> its status + ``{"detail": message}`` (HTTPException's shape)."""
+    status = next((s for cls, s in _SANDBOX_STATUS.items() if isinstance(exc, cls)), 500)
+    return JSONResponse({"detail": str(exc)}, status_code=status)
 
 
 @router.get("/root", response_model=PruneRoot)
@@ -61,12 +80,7 @@ def read_root(db: Session = Depends(get_db)):
 
 @router.put("/root", response_model=PruneRoot)
 def write_root(body: PruneRootBody, db: Session = Depends(get_db)):
-    try:
-        root = validate_root(body.path)
-    except SandboxError as e:
-        raise HTTPException(e.status, str(e)) from e
-    except ValueError as e:
-        raise HTTPException(400, "Invalid path") from e
+    root = validate_root(body.path)
     set_setting(db, _ROOT_KEY, root)
     prune_scan.invalidate()
     return PruneRoot(root=root)
@@ -88,7 +102,7 @@ def read_scan(db: Session = Depends(get_db)):
 @router.get("/folder", response_model=PruneFolder)
 def read_folder(path: str, db: Session = Depends(get_db)):
     root = get_root(db)
-    real = _sandboxed(root, path)
+    real = resolve_inside(root, path)
     if prune_scan.scan_state()["status"] == "running":
         raise HTTPException(409, "scanning")
     node = prune_scan.snapshot(real)
@@ -123,7 +137,7 @@ def read_folder(path: str, db: Session = Depends(get_db)):
 @router.get("/files", response_model=list[PruneFile])
 def read_files(path: str, db: Session = Depends(get_db)):
     root = get_root(db)
-    real = _sandboxed(root, path)
+    real = resolve_inside(root, path)
     if not os.path.isdir(real):
         raise HTTPException(400, "Not a folder")
     try:
@@ -142,18 +156,16 @@ def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
     root = get_root(db)
     paths = list(dict.fromkeys(body.paths))
     for p in paths:
-        try:
-            _sandboxed(root, p)  # 403/400 fail the batch; the service lstat()s the raw path
-        except HTTPException as e:
-            if e.status_code != 404:
-                raise  # a file that vanished just comes back null
+        # 403/400 fail the batch; the service lstat()s the raw path
+        with contextlib.suppress(PathNotFound):  # a file that vanished just comes back null
+            resolve_inside(root, p)
     return PruneDetailsResult(details=prune_files.get_details(paths))
 
 
 def _servable(db: Session, path: str) -> str:
     """Root check (frees the DB session) + sandbox + regular-file check. Returns the real path."""
     root = get_root(db)
-    real = _sandboxed(root, path)
+    real = resolve_inside(root, path)
     if not prune_files.servable_file(path):
         raise HTTPException(404, "File not found")
     return real
@@ -228,8 +240,4 @@ def delete_files(body: PruneDeleteBody, db: Session = Depends(get_db)):
 
 @router.post("/delete-folder", status_code=204)
 def delete_folder(body: PruneDeleteFolderBody, db: Session = Depends(get_db)):
-    root = get_root(db)
-    try:
-        prune_files.delete_folder(root, body.path, body.only_if_empty)
-    except SandboxError as e:
-        raise HTTPException(e.status, str(e)) from e
+    prune_files.delete_folder(get_root(db), body.path, body.only_if_empty)

@@ -9,6 +9,7 @@ from app.api import prune as api
 from app.models.settings import set_setting
 from app.schemas import PruneStreamBody
 from app.services import stream_cache
+from app.services.prune_sandbox import SandboxError
 
 _RUNNING = {"status": "running", "progress": 0.0, "error": None, "mode": "hls", "url": None}
 
@@ -52,6 +53,8 @@ def _both(db, path):
             codes.append(200)
         except HTTPException as e:
             codes.append(e.status_code)
+        except SandboxError as e:  # mapped by the app-wide handler in a real request
+            codes.append(api.sandbox_error_handler(None, e).status_code)
     return tuple(codes)
 
 

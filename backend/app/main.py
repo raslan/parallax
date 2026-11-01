@@ -28,6 +28,7 @@ from app.api.libraries import router as libraries_router
 from app.api.models import router as models_router
 from app.api.originals import router as originals_router
 from app.api.prune import router as prune_router
+from app.api.prune import sandbox_error_handler
 from app.api.settings import get_theme, safe_theme_id
 from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
@@ -39,6 +40,7 @@ from app.config import GALLERY_DL_DIR
 from app.database import SessionLocal, init_db
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
+from app.services.prune_sandbox import SandboxError
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -312,6 +314,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Typed service errors mapped to status + {"detail": ...} once (CODE_CONVENTIONS B3).
+app.add_exception_handler(SandboxError, sandbox_error_handler)
 
 app.include_router(health_router, prefix="/api")
 app.include_router(libraries_router, prefix="/api")

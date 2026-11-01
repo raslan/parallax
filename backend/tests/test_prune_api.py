@@ -209,17 +209,26 @@ def test_get_root_unset_returns_409(db):
     assert e.value.detail == "No folder selected"
 
 
-def test_sandboxed_maps_errors(tmp_path):
-    from app.api.prune import _sandboxed
+def test_one_handler_maps_every_sandbox_error():
+    """SandboxError subclasses map to status + {"detail": message} in one place."""
+    import json
 
-    root = str(tmp_path)
-    (tmp_path / "a.txt").write_text("x")
-    assert _sandboxed(root, str(tmp_path / "a.txt")) == str((tmp_path / "a.txt").resolve())
-    cases = [(str(tmp_path.parent), 403), (str(tmp_path / "missing"), 404), ("\x00", 400)]
-    for path, status in cases:
-        with pytest.raises(HTTPException) as e:
-            _sandboxed(root, path)
-        assert e.value.status_code == status
+    from app.api.prune import sandbox_error_handler
+    from app.main import app
+    from app.services import prune_sandbox as sb
+
+    assert app.exception_handlers[sb.SandboxError] is sandbox_error_handler
+    cases = [
+        (sb.InvalidPath("Invalid path"), 400),
+        (sb.OutsideRoot("Path is outside the root folder"), 403),
+        (sb.PathNotFound("Path does not exist"), 404),
+        (sb.FolderNotEmpty("Folder is no longer empty"), 409),
+        (sb.DeleteFailed("Could not delete folder: x"), 500),
+    ]
+    for exc, status in cases:
+        r = sandbox_error_handler(None, exc)
+        assert r.status_code == status
+        assert json.loads(r.body) == {"detail": str(exc)}
 
 
 def _put_root(client, path):

@@ -25,7 +25,15 @@ from PIL import Image
 from app.config import DATA_DIR
 from app.services import image_scanner, prune_scan, scanner
 from app.services.audio_scanner import probe_audio
-from app.services.prune_sandbox import SandboxError, is_hidden, kind_of, resolve_inside
+from app.services.prune_sandbox import (
+    DeleteFailed,
+    FolderNotEmpty,
+    InvalidPath,
+    SandboxError,
+    is_hidden,
+    kind_of,
+    resolve_inside,
+)
 from app.services.prune_scan import Counts
 from app.services.scanner import grab_frame, probe_file
 
@@ -249,33 +257,30 @@ def delete_folder(root: str, path: str, only_if_empty: bool = False) -> None:
     """Recursively delete a folder inside ``root`` (never the root, never a symlink).
 
     ``only_if_empty`` uses ``os.rmdir`` instead, so a folder that gained an
-    entry since it was offered as empty is kept (409).
+    entry since it was offered as empty is kept (``FolderNotEmpty``).
     """
     path = _strip_trailing_seps(path)
-    try:
-        if os.path.islink(path):
-            raise SandboxError(400, "Symbolic links are not deleted")
-        real = resolve_inside(root, path)
-    except ValueError as e:  # NUL byte
-        raise SandboxError(400, "Invalid path") from e
+    if os.path.islink(path):  # islink() is False for a NUL path; resolve_inside refuses it
+        raise InvalidPath("Symbolic links are not deleted")
+    real = resolve_inside(root, path)
     if real == os.path.realpath(root):
-        raise SandboxError(400, "The root folder cannot be deleted")
+        raise InvalidPath("The root folder cannot be deleted")
     if not os.path.isdir(real):
-        raise SandboxError(400, "Not a folder")
+        raise InvalidPath("Not a folder")
     if only_if_empty:
         try:
             os.rmdir(real)
         except OSError as e:
             if e.errno in (errno.ENOTEMPTY, errno.EEXIST):
-                raise SandboxError(409, "Folder is no longer empty") from e
-            raise SandboxError(500, f"Could not delete folder: {e.strerror or e}") from e
+                raise FolderNotEmpty("Folder is no longer empty") from e
+            raise DeleteFailed(f"Could not delete folder: {e.strerror or e}") from e
         prune_scan.remove_folder(real)
         return
     try:
         shutil.rmtree(real)
     except OSError as e:
         prune_scan.invalidate()  # partial delete: the cache can no longer be trusted
-        raise SandboxError(500, f"Could not delete folder: {e.strerror or e}") from e
+        raise DeleteFailed(f"Could not delete folder: {e.strerror or e}") from e
     prune_scan.remove_folder(real)
 
 

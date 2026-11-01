@@ -16,42 +16,69 @@ Kind = Literal["image", "video", "audio", "other"]
 
 
 class SandboxError(Exception):
-    def __init__(self, status: int, message: str):
-        super().__init__(message)
-        self.status = status
+    """Base of the Prune path/delete refusals. The message is user-facing; the HTTP
+    status for each subclass lives in one table in ``api/prune.py`` (B1/B3)."""
+
+
+class InvalidPath(SandboxError):
+    """Malformed or refused path: NUL byte, hidden entry, symlink, the root, a non-folder."""
+
+
+class OutsideRoot(SandboxError):
+    """The path resolves outside the saved root."""
+
+
+class PathNotFound(SandboxError):
+    """The path does not exist."""
+
+
+class FolderNotEmpty(SandboxError):
+    """``only_if_empty`` delete of a folder that gained an entry."""
+
+
+class DeleteFailed(SandboxError):
+    """The filesystem refused a folder delete."""
+
+
+def _realpath(path: str) -> str:
+    try:
+        return os.path.realpath(path)
+    except ValueError as e:  # NUL byte
+        raise InvalidPath("Invalid path") from e
 
 
 def validate_root(path: str) -> str:
     """Return the realpath of ``path`` if it is a usable root directory."""
-    real = os.path.realpath(path)
+    real = _realpath(path)
     if real == os.sep:
-        raise SandboxError(400, "The filesystem root cannot be used as a root folder")
+        raise InvalidPath("The filesystem root cannot be used as a root folder")
     if not os.path.isdir(real):
-        raise SandboxError(400, "Root folder does not exist or is not a directory")
+        raise InvalidPath("Root folder does not exist or is not a directory")
     return real
 
 
 def resolve_inside(root: str, path: str) -> str:
     """Return the realpath of ``path`` if it is ``root`` or inside it.
 
-    403 when it escapes the root, 404 when it does not exist, 400 when any
-    path component below the root (as written or as resolved) is hidden.
-    Callers decide whether the root itself is acceptable.
+    ``OutsideRoot`` when it escapes the root, ``PathNotFound`` when it does not
+    exist, ``InvalidPath`` for a NUL byte or when any path component below the
+    root (as written or as resolved) is hidden. Callers decide whether the root
+    itself is acceptable.
     """
-    root_real = os.path.realpath(root)
-    real = os.path.realpath(path)
+    root_real = _realpath(root)
+    real = _realpath(path)
     try:
         inside = os.path.commonpath([real, root_real]) == root_real
     except ValueError:
         inside = False
     if not inside:
-        raise SandboxError(403, "Path is outside the root folder")
+        raise OutsideRoot("Path is outside the root folder")
     if not os.path.lexists(real):
-        raise SandboxError(404, "Path does not exist")
+        raise PathNotFound("Path does not exist")
     if _has_hidden_component(root_real, real) or _has_hidden_component(
         root_real, os.path.normpath(path)
     ):
-        raise SandboxError(400, "Hidden entries are not managed here")
+        raise InvalidPath("Hidden entries are not managed here")
     return real
 
 
