@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.models.gallery_download import GalleryDownload, GalleryDownloadStatus
 from app.models.settings import Setting
-from app.services.gallery_archive import archive_info, reset_archive
+from app.services.gallery_archive import (
+    archive_info,
+    reset_archive,
+    seed_ytdlp_archive,
+    ytdlp_archive_path,
+)
 
 
 def _make_archive(path, entries=3):
@@ -100,3 +105,37 @@ def test_archive_reset_400_for_non_sqlite_custom_path(client, tmp_path, _clean):
     _set_archive(client, str(bogus))
     assert client.post("/api/galleries/archive/reset").status_code == 400
     assert bogus.exists()
+
+
+def test_ytdlp_archive_path_sits_beside_the_archive():
+    assert ytdlp_archive_path("/d/archive.sqlite3") == "/d/archive.sqlite3.yt-dlp.txt"
+
+
+def test_seed_copies_youtube_ids_in_ytdlp_format_and_is_idempotent(tmp_path):
+    gdl, yt = str(tmp_path / "a.sqlite3"), str(tmp_path / "a.sqlite3.yt-dlp.txt")
+    con = sqlite3.connect(gdl)
+    con.execute("CREATE TABLE archive (entry TEXT PRIMARY KEY) WITHOUT ROWID")
+    con.executemany(
+        "INSERT INTO archive VALUES (?)",
+        [("ytdlYoutube -2SpHODQBpo",), ("ytdlYoutube abc",), ("twitterfoo 1",), ("ytdlVimeo 9",)],
+    )
+    con.commit()
+    con.close()
+    assert seed_ytdlp_archive(gdl, yt) == 2
+    with open(yt) as f:
+        assert sorted(f.read().split("\n")[:-1]) == ["youtube -2SpHODQBpo", "youtube abc"]
+    assert seed_ytdlp_archive(gdl, yt) == 0  # nothing new, nothing re-appended
+
+
+def test_seed_without_a_gallery_dl_archive_is_a_noop(tmp_path):
+    yt = str(tmp_path / "x.txt")
+    assert seed_ytdlp_archive(str(tmp_path / "missing.sqlite3"), yt) == 0
+    assert not os.path.exists(yt)
+
+
+def test_reset_also_removes_the_ytdlp_companion(tmp_path):
+    p = str(tmp_path / "a.sqlite3")
+    _make_archive(p)
+    (tmp_path / "a.sqlite3.yt-dlp.txt").write_text("youtube abc\n")
+    assert reset_archive(p) is True
+    assert os.listdir(tmp_path) == []

@@ -584,3 +584,9 @@ def test_ytdlp_args_subs_impersonate_referer_throttle_and_extra():
     assert ytdlp_args(_opts(ytRefererMode="url"), url)[-1] == url
     custom = ytdlp_args(_opts(ytRefererMode="custom", ytReferer="https://r/"), url)
     assert custom[custom.index("--referer") + 1] == "https://r/"
+
+
+def test_ytdlp_args_use_their_own_archive_only_when_the_archive_is_on():
+    on = ytdlp_args(_opts(archivePath="/d/a.sqlite3"), "u")
+    assert on[on.index("--download-archive") + 1] == "/d/a.sqlite3.yt-dlp.txt"
+    assert "--download-archive" not in ytdlp_args(_opts(useArchive=False), "u")

@@ -40,6 +40,7 @@ from app.services.download_common import (
     install_zip_binary,
     parse_impersonate_targets,
 )
+from app.services.gallery_archive import seed_ytdlp_archive, ytdlp_archive_path
 from app.services.gallery_options import load_options
 
 logger = logging.getLogger(__name__)
@@ -227,6 +228,10 @@ def ytdlp_args(opts: GalleryOptions, url: str) -> list[str]:
         "--embed-metadata",
         "--embed-chapters",
     ]
+    # yt-dlp's own archive: it skips an archived video from the id in its URL, before any
+    # request. gallery-dl's archive is only consulted after each playlist entry is resolved.
+    if opts.useArchive:
+        args += ["--download-archive", ytdlp_archive_path(archive_path(opts))]
     if opts.ytAudioOnly:
         fmt = opts.ytCodec if opts.ytCodec in AUDIO_CONTAINERS else "mp3"
         args += ["-x", "--audio-format", fmt]
@@ -476,6 +481,9 @@ class _RunState:
         self.last_filename: str | None = None
         self.recent: deque[str] = deque(maxlen=_RECENT_CAP)
         self.stderr_tail: deque[str] = deque(maxlen=_LOG_CAP)
+        # yt-dlp skips archived videos silently (no output line, so no `skipped` tick); a
+        # non-empty archive means "0 done + 0 skipped" no longer implies "everything failed".
+        self.ytdlp_archive_used = False
 
     def fields(self) -> dict:
         return {
@@ -571,13 +579,24 @@ def _run_attempt(row_id: int, cmd: list[str], state: _RunState) -> tuple[int | N
     return proc.returncode, stalled
 
 
-def _prepare_ytdl(url: str, cookies_file: str | None, state: _RunState) -> str | None:
-    """Make sure deno is present and learn the folder name. Both best-effort: without deno
-    yt-dlp only warns, and without a name the template falls back to per-video uploaders."""
+def _prepare_ytdl(
+    url: str, cookies_file: str | None, state: _RunState, opts: GalleryOptions
+) -> str | None:
+    """Make sure deno is present, mirror gallery-dl's archive into yt-dlp's, and learn the
+    folder name. All best-effort: without deno yt-dlp only warns, without the seed it just
+    re-resolves archived videos, and without a name the template falls back to per-video
+    uploaders."""
     try:
         ensure_deno()
     except Exception as exc:
         state.stderr_tail.append(f"[parallax] could not fetch deno: {exc}")
+    if opts.useArchive:
+        gdl = archive_path(opts)
+        try:
+            seed_ytdlp_archive(gdl, ytdlp_archive_path(gdl))
+            state.ytdlp_archive_used = os.path.getsize(ytdlp_archive_path(gdl)) > 0
+        except OSError as exc:
+            state.stderr_tail.append(f"[parallax] could not seed the yt-dlp archive: {exc}")
     return probe_ytdl_folder(url, cookies_file)
 
 
@@ -618,7 +637,7 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
         bare = _split_prefix(url)[1]
         for i, backend in enumerate(rungs):
             target = url if backend == "native" else bare
-            folder = _prepare_ytdl(target, cookies_tmp, state) if backend == "ytdl" else None
+            folder = _prepare_ytdl(target, cookies_tmp, state, opts) if backend == "ytdl" else None
             cmd = build_gallerydl_cmd(target, opts, cookies_tmp, backend=backend, folder=folder)
             logger.info(
                 "gallery-dl row %s: backend=%s baseDir=%s argv=%s",
@@ -651,8 +670,14 @@ def _run_gallery_sync(row_id: int, cookies: str) -> None:
             final_status = GalleryDownloadStatus.CANCELLED
         elif returncode == 0 and not stalled:
             final_status = GalleryDownloadStatus.COMPLETED
-            if backend == "ytdl" and not (state.done or state.skipped) and state.failed:
-                # ignoreerrors makes yt-dlp exit 0 even when every entry failed
+            if (
+                backend == "ytdl"
+                and not (state.done or state.skipped)
+                and state.failed
+                and not state.ytdlp_archive_used
+            ):
+                # ignoreerrors makes yt-dlp exit 0 even when every entry failed. Only
+                # decidable without an archive: archived entries are skipped silently.
                 final_status = GalleryDownloadStatus.FAILED
                 error = f"yt-dlp reported errors and nothing was downloaded\n\n{tail}"
         else:
