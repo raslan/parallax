@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.settings import get_setting, set_setting
 from app.schemas import (
-    PruneCrumb,
     PruneDeleteBody,
     PruneDeleteFolderBody,
     PruneDeleteResult,
@@ -20,7 +19,6 @@ from app.schemas import (
     PruneRootBody,
     PruneScanState,
     PruneStreamBody,
-    PruneSubfolder,
 )
 from app.services import prune_files, prune_scan, stream_cache
 from app.services.prune_sandbox import (
@@ -105,26 +103,10 @@ def read_folder(path: str, db: Session = Depends(get_db)):
     real = resolve_inside(root, path)
     if prune_scan.scan_state()["status"] == "running":
         raise HTTPException(409, "scanning")
-    node = prune_scan.snapshot(real)
-    if node is None:
+    view = prune_scan.folder_view(root, real)
+    if view is None:
         raise HTTPException(404, "Folder not found")
-    crumbs = [PruneCrumb(name=os.path.basename(root) or root, path=root)]
-    cur = root
-    rel = os.path.relpath(real, root)
-    if rel != ".":
-        for part in rel.split(os.sep):
-            cur = os.path.join(cur, part)
-            crumbs.append(PruneCrumb(name=part, path=cur))
-    subs = sorted(node["children"], key=lambda c: c["name"].casefold())
-    return PruneFolder(
-        path=node["path"],
-        name=node["name"],
-        parent=os.path.dirname(real) if real != root else None,
-        breadcrumbs=crumbs,
-        direct=node["direct"],
-        total=node["total"],
-        subfolders=[PruneSubfolder(**c) for c in subs],
-    )
+    return PruneFolder(**view)
 
 
 # Every route here is a plain ``def``: FastAPI runs it in the threadpool, so the
