@@ -196,18 +196,12 @@ export function Prune() {
   // render (`actionFiles`), and the stored set is shrunk to match in the same pass
   // (adjusting state during render, no effect) so un-filtering never resurrects
   // selections that a filter hid. Also covers files that vanished from the list.
-  // Rows a details-backed filter can't judge yet (details still loading) are kept
-  // in the stored set, not dropped; they are only acted on once they match.
+  // Strict: a file hidden only because its details haven't loaded is dropped too.
+  // A refetch (e.g. after a partly failed delete) doesn't hide anything, because
+  // usePruneDetails keeps unchanged files' details across list identities.
   const actionFiles = useMemo(() => selectedIn(visibleFiles, selected), [visibleFiles, selected]);
   const selectedPaths = useMemo(() => new Set(actionFiles.map((f) => f.path)), [actionFiles]);
-  const pendingPaths = useMemo(
-    () =>
-      stillLoading > 0
-        ? new Set(fileList.filter((f) => details[f.path] === undefined).map((f) => f.path))
-        : undefined,
-    [stillLoading, fileList, details],
-  );
-  const shrunk = reconcileSelection(selected, selectedPaths, pendingPaths);
+  const shrunk = reconcileSelection(selected, selectedPaths);
   if (shrunk) setSelected(shrunk);
 
   const smartOptions = useMemo<SmartSelectOption[]>(() => {

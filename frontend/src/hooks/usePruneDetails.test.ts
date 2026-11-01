@@ -2,6 +2,9 @@
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FileDetails, PruneFile } from "@/types/prune";
+import { evaluateClauses, type Clause } from "@/hooks/useQueryBuilder";
+import { pruneFields } from "@/lib/pruneSearch";
+import { reconcileSelection, selectedIn } from "@/lib/pruneSelect";
 
 const getPruneDetails = vi.fn();
 vi.mock("@/lib/api", () => ({ api: { getPruneDetails: (p: string[]) => getPruneDetails(p) } }));
@@ -126,6 +129,22 @@ describe("usePruneDetails", () => {
     const b = [a[1]!, a[2]!, { ...a[3]!, mtime: 5 }].map((f) => ({ ...f }));
     rerender({ f: b });
     expect(result.current.details["/r/f1"]).toEqual(info(1)); // no reset to empty
+    // With `duration > 0` active, f1 (failed to delete, still selected) stays visible
+    // on the very first render after the refetch, so the strict reconcile keeps it.
+    const byKey = Object.fromEntries(pruneFields.map((x) => [x.key, x]));
+    const clause: Clause = {
+      id: "d",
+      fieldKey: "duration",
+      operator: "gt",
+      value: 0,
+      joinToNext: "AND",
+    };
+    const visible = b.filter((f) =>
+      evaluateClauses([clause], { ...f, details: result.current.details[f.path] }, byKey, {}),
+    );
+    const stored = new Set(["/r/f1"]);
+    const allowed = new Set(selectedIn(visible, stored).map((f) => f.path));
+    expect(reconcileSelection(stored, allowed)).toBeNull();
     expect(result.current.details["/r/f3"]).toBeUndefined(); // stale size/mtime is not reused
     expect(result.current.loaded).toBe(2);
     await waitFor(() => expect(result.current.done).toBe(true));

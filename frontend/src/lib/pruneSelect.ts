@@ -28,20 +28,14 @@ export function selectedIn(
 /**
  * The stored selection shrunk to `allowed` (the visible paths that are selected),
  * or null when nothing needs dropping. Returning null keeps render-time use cheap
- * and loop-free. Paths in `pending` (rows a details-backed filter can't judge yet
- * because their details are still loading) are kept rather than dropped; they
- * still aren't acted on until they become visible.
+ * and loop-free. Strict: a row hidden for any reason (including a details-backed
+ * filter whose details have not loaded yet) is dropped, never kept aside.
  */
 export function reconcileSelection(
   stored: ReadonlySet<string>,
   allowed: ReadonlySet<string>,
-  pending?: ReadonlySet<string>,
 ): Set<string> | null {
-  if (!pending || pending.size === 0) {
-    return stored.size === allowed.size ? null : new Set(allowed);
-  }
-  const next = new Set([...stored].filter((p) => allowed.has(p) || pending.has(p)));
-  return next.size === stored.size ? null : next;
+  return stored.size === allowed.size ? null : new Set(allowed);
 }
 
 /** Parent directory of a POSIX path (never empty). */

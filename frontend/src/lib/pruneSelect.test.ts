@@ -8,6 +8,8 @@ import {
   selectedIn,
   sumBytes,
 } from "@/lib/pruneSelect";
+import { evaluateClauses, type Clause } from "@/hooks/useQueryBuilder";
+import { pruneFields } from "@/lib/pruneSearch";
 import type { PruneFile } from "@/types/prune";
 
 const f = (name: string, size: number, kind: PruneFile["kind"] = "video"): PruneFile => ({
@@ -71,13 +73,30 @@ describe("reconcileSelection", () => {
     expect(again.map((x) => x.name)).toEqual(["a"]);
   });
 
-  it("keeps picks whose details are still loading, drops the rest", () => {
-    const stored = new Set(["/r/a", "/r/b", "/r/c"]);
-    const allowed = new Set(["/r/a"]); // only a matches so far
-    const pending = new Set(["/r/b"]); // b's details have not arrived yet
-    expect([...reconcileSelection(stored, allowed, pending)!]).toEqual(["/r/a", "/r/b"]);
-    expect(reconcileSelection(new Set(["/r/a", "/r/b"]), allowed, pending)).toBeNull();
-    expect([...reconcileSelection(stored, allowed, new Set())!]).toEqual(["/r/a"]);
+  it("drops picks hidden by a filter even while details are still streaming", () => {
+    // Repro: select all while details stream, then add `name contains foo` AND
+    // `duration > 60`. B fails the name clause and has no details yet.
+    const a = { ...f("foo-a.mp4", 1), details: undefined };
+    const b = { ...f("bar-b.mp4", 1), details: undefined };
+    const all = [a, b];
+    const byKey = Object.fromEntries(pruneFields.map((x) => [x.key, x]));
+    const clauses: Clause[] = [
+      {
+        id: "1",
+        fieldKey: "name",
+        operator: "contains",
+        value: { text: "foo" },
+        joinToNext: "AND",
+      },
+      { id: "2", fieldKey: "duration", operator: "gt", value: 60, joinToNext: "AND" },
+    ];
+    const visible = all.filter((r) => evaluateClauses(clauses, r, byKey, {}));
+    let stored: Set<string> = new Set(all.map((x) => x.path));
+    stored =
+      reconcileSelection(stored, new Set(selectedIn(visible, stored).map((x) => x.path))) ?? stored;
+    expect(stored.has(b.path)).toBe(false);
+    // Removing the clauses must not bring B back.
+    expect(selectedIn(all, stored).map((x) => x.path)).not.toContain(b.path);
   });
 });
 
