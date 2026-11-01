@@ -5,18 +5,30 @@ Plain sync functions (routers call them via ``run_in_threadpool``). Because
 *unresolved* path and refuses symlinks outright.
 """
 
+import contextlib
+import hashlib
 import os
 import shutil
 import stat
+import subprocess
 import threading
 from collections import OrderedDict
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 
-from app.services import prune_scan
+from app.config import DATA_DIR
+from app.services import image_scanner, prune_scan, scanner
 from app.services.audio_scanner import probe_audio
 from app.services.prune_sandbox import SandboxError, is_hidden, kind_of, resolve_inside
 from app.services.prune_scan import Counts
-from app.services.scanner import probe_file
+from app.services.scanner import grab_frame, probe_file
+
+THUMB_DIR = os.path.join(DATA_DIR, "prune-thumbnails")
+
+# Formats browsers play natively; anything else is served via /audio (mp3 transcode).
+NATIVE_AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".flac"}
+
+_LOCK_STRIPES = [threading.Lock() for _ in range(64)]
 
 
 class LRUCache:
@@ -211,3 +223,84 @@ def delete_folder(root: str, path: str) -> None:
         prune_scan.invalidate()  # partial delete: the cache can no longer be trusted
         raise SandboxError(500, f"Could not delete folder: {e.strerror or e}") from e
     prune_scan.remove_folder(real)
+
+
+def servable_file(path: str) -> bool:
+    """True for a non-hidden regular file reached without a final symlink."""
+    path = _strip_trailing_seps(path)
+    if is_hidden(os.path.basename(path)):
+        return False
+    try:
+        return stat.S_ISREG(os.lstat(path).st_mode)
+    except OSError:
+        return False
+
+
+def thumbnail_for(path: str) -> str | None:
+    """Cached JPEG thumbnail for a video or image (None for audio/other/failures).
+
+    Cache key = sha1(path|size|mtime_ns), so an edited file gets a fresh one.
+    Blocking (ffmpeg/Pillow): call via a threadpool.
+    """
+    path = _strip_trailing_seps(path)
+    kind = kind_of(os.path.basename(path))
+    if kind not in ("video", "image") or not servable_file(path):
+        return None
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return None
+    key = hashlib.sha1(f"{path}|{st.st_size}|{st.st_mtime_ns}".encode("utf-8", "surrogateescape"))
+    stem = os.path.join(THUMB_DIR, key.hexdigest())
+    out, failed = f"{stem}.jpg", f"{stem}.jpg.failed"
+    if os.path.exists(out):
+        return out
+    if os.path.exists(failed):
+        return None
+    with _LOCK_STRIPES[int(key.hexdigest(), 16) % len(_LOCK_STRIPES)]:
+        if os.path.exists(out):
+            return out
+        if os.path.exists(failed):
+            return None
+        os.makedirs(THUMB_DIR, exist_ok=True)
+        tmp = f"{stem}.{threading.get_ident()}.tmp.jpg"
+        ok = False
+        try:
+            if kind == "image":
+                with image_scanner._thumbnail_gen_semaphore:
+                    image_scanner.generate_thumbnail(path, tmp)
+                ok = os.path.exists(tmp)
+            else:
+                with scanner._thumbnail_gen_semaphore:
+                    ok = grab_frame(path, tmp) and os.path.exists(tmp)
+            if ok:
+                os.replace(tmp, out)
+        except Exception:
+            ok = False
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(tmp)
+        if ok:
+            return out
+        with contextlib.suppress(OSError):
+            open(failed, "w").close()
+        return None
+
+
+def stream_audio_mp3(path: str) -> Iterator[bytes]:
+    """Yield an on-the-fly mp3 transcode of ``path`` (ffmpeg stdout)."""
+    proc = subprocess.Popen(
+        ["ffmpeg", "-v", "error", "-i", path, "-vn", "-c:a", "libmp3lame", "-b:a", "192k"]
+        + ["-f", "mp3", "pipe:1"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        assert proc.stdout is not None
+        while chunk := proc.stdout.read(64 * 1024):
+            yield chunk
+    finally:
+        proc.kill()
+        proc.wait()
+        if proc.stdout:
+            proc.stdout.close()

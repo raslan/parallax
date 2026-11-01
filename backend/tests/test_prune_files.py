@@ -316,3 +316,59 @@ def test_lru_evicts_oldest():
     c.put("c", 3)
     assert c.get("b") is None
     assert c.get("a") == 1 and c.get("c") == 3
+
+
+@pytest.fixture
+def thumb_dir(tmp_path, monkeypatch):
+    d = tmp_path / "thumbs"
+    monkeypatch.setattr(prune_files, "THUMB_DIR", str(d))
+    return d
+
+
+def _png(path):
+    from PIL import Image
+
+    Image.new("RGB", (40, 30), "red").save(path)
+
+
+def test_thumbnail_image_cached_and_key_changes_with_mtime(tmp_path, thumb_dir):
+    img = tmp_path / "a.png"
+    _png(img)
+    t1 = prune_files.thumbnail_for(str(img))
+    assert t1 and os.path.dirname(t1) == str(thumb_dir) and os.path.exists(t1)
+    assert prune_files.thumbnail_for(str(img)) == t1
+    st = img.stat()
+    os.utime(img, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    t2 = prune_files.thumbnail_for(str(img))
+    assert t2 and t2 != t1
+
+
+def test_thumbnail_none_for_audio_and_other(tmp_path, thumb_dir):
+    for n in ("a.mp3", "n.txt"):
+        (tmp_path / n).write_bytes(b"x")
+        assert prune_files.thumbnail_for(str(tmp_path / n)) is None
+
+
+def test_thumbnail_video_uses_frame_grab_and_marks_failure(tmp_path, thumb_dir, monkeypatch):
+    v = tmp_path / "v.mp4"
+    v.write_bytes(b"x")
+    calls = []
+
+    def fake(src, out, duration=None):
+        calls.append(out)
+        return False
+
+    monkeypatch.setattr(prune_files, "grab_frame", fake)
+    assert prune_files.thumbnail_for(str(v)) is None
+    assert prune_files.thumbnail_for(str(v)) is None  # .failed marker: no retry
+    assert len(calls) == 1
+
+
+def test_thumbnail_rejects_symlink_and_hidden(tmp_path, thumb_dir):
+    img = tmp_path / "a.png"
+    _png(img)
+    (tmp_path / "ln.png").symlink_to(img)
+    _png(tmp_path / ".h.png")
+    assert prune_files.thumbnail_for(str(tmp_path / "ln.png")) is None
+    assert prune_files.thumbnail_for(str(tmp_path / ".h.png")) is None
+    assert prune_files.thumbnail_for(str(tmp_path / "missing.png")) is None

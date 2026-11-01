@@ -96,7 +96,11 @@ def generate_thumbnail(file_path: str, file_id: int, duration: float | None = No
         os.remove(out_path)
     except FileNotFoundError:
         pass
+    return grab_frame(file_path, out_path, duration)
 
+
+def grab_frame(file_path: str, out_path: str, duration: float | None = None) -> bool:
+    """ffmpeg a 320px-wide frame at 10% into the video to ``out_path``. DB-id free."""
     try:
         if duration is None:
             data = probe_file(file_path)

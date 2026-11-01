@@ -1,6 +1,7 @@
 import os
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -21,7 +22,7 @@ from app.schemas import (
     PruneSubfolder,
 )
 from app.services import prune_files, prune_scan
-from app.services.prune_sandbox import SandboxError, resolve_inside, validate_root
+from app.services.prune_sandbox import SandboxError, kind_of, resolve_inside, validate_root
 
 router = APIRouter(prefix="/prune", tags=["prune"])
 
@@ -131,6 +132,44 @@ async def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
     for p in paths:
         _sandboxed(root, p)  # 403/400 on escape; the service lstat()s the unresolved path
     return PruneDetailsResult(details=await run_in_threadpool(prune_files.get_details, paths))
+
+
+def _servable(db: Session, path: str) -> str:
+    """Root check + sandbox + regular-file check; frees the DB session. Returns the real path."""
+    root = get_root(db)
+    db.close()
+    real = _sandboxed(root, path)
+    if not prune_files.servable_file(path):
+        raise HTTPException(404, "File not found")
+    return real
+
+
+@router.get("/thumbnail")
+async def read_thumbnail(path: str, db: Session = Depends(get_db)):
+    real = _servable(db, path)
+    thumb = await run_in_threadpool(prune_files.thumbnail_for, path)
+    if thumb is None or not os.path.exists(real):
+        raise HTTPException(404, "No thumbnail")
+    return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
+
+
+@router.get("/file")
+def read_file(path: str, db: Session = Depends(get_db)):
+    # FileResponse handles Range (206) for video/audio seeking.
+    return FileResponse(_servable(db, path), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/audio")
+def read_audio(path: str, db: Session = Depends(get_db)):
+    real = _servable(db, path)
+    ext = os.path.splitext(real)[1].lower()
+    if kind_of(real) != "audio" or ext in prune_files.NATIVE_AUDIO_EXTENSIONS:
+        raise HTTPException(400, "Not a non-native audio file")
+    return StreamingResponse(
+        prune_files.stream_audio_mp3(real),
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/delete", response_model=PruneDeleteResult)

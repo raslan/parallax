@@ -290,3 +290,48 @@ def test_details_over_50_paths_400(client, tmp_path):
     paths = [str(tmp_path / f"{i}.mp4") for i in range(51)]
     assert client.post("/api/prune/details", json={"paths": paths}).status_code == 400
     assert client.post("/api/prune/details", json={"paths": []}).status_code == 200
+
+
+def test_file_endpoint_outside_root_403(client, tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (tmp_path / "o.jpg").write_bytes(b"x")
+    _put_root(client, root)
+    assert (
+        client.get("/api/prune/file", params={"path": str(tmp_path / "o.jpg")}).status_code == 403
+    )
+    assert (
+        client.get("/api/prune/thumbnail", params={"path": str(tmp_path / "o.jpg")}).status_code
+        == 403
+    )
+
+
+def test_file_endpoint_supports_range(client, tmp_path):
+    (tmp_path / "v.mp4").write_bytes(bytes(range(100)))
+    _put_root(client, tmp_path)
+    r = client.get(
+        "/api/prune/file", params={"path": str(tmp_path / "v.mp4")}, headers={"Range": "bytes=0-9"}
+    )
+    assert r.status_code == 206
+    assert r.content == bytes(range(10))
+
+
+def test_audio_endpoint_only_for_non_native_extension(client, tmp_path):
+    (tmp_path / "a.mp3").write_bytes(b"x")
+    (tmp_path / "a.wma").write_bytes(b"x")
+    _put_root(client, tmp_path)
+    assert (
+        client.get("/api/prune/audio", params={"path": str(tmp_path / "a.mp3")}).status_code == 400
+    )
+    assert (
+        client.get("/api/prune/audio", params={"path": str(tmp_path / "b.wma")}).status_code == 404
+    )
+
+
+def test_thumbnail_endpoint_404_for_audio(client, tmp_path):
+    (tmp_path / "a.mp3").write_bytes(b"x")
+    _put_root(client, tmp_path)
+    assert (
+        client.get("/api/prune/thumbnail", params={"path": str(tmp_path / "a.mp3")}).status_code
+        == 404
+    )
