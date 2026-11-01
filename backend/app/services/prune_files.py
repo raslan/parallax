@@ -16,7 +16,6 @@ import stat
 import subprocess
 import threading
 import time
-import warnings
 from collections import OrderedDict
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -104,15 +103,16 @@ def _image_details(path: str) -> dict | None:
     filters see the image the way a viewer shows it. Corrupt files and
     decompression bombs come back None, never raised.
     """
+    # No warnings.catch_warnings() here: it swaps process-global state and is not
+    # thread-safe on the probe pool. A bomb *warning* is only logged; the
+    # DecompressionBombError (> 2x the limit) is caught below.
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
-            with Image.open(path) as im:
-                width, height = im.size
-                fmt = im.format
-                with contextlib.suppress(Exception):
-                    if im.getexif().get(_EXIF_ORIENTATION) in (5, 6, 7, 8):
-                        width, height = height, width
+        with Image.open(path) as im:
+            width, height = im.size
+            fmt = im.format
+            with contextlib.suppress(Exception):
+                if im.getexif().get(_EXIF_ORIENTATION) in (5, 6, 7, 8):
+                    width, height = height, width
     except Exception:
         return None
     return {
@@ -350,6 +350,7 @@ _MAX_THUMB_AGE = 30 * 86400  # unused (mtime untouched) this long -> evicted
 _MAX_THUMB_BYTES = 500 * 1024 * 1024
 _EVICT_INTERVAL = 6 * 3600  # lazy sweep at most this often
 _TOUCH_AFTER = 86400  # refresh a hit's mtime at most once a day
+_TMP_GRACE = 3600  # in-flight .tmp files younger than this are never evicted
 # Only our own cache entries: sha1.jpg, sha1.jpg.failed, sha1.<tid>.tmp.jpg
 _THUMB_NAME = re.compile(r"[0-9a-f]{40}(\.\d+\.tmp)?\.jpg(\.failed)?")
 _evict_lock = threading.Lock()
@@ -386,6 +387,8 @@ def evict_thumbnails(
                     st = e.stat(follow_symlinks=False)
                 except OSError:
                     continue
+                if ".tmp." in e.name and now - st.st_mtime < _TMP_GRACE:
+                    continue  # a generation still writing it; os.replace() would race
                 entries.append((st.st_mtime, st.st_size, e.path))
     except OSError:
         return 0

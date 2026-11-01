@@ -364,7 +364,9 @@ def test_details_image_cached_and_corrupt_or_bomb_is_null(tmp_path, monkeypatch)
     assert prune_files.get_details([bad])[bad] is None
     prune_files.clear_details_cache()
     with warnings.catch_warnings():
-        warnings.simplefilter("error")  # a bomb *warning* must not escape either
+        # test-side only: prune_files sets no warning filter (catch_warnings is not
+        # thread-safe on the probe pool); a bomb *warning* is not an error there
+        warnings.simplefilter("ignore", Image.DecompressionBombWarning)
         monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)  # 1200 px: warning only
         assert prune_files.get_details([p])[p]["height"] == 30
         prune_files.clear_details_cache()
@@ -473,6 +475,16 @@ def test_evict_size_cap_drops_oldest_first(tmp_path):
     c = _thumb(d, "c", size=100, age_days=1)
     assert prune_files.evict_thumbnails(str(d), max_bytes=250, now=_NOW) == 1
     assert not a.exists() and b.exists() and c.exists()
+
+
+def test_evict_size_cap_spares_young_inflight_tmp(tmp_path):
+    d = tmp_path / "thumbs"
+    d.mkdir()
+    tmp = _thumb(d, "a", size=100, age_days=0.5 / 24, suffix=".123.tmp.jpg")  # 30 min, writing
+    old_tmp = _thumb(d, "b", size=100, age_days=2 / 24, suffix=".123.tmp.jpg")  # abandoned
+    done = _thumb(d, "c", size=100, age_days=1 / 24)
+    assert prune_files.evict_thumbnails(str(d), max_bytes=0, now=_NOW) == 2
+    assert tmp.exists() and not old_tmp.exists() and not done.exists()
 
 
 def test_evict_never_raises(tmp_path, monkeypatch):

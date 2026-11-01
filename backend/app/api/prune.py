@@ -1,7 +1,7 @@
 import os
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -31,8 +31,13 @@ _ROOT_KEY = "prune_root"
 
 def get_root(db: Session) -> str:
     """Saved root, or 409 when unset, no longer a directory, or no longer itself
-    (the saved realpath became a symlink, or a parent was swapped)."""
+    (the saved realpath became a symlink, or a parent was swapped).
+
+    Closes ``db`` right after reading the setting, before any filesystem check, so
+    no pooled connection is held across slow I/O (a stale mount can hang isdir).
+    Every caller is done with the session once it has the root."""
     root = get_setting(db, _ROOT_KEY, "")
+    db.close()
     if not root:
         raise HTTPException(409, "No folder selected")
     if not os.path.isdir(root) or os.path.realpath(root) != root:
@@ -110,14 +115,14 @@ def read_folder(path: str, db: Session = Depends(get_db)):
 
 # Every route here is a plain ``def``: FastAPI runs it in the threadpool, so the
 # settings query, isdir/realpath/lstat and the service calls (any of which can hang
-# on a stale network mount) never block the event loop. ``db.close()`` comes before
-# any filesystem work so no pooled connection is held across slow I/O.
+# on a stale network mount) never block the event loop. ``get_root`` closes the
+# session before any filesystem work so no pooled connection is held across slow I/O
+# (``write_root`` runs validate_root before its first query, so it holds none either).
 
 
 @router.get("/files", response_model=list[PruneFile])
 def read_files(path: str, db: Session = Depends(get_db)):
     root = get_root(db)
-    db.close()  # no connection held across the directory read
     real = _sandboxed(root, path)
     if not os.path.isdir(real):
         raise HTTPException(400, "Not a folder")
@@ -135,7 +140,6 @@ def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
     if len(body.paths) > _MAX_DETAILS:
         raise HTTPException(400, f"At most {_MAX_DETAILS} paths per request")
     root = get_root(db)
-    db.close()
     paths = list(dict.fromkeys(body.paths))
     for p in paths:
         try:
@@ -147,9 +151,8 @@ def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
 
 
 def _servable(db: Session, path: str) -> str:
-    """Root check + sandbox + regular-file check; frees the DB session. Returns the real path."""
+    """Root check (frees the DB session) + sandbox + regular-file check. Returns the real path."""
     root = get_root(db)
-    db.close()
     real = _sandboxed(root, path)
     if not prune_files.servable_file(path):
         raise HTTPException(404, "File not found")
@@ -162,7 +165,14 @@ def read_thumbnail(path: str, db: Session = Depends(get_db)):
     thumb = prune_files.thumbnail_for(real)  # one cache key per file
     if thumb is None or not os.path.exists(real):
         raise HTTPException(404, "No thumbnail")
-    return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
+    # Read it now rather than FileResponse(thumb): eviction may delete the cache
+    # entry before the response is sent, which would be a 500 instead of a 404.
+    try:
+        with open(thumb, "rb") as fh:
+            data = fh.read()
+    except OSError as e:
+        raise HTTPException(404, "No thumbnail") from e
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
 @router.get("/file")
@@ -213,14 +223,12 @@ def prune_stream_status(path: str, db: Session = Depends(get_db)):
 @router.post("/delete", response_model=PruneDeleteResult)
 def delete_files(body: PruneDeleteBody, db: Session = Depends(get_db)):
     root = get_root(db)
-    db.close()
     return prune_files.delete_files(root, body.paths)
 
 
 @router.post("/delete-folder", status_code=204)
 def delete_folder(body: PruneDeleteFolderBody, db: Session = Depends(get_db)):
     root = get_root(db)
-    db.close()
     try:
         prune_files.delete_folder(root, body.path, body.only_if_empty)
     except SandboxError as e:

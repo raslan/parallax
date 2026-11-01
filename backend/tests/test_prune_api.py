@@ -27,6 +27,51 @@ def test_routes_run_off_the_event_loop():
     assert coros == []
 
 
+def test_session_closed_before_any_filesystem_work(db, tmp_path, monkeypatch):
+    """get_root reads the setting, closes the session, and only then stats the root;
+    read_folder's sandbox and snapshot come after that too."""
+    from types import SimpleNamespace
+
+    from app.api import prune as api
+    from app.models.settings import set_setting
+
+    set_setting(db, "prune_root", str(tmp_path.resolve()))
+    order: list[str] = []
+    real_close = db.close
+    monkeypatch.setattr(db, "close", lambda: order.append("close") or real_close())
+
+    class RecordingPath:
+        def __getattr__(self, name):
+            fn = getattr(os.path, name)
+            return lambda *a, **k: order.append(name) or fn(*a, **k)
+
+    monkeypatch.setattr(api, "os", SimpleNamespace(path=RecordingPath(), sep=os.sep))
+    real_resolve = api.resolve_inside
+    monkeypatch.setattr(
+        api, "resolve_inside", lambda r, p: order.append("sandbox") or real_resolve(r, p)
+    )
+    monkeypatch.setattr(api.prune_scan, "snapshot", lambda p: order.append("snapshot"))
+    with pytest.raises(HTTPException) as e:
+        api.read_folder(str(tmp_path.resolve()), db)
+    assert e.value.status_code == 404  # nothing cached
+    assert order[0] == "close"
+    assert {"isdir", "realpath", "sandbox", "snapshot"} <= set(order)
+
+
+def test_thumbnail_vanished_before_serving_is_404(db, tmp_path, monkeypatch):
+    from app.api import prune as api
+    from app.models.settings import set_setting
+    from app.services import prune_files
+
+    (tmp_path / "a.png").write_bytes(b"x")
+    set_setting(db, "prune_root", str(tmp_path.resolve()))
+    # e.g. evicted between generation and serving
+    monkeypatch.setattr(prune_files, "thumbnail_for", lambda p: str(tmp_path / "gone.jpg"))
+    with pytest.raises(HTTPException) as e:
+        api.read_thumbnail(str(tmp_path / "a.png"), db)
+    assert e.value.status_code == 404
+
+
 def test_get_root_empty(client):
     r = client.get("/api/prune/root")
     assert r.status_code == 200
