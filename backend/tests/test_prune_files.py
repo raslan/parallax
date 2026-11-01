@@ -311,8 +311,8 @@ def test_details_audio_and_unicode(tmp_path, probes):
     assert d["width"] is None and d["height"] is None
 
 
-def test_details_images_and_other_are_null(tmp_path, probes):
-    (tmp_path / "a.jpg").write_bytes(b"x")
+def test_details_corrupt_image_and_other_are_null(tmp_path, probes):
+    (tmp_path / "a.jpg").write_bytes(b"x")  # not a real JPEG
     (tmp_path / "n.txt").write_bytes(b"x")
     (tmp_path / ".h.mp4").write_bytes(b"x")
     (tmp_path / "ok.mp4").write_bytes(b"x")
@@ -321,6 +321,55 @@ def test_details_images_and_other_are_null(tmp_path, probes):
     out = prune_files.get_details(paths)
     assert all(out[p] is None for p in paths)
     assert probes == []
+
+
+def test_details_images_read_header_size_and_format(tmp_path, probes):
+    from PIL import Image
+
+    Image.new("RGB", (40, 30), "red").save(tmp_path / "a.png")
+    Image.new("RGB", (8, 6), "blue").save(tmp_path / "b.webp")
+    exif = Image.Exif()
+    exif[0x0112] = 6  # rotate 90: displayed portrait
+    Image.new("RGB", (40, 30), "green").save(tmp_path / "r.jpg", exif=exif)
+    paths = {n: str(tmp_path / n) for n in ("a.png", "b.webp", "r.jpg")}
+    out = prune_files.get_details(list(paths.values()))
+    assert out[paths["a.png"]] == {
+        "duration": None,
+        "width": 40,
+        "height": 30,
+        "codec": "png",
+        "bitrate": None,
+    }
+    assert out[paths["b.webp"]]["codec"] == "webp" and out[paths["b.webp"]]["width"] == 8
+    assert (out[paths["r.jpg"]]["width"], out[paths["r.jpg"]]["height"]) == (30, 40)
+    assert out[paths["r.jpg"]]["codec"] == "jpeg"
+    assert probes == []  # no ffprobe for images
+
+
+def test_details_image_cached_and_corrupt_or_bomb_is_null(tmp_path, monkeypatch):
+    import warnings
+
+    from PIL import Image
+
+    prune_files.clear_details_cache()
+    Image.new("RGB", (40, 30)).save(tmp_path / "a.png")
+    (tmp_path / "bad.png").write_bytes(b"\x89PNG\r\n\x1a\n garbage")
+    p, bad = str(tmp_path / "a.png"), str(tmp_path / "bad.png")
+    opens = []
+    real_open = prune_files.Image.open
+    monkeypatch.setattr(prune_files.Image, "open", lambda f: opens.append(f) or real_open(f))
+    assert prune_files.get_details([p])[p]["width"] == 40
+    assert prune_files.get_details([p])[p]["width"] == 40
+    assert len(opens) == 1  # LRU hit, same (path, size, mtime_ns) key
+    assert prune_files.get_details([bad])[bad] is None
+    prune_files.clear_details_cache()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # a bomb *warning* must not escape either
+        monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)  # 1200 px: warning only
+        assert prune_files.get_details([p])[p]["height"] == 30
+        prune_files.clear_details_cache()
+        monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 100)  # > 2x: DecompressionBombError
+        assert prune_files.get_details([p])[p] is None
 
 
 def test_details_probe_failure_is_null_and_not_cached(tmp_path, monkeypatch):
@@ -367,6 +416,95 @@ def test_thumbnail_image_cached_and_key_changes_with_mtime(tmp_path, thumb_dir):
     os.utime(img, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
     t2 = prune_files.thumbnail_for(str(img))
     assert t2 and t2 != t1
+
+
+def test_thumbnail_cache_hit_refreshes_mtime(tmp_path, thumb_dir):
+    img = tmp_path / "a.png"
+    _png(img)
+    t = prune_files.thumbnail_for(str(img))
+    old = time.time() - 10 * 86400
+    os.utime(t, (old, old))
+    assert prune_files.thumbnail_for(str(img)) == t
+    assert os.path.getmtime(t) > time.time() - 60  # used thumbnails survive age eviction
+
+
+# ── thumbnail cache eviction ─────────────────────────────────────────────────
+
+_DAY = 86400
+_NOW = 1_800_000_000.0
+
+
+def _thumb(d, stem, size=10, age_days=0.0, suffix=".jpg"):
+    p = d / f"{stem * 40}{suffix}"
+    p.write_bytes(b"x" * size)
+    t = _NOW - age_days * _DAY
+    os.utime(p, (t, t))
+    return p
+
+
+def test_evict_removes_old_entries_only_inside_dir(tmp_path):
+    d = tmp_path / "thumbs"
+    d.mkdir()
+    old = _thumb(d, "a", age_days=31)
+    old_failed = _thumb(d, "b", age_days=40, suffix=".jpg.failed")
+    fresh = _thumb(d, "c", age_days=29)
+    stray = d / "notes.txt"
+    stray.write_bytes(b"x")
+    os.utime(stray, (0, 0))
+    (d / "sub").mkdir()
+    sub_old = _thumb(d / "sub", "d", age_days=99)
+    outside = tmp_path / "precious.jpg"
+    outside.write_bytes(b"keep")
+    link = d / ("e" * 40 + ".jpg")
+    link.symlink_to(outside)
+    os.utime(link, (0, 0), follow_symlinks=False)
+    removed = prune_files.evict_thumbnails(str(d), now=_NOW)
+    assert removed == 2
+    assert not old.exists() and not old_failed.exists()
+    assert fresh.exists() and stray.exists() and sub_old.exists()
+    assert link.is_symlink() and outside.read_bytes() == b"keep"
+
+
+def test_evict_size_cap_drops_oldest_first(tmp_path):
+    d = tmp_path / "thumbs"
+    d.mkdir()
+    a = _thumb(d, "a", size=100, age_days=3)
+    b = _thumb(d, "b", size=100, age_days=2)
+    c = _thumb(d, "c", size=100, age_days=1)
+    assert prune_files.evict_thumbnails(str(d), max_bytes=250, now=_NOW) == 1
+    assert not a.exists() and b.exists() and c.exists()
+
+
+def test_evict_never_raises(tmp_path, monkeypatch):
+    assert prune_files.evict_thumbnails(str(tmp_path / "missing"), now=_NOW) == 0
+    d = tmp_path / "thumbs"
+    d.mkdir()
+    _thumb(d, "a", age_days=31)
+
+    def boom(_):
+        raise PermissionError("nope")
+
+    monkeypatch.setattr(prune_files.os, "remove", boom)
+    assert prune_files.evict_thumbnails(str(d), now=_NOW) == 0
+
+
+def test_maybe_evict_runs_at_most_once_per_interval(tmp_path, monkeypatch, thumb_dir):
+    started = []
+
+    class FakeThread:
+        def __init__(self, target, args, daemon=None):
+            started.append(args)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(prune_files.threading, "Thread", FakeThread)
+    monkeypatch.setattr(prune_files, "_last_evict", 0.0)
+    assert prune_files.maybe_evict_thumbnails(now=_NOW) is True
+    assert prune_files.maybe_evict_thumbnails(now=_NOW + 60) is False
+    later = _NOW + prune_files._EVICT_INTERVAL + 1
+    assert prune_files.maybe_evict_thumbnails(now=later) is True
+    assert started == [(str(thumb_dir),), (str(thumb_dir),)]  # dir captured at spawn
 
 
 def test_thumbnail_none_for_audio_and_other(tmp_path, thumb_dir):

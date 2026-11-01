@@ -265,6 +265,12 @@ async def lifespan(app: FastAPI):
 
     stream_cache.start_sweeper()
 
+    # Trim the Prune thumbnail cache (age + size cap) in a background thread; it is
+    # re-run lazily at most every few hours from thumbnail requests.
+    from app.services import prune_files
+
+    prune_files.maybe_evict_thumbnails()
+
     # Best-effort fetch of the alass binary for subtitle sync — never block
     # startup on it (offline environments should still boot fine).
     from app.services.subtitle_sync import ensure_alass
