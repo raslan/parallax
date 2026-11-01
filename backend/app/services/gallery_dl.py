@@ -48,6 +48,28 @@ logger = logging.getLogger(__name__)
 
 URLS_FILE = os.path.join(GALLERY_DL_DIR, "urls.txt")
 DEFAULT_ARCHIVE = os.path.join(GALLERY_DL_DIR, "archive.sqlite3")
+# gallery-dl `path-restrict` map applied to every file and folder name. Linux only restricts
+# "/" by default, but Windows/SMB shares, sync tools and media indexers reject or silently skip
+# names containing one of these (YouTube titles are full of `|`, `?`, `:` and `"`), dropping
+# the file — or a whole folder. Each is swapped for its fullwidth look-alike so titles still
+# read normally and two titles differing only by that character don't collide; "/" keeps
+# gallery-dl's own "_".
+PATH_RESTRICT = {
+    "/": "_",
+    "\\": "＼",
+    "|": "｜",
+    '"': "＂",
+    "?": "？",
+    "*": "＊",
+    "%": "％",
+    "<": "＜",
+    ">": "＞",
+    "{": "｛",
+    "}": "｝",
+    ":": "：",
+    "~": "～",
+    "$": "＄",
+}
 GALLERY_DL_PKG_DIR = os.path.join(GALLERY_DL_DIR, "site")
 GALLERY_DL_NIGHTLY_SPEC = "gallery-dl @ https://codeberg.org/mikf/gallery-dl/archive/master.tar.gz"
 # gallery-dl's `ytdl:` backend imports yt-dlp as a Python module (the standalone binary the
@@ -360,6 +382,8 @@ def build_gallerydl_cmd(
         opts.baseDir,
         "-o",
         f"downloader.http.timeout={opts.httpTimeout}",
+        "-o",
+        f"path-restrict={json.dumps(PATH_RESTRICT, ensure_ascii=False)}",
     ]
 
     # ytdl items carry `extension: None` until they are downloaded, so an extension filter

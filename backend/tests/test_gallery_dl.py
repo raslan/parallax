@@ -121,6 +121,23 @@ def test_build_cmd_core_and_conditionals():
     assert "\x00" not in "".join(cmd)  # NUL in any argv element crashes subprocess.Popen
 
 
+def test_build_cmd_restricts_characters_other_tools_refuse_on_every_backend():
+    # indexers / Windows shares reject names with these; titles are full of `|` `?` `:` `"`
+    reserved = '\\|"?*%<>{}:~$'
+    for backend in ("native", "ytdl", "generic"):
+        cmd = build_gallerydl_cmd("https://x.com/g/1", _opts(), None, backend=backend)
+        raw = next(a for a in cmd if a.startswith("path-restrict="))
+        restrict = json.loads(raw.split("=", 1)[1])
+        assert all(c in restrict for c in reserved) and restrict["/"] == "_"
+        # swapped for something safe (fullwidth look-alikes), never another bad char
+        assert not any(c in reserved for v in restrict.values() for c in v)
+    # an extra arg still wins: it comes later on the command line
+    cmd = build_gallerydl_cmd("u", _opts(extraArgs="-o path-restrict=unix"), None)
+    assert cmd.index("path-restrict=unix") > cmd.index(
+        next(a for a in cmd if "path-restrict={" in a)
+    )
+
+
 def test_build_cmd_file_mode_uses_input_file():
     cmd = build_gallerydl_cmd("ignored", _opts(inputMode="file"), None)
     assert cmd[-2] == "-i"
