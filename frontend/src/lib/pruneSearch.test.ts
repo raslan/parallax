@@ -180,6 +180,21 @@ describe("enriched fields", () => {
     expect(run("bitrate", "gt", 4000, r)).toBe(true); // kbps
     expect(run("bitrate", "lt", 4000, r)).toBe(false);
   });
+  it("matches images, whose details carry only dimensions and a format", () => {
+    const img = row({
+      name: "photo.jpg",
+      kind: "image",
+      details: { duration: null, width: 4000, height: 3000, codec: "jpeg", bitrate: null },
+    });
+    expect(run("resolution", "gt", 2160, img)).toBe(true);
+    expect(run("resolution", "lt", 2160, img)).toBe(false);
+    expect(run("orientation", "eq", "landscape", img)).toBe(true);
+    expect(run("orientation", "eq", "portrait", img)).toBe(false);
+    expect(run("codec", "eq", text("JPEG"), img)).toBe(true);
+    // No duration/bitrate on a still: those clauses must simply not match.
+    expect(run("duration", "gt", 0, img)).toBe(false);
+    expect(run("bitrate", "gt", 0, img)).toBe(false);
+  });
   it("resolution uses the short side so portrait video is classified correctly", () => {
     const r = row({ details: details({ width: 1080, height: 1920 }) });
     expect(run("resolution", "lt", 1440, r)).toBe(true);

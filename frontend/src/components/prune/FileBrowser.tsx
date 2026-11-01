@@ -3,16 +3,14 @@ import { Check, FileIcon, Film, FolderOpen, ImageIcon, Music, Play } from "lucid
 import type { LucideIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/EmptyState";
-import { GridSizeControl } from "@/components/GridSizeControl";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tip } from "@/components/Tip";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
-import { ViewToggle, type ViewMode } from "@/components/DataToolbar";
+import type { ViewMode } from "@/components/DataToolbar";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { DetailsProgress } from "@/components/prune/DetailsProgress";
-import { useGridSize } from "@/hooks/useGridSize";
 import { formatBitrate, formatDuration, formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { FileDetails, PruneFile } from "@/types/prune";
@@ -276,18 +274,32 @@ export function FileBrowser({
   leaving,
   onToggleSelect,
   filtered,
+  viewMode,
+  cardSize,
+  scrollElement = null,
+  marquee,
 }: {
   files: PruneFile[] | undefined;
   details: DetailsMap;
   progress: { loaded: number; total: number; done: boolean };
+  /** Grid or list; owned by the page so folders and files share one toggle. */
+  viewMode: ViewMode;
+  /** Shared card size (px); owned by the page. */
+  cardSize: number;
+  /** The page scroller the grid virtualises against. */
+  scrollElement?: HTMLElement | null;
+  /** Drag-to-select handlers (`marqueeProps` from `useSelection`); omit to disable. */
+  marquee?: {
+    onMarqueeStart: (additive: boolean) => void;
+    onMarquee: (keys: readonly (string | number)[]) => void;
+  };
   selected?: ReadonlySet<string>;
   leaving?: ReadonlySet<string>;
   onToggleSelect?: (file: PruneFile, e: React.MouseEvent) => void;
   /** True when a filter is active, so an empty list reads as "nothing matches". */
   filtered?: boolean;
 }) {
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [gridSize, setGridSize] = useGridSize(240);
+  const gridSize = cardSize;
   const [preview, setPreview] = useState<PruneFile | null>(null);
 
   const detailsLoading = !progress.done;
@@ -317,10 +329,6 @@ export function FileBrowser({
           </h2>
           <DetailsProgress {...progress} />
         </div>
-        <div className="flex items-center gap-3">
-          <ViewToggle value={viewMode} onChange={setViewMode} />
-          {viewMode === "grid" && <GridSizeControl value={gridSize} onChange={setGridSize} />}
-        </div>
       </div>
 
       {!files ? (
@@ -349,8 +357,8 @@ export function FileBrowser({
           itemAspectRatio={4 / 3}
           itemChromeHeight={CARD_CHROME}
           minColumnWidth={gridSize}
-          maxHeight="70vh"
-          resetKey={`${files[0]?.path ?? ""}-${gridSize}`}
+          scrollElement={scrollElement}
+          {...marquee}
           renderItem={renderItem("grid")}
         />
       ) : (
@@ -360,8 +368,8 @@ export function FileBrowser({
             getKey={(f) => f.path}
             mode="list"
             itemHeight={ROW_HEIGHT}
-            maxHeight="70vh"
-            resetKey={files[0]?.path ?? ""}
+            scrollElement={scrollElement}
+            {...marquee}
             renderItem={renderItem("list")}
           />
         </div>

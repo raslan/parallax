@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FolderTree, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
-import { GridSizeControl } from "@/components/GridSizeControl";
 import { IconButton } from "@/components/IconButton";
 import { Tip } from "@/components/Tip";
-import { ViewToggle, type ViewMode } from "@/components/DataToolbar";
+import type { ViewMode } from "@/components/DataToolbar";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import {
@@ -13,7 +12,7 @@ import {
   FolderCard,
   type ShareBy,
 } from "@/components/prune/FolderCard";
-import { useGridSize } from "@/hooks/useGridSize";
+import { folderCardWidth } from "@/lib/pruneGrid";
 import { sortFolders, type FolderSortKey, type SortDir } from "@/lib/pruneSort";
 import { cn } from "@/lib/utils";
 import type { FolderNodeInfo, PruneFolder } from "@/types/prune";
@@ -24,22 +23,28 @@ const SORTS: { key: FolderSortKey; label: string; hint: string }[] = [
   { key: "name", label: "Name", hint: "Sort by name" },
 ];
 
-const MIN_CARD_WIDTH = 200;
-const MAX_CARD_WIDTH = 400;
-
 /**
  * Breadcrumb + sortable folder grid/list for the open Prune folder.
  * `folder` undefined means the listing is loading (skeleton). Props-in/
- * callbacks-out; sort and view mode are local, presentation-only state.
+ * callbacks-out; sort is local, presentation-only state. View mode and card
+ * size come from the page (one control for folders and files); the folder cards
+ * clamp the size locally (`folderCardWidth`) without touching the setting.
+ * `scrollElement` is the page scroller the grid virtualises against.
  */
 export function FolderBrowser({
   folder,
+  viewMode,
+  cardSize,
+  scrollElement,
   onNavigate,
   onDelete,
   onDeleteOpen,
   leaving,
 }: {
   folder: PruneFolder | undefined;
+  viewMode: ViewMode;
+  cardSize: number;
+  scrollElement: HTMLElement | null;
   onNavigate: (path: string) => void;
   /** Delete one of the listed subfolders. */
   onDelete?: (folder: FolderNodeInfo) => void;
@@ -50,9 +55,7 @@ export function FolderBrowser({
 }) {
   const [sortKey, setSortKey] = useState<FolderSortKey>("files");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [gridSize, setGridSize] = useGridSize(240);
-  const cardWidth = Math.min(MAX_CARD_WIDTH, Math.max(MIN_CARD_WIDTH, gridSize));
+  const cardWidth = folderCardWidth(cardSize);
 
   const sorted = useMemo(
     () => (folder ? sortFolders(folder.subfolders, sortKey, sortDir) : []),
@@ -150,17 +153,14 @@ export function FolderBrowser({
               );
             })}
           </div>
-          <ViewToggle value={viewMode} onChange={setViewMode} />
-          {viewMode === "grid" && (
-            <GridSizeControl
-              value={cardWidth}
-              onChange={setGridSize}
-              min={MIN_CARD_WIDTH}
-              max={MAX_CARD_WIDTH}
-            />
-          )}
         </div>
       </div>
+
+      {folder && sorted.length > 0 && (
+        <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          Folders · {sorted.length.toLocaleString()}
+        </h2>
+      )}
 
       {!folder ? (
         viewMode === "grid" ? (
@@ -184,8 +184,7 @@ export function FolderBrowser({
           mode="grid"
           itemHeight={FOLDER_CARD_HEIGHT}
           minColumnWidth={cardWidth}
-          maxHeight="65vh"
-          resetKey={`${folder.path}-${cardWidth}`}
+          scrollElement={scrollElement}
           renderItem={(f) => (
             <FolderCard
               folder={f}
@@ -206,8 +205,7 @@ export function FolderBrowser({
             getKey={(f) => f.path}
             mode="list"
             itemHeight={FOLDER_ROW_HEIGHT}
-            maxHeight="65vh"
-            resetKey={folder.path}
+            scrollElement={scrollElement}
             renderItem={(f) => (
               <FolderCard
                 folder={f}

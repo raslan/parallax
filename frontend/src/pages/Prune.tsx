@@ -39,6 +39,10 @@ import { PruneFolderPicker } from "@/components/prune/PruneFolderPicker";
 import { PruneRootBar } from "@/components/prune/PruneRootBar";
 import { FileBrowser } from "@/components/prune/FileBrowser";
 import { Tip } from "@/components/Tip";
+import { BrowseControls } from "@/components/prune/BrowseControls";
+import type { ViewMode } from "@/components/DataToolbar";
+import { useGridSize } from "@/hooks/useGridSize";
+import { useScrollParent } from "@/hooks/useScrollParent";
 import { usePruneDetails } from "@/hooks/usePruneDetails";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
@@ -69,7 +73,13 @@ export function Prune() {
   const root = rootQ.data?.root ?? null;
   const currentPath = nav && nav.root === root ? nav.path : root;
   const atRoot = currentPath === root;
-  const { selected, setSelected, toggle, selectAll, selectNone, setOrder } = useSelection<string>();
+  const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
+    useSelection<string>();
+  // One view mode + card size for folders and files; both grids virtualise against
+  // the page's own scroll (the layout's main area) so there is a single scroller.
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [cardSize, setCardSize] = useGridSize(240);
+  const [scroller, pageRef] = useScrollParent();
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(pruneFields);
   const [confirmingFiles, setConfirmingFiles] = useState(false);
@@ -84,6 +94,7 @@ export function Prune() {
 
   const navigate = (path: string) => {
     selectNone();
+    scroller?.scrollTo({ top: 0 });
     setNav(root && path !== root ? { root, path } : null);
   };
 
@@ -343,7 +354,7 @@ export function Prune() {
   }
 
   return (
-    <div className="animate-fade-in space-y-5 p-6">
+    <div ref={pageRef} className="animate-fade-in space-y-5 p-6">
       {header}
       <PruneRootBar
         root={root}
@@ -398,8 +409,17 @@ export function Prune() {
               { label: "Folders", value: folderQ.data?.subfolders.length.toLocaleString() ?? "—" },
             ]}
           />
+          <BrowseControls
+            viewMode={viewMode}
+            onViewMode={setViewMode}
+            size={cardSize}
+            onSize={setCardSize}
+          />
           <FolderBrowser
             folder={folderQ.data}
+            viewMode={viewMode}
+            cardSize={cardSize}
+            scrollElement={scroller}
             onNavigate={navigate}
             onDelete={askDeleteFolder}
             onDeleteOpen={
@@ -473,6 +493,10 @@ export function Prune() {
                   leaving={leavingFiles}
                   onToggleSelect={(f) => toggle(f.path)}
                   filtered={clauses.length > 0}
+                  viewMode={viewMode}
+                  cardSize={cardSize}
+                  scrollElement={scroller}
+                  marquee={marqueeProps}
                 />
               </>
             ))}
