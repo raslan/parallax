@@ -11,6 +11,8 @@ from app.schemas import (
     PruneDeleteBody,
     PruneDeleteFolderBody,
     PruneDeleteResult,
+    PruneDetailsBody,
+    PruneDetailsResult,
     PruneFile,
     PruneFolder,
     PruneRoot,
@@ -114,6 +116,21 @@ async def read_files(path: str, db: Session = Depends(get_db)):
         return await run_in_threadpool(prune_files.list_files, real)
     except OSError as e:
         raise HTTPException(409, "Folder could not be read") from e
+
+
+_MAX_DETAILS = 50
+
+
+@router.post("/details", response_model=PruneDetailsResult)
+async def read_details(body: PruneDetailsBody, db: Session = Depends(get_db)):
+    if len(body.paths) > _MAX_DETAILS:
+        raise HTTPException(400, f"At most {_MAX_DETAILS} paths per request")
+    root = get_root(db)
+    db.close()
+    paths = list(dict.fromkeys(body.paths))
+    for p in paths:
+        _sandboxed(root, p)  # 403/400 on escape; the service lstat()s the unresolved path
+    return PruneDetailsResult(details=await run_in_threadpool(prune_files.get_details, paths))
 
 
 @router.post("/delete", response_model=PruneDeleteResult)

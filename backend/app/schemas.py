@@ -399,3 +399,19 @@ class PruneDeleteResult(BaseModel):
 
 class PruneDeleteFolderBody(BaseModel):
     path: str
+
+
+class PruneDetailsBody(BaseModel):
+    paths: list[str]
+
+
+class PruneDetails(BaseModel):
+    duration: float | None
+    width: int | None
+    height: int | None
+    codec: str | None
+    bitrate: int | None
+
+
+class PruneDetailsResult(BaseModel):
+    details: dict[str, PruneDetails | None]

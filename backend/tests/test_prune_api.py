@@ -254,3 +254,39 @@ def test_folder_endpoint_survives_concurrent_remove(client, tmp_path, _scan_rese
     finally:
         stop.set()
         t.join()
+
+
+def test_details_endpoint(client, tmp_path, monkeypatch):
+    from app.services import prune_files
+
+    monkeypatch.setattr(
+        prune_files,
+        "probe_file",
+        lambda p: {"streams": [{"codec_name": "hevc", "width": 4, "height": 2}], "format": {}},
+    )
+    prune_files.clear_details_cache()
+    (tmp_path / "v.mp4").write_bytes(b"x")
+    (tmp_path / "a.jpg").write_bytes(b"x")
+    _put_root(client, tmp_path)
+    v, a = str(tmp_path / "v.mp4"), str(tmp_path / "a.jpg")
+    r = client.post("/api/prune/details", json={"paths": [v, a]})
+    assert r.status_code == 200
+    d = r.json()["details"]
+    assert d[a] is None and d[v]["codec"] == "hevc" and d[v]["width"] == 4
+
+
+def test_details_rejects_outside_root(client, tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (tmp_path / "o.mp4").write_bytes(b"x")
+    _put_root(client, root)
+    r = client.post("/api/prune/details", json={"paths": [str(tmp_path / "o.mp4")]})
+    assert r.status_code == 403
+    assert client.post("/api/prune/details", json={"paths": ["\x00"]}).status_code == 400
+
+
+def test_details_over_50_paths_400(client, tmp_path):
+    _put_root(client, tmp_path)
+    paths = [str(tmp_path / f"{i}.mp4") for i in range(51)]
+    assert client.post("/api/prune/details", json={"paths": paths}).status_code == 400
+    assert client.post("/api/prune/details", json={"paths": []}).status_code == 200

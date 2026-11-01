@@ -225,3 +225,94 @@ def test_delete_folder_outside_root_and_nul(tmp_path):
         prune_files.delete_folder(str(root), str(root) + "/\x00")
     assert e.value.status == 400
     assert other.exists()
+
+
+# ── details (ffprobe + LRU) ──────────────────────────────────────────────────
+
+_VIDEO_PROBE = {
+    "streams": [{"codec_name": "h264", "width": 1920, "height": 1080, "duration": "9.0"}],
+    "format": {"duration": "10.5", "bit_rate": "2000000"},
+}
+_AUDIO_PROBE = {
+    "streams": [{"codec_name": "opus", "bit_rate": "96000"}],
+    "format": {"duration": "30.0"},
+}
+
+
+@pytest.fixture
+def probes(monkeypatch):
+    calls: list[str] = []
+
+    def video(path):
+        calls.append(path)
+        return _VIDEO_PROBE
+
+    def audio(path):
+        calls.append(path)
+        return _AUDIO_PROBE
+
+    monkeypatch.setattr(prune_files, "probe_file", video)
+    monkeypatch.setattr(prune_files, "probe_audio", audio)
+    prune_files.clear_details_cache()
+    return calls
+
+
+def test_details_cached_by_path_size_mtime(tmp_path, probes):
+    f = tmp_path / "v.mp4"
+    f.write_bytes(b"x")
+    p = str(f)
+    first = prune_files.get_details([p])[p]
+    assert first == {
+        "duration": 10.5,
+        "width": 1920,
+        "height": 1080,
+        "codec": "h264",
+        "bitrate": 2000000,
+    }
+    assert prune_files.get_details([p])[p] == first
+    assert len(probes) == 1
+    st = f.stat()
+    os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    prune_files.get_details([p])
+    assert len(probes) == 2
+
+
+def test_details_audio_and_unicode(tmp_path, probes):
+    f = tmp_path / "한글\n.mp3"
+    f.write_bytes(b"x")
+    d = prune_files.get_details([str(f)])[str(f)]
+    assert d["codec"] == "opus" and d["bitrate"] == 96000 and d["duration"] == 30.0
+    assert d["width"] is None and d["height"] is None
+
+
+def test_details_images_and_other_are_null(tmp_path, probes):
+    (tmp_path / "a.jpg").write_bytes(b"x")
+    (tmp_path / "n.txt").write_bytes(b"x")
+    (tmp_path / ".h.mp4").write_bytes(b"x")
+    (tmp_path / "ok.mp4").write_bytes(b"x")
+    (tmp_path / "link.mp4").symlink_to(tmp_path / "ok.mp4")
+    paths = [str(tmp_path / n) for n in ("a.jpg", "n.txt", ".h.mp4", "gone.mp4", "link.mp4")]
+    out = prune_files.get_details(paths)
+    assert all(out[p] is None for p in paths)
+    assert probes == []
+
+
+def test_details_probe_failure_is_null_and_not_cached(tmp_path, monkeypatch):
+    f = tmp_path / "bad.mp4"
+    f.write_bytes(b"x")
+    n = []
+    monkeypatch.setattr(prune_files, "probe_file", lambda p: n.append(p) or {})
+    prune_files.clear_details_cache()
+    assert prune_files.get_details([str(f)])[str(f)] is None
+    prune_files.get_details([str(f)])
+    assert len(n) == 2
+
+
+def test_lru_evicts_oldest():
+    c = prune_files.LRUCache(2)
+    c.put("a", 1)
+    c.put("b", 2)
+    assert c.get("a") == 1  # refresh a; b is now oldest
+    c.put("c", 3)
+    assert c.get("b") is None
+    assert c.get("a") == 1 and c.get("c") == 3
