@@ -348,7 +348,7 @@ def test_audio_scan_row_created_behind_its_back_still_ends_failed(sessions, tmp_
         other.close()
         return {"size": 1, "probe_ok": False, "file_mtime": 0, "file_date": 0}
 
-    monkeypatch.setattr(audio_scanner, "_probe_audio_metadata_guarded", probe_and_collide)
+    monkeypatch.setattr(audio_scanner, "probe_audio_metadata_guarded", probe_and_collide)
     audio_scanner.scan_audio_library(lib_id, job_id)
 
     db = sessions()

@@ -323,10 +323,10 @@ def test_folder_endpoint_survives_concurrent_remove(client, tmp_path, _scan_rese
 
 
 def test_details_endpoint(client, tmp_path, monkeypatch):
-    from app.services import prune_files
+    from app.services import prune_files, scanner
 
     monkeypatch.setattr(
-        prune_files,
+        scanner,
         "probe_file",
         lambda p: {"streams": [{"codec_name": "hevc", "width": 4, "height": 2}], "format": {}},
     )
@@ -496,10 +496,10 @@ def test_delete_folder_only_if_empty_api(client, tmp_path):
 
 
 def test_details_missing_null_thumbnail_key_and_delete_cap(client, tmp_path, monkeypatch):
-    from app.services import prune_files
+    from app.services import prune_files, scanner
 
     monkeypatch.setattr(
-        prune_files,
+        scanner,
         "probe_file",
         lambda p: {"streams": [{"codec_name": "h264"}], "format": {}},
     )

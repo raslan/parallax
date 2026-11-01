@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from app.services import prune_files, prune_scan
+from app.services import audio_scanner, prune_files, prune_scan, scanner
 from app.services.prune_sandbox import FolderNotEmpty, InvalidPath, OutsideRoot
 
 
@@ -285,10 +285,68 @@ def probes(monkeypatch):
         calls.append(path)
         return _AUDIO_PROBE
 
-    monkeypatch.setattr(prune_files, "probe_file", video)
-    monkeypatch.setattr(prune_files, "probe_audio", audio)
+    # The shared ffprobe runners: Prune details come from the scanners' mappers.
+    monkeypatch.setattr(scanner, "probe_file", video)
+    monkeypatch.setattr(audio_scanner, "probe_audio", audio)
     prune_files.clear_details_cache()
     return calls
+
+
+def test_details_follow_the_scanner_mapping_rules(tmp_path, monkeypatch):
+    """Same field rules as the library rows: stream bit_rate before format bit_rate
+    (Cleanup's "bitrate" meaning), duration from the container."""
+    v = {
+        "streams": [{"codec_name": "hevc", "width": 640, "height": 360, "bit_rate": "800000"}],
+        "format": {"duration": "12.0", "bit_rate": "1000000"},
+    }
+    a = {"streams": [{"codec_name": "flac"}], "format": {"duration": "3.5", "bit_rate": "900000"}}
+    monkeypatch.setattr(scanner, "probe_file", lambda p: v)
+    monkeypatch.setattr(audio_scanner, "probe_audio", lambda p: a)
+    prune_files.clear_details_cache()
+    (tmp_path / "v.mkv").write_bytes(b"x")
+    (tmp_path / "a.flac").write_bytes(b"x")
+    out = prune_files.get_details([str(tmp_path / "v.mkv"), str(tmp_path / "a.flac")])
+    assert out[str(tmp_path / "v.mkv")] == {
+        "duration": 12.0,
+        "width": 640,
+        "height": 360,
+        "codec": "hevc",
+        "bitrate": 800000,
+    }
+    assert out[str(tmp_path / "a.flac")] == {
+        "duration": 3.5,
+        "width": None,
+        "height": None,
+        "codec": "flac",
+        "bitrate": 900000,
+    }
+
+
+def test_details_audio_uses_the_guarded_probe(tmp_path, monkeypatch):
+    """Audio goes through the scanner's dead-mount wall-clock guard."""
+    seen: list[str] = []
+    real = audio_scanner.probe_audio_metadata_guarded
+    monkeypatch.setattr(
+        audio_scanner, "probe_audio_metadata_guarded", lambda p: seen.append(p) or real(p)
+    )
+    monkeypatch.setattr(audio_scanner, "probe_audio", lambda p: {})
+    prune_files.clear_details_cache()
+    (tmp_path / "a.mp3").write_bytes(b"x")
+    assert prune_files.get_details([str(tmp_path / "a.mp3")])[str(tmp_path / "a.mp3")] is None
+    assert seen == [str(tmp_path / "a.mp3")]
+
+
+def test_details_file_vanishing_mid_probe_is_null(tmp_path, monkeypatch):
+    f = tmp_path / "v.mp4"
+    f.write_bytes(b"x")
+
+    def gone(p):
+        os.remove(p)  # the mapper's own getmtime then raises
+        return _VIDEO_PROBE
+
+    monkeypatch.setattr(scanner, "probe_file", gone)
+    prune_files.clear_details_cache()
+    assert prune_files.get_details([str(f)])[str(f)] is None
 
 
 def test_details_cached_by_path_size_mtime(tmp_path, probes):
@@ -386,7 +444,7 @@ def test_details_probe_failure_is_null_and_not_cached(tmp_path, monkeypatch):
     f = tmp_path / "bad.mp4"
     f.write_bytes(b"x")
     n = []
-    monkeypatch.setattr(prune_files, "probe_file", lambda p: n.append(p) or {})
+    monkeypatch.setattr(scanner, "probe_file", lambda p: n.append(p) or {})
     prune_files.clear_details_cache()
     assert prune_files.get_details([str(f)])[str(f)] is None
     prune_files.get_details([str(f)])

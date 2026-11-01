@@ -285,7 +285,7 @@ def get_or_create_thumbnail(
     )
 
 
-def _probe_metadata(path: str) -> dict:
+def probe_metadata(path: str) -> dict:
     """Probe a video file and return a flat dict of File-column values.
 
     Shared by `rescan_file`, `scan_library`, and `fs_watcher.py` so the
@@ -369,7 +369,7 @@ def rescan_file(db, file_obj: File) -> None:
     themselves.
     """
     path = file_obj.path
-    meta = _probe_metadata(path)
+    meta = probe_metadata(path)
     if meta["size"] is not None:
         file_obj.size = meta["size"]
     if meta["probe_ok"]:
@@ -522,7 +522,7 @@ def scan_library(library_id: int):
 
         def _scan_one(file_id: int, path: str) -> tuple[int, dict | None, str | None]:
             try:
-                return file_id, _probe_metadata(path), None
+                return file_id, probe_metadata(path), None
             except Exception as exc:
                 return file_id, None, str(exc)
 

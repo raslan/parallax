@@ -23,8 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 
 from app.config import DATA_DIR
-from app.services import image_scanner, prune_scan
-from app.services.audio_scanner import probe_audio
+from app.services import audio_scanner, image_scanner, prune_scan, scanner
 from app.services.prune_sandbox import (
     DeleteFailed,
     FolderNotEmpty,
@@ -35,7 +34,7 @@ from app.services.prune_sandbox import (
     resolve_inside,
 )
 from app.services.prune_scan import Counts
-from app.services.scanner import grab_frame, probe_file
+from app.services.scanner import grab_frame
 from app.services.thumbnail_common import (
     IMAGE_THUMB_SEMAPHORE,
     VIDEO_THUMB_SEMAPHORE,
@@ -85,24 +84,28 @@ def clear_details_cache() -> None:
     _details_cache.clear()
 
 
-def _num(value, cast):
+def _media_details(path: str, kind: str) -> dict | None:
+    """Video/audio details from the library scanners' own probe mappers, so a Prune
+    value means what the same column means on Files/Cleanup (e.g. bitrate = stream
+    bit_rate, else the container's). Audio goes through the scanner's dead-mount
+    wall-clock guard. None when ffprobe fails or the file vanishes mid-probe."""
     try:
-        return cast(value)
-    except (TypeError, ValueError):
+        if kind == "video":
+            m = scanner.probe_metadata(path)
+            width, height, bitrate = m["file_width"], m["file_height"], m["video_bitrate"]
+        else:
+            m = audio_scanner.probe_audio_metadata_guarded(path)
+            width, height, bitrate = None, None, m["bitrate"]
+    except OSError:  # the mapper's own stat/getmtime: the file went away
         return None
-
-
-def _parse_probe(info: dict) -> dict | None:
-    if not info:
+    if not m["probe_ok"]:
         return None
-    streams = info.get("streams") or [{}]
-    s, fmt = streams[0], info.get("format") or {}
     return {
-        "duration": _num(fmt.get("duration") or s.get("duration"), float),
-        "width": _num(s.get("width"), int),
-        "height": _num(s.get("height"), int),
-        "codec": s.get("codec_name"),
-        "bitrate": _num(fmt.get("bit_rate") or s.get("bit_rate"), int),
+        "duration": m["duration"],
+        "width": width,
+        "height": height,
+        "codec": m["codec_name"],
+        "bitrate": bitrate,
     }
 
 
@@ -156,7 +159,7 @@ def _details_one(path: str) -> dict | None:
     if kind == "image":
         result = _image_details(path)
     else:
-        result = _parse_probe((probe_file if kind == "video" else probe_audio)(path))
+        result = _media_details(path, kind)
     if result is not None:  # failures are not cached (may be transient)
         _details_cache.put(key, result)
     return result
