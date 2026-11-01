@@ -74,6 +74,18 @@ describe("detectNameGroups", () => {
     expect(texts).toEqual(expect.arrayContaining(["Paris_", "_vacation", "Rome_", "_work"]));
   });
 
+  it("never fabricates a joined text that is not in every member name", () => {
+    // "aba" and "bab" cover the same 3 files and overlap by "ba", but only one
+    // name actually contains "abab": joining them would invent a group of 3.
+    const names = ["abab", "aba-bab", "aba_bab"];
+    const groups = flat(detectNameGroups(names, { minCount: 3, minLength: 2 }));
+    for (const g of groups) {
+      const real = names.filter((n) => n.includes(g.text)).length;
+      expect(real, g.text).toBe(g.count);
+    }
+    expect(groups.map((g) => g.text).sort()).toEqual(["aba", "bab"]);
+  });
+
   it("does not suggest groups without a letter", () => {
     const names = [...many(5, (i) => `foo 1${i}.mp4`), ...many(5, (i) => `bar 1${i}.mp4`)];
     const texts = flat(detectNameGroups(names)).map((g) => g.text);

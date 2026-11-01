@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { useState } from "react";
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
@@ -139,6 +139,39 @@ describe("DeleteFilesDialog", () => {
     expect([...after]).toEqual(["/r/clip-2.mp4"]);
     expect(toast.error).toHaveBeenCalledTimes(1);
   });
+
+  it("deletes a big selection in chunks of 500 and reports one merged result", async () => {
+    vi.mocked(api.pruneDelete).mockImplementation(async (paths) => ({
+      deleted: paths,
+      failed: [],
+      empty_folders: ["/r"],
+    }));
+    const many = Array.from({ length: 1100 }, (_, i) => file(`m-${i}.mp4`));
+    const onResult = vi.fn();
+    render(<DeleteFilesDialog files={many} onClose={() => {}} onResult={onResult} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Delete 1,100 files$/ }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.pruneDelete).mock.calls.map((c) => c[0].length)).toEqual([500, 500, 100]);
+    const merged = onResult.mock.calls[0]![0] as PruneDeleteResult;
+    expect(merged.deleted).toHaveLength(1100);
+    expect(merged.empty_folders).toEqual(["/r"]);
+  });
+
+  it("stops on a 409 mid-way, keeping what was deleted", async () => {
+    vi.mocked(api.pruneDelete)
+      .mockImplementationOnce(async (paths) => ({ deleted: paths, failed: [], empty_folders: [] }))
+      .mockRejectedValueOnce(new Error("409: Folder is no longer available"));
+    const many = Array.from({ length: 1100 }, (_, i) => file(`m-${i}.mp4`));
+    const onResult = vi.fn();
+    const onError = vi.fn();
+    render(
+      <DeleteFilesDialog files={many} onClose={() => {}} onResult={onResult} onError={onError} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Delete 1,100 files$/ }));
+    await waitFor(() => expect(onError).toHaveBeenCalled());
+    expect(api.pruneDelete).toHaveBeenCalledTimes(2);
+    expect((onResult.mock.calls[0]![0] as PruneDeleteResult).deleted).toHaveLength(500);
+  });
 });
 
 describe("DeleteFilesDialog with a filter hiding selected files", () => {
@@ -172,7 +205,19 @@ describe("EmptyFolderPrompt", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onResolve).toHaveBeenCalledWith("/r/b", true));
-    expect(api.pruneDeleteFolder).toHaveBeenCalledWith("/r/b");
+    expect(api.pruneDeleteFolder).toHaveBeenCalledWith("/r/b", true);
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("keeps a folder that is no longer empty, with a friendly note", async () => {
+    vi.mocked(api.pruneDeleteFolder).mockRejectedValue(
+      new Error('409: {"detail":"Folder is no longer empty"}'),
+    );
+    const onResolve = vi.fn();
+    render(<EmptyFolderPrompt paths={["/r/a"]} onResolve={onResolve} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith("/r/a", false));
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith("Folder isn't empty any more — kept");
   });
 });

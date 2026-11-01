@@ -47,9 +47,27 @@ describe("pruneFields keys", () => {
       "modified",
       "duration",
       "resolution",
+      "orientation",
       "codec",
       "bitrate",
     ]);
+  });
+});
+
+describe("orientation field", () => {
+  it("derives landscape / portrait / square from the probed size", () => {
+    const of = (width: number, height: number) => row({ details: details({ width, height }) });
+    expect(run("orientation", "eq", "landscape", of(1920, 1080))).toBe(true);
+    expect(run("orientation", "eq", "portrait", of(1920, 1080))).toBe(false);
+    expect(run("orientation", "eq", "portrait", of(1080, 1920))).toBe(true);
+    expect(run("orientation", "eq", "square", of(720, 720))).toBe(true);
+    expect(run("orientation", "eq", "landscape", of(720, 720))).toBe(false);
+  });
+  it("is false without details or dimensions", () => {
+    expect(run("orientation", "eq", "landscape", row())).toBe(false);
+    expect(run("orientation", "eq", "landscape", row({ details: null }))).toBe(false);
+    const noH = row({ details: details({ height: null }) });
+    expect(run("orientation", "eq", "landscape", noH)).toBe(false);
   });
 });
 

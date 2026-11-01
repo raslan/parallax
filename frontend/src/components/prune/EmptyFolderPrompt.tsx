@@ -46,10 +46,16 @@ export function EmptyFolderPrompt({
   async function remove() {
     setPending(true);
     try {
-      await api.pruneDeleteFolder(path!);
+      // Only if still empty: something may have landed in it since the prompt opened.
+      await api.pruneDeleteFolder(path!, true);
       advance(true);
     } catch (e) {
-      toast.error(getErrorMessage(e, "Could not delete the folder"));
+      const msg = getErrorMessage(e, "Could not delete the folder");
+      if (msg.startsWith("409") && msg.includes("no longer empty")) {
+        toast.info("Folder isn't empty any more — kept");
+      } else {
+        toast.error(msg);
+      }
       advance(false);
     } finally {
       setPending(false);

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import { formatSize } from "@/lib/format";
+import { DELETE_CHUNK, deleteInChunks } from "@/lib/pruneDelete";
 import { sumBytes } from "@/lib/pruneSelect";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,36 +37,33 @@ export function DeleteFilesDialog({
   onError?: (error: unknown) => void;
 }) {
   const [pending, setPending] = useState(false);
+  /** Paths sent so far while a multi-chunk delete runs. */
+  const [sent, setSent] = useState(0);
   if (files.length === 0) return null;
 
   const count = files.length;
   const bytes = sumBytes(files, new Set(files.map((f) => f.path)));
   const noun = count === 1 ? "file" : "files";
   const names = new Map(files.map((f) => [f.path, f.name]));
+  const chunked = count > DELETE_CHUNK;
 
   async function run() {
     setPending(true);
+    setSent(0);
     try {
-      const result = await api.pruneDelete(files.map((f) => f.path));
-      if (result.deleted.length > 0) {
-        toast.success(
-          `Deleted ${result.deleted.length.toLocaleString()} ${result.deleted.length === 1 ? "file" : "files"}`,
-        );
+      // Sequential chunks of 500; stops at the first failed chunk and still
+      // reports what that run already deleted.
+      const { result, error } = await deleteInChunks(
+        files.map((f) => f.path),
+        (chunk) => api.pruneDelete(chunk),
+        setSent,
+      );
+      const anything = result.deleted.length + result.failed.length + result.empty_folders.length;
+      if (error !== null) {
+        if (anything > 0) report(result);
+        throw error;
       }
-      if (result.failed.length > 0) {
-        const shown = result.failed
-          .slice(0, 3)
-          .map((f) => `${names.get(f.path) ?? f.path}: ${f.error}`)
-          .join("\n");
-        const more = result.failed.length - 3;
-        toast.error(
-          `${result.failed.length.toLocaleString()} ${result.failed.length === 1 ? "file" : "files"} could not be deleted`,
-          {
-            description: `${shown}${more > 0 ? `\nand ${more} more` : ""}\nThey are still selected.`,
-          },
-        );
-      }
-      onResult(result);
+      report(result);
     } catch (e) {
       // A 409 means the root is gone; the page shows its own unavailable state.
       if (!getErrorMessage(e, "").startsWith("409"))
@@ -74,6 +72,28 @@ export function DeleteFilesDialog({
     } finally {
       setPending(false);
     }
+  }
+
+  function report(result: PruneDeleteResult) {
+    if (result.deleted.length > 0) {
+      toast.success(
+        `Deleted ${result.deleted.length.toLocaleString()} ${result.deleted.length === 1 ? "file" : "files"}`,
+      );
+    }
+    if (result.failed.length > 0) {
+      const shown = result.failed
+        .slice(0, 3)
+        .map((f) => `${names.get(f.path) ?? f.path}: ${f.error}`)
+        .join("\n");
+      const more = result.failed.length - 3;
+      toast.error(
+        `${result.failed.length.toLocaleString()} ${result.failed.length === 1 ? "file" : "files"} could not be deleted`,
+        {
+          description: `${shown}${more > 0 ? `\nand ${more} more` : ""}\nThey are still selected.`,
+        },
+      );
+    }
+    onResult(result);
   }
 
   return (
@@ -102,6 +122,15 @@ export function DeleteFilesDialog({
           </ul>
           {count > MAX_NAMES && (
             <p className="text-xs text-muted-foreground">and {count - MAX_NAMES} more</p>
+          )}
+          {chunked && pending && (
+            <p role="status" className="animate-fade-in text-xs text-muted-foreground">
+              Deleting in batches:{" "}
+              <span key={sent} className="inline-block animate-pop tabular-nums text-foreground">
+                {sent.toLocaleString()}
+              </span>{" "}
+              of <span className="tabular-nums">{count.toLocaleString()}</span> done
+            </p>
           )}
         </div>
         <DialogFooter>

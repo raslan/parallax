@@ -181,6 +181,27 @@ export const pruneFields: FieldDef<PruneRow>[] = [
     },
   },
   {
+    key: "orientation",
+    label: "Orientation",
+    category: "numeric",
+    valueType: "select",
+    operators: ["eq"],
+    defaultOperator: "eq",
+    defaultValue: "portrait",
+    options: [
+      { label: "Portrait", value: "portrait" },
+      { label: "Landscape", value: "landscape" },
+      { label: "Square", value: "square" },
+    ],
+    test: (row, _operator, value) => {
+      const w = row.details?.width;
+      const h = row.details?.height;
+      if (w == null || h == null) return false;
+      const orientation = w === h ? "square" : w > h ? "landscape" : "portrait";
+      return orientation === value;
+    },
+  },
+  {
     key: "codec",
     label: "Codec",
     category: "search",

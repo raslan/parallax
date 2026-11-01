@@ -70,6 +70,15 @@ describe("reconcileSelection", () => {
     expect(reconcileSelection(stored, new Set(again.map((x) => x.path)))).toBeNull();
     expect(again.map((x) => x.name)).toEqual(["a"]);
   });
+
+  it("keeps picks whose details are still loading, drops the rest", () => {
+    const stored = new Set(["/r/a", "/r/b", "/r/c"]);
+    const allowed = new Set(["/r/a"]); // only a matches so far
+    const pending = new Set(["/r/b"]); // b's details have not arrived yet
+    expect([...reconcileSelection(stored, allowed, pending)!]).toEqual(["/r/a", "/r/b"]);
+    expect(reconcileSelection(new Set(["/r/a", "/r/b"]), allowed, pending)).toBeNull();
+    expect([...reconcileSelection(stored, allowed, new Set())!]).toEqual(["/r/a"]);
+  });
 });
 
 describe("sumBytes / sameSet", () => {

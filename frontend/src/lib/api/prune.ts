@@ -13,7 +13,9 @@ export const pruneApi = {
   getPruneRoot: () => req<{ root: string | null }>("/prune/root"),
   putPruneRoot: (path: string) =>
     req<{ root: string | null }>("/prune/root", { method: "PUT", body: JSON.stringify({ path }) }),
-  startPruneScan: () => req<ScanState>("/prune/scan", { method: "POST" }),
+  /** Without `force` the backend reuses a finished scan of the same root. */
+  startPruneScan: (force = false) =>
+    req<ScanState>(`/prune/scan${force ? "?force=true" : ""}`, { method: "POST" }),
   getPruneScan: () => req<ScanState>("/prune/scan"),
   getPruneFolder: (path: string) => req<PruneFolder>(`/prune/folder?${q(path)}`),
   getPruneFiles: (path: string) => req<PruneFile[]>(`/prune/files?${q(path)}`),
@@ -24,8 +26,12 @@ export const pruneApi = {
     }),
   pruneDelete: (paths: string[]) =>
     req<PruneDeleteResult>("/prune/delete", { method: "POST", body: JSON.stringify({ paths }) }),
-  pruneDeleteFolder: (path: string) =>
-    req<void>("/prune/delete-folder", { method: "POST", body: JSON.stringify({ path }) }),
+  /** `onlyIfEmpty` deletes only a still-empty folder (409 if it gained entries). */
+  pruneDeleteFolder: (path: string, onlyIfEmpty = false) =>
+    req<void>("/prune/delete-folder", {
+      method: "POST",
+      body: JSON.stringify({ path, only_if_empty: onlyIfEmpty }),
+    }),
   pruneThumbnailUrl: (path: string) => `${BASE}/prune/thumbnail?${q(path)}`,
   pruneFileUrl: (path: string) => `${BASE}/prune/file?${q(path)}`,
   pruneAudioUrl: (path: string) => `${BASE}/prune/audio?${q(path)}`,

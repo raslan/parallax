@@ -112,6 +112,28 @@ describe("usePruneDetails", () => {
     expect(result.current.loaded).toBe(30);
   });
 
+  it("keeps loaded details across a refetch and only probes changed files", async () => {
+    getPruneDetails.mockImplementation(async (paths: string[]) => ({
+      details: Object.fromEntries(paths.map((p) => [p, info(1)])),
+    }));
+    const a = mkFiles(4);
+    const { result, rerender } = renderHook(({ f }) => usePruneDetails("/r", f), {
+      initialProps: { f: a },
+    });
+    await waitFor(() => expect(result.current.done).toBe(true));
+    getPruneDetails.mockClear();
+    // Refetch after a partly failed delete: f0 is gone, f3 was rewritten (new mtime).
+    const b = [a[1]!, a[2]!, { ...a[3]!, mtime: 5 }].map((f) => ({ ...f }));
+    rerender({ f: b });
+    expect(result.current.details["/r/f1"]).toEqual(info(1)); // no reset to empty
+    expect(result.current.details["/r/f3"]).toBeUndefined(); // stale size/mtime is not reused
+    expect(result.current.loaded).toBe(2);
+    await waitFor(() => expect(result.current.done).toBe(true));
+    expect(getPruneDetails.mock.calls.map((c) => c[0])).toEqual([["/r/f3"]]);
+    expect(result.current.details["/r/f0"]).toBeUndefined();
+    expect(result.current.total).toBe(3);
+  });
+
   it("is done immediately for an empty folder", () => {
     const { result } = renderHook(() => usePruneDetails("/r", []));
     expect(result.current.done).toBe(true);

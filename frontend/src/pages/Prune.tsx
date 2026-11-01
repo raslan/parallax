@@ -48,7 +48,7 @@ import type { PruneDeleteResult, PruneFile, ScanState } from "@/types/prune";
 const NO_FILES: PruneFile[] = [];
 
 /** Filter fields that need ffprobe details, which stream in after the list. */
-const ENRICHED = new Set(["duration", "resolution", "codec", "bitrate"]);
+const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bitrate"]);
 
 /** How long the delete exit animation plays before the lists refetch. */
 const EXIT_MS = 220;
@@ -106,10 +106,13 @@ export function Prune() {
     refetchInterval: (q) => (q.state.data?.status === "running" ? 500 : false),
   });
 
+  // `force` = Rescan: always re-walk. Otherwise the backend reuses a finished scan
+  // of the same root, so revisiting the page keeps listings and selection.
   const startScan = useMutation({
-    mutationFn: () => api.startPruneScan(),
+    mutationFn: (force: boolean) => api.startPruneScan(force),
     meta: { skipErrorToast: true },
-    onMutate: () => {
+    onMutate: (force) => {
+      if (!force) return;
       // Cached listings describe the previous scan.
       qc.removeQueries({ queryKey: ["prune", "folder"] });
       qc.removeQueries({ queryKey: ["prune", "files"] });
@@ -129,17 +132,19 @@ export function Prune() {
       selectNone();
       setGoneRoot(null);
       qc.setQueryData(qk.pruneRoot(), res);
-      if (!changed) startScan.mutate();
+      // Re-picking the same folder is a rescan (the PUT also dropped the server cache).
+      if (!changed) startScan.mutate(true);
     },
   });
 
-  // Scan once whenever a (new) root is known: on mount and after Change folder.
+  // Ensure a scan exists whenever a (new) root is known: on mount and after
+  // Change folder. Non-forced, so a cached scan of this root is reused as is.
   const scannedRoot = useRef<string | null>(null);
   const { mutate: runScan } = startScan;
   useEffect(() => {
     if (root && scannedRoot.current !== root) {
       scannedRoot.current = root;
-      runScan();
+      runScan(false);
     }
   }, [root, runScan]);
 
@@ -191,9 +196,18 @@ export function Prune() {
   // render (`actionFiles`), and the stored set is shrunk to match in the same pass
   // (adjusting state during render, no effect) so un-filtering never resurrects
   // selections that a filter hid. Also covers files that vanished from the list.
+  // Rows a details-backed filter can't judge yet (details still loading) are kept
+  // in the stored set, not dropped; they are only acted on once they match.
   const actionFiles = useMemo(() => selectedIn(visibleFiles, selected), [visibleFiles, selected]);
   const selectedPaths = useMemo(() => new Set(actionFiles.map((f) => f.path)), [actionFiles]);
-  const shrunk = reconcileSelection(selected, selectedPaths);
+  const pendingPaths = useMemo(
+    () =>
+      stillLoading > 0
+        ? new Set(fileList.filter((f) => details[f.path] === undefined).map((f) => f.path))
+        : undefined,
+    [stillLoading, fileList, details],
+  );
+  const shrunk = reconcileSelection(selected, selectedPaths, pendingPaths);
   if (shrunk) setSelected(shrunk);
 
   const smartOptions = useMemo<SmartSelectOption[]>(() => {
@@ -342,7 +356,7 @@ export function Prune() {
         scan={scan}
         busy={saveRoot.isPending || startScan.isPending}
         onChangeFolder={() => setPicking(true)}
-        onRescan={() => startScan.mutate()}
+        onRescan={() => startScan.mutate(true)}
       />
 
       {unavailable ? (
@@ -361,7 +375,7 @@ export function Prune() {
         <QueryError
           title="The scan failed"
           error="Prune could not finish reading this folder."
-          onRetry={() => startScan.mutate()}
+          onRetry={() => startScan.mutate(true)}
         />
       ) : folderQ.isError && !atRoot && (isMissing(folderQ.error) || isConflict(folderQ.error)) ? (
         <EmptyState
@@ -504,7 +518,7 @@ export function Prune() {
         onFailed={() => {
           setFolderToDelete(null);
           // The backend may have removed part of the tree and dropped its scan cache.
-          startScan.mutate();
+          startScan.mutate(true);
         }}
         onGone={() => {
           setFolderToDelete(null);

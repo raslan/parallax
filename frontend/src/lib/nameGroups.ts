@@ -232,7 +232,8 @@ export function detectNameGroups(names: string[], opts: Options = {}): NameGroup
     cur = next;
   }
 
-  return buildTree(dedupeEqualSets(raw, Math.max(2, minLength)), names.length, maxGroups);
+  const texts = cps.map((arr) => String.fromCodePoint(...arr));
+  return buildTree(dedupeEqualSets(raw, Math.max(2, minLength), texts), names.length, maxGroups);
 }
 
 /**
@@ -264,9 +265,13 @@ function joinRelated(a: string, b: string, minOverlap: number): string | null {
 /**
  * Merge groups that cover exactly the same files AND are textually related
  * (substring / overlapping windows). Unrelated strings that merely share a
- * file set ("Paris_" and "_vacation") stay separate groups.
+ * file set ("Paris_" and "_vacation") stay separate groups. An overlap join is
+ * kept only when every member name really contains the joined text: two windows
+ * ("aba", "bab") can share a file set while "abab" occurs in just one of them.
+ *
+ * `texts` are the normalised, extension-stripped names, indexed like `files`.
  */
-function dedupeEqualSets(raw: RawGroup[], minOverlap: number): RawGroup[] {
+function dedupeEqualSets(raw: RawGroup[], minOverlap: number, texts: string[]): RawGroup[] {
   // Longest first, then text order, so the result doesn't depend on input order.
   raw.sort((a, b) => b.length - a.length || compareText(a.text, b.text));
   const buckets = new Map<string, RawGroup[]>();
@@ -289,6 +294,7 @@ function dedupeEqualSets(raw: RawGroup[], minOverlap: number): RawGroup[] {
       if (!sameFiles(o.files, g.files)) continue;
       const joined = joinRelated(o.text, g.text, minOverlap);
       if (joined === null) continue;
+      if (!g.files.every((f) => texts[f]!.includes(joined))) continue;
       g = { text: joined, length: Array.from(joined).length, files: g.files };
       list.splice(i, 1);
       i = -1; // the merged text may now relate to an earlier entry
