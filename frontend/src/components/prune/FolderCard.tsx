@@ -1,7 +1,10 @@
-import { FileIcon, Film, Folder, ImageIcon, Music, Trash2 } from "lucide-react";
+import type { CSSProperties } from "react";
+import { Folder, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
+import { ProgressBar } from "@/components/ProgressBar";
 import { Tip } from "@/components/Tip";
+import { KIND_ICON } from "@/components/prune/kindIcon";
 import { formatSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Counts, FolderNodeInfo } from "@/types/prune";
@@ -13,10 +16,10 @@ export const FOLDER_CARD_HEIGHT = 140;
 export const FOLDER_ROW_HEIGHT = 60;
 
 const CHIPS: { key: keyof Counts; label: [string, string]; icon: LucideIcon }[] = [
-  { key: "images", label: ["image", "images"], icon: ImageIcon },
-  { key: "videos", label: ["video", "videos"], icon: Film },
-  { key: "audio", label: ["audio file", "audio files"], icon: Music },
-  { key: "other", label: ["other file", "other files"], icon: FileIcon },
+  { key: "images", label: ["image", "images"], icon: KIND_ICON.image },
+  { key: "videos", label: ["video", "videos"], icon: KIND_ICON.video },
+  { key: "audio", label: ["audio file", "audio files"], icon: KIND_ICON.audio },
+  { key: "other", label: ["other file", "other files"], icon: KIND_ICON.other },
 ];
 
 /** Fraction (0..1) of the parent's total this folder accounts for. */
@@ -50,16 +53,15 @@ function CountChips({ total }: { total: Counts }) {
 
 function ShareBar({ share, by, className }: { share: number; by: ShareBy; className?: string }) {
   const pct = Math.round(share * 100);
+  const label = `${pct < 1 && share > 0 ? "<1" : pct}% of this folder's ${by === "files" ? "files" : "size"}`;
   return (
-    <Tip
-      label={`${pct < 1 && share > 0 ? "<1" : pct}% of this folder's ${by === "files" ? "files" : "size"}`}
-    >
-      <div className={cn("h-1 overflow-hidden rounded-full bg-muted", className)}>
-        <div
-          className="h-full w-full origin-left rounded-full bg-primary/80 transition-transform duration-300 ease-out"
-          style={{ transform: `scaleX(${share})` }}
-        />
-      </div>
+    <Tip label={label}>
+      <ProgressBar
+        value={share * 100}
+        label={label}
+        className={cn("h-1", className)}
+        barClassName="bg-primary/80"
+      />
     </Tip>
   );
 }
@@ -91,17 +93,18 @@ export function FolderCard({
   onDelete?: (folder: FolderNodeInfo) => void;
 }) {
   const exit = leaving
-    ? "pointer-events-none scale-95 opacity-0 transition-all duration-200 motion-reduce:scale-100"
+    ? "pointer-events-none scale-95 opacity-0 transition-[transform,opacity] duration-150 ease-in motion-reduce:scale-100"
     : "";
   const share = shareOf(folder.total, parentTotal, shareBy);
   const files = folder.total.files;
-  const style = { animationDelay: `${Math.min(index, 14) * 28}ms` };
+  // Position for the shared `stagger` utility (index.css), which caps and spaces the delay.
+  const style = { "--stagger": index } as CSSProperties;
   const trash = onDelete && (
     <IconButton
       label={`Delete ${folder.name}`}
       onClick={() => onDelete(folder)}
       className={cn(
-        "absolute z-10 flex h-7 w-7 items-center justify-center rounded-md border bg-px-elevated text-muted-foreground opacity-0 transition-all duration-100",
+        "absolute z-10 flex h-7 w-7 items-center justify-center rounded-md border bg-px-elevated text-muted-foreground opacity-0 transition-[opacity,color,border-color] duration-100",
         "hover:border-destructive/50 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100",
         layout === "grid" ? "right-2 top-2" : "right-3 top-1/2 -translate-y-1/2",
       )}
@@ -114,7 +117,7 @@ export function FolderCard({
     return (
       <div
         className={cn(
-          "group relative h-full animate-slide-up-fade border-b [animation-fill-mode:backwards] last:border-b-0",
+          "group relative h-full animate-slide-up-fade stagger border-b last:border-b-0",
           exit,
         )}
         style={style}
@@ -146,17 +149,11 @@ export function FolderCard({
   }
 
   return (
-    <div
-      className={cn(
-        "group relative h-full animate-slide-up-fade [animation-fill-mode:backwards]",
-        exit,
-      )}
-      style={style}
-    >
+    <div className={cn("group relative h-full animate-slide-up-fade stagger", exit)} style={style}>
       <button
         type="button"
         onClick={() => onOpen(folder.path)}
-        className="flex h-full w-full flex-col gap-2 rounded-lg border bg-px-elevated p-3 text-left transition-all duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg focus-visible:-translate-y-0.5 focus-visible:border-primary/60 focus-visible:outline-hidden"
+        className="flex h-full w-full flex-col gap-2 rounded-lg border bg-px-elevated p-3 text-left transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/50 focus-visible:-translate-y-0.5 focus-visible:border-primary/60 focus-visible:outline-hidden"
       >
         <div className="flex items-start gap-2 pr-8">
           <Folder className="mt-0.5 h-4 w-4 shrink-0 text-primary/80 transition-transform duration-150 group-hover:scale-110" />

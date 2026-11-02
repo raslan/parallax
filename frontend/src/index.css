@@ -121,6 +121,14 @@
   }
 }
 
+/* Staggered enter for a list of `animate-*` items: set `--stagger` to the item's
+   index (inline style) and the delay steps 28ms per item, capped at the 14th.
+   `backwards` holds the first keyframe during the delay so nothing flashes. */
+@utility stagger {
+  animation-delay: calc(min(var(--stagger, 0), 14) * 28ms);
+  animation-fill-mode: backwards;
+}
+
 :root {
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
