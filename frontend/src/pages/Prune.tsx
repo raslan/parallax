@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CornerLeftUp, Eraser, FolderOpen, FolderX, Loader2, Trash2 } from "lucide-react";
 import { api, qk } from "@/lib/api";
 import { httpStatus } from "@/lib/api/client";
 import { formatSize, sumSizeOf } from "@/lib/format";
-import { parentPath } from "@/lib/path";
+import { folderAfterDelete, folderSearch, resolveOpenFolder } from "@/lib/pruneNav";
 import {
   invertSelection,
   reconcileSelection,
@@ -65,16 +66,28 @@ const isMissing = (e: unknown) => httpStatus(e) === 404;
 export function Prune() {
   const qc = useQueryClient();
   const [picking, setPicking] = useState(false);
-  // The subfolder the user navigated into, tagged with the root it belongs to so
-  // a changed root can never leave a stale path from the previous tree behind.
-  const [nav, setNav] = useState<{ root: string; path: string } | null>(null);
+  const routerNavigate = useNavigate();
+  // The open folder lives in the URL (`?path=`, none = the root), so Back/Forward walk
+  // the folders visited. Derived here every render; a value outside the root (e.g. one
+  // left from a previous root) or malformed opens the root flagged `badPath`.
+  const [searchParams] = useSearchParams();
+  const pathParam = searchParams.get("path");
 
   const rootQ = useQuery({ queryKey: qk.pruneRoot(), queryFn: () => api.getPruneRoot() });
   const root = rootQ.data?.root ?? null;
-  const currentPath = nav && nav.root === root ? nav.path : root;
+  const open = root ? resolveOpenFolder(pathParam, root) : null;
+  const currentPath = open?.path ?? root;
+  const badPath = open ? !open.valid : false;
   const atRoot = currentPath === root;
   const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
     useSelection<string>();
+  // A new folder (link, breadcrumb, Back/Forward, a delete moving up) starts with
+  // nothing selected: adjusted during render, no effect.
+  const [shownPath, setShownPath] = useState(currentPath);
+  if (shownPath !== currentPath) {
+    setShownPath(currentPath);
+    selectNone();
+  }
   // One view mode + card size for folders and files; both grids virtualise against
   // the page's own scroll (the layout's main area) so there is a single scroller.
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -85,14 +98,14 @@ export function Prune() {
   // One sort each for the folders and the files (Name ascending, counts/sizes descending).
   const folderSort = useSort<FolderSortKey>("files", folderSortDefaultDir);
   const fileSort = useSort<FileSortKey>("name", fileSortDefaultDir);
-  // Shared-scroll grids can't reset themselves, so a changed filter or sort (a
-  // different result set or order) scrolls back to the top. Navigation does its own
-  // reset; refetches and streaming details never change the signature, so they
-  // never jump the page.
-  const viewSig = viewSignature(clauses, [
+  // Shared-scroll grids can't reset themselves, so opening another folder or a changed
+  // filter or sort (a different result set or order) scrolls back to the top.
+  // Refetches and streaming details never change the signature, so they never jump
+  // the page.
+  const viewSig = `${currentPath}|${viewSignature(clauses, [
     { key: folderSort.sortKey, dir: folderSort.sortDir },
     { key: fileSort.sortKey, dir: fileSort.sortDir },
-  ]);
+  ])}`;
   const lastViewSig = useRef(viewSig);
   useEffect(() => {
     if (lastViewSig.current === viewSig) return;
@@ -106,10 +119,15 @@ export function Prune() {
   const exitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(exitTimer.current), []);
 
-  const navigate = (path: string) => {
-    selectNone();
-    scroller?.scrollTo({ top: 0 });
-    setNav(root && path !== root ? { root, path } : null);
+  /** Link target that opens `path` (a pushed history entry). */
+  const linkTo = (path: string) => ({ search: root ? folderSearch(path, root) : "" });
+
+  /**
+   * Programmatic moves (the open folder was deleted, the root changed) replace the
+   * current entry: pushing would leave a dead folder for Back to return to.
+   */
+  const replaceFolder = (path: string) => {
+    void routerNavigate(linkTo(path), { replace: true });
   };
 
   /** Refetch listings (totals change all the way up the tree) once the exit animation ends. */
@@ -153,7 +171,8 @@ export function Prune() {
     mutationFn: (path: string) => api.putPruneRoot(path),
     onSuccess: (res) => {
       const changed = res.root !== root;
-      setNav(null);
+      // Back at the (new) root; replace so Back never reopens a folder of the old tree.
+      if (pathParam !== null) void routerNavigate({ search: "" }, { replace: true });
       selectNone();
       setGoneRoot(null);
       qc.setQueryData(qk.pruneRoot(), res);
@@ -295,15 +314,16 @@ export function Prune() {
     // Network/timeout: some files may already be gone.
     onFilesError: () => refreshListings(),
     onEmptyFolderDeleted: (path) => {
-      if (path === currentPath) navigate(parentPath(path));
+      const up = currentPath ? folderAfterDelete(path, currentPath) : null;
+      if (up !== null) replaceFolder(up);
       setLeavingFolders((prev) => new Set(prev).add(path));
       refreshListings(EXIT_MS);
     },
     onFolderDeleted: (path) => {
-      const insideDeleted = currentPath === path || !!currentPath?.startsWith(`${path}/`);
-      if (insideDeleted) {
-        // Parent of the deleted folder, even when it is an ancestor of the open one.
-        navigate(parentPath(path));
+      // Parent of the deleted folder, even when it is an ancestor of the open one.
+      const up = currentPath ? folderAfterDelete(path, currentPath) : null;
+      if (up !== null) {
+        replaceFolder(up);
         refreshListings();
       } else {
         setLeavingFolders(new Set([path]));
@@ -390,15 +410,19 @@ export function Prune() {
           error="Prune could not finish reading this folder."
           onRetry={() => startScan.mutate(true)}
         />
-      ) : folderQ.isError && !atRoot && (isMissing(folderQ.error) || isConflict(folderQ.error)) ? (
+      ) : badPath ||
+        (folderQ.isError && !atRoot && (isMissing(folderQ.error) || isConflict(folderQ.error))) ? (
         <EmptyState
           icon={FolderX}
           title="This folder is gone"
-          description="It was moved or deleted since the last scan. Head back up, or rescan to refresh the tree."
+          description="It was moved or deleted since the last scan, or the link points outside the chosen folder. Head back up, or rescan to refresh the tree."
           action={
-            <Button onClick={() => navigate(root)}>
-              <CornerLeftUp className="mr-1.5 h-3.5 w-3.5" />
-              Back to the top folder
+            // Replaces the dead entry, so Back never lands on the gone folder again.
+            <Button asChild>
+              <Link to={{ search: "" }} replace>
+                <CornerLeftUp className="mr-1.5 h-3.5 w-3.5" />
+                Back to the top folder
+              </Link>
             </Button>
           }
         />
@@ -431,7 +455,7 @@ export function Prune() {
             sortKey={folderSort.sortKey}
             sortDir={folderSort.sortDir}
             onSort={folderSort.toggleSort}
-            onNavigate={navigate}
+            linkTo={linkTo}
             onDelete={(f) => void deleteFolder(f)}
             onDeleteOpen={
               !atRoot && folderQ.data

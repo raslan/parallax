@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link, type To } from "react-router";
 import { ChevronRight, FolderTree, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { IconButton } from "@/components/IconButton";
@@ -39,7 +40,9 @@ const SORT_HEADERS: { value: FolderSortKey; label: string; className: string }[]
  * view, a `ColHeader` row. View mode and card size come from the page (one
  * control for folders and files); the folder cards clamp the size locally
  * (`folderCardWidth`) without touching the setting. `scrollElement` is the page
- * scroller the grid virtualises against.
+ * scroller the grid virtualises against. Breadcrumbs and folder cards are router
+ * links built by `linkTo(path)` (the page keeps the open folder in the URL), so
+ * Back/Forward and open-in-new-tab work.
  */
 export function FolderBrowser({
   folder,
@@ -49,7 +52,7 @@ export function FolderBrowser({
   sortKey,
   sortDir,
   onSort,
-  onNavigate,
+  linkTo,
   onDelete,
   onDeleteOpen,
   leaving,
@@ -61,7 +64,8 @@ export function FolderBrowser({
   sortKey: FolderSortKey;
   sortDir: SortDir;
   onSort: (key: FolderSortKey) => void;
-  onNavigate: (path: string) => void;
+  /** Link target that opens the folder at `path`. */
+  linkTo: (path: string) => To;
   /** Delete one of the listed subfolders. */
   onDelete?: (folder: FolderNodeInfo) => void;
   /** Delete the open folder itself (header action); omit at the root. */
@@ -99,13 +103,12 @@ export function FolderBrowser({
                       {c.name}
                     </span>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate(c.path)}
+                    <Link
+                      to={linkTo(c.path)}
                       className="rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-hidden"
                     >
                       {c.name}
-                    </button>
+                    </Link>
                   )}
                 </li>
               );
@@ -168,7 +171,7 @@ export function FolderBrowser({
               layout="grid"
               index={sorted.indexOf(f)}
               leaving={leaving?.has(f.path)}
-              onOpen={onNavigate}
+              to={linkTo(f.path)}
               onDelete={onDelete}
             />
           )}
@@ -204,7 +207,7 @@ export function FolderBrowser({
                 layout="list"
                 index={sorted.indexOf(f)}
                 leaving={leaving?.has(f.path)}
-                onOpen={onNavigate}
+                to={linkTo(f.path)}
                 onDelete={onDelete}
               />
             )}

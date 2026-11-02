@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { Link, type To } from "react-router";
 import { Folder, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
@@ -68,8 +69,10 @@ function ShareBar({ share, by, className }: { share: number; by: ShareBy; classN
 
 /**
  * One subfolder of the open folder, as a grid card or a list row. The whole
- * surface opens the folder; the trash action sits over it and is revealed on
- * hover/focus (always visible on touch). Props-in/callbacks-out.
+ * surface is a router link to the folder (`to`), so a click pushes a history entry
+ * and middle-click / open in a new tab work; the trash action is a sibling button
+ * over it (never nested in the link), revealed on hover/focus (always visible on
+ * touch). Props-in/callbacks-out.
  */
 export function FolderCard({
   folder,
@@ -78,7 +81,7 @@ export function FolderCard({
   layout,
   index,
   leaving = false,
-  onOpen,
+  to,
   onDelete,
 }: {
   folder: FolderNodeInfo;
@@ -89,7 +92,8 @@ export function FolderCard({
   index: number;
   /** Plays the delete exit animation. */
   leaving?: boolean;
-  onOpen: (path: string) => void;
+  /** Where the card links to (the page builds it from the folder's path). */
+  to: To;
   onDelete?: (folder: FolderNodeInfo) => void;
 }) {
   const exit = leaving
@@ -122,9 +126,9 @@ export function FolderCard({
         )}
         style={style}
       >
-        <button
-          type="button"
-          onClick={() => onOpen(folder.path)}
+        <Link
+          to={to}
+          draggable={false}
           className="flex h-full w-full items-center gap-3 px-3 pr-14 text-left transition-colors duration-100 hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-hidden"
         >
           <Folder className="h-4 w-4 shrink-0 text-primary/80" />
@@ -142,7 +146,7 @@ export function FolderCard({
           <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
             {formatSize(folder.total.bytes)}
           </span>
-        </button>
+        </Link>
         {trash}
       </div>
     );
@@ -150,9 +154,9 @@ export function FolderCard({
 
   return (
     <div className={cn("group relative h-full animate-slide-up-fade stagger", exit)} style={style}>
-      <button
-        type="button"
-        onClick={() => onOpen(folder.path)}
+      <Link
+        to={to}
+        draggable={false}
         className="flex h-full w-full flex-col gap-2 rounded-lg border bg-px-elevated p-3 text-left transition-[transform,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/50 focus-visible:-translate-y-0.5 focus-visible:border-primary/60 focus-visible:outline-hidden"
       >
         <div className="flex items-start gap-2 pr-8">
@@ -174,7 +178,7 @@ export function FolderCard({
           </div>
           <ShareBar share={share} by={shareBy} />
         </div>
-      </button>
+      </Link>
       {trash}
     </div>
   );
