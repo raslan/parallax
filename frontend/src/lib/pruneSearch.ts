@@ -1,54 +1,31 @@
 import type { FieldDef, Operator } from "@/hooks/useQueryBuilder";
 import type { FileDetails, PruneFile } from "@/types/prune";
-import { dateCutoffSeconds, type DateValue } from "@/lib/dateValue";
+import {
+  dateField,
+  durationField,
+  filenameField,
+  orientationField,
+  resolutionField,
+  sizeField,
+} from "@/lib/fileFieldFactories";
 import { extensionOf } from "@/lib/path";
 
 type PruneRow = PruneFile & { details?: FileDetails | null };
-
-// One compiled regex is reused across the rows of a filter pass.
-let cachedSource: string | null = null;
-let cachedRegex: RegExp | null = null;
-
-/** Case-insensitive regex, or null when the pattern is invalid (matches nothing). */
-function compileRegex(source: string): RegExp | null {
-  if (source !== cachedSource) {
-    cachedSource = source;
-    try {
-      cachedRegex = new RegExp(source, "iu");
-    } catch {
-      try {
-        cachedRegex = new RegExp(source, "i");
-      } catch {
-        cachedRegex = null;
-      }
-    }
-  }
-  return cachedRegex;
-}
 
 function textOf(value: unknown): string {
   return (value as { text?: string } | null)?.text ?? "";
 }
 
-/** Case-insensitive text comparison shared by the text-valued fields. */
+/** Case-insensitive, NFC-normalised comparison for the extension and codec fields. */
 function matchText(subjectRaw: string, operator: Operator, raw: string): boolean {
-  // NFC both sides so decomposed (macOS) Hangul names match composed queries.
-  const subject = subjectRaw.normalize("NFC");
-  if (operator === "regex") {
-    const re = compileRegex(raw.normalize("NFC"));
-    return re ? re.test(subject) : false;
-  }
-  const s = subject.toLowerCase();
+  // NFC both sides so decomposed (macOS) names match composed queries.
+  const s = subjectRaw.normalize("NFC").toLowerCase();
   const q = raw.normalize("NFC").toLowerCase();
   switch (operator) {
     case "contains":
       return s.includes(q);
     case "not_contains":
       return !s.includes(q);
-    case "starts_with":
-      return s.startsWith(q);
-    case "ends_with":
-      return s.endsWith(q);
     case "eq":
       return s === q;
     case "neq":
@@ -58,25 +35,27 @@ function matchText(subjectRaw: string, operator: Operator, raw: string): boolean
   }
 }
 
-function compareNumber(actual: number, operator: Operator, v: number): boolean {
-  return operator === "gt" ? actual > v : actual < v;
-}
-
+/**
+ * Prune's filter fields. Name, size, file added, duration, resolution and
+ * orientation are the shared definitions Cleanup uses (`fileFieldFactories`); name
+ * adds starts/ends/exact/regex and NFC matching, the size presets suit a mixed
+ * folder. Details-backed fields are false until a file's details have loaded.
+ */
 export const pruneFields: FieldDef<PruneRow>[] = [
-  {
+  filenameField((r) => r.name, {
     key: "name",
     label: "Name",
-    category: "search",
-    valueType: "text",
-    operators: ["contains", "not_contains", "starts_with", "ends_with", "eq", "regex"],
-    defaultOperator: "contains",
-    defaultValue: { text: "" },
-    test: (row, operator, value) => {
-      const q = textOf(value);
-      if (!q) return true;
-      return matchText(row.name, operator, q);
-    },
-  },
+    operators: [
+      "contains",
+      "not_contains",
+      "fuzzy_contains",
+      "starts_with",
+      "ends_with",
+      "eq",
+      "regex",
+    ],
+    nfc: true,
+  }),
   {
     key: "extension",
     label: "Extension",
@@ -107,96 +86,22 @@ export const pruneFields: FieldDef<PruneRow>[] = [
     ],
     test: (row, operator, value) => (operator === "neq" ? row.kind !== value : row.kind === value),
   },
-  {
-    key: "size",
-    label: "File size",
-    category: "numeric",
-    valueType: "number",
-    operators: ["gt", "lt"],
-    defaultOperator: "gt",
+  sizeField((r) => r.size, {
     defaultValue: 100,
-    unitLabel: "MB",
     presets: [
       { label: "10 MB", value: 10 },
       { label: "100 MB", value: 100 },
       { label: "500 MB", value: 500 },
       { label: "1 GB", value: 1000 },
     ],
-    test: (row, operator, value) =>
-      compareNumber(row.size / (1024 * 1024), operator, value as number),
-  },
-  {
-    key: "modified",
-    label: "Modified",
-    category: "numeric",
-    valueType: "date_offset",
-    operators: ["gt", "lt"], // gt = after, lt = before
-    defaultOperator: "lt",
-    defaultValue: { n: 30, unit: "days" },
-    test: (row, operator, value) => {
-      const cutoff = dateCutoffSeconds(value as DateValue);
-      return operator === "gt" ? row.mtime > cutoff : row.mtime < cutoff;
-    },
-  },
-  {
-    key: "duration",
-    label: "Duration",
-    category: "numeric",
-    valueType: "number",
-    operators: ["gt", "lt"],
-    defaultOperator: "lt",
-    defaultValue: 30,
-    unitLabel: "seconds",
-    test: (row, operator, value) => {
-      const d = row.details?.duration;
-      if (d == null) return false;
-      return compareNumber(d, operator, value as number);
-    },
-  },
-  {
-    key: "resolution",
-    label: "Resolution",
-    category: "numeric",
-    valueType: "number",
-    operators: ["gt", "lt"],
-    defaultOperator: "lt",
-    defaultValue: 480,
-    unitLabel: "px short side",
-    presets: [
-      { label: "4K/UHD", value: 2160 },
-      { label: "1440p", value: 1440 },
-      { label: "1080p", value: 1080 },
-      { label: "720p", value: 720 },
-      { label: "480p", value: 480 },
-    ],
-    test: (row, operator, value) => {
-      const w = row.details?.width;
-      const h = row.details?.height;
-      if (w == null || h == null) return false;
-      return compareNumber(Math.min(w, h), operator, value as number);
-    },
-  },
-  {
-    key: "orientation",
-    label: "Orientation",
-    category: "numeric",
-    valueType: "select",
-    operators: ["eq"],
-    defaultOperator: "eq",
-    defaultValue: "portrait",
-    options: [
-      { label: "Portrait", value: "portrait" },
-      { label: "Landscape", value: "landscape" },
-      { label: "Square", value: "square" },
-    ],
-    test: (row, _operator, value) => {
-      const w = row.details?.width;
-      const h = row.details?.height;
-      if (w == null || h == null) return false;
-      const orientation = w === h ? "square" : w > h ? "landscape" : "portrait";
-      return orientation === value;
-    },
-  },
+  }),
+  dateField("file_added", "File added", (r) => r.mtime),
+  durationField((r) => r.details?.duration),
+  resolutionField((r) => r.details?.height),
+  orientationField(
+    (r) => r.details?.width,
+    (r) => r.details?.height,
+  ),
   {
     key: "codec",
     label: "Codec",
@@ -225,7 +130,8 @@ export const pruneFields: FieldDef<PruneRow>[] = [
     test: (row, operator, value) => {
       const b = row.details?.bitrate;
       if (b == null) return false;
-      return compareNumber(b / 1000, operator, value as number);
+      const kbps = b / 1000;
+      return operator === "gt" ? kbps > (value as number) : kbps < (value as number);
     },
   },
 ];

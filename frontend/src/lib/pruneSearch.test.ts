@@ -44,12 +44,25 @@ describe("pruneFields keys", () => {
       "extension",
       "kind",
       "size",
-      "modified",
+      "file_added",
       "duration",
       "resolution",
       "orientation",
       "codec",
       "bitrate",
+    ]);
+  });
+  it("shares Cleanup's labels and operators where the fields overlap", () => {
+    expect(byKey.file_added!.label).toBe("File added");
+    expect(byKey.resolution!.unitLabel).toBe("px height");
+    expect(byKey.name!.operators).toEqual([
+      "contains",
+      "not_contains",
+      "fuzzy_contains",
+      "starts_with",
+      "ends_with",
+      "eq",
+      "regex",
     ]);
   });
 });
@@ -75,6 +88,17 @@ describe("name field", () => {
   it("contains is case-insensitive", () => {
     expect(run("name", "contains", text("holiday"), row())).toBe(true);
     expect(run("name", "contains", text("nope"), row())).toBe(false);
+  });
+  it("trims the query like Cleanup's filename field", () => {
+    expect(run("name", "contains", text("  holiday  "), row())).toBe(true);
+    expect(run("name", "eq", text(" holiday clip.mp4 "), row())).toBe(true);
+  });
+  it("fuzzy_contains uses the shared bigram similarity", () => {
+    expect(run("name", "fuzzy_contains", text("holidy clip"), row())).toBe(true);
+    expect(run("name", "fuzzy_contains", { text: "holidy clip", threshold: 99 }, row())).toBe(
+      false,
+    );
+    expect(run("name", "fuzzy_contains", text("zzzz"), row())).toBe(false);
   });
   it("not_contains negates", () => {
     expect(run("name", "not_contains", text("holiday"), row())).toBe(false);
@@ -138,10 +162,10 @@ describe("numeric fields", () => {
     expect(run("size", "gt", 50, row())).toBe(true);
     expect(run("size", "lt", 50, row())).toBe(false);
   });
-  it("modified compares against an offset cutoff", () => {
+  it("file added (mtime) compares against an offset cutoff", () => {
     const old = row({ mtime: 1 });
-    expect(run("modified", "lt", { n: 30, unit: "days" }, old)).toBe(true);
-    expect(run("modified", "gt", { n: 30, unit: "days" }, old)).toBe(false);
+    expect(run("file_added", "lt", { n: 30, unit: "days" }, old)).toBe(true);
+    expect(run("file_added", "gt", { n: 30, unit: "days" }, old)).toBe(false);
   });
 });
 
@@ -195,9 +219,9 @@ describe("enriched fields", () => {
     expect(run("duration", "gt", 0, img)).toBe(false);
     expect(run("bitrate", "gt", 0, img)).toBe(false);
   });
-  it("resolution uses the short side so portrait video is classified correctly", () => {
+  it("resolution compares the height, the same as Cleanup", () => {
     const r = row({ details: details({ width: 1080, height: 1920 }) });
-    expect(run("resolution", "lt", 1440, r)).toBe(true);
-    expect(run("resolution", "gt", 1080, r)).toBe(false);
+    expect(run("resolution", "gt", 1440, r)).toBe(true);
+    expect(run("resolution", "lt", 1440, r)).toBe(false);
   });
 });
