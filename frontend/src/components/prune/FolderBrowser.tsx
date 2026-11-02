@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronRight, FolderTree, Trash2 } from "lucide-react";
+import { useMemo } from "react";
+import { ChevronRight, FolderTree, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { IconButton } from "@/components/IconButton";
-import { Tip } from "@/components/Tip";
 import type { ViewMode } from "@/components/DataToolbar";
-import type { SortDir } from "@/components/FileSelectGrid";
+import { ColHeader, type SortDir } from "@/components/FileSelectGrid";
 import { SectionHeader } from "@/components/SectionHeader";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
+import { SortSelect } from "@/components/SortSelect";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import {
   FOLDER_CARD_HEIGHT,
@@ -16,28 +16,39 @@ import {
 } from "@/components/prune/FolderCard";
 import { folderCardWidth } from "@/lib/pruneGrid";
 import { sortFolders, type FolderSortKey } from "@/lib/pruneSort";
-import { cn } from "@/lib/utils";
 import type { FolderNodeInfo, PruneFolder } from "@/types/prune";
 
-const SORTS: { key: FolderSortKey; label: string; hint: string }[] = [
-  { key: "files", label: "Files", hint: "Sort by number of files" },
-  { key: "size", label: "Size", hint: "Sort by total size" },
-  { key: "name", label: "Name", hint: "Sort by name" },
+const SORT_OPTIONS: { value: FolderSortKey; label: string }[] = [
+  { value: "files", label: "Files" },
+  { value: "size", label: "Size" },
+  { value: "name", label: "Name" },
+];
+
+/** List-view column headers, in FolderCard's row order. */
+const SORT_HEADERS: { value: FolderSortKey; label: string; className: string }[] = [
+  { value: "name", label: "Name", className: "flex-1 min-w-0" },
+  { value: "files", label: "Files", className: "w-20 shrink-0 justify-end" },
+  { value: "size", label: "Size", className: "w-20 shrink-0 justify-end" },
 ];
 
 /**
  * Breadcrumb + sortable folder grid/list for the open Prune folder.
  * `folder` undefined means the listing is loading (skeleton). Props-in/
- * callbacks-out; sort is local, presentation-only state. View mode and card
- * size come from the page (one control for folders and files); the folder cards
- * clamp the size locally (`folderCardWidth`) without touching the setting.
- * `scrollElement` is the page scroller the grid virtualises against.
+ * callbacks-out: the sort (`useSort` in the page) comes in as `sortKey`/`sortDir`
+ * and `onSort` (its `toggleSort`), shown as the shared `SortSelect` and, in list
+ * view, a `ColHeader` row. View mode and card size come from the page (one
+ * control for folders and files); the folder cards clamp the size locally
+ * (`folderCardWidth`) without touching the setting. `scrollElement` is the page
+ * scroller the grid virtualises against.
  */
 export function FolderBrowser({
   folder,
   viewMode,
   cardSize,
   scrollElement,
+  sortKey,
+  sortDir,
+  onSort,
   onNavigate,
   onDelete,
   onDeleteOpen,
@@ -47,6 +58,9 @@ export function FolderBrowser({
   viewMode: ViewMode;
   cardSize: number;
   scrollElement: HTMLElement | null;
+  sortKey: FolderSortKey;
+  sortDir: SortDir;
+  onSort: (key: FolderSortKey) => void;
   onNavigate: (path: string) => void;
   /** Delete one of the listed subfolders. */
   onDelete?: (folder: FolderNodeInfo) => void;
@@ -55,8 +69,6 @@ export function FolderBrowser({
   /** Subfolder paths playing their delete exit animation. */
   leaving?: ReadonlySet<string>;
 }) {
-  const [sortKey, setSortKey] = useState<FolderSortKey>("files");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const cardWidth = folderCardWidth(cardSize);
 
   const sorted = useMemo(
@@ -65,15 +77,6 @@ export function FolderBrowser({
   );
 
   const shareBy: ShareBy = sortKey === "size" ? "size" : "files";
-
-  function pickSort(key: FolderSortKey) {
-    if (key === sortKey) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(key === "name" ? "asc" : "desc");
-    }
-  }
 
   const crumbs = folder?.breadcrumbs ?? [];
 
@@ -119,43 +122,15 @@ export function FolderBrowser({
           )}
         </nav>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div
-            role="group"
-            aria-label="Sort folders"
-            className="flex overflow-hidden rounded-md border"
-          >
-            {SORTS.map(({ key, label, hint }) => {
-              const active = key === sortKey;
-              const Arrow = sortDir === "asc" ? ArrowUp : ArrowDown;
-              return (
-                <Tip
-                  key={key}
-                  label={
-                    active
-                      ? `${hint} (${sortDir === "asc" ? "ascending" : "descending"}), click to reverse`
-                      : hint
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => pickSort(key)}
-                    aria-pressed={active}
-                    className={cn(
-                      "flex h-8 items-center gap-1 px-2.5 text-xs transition-colors duration-100",
-                      active
-                        ? "bg-accent text-foreground"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                    )}
-                  >
-                    {label}
-                    {active && <Arrow key={sortDir} className="h-3 w-3 animate-pop" />}
-                  </button>
-                </Tip>
-              );
-            })}
-          </div>
-        </div>
+        {folder && sorted.length > 0 && (
+          <SortSelect
+            label="Sort folders"
+            options={SORT_OPTIONS}
+            value={sortKey}
+            dir={sortDir}
+            onSort={onSort}
+          />
+        )}
       </div>
 
       {folder && sorted.length > 0 && (
@@ -200,6 +175,21 @@ export function FolderBrowser({
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-px-elevated">
+          {/* Same widths as FolderCard's list row: icon, name, files, size, trash gutter. */}
+          <div className="flex items-center gap-3 border-b border-border/30 bg-muted/20 px-3 py-1.5 pr-14">
+            <span className="w-4 shrink-0" />
+            {SORT_HEADERS.map((h) => (
+              <ColHeader
+                key={h.value}
+                label={h.label}
+                sortKey={h.value}
+                current={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                className={h.className}
+              />
+            ))}
+          </div>
           <VirtualizedGrid
             items={sorted}
             getKey={(f) => f.path}

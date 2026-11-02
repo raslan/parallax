@@ -8,3 +8,14 @@ import type { Clause } from "@/hooks/useQueryBuilder";
 export function clauseSignature(clauses: readonly Clause[]): string {
   return JSON.stringify(clauses.map((c) => [c.fieldKey, c.operator, c.value, c.joinToNext]));
 }
+
+/**
+ * The filter signature plus every sort's key and direction: a re-sort reorders the
+ * whole list, so the page scrolls to the top for it just like for a filter change.
+ */
+export function viewSignature(
+  clauses: readonly Clause[],
+  sorts: readonly { key: string; dir: string }[],
+): string {
+  return `${clauseSignature(clauses)}|${sorts.map((s) => `${s.key}:${s.dir}`).join(",")}`;
+}

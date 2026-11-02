@@ -1,8 +1,19 @@
 import type { SortDir } from "@/components/FileSelectGrid";
 import { naturalCompare } from "@/lib/naturalSort";
-import type { FolderNodeInfo } from "@/types/prune";
+import type { FileDetails, FolderNodeInfo, PruneFile } from "@/types/prune";
 
 export type FolderSortKey = "files" | "size" | "name";
+
+export type FileSortKey =
+  "name" | "size" | "added" | "kind" | "duration" | "resolution" | "codec" | "bitrate";
+
+/** Names read A→Z first; counts and sizes largest first (`useSort`'s `defaultDir`). */
+export const folderSortDefaultDir = (key: FolderSortKey): SortDir =>
+  key === "name" ? "asc" : "desc";
+
+/** Text-like keys ascending; measures (size, dates, duration, …) largest/newest first. */
+export const fileSortDefaultDir = (key: FileSortKey): SortDir =>
+  key === "name" || key === "kind" || key === "codec" ? "asc" : "desc";
 
 /**
  * Sorts a copy of `folders`. Names use the locale-aware natural compare (so
@@ -22,4 +33,71 @@ export function sortFolders(
     return naturalCompare(a.name, b.name);
   };
   return [...folders].sort((a, b) => sign * cmp(a, b));
+}
+
+const KIND_ORDER: Record<PruneFile["kind"], number> = { video: 0, image: 1, audio: 2, other: 3 };
+
+/** The value a details-backed key sorts on, or null when the file has none (yet). */
+function detailValue(d: FileDetails | null | undefined, key: FileSortKey): number | string | null {
+  if (!d) return null;
+  switch (key) {
+    case "duration":
+      return d.duration;
+    case "resolution":
+      return d.width != null && d.height != null ? d.width * d.height : null;
+    case "codec":
+      return d.codec;
+    case "bitrate":
+      return d.bitrate;
+    default:
+      return null;
+  }
+}
+
+const DETAIL_KEYS = new Set<FileSortKey>(["duration", "resolution", "codec", "bitrate"]);
+
+/**
+ * Sorts a copy of `files` by `key`. Name/codec use the natural compare,
+ * resolution the pixel count. For the details-backed keys (duration, resolution,
+ * codec, bitrate) files without that value — details not loaded, failed, or the
+ * field is null — go last in input order, whatever the direction. Ties keep their
+ * input order in both directions.
+ */
+export function sortFiles(
+  files: PruneFile[],
+  details: Record<string, FileDetails | null>,
+  key: FileSortKey,
+  dir: SortDir,
+): PruneFile[] {
+  const sign = dir === "asc" ? 1 : -1;
+  if (DETAIL_KEYS.has(key)) {
+    const known: { f: PruneFile; v: number | string }[] = [];
+    const missing: PruneFile[] = [];
+    for (const f of files) {
+      const v = detailValue(details[f.path], key);
+      if (v == null) missing.push(f);
+      else known.push({ f, v });
+    }
+    known.sort((a, b) => {
+      const c =
+        typeof a.v === "string" || typeof b.v === "string"
+          ? naturalCompare(String(a.v), String(b.v))
+          : a.v - b.v;
+      return sign * c;
+    });
+    return [...known.map((k) => k.f), ...missing];
+  }
+  const cmp = (a: PruneFile, b: PruneFile) => {
+    switch (key) {
+      case "size":
+        return a.size - b.size;
+      case "added":
+        return a.mtime - b.mtime;
+      case "kind":
+        return KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+      default:
+        return naturalCompare(a.name, b.name);
+    }
+  };
+  return [...files].sort((a, b) => sign * cmp(a, b));
 }

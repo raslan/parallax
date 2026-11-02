@@ -2,9 +2,10 @@ import { useState } from "react";
 import { FolderOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/EmptyState";
-import { FileGridCard, FileListRow } from "@/components/FileSelectGrid";
+import { ColHeader, FileGridCard, FileListRow, type SortDir } from "@/components/FileSelectGrid";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { SectionHeader } from "@/components/SectionHeader";
+import { SortSelect } from "@/components/SortSelect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import type { ViewMode } from "@/components/DataToolbar";
@@ -12,10 +13,92 @@ import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { DetailsProgress } from "@/components/prune/DetailsProgress";
 import { KIND_ICON } from "@/components/prune/kindIcon";
-import { formatBitrate, formatDuration, formatSize } from "@/lib/format";
+import { formatBitrate, formatDuration, formatSize, formatUnixDate } from "@/lib/format";
 import { extensionOf } from "@/lib/path";
+import type { FileSortKey } from "@/lib/pruneSort";
 import { cn } from "@/lib/utils";
 import type { FileDetails, PruneFile } from "@/types/prune";
+
+const SORT_OPTIONS: { value: FileSortKey; label: string }[] = [
+  { value: "name", label: "Name" },
+  { value: "size", label: "Size" },
+  { value: "added", label: "File added" },
+  { value: "kind", label: "Type" },
+  { value: "duration", label: "Duration" },
+  { value: "resolution", label: "Resolution" },
+  { value: "codec", label: "Codec" },
+  { value: "bitrate", label: "Bitrate" },
+];
+
+/** Breakpoint visibility per column: [cell class, header class] (the header is flex). */
+const SHOW = {
+  always: ["", ""],
+  sm: ["hidden sm:block", "hidden sm:flex"],
+  md: ["hidden md:block", "hidden md:flex"],
+  lg: ["hidden lg:block", "hidden lg:flex"],
+} as const;
+
+/**
+ * The list view's columns after the name, shared by the rows and the header so they
+ * line up. `detail` columns read the streamed ffprobe details (shimmer while loading).
+ */
+const COLUMNS: {
+  key: FileSortKey;
+  label: string;
+  width: string;
+  show: keyof typeof SHOW;
+  detail: boolean;
+  value: (f: PruneFile, d: FileDetails | null | undefined) => string;
+}[] = [
+  {
+    key: "added",
+    label: "Added",
+    width: "w-24",
+    show: "lg",
+    detail: false,
+    value: (f) => formatUnixDate(f.mtime),
+  },
+  {
+    key: "duration",
+    label: "Duration",
+    width: "w-14",
+    show: "sm",
+    detail: true,
+    value: (_f, d) => formatDuration(d?.duration ?? null),
+  },
+  {
+    key: "resolution",
+    label: "Resolution",
+    width: "w-20",
+    show: "md",
+    detail: true,
+    value: (_f, d) => (d?.width && d.height ? `${d.width}×${d.height}` : "—"),
+  },
+  {
+    key: "codec",
+    label: "Codec",
+    width: "w-14",
+    show: "md",
+    detail: true,
+    value: (_f, d) => d?.codec ?? "—",
+  },
+  {
+    key: "bitrate",
+    label: "Bitrate",
+    width: "w-20",
+    show: "lg",
+    detail: true,
+    value: (_f, d) => formatBitrate(d?.bitrate ?? null),
+  },
+  {
+    key: "size",
+    label: "Size",
+    width: "w-16",
+    show: "always",
+    detail: false,
+    value: (f) => formatSize(f.size),
+  },
+];
 
 /** Chrome plays these natively; the backend 400s `/prune/audio` for them. */
 const NATIVE_AUDIO = new Set(["mp3", "m4a", "aac", "ogg", "opus", "wav", "flac"]);
@@ -140,8 +223,19 @@ export function FileBrowser({
   cardSize,
   scrollElement,
   marquee,
+  sortKey,
+  sortDir,
+  onSort,
 }: {
+  /** Already filtered and sorted by the page (undefined = loading). */
   files: PruneFile[] | undefined;
+  /**
+   * The page's sort (`useSort`): shown as the shared `SortSelect` and, in list view,
+   * a `ColHeader` row. Omit `onSort` for no sort controls.
+   */
+  sortKey?: FileSortKey;
+  sortDir?: SortDir;
+  onSort?: (key: FileSortKey) => void;
   details: DetailsMap;
   progress: { loaded: number; total: number; done: boolean };
   /** Grid or list; owned by the page so folders and files share one toggle. */
@@ -203,19 +297,55 @@ export function FileBrowser({
       {...shared(f)}
       className={motionClass("list", leaving?.has(f.path) ?? false)}
       thumbnail={<Thumb file={f} className="h-8 w-14 rounded" />}
-      columns={
-        <>
-          <Meta
-            d={details[f.path]}
-            loading={detailsLoading}
-            className="hidden max-w-[45%] shrink text-right text-xs text-muted-foreground/60 sm:block"
-          />
-          <span className="w-16 shrink-0 text-right font-mono text-xs text-muted-foreground/70">
-            {formatSize(f.size)}
+      columns={COLUMNS.map((c) => {
+        const d = details[f.path];
+        const cls = cn(c.width, "shrink-0", SHOW[c.show][0]);
+        if (c.detail && d === undefined && detailsLoading) {
+          return <Skeleton key={c.key} className={cn(cls, "h-3")} />;
+        }
+        return (
+          <span
+            key={c.key}
+            className={cn(
+              cls,
+              "truncate text-right font-mono text-xs tabular-nums",
+              c.key === "size" ? "text-muted-foreground/70" : "text-muted-foreground/60",
+              c.detail && "animate-fade-in",
+            )}
+          >
+            {c.value(f, d)}
           </span>
-        </>
-      }
+        );
+      })}
     />
+  );
+
+  const selectable = onToggleSelect !== undefined;
+  const listHeader = onSort && sortKey && sortDir && (
+    // Mirrors FileListRow's layout: checkbox, thumbnail well, name, then COLUMNS.
+    <div className="flex items-center gap-3 border-b border-border/30 bg-muted/20 py-1.5 pl-4 pr-10 md:pr-4">
+      {selectable && <span className="w-4 shrink-0" />}
+      <span className="w-14 shrink-0" />
+      <ColHeader
+        label="Name"
+        sortKey="name"
+        current={sortKey}
+        dir={sortDir}
+        onSort={onSort}
+        className="min-w-0 flex-1"
+      />
+      {COLUMNS.map((c) => (
+        <ColHeader
+          key={c.key}
+          label={c.label}
+          sortKey={c.key}
+          current={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+          className={cn(c.width, "shrink-0 justify-end", SHOW[c.show][1])}
+        />
+      ))}
+    </div>
   );
 
   return (
@@ -225,6 +355,15 @@ export function FileBrowser({
           <SectionHeader>Files{files ? ` · ${files.length.toLocaleString()}` : ""}</SectionHeader>
           <DetailsProgress {...progress} />
         </div>
+        {onSort && sortKey && sortDir && files && files.length > 0 && (
+          <SortSelect
+            label="Sort files"
+            options={SORT_OPTIONS}
+            value={sortKey}
+            dir={sortDir}
+            onSort={onSort}
+          />
+        )}
       </div>
 
       {!files ? (
@@ -260,6 +399,7 @@ export function FileBrowser({
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-px-elevated">
+          {listHeader}
           <VirtualizedGrid
             items={files}
             getKey={(f) => f.path}

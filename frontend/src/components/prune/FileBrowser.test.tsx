@@ -47,20 +47,73 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("FileBrowser image details", () => {
-  it("shows W×H in the meta line of an image", () => {
-    const img: PruneFile = { name: "p.jpg", path: "/r/p.jpg", kind: "image", size: 10, mtime: 0 };
+  const img: PruneFile = { name: "p.jpg", path: "/r/p.jpg", kind: "image", size: 10, mtime: 0 };
+  const details = {
+    "/r/p.jpg": { duration: null, width: 4000, height: 3000, codec: "jpeg", bitrate: null },
+  };
+  it("shows W×H in the meta line of an image card", () => {
     render(
       <FileBrowser
         files={[img]}
-        details={{
-          "/r/p.jpg": { duration: null, width: 4000, height: 3000, codec: "jpeg", bitrate: null },
-        }}
+        details={details}
+        progress={{ loaded: 1, total: 1, done: true }}
+        viewMode="grid"
+        cardSize={240}
+      />,
+    );
+    expect(screen.getByText("4000×3000 · jpeg")).toBeTruthy();
+  });
+  it("shows each detail in its own list column", () => {
+    render(
+      <FileBrowser
+        files={[img]}
+        details={details}
         progress={{ loaded: 1, total: 1, done: true }}
         viewMode="list"
         cardSize={240}
       />,
     );
-    expect(screen.getByText("4000×3000 · jpeg")).toBeTruthy();
+    expect(screen.getByText("4000×3000")).toBeTruthy();
+    expect(screen.getByText("jpeg")).toBeTruthy();
+  });
+});
+
+describe("FileBrowser sorting", () => {
+  const props = {
+    files: [video],
+    details: {},
+    progress: { loaded: 0, total: 0, done: true },
+    cardSize: 240,
+  };
+  it("gives the list a sortable column header that follows the row columns", () => {
+    const onSort = vi.fn();
+    render(<FileBrowser {...props} viewMode="list" sortKey="name" sortDir="asc" onSort={onSort} />);
+    expect(screen.getByRole("button", { name: "Sort by Name, ascending" })).toBeTruthy();
+    for (const col of ["Added", "Duration", "Resolution", "Codec", "Bitrate", "Size"]) {
+      expect(screen.getByRole("button", { name: `Sort by ${col}` })).toBeTruthy();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
+    expect(onSort).toHaveBeenCalledWith("duration");
+  });
+  it("offers every key in the sort picker in both views", () => {
+    for (const viewMode of ["grid", "list"] as const) {
+      render(
+        <FileBrowser
+          {...props}
+          viewMode={viewMode}
+          sortKey="size"
+          sortDir="desc"
+          onSort={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole("combobox", { name: "Sort files" }).textContent).toContain("Size");
+      cleanup();
+    }
+  });
+  it("shows no sort controls without onSort", () => {
+    render(<FileBrowser {...props} viewMode="list" />);
+    expect(screen.queryByRole("combobox", { name: "Sort files" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
   });
 });
 

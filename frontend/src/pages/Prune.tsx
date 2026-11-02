@@ -13,7 +13,14 @@ import {
   selectedIn,
 } from "@/lib/pruneSelect";
 import { pruneFields } from "@/lib/pruneSearch";
-import { clauseSignature } from "@/lib/pruneScroll";
+import { viewSignature } from "@/lib/pruneScroll";
+import {
+  fileSortDefaultDir,
+  folderSortDefaultDir,
+  sortFiles,
+  type FileSortKey,
+  type FolderSortKey,
+} from "@/lib/pruneSort";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryBuilder } from "@/components/QueryBuilder";
@@ -39,6 +46,7 @@ import { useScrollParent } from "@/hooks/useScrollParent";
 import { usePruneDetails } from "@/hooks/usePruneDetails";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
+import { useSort } from "@/hooks/useSort";
 import type { PruneDeleteResult, PruneFile, ScanState } from "@/types/prune";
 
 /** Stable identity while the file list loads, so the details hook doesn't restart. */
@@ -75,16 +83,23 @@ export function Prune() {
   const [scroller, pageRef] = useScrollParent();
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(pruneFields);
-  // Shared-scroll grids can't reset themselves, so a changed filter (a different
-  // result set) scrolls back to the top. Navigation does its own reset; refetches
-  // and streaming details never change the signature, so they never jump the page.
-  const filterSig = clauseSignature(clauses);
-  const lastFilterSig = useRef(filterSig);
+  // One sort each for the folders and the files (Name ascending, counts/sizes descending).
+  const folderSort = useSort<FolderSortKey>("files", folderSortDefaultDir);
+  const fileSort = useSort<FileSortKey>("name", fileSortDefaultDir);
+  // Shared-scroll grids can't reset themselves, so a changed filter or sort (a
+  // different result set or order) scrolls back to the top. Navigation does its own
+  // reset; refetches and streaming details never change the signature, so they
+  // never jump the page.
+  const viewSig = viewSignature(clauses, [
+    { key: folderSort.sortKey, dir: folderSort.sortDir },
+    { key: fileSort.sortKey, dir: fileSort.sortDir },
+  ]);
+  const lastViewSig = useRef(viewSig);
   useEffect(() => {
-    if (lastFilterSig.current === filterSig) return;
-    lastFilterSig.current = filterSig;
+    if (lastViewSig.current === viewSig) return;
+    lastViewSig.current = viewSig;
     scroller?.scrollTo({ top: 0 });
-  }, [filterSig, scroller]);
+  }, [viewSig, scroller]);
   const [confirmingFiles, setConfirmingFiles] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FolderToDelete | null>(null);
@@ -196,7 +211,12 @@ export function Prune() {
     if (clauses.length === 0) return fileList;
     return fileList.filter((f) => evaluate({ ...f, details: details[f.path] }));
   }, [clauses.length, fileList, details, evaluate]);
-  const visiblePaths = useMemo(() => visibleFiles.map((f) => f.path), [visibleFiles]);
+  // Sorting never changes membership; shift-range selection follows this order.
+  const sortedFiles = useMemo(
+    () => sortFiles(visibleFiles, details, fileSort.sortKey, fileSort.sortDir),
+    [visibleFiles, details, fileSort.sortKey, fileSort.sortDir],
+  );
+  const visiblePaths = useMemo(() => sortedFiles.map((f) => f.path), [sortedFiles]);
   useSelectionOrder(setOrder, visiblePaths);
 
   // Computed once per list of files (NameGroupChips defers and memoises on this identity).
@@ -424,6 +444,9 @@ export function Prune() {
             viewMode={viewMode}
             cardSize={cardSize}
             scrollElement={scroller}
+            sortKey={folderSort.sortKey}
+            sortDir={folderSort.sortDir}
+            onSort={folderSort.toggleSort}
             onNavigate={navigate}
             onDelete={askDeleteFolder}
             onDeleteOpen={
@@ -490,7 +513,10 @@ export function Prune() {
                   </div>
                 )}
                 <FileBrowser
-                  files={filesQ.data ? visibleFiles : undefined}
+                  files={filesQ.data ? sortedFiles : undefined}
+                  sortKey={fileSort.sortKey}
+                  sortDir={fileSort.sortDir}
+                  onSort={fileSort.toggleSort}
                   details={detailsProgress.details}
                   progress={detailsProgress}
                   selected={selected}
