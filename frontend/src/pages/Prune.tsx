@@ -312,7 +312,8 @@ export function Prune() {
       refreshListings(EXIT_MS);
     },
     // Network/timeout: some files may already be gone.
-    onFilesError: () => refreshListings(),
+    // Same delay as a result, so a partial run's exit animation still plays.
+    onFilesError: () => refreshListings(EXIT_MS),
     onEmptyFolderDeleted: (path) => {
       const up = currentPath ? folderAfterDelete(path, currentPath) : null;
       if (up !== null) replaceFolder(up);
@@ -324,6 +325,10 @@ export function Prune() {
       const up = currentPath ? folderAfterDelete(path, currentPath) : null;
       if (up !== null) {
         replaceFolder(up);
+        // Drop the deleted folder's cached listings so Back to an older history
+        // entry never flashes them before the gone state.
+        qc.removeQueries({ queryKey: qk.pruneFolder(path) });
+        qc.removeQueries({ queryKey: qk.pruneFiles(path) });
         refreshListings();
       } else {
         setLeavingFolders(new Set([path]));
