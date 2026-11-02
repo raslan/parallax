@@ -96,7 +96,9 @@ def _media_details(path: str, kind: str) -> dict | None:
         else:
             m = audio_scanner.probe_audio_metadata_guarded(path)
             width, height, bitrate = None, None, m["bitrate"]
-    except OSError:  # the mapper's own stat/getmtime: the file went away
+    # OSError: the mapper's own stat/getmtime (the file went away). ValueError/TypeError:
+    # a malformed ffprobe value the mapper can't convert; must not 500 the whole batch.
+    except (OSError, ValueError, TypeError):
         return None
     if not m["probe_ok"]:
         return None

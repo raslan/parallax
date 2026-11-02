@@ -390,6 +390,28 @@ def test_details_file_vanishing_mid_probe_is_null(tmp_path, monkeypatch):
     assert prune_files.get_details([str(f)])[str(f)] is None
 
 
+def test_details_malformed_probe_value_is_null(tmp_path, monkeypatch):
+    """A mapper choking on a malformed ffprobe value nulls that file, not the batch."""
+    f = tmp_path / "v.mp4"
+    f.write_bytes(b"x")
+    ok = tmp_path / "w.mp4"
+    ok.write_bytes(b"x")
+
+    def bad(p):
+        if p == str(f):
+            raise ValueError("invalid literal for int() with base 10: 'N/A'")
+        return {
+            "probe_ok": False,
+            "file_width": None,
+            "file_height": None,
+            "video_bitrate": None,
+        }
+
+    monkeypatch.setattr(scanner, "probe_metadata", bad)
+    prune_files.clear_details_cache()
+    assert prune_files.get_details([str(f), str(ok)]) == {str(f): None, str(ok): None}
+
+
 def test_details_cached_by_path_size_mtime(tmp_path, probes):
     f = tmp_path / "v.mp4"
     f.write_bytes(b"x")
