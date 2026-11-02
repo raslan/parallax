@@ -97,7 +97,10 @@ export const pruneFields: FieldDef<PruneRow>[] = [
   }),
   dateField("file_added", "File added", (r) => r.mtime),
   durationField((r) => r.details?.duration),
-  resolutionField((r) => r.details?.height),
+  resolutionField(
+    (r) => r.details?.width,
+    (r) => r.details?.height,
+  ),
   orientationField(
     (r) => r.details?.width,
     (r) => r.details?.height,

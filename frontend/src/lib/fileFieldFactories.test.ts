@@ -62,12 +62,18 @@ describe("orientationField", () => {
 });
 
 describe("resolutionField", () => {
-  const f = resolutionField<Row>((r) => r.h);
-  it("compares the height", () => {
-    expect(f.unitLabel).toBe("px height");
-    expect(run(f, { h: 1080 }, "lt", 1440)).toBe(true);
-    expect(run(f, { h: 1080 }, "gt", 1080)).toBe(false);
-    expect(run(f, { h: null }, "gt", 0)).toBe(false);
+  const f = resolutionField<Row>(
+    (r) => r.w,
+    (r) => r.h,
+  );
+  it("compares the shortest side, landscape or portrait", () => {
+    expect(f.unitLabel).toBe("px short side");
+    expect(run(f, { w: 1920, h: 1080 }, "lt", 1440)).toBe(true);
+    expect(run(f, { w: 1920, h: 1080 }, "gt", 1080)).toBe(false);
+    expect(run(f, { w: 1080, h: 1920 }, "gt", 1080)).toBe(false);
+    expect(run(f, { w: 1080, h: 1920 }, "lt", 1440)).toBe(true);
+    expect(run(f, { w: 1920, h: null }, "gt", 0)).toBe(false);
+    expect(run(f, { w: null, h: 1080 }, "gt", 0)).toBe(false);
   });
 });
 

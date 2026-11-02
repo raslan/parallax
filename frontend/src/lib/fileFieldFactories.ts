@@ -117,8 +117,14 @@ export function orientationField<T>(
   };
 }
 
-/** Frame height in px, with the usual 4K…480p presets. */
-export function resolutionField<T>(getHeight: (row: T) => Num): FieldDef<T> {
+/**
+ * Shortest side of the frame in px (1080p = 1080 whether the clip is landscape or
+ * portrait), with the usual 4K…480p presets.
+ */
+export function resolutionField<T>(
+  getWidth: (row: T) => Num,
+  getHeight: (row: T) => Num,
+): FieldDef<T> {
   return {
     key: "resolution",
     label: "Resolution",
@@ -127,7 +133,7 @@ export function resolutionField<T>(getHeight: (row: T) => Num): FieldDef<T> {
     operators: ["gt", "lt"],
     defaultOperator: "lt",
     defaultValue: 480,
-    unitLabel: "px height",
+    unitLabel: "px short side",
     presets: [
       { label: "4K/UHD", value: 2160 },
       { label: "1440p", value: 1440 },
@@ -136,9 +142,10 @@ export function resolutionField<T>(getHeight: (row: T) => Num): FieldDef<T> {
       { label: "480p", value: 480 },
     ],
     test: (row, operator, value) => {
+      const w = getWidth(row);
       const h = getHeight(row);
-      if (h == null) return false;
-      return compare(h, operator, value as number);
+      if (w == null || h == null) return false;
+      return compare(Math.min(w, h), operator, value as number);
     },
   };
 }
