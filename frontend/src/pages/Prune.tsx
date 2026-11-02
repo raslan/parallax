@@ -12,6 +12,7 @@ import {
   sameSet,
   selectedIn,
 } from "@/lib/pruneSelect";
+import { DELETE_CHUNK } from "@/lib/pruneDelete";
 import { pruneFields } from "@/lib/pruneSearch";
 import { viewSignature } from "@/lib/pruneScroll";
 import {
@@ -30,9 +31,6 @@ import { PageSkeleton } from "@/components/Skeletons";
 import { SmartSelect, type SmartSelectOption } from "@/components/SmartSelect";
 import { StatPanel } from "@/components/StatPanel";
 import { WorkingState } from "@/components/WorkingState";
-import { DeleteFilesDialog } from "@/components/prune/DeleteFilesDialog";
-import { DeleteFolderDialog, type FolderToDelete } from "@/components/prune/DeleteFolderDialog";
-import { EmptyFolderPrompt } from "@/components/prune/EmptyFolderPrompt";
 import { FolderBrowser } from "@/components/prune/FolderBrowser";
 import { NameGroupChips } from "@/components/prune/NameGroupChips";
 import { PruneFolderPicker } from "@/components/prune/PruneFolderPicker";
@@ -43,6 +41,7 @@ import { BrowseControls } from "@/components/prune/BrowseControls";
 import type { ViewMode } from "@/components/DataToolbar";
 import { useGridSize } from "@/hooks/useGridSize";
 import { useScrollParent } from "@/hooks/useScrollParent";
+import { usePruneDelete } from "@/hooks/usePruneDelete";
 import { usePruneDetails } from "@/hooks/usePruneDetails";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
@@ -100,10 +99,6 @@ export function Prune() {
     lastViewSig.current = viewSig;
     scroller?.scrollTo({ top: 0 });
   }, [viewSig, scroller]);
-  const [confirmingFiles, setConfirmingFiles] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [folderToDelete, setFolderToDelete] = useState<FolderToDelete | null>(null);
-  const [emptyPrompt, setEmptyPrompt] = useState<{ id: number; paths: string[] } | null>(null);
   const [leavingFiles, setLeavingFiles] = useState<ReadonlySet<string>>(new Set());
   const [leavingFolders, setLeavingFolders] = useState<ReadonlySet<string>>(new Set());
   // A delete call answered 409: the root is gone. Tagged with the root it was seen on.
@@ -287,51 +282,40 @@ export function Prune() {
     [clauses, addClause, updateClause],
   );
 
-  const handleDeleteResult = (result: PruneDeleteResult) => {
-    setConfirmingFiles(false);
-    if (result.deleted.length > 0) {
+  // Delete flows (shared confirm, chunked calls, empty-folder prompts) live in the
+  // hook; the page reacts to what happened.
+  const { deleteFiles, deleteFolder, deleting, progress } = usePruneDelete({
+    onFilesResult: (result: PruneDeleteResult) => {
+      if (result.deleted.length === 0) return;
       // Failed paths are not in `deleted`, so they stay selected for a retry.
       setSelected((prev) => removeDeleted(prev, result.deleted));
       setLeavingFiles(new Set(result.deleted));
       refreshListings(EXIT_MS);
-    }
-    if (result.empty_folders.length > 0) {
-      setEmptyPrompt({ id: Date.now(), paths: result.empty_folders });
-    }
-  };
-
-  const handleDeleteError = (e: unknown) => {
-    setConfirmingFiles(false);
-    if (isConflict(e)) {
-      if (root) setGoneRoot(root);
-    } else {
-      // Network/timeout: some files may already be gone.
-      refreshListings();
-    }
-  };
-
-  const handleEmptyResolved = (path: string, deleted: boolean) => {
-    if (!deleted) return;
-    if (path === currentPath) navigate(parentPath(path));
-    setLeavingFolders((prev) => new Set(prev).add(path));
-    refreshListings(EXIT_MS);
-  };
-
-  const handleFolderDeleted = (path: string) => {
-    setFolderToDelete(null);
-    const insideDeleted = currentPath === path || !!currentPath?.startsWith(`${path}/`);
-    if (insideDeleted) {
-      // Parent of the deleted folder, even when it is an ancestor of the open one.
-      navigate(parentPath(path));
-      refreshListings();
-    } else {
-      setLeavingFolders(new Set([path]));
+    },
+    // Network/timeout: some files may already be gone.
+    onFilesError: () => refreshListings(),
+    onEmptyFolderDeleted: (path) => {
+      if (path === currentPath) navigate(parentPath(path));
+      setLeavingFolders((prev) => new Set(prev).add(path));
       refreshListings(EXIT_MS);
-    }
-  };
-
-  const askDeleteFolder = (f: FolderToDelete) =>
-    setFolderToDelete({ name: f.name, path: f.path, total: f.total });
+    },
+    onFolderDeleted: (path) => {
+      const insideDeleted = currentPath === path || !!currentPath?.startsWith(`${path}/`);
+      if (insideDeleted) {
+        // Parent of the deleted folder, even when it is an ancestor of the open one.
+        navigate(parentPath(path));
+        refreshListings();
+      } else {
+        setLeavingFolders(new Set([path]));
+        refreshListings(EXIT_MS);
+      }
+    },
+    // The backend may have removed part of the tree and dropped its scan cache.
+    onFolderFailed: () => startScan.mutate(true),
+    onGone: () => {
+      if (root) setGoneRoot(root);
+    },
+  });
 
   const picker = (
     <PruneFolderPicker open={picking} onOpenChange={setPicking} onSelect={saveRoot.mutate} />
@@ -448,11 +432,11 @@ export function Prune() {
             sortDir={folderSort.sortDir}
             onSort={folderSort.toggleSort}
             onNavigate={navigate}
-            onDelete={askDeleteFolder}
+            onDelete={(f) => void deleteFolder(f)}
             onDeleteOpen={
               !atRoot && folderQ.data
                 ? () =>
-                    askDeleteFolder({
+                    void deleteFolder({
                       name: folderQ.data.name,
                       path: folderQ.data.path,
                       total: folderQ.data.total,
@@ -547,12 +531,23 @@ export function Prune() {
           variant="destructive"
           size="sm"
           disabled={deleting}
-          onClick={() => setConfirmingFiles(true)}
+          onClick={() => void deleteFiles(actionFiles)}
         >
           {deleting ? (
             <>
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-              Deleting…
+              {progress && progress.total > DELETE_CHUNK ? (
+                // Big selections go in batches of 500: show how far it has got.
+                <span className="tabular-nums">
+                  Deleting{" "}
+                  <span key={progress.sent} className="inline-block animate-pop">
+                    {progress.sent.toLocaleString()}
+                  </span>{" "}
+                  / {progress.total.toLocaleString()}…
+                </span>
+              ) : (
+                "Deleting…"
+              )}
             </>
           ) : (
             <>
@@ -562,35 +557,6 @@ export function Prune() {
           )}
         </Button>
       </SelectionBar>
-      <DeleteFilesDialog
-        files={confirmingFiles ? actionFiles : NO_FILES}
-        onClose={() => setConfirmingFiles(false)}
-        onResult={handleDeleteResult}
-        onError={handleDeleteError}
-        onPendingChange={setDeleting}
-      />
-      <DeleteFolderDialog
-        folder={folderToDelete}
-        onClose={() => setFolderToDelete(null)}
-        onDeleted={handleFolderDeleted}
-        onFailed={() => {
-          setFolderToDelete(null);
-          // The backend may have removed part of the tree and dropped its scan cache.
-          startScan.mutate(true);
-        }}
-        onGone={() => {
-          setFolderToDelete(null);
-          if (root) setGoneRoot(root);
-        }}
-      />
-      {emptyPrompt && (
-        <EmptyFolderPrompt
-          key={emptyPrompt.id}
-          paths={emptyPrompt.paths}
-          onResolve={handleEmptyResolved}
-          onClose={() => setEmptyPrompt(null)}
-        />
-      )}
       {picker}
     </div>
   );
