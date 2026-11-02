@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Copy, Loader2, ScanSearch, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
@@ -34,6 +34,7 @@ import {
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSelection } from "@/hooks/useSelection";
+import { useWorkerRequest } from "@/hooks/useWorkerRequest";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { FileListRow } from "@/components/FileSelectGrid";
 import { WorkingState } from "@/components/WorkingState";
@@ -45,39 +46,23 @@ import { useConfirm } from "@/components/ConfirmProvider";
 const EMPTY_FILES: AudioFile[] = [];
 const EMPTY_GROUPS: AudioDuplicateGroup[] = [];
 
-// Runs clusterAudioDuplicates() in a Web Worker (mirrors
-// hooks/useClusterDuplicates for the video page) so the O(n^2) fingerprint
-// stage never blocks the main thread. Stale responses are dropped via a
+const createClusterWorker = () =>
+  new Worker(new URL("@/lib/clusterAudioDuplicates.worker.ts", import.meta.url), {
+    type: "module",
+  });
+
+// Runs clusterAudioDuplicates() in a Web Worker (the shared `useWorkerRequest`
+// plumbing, same as hooks/useClusterDuplicates for the video page) so the O(n^2)
+// fingerprint stage never blocks the main thread. Stale responses are dropped via a
 // request-id check.
 function useClusterAudioDuplicates(files: AudioFile[], criteria: AudioDuplicateCriteria) {
-  const [groups, setGroups] = useState<AudioDuplicateGroup[]>(EMPTY_GROUPS);
-  const [isComputing, setIsComputing] = useState(false);
-  const workerRef = useRef<Worker | null>(null);
-  const requestIdRef = useRef(0);
-
-  useEffect(() => {
-    const worker = new Worker(new URL("@/lib/clusterAudioDuplicates.worker.ts", import.meta.url), {
-      type: "module",
-    });
-    workerRef.current = worker;
-    worker.onmessage = (event: MessageEvent<ClusterResponse>) => {
-      if (event.data.requestId !== requestIdRef.current) return; // stale
-      setGroups(event.data.groups);
-      setIsComputing(false);
-    };
-    return () => worker.terminate();
-  }, []);
-
-  useEffect(() => {
-    const worker = workerRef.current;
-    if (!worker) return;
-    const requestId = ++requestIdRef.current;
-    setIsComputing(true);
-    const message: ClusterRequest = { requestId, files, criteria };
-    worker.postMessage(message);
-  }, [files, criteria]);
-
-  return { groups, isComputing };
+  const request = useMemo(() => ({ files, criteria }), [files, criteria]);
+  const { response, pending } = useWorkerRequest<ClusterRequest, ClusterResponse>(
+    createClusterWorker,
+    request,
+    { initialPending: false },
+  );
+  return { groups: response?.groups ?? EMPTY_GROUPS, isComputing: pending };
 }
 
 function DuplicateColumns({ file }: { file: AudioFile }) {
