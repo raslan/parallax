@@ -41,6 +41,9 @@ export const cleanupFields: FieldDef<VideoFile>[] = [
     (r) => r.file_width,
     (r) => r.file_height,
   ),
-  resolutionField((r) => r.file_height),
+  resolutionField(
+    (r) => r.file_width,
+    (r) => r.file_height,
+  ),
   filenameField((r) => r.filename),
 ];

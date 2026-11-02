@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { Tip } from "@/components/Tip";
 import { KIND_ICON } from "@/components/prune/kindIcon";
 import { formatSize } from "@/lib/format";
+import { REDACTED_FOLDER } from "@/lib/pruneRedact";
 import { cn } from "@/lib/utils";
 import type { Counts, FolderNodeInfo } from "@/types/prune";
 
@@ -83,6 +84,7 @@ export function FolderCard({
   leaving = false,
   to,
   onDelete,
+  redact = false,
 }: {
   folder: FolderNodeInfo;
   parentTotal: Counts;
@@ -95,17 +97,20 @@ export function FolderCard({
   /** Where the card links to (the page builds it from the folder's path). */
   to: To;
   onDelete?: (folder: FolderNodeInfo) => void;
+  /** Show "Redacted folder" instead of the real name. */
+  redact?: boolean;
 }) {
   const exit = leaving
     ? "pointer-events-none scale-95 opacity-0 transition-[transform,opacity] duration-150 ease-in motion-reduce:scale-100"
     : "";
   const share = shareOf(folder.total, parentTotal, shareBy);
   const files = folder.total.files;
+  const name = redact ? REDACTED_FOLDER : folder.name;
   // Position for the shared `stagger` utility (index.css), which caps and spaces the delay.
   const style = { "--stagger": index } as CSSProperties;
   const trash = onDelete && (
     <IconButton
-      label={`Delete ${folder.name}`}
+      label={`Delete ${name}`}
       onClick={() => onDelete(folder)}
       className={cn(
         "absolute z-10 flex h-7 w-7 items-center justify-center rounded-md border bg-px-elevated text-muted-foreground opacity-0 transition-[opacity,color,border-color] duration-100",
@@ -133,7 +138,7 @@ export function FolderCard({
         >
           <Folder className="h-4 w-4 shrink-0 text-primary/80" />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">{folder.name}</span>
+            <span className="block truncate text-sm font-medium">{name}</span>
             <ShareBar share={share} by={shareBy} className="mt-1.5 max-w-48" />
           </span>
           <span className="hidden shrink-0 md:block">
@@ -161,9 +166,9 @@ export function FolderCard({
       >
         <div className="flex items-start gap-2 pr-8">
           <Folder className="mt-0.5 h-4 w-4 shrink-0 text-primary/80 transition-transform duration-150 group-hover:scale-110" />
-          <Tip label={folder.name}>
+          <Tip label={name}>
             <span className="line-clamp-2 min-w-0 text-sm font-medium leading-snug break-words">
-              {folder.name}
+              {name}
             </span>
           </Tip>
         </div>

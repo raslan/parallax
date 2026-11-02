@@ -5,6 +5,7 @@ import { getErrorMessage, httpStatus } from "@/lib/api/client";
 import { describeSelection, sumSizeOf } from "@/lib/format";
 import { baseName } from "@/lib/path";
 import { deleteInChunks } from "@/lib/pruneDelete";
+import { REDACTED_FILE, REDACTED_FOLDER } from "@/lib/pruneRedact";
 import { useConfirm } from "@/components/ConfirmProvider";
 import {
   EmptyFolderCopy,
@@ -14,6 +15,8 @@ import {
 import type { FolderNodeInfo, PruneDeleteResult, PruneFile } from "@/types/prune";
 
 export interface PruneDeleteHandlers {
+  /** Demo mode: dialogs and toasts say "Redacted file/folder" instead of real names. */
+  redact?: boolean;
   /** What a file delete did (also after a partial run that then failed). */
   onFilesResult: (result: PruneDeleteResult) => void;
   /** A file delete failed for a reason other than the root vanishing (e.g. network). */
@@ -65,7 +68,9 @@ export function usePruneDelete(handlers: PruneDeleteHandlers) {
       for (const [i, path] of paths.entries()) {
         const ok = await confirm({
           title: paths.length > 1 ? `Empty folder (${i + 1} of ${paths.length})` : "Empty folder",
-          description: <EmptyFolderCopy name={baseName(path)} />,
+          description: (
+            <EmptyFolderCopy name={latest.current.redact ? REDACTED_FOLDER : baseName(path)} />
+          ),
           confirmText: "Delete",
           cancelText: "Keep",
           destructive: true,
@@ -92,12 +97,13 @@ export function usePruneDelete(handlers: PruneDeleteHandlers) {
     async (files: PruneFile[]) => {
       if (files.length === 0 || running.current) return;
       const paths = files.map((f) => f.path);
+      const shownName = (f: PruneFile) => (latest.current.redact ? REDACTED_FILE : f.name);
       const what = describeSelection(files.length, "file");
       const ok = await confirm({
         title: `Delete ${what}?`,
         description: (
           <FilesDeleteCopy
-            names={files.map((f) => f.name)}
+            names={files.map(shownName)}
             bytes={sumSizeOf(files, new Set(paths), (f) => f.path)}
           />
         ),
@@ -105,7 +111,7 @@ export function usePruneDelete(handlers: PruneDeleteHandlers) {
         destructive: true,
       });
       if (!ok || !begin()) return;
-      const names = new Map(files.map((f) => [f.path, f.name]));
+      const names = new Map(files.map((f) => [f.path, shownName(f)]));
       let emptied: string[] = [];
       setProgress({ sent: 0, total: paths.length });
       try {
@@ -144,18 +150,19 @@ export function usePruneDelete(handlers: PruneDeleteHandlers) {
     async (folder: FolderToDelete) => {
       if (running.current) return;
       const { files, bytes } = folder.total;
+      const shown = latest.current.redact ? REDACTED_FOLDER : folder.name;
       const ok = await confirm({
         title: "Delete this folder?",
-        description: <FolderDeleteCopy name={folder.name} files={files} bytes={bytes} />,
+        description: <FolderDeleteCopy name={shown} files={files} bytes={bytes} />,
         confirmText: "Delete folder",
         destructive: true,
         acknowledge: "I'm sure",
       });
       if (!ok || !begin()) return;
-      const id = toast.loading(`Deleting ${folder.name}…`);
+      const id = toast.loading(`Deleting ${shown}…`);
       try {
         await api.pruneDeleteFolder(folder.path);
-        toast.success(`Deleted ${folder.name}`, {
+        toast.success(`Deleted ${shown}`, {
           id,
           description: describeSelection(files, "file", bytes),
         });
@@ -166,7 +173,7 @@ export function usePruneDelete(handlers: PruneDeleteHandlers) {
           latest.current.onGone();
           return;
         }
-        toast.error(`Could not fully delete ${folder.name}`, {
+        toast.error(`Could not fully delete ${shown}`, {
           id,
           description: "Some of it may already be gone. Prune is rescanning to show what is left.",
         });
@@ -189,7 +196,7 @@ function report(result: PruneDeleteResult, names: Map<string, string>) {
   if (result.failed.length > 0) {
     const shown = result.failed
       .slice(0, 3)
-      .map((f) => `${names.get(f.path) ?? f.path}: ${f.error}`)
+      .map((f) => `${names.get(f.path) ?? REDACTED_FILE}: ${f.error}`)
       .join("\n");
     const more = result.failed.length - 3;
     toast.error(`${describeSelection(result.failed.length, "file")} could not be deleted`, {

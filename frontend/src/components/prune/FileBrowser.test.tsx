@@ -95,25 +95,35 @@ describe("FileBrowser sorting", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sort by Duration" }));
     expect(onSort).toHaveBeenCalledWith("duration");
   });
-  it("offers every key in the sort picker in both views", () => {
-    for (const viewMode of ["grid", "list"] as const) {
-      render(
-        <FileBrowser
-          {...props}
-          viewMode={viewMode}
-          sortKey="size"
-          sortDir="desc"
-          onSort={vi.fn()}
-        />,
-      );
-      expect(screen.getByRole("combobox", { name: "Sort files" }).textContent).toContain("Size");
-      cleanup();
-    }
+  it("has no sort picker of its own (it lives in BrowseControls)", () => {
+    render(
+      <FileBrowser {...props} viewMode="grid" sortKey="size" sortDir="desc" onSort={vi.fn()} />,
+    );
+    expect(screen.queryByRole("combobox", { name: "Sort files" })).toBeNull();
   });
   it("shows no sort controls without onSort", () => {
     render(<FileBrowser {...props} viewMode="list" />);
-    expect(screen.queryByRole("combobox", { name: "Sort files" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
+  });
+});
+
+describe("FileBrowser redact", () => {
+  const props = { files: [video], details: {}, progress: { loaded: 0, total: 0, done: true } };
+  it("replaces file names and drops thumbnails in both views", () => {
+    for (const viewMode of ["grid", "list"] as const) {
+      const { container } = render(
+        <FileBrowser {...props} viewMode={viewMode} cardSize={240} redact />,
+      );
+      expect(screen.getByText("Redacted file")).toBeTruthy();
+      expect(screen.queryByText("a.mkv")).toBeNull();
+      expect(container.querySelector("img")).toBeNull();
+      cleanup();
+    }
+  });
+  it("shows the real name and a thumbnail otherwise", () => {
+    const { container } = render(<FileBrowser {...props} viewMode="grid" cardSize={240} />);
+    expect(screen.getByText("a.mkv")).toBeTruthy();
+    expect(container.querySelector("img")).not.toBeNull();
   });
 });
 

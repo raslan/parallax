@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Tip } from "@/components/Tip";
+import { Checkbox } from "@/components/ui/checkbox";
+import { REDACTED_FOLDER } from "@/lib/pruneRedact";
 import { cn } from "@/lib/utils";
 import type { ScanState } from "@/types/prune";
 
@@ -16,8 +18,13 @@ export function PruneRootBar({
   busy,
   onChangeFolder,
   onRescan,
+  redact,
+  onRedact,
 }: {
   root: string;
+  /** Demo mode: the path and every name are hidden. */
+  redact: boolean;
+  onRedact: (v: boolean) => void;
   scan: ScanState | undefined;
   /** A root save or scan start is in flight. */
   busy: boolean;
@@ -43,8 +50,8 @@ export function PruneRootBar({
 
         <div className="min-w-0 flex-1 basis-64">
           <SectionHeader>Pruning</SectionHeader>
-          <Tip label={root}>
-            <p className="truncate font-mono text-sm">{root}</p>
+          <Tip label={redact ? REDACTED_FOLDER : root}>
+            <p className="truncate font-mono text-sm">{redact ? REDACTED_FOLDER : root}</p>
           </Tip>
         </div>
 
@@ -77,6 +84,12 @@ export function PruneRootBar({
         </div>
 
         <div className="flex items-center gap-2">
+          <Tip label="Hide every folder and file name and thumbnail, handy for demos">
+            <label className="flex cursor-pointer items-center gap-2 pr-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
+              <Checkbox checked={redact} onCheckedChange={(v) => onRedact(v === true)} />
+              Redact names
+            </label>
+          </Tip>
           <Tip label="Re-read the folder from disk">
             <Button size="sm" variant="outline" disabled={running} onClick={onRescan}>
               <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", running && "animate-spin")} />

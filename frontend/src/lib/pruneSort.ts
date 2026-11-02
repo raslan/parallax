@@ -7,6 +7,24 @@ export type FolderSortKey = "files" | "size" | "name";
 export type FileSortKey =
   "name" | "size" | "added" | "kind" | "duration" | "resolution" | "codec" | "bitrate";
 
+/** Options of the sort pickers in `BrowseControls`. */
+export const FOLDER_SORT_OPTIONS: { value: FolderSortKey; label: string }[] = [
+  { value: "files", label: "Files" },
+  { value: "size", label: "Size" },
+  { value: "name", label: "Name" },
+];
+
+export const FILE_SORT_OPTIONS: { value: FileSortKey; label: string }[] = [
+  { value: "name", label: "Name" },
+  { value: "size", label: "Size" },
+  { value: "added", label: "File added" },
+  { value: "kind", label: "Type" },
+  { value: "duration", label: "Duration" },
+  { value: "resolution", label: "Resolution" },
+  { value: "codec", label: "Codec" },
+  { value: "bitrate", label: "Bitrate" },
+];
+
 /** Names read A→Z first; counts and sizes largest first (`useSort`'s `defaultDir`). */
 export const folderSortDefaultDir = (key: FolderSortKey): SortDir =>
   key === "name" ? "asc" : "desc";

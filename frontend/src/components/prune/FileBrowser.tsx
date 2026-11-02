@@ -5,7 +5,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { ColHeader, FileGridCard, FileListRow, type SortDir } from "@/components/FileSelectGrid";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
 import { SectionHeader } from "@/components/SectionHeader";
-import { SortSelect } from "@/components/SortSelect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import type { ViewMode } from "@/components/DataToolbar";
@@ -15,20 +14,10 @@ import { DetailsProgress } from "@/components/prune/DetailsProgress";
 import { KIND_ICON } from "@/components/prune/kindIcon";
 import { formatBitrate, formatDuration, formatSize, formatUnixDate } from "@/lib/format";
 import { extensionOf } from "@/lib/path";
+import { REDACTED_FILE } from "@/lib/pruneRedact";
 import type { FileSortKey } from "@/lib/pruneSort";
 import { cn } from "@/lib/utils";
 import type { FileDetails, PruneFile } from "@/types/prune";
-
-const SORT_OPTIONS: { value: FileSortKey; label: string }[] = [
-  { value: "name", label: "Name" },
-  { value: "size", label: "Size" },
-  { value: "added", label: "File added" },
-  { value: "kind", label: "Type" },
-  { value: "duration", label: "Duration" },
-  { value: "resolution", label: "Resolution" },
-  { value: "codec", label: "Codec" },
-  { value: "bitrate", label: "Bitrate" },
-];
 
 /** Breakpoint visibility per column: [cell class, header class] (the header is flex). */
 const SHOW = {
@@ -114,10 +103,10 @@ type DetailsMap = Record<string, FileDetails | null>;
  * Stand-in for the library-row shape the modals and the shared card/row read
  * (`id` is unused: a custom thumbnail is always passed).
  */
-function asPlayable(file: PruneFile, d: FileDetails | null | undefined) {
+function asPlayable(file: PruneFile, d: FileDetails | null | undefined, redact = false) {
   return {
     id: 0,
-    filename: file.name,
+    filename: redact ? REDACTED_FILE : file.name,
     path: file.path,
     size: file.size,
     duration: d?.duration ?? null,
@@ -127,11 +116,20 @@ function asPlayable(file: PruneFile, d: FileDetails | null | undefined) {
 }
 
 /** Thumbnail that fades in once loaded; the kind icon shows until then and when there is none. */
-function Thumb({ file, className }: { file: PruneFile; className?: string }) {
+function Thumb({
+  file,
+  className,
+  redact = false,
+}: {
+  file: PruneFile;
+  className?: string;
+  redact?: boolean;
+}) {
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
   const Icon = KIND_ICON[file.kind];
-  // Audio and "other" never have thumbnails, so don't ask (and don't 404).
-  const hasThumb = file.kind === "image" || file.kind === "video";
+  // Audio and "other" never have thumbnails, so don't ask (and don't 404). Redacted
+  // mode never asks either: only the kind icon shows.
+  const hasThumb = !redact && (file.kind === "image" || file.kind === "video");
   return (
     <div
       className={cn(
@@ -226,12 +224,15 @@ export function FileBrowser({
   sortKey,
   sortDir,
   onSort,
+  redact = false,
 }: {
   /** Already filtered and sorted by the page (undefined = loading). */
   files: PruneFile[] | undefined;
+  /** Demo mode: "Redacted file" names, no thumbnails, no real names in the viewers. */
+  redact?: boolean;
   /**
-   * The page's sort (`useSort`): shown as the shared `SortSelect` and, in list view,
-   * a `ColHeader` row. Omit `onSort` for no sort controls.
+   * The page's sort (`useSort`): in list view a `ColHeader` row (the dropdown lives in
+   * the page's `BrowseControls`). Omit `onSort` for no sort controls.
    */
   sortKey?: FileSortKey;
   sortDir?: SortDir;
@@ -270,7 +271,7 @@ export function FileBrowser({
   const sel = selected ?? none;
 
   const shared = (f: PruneFile) => ({
-    file: asPlayable(f, details[f.path]),
+    file: asPlayable(f, details[f.path], redact),
     selected: sel.has(f.path),
     selectable: onToggleSelect !== undefined,
     onToggle: () => onToggleSelect?.(f),
@@ -282,7 +283,7 @@ export function FileBrowser({
     <FileGridCard
       {...shared(f)}
       className={motionClass("grid", leaving?.has(f.path) ?? false)}
-      thumbnail={<Thumb file={f} className="h-full w-full" />}
+      thumbnail={<Thumb file={f} redact={redact} className="h-full w-full" />}
       footer={
         <div className="flex min-w-0 items-center gap-2 text-3xs text-muted-foreground">
           <span className="shrink-0">{formatSize(f.size)}</span>
@@ -296,7 +297,7 @@ export function FileBrowser({
     <FileListRow
       {...shared(f)}
       className={motionClass("list", leaving?.has(f.path) ?? false)}
-      thumbnail={<Thumb file={f} className="h-8 w-14 rounded" />}
+      thumbnail={<Thumb file={f} redact={redact} className="h-8 w-14 rounded" />}
       columns={COLUMNS.map((c) => {
         const d = details[f.path];
         const cls = cn(c.width, "shrink-0", SHOW[c.show][0]);
@@ -355,15 +356,6 @@ export function FileBrowser({
           <SectionHeader>Files{files ? ` · ${files.length.toLocaleString()}` : ""}</SectionHeader>
           <DetailsProgress {...progress} />
         </div>
-        {onSort && sortKey && sortDir && files && files.length > 0 && (
-          <SortSelect
-            label="Sort files"
-            options={SORT_OPTIONS}
-            value={sortKey}
-            dir={sortDir}
-            onSort={onSort}
-          />
-        )}
       </div>
 
       {!files ? (
@@ -418,7 +410,7 @@ export function FileBrowser({
           img={{
             id: 0,
             path: preview.path,
-            filename: preview.name,
+            filename: redact ? REDACTED_FILE : preview.name,
             size: preview.size,
             width: details[preview.path]?.width ?? null,
             height: details[preview.path]?.height ?? null,
@@ -429,7 +421,7 @@ export function FileBrowser({
       )}
       {(preview?.kind === "video" || preview?.kind === "audio") && (
         <VideoPlayerModal
-          file={asPlayable(preview, details[preview.path])}
+          file={asPlayable(preview, details[preview.path], redact)}
           streamUrl={
             preview.kind === "audio" && !NATIVE_AUDIO.has(extensionOf(preview.name))
               ? api.pruneAudioUrl(preview.path)

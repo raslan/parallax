@@ -15,8 +15,10 @@ import {
 } from "@/lib/pruneSelect";
 import { DELETE_CHUNK } from "@/lib/pruneDelete";
 import { pruneFields } from "@/lib/pruneSearch";
-import { viewSignature } from "@/lib/pruneScroll";
+import { clauseSignature } from "@/lib/pruneScroll";
 import {
+  FILE_SORT_OPTIONS,
+  FOLDER_SORT_OPTIONS,
   fileSortDefaultDir,
   folderSortDefaultDir,
   sortFiles,
@@ -93,19 +95,17 @@ export function Prune() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [cardSize, setCardSize] = useGridSize(240);
   const [scroller, pageRef] = useScrollParent();
+  // Demo mode: every folder/file name reads "Redacted …" and thumbnails stay hidden.
+  const [redact, setRedact] = useState(false);
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(pruneFields);
   // One sort each for the folders and the files (Name ascending, counts/sizes descending).
   const folderSort = useSort<FolderSortKey>("files", folderSortDefaultDir);
   const fileSort = useSort<FileSortKey>("name", fileSortDefaultDir);
   // Shared-scroll grids can't reset themselves, so opening another folder or a changed
-  // filter or sort (a different result set or order) scrolls back to the top.
-  // Refetches and streaming details never change the signature, so they never jump
-  // the page.
-  const viewSig = `${currentPath}|${viewSignature(clauses, [
-    { key: folderSort.sortKey, dir: folderSort.sortDir },
-    { key: fileSort.sortKey, dir: fileSort.sortDir },
-  ])}`;
+  // filter (a different result set) scrolls back to the top. Re-sorting, refetches and
+  // streaming details never change the signature, so they never jump the page.
+  const viewSig = `${currentPath}|${clauseSignature(clauses)}`;
   const lastViewSig = useRef(viewSig);
   useEffect(() => {
     if (lastViewSig.current === viewSig) return;
@@ -304,6 +304,7 @@ export function Prune() {
   // Delete flows (shared confirm, chunked calls, empty-folder prompts) live in the
   // hook; the page reacts to what happened.
   const { deleteFiles, deleteFolder, deleting, progress } = usePruneDelete({
+    redact,
     onFilesResult: (result: PruneDeleteResult) => {
       if (result.deleted.length === 0) return;
       // Failed paths are not in `deleted`, so they stay selected for a retry.
@@ -395,6 +396,8 @@ export function Prune() {
         busy={saveRoot.isPending || startScan.isPending}
         onChangeFolder={() => setPicking(true)}
         onRescan={() => startScan.mutate(true)}
+        redact={redact}
+        onRedact={setRedact}
       />
 
       {unavailable ? (
@@ -451,6 +454,28 @@ export function Prune() {
             onViewMode={setViewMode}
             size={cardSize}
             onSize={setCardSize}
+            folderSort={
+              folderQ.data && folderQ.data.subfolders.length > 0
+                ? {
+                    label: "Sort folders",
+                    options: FOLDER_SORT_OPTIONS,
+                    value: folderSort.sortKey,
+                    dir: folderSort.sortDir,
+                    onSort: folderSort.toggleSort,
+                  }
+                : undefined
+            }
+            fileSort={
+              filesQ.data && filesQ.data.length > 0
+                ? {
+                    label: "Sort files",
+                    options: FILE_SORT_OPTIONS,
+                    value: fileSort.sortKey,
+                    dir: fileSort.sortDir,
+                    onSort: fileSort.toggleSort,
+                  }
+                : undefined
+            }
           />
           <FolderBrowser
             folder={folderQ.data}
@@ -473,6 +498,7 @@ export function Prune() {
                 : undefined
             }
             leaving={leavingFolders}
+            redact={redact}
           />
           {hasFiles &&
             (filesQ.isError ? (
@@ -499,7 +525,7 @@ export function Prune() {
                         loading, matches may grow as file details arrive
                       </p>
                     )}
-                    <NameGroupChips names={fileNames} onPick={pickName} />
+                    {!redact && <NameGroupChips names={fileNames} onPick={pickName} />}
                     <div className="flex flex-wrap items-stretch gap-2">
                       <SmartSelect options={smartOptions} />
                       <div className="flex items-center gap-1">
@@ -540,6 +566,7 @@ export function Prune() {
                   cardSize={cardSize}
                   scrollElement={scroller}
                   marquee={marqueeProps}
+                  redact={redact}
                 />
               </>
             ))}

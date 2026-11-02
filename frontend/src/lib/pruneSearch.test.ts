@@ -54,7 +54,7 @@ describe("pruneFields keys", () => {
   });
   it("shares Cleanup's labels and operators where the fields overlap", () => {
     expect(byKey.file_added!.label).toBe("File added");
-    expect(byKey.resolution!.unitLabel).toBe("px height");
+    expect(byKey.resolution!.unitLabel).toBe("px short side");
     expect(byKey.name!.operators).toEqual([
       "contains",
       "not_contains",
@@ -219,9 +219,9 @@ describe("enriched fields", () => {
     expect(run("duration", "gt", 0, img)).toBe(false);
     expect(run("bitrate", "gt", 0, img)).toBe(false);
   });
-  it("resolution compares the height, the same as Cleanup", () => {
+  it("resolution compares the shortest side, the same as Cleanup", () => {
     const r = row({ details: details({ width: 1080, height: 1920 }) });
-    expect(run("resolution", "gt", 1440, r)).toBe(true);
-    expect(run("resolution", "lt", 1440, r)).toBe(false);
+    expect(run("resolution", "gt", 1440, r)).toBe(false);
+    expect(run("resolution", "lt", 1440, r)).toBe(true);
   });
 });
