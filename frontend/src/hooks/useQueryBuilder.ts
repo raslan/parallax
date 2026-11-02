@@ -1,7 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
 
 export type Operator =
-  "gt" | "lt" | "gte" | "lte" | "eq" | "contains" | "not_contains" | "fuzzy_contains";
+  | "gt"
+  | "lt"
+  | "gte"
+  | "lte"
+  | "eq"
+  | "neq"
+  | "contains"
+  | "not_contains"
+  | "fuzzy_contains"
+  | "starts_with"
+  | "ends_with"
+  | "regex";
 
 type ValueType = "number" | "date_offset" | "text" | "percent" | "select" | "boolean";
 

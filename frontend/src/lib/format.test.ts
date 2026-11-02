@@ -28,6 +28,14 @@ describe("sumSizeOf", () => {
     expect(sumSizeOf(items, new Set([1, 3]))).toBe(50);
     expect(sumSizeOf(items, new Set())).toBe(0);
   });
+  it("can key the items by something other than id", () => {
+    const files = [
+      { path: "/r/a", size: 10 },
+      { path: "/r/b", size: 20 },
+      { path: "/r/c", size: 30 },
+    ];
+    expect(sumSizeOf(files, new Set(["/r/a", "/r/c"]), (f) => f.path)).toBe(40);
+  });
 });
 
 describe("formatRelative", () => {

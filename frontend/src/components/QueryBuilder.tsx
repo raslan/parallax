@@ -46,9 +46,13 @@ const OPERATOR_LABEL: Record<Operator, string> = {
   gte: "≥",
   lte: "≤",
   eq: "=",
+  neq: "≠",
   contains: "contains",
   not_contains: "doesn't contain",
   fuzzy_contains: "~contains",
+  starts_with: "starts with",
+  ends_with: "ends with",
+  regex: "regex",
 };
 
 // Word phrasing for the expanded editor, so operator + value read as one
@@ -60,9 +64,13 @@ const OPERATOR_PHRASE: Record<Operator, string> = {
   gte: "is at least",
   lte: "is at most",
   eq: "is",
+  neq: "is not",
   contains: "contains",
   not_contains: "doesn't contain",
   fuzzy_contains: "roughly matches",
+  starts_with: "starts with",
+  ends_with: "ends with",
+  regex: "matches regex",
 };
 
 const DATE_OPERATOR_PHRASE: Partial<Record<Operator, string>> = {

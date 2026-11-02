@@ -163,8 +163,8 @@ def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
     from app.services.scanner import (
         _find_video_files,
         _now,
-        _probe_metadata,
         clear_thumbnail_failed_marker,
+        probe_metadata,
         thumbnail_path,
     )
 
@@ -256,7 +256,7 @@ def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
                 f.file_mtime,
             )
 
-            meta = _probe_metadata(path)
+            meta = probe_metadata(path)
             if meta["size"] is not None:
                 f.size = meta["size"]
             if meta["probe_ok"]:
@@ -523,7 +523,7 @@ def _apply_audio_changes(library_id: int, changed: frozenset[str]) -> None:
                 f.file_mtime,
             )
 
-            meta = audio_scanner._probe_audio_metadata(path)
+            meta = audio_scanner.probe_audio_metadata(path)
             if meta["size"] is not None:
                 f.size = meta["size"]
             if meta["probe_ok"]:

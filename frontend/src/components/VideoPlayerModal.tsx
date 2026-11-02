@@ -26,12 +26,18 @@ export function VideoPlayerModal({
   streamUrl,
   subtitleTracksUrl,
   isAudio,
+  prepareFn = streamApi.prepare,
+  statusFn = streamApi.status,
   onClose,
 }: {
   file: PlayableFile;
   streamUrl: string;
   subtitleTracksUrl?: string;
   isAudio?: boolean;
+  /** Start/check the playback prep for a path; defaults to the library stream API. */
+  prepareFn?: (path: string) => Promise<StreamPrepareStatus>;
+  /** Poll the prep started by `prepareFn`; pass both or neither. */
+  statusFn?: (path: string) => Promise<StreamPrepareStatus>;
   onClose: () => void;
 }) {
   const [tracks, setTracks] = useState<SubtitleTrack[]>([]);
@@ -84,8 +90,7 @@ export function VideoPlayerModal({
       setPrepStatus("ready");
     };
 
-    streamApi
-      .prepare(file.path)
+    prepareFn(file.path)
       .then((s) => {
         if (cancelled) return;
         if (s.status === "ready") {
@@ -102,7 +107,7 @@ export function VideoPlayerModal({
         setPrepProgress(s.progress);
         prepPollRef.current = setInterval(async () => {
           try {
-            const poll = await streamApi.status(file.path);
+            const poll = await statusFn(file.path);
             if (cancelled) return;
             setPrepProgress(poll.progress);
             if (poll.status === "ready") {
@@ -126,6 +131,8 @@ export function VideoPlayerModal({
       cancelled = true;
       stopPrepPoll();
     };
+    // The prepare/status fns are stable (module-level) for every caller.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.path, isAudio]);
 
   // Fetch subtitle tracks before mounting the player so its <track> children

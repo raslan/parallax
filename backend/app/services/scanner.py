@@ -20,6 +20,11 @@ from app.services.common import (
     library_scan_active,
     should_cancel,
 )
+from app.services.thumbnail_common import (
+    THUMBNAIL_GEN_LIMIT,
+    VIDEO_THUMB_SEMAPHORE,
+    get_or_create,
+)
 
 VIDEO_EXTENSIONS = {
     ".mp4",
@@ -96,7 +101,11 @@ def generate_thumbnail(file_path: str, file_id: int, duration: float | None = No
         os.remove(out_path)
     except FileNotFoundError:
         pass
+    return grab_frame(file_path, out_path, duration)
 
+
+def grab_frame(file_path: str, out_path: str, duration: float | None = None) -> bool:
+    """ffmpeg a 320px-wide frame at 10% into the video to ``out_path``. DB-id free."""
     try:
         if duration is None:
             data = probe_file(file_path)
@@ -229,18 +238,9 @@ def _thumbnail_failed_marker_path(file_id: int) -> str:
 _thumb_locks: dict[int, threading.Lock] = {}
 _thumb_locks_guard = threading.Lock()
 
-# Caps how many on-demand thumbnail generations run at once. Without this, a
-# grid page renders a screenful of cards on mount — each mounts its own
-# <img>, each fires its own request — and every one of them would spawn a
-# concurrent ffmpeg process with no limit at all. On a 4-core box that's
-# dozens of ffmpeg processes fighting over 4 cores, each taking dramatically
-# longer than it would alone, which is what "no thumbnails for a minute, then
-# a slow trickle" looks like. Half the cores (not cores-1) — this pool is
-# shared with the post-scan warm-up pass (_warm_thumbnails), which can queue
-# thousands of files at once on a fresh library; leaving only one core free
-# still let a big warm-up saturate the host and starve the API/event loop.
-_THUMBNAIL_GEN_LIMIT = max(1, (os.cpu_count() or 4) // 2)
-_thumbnail_gen_semaphore = threading.Semaphore(_THUMBNAIL_GEN_LIMIT)
+# On-demand generations (and the post-scan warm-up pass, _warm_thumbnails) share
+# one ffmpeg pool: see thumbnail_common for why it is half the cores.
+_THUMBNAIL_GEN_LIMIT = THUMBNAIL_GEN_LIMIT
 
 
 def _lock_for_thumbnail(file_id: int) -> threading.Lock:
@@ -276,30 +276,16 @@ def get_or_create_thumbnail(
     instead, on first view. A per-file lock prevents two concurrent requests
     for the same missing thumbnail from spawning duplicate ffmpeg calls.
     """
-    out_path = thumbnail_path(file_id)
-    if os.path.exists(out_path):
-        return out_path
-    if os.path.exists(_thumbnail_failed_marker_path(file_id)):
-        return None
-
-    with _lock_for_thumbnail(file_id):
-        # Re-check after acquiring the lock — another thread may have just
-        # finished (or failed) generating this exact thumbnail.
-        if os.path.exists(out_path):
-            return out_path
-        if os.path.exists(_thumbnail_failed_marker_path(file_id)):
-            return None
-
-        with _thumbnail_gen_semaphore:
-            if generate_thumbnail(file_path, file_id, duration=duration):
-                return out_path
-
-            os.makedirs(THUMBNAILS_DIR, exist_ok=True)
-            open(_thumbnail_failed_marker_path(file_id), "a").close()
-            return None
+    return get_or_create(
+        thumbnail_path(file_id),
+        lambda: generate_thumbnail(file_path, file_id, duration=duration),
+        semaphore=VIDEO_THUMB_SEMAPHORE,
+        lock=lambda: _lock_for_thumbnail(file_id),
+        failed_path=_thumbnail_failed_marker_path(file_id),
+    )
 
 
-def _probe_metadata(path: str) -> dict:
+def probe_metadata(path: str) -> dict:
     """Probe a video file and return a flat dict of File-column values.
 
     Shared by `rescan_file`, `scan_library`, and `fs_watcher.py` so the
@@ -383,7 +369,7 @@ def rescan_file(db, file_obj: File) -> None:
     themselves.
     """
     path = file_obj.path
-    meta = _probe_metadata(path)
+    meta = probe_metadata(path)
     if meta["size"] is not None:
         file_obj.size = meta["size"]
     if meta["probe_ok"]:
@@ -536,7 +522,7 @@ def scan_library(library_id: int):
 
         def _scan_one(file_id: int, path: str) -> tuple[int, dict | None, str | None]:
             try:
-                return file_id, _probe_metadata(path), None
+                return file_id, probe_metadata(path), None
             except Exception as exc:
                 return file_id, None, str(exc)
 

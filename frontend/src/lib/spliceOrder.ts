@@ -1,9 +1,7 @@
+import { naturalCompare } from "@/lib/naturalSort";
 import type { VideoFile } from "@/types/file";
 
 export type SortMode = "name" | "duration" | "date";
-
-const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-export const naturalCompare = (a: string, b: string) => collator.compare(a, b);
 
 export function sortOrder(
   ids: number[],

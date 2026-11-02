@@ -1,4 +1,4 @@
-import { bigramSimilarity } from "./cleanupFields";
+import { bigramSimilarity } from "./fileFieldFactories";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
 

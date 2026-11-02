@@ -401,7 +401,7 @@ def run_audio_compress_job(
             if should_cancel(job_id):
                 return path, "cancelled", None
 
-            meta = audio_scanner._probe_audio_metadata(path)
+            meta = audio_scanner.probe_audio_metadata(path)
             src_codec, src_bitrate = meta.get("codec_name"), meta.get("bitrate")
             if is_already_at_target(src_codec, src_bitrate, codec, bitrate_kbps):
                 log_q.put(("info", f"Skipped (already at target): {fname}"))

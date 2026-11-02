@@ -27,6 +27,8 @@ from app.api.jobs import router as jobs_router
 from app.api.libraries import router as libraries_router
 from app.api.models import router as models_router
 from app.api.originals import router as originals_router
+from app.api.prune import router as prune_router
+from app.api.prune import sandbox_error_handler
 from app.api.settings import get_theme, safe_theme_id
 from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
@@ -38,6 +40,7 @@ from app.config import GALLERY_DL_DIR
 from app.database import SessionLocal, init_db
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
+from app.services.prune_sandbox import SandboxError
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -264,6 +267,12 @@ async def lifespan(app: FastAPI):
 
     stream_cache.start_sweeper()
 
+    # Trim the Prune thumbnail cache (age + size cap) in a background thread; it is
+    # re-run lazily at most every few hours from thumbnail requests.
+    from app.services import prune_files
+
+    prune_files.maybe_evict_thumbnails()
+
     # Best-effort fetch of the alass binary for subtitle sync — never block
     # startup on it (offline environments should still boot fine).
     from app.services.subtitle_sync import ensure_alass
@@ -306,6 +315,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Typed service errors mapped to status + {"detail": ...} once (CODE_CONVENTIONS B3).
+app.add_exception_handler(SandboxError, sandbox_error_handler)
+
 app.include_router(health_router, prefix="/api")
 app.include_router(libraries_router, prefix="/api")
 app.include_router(audio_libraries_router, prefix="/api")
@@ -314,6 +326,7 @@ app.include_router(audio_files_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(originals_router, prefix="/api")
+app.include_router(prune_router, prefix="/api")
 app.include_router(audio_originals_router, prefix="/api")
 app.include_router(identify_router, prefix="/api")
 app.include_router(image_libraries_router, prefix="/api")

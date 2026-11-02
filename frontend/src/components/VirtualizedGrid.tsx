@@ -1,4 +1,4 @@
-import { useRef, useState, useLayoutEffect } from "react";
+import { useMemo, useRef, useState, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMarquee } from "@/hooks/useMarquee";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,14 @@ export interface VirtualizedGridProps<T> {
    */
   resetKey?: string | number;
   /**
+   * Virtualise against an ancestor's scroll position instead of owning a scroller:
+   * several grids (and other content) can then share one page-level scroll. Passing
+   * the prop at all (even `null`, while the element is still being found) switches
+   * the grid to this mode; it then renders at its natural height and ignores
+   * `maxHeight` and `resetKey` (the owner of the scroller resets it).
+   */
+  scrollElement?: HTMLElement | null;
+  /**
    * Drag-to-select: called once when a drag begins (`additive` = a modifier key is
    * held, so the existing selection should be kept), then `onMarquee` with the keys
    * of every item under the box on each pointer move. Spread `marqueeProps` from
@@ -74,6 +82,7 @@ export function VirtualizedGrid<T>({
   gap = 12,
   maxHeight,
   resetKey,
+  scrollElement,
   onMarqueeStart,
   onMarquee,
 }: VirtualizedGridProps<T>) {
@@ -81,6 +90,42 @@ export function VirtualizedGrid<T>({
   const contentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
   const [columnWidth, setColumnWidth] = useState(0);
+  const shared = scrollElement !== undefined;
+  // Distance from the top of the shared scroller's content to this grid's content.
+  const [offset, setOffset] = useState(0);
+  const scrollMargin = shared ? offset : 0;
+
+  // Content above the grid (headings, filters, other grids) can change height at any
+  // time, so re-measure when the scroller or any ancestor between it and us resizes.
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!scrollElement || !content) return;
+    const measure = () => {
+      const next = Math.round(
+        content.getBoundingClientRect().top -
+          scrollElement.getBoundingClientRect().top +
+          scrollElement.scrollTop,
+      );
+      setOffset((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(scrollElement);
+    for (let el = content.parentElement; el && el !== scrollElement; el = el.parentElement) {
+      ro.observe(el);
+    }
+    return () => ro.disconnect();
+  }, [scrollElement]);
+
+  // The marquee reads whichever element actually scrolls.
+  const scrollRef = useMemo(
+    () => ({
+      get current() {
+        return scrollElement ?? parentRef.current;
+      },
+    }),
+    [scrollElement],
+  );
 
   useLayoutEffect(() => {
     const el = parentRef.current;
@@ -121,10 +166,11 @@ export function VirtualizedGrid<T>({
 
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => (shared ? scrollElement : parentRef.current),
     estimateSize: () => rowHeight,
     overscan: 4,
     gap: rowGap,
+    scrollMargin,
   });
 
   // `estimateSize` isn't itself a measurement-cache dependency inside the virtualizer,
@@ -141,12 +187,12 @@ export function VirtualizedGrid<T>({
   // content height) — so the viewport lands mid-list instead of at the top. Reset
   // explicitly whenever the caller's resetKey changes.
   useLayoutEffect(() => {
-    if (resetKey === undefined) return;
+    if (resetKey === undefined || shared) return;
     parentRef.current?.scrollTo({ top: 0 });
-  }, [resetKey]);
+  }, [resetKey, shared]);
 
   const marquee = useMarquee({
-    scrollRef: parentRef,
+    scrollRef,
     contentRef,
     enabled: !!onMarquee && !dynamicHeight,
     geometry: {
@@ -171,8 +217,14 @@ export function VirtualizedGrid<T>({
   return (
     <div
       ref={parentRef}
-      className={cn("p-1", marquee.box && "select-none")}
-      style={maxHeight ? { overflow: "auto", maxHeight } : { overflow: "auto", height: "100%" }}
+      className={cn(!shared && "p-1", marquee.box && "select-none")}
+      style={
+        shared
+          ? undefined
+          : maxHeight
+            ? { overflow: "auto", maxHeight }
+            : { overflow: "auto", height: "100%" }
+      }
       onPointerDown={marquee.onPointerDown}
     >
       <div
@@ -211,7 +263,7 @@ export function VirtualizedGrid<T>({
                 // With dynamic measurement the row must be free to size to its content,
                 // otherwise we'd just be measuring the estimate back again.
                 ...(dynamicHeight ? {} : { height: rowHeight }),
-                transform: `translateY(${virtualRow.start}px)`,
+                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
                 display: "grid",
                 gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
                 gap: rowGap,

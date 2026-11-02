@@ -2,7 +2,7 @@
 
 Structurally this is the video scanner (`services/scanner.py`) minus frame
 extraction and thumbnails. The ffprobe-field-mapping logic lives in
-`_probe_audio_metadata`, shared by `rescan_audio_file` and `scan_audio_library`.
+`probe_audio_metadata`, shared by `rescan_audio_file` and `scan_audio_library`.
 """
 
 import concurrent.futures as _cf
@@ -54,8 +54,8 @@ _PROGRESS_EVERY = 50
 _PROBE_TIMEOUT = 90
 
 
-def _probe_audio_metadata_guarded(path: str) -> dict:
-    """`_probe_audio_metadata` with a `_PROBE_TIMEOUT` wall-clock cap.
+def probe_audio_metadata_guarded(path: str) -> dict:
+    """`probe_audio_metadata` with a `_PROBE_TIMEOUT` wall-clock cap.
 
     On timeout the worker thread is abandoned — it may stay blocked in the kernel
     (D-state on a dead mount) but the scan moves on — and a probe-failure dict is
@@ -63,7 +63,7 @@ def _probe_audio_metadata_guarded(path: str) -> dict:
     """
     ex = _cf.ThreadPoolExecutor(max_workers=1)
     try:
-        return ex.submit(_probe_audio_metadata, path).result(timeout=_PROBE_TIMEOUT)
+        return ex.submit(probe_audio_metadata, path).result(timeout=_PROBE_TIMEOUT)
     except _cf.TimeoutError:
         ts = now().timestamp()
         return {
@@ -115,7 +115,7 @@ def probe_audio(path: str) -> dict:
         return {}
 
 
-def _probe_audio_metadata(path: str) -> dict:
+def probe_audio_metadata(path: str) -> dict:
     """Probe an audio file and return a flat dict of `AudioFile`-column values.
 
     Does not touch the DB; callers assign the returned values onto their own
@@ -233,7 +233,7 @@ def rescan_audio_file(db, audio_file: AudioFile) -> None:
     added" jump to whenever Parallax last re-encoded the file instead of
     staying at the value from the original scan.
     """
-    meta = _probe_audio_metadata(audio_file.path)
+    meta = probe_audio_metadata(audio_file.path)
     if meta["size"] is not None:
         audio_file.size = meta["size"]
     if meta["probe_ok"]:
@@ -324,7 +324,7 @@ def scan_audio_library(library_id: int, job_id: int) -> None:
                 existing[path] = row
 
             try:
-                meta = _probe_audio_metadata_guarded(path)
+                meta = probe_audio_metadata_guarded(path)
             except Exception as exc:  # noqa: BLE001 - record the failure, keep scanning
                 row.status = FileStatus.UNKNOWN
                 row.scan_error = str(exc)

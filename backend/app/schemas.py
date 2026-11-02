@@ -324,3 +324,100 @@ class AudioFileRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Prune schemas ────────────────────────────────────────────────────────────
+
+
+class PruneRoot(BaseModel):
+    root: str | None = None
+
+
+class PruneRootBody(BaseModel):
+    path: str
+
+
+class PruneCounts(BaseModel):
+    files: int = 0
+    images: int = 0
+    videos: int = 0
+    audio: int = 0
+    other: int = 0
+    bytes: int = 0
+
+
+class PruneScanState(BaseModel):
+    status: Literal["idle", "running", "done", "error"]
+    folders_scanned: int
+    root: str | None = None
+
+
+class PruneCrumb(BaseModel):
+    name: str
+    path: str
+
+
+class PruneSubfolder(BaseModel):
+    name: str
+    path: str
+    direct: PruneCounts
+    total: PruneCounts
+
+
+class PruneFolder(BaseModel):
+    path: str
+    name: str
+    parent: str | None = None
+    breadcrumbs: list[PruneCrumb]
+    direct: PruneCounts
+    total: PruneCounts
+    subfolders: list[PruneSubfolder]
+
+
+class PruneFile(BaseModel):
+    name: str
+    path: str
+    kind: Literal["image", "video", "audio", "other"]
+    size: int
+    mtime: float
+
+
+class PruneDeleteBody(BaseModel):
+    # The client sends chunks of 500; the cap bounds one synchronous request.
+    paths: list[str] = Field(max_length=5000)
+
+
+class PruneDeleteFailure(BaseModel):
+    path: str
+    error: str
+
+
+class PruneDeleteResult(BaseModel):
+    deleted: list[str]
+    failed: list[PruneDeleteFailure]
+    empty_folders: list[str]
+
+
+class PruneDeleteFolderBody(BaseModel):
+    path: str
+    only_if_empty: bool = False  # rmdir, 409 if the folder gained entries
+
+
+class PruneDetailsBody(BaseModel):
+    paths: list[str]
+
+
+class PruneDetails(BaseModel):
+    duration: float | None
+    width: int | None
+    height: int | None
+    codec: str | None
+    bitrate: int | None
+
+
+class PruneStreamBody(BaseModel):
+    path: str
+
+
+class PruneDetailsResult(BaseModel):
+    details: dict[str, PruneDetails | None]

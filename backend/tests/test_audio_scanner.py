@@ -27,7 +27,7 @@ def test_probe_audio_metadata_prefers_embedded_date_over_mtime():
         patch("os.stat") as st,
     ):
         st.return_value.st_size = 3_400_000
-        meta = audio_scanner._probe_audio_metadata("/x/song.mp3")
+        meta = audio_scanner.probe_audio_metadata("/x/song.mp3")
 
     assert meta["probe_ok"] is True
     assert meta["codec_name"] == "mp3"
@@ -48,7 +48,7 @@ def test_probe_audio_metadata_falls_back_to_mtime_when_no_tag():
         patch("os.stat") as st,
     ):
         st.return_value.st_size = 1000
-        meta = audio_scanner._probe_audio_metadata("/x/a.opus")
+        meta = audio_scanner.probe_audio_metadata("/x/a.opus")
     assert meta["file_date"] == meta["file_mtime"] == 1_600_000_000.0
 
 
