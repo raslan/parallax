@@ -66,8 +66,9 @@ export function FileGridCard({
     <RowContextMenu actions={menuActions}>
       <Card
         className={cn(
-          "overflow-hidden cursor-pointer group transition-shadow hover:ring-1",
-          selected ? "ring-2 ring-primary" : "hover:ring-primary",
+          "overflow-hidden group transition-shadow",
+          selectable && "cursor-pointer hover:ring-1",
+          selected ? "ring-2 ring-primary" : selectable && "hover:ring-primary",
           className,
         )}
         onClick={selectable ? onToggle : undefined}

@@ -94,7 +94,49 @@ describe("FileGridCard", () => {
     // Only the "More actions" trigger remains.
     expect(container.querySelectorAll("button")).toHaveLength(1);
   });
+
+  it("only looks clickable when selectable", () => {
+    const { container, rerender } = render(
+      <FileGridCard file={file} selected={false} onToggle={vi.fn()} onPlay={vi.fn()} />,
+    );
+    const card = () => container.firstElementChild as HTMLElement;
+    expect(card().className).toContain("cursor-pointer");
+    expect(card().className).toContain("hover:ring-1");
+    rerender(
+      <FileGridCard
+        file={file}
+        selected={false}
+        onToggle={vi.fn()}
+        onPlay={vi.fn()}
+        selectable={false}
+      />,
+    );
+    expect(card().className).not.toContain("cursor-pointer");
+    expect(card().className).not.toContain("hover:ring");
+  });
+
+  it("drops Play from the ⋯ menu when not playable but keeps Copy path", async () => {
+    render(
+      <FileGridCard
+        file={file}
+        selected={false}
+        onToggle={vi.fn()}
+        onPlay={vi.fn()}
+        playable={false}
+      />,
+    );
+    await openMoreMenu();
+    expect(screen.getByRole("menuitem", { name: "Copy path" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Play" })).toBeNull();
+  });
 });
+
+/** Radix opens the dropdown on a keyboard Enter on its trigger (pointer events are flaky in jsdom). */
+async function openMoreMenu() {
+  const trigger = screen.getByRole("button", { name: "More actions" });
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  await screen.findByRole("menu");
+}
 
 describe("FileListRow", () => {
   it("renders the thumbnail as a play button by default", () => {
@@ -121,5 +163,27 @@ describe("FileListRow", () => {
     fireEvent.click(screen.getByText("thumb"));
     expect(onPlay).not.toHaveBeenCalled();
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops Play from the ⋯ menu when not playable but keeps Copy path", async () => {
+    render(
+      <FileListRow
+        file={file}
+        selected={false}
+        onToggle={vi.fn()}
+        onPlay={vi.fn()}
+        playable={false}
+      />,
+    );
+    await openMoreMenu();
+    expect(screen.getByRole("menuitem", { name: "Copy path" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Play" })).toBeNull();
+  });
+
+  it("lists Play and Copy path in the ⋯ menu when playable", async () => {
+    render(<FileListRow file={file} selected={false} onToggle={vi.fn()} onPlay={vi.fn()} />);
+    await openMoreMenu();
+    expect(screen.getByRole("menuitem", { name: "Play" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Copy path" })).toBeTruthy();
   });
 });
