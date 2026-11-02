@@ -7,7 +7,6 @@ import type { ViewMode } from "@/components/DataToolbar";
 import { ColHeader, type SortDir } from "@/components/FileSelectGrid";
 import { SectionHeader } from "@/components/SectionHeader";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
-import { SortSelect } from "@/components/SortSelect";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import {
   FOLDER_CARD_HEIGHT,
@@ -16,14 +15,9 @@ import {
   type ShareBy,
 } from "@/components/prune/FolderCard";
 import { folderCardWidth } from "@/lib/pruneGrid";
+import { REDACTED_FOLDER } from "@/lib/pruneRedact";
 import { sortFolders, type FolderSortKey } from "@/lib/pruneSort";
 import type { FolderNodeInfo, PruneFolder } from "@/types/prune";
-
-const SORT_OPTIONS: { value: FolderSortKey; label: string }[] = [
-  { value: "files", label: "Files" },
-  { value: "size", label: "Size" },
-  { value: "name", label: "Name" },
-];
 
 /** List-view column headers, in FolderCard's row order. */
 const SORT_HEADERS: { value: FolderSortKey; label: string; className: string }[] = [
@@ -36,8 +30,9 @@ const SORT_HEADERS: { value: FolderSortKey; label: string; className: string }[]
  * Breadcrumb + sortable folder grid/list for the open Prune folder.
  * `folder` undefined means the listing is loading (skeleton). Props-in/
  * callbacks-out: the sort (`useSort` in the page) comes in as `sortKey`/`sortDir`
- * and `onSort` (its `toggleSort`), shown as the shared `SortSelect` and, in list
- * view, a `ColHeader` row. View mode and card size come from the page (one
+ * and `onSort` (its `toggleSort`); list view shows a `ColHeader` row (the sort
+ * dropdown lives in the page's `BrowseControls`). `redact` swaps every folder
+ * name for "Redacted folder". View mode and card size come from the page (one
  * control for folders and files); the folder cards clamp the size locally
  * (`folderCardWidth`) without touching the setting. `scrollElement` is the page
  * scroller the grid virtualises against. Breadcrumbs and folder cards are router
@@ -56,6 +51,7 @@ export function FolderBrowser({
   onDelete,
   onDeleteOpen,
   leaving,
+  redact = false,
 }: {
   folder: PruneFolder | undefined;
   viewMode: ViewMode;
@@ -72,6 +68,8 @@ export function FolderBrowser({
   onDeleteOpen?: () => void;
   /** Subfolder paths playing their delete exit animation. */
   leaving?: ReadonlySet<string>;
+  /** Demo mode: show "Redacted folder" instead of real names. */
+  redact?: boolean;
 }) {
   const cardWidth = folderCardWidth(cardSize);
 
@@ -100,14 +98,14 @@ export function FolderBrowser({
                       className="rounded-md px-1.5 py-0.5 font-medium"
                       style={{ background: "var(--px-accent-dim)" }}
                     >
-                      {c.name}
+                      {redact ? REDACTED_FOLDER : c.name}
                     </span>
                   ) : (
                     <Link
                       to={linkTo(c.path)}
                       className="rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-hidden"
                     >
-                      {c.name}
+                      {redact ? REDACTED_FOLDER : c.name}
                     </Link>
                   )}
                 </li>
@@ -116,7 +114,7 @@ export function FolderBrowser({
           </ol>
           {onDeleteOpen && folder && (
             <IconButton
-              label={`Delete ${folder.name}`}
+              label={`Delete ${redact ? REDACTED_FOLDER : folder.name}`}
               onClick={onDeleteOpen}
               className="ml-1 flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors duration-100 hover:border-destructive/50 hover:text-destructive focus-visible:border-destructive/50 focus-visible:outline-hidden"
             >
@@ -124,16 +122,6 @@ export function FolderBrowser({
             </IconButton>
           )}
         </nav>
-
-        {folder && sorted.length > 0 && (
-          <SortSelect
-            label="Sort folders"
-            options={SORT_OPTIONS}
-            value={sortKey}
-            dir={sortDir}
-            onSort={onSort}
-          />
-        )}
       </div>
 
       {folder && sorted.length > 0 && (
@@ -152,7 +140,7 @@ export function FolderBrowser({
           <EmptyState
             icon={FolderTree}
             title="This folder is empty"
-            description={`${folder.name} has no files or subfolders that Prune can see (hidden entries are skipped).`}
+            description={`${redact ? REDACTED_FOLDER : folder.name} has no files or subfolders that Prune can see (hidden entries are skipped).`}
           />
         )
       ) : viewMode === "grid" ? (
@@ -173,6 +161,7 @@ export function FolderBrowser({
               leaving={leaving?.has(f.path)}
               to={linkTo(f.path)}
               onDelete={onDelete}
+              redact={redact}
             />
           )}
         />
@@ -209,6 +198,7 @@ export function FolderBrowser({
                 leaving={leaving?.has(f.path)}
                 to={linkTo(f.path)}
                 onDelete={onDelete}
+                redact={redact}
               />
             )}
           />
