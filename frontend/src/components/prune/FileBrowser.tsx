@@ -1,29 +1,24 @@
 import { useState } from "react";
-import { FileIcon, Film, FolderOpen, ImageIcon, Music } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { EmptyState } from "@/components/EmptyState";
 import { FileGridCard, FileListRow } from "@/components/FileSelectGrid";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
+import { SectionHeader } from "@/components/SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import type { ViewMode } from "@/components/DataToolbar";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { DetailsProgress } from "@/components/prune/DetailsProgress";
+import { KIND_ICON } from "@/components/prune/kindIcon";
 import { formatBitrate, formatDuration, formatSize } from "@/lib/format";
+import { extensionOf } from "@/lib/path";
 import { cn } from "@/lib/utils";
 import type { FileDetails, PruneFile } from "@/types/prune";
 
-const KIND_ICON: Record<PruneFile["kind"], LucideIcon> = {
-  image: ImageIcon,
-  video: Film,
-  audio: Music,
-  other: FileIcon,
-};
-
 /** Chrome plays these natively; the backend 400s `/prune/audio` for them. */
-const NATIVE_AUDIO = new Set([".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".flac"]);
+const NATIVE_AUDIO = new Set(["mp3", "m4a", "aac", "ogg", "opus", "wav", "flac"]);
 
 // Real heights of the shared FileGridCard footer (filename + one meta line) and
 // FileListRow (~48px + border); Compress/Toolbox use the same numbers.
@@ -31,11 +26,6 @@ const CARD_CHROME = 48;
 const ROW_HEIGHT = 50;
 
 type DetailsMap = Record<string, FileDetails | null>;
-
-function extensionOf(name: string): string {
-  const i = name.lastIndexOf(".");
-  return i < 0 ? "" : name.slice(i).toLowerCase();
-}
 
 /**
  * Stand-in for the library-row shape the modals and the shared card/row read
@@ -100,7 +90,7 @@ function Meta({
   className?: string;
 }) {
   if (d === undefined) {
-    return loading ? <Skeleton className="h-3 w-24 shrink-0" /> : null;
+    return loading ? <Skeleton className={cn("h-3 w-24 shrink-0", className)} /> : null;
   }
   if (d === null) return null;
   const parts = [
@@ -123,8 +113,8 @@ function motionClass(layout: "grid" | "list", leaving: boolean) {
     "animate-slide-up-fade",
     leaving &&
       (layout === "grid"
-        ? "pointer-events-none scale-95 opacity-0 transition-all duration-200 motion-reduce:scale-100"
-        : "pointer-events-none -translate-x-2 opacity-0 transition-all duration-200 motion-reduce:translate-x-0"),
+        ? "pointer-events-none scale-95 opacity-0 transition-[transform,opacity] duration-150 ease-in motion-reduce:scale-100"
+        : "pointer-events-none -translate-x-2 opacity-0 transition-[transform,opacity] duration-150 ease-in motion-reduce:translate-x-0"),
   );
 }
 
@@ -232,9 +222,7 @@ export function FileBrowser({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Files{files ? ` · ${files.length.toLocaleString()}` : ""}
-          </h2>
+          <SectionHeader>Files{files ? ` · ${files.length.toLocaleString()}` : ""}</SectionHeader>
           <DetailsProgress {...progress} />
         </div>
       </div>

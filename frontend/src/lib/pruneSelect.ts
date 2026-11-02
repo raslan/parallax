@@ -38,19 +38,6 @@ export function reconcileSelection(
   return stored.size === allowed.size ? null : new Set(allowed);
 }
 
-/** Parent directory of a POSIX path (never empty). */
-export function parentPath(path: string): string {
-  const i = path.lastIndexOf("/");
-  return i <= 0 ? "/" : path.slice(0, i);
-}
-
-/** Combined size of the selected files. */
-export function sumBytes(files: readonly PruneFile[], selected: ReadonlySet<string>): number {
-  let total = 0;
-  for (const f of files) if (selected.has(f.path)) total += f.size;
-  return total;
-}
-
 export function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   if (a.size !== b.size) return false;
   for (const x of a) if (!b.has(x)) return false;

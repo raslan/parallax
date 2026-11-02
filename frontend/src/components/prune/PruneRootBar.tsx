@@ -1,6 +1,7 @@
 import { CheckCircle2, FolderOpen, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
+import { SectionHeader } from "@/components/SectionHeader";
 import { Tip } from "@/components/Tip";
 import { cn } from "@/lib/utils";
 import type { ScanState } from "@/types/prune";
@@ -41,9 +42,7 @@ export function PruneRootBar({
         </div>
 
         <div className="min-w-0 flex-1 basis-64">
-          <p className="text-2xs font-medium uppercase tracking-widest text-muted-foreground">
-            Pruning
-          </p>
+          <SectionHeader>Pruning</SectionHeader>
           <Tip label={root}>
             <p className="truncate font-mono text-sm">{root}</p>
           </Tip>

@@ -11,6 +11,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 vi.mock("@/components/VideoJsPlayer", () => ({ default: () => <div /> }));
+vi.mock("@/components/VideoJsAudioPlayer", () => ({ default: () => <div /> }));
 vi.mock("@/components/VirtualizedGrid", () => ({
   VirtualizedGrid: <T,>({
     items,
@@ -77,6 +78,69 @@ describe("FileBrowser video preview", () => {
     fireEvent.click(screen.getByTitle("Play"));
     await waitFor(() => expect(api.pruneStreamPrepare).toHaveBeenCalledWith("/r/a.mkv"));
     expect(streamApi.prepare).not.toHaveBeenCalled();
+  });
+});
+
+describe("FileBrowser audio preview", () => {
+  const play = (name: string) => {
+    const song: PruneFile = { name, path: `/r/${name}`, kind: "audio", size: 10, mtime: 0 };
+    render(
+      <FileBrowser
+        files={[song]}
+        details={{}}
+        progress={{ loaded: 0, total: 0, done: true }}
+        viewMode="list"
+        cardSize={240}
+      />,
+    );
+    fireEvent.click(screen.getByTitle("Play"));
+  };
+
+  it("plays a browser-native format straight from the file, whatever its case", () => {
+    const fileUrl = vi.spyOn(api, "pruneFileUrl");
+    const audioUrl = vi.spyOn(api, "pruneAudioUrl");
+    play("Song.MP3");
+    expect(fileUrl).toHaveBeenCalledWith("/r/Song.MP3");
+    expect(audioUrl).not.toHaveBeenCalled();
+  });
+
+  it("sends any other audio through the transcoding route", () => {
+    const audioUrl = vi.spyOn(api, "pruneAudioUrl");
+    play("old.wma");
+    expect(audioUrl).toHaveBeenCalledWith("/r/old.wma");
+  });
+});
+
+describe("FileBrowser details shimmer", () => {
+  it("lays the loading shimmer out like the details it stands in for", () => {
+    const { container } = render(
+      <FileBrowser
+        files={[video]}
+        details={{}}
+        progress={{ loaded: 0, total: 1, done: false }}
+        viewMode="list"
+        cardSize={240}
+      />,
+    );
+    // The list's details column is hidden on phones; its shimmer must be too.
+    const shimmer = container.querySelector('div[aria-hidden="true"].bg-muted');
+    expect(shimmer?.className).toContain("sm:block");
+  });
+
+  it("shows how far details have got on the shared progress bar", () => {
+    render(
+      <FileBrowser
+        files={[video]}
+        details={{}}
+        progress={{ loaded: 1, total: 4, done: false }}
+        viewMode="list"
+        cardSize={240}
+      />,
+    );
+    const bar = screen.getByRole("progressbar", { name: "Loading file details" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("25");
+    expect(bar.getAttribute("aria-valuemax")).toBe("100");
+    expect(screen.getByText("details 1 / 4")).toBeTruthy();
   });
 });
 

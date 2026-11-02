@@ -31,13 +31,26 @@ export function describeSelection(count: number, noun: string, bytes?: number): 
   return bytes != null && bytes > 0 ? `${text} (${formatSize(bytes)})` : text;
 }
 
-/** Combined `size` of the items whose id is in `ids`. */
+/**
+ * Combined `size` of the items whose id is in `ids`. Pass `key` to match on
+ * something other than `id` (e.g. Prune's path-keyed files).
+ */
 export function sumSizeOf(
   items: readonly { id: number; size: number }[],
   ids: ReadonlySet<number>,
+): number;
+export function sumSizeOf<T extends { size: number }, K>(
+  items: readonly T[],
+  ids: ReadonlySet<K>,
+  key: (item: T) => K,
+): number;
+export function sumSizeOf(
+  items: readonly { id?: unknown; size: number }[],
+  ids: ReadonlySet<unknown>,
+  key: (item: { id?: unknown; size: number }) => unknown = (item) => item.id,
 ): number {
   let total = 0;
-  for (const item of items) if (ids.has(item.id)) total += item.size;
+  for (const item of items) if (ids.has(key(item))) total += item.size;
   return total;
 }
 

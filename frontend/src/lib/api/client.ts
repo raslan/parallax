@@ -7,6 +7,15 @@ export function getErrorMessage(e: unknown, fallback = "Something went wrong"): 
   return fallback;
 }
 
+/**
+ * The HTTP status of an error thrown by `req()` (its message is `"<status>: <body>"`),
+ * or null for anything else (a network failure, a non-HTTP throw).
+ */
+export function httpStatus(e: unknown): number | null {
+  const m = /^(\d{3}): /.exec(getErrorMessage(e, ""));
+  return m ? Number(m[1]) : null;
+}
+
 export async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     cache: "no-store",

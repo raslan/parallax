@@ -18,7 +18,7 @@ export function BrowseControls({
   onSize: (v: number) => void;
 }) {
   return (
-    <div className="sticky top-0 z-30 -mx-6 flex justify-end gap-3 border-b bg-background/85 px-6 py-2 backdrop-blur-sm">
+    <div className="sticky top-0 z-30 -mx-4 flex justify-end gap-3 border-b bg-background/85 px-4 py-2 backdrop-blur-sm md:-mx-8 md:px-8">
       <ViewToggle value={viewMode} onChange={onViewMode} />
       {viewMode === "grid" && <GridSizeControl value={size} onChange={onSize} />}
     </div>

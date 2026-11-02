@@ -4,6 +4,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { IconButton } from "@/components/IconButton";
 import { Tip } from "@/components/Tip";
 import type { ViewMode } from "@/components/DataToolbar";
+import type { SortDir } from "@/components/FileSelectGrid";
+import { SectionHeader } from "@/components/SectionHeader";
 import { GridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import {
@@ -13,7 +15,7 @@ import {
   type ShareBy,
 } from "@/components/prune/FolderCard";
 import { folderCardWidth } from "@/lib/pruneGrid";
-import { sortFolders, type FolderSortKey, type SortDir } from "@/lib/pruneSort";
+import { sortFolders, type FolderSortKey } from "@/lib/pruneSort";
 import { cn } from "@/lib/utils";
 import type { FolderNodeInfo, PruneFolder } from "@/types/prune";
 
@@ -157,9 +159,7 @@ export function FolderBrowser({
       </div>
 
       {folder && sorted.length > 0 && (
-        <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Folders · {sorted.length.toLocaleString()}
-        </h2>
+        <SectionHeader>Folders · {sorted.length.toLocaleString()}</SectionHeader>
       )}
 
       {!folder ? (

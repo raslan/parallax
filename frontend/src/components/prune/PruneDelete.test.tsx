@@ -114,6 +114,30 @@ describe("DeleteFilesDialog", () => {
     expect(screen.queryByText("clip-8.mp4")).toBeNull();
     expect(screen.getByText(/and 2 more/i)).toBeTruthy();
     expect(screen.getByText(/cannot be undone/i)).toBeTruthy();
+    // The shared describeSelection copy: count + size.
+    expect(screen.getByText("10 files (9.8 KB)")).toBeTruthy();
+  });
+
+  it("tells the page when the delete starts and ends", async () => {
+    let finish!: (r: PruneDeleteResult) => void;
+    vi.mocked(api.pruneDelete).mockReturnValue(
+      new Promise<PruneDeleteResult>((res) => {
+        finish = res;
+      }),
+    );
+    const onPendingChange = vi.fn();
+    render(
+      <DeleteFilesDialog
+        files={files.slice(0, 1)}
+        onClose={() => {}}
+        onResult={() => {}}
+        onPendingChange={onPendingChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Delete 1 file$/ }));
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+    finish({ deleted: ["/r/clip-0.mp4"], failed: [], empty_folders: [] });
+    await waitFor(() => expect(onPendingChange).toHaveBeenLastCalledWith(false));
   });
 
   it("reports failures and leaves failed paths selected", async () => {
@@ -149,7 +173,8 @@ describe("DeleteFilesDialog", () => {
     const many = Array.from({ length: 1100 }, (_, i) => file(`m-${i}.mp4`));
     const onResult = vi.fn();
     render(<DeleteFilesDialog files={many} onClose={() => {}} onResult={onResult} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Delete 1,100 files$/ }));
+    // describeSelection copy: the count is not locale-grouped (shared with every page).
+    fireEvent.click(screen.getByRole("button", { name: /^Delete 1100 files$/ }));
     await waitFor(() => expect(onResult).toHaveBeenCalledTimes(1));
     expect(vi.mocked(api.pruneDelete).mock.calls.map((c) => c[0].length)).toEqual([500, 500, 100]);
     const merged = onResult.mock.calls[0]![0] as PruneDeleteResult;
@@ -167,7 +192,7 @@ describe("DeleteFilesDialog", () => {
     render(
       <DeleteFilesDialog files={many} onClose={() => {}} onResult={onResult} onError={onError} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /^Delete 1,100 files$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Delete 1100 files$/ }));
     await waitFor(() => expect(onError).toHaveBeenCalled());
     expect(api.pruneDelete).toHaveBeenCalledTimes(2);
     expect((onResult.mock.calls[0]![0] as PruneDeleteResult).deleted).toHaveLength(500);

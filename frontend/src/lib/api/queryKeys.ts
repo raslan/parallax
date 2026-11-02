@@ -61,8 +61,11 @@ export const qk = {
 
   pruneRoot: () => ["prune", "root"] as const,
   pruneScan: () => ["prune", "scan"] as const,
-  pruneFolder: (path: string) => ["prune", "folder", path] as const,
-  pruneFiles: (path: string) => ["prune", "files", path] as const,
+  /** No path = the prefix of every folder listing (for invalidate/remove). */
+  pruneFolder: (path?: string) =>
+    path === undefined ? (["prune", "folder"] as const) : (["prune", "folder", path] as const),
+  pruneFiles: (path?: string) =>
+    path === undefined ? (["prune", "files"] as const) : (["prune", "files", path] as const),
 
   galleryOptions: () => ["galleries", "options"] as const,
   galleryDlInfo: () => ["gallery-dl", "info"] as const,

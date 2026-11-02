@@ -1,17 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { VideoFile } from "@/types/file";
-import { defaultOutputName, moveById, naturalCompare, sortOrder, syncOrder } from "./spliceOrder";
+import { defaultOutputName, moveById, sortOrder, syncOrder } from "./spliceOrder";
 
 const f = (id: number, filename: string, duration = 10, file_date: number | null = null) =>
   ({ id, filename, duration, file_date }) as VideoFile;
 const byId = (...files: VideoFile[]) => new Map(files.map((x) => [x.id, x]));
-
-describe("naturalCompare", () => {
-  it("orders numbers numerically, case-insensitively", () => {
-    const names = ["clip10.mp4", "Clip2.mp4", "clip1.mp4"];
-    expect([...names].sort(naturalCompare)).toEqual(["clip1.mp4", "Clip2.mp4", "clip10.mp4"]);
-  });
-});
 
 describe("sortOrder", () => {
   const m = byId(f(1, "b.mp4", 30, 5), f(2, "a.mp4", 10, 9), f(3, "c.mp4", 20, null));

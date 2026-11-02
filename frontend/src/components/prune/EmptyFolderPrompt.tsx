@@ -2,7 +2,8 @@ import { useState } from "react";
 import { FolderMinus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { getErrorMessage } from "@/lib/api/client";
+import { getErrorMessage, httpStatus } from "@/lib/api/client";
+import { baseName } from "@/lib/path";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,11 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-function baseName(path: string): string {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
 
 /**
  * After a file delete empties folders, asks about each one in turn ("Folder is
@@ -51,7 +47,7 @@ export function EmptyFolderPrompt({
       advance(true);
     } catch (e) {
       const msg = getErrorMessage(e, "Could not delete the folder");
-      if (msg.startsWith("409") && msg.includes("no longer empty")) {
+      if (httpStatus(e) === 409 && msg.includes("no longer empty")) {
         toast.info("Folder isn't empty any more — kept");
       } else {
         toast.error(msg);

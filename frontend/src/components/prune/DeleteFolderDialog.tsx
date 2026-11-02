@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { getErrorMessage } from "@/lib/api/client";
-import { formatSize } from "@/lib/format";
+import { httpStatus } from "@/lib/api/client";
+import { describeSelection } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -43,11 +43,11 @@ function Body({
     try {
       await api.pruneDeleteFolder(folder.path);
       toast.success(`Deleted ${folder.name}`, {
-        description: `${files.toLocaleString()} ${files === 1 ? "file" : "files"} · ${formatSize(bytes)}`,
+        description: describeSelection(files, "file", bytes),
       });
       onDeleted(folder.path);
     } catch (e) {
-      if (getErrorMessage(e, "").startsWith("409") && onGone) {
+      if (httpStatus(e) === 409 && onGone) {
         onGone();
         return;
       }
@@ -75,9 +75,8 @@ function Body({
           <p className="text-muted-foreground">
             This removes{" "}
             <span className="font-mono tabular-nums text-foreground">
-              {files.toLocaleString()} {files === 1 ? "file" : "files"}
+              {describeSelection(files, "file", bytes)}
             </span>{" "}
-            (<span className="font-mono tabular-nums text-foreground">{formatSize(bytes)}</span>)
             and everything inside it. Hidden entries and symlinks in the folder are removed too,
             even though Prune does not list them. This cannot be undone.
           </p>

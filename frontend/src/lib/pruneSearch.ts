@@ -1,6 +1,7 @@
 import type { FieldDef, Operator } from "@/hooks/useQueryBuilder";
 import type { FileDetails, PruneFile } from "@/types/prune";
 import { dateCutoffSeconds, type DateValue } from "@/lib/dateValue";
+import { extensionOf } from "@/lib/path";
 
 type PruneRow = PruneFile & { details?: FileDetails | null };
 
@@ -55,11 +56,6 @@ function matchText(subjectRaw: string, operator: Operator, raw: string): boolean
     default:
       return true;
   }
-}
-
-function extensionOf(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot > 0 ? name.slice(dot + 1) : "";
 }
 
 function compareNumber(actual: number, operator: Operator, v: number): boolean {

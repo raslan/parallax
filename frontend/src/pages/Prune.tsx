@@ -1,25 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CornerLeftUp,
-  Eraser,
-  FolderOpen,
-  FolderSearch,
-  FolderX,
-  Loader2,
-  Trash2,
-} from "lucide-react";
+import { CornerLeftUp, Eraser, FolderOpen, FolderX, Loader2, Trash2 } from "lucide-react";
 import { api, qk } from "@/lib/api";
-import { getErrorMessage } from "@/lib/api/client";
-import { formatSize } from "@/lib/format";
+import { httpStatus } from "@/lib/api/client";
+import { formatSize, sumSizeOf } from "@/lib/format";
+import { parentPath } from "@/lib/path";
 import {
   invertSelection,
-  parentPath,
   reconcileSelection,
   removeDeleted,
   sameSet,
   selectedIn,
-  sumBytes,
 } from "@/lib/pruneSelect";
 import { pruneFields } from "@/lib/pruneSearch";
 import { clauseSignature } from "@/lib/pruneScroll";
@@ -31,6 +22,7 @@ import { SelectionBar } from "@/components/SelectionBar";
 import { PageSkeleton } from "@/components/Skeletons";
 import { SmartSelect, type SmartSelectOption } from "@/components/SmartSelect";
 import { StatPanel } from "@/components/StatPanel";
+import { WorkingState } from "@/components/WorkingState";
 import { DeleteFilesDialog } from "@/components/prune/DeleteFilesDialog";
 import { DeleteFolderDialog, type FolderToDelete } from "@/components/prune/DeleteFolderDialog";
 import { EmptyFolderPrompt } from "@/components/prune/EmptyFolderPrompt";
@@ -59,9 +51,9 @@ const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bit
 const EXIT_MS = 220;
 
 /** The backend answers 409 for "no folder selected" / "folder is no longer available". */
-const isConflict = (e: unknown) => getErrorMessage(e, "").startsWith("409");
+const isConflict = (e: unknown) => httpStatus(e) === 409;
 
-const isMissing = (e: unknown) => getErrorMessage(e, "").startsWith("404");
+const isMissing = (e: unknown) => httpStatus(e) === 404;
 
 export function Prune() {
   const qc = useQueryClient();
@@ -94,6 +86,7 @@ export function Prune() {
     scroller?.scrollTo({ top: 0 });
   }, [filterSig, scroller]);
   const [confirmingFiles, setConfirmingFiles] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FolderToDelete | null>(null);
   const [emptyPrompt, setEmptyPrompt] = useState<{ id: number; paths: string[] } | null>(null);
   const [leavingFiles, setLeavingFiles] = useState<ReadonlySet<string>>(new Set());
@@ -115,8 +108,8 @@ export function Prune() {
     exitTimer.current = setTimeout(() => {
       setLeavingFiles(new Set());
       setLeavingFolders(new Set());
-      void qc.invalidateQueries({ queryKey: ["prune", "folder"] });
-      void qc.invalidateQueries({ queryKey: ["prune", "files"] });
+      void qc.invalidateQueries({ queryKey: qk.pruneFolder() });
+      void qc.invalidateQueries({ queryKey: qk.pruneFiles() });
     }, delay);
   };
 
@@ -136,8 +129,8 @@ export function Prune() {
     onMutate: (force) => {
       if (!force) return;
       // Cached listings describe the previous scan.
-      qc.removeQueries({ queryKey: ["prune", "folder"] });
-      qc.removeQueries({ queryKey: ["prune", "files"] });
+      qc.removeQueries({ queryKey: qk.pruneFolder() });
+      qc.removeQueries({ queryKey: qk.pruneFiles() });
       selectNone();
     },
     onSuccess: (state: ScanState) => {
@@ -337,7 +330,7 @@ export function Prune() {
 
   if (rootQ.isError && !isConflict(rootQ.error)) {
     return (
-      <div className="space-y-5 p-6">
+      <div className="space-y-6 p-4 md:p-8">
         {header}
         <QueryError error={rootQ.error} onRetry={() => void rootQ.refetch()} />
       </div>
@@ -346,7 +339,7 @@ export function Prune() {
 
   if (!root) {
     return (
-      <div className="space-y-5 p-6">
+      <div className="space-y-6 p-4 md:p-8">
         {header}
         <EmptyState
           icon={Eraser}
@@ -365,7 +358,7 @@ export function Prune() {
   }
 
   return (
-    <div ref={pageRef} className="animate-fade-in space-y-5 p-6">
+    <div ref={pageRef} className="animate-fade-in space-y-6 p-4 md:p-8">
       {header}
       <PruneRootBar
         root={root}
@@ -513,25 +506,34 @@ export function Prune() {
             ))}
         </div>
       ) : (
-        <EmptyState
-          icon={FolderSearch}
+        <WorkingState
           title="Mapping your folder"
-          description="Counting files and folders. This only takes a moment."
+          message="Counting files and folders. This only takes a moment."
+          progress={null}
         />
       )}
       <SelectionBar
         count={actionFiles.length}
-        bytes={sumBytes(actionFiles, selectedPaths)}
+        bytes={sumSizeOf(actionFiles, selectedPaths, (f) => f.path)}
         onClear={selectNone}
       >
         <Button
-          variant="outline"
+          variant="destructive"
           size="sm"
-          className="text-destructive hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+          disabled={deleting}
           onClick={() => setConfirmingFiles(true)}
         >
-          <Trash2 className="mr-2 h-3.5 w-3.5" />
-          Delete
+          {deleting ? (
+            <>
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              Deleting…
+            </>
+          ) : (
+            <>
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              Delete
+            </>
+          )}
         </Button>
       </SelectionBar>
       <DeleteFilesDialog
@@ -539,6 +541,7 @@ export function Prune() {
         onClose={() => setConfirmingFiles(false)}
         onResult={handleDeleteResult}
         onError={handleDeleteError}
+        onPendingChange={setDeleting}
       />
       <DeleteFolderDialog
         folder={folderToDelete}

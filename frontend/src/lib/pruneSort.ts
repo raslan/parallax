@@ -1,8 +1,8 @@
-import { naturalCompare } from "@/lib/spliceOrder";
+import type { SortDir } from "@/components/FileSelectGrid";
+import { naturalCompare } from "@/lib/naturalSort";
 import type { FolderNodeInfo } from "@/types/prune";
 
 export type FolderSortKey = "files" | "size" | "name";
-export type SortDir = "asc" | "desc";
 
 /**
  * Sorts a copy of `folders`. Names use the locale-aware natural compare (so

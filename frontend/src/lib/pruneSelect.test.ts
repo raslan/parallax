@@ -1,12 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   invertSelection,
-  parentPath,
   reconcileSelection,
   removeDeleted,
   sameSet,
   selectedIn,
-  sumBytes,
 } from "@/lib/pruneSelect";
 import { evaluateClauses, type Clause } from "@/hooks/useQueryBuilder";
 import { pruneFields } from "@/lib/pruneSearch";
@@ -39,7 +37,7 @@ describe("removeDeleted", () => {
   });
 });
 
-describe("selectedIn / parentPath", () => {
+describe("selectedIn", () => {
   it("prunes the selection against the live list, in list order", () => {
     const live = [f("b", 1), f("a", 1)];
     const sel = new Set(["/r/a", "/r/gone", "/r/b"]);
@@ -50,11 +48,6 @@ describe("selectedIn / parentPath", () => {
     const visible = [f("a", 1)];
     const sel = new Set(["/r/a", "/r/hidden"]);
     expect(selectedIn(visible, sel).map((x) => x.path)).toEqual(["/r/a"]);
-  });
-
-  it("returns the parent of a path", () => {
-    expect(parentPath("/r/a/b")).toBe("/r/a");
-    expect(parentPath("/r")).toBe("/");
   });
 });
 
@@ -100,12 +93,7 @@ describe("reconcileSelection", () => {
   });
 });
 
-describe("sumBytes / sameSet", () => {
-  it("sums only selected files", () => {
-    const files = [f("a", 10), f("b", 20), f("c", 30)];
-    expect(sumBytes(files, new Set(["/r/a", "/r/c"]))).toBe(40);
-  });
-
+describe("sameSet", () => {
   it("compares sets by content", () => {
     expect(sameSet(new Set(["a", "b"]), new Set(["b", "a"]))).toBe(true);
     expect(sameSet(new Set(["a"]), new Set(["a", "b"]))).toBe(false);
