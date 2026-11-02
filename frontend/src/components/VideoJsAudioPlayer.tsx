@@ -2,12 +2,14 @@
 import "@videojs/react/audio/neutral-skin.css";
 import { Audio, AudioPlayer, NeutralAudioSkin } from "@videojs/react/audio";
 import { MEDIA_THEME_STYLE, focusPlayer } from "./videoJsShared";
+import { VolumePersistence } from "./VolumePersistence";
 
 export default function VideoJsAudioPlayer({ streamUrl }: { streamUrl: string }) {
   return (
     <div ref={focusPlayer}>
       <AudioPlayer>
         <NeutralAudioSkin style={MEDIA_THEME_STYLE}>
+          <VolumePersistence />
           <Audio src={streamUrl} autoPlay preload="metadata" />
         </NeutralAudioSkin>
       </AudioPlayer>

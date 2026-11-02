@@ -5,6 +5,7 @@ import { NeutralVideoSkin, Video, VideoPlayer } from "@videojs/react/video";
 import { HlsVideo } from "@videojs/react/media/hls-video";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { MEDIA_THEME_STYLE, focusPlayer } from "./videoJsShared";
+import { VolumePersistence } from "./VolumePersistence";
 
 /** Index of the track to show on load: the browser's language if a track matches, else the first. */
 function defaultTrackIndex(tracks: SubtitleTrack[]): number {
@@ -44,6 +45,7 @@ export default function VideoJsPlayer({
           className="bg-black [&_video]:max-h-[calc(100vh-8rem)]"
           style={MEDIA_THEME_STYLE}
         >
+          <VolumePersistence />
           {hlsUrl ? (
             <HlsVideo src={hlsUrl} autoPlay playsInline>
               {trackEls}
