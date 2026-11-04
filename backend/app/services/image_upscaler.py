@@ -106,7 +106,7 @@ class _Source:
     height: int | None
 
 
-def _header_size(path: str) -> tuple[int, int] | None:
+def header_size(path: str) -> tuple[int, int] | None:
     try:
         with Image.open(path) as im:
             return im.size
@@ -225,7 +225,7 @@ def run_image_upscale_job(
         total_tiles = 0
         for s in sources:
             if not (s.width and s.height):
-                size = _header_size(s.path)
+                size = header_size(s.path)
                 s.width, s.height = size if size else (None, None)
             if s.width and s.height:
                 total_tiles += len(upscale_plan.plan_tiles(s.height, s.width))

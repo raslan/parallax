@@ -421,3 +421,37 @@ class PruneStreamBody(BaseModel):
 
 class PruneDetailsResult(BaseModel):
     details: dict[str, PruneDetails | None]
+
+
+# --- Image upscale ---------------------------------------------------------
+
+
+class UpscaleStartRequest(BaseModel):
+    file_ids: list[int]
+    tier: Literal["simple", "sharp", "best"]
+    scale: Literal[1, 2, 4]
+    force_cpu: bool = False
+
+
+class UpscaleSkipped(BaseModel):
+    id: int
+    reason: str
+
+
+class UpscaleStartResponse(BaseModel):
+    job_id: int
+    skipped: list[UpscaleSkipped]
+
+
+class UpscaleTierRead(BaseModel):
+    id: str
+    label: str
+    scale: int
+    speed: Literal["fast", "slow"]
+    hint: str
+    scales: list[int]
+
+
+class UpscaleTiersResponse(BaseModel):
+    tiers: list[UpscaleTierRead]
+    gpu_available: bool
