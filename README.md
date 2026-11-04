@@ -32,6 +32,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 ### Images
 
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
+- **Upscale** — make a bigger (2×, 4×) or same-size "restored" copy of selected images with three bundled models (Simple, Sharp, Best); the copy is saved next to the original, which is never touched. Works on the CPU anywhere; a discrete Vulkan GPU makes it much faster and is used automatically
 - **Duplicate detection** — find duplicate images by perceptual hash with configurable similarity threshold
 - **Content review** — filter by content detections, file size, orientation, dates, or "no detections at all"; bulk quarantine flagged images; restore or permanently delete from quarantine
 
