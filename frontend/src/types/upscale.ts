@@ -26,6 +26,9 @@ export interface UpscaleStartRequest {
   tier: UpscaleTierId;
   scale: UpscaleScale;
   shrink: UpscaleShrink;
+  /** The new file takes the original's place; the original goes to quarantine unless `keep_original` is off. */
+  replace: boolean;
+  keep_original: boolean;
   force_cpu: boolean;
 }
 

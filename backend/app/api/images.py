@@ -15,6 +15,7 @@ from app.models.image_library import ImageLibrary
 from app.models.job import Job, JobStatus, JobType
 from app.schemas import ImageDetectionRead, ImageRead, ImagesResponse
 from app.services import stats
+from app.services.image_quarantine import forget_image_row, move_to_quarantine
 from app.services.image_scanner import get_or_create_image_thumbnail
 
 
@@ -335,12 +336,7 @@ def quarantine_bulk(body: BulkQuarantineRequest, db: Session = Depends(get_db)):
             continue
         if not os.path.exists(f.path):
             continue
-        q_dir = os.path.join(os.path.dirname(f.path), "_quarantine")
-        os.makedirs(q_dir, exist_ok=True)
-        dest = os.path.join(q_dir, f.filename)
-        shutil.move(f.path, dest)
-        f.path = dest
-        f.status = ImageStatus.QUARANTINED
+        move_to_quarantine(f)
         moved += 1
         moved_bytes += f.size or 0
     db.commit()
@@ -443,12 +439,7 @@ def quarantine_image(image_id: int, db: Session = Depends(get_db)):
     if not os.path.exists(f.path):
         raise HTTPException(404, "File not found on disk")
 
-    q_dir = os.path.join(os.path.dirname(f.path), "_quarantine")
-    os.makedirs(q_dir, exist_ok=True)
-    dest = os.path.join(q_dir, f.filename)
-    shutil.move(f.path, dest)
-    f.path = dest
-    f.status = ImageStatus.QUARANTINED
+    move_to_quarantine(f)
     size = f.size or 0
     db.commit()
     stats.record_removal("image", 1, size)
@@ -490,11 +481,7 @@ def delete_image(image_id: int, db: Session = Depends(get_db)):
         # A quarantined image was already credited when it was quarantined.
         size = 0 if f.status == ImageStatus.QUARANTINED else (f.size or 0)
         os.remove(f.path)
-    thumb = os.path.join(THUMBNAIL_DIR, f"{image_id}.jpg")
-    if os.path.exists(thumb):
-        os.remove(thumb)
-    db.query(ImageDetection).filter(ImageDetection.image_id == image_id).delete()
-    db.delete(f)
+    forget_image_row(db, f)
     db.commit()
     if size:
         stats.record_removal("image", 1, size)

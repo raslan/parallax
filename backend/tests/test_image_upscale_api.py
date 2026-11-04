@@ -104,7 +104,7 @@ def test_start_creates_job(client, seeded):
     assert json.loads(job.settings)["tier"] == "simple"
     ((job_id, fn, args),) = api._enqueued
     assert job_id == body["job_id"]
-    assert args == (job_id, [seeded.a, seeded.b], "simple", 2, False, 1)
+    assert args == (job_id, [seeded.a, seeded.b], "simple", 2, False, 1, False, True)
 
 
 def test_start_rejects_scale_4_for_simple(client, seeded):
@@ -162,9 +162,30 @@ def test_start_shrink_first_runs_model_at_native_scale(client, seeded):
     r = _post(client, file_ids=[seeded.a], tier="best", scale=4, shrink=4)
     assert r.status_code == 200
     ((_, _, args),) = api._enqueued
-    assert args[2:] == ("best", 4, False, 4)
+    assert args[2:] == ("best", 4, False, 4, False, True)
     seeded.db.expire_all()
     assert json.loads(seeded.db.get(Job, r.json()["job_id"]).settings)["shrink"] == 4
+
+
+def test_start_replace_passes_replace_and_keep_original(client, seeded):
+    r = _post(client, file_ids=[seeded.a], replace=True, keep_original=False)
+    assert r.status_code == 200
+    ((_, _, args),) = api._enqueued
+    assert args[-2:] == (True, False)
+    seeded.db.expire_all()
+    settings = json.loads(seeded.db.get(Job, r.json()["job_id"]).settings)
+    assert settings["replace"] is True and settings["keep_original"] is False
+
+
+def test_start_skips_already_quarantined_images(client, seeded):
+    row = seeded.db.get(ImageFile, seeded.b)
+    row.status = "quarantined"
+    seeded.db.commit()
+    r = _post(client, file_ids=[seeded.a, seeded.b])
+    assert r.status_code == 200
+    assert r.json()["skipped"] == [{"id": seeded.b, "reason": "image is quarantined"}]
+    ((_, _, args),) = api._enqueued
+    assert args[1] == [seeded.a]
 
 
 def test_start_shrink_first_rejects_non_native_scale(client, seeded):

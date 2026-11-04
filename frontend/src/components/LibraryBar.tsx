@@ -110,21 +110,24 @@ export function LibraryBar({
   );
 }
 
+/** A labelled on/off switch with a short hint, for the `right` slot of `LibraryBar`. */
 export function KeepOriginalsToggle({
   checked,
   onChange,
   hint = "Move the source file to _originals/ before replacing it",
+  label = "Keep originals",
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   hint?: string;
+  label?: string;
 }) {
   const id = React.useId();
   return (
     <div className="flex items-center gap-3">
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
       <label htmlFor={id} className="shrink-0 cursor-pointer select-none text-sm">
-        Keep originals
+        {label}
       </label>
       <span className="text-2xs leading-tight text-muted-foreground/60">{hint}</span>
     </div>

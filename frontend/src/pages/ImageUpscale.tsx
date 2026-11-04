@@ -18,7 +18,8 @@ import type {
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
 import { ToolbarSearch, ViewToggle } from "@/components/DataToolbar";
-import { LibraryBar } from "@/components/LibraryBar";
+import { useConfirm } from "@/components/ConfirmProvider";
+import { KeepOriginalsToggle, LibraryBar } from "@/components/LibraryBar";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { ImageThumbnail } from "@/components/ImageThumbnail";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
@@ -35,7 +36,7 @@ import {
   type SortDir,
 } from "@/components/FileSelectGrid";
 import { Button } from "@/components/ui/button";
-import { formatSize, sumSizeOf } from "@/lib/format";
+import { describeSelection, formatSize, sumSizeOf } from "@/lib/format";
 import { exceedsCap, outputDims } from "@/lib/upscale";
 
 type SortKey = "filename" | "size" | "pixels";
@@ -74,6 +75,9 @@ export function ImageUpscale() {
   const [resizeMode, setResizeMode] = useState<UpscaleResizeMode>("size");
   const [shrink, setShrink] = useState<UpscaleShrink>(2);
   const [forceCpu, setForceCpu] = useState(false);
+  const [replace, setReplace] = useState(false);
+  const [keepOriginal, setKeepOriginal] = useState(true);
+  const confirm = useConfirm();
 
   const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
     useSelection<number>();
@@ -204,6 +208,8 @@ export function ImageUpscale() {
         tier,
         scale: effScale,
         shrink: effShrink,
+        replace,
+        keep_original: keepOriginal,
         force_cpu: forceCpu,
       }),
     onSuccess: (res) => {
@@ -211,6 +217,22 @@ export function ImageUpscale() {
       startJobPoll(res.job_id);
     },
   });
+
+  const handleStart = async () => {
+    // Replacing without keeping the original overwrites it for good, so ask first.
+    if (
+      replace &&
+      !keepOriginal &&
+      !(await confirm({
+        title: "Replace originals?",
+        description: `${describeSelection(selectedFiles.length, "image", selectedBytes)} will be permanently overwritten by the upscaled copies. Turn on "Keep originals" to move them to quarantine instead.`,
+        confirmText: "Replace",
+        destructive: true,
+      }))
+    )
+      return;
+    start.mutate();
+  };
 
   const handleCancel = async () => {
     if (jobId == null) return;
@@ -238,7 +260,28 @@ export function ImageUpscale() {
       </div>
 
       <div className="shrink-0 space-y-3">
-        <LibraryBar libraries={libraries} libraryId={libraryId} onLibraryChange={changeLibrary} />
+        <LibraryBar
+          libraries={libraries}
+          libraryId={libraryId}
+          onLibraryChange={changeLibrary}
+          right={
+            <div className="flex min-w-0 flex-col gap-2">
+              <KeepOriginalsToggle
+                label="Replace originals"
+                checked={replace}
+                onChange={setReplace}
+                hint="The upscaled copy takes the original's place instead of sitting beside it"
+              />
+              {replace && (
+                <KeepOriginalsToggle
+                  checked={keepOriginal}
+                  onChange={setKeepOriginal}
+                  hint="Move each original to _quarantine/ — restore it from the Quarantined page"
+                />
+              )}
+            </div>
+          }
+        />
         <UpscalePanel
           tiers={tiers}
           tier={tier}
@@ -451,7 +494,7 @@ export function ImageUpscale() {
       >
         <Button
           size="sm"
-          onClick={() => start.mutate()}
+          onClick={() => void handleStart()}
           disabled={isRunning || start.isPending || overCap || tiers.length === 0}
         >
           {start.isPending ? (

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.image import ImageFile
+from app.models.image import ImageFile, ImageStatus
 from app.models.job import Job, JobStatus, JobType
 from app.queue import enqueue
 from app.schemas import (
@@ -80,14 +80,17 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
     if active:
         raise HTTPException(409, "An upscale is already running")
 
-    by_id = {r.id: (r.path, r.width, r.height) for r in rows}
+    by_id = {r.id: (r.path, r.width, r.height, r.status) for r in rows}
     # Release the pooled connection before touching the filesystem (header reads can be slow).
     db.close()
 
     runnable: list[int] = []
     skipped: list[UpscaleSkipped] = []
     for fid in ids:
-        path, width, height = by_id[fid]
+        path, width, height, status = by_id[fid]
+        if status == ImageStatus.QUARANTINED:
+            skipped.append(UpscaleSkipped(id=fid, reason="image is quarantined"))
+            continue
         if not (width and height):
             size = header_size(path)
             width, height = size if size else (None, None)
@@ -109,6 +112,8 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
                 "tier": req.tier,
                 "scale": req.scale,
                 "shrink": req.shrink,
+                "replace": req.replace,
+                "keep_original": req.keep_original,
                 "force_cpu": req.force_cpu,
                 "skipped": [s.model_dump() for s in skipped],
             }
@@ -128,5 +133,7 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
         req.scale,
         req.force_cpu,
         req.shrink,
+        req.replace,
+        req.keep_original,
     )
     return UpscaleStartResponse(job_id=job_id, skipped=skipped)

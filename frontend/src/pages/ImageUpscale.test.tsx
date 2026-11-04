@@ -39,6 +39,7 @@ vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 
 import { api, imageApi, upscaleApi } from "@/lib/api";
 import { ImageUpscale } from "./ImageUpscale";
+import { ConfirmProvider } from "@/components/ConfirmProvider";
 
 const img = (id: number, name: string, w: number, h: number) => ({
   id,
@@ -57,7 +58,9 @@ function renderPage() {
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <ImageUpscale />
+        <ConfirmProvider>
+          <ImageUpscale />
+        </ConfirmProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -118,6 +121,8 @@ describe("ImageUpscale", () => {
         tier: "sharp",
         scale: 2,
         shrink: 1,
+        replace: false,
+        keep_original: true,
         force_cpu: false,
       }),
     );
@@ -138,9 +143,50 @@ describe("ImageUpscale", () => {
         tier: "sharp",
         scale: 2,
         shrink: 4,
+        replace: false,
+        keep_original: true,
         force_cpu: false,
       }),
     );
+  });
+
+  it("replace originals keeps them in quarantine by default and needs no confirmation", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    fireEvent.click(screen.getByRole("switch", { name: /Replace originals/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
+    await waitFor(() =>
+      expect(upscaleApi.start).toHaveBeenCalledWith(
+        expect.objectContaining({ replace: true, keep_original: true }),
+      ),
+    );
+  });
+
+  it("replacing without keeping originals asks before overwriting", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    fireEvent.click(screen.getByRole("switch", { name: /Replace originals/ }));
+    fireEvent.click(screen.getByRole("switch", { name: /Keep originals/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
+    expect(await screen.findByText(/permanently overwritten/i)).toBeDefined();
+    expect(upscaleApi.start).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /^Replace$/ }));
+    await waitFor(() =>
+      expect(upscaleApi.start).toHaveBeenCalledWith(
+        expect.objectContaining({ replace: true, keep_original: false }),
+      ),
+    );
+  });
+
+  it("cancelling the overwrite confirmation starts nothing", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    fireEvent.click(screen.getByRole("switch", { name: /Replace originals/ }));
+    fireEvent.click(screen.getByRole("switch", { name: /Keep originals/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Cancel/ }));
+    await waitFor(() => expect(screen.queryByText(/permanently overwritten/i)).toBeNull());
+    expect(upscaleApi.start).not.toHaveBeenCalled();
   });
 
   it("switching to a model with a different native scale starts from that scale", async () => {
@@ -155,6 +201,8 @@ describe("ImageUpscale", () => {
         tier: "best",
         scale: 4,
         shrink: 1,
+        replace: false,
+        keep_original: true,
         force_cpu: false,
       }),
     );

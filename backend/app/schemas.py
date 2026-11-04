@@ -432,6 +432,10 @@ class UpscaleStartRequest(BaseModel):
     scale: Literal[1, 2, 4]
     # 1 = off. >1 shrinks the source first, then runs the model at its native scale.
     shrink: Literal[1, 2, 3, 4] = 1
+    # True: the new file takes the original's path. The original then goes to `_quarantine/`
+    # (restorable) when `keep_original`, or is overwritten when not.
+    replace: bool = False
+    keep_original: bool = True
     force_cpu: bool = False
 
 

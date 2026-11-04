@@ -23,6 +23,7 @@ from app.models.image import ImageFile
 from app.models.job import Job, JobStatus
 from app.services import fs_watcher, upscale_plan, upscale_runtime
 from app.services.common import (
+    apply_lock,
     arm_cancel,
     clear_cancel,
     fail_job,
@@ -30,6 +31,7 @@ from app.services.common import (
     should_cancel,
     temp_sibling_path,
 )
+from app.services.image_quarantine import forget_image_row, move_to_quarantine
 from app.services.upscale_image_io import UnsupportedImage, load_image, save_image
 from app.services.upscale_models import UpscaleTier, get_tier, verify_tier_files
 from app.services.upscale_runtime import release_sessions
@@ -143,11 +145,42 @@ class _Device:
             return upscale_runtime.run_tile(tier, "cpu", tile)
 
 
+def _replace_original(src: _Source, tmp: str, keep_original: bool) -> str:
+    """Put the verified temp file at the original's path; the original goes to `_quarantine/`
+    (restorable, like the video `_originals/`) or, with `keep_original` off, is overwritten.
+
+    Holds the watcher's apply lock so its reconcile never sees the file and the row disagree. If
+    the swap fails the original is moved back and nothing is committed.
+    """
+    with apply_lock:
+        db = SessionLocal()
+        try:
+            row = db.get(ImageFile, src.id)
+            if row is None and keep_original:
+                raise RuntimeError("the original is no longer in the library")
+            quarantined_to = move_to_quarantine(row) if keep_original else None
+            try:
+                shutil.move(tmp, src.path)
+            except Exception:
+                db.rollback()
+                if quarantined_to:
+                    shutil.move(quarantined_to, src.path)
+                raise
+            if not keep_original and row is not None:
+                forget_image_row(db, row)  # the watcher registers the new file under this path
+            db.commit()
+        finally:
+            db.close()
+    return src.path
+
+
 def _upscale_one(
     src: _Source,
     tier: UpscaleTier,
     scale: int,
     shrink: int,
+    replace: bool,
+    keep_original: bool,
     dev: _Device,
     is_cancelled: Callable[[], bool],
     on_tile: Callable[[], None],
@@ -155,7 +188,8 @@ def _upscale_one(
     """Upscale one file. Returns its result dict, or None when cancelled.
 
     With `shrink` > 1 the image is first area-averaged down by that factor (dropping the blur
-    that carries no detail) and the model then runs at its native scale (`scale`).
+    that carries no detail) and the model then runs at its native scale (`scale`). With `replace`
+    the new file takes the original's place instead of sitting next to it.
     """
     result = {"id": src.id, "output": None, "skipped": None, "error": None}
     if not os.path.isfile(src.path):
@@ -190,8 +224,11 @@ def _upscale_one(
         with Image.open(tmp) as check:
             if check.size != upscale_plan.output_size(w, h, tier.scale, scale, shrink):
                 raise RuntimeError("written file has the wrong dimensions")
-        final = upscale_plan.output_path(src.path, scale, shrink=shrink)
-        shutil.move(tmp, final)
+        if replace:
+            final = _replace_original(src, tmp, keep_original)
+        else:
+            final = upscale_plan.output_path(src.path, scale, shrink=shrink)
+            shutil.move(tmp, final)
         result["output"] = final
     except Exception as exc:
         logger.warning("upscale of %s failed", src.path, exc_info=True)
@@ -209,6 +246,8 @@ def run_image_upscale_job(
     scale: int,
     force_cpu: bool,
     shrink: int = 1,
+    replace: bool = False,
+    keep_original: bool = True,
 ) -> None:
     try:
         db = SessionLocal()
@@ -273,7 +312,9 @@ def run_image_upscale_job(
                     break
                 current = os.path.basename(s.path)
                 _set_job(job_id, current_file=current)
-                res = _upscale_one(s, tier, scale, shrink, dev, is_cancelled, on_tile)
+                res = _upscale_one(
+                    s, tier, scale, shrink, replace, keep_original, dev, is_cancelled, on_tile
+                )
                 if res is None:
                     cancelled = True
                     break

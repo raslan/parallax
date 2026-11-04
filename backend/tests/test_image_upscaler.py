@@ -377,3 +377,86 @@ def test_job_shrink_first_cap_uses_final_size(env, monkeypatch):
     up.run_image_upscale_job(job_id, [fid], "simple", 2, False, shrink=2)
     res = _results(env.load_job(job_id))[0]
     assert res["output"] is None and "150 MP" in res["skipped"]
+
+
+def _row(env, fid):
+    s = env.Session()
+    try:
+        r = s.get(ImageFile, fid)
+        return None if r is None else (r.path, r.status, r.filename)
+    finally:
+        s.close()
+
+
+def test_replace_keeps_original_in_quarantine(env):
+    fid, src = env.add_image("p.jpg", (40, 30))
+    job_id = env.new_job()
+
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=True)
+
+    assert env.load_job(job_id).status == JobStatus.COMPLETED
+    assert Image.open(src).size == (80, 60)  # the new file took the original's path and name
+    q = env.dir / "_quarantine" / "p.jpg"
+    assert Image.open(q).size == (40, 30)  # the original, restorable from the Quarantined page
+    assert _row(env, fid) == (str(q), "quarantined", "p.jpg")
+    assert sorted(os.listdir(env.dir)) == ["_quarantine", "p.jpg"]  # no temp, no _2x copy
+    res = _results(env.load_job(job_id))[0]
+    assert res["output"] == str(src)
+    assert env.applied and str(src) in env.applied[0][2]
+
+
+def test_replace_without_keeping_overwrites_the_original(env):
+    fid, src = env.add_image("p.png", (40, 30), fmt="PNG")
+    job_id = env.new_job()
+
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=False)
+
+    assert Image.open(src).size == (80, 60)
+    assert sorted(os.listdir(env.dir)) == ["p.png"]  # nothing quarantined
+    assert _row(env, fid) is None  # the old row is gone; the watcher registers the new file
+
+
+def test_replace_does_not_clobber_an_earlier_quarantined_copy(env):
+    fid, src = env.add_image("p.jpg", (40, 30))
+    (env.dir / "_quarantine").mkdir()
+    (env.dir / "_quarantine" / "p.jpg").write_bytes(b"older original")
+    job_id = env.new_job()
+
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=True)
+
+    assert (env.dir / "_quarantine" / "p.jpg").read_bytes() == b"older original"
+    assert Image.open(src).size == (80, 60)
+    path, status, filename = _row(env, fid)
+    assert status == "quarantined" and filename == "p.jpg" and Image.open(path).size == (40, 30)
+
+
+def test_replace_puts_the_original_back_if_the_swap_fails(env, monkeypatch):
+    fid, src = env.add_image("p.jpg", (40, 30))
+    before = src.read_bytes()
+    real_move = up.shutil.move
+
+    def failing_move(a, b, *args, **kw):
+        if os.path.basename(str(a)).startswith(".compressing"):
+            raise OSError("disk full")
+        return real_move(a, b, *args, **kw)
+
+    monkeypatch.setattr(up.shutil, "move", failing_move)
+    job_id = env.new_job()
+
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=True)
+
+    assert src.read_bytes() == before  # untouched
+    path, status, _ = _row(env, fid)
+    assert path == str(src) and status != "quarantined"  # the row never left the library
+    assert not (env.dir / "_quarantine").exists() or not os.listdir(env.dir / "_quarantine")
+    assert not [f for f in os.listdir(env.dir) if f.startswith(".compressing")]
+    assert _results(env.load_job(job_id))[0]["error"]
+
+
+def test_replace_uses_the_shrunk_size_too(env):
+    fid, src = env.add_image("p.jpg", (400, 300))
+    job_id = env.new_job()
+    up.run_image_upscale_job(
+        job_id, [fid], "simple", 2, False, shrink=2, replace=True, keep_original=True
+    )
+    assert Image.open(src).size == (400, 300)
