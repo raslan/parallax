@@ -43,3 +43,4 @@ export { audioDuplicatesApi } from "./audioDuplicates";
 export { audioCompressApi } from "./audioCompress";
 export { audioToolboxApi } from "./audioToolbox";
 export { audioOriginalsApi } from "./audioOriginals";
+export { upscaleApi } from "./upscale";

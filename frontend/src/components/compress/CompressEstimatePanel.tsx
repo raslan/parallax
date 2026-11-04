@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Info, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { SlidersHorizontal, ChevronRight } from "lucide-react";
 import type { Library } from "@/types/library";
 import type { VideoFile } from "@/types/file";
 import type { CompressCodec, ResolutionPreset } from "@/types/compress";
 import { LibraryBar, KeepOriginalsToggle } from "@/components/LibraryBar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { RadioToggle } from "@/components/RadioToggle";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Slider } from "@/components/ui/slider";
 import {
   Sheet,
@@ -16,62 +17,6 @@ import {
 import { PanelSheetContent } from "@/components/PanelSheetContent";
 import { cn } from "@/lib/utils";
 import { formatSize } from "@/lib/format";
-
-// ── Radio toggle group ────────────────────────────────────────────────────────
-// `hint` renders as an "i" tooltip on the right of the option, not inline copy.
-
-function RadioToggle<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { id: T; label: string; hint?: string }[];
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => {
-        const active = value === opt.id;
-        return (
-          <button
-            key={opt.id}
-            onClick={() => onChange(opt.id)}
-            className={cn(
-              "flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors",
-              active
-                ? "border-primary/60 bg-primary/10 text-foreground"
-                : "border-border bg-background text-muted-foreground hover:border-border/80 hover:text-foreground",
-            )}
-          >
-            <span
-              className={cn(
-                "h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors",
-                active ? "border-primary bg-primary" : "border-muted-foreground/40",
-              )}
-            />
-            <span className="font-medium">{opt.label}</span>
-            {opt.hint && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    onClick={(e) => e.stopPropagation()}
-                    className="ml-0.5 text-muted-foreground/40 hover:text-muted-foreground"
-                  >
-                    <Info className="h-3.5 w-3.5" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[220px]">
-                  {opt.hint}
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // ── CRF quality tiers ─────────────────────────────────────────────────────────
 

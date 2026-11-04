@@ -31,6 +31,7 @@ const Splice = page(() => import("@/pages/Splice"), "Splice");
 const ImageLibraries = page(() => import("@/pages/ImageLibraries"), "ImageLibraries");
 const Images = page(() => import("@/pages/Images"), "Images");
 const ImageDuplicates = page(() => import("@/pages/ImageDuplicates"), "ImageDuplicates");
+const ImageUpscale = page(() => import("@/pages/ImageUpscale"), "ImageUpscale");
 const ContentReview = page(() => import("@/pages/ContentReview"), "ContentReview");
 const ImageQuarantined = page(() => import("@/pages/ImageQuarantined"), "ImageQuarantined");
 const AudioLibraries = page(() => import("@/pages/AudioLibraries"), "AudioLibraries");
@@ -77,6 +78,7 @@ export default function App() {
                 <Route path="/image-libraries" element={<ImageLibraries />} />
                 <Route path="/images" element={<Images />} />
                 <Route path="/image-duplicates" element={<ImageDuplicates />} />
+                <Route path="/image-upscale" element={<ImageUpscale />} />
                 <Route path="/content-review" element={<ContentReview />} />
                 <Route path="/image-quarantined" element={<ImageQuarantined />} />
                 {/* Audio routes */}
