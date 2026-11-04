@@ -108,3 +108,13 @@ def test_real_tile_shape_cpu():
     assert out.shape == (3, 448, 448)
     assert np.isfinite(out).all()
     assert abs(float(out.mean()) - float(tile.mean())) < 0.25
+
+
+def test_probe_logs_why_vulkan_found_nothing(monkeypatch, caplog):
+    import logging
+
+    out = subprocess.CompletedProcess([], 0, stdout="[]\n", stderr="vkCreateInstance failed -9\n")
+    monkeypatch.setattr(rt.subprocess, "run", lambda *a, **k: out)
+    with caplog.at_level(logging.WARNING, logger=rt.logger.name):
+        assert rt.gpu_available() is False
+    assert "vkCreateInstance failed -9" in caplog.text

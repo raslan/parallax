@@ -6,6 +6,7 @@ VRAM is always released.
 """
 
 import json
+import logging
 import subprocess
 import sys
 import threading
@@ -15,6 +16,8 @@ import numpy as np
 
 from app.services.upscale_models import UpscaleTier
 from app.services.worker_common import WorkerPool
+
+logger = logging.getLogger(__name__)
 
 PROBE_TIMEOUT = 10  # seconds
 
@@ -56,11 +59,24 @@ def _probe() -> int | None:
             text=True,
             timeout=PROBE_TIMEOUT,
         )
-        if r.returncode != 0:
-            return None
-        return pick_device_index(json.loads(r.stdout.strip().splitlines()[-1]))
-    except (subprocess.SubprocessError, OSError, ValueError, IndexError, TypeError, KeyError):
+        index = None
+        if r.returncode == 0:
+            index = pick_device_index(json.loads(r.stdout.strip().splitlines()[-1]))
+    except (
+        subprocess.SubprocessError,
+        OSError,
+        ValueError,
+        IndexError,
+        TypeError,
+        KeyError,
+    ) as exc:
+        logger.warning("Vulkan GPU probe failed (%s); upscaling will use the CPU", exc)
         return None
+    if index is None:
+        # Say why: a missing driver library (e.g. libegl1) otherwise looks like "no GPU".
+        detail = (r.stderr or "").strip()[-300:] or f"exit {r.returncode}"
+        logger.warning("No usable Vulkan GPU for upscaling, using the CPU (%s)", detail)
+    return index
 
 
 def gpu_device_index() -> int | None:
