@@ -7,34 +7,34 @@ from app.services import upscale_models as um
 
 def test_list_tiers_order_and_speed():
     tiers = um.list_tiers()
-    assert [t.id for t in tiers] == ["simple", "sharp", "natural", "detailed"]
-    assert [t.speed for t in tiers] == ["fast", "fast", "slow", "slow"]
-    assert [t.scale for t in tiers] == [2, 2, 4, 4]
+    assert [t.id for t in tiers] == ["fast", "natural"]
+    assert [t.speed for t in tiers] == ["fast", "slow"]
+    assert [t.scale for t in tiers] == [4, 4]
     assert all(t.hint and t.label and t.size_bytes > 0 for t in tiers)
 
 
 def test_tiers_describe_their_character():
     by_id = {t.id: t for t in um.list_tiers()}
-    # The picker's tooltip is the only place a user learns the difference between the two 4x models.
-    assert "invent" in by_id["detailed"].hint.lower()
-    assert "natural" in by_id["natural"].hint.lower() or "clean" in by_id["natural"].hint.lower()
-    assert by_id["natural"].label != by_id["detailed"].label
+    # The picker's tooltip is the only place a user learns the difference between the two models.
+    assert "default" in by_id["fast"].hint.lower()
+    assert "detail" in by_id["natural"].hint.lower()
+    assert by_id["fast"].label != by_id["natural"].label
 
 
 def test_allowed_scales():
-    simple, sharp, natural, detailed = um.list_tiers()
-    assert um.allowed_scales(simple) == (1, 2)
-    assert um.allowed_scales(sharp) == (1, 2)
-    assert um.allowed_scales(natural) == (1, 2, 4)
-    assert um.allowed_scales(detailed) == (1, 2, 4)
+    for tier in um.list_tiers():
+        assert um.allowed_scales(tier) == (1, 2, 4)
+
+
+def test_allowed_scales_of_a_2x_model_stop_at_2():
+    two_x = um.UpscaleTier("t", "T", "m", 2, "fast", "h", "p", "b", 1)
+    assert um.allowed_scales(two_x) == (1, 2)
 
 
 def test_blob_names_come_from_the_registry():
-    # pnnx output uses in0/out0; the pre-converted Nomos8kSC file uses data/output.
-    by_id = {t.id: t for t in um.list_tiers()}
-    assert (by_id["simple"].input_blob, by_id["simple"].output_blob) == ("in0", "out0")
-    assert (by_id["detailed"].input_blob, by_id["detailed"].output_blob) == ("in0", "out0")
-    assert (by_id["natural"].input_blob, by_id["natural"].output_blob) == ("data", "output")
+    # Both bundled models are pre-converted hub files, which use data/output (not pnnx's in0/out0).
+    for t in um.list_tiers():
+        assert (t.input_blob, t.output_blob) == ("data", "output")
 
 
 def test_get_tier_unknown_raises():
@@ -52,7 +52,7 @@ def test_verify_detects_corruption(tmp_path, monkeypatch):
     shutil.copytree(um.ASSETS_DIR, copy)
     monkeypatch.setattr(um, "ASSETS_DIR", copy)
     monkeypatch.setattr(um, "_verified", set())
-    tier = um.get_tier("simple")
+    tier = um.get_tier("fast")
     bin_file = copy / tier.bin_path.rsplit("/", 1)[1]
     data = bytearray(bin_file.read_bytes())
     data[100] ^= 0xFF
@@ -65,7 +65,7 @@ def test_verify_missing_file_raises(tmp_path, monkeypatch):
     shutil.copytree(um.ASSETS_DIR, tmp_path / "upscale")
     monkeypatch.setattr(um, "ASSETS_DIR", tmp_path / "upscale")
     monkeypatch.setattr(um, "_verified", set())
-    tier = um.get_tier("sharp")
+    tier = um.get_tier("natural")
     (tmp_path / "upscale" / tier.param_path.rsplit("/", 1)[1]).unlink()
     with pytest.raises(um.UpscaleModelError):
         um.verify_tier_files(tier)
@@ -73,7 +73,7 @@ def test_verify_missing_file_raises(tmp_path, monkeypatch):
 
 def test_credits_has_author_and_ncnn_text():
     c = um.credits()
-    assert len(c["models"]) == 4
+    assert [m["tier"] for m in c["models"]] == ["fast", "natural"]
     for m in c["models"]:
         assert m["author"] == "Philip Hofmann (Phhofm)"
         assert m["licence"] == "CC-BY-4.0"
@@ -82,5 +82,7 @@ def test_credits_has_author_and_ncnn_text():
         assert m["note"]
     natural = next(m for m in c["models"] if m["tier"] == "natural")
     assert "pre-converted" in natural["note"] and "Universal-NCNN-Upscaler" in natural["note"]
+    fast = next(m for m in c["models"] if m["tier"] == "fast")
+    assert fast["name"] == "4xLSDIRCompactC3" and "pre-converted" in fast["note"]
     assert "BSD" in c["ncnn"]["text"]
     assert "Tencent" in c["ncnn"]["copyright"]

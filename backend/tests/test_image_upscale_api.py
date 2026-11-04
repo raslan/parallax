@@ -8,6 +8,7 @@ from app.api import image_upscale as api
 from app.models.image import ImageFile
 from app.models.image_library import ImageLibrary
 from app.models.job import Job, JobStatus, JobType
+from app.services.upscale_models import UpscaleTier
 
 
 @pytest.fixture(autouse=True)
@@ -72,17 +73,17 @@ def seeded(engine, tmp_path):
 
 
 def _post(client, **kw):
-    body = {"tier": "simple", "scale": 2, "force_cpu": False, **kw}
+    body = {"tier": "fast", "scale": 2, "force_cpu": False, **kw}
     return client.post("/api/image-upscale/start", json=body)
 
 
-def test_tiers_lists_four(client):
+def test_tiers_lists_two(client):
     r = client.get("/api/image-upscale/tiers")
     assert r.status_code == 200
     data = r.json()
-    assert [t["id"] for t in data["tiers"]] == ["simple", "sharp", "natural", "detailed"]
-    assert [t["scales"] for t in data["tiers"]] == [[1, 2], [1, 2], [1, 2, 4], [1, 2, 4]]
-    assert [t["speed"] for t in data["tiers"]] == ["fast", "fast", "slow", "slow"]
+    assert [t["id"] for t in data["tiers"]] == ["fast", "natural"]
+    assert [t["scales"] for t in data["tiers"]] == [[1, 2, 4], [1, 2, 4]]
+    assert [t["speed"] for t in data["tiers"]] == ["fast", "slow"]
     assert all(t["hint"] for t in data["tiers"])
     assert data["gpu_available"] is True
 
@@ -90,7 +91,7 @@ def test_tiers_lists_four(client):
 def test_credits_ok(client):
     r = client.get("/api/image-upscale/credits")
     assert r.status_code == 200
-    assert len(r.json()["models"]) == 4 and "BSD" in r.json()["ncnn"]["text"]
+    assert len(r.json()["models"]) == 2 and "BSD" in r.json()["ncnn"]["text"]
 
 
 def test_start_creates_job(client, seeded):
@@ -102,18 +103,21 @@ def test_start_creates_job(client, seeded):
     job = seeded.db.get(Job, body["job_id"])
     assert job.type == JobType.IMAGE_UPSCALE and job.status == JobStatus.PENDING
     assert job.total_files == 2 and job.library_id == seeded.lib
-    assert json.loads(job.settings)["tier"] == "simple"
+    assert json.loads(job.settings)["tier"] == "fast"
     ((job_id, fn, args),) = api._enqueued
     assert job_id == body["job_id"]
-    assert args == (job_id, [seeded.a, seeded.b], "simple", 2, False, 100, False, True)
+    assert args == (job_id, [seeded.a, seeded.b], "fast", 2, False, 100, False, True)
 
 
-def test_start_rejects_scale_4_for_simple(client, seeded):
+def test_start_rejects_a_scale_the_tier_cannot_produce(client, seeded, monkeypatch):
+    # Both bundled models are 4x, so stand in a native-2x tier to exercise the guard.
+    two_x = UpscaleTier("fast", "Fast", "m", 2, "fast", "h", "p", "b", 1)
+    monkeypatch.setattr(api, "get_tier", lambda tier_id: two_x)
     r = _post(client, file_ids=[seeded.a], scale=4)
     assert r.status_code == 422 and "4" in r.json()["detail"]
 
 
-@pytest.mark.parametrize("tier", ["natural", "detailed"])
+@pytest.mark.parametrize("tier", ["fast", "natural"])
 def test_start_allows_scale_4_for_the_4x_models(client, seeded, tier):
     assert _post(client, file_ids=[seeded.a], tier=tier, scale=4).status_code == 200
 
@@ -139,7 +143,7 @@ def test_start_409_when_active(client, seeded):
 
 
 def test_start_reports_skipped_gif_and_oversize(client, seeded):
-    r = _post(client, file_ids=[seeded.a, seeded.gif, seeded.huge], tier="detailed", scale=4)
+    r = _post(client, file_ids=[seeded.a, seeded.gif, seeded.huge], tier="natural", scale=4)
     assert r.status_code == 200
     skipped = {s["id"]: s["reason"] for s in r.json()["skipped"]}
     assert skipped[seeded.gif] == "format not supported"
@@ -157,7 +161,7 @@ def test_start_all_skipped_422(client, seeded):
 
 
 def test_start_unscanned_dims_read_from_header(client, seeded):
-    r = _post(client, file_ids=[seeded.unscanned, seeded.a], tier="detailed", scale=4)
+    r = _post(client, file_ids=[seeded.unscanned, seeded.a], tier="natural", scale=4)
     assert r.status_code == 200
     skipped = {s["id"]: s["reason"] for s in r.json()["skipped"]}
     assert "150 MP" in skipped[seeded.unscanned]
@@ -194,7 +198,7 @@ def test_start_skips_already_quarantined_images(client, seeded):
 
 
 def test_start_prescale_rejects_non_native_scale(client, seeded):
-    r = _post(client, file_ids=[seeded.a], tier="detailed", scale=2, prescale=50)
+    r = _post(client, file_ids=[seeded.a], tier="natural", scale=2, prescale=50)
     assert r.status_code == 422 and "native" in r.json()["detail"]
 
 
@@ -206,11 +210,11 @@ def test_start_rejects_out_of_range_prescale(client, seeded, bad):
 
 @pytest.mark.parametrize("pct", [10, 33, 50, 75, 99, 100])
 def test_start_accepts_any_percentage_in_range(client, seeded, pct):
-    r = _post(client, file_ids=[seeded.a], tier="detailed", scale=4, prescale=pct)
+    r = _post(client, file_ids=[seeded.a], tier="natural", scale=4, prescale=pct)
     assert r.status_code == 200, r.text
 
 
 def test_start_cap_uses_the_prescaled_size(client, seeded):
     # 12 MP at 4x is over the cap; at 25% first it comes back at its own size, so it runs
-    r = _post(client, file_ids=[seeded.huge], tier="detailed", scale=4, prescale=25)
+    r = _post(client, file_ids=[seeded.huge], tier="natural", scale=4, prescale=25)
     assert r.status_code == 200 and r.json()["skipped"] == []

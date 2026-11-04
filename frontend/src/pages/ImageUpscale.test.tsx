@@ -79,10 +79,8 @@ beforeEach(() => {
   vi.mocked(upscaleApi.tiers).mockResolvedValue({
     gpu_available: false,
     tiers: [
-      { id: "simple", label: "Simple", scale: 2, speed: "fast", hint: "", scales: [1, 2] },
-      { id: "sharp", label: "Sharp", scale: 2, speed: "fast", hint: "", scales: [1, 2] },
+      { id: "fast", label: "Fast", scale: 4, speed: "fast", hint: "", scales: [1, 2, 4] },
       { id: "natural", label: "Natural", scale: 4, speed: "slow", hint: "", scales: [1, 2, 4] },
-      { id: "detailed", label: "Detailed", scale: 4, speed: "slow", hint: "", scales: [1, 2, 4] },
     ],
   });
   vi.mocked(api.getJobs).mockResolvedValue([]);
@@ -113,14 +111,14 @@ describe("ImageUpscale", () => {
     const card = await screen.findByText("a.jpg");
     fireEvent.click(card);
     const btn = await screen.findByRole("button", { name: /Upscale 1/ });
-    // Output size of the largest selected image at the default Sharp · 2×.
-    expect(screen.getByText(/2000×1600/)).toBeDefined();
+    // Output size of the largest selected image at the default Fast · 4×.
+    expect(screen.getByText(/4000×3200/)).toBeDefined();
     fireEvent.click(btn);
     await waitFor(() =>
       expect(upscaleApi.start).toHaveBeenCalledWith({
         file_ids: [1],
-        tier: "sharp",
-        scale: 2,
+        tier: "fast",
+        scale: 4,
         prescale: 100,
         replace: false,
         keep_original: true,
@@ -135,14 +133,14 @@ describe("ImageUpscale", () => {
     fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Pre-scale/ }));
     fireEvent.click(screen.getByRole("button", { name: /^25%/ }));
-    // 1000×800 → 250×200 → ×2 (Sharp's native scale) = 500×400
-    expect(screen.getAllByText(/500×400|500 × 400/).length).toBeGreaterThan(0);
+    // 1000×800 → 250×200 → ×4 (Fast's native scale) = 1000×800
+    expect(screen.getAllByText(/1000×800|1000 × 800/).length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
     await waitFor(() =>
       expect(upscaleApi.start).toHaveBeenCalledWith({
         file_ids: [1],
-        tier: "sharp",
-        scale: 2,
+        tier: "fast",
+        scale: 4,
         prescale: 25,
         replace: false,
         keep_original: true,
@@ -157,8 +155,8 @@ describe("ImageUpscale", () => {
     fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Pre-scale/ }));
     fireEvent.change(screen.getByLabelText(/Pre-scale percentage/), { target: { value: "60" } });
-    // 1000×800 → 600×480 → ×2 = 1200×960
-    expect(screen.getAllByText(/1200×960|1200 × 960/).length).toBeGreaterThan(0);
+    // 1000×800 → 600×480 → ×4 = 2400×1920
+    expect(screen.getAllByText(/2400×1920|2400 × 1920/).length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
     await waitFor(() =>
       expect(upscaleApi.start).toHaveBeenCalledWith(expect.objectContaining({ prescale: 60 })),

@@ -101,11 +101,13 @@ def test_real_tile_shape_cpu():
     pytest.importorskip("ncnn")
     from app.services import _image_upscaler_impl as impl
 
-    tier = get_tier("simple")
+    tier = get_tier("fast")
     rng = np.random.default_rng(0)
     tile = rng.random((3, 224, 224), dtype=np.float32) * 0.5 + 0.25
-    out = impl.run_tile(tier.param_path, tier.bin_path, "cpu", tile)
-    assert out.shape == (3, 448, 448)
+    out = impl.run_tile(
+        tier.param_path, tier.bin_path, "cpu", tile, 0, tier.input_blob, tier.output_blob
+    )
+    assert out.shape == (3, 896, 896)
     assert np.isfinite(out).all()
     assert abs(float(out.mean()) - float(tile.mean())) < 0.25
 

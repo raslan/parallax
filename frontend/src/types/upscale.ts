@@ -1,4 +1,4 @@
-export type UpscaleTierId = "simple" | "sharp" | "natural" | "detailed";
+export type UpscaleTierId = "fast" | "natural";
 export type UpscaleScale = 1 | 2 | 4;
 /** How the new size is chosen: a direct output size, or a pre-scale percentage. */
 export type UpscaleResizeMode = "size" | "prescale";

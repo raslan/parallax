@@ -39,10 +39,10 @@ def _nearest(rgb, n):
 
 
 @pytest.mark.parametrize("size", [(1, 1), (10, 10), (17, 193), (192, 384)])
-@pytest.mark.parametrize("native,scale", [(2, 2), (2, 1), (4, 4), (4, 2), (4, 1)])
-def test_upscale_array_shapes(size, native, scale):
+@pytest.mark.parametrize("scale", [4, 2, 1])
+def test_upscale_array_shapes(size, scale):
     h, w = size
-    tier = get_tier("simple" if native == 2 else "detailed")
+    tier = get_tier("fast")
     rgb = _gradient(h, w)
     out = up.upscale_array(rgb, tier, scale, "cpu", lambda: None, lambda: False, tile_fn=fake_tile)
     assert out.shape == (h * scale, w * scale, 3)
@@ -51,14 +51,14 @@ def test_upscale_array_shapes(size, native, scale):
 
 def test_upscale_array_matches_whole_image_at_native_scale():
     rgb = _gradient(300, 450)
-    tier = get_tier("simple")
-    out = up.upscale_array(rgb, tier, 2, "cpu", lambda: None, lambda: False, tile_fn=fake_tile)
-    assert np.array_equal(out, _nearest(rgb, 2))
+    tier = get_tier("fast")
+    out = up.upscale_array(rgb, tier, 4, "cpu", lambda: None, lambda: False, tile_fn=fake_tile)
+    assert np.array_equal(out, _nearest(rgb, 4))
 
 
 def test_downscale_per_tile_has_no_seams():
     rgb = _gradient(300, 450)
-    tier = get_tier("detailed")  # native 4, fake = nearest x4
+    tier = get_tier("natural")  # native 4, fake = nearest x4
     out = up.upscale_array(rgb, tier, 2, "cpu", lambda: None, lambda: False, tile_fn=fake_tile)
     whole = Image.fromarray(_nearest(rgb, 4)).resize((450 * 2, 300 * 2), Image.Resampling.LANCZOS)
     diff = np.abs(out.astype(int) - np.asarray(whole).astype(int))
@@ -68,7 +68,7 @@ def test_downscale_per_tile_has_no_seams():
 
 def test_upscale_array_counts_tiles_and_cancels():
     rgb = _gradient(200, 200)  # 4 tiles
-    tier = get_tier("simple")
+    tier = get_tier("fast")
     ticks = []
     out = up.upscale_array(
         rgb, tier, 2, "cpu", lambda: ticks.append(1), lambda: False, tile_fn=fake_tile
@@ -154,7 +154,7 @@ def test_job_writes_output_next_to_source(env):
     fid, src = env.add_image("p.jpg", (40, 30))
     job_id = env.new_job()
 
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
 
     job = env.load_job(job_id)
     assert job.status == JobStatus.COMPLETED and job.progress == 100.0
@@ -173,7 +173,7 @@ def test_job_collision_suffix(env):
     (env.dir / "p_2x.png").write_bytes(b"existing")
     job_id = env.new_job()
 
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
 
     assert (env.dir / "p_2x.png").read_bytes() == b"existing"
     assert Image.open(env.dir / "p_2x_1.png").size == (40, 40)
@@ -182,7 +182,7 @@ def test_job_collision_suffix(env):
 def test_job_one_x_names_and_sizes(env):
     fid, _ = env.add_image("p.webp", (33, 21), fmt="WEBP")
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "detailed", 1, False)
+    up.run_image_upscale_job(job_id, [fid], "natural", 1, False)
     assert Image.open(env.dir / "p_1x.webp").size == (33, 21)
 
 
@@ -198,7 +198,7 @@ def test_job_cancel_leaves_nothing(env, monkeypatch):
 
     monkeypatch.setattr(runtime, "run_tile", cancelling_tile)
 
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
 
     job = env.load_job(job_id)
     assert job.status == JobStatus.CANCELLED
@@ -228,7 +228,7 @@ def test_job_bad_files_do_not_stop_batch(env):
     ro.chmod(stat.S_IRUSR | stat.S_IXUSR)
     job_id = env.new_job()
     try:
-        up.run_image_upscale_job(job_id, [bad_id, good_id, row.id], "simple", 2, False)
+        up.run_image_upscale_job(job_id, [bad_id, good_id, row.id], "fast", 2, False)
     finally:
         ro.chmod(stat.S_IRWXU)
 
@@ -247,7 +247,7 @@ def test_job_over_cap_skipped(env, monkeypatch):
     ok_id, _ = env.add_image("q.jpg", (10, 10))  # 400 ok
     job_id = env.new_job()
 
-    up.run_image_upscale_job(job_id, [fid, ok_id], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid, ok_id], "fast", 2, False)
 
     by_id = {r["id"]: r for r in _results(env.load_job(job_id))}
     assert "150 MP" in by_id[fid]["skipped"] and not (env.dir / "p_2x.jpg").exists()
@@ -259,7 +259,7 @@ def test_job_missing_source_skipped(env):
     ok_id, _ = env.add_image("ok.jpg", (20, 20))
     src.unlink()
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid, ok_id], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid, ok_id], "fast", 2, False)
     by_id = {r["id"]: r for r in _results(env.load_job(job_id))}
     assert "no longer exists" in by_id[fid]["skipped"]
     assert by_id[ok_id]["output"]
@@ -268,7 +268,7 @@ def test_job_missing_source_skipped(env):
 def test_job_all_failed_marks_failed(env):
     fid, _ = env.add_image("bad.jpg", data=b"junk")
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
     job = env.load_job(job_id)
     assert job.status == JobStatus.FAILED and job.error
 
@@ -286,7 +286,7 @@ def test_gpu_failure_falls_back_to_cpu(env, monkeypatch):
 
     monkeypatch.setattr(runtime, "run_tile", flaky)
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
     assert env.load_job(job_id).status == JobStatus.COMPLETED
     assert seen[0] == "gpu" and set(seen[1:]) == {"cpu"}
 
@@ -295,14 +295,14 @@ def test_unexpected_error_fails_job_not_running(env, monkeypatch):
     fid, _ = env.add_image("p.jpg", (20, 20))
     monkeypatch.setattr(up, "verify_tier_files", lambda tier: (_ for _ in ()).throw(OSError("x")))
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
     assert env.load_job(job_id).status == JobStatus.FAILED
 
 
 def test_no_stat_event_written(env):
     fid, _ = env.add_image("p.jpg", (20, 20))
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
     before = env.db.query(StatEvent).count()
     stats.record_finished_job(job_id)
     env.db.expire_all()
@@ -313,7 +313,7 @@ def test_watcher_reconciled_once_per_batch(env):
     a, _ = env.add_image("a.jpg", (20, 20))
     b, _ = env.add_image("b.jpg", (20, 20))
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [a, b], "simple", 2, False)
+    up.run_image_upscale_job(job_id, [a, b], "fast", 2, False)
     # _apply reconciles the whole library; once per output would walk it N times.
     assert len(env.applied) == 1
     assert env.applied[0][2] == frozenset({str(env.dir / "a_2x.jpg"), str(env.dir / "b_2x.jpg")})
@@ -324,22 +324,35 @@ def test_real_model_tiles_match_whole_image():
     pytest.importorskip("ncnn")
     from app.services import _image_upscaler_impl as impl
 
-    tier = get_tier("simple")
+    tier = get_tier("fast")
     rng = np.random.default_rng(3)
     rgb = _gradient(250, 300)
     rgb = np.clip(rgb.astype(int) + rng.integers(-6, 7, rgb.shape), 0, 255).astype(np.uint8)
     rgb[100:140, 120:200] = (240, 30, 30)  # a hard edge crossing the tile boundary at x=192
 
     def real_tile(t, device, tile):
-        return impl.run_tile(t.param_path, t.bin_path, "cpu", tile)
+        return impl.run_tile(t.param_path, t.bin_path, "cpu", tile, 0, t.input_blob, t.output_blob)
 
-    tiled = up.upscale_array(rgb, tier, 2, "cpu", lambda: None, lambda: False, tile_fn=real_tile)
+    tiled = up.upscale_array(rgb, tier, 4, "cpu", lambda: None, lambda: False, tile_fn=real_tile)
 
     net = impl._load(tier.param_path, tier.bin_path, "cpu", 0)
-    whole = up._to_uint8(impl._infer(net, np.ascontiguousarray(rgb.transpose(2, 0, 1)) / 255.0))
+    whole = up._to_uint8(
+        impl._infer(
+            net,
+            np.ascontiguousarray(rgb.transpose(2, 0, 1)) / 255.0,
+            tier.input_blob,
+            tier.output_blob,
+        )
+    )
 
-    diff = np.abs(tiled.astype(int) - whole.astype(int))[40:-40, 40:-40]
-    assert diff.max() <= 8, f"seam: max diff {diff.max()}"
+    full = np.abs(tiled.astype(int) - whole.astype(int))
+    diff = full[40:-40, 40:-40]
+    assert diff.max() <= 16, f"max diff {diff.max()}"
+    # A seam would show as extra error right at the tile boundary (x = 192 px in, i.e. 768 out).
+    seam = full[:, 760:776].mean()
+    assert (
+        seam <= 2 * full.mean() + 0.5
+    ), f"seam: boundary error {seam:.2f} vs mean {full.mean():.2f}"
 
 
 def test_job_prescale_half_restores_original_size(env, monkeypatch):
@@ -353,12 +366,12 @@ def test_job_prescale_half_restores_original_size(env, monkeypatch):
     monkeypatch.setattr(runtime, "run_tile", counting_tile)
     job_id = env.new_job()
 
-    # 50% -> 200x150, simple model is 2x -> 400x300 again
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, prescale=50)
+    # 50% -> 200x150, the fast model is 4x -> 800x600
+    up.run_image_upscale_job(job_id, [fid], "fast", 4, False, prescale=50)
 
     assert env.load_job(job_id).status == JobStatus.COMPLETED
-    out = env.dir / "blurry_p50_2x.jpg"
-    assert Image.open(out).size == (400, 300)
+    out = env.dir / "blurry_p50_4x.jpg"
+    assert Image.open(out).size == (800, 600)
     # the model only saw the pre-scaled image: 200x150 = 1 row x 2 cols of 192 px tiles
     assert len(calls) == 2
 
@@ -375,15 +388,15 @@ def test_job_prescale_any_percentage_works(env):
 def test_job_prescale_quarter_with_a_4x_model_gives_the_original_size(env):
     fid, _ = env.add_image("b.png", (80, 60), fmt="PNG")
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "detailed", 4, False, prescale=25)
+    up.run_image_upscale_job(job_id, [fid], "natural", 4, False, prescale=25)
     assert Image.open(env.dir / "b_p25_4x.png").size == (80, 60)
 
 
 def test_job_prescale_cap_uses_final_size(env, monkeypatch):
     monkeypatch.setattr(upscale_plan, "MAX_OUTPUT_PIXELS", 5000)
-    fid, _ = env.add_image("p.jpg", (100, 100))  # 50% then 2x = 100x100 = 10000 > 5000
+    fid, _ = env.add_image("p.jpg", (100, 100))  # 50% then 4x = 200x200 = 40000 > 5000
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, prescale=50)
+    up.run_image_upscale_job(job_id, [fid], "fast", 4, False, prescale=50)
     res = _results(env.load_job(job_id))[0]
     assert res["output"] is None and "150 MP" in res["skipped"]
 
@@ -401,7 +414,7 @@ def test_replace_keeps_original_in_quarantine(env):
     fid, src = env.add_image("p.jpg", (40, 30))
     job_id = env.new_job()
 
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=True)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False, replace=True, keep_original=True)
 
     assert env.load_job(job_id).status == JobStatus.COMPLETED
     assert Image.open(src).size == (80, 60)  # the new file took the original's path and name
@@ -418,7 +431,7 @@ def test_replace_without_keeping_overwrites_the_original(env):
     fid, src = env.add_image("p.png", (40, 30), fmt="PNG")
     job_id = env.new_job()
 
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=False)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False, replace=True, keep_original=False)
 
     assert Image.open(src).size == (80, 60)
     assert sorted(os.listdir(env.dir)) == ["p.png"]  # nothing quarantined
@@ -431,7 +444,7 @@ def test_replace_does_not_clobber_an_earlier_quarantined_copy(env):
     (env.dir / "_quarantine" / "p.jpg").write_bytes(b"older original")
     job_id = env.new_job()
 
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=True)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False, replace=True, keep_original=True)
 
     assert (env.dir / "_quarantine" / "p.jpg").read_bytes() == b"older original"
     assert Image.open(src).size == (80, 60)
@@ -452,7 +465,7 @@ def test_replace_puts_the_original_back_if_the_swap_fails(env, monkeypatch):
     monkeypatch.setattr(up.shutil, "move", failing_move)
     job_id = env.new_job()
 
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, replace=True, keep_original=True)
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False, replace=True, keep_original=True)
 
     assert src.read_bytes() == before  # untouched
     path, status, _ = _row(env, fid)
@@ -466,6 +479,6 @@ def test_replace_uses_the_prescaled_size_too(env):
     fid, src = env.add_image("p.jpg", (400, 300))
     job_id = env.new_job()
     up.run_image_upscale_job(
-        job_id, [fid], "simple", 2, False, prescale=50, replace=True, keep_original=True
+        job_id, [fid], "fast", 2, False, prescale=50, replace=True, keep_original=True
     )
     assert Image.open(src).size == (400, 300)

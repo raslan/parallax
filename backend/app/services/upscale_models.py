@@ -15,32 +15,21 @@ ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "upscale"
 # Presentation copy, keyed by tier id. Speed is a relative label only: real seconds depend too
 # much on the hardware.
 _TIER_COPY: dict[str, dict[str, str]] = {
-    "simple": {
-        "label": "Simple",
+    "fast": {
+        "label": "Fast",
         "speed": "fast",
-        "hint": "Fastest and most conservative. Adds the least invented detail, so it's the safe "
-        "pick when the photo should stay faithful. Up to 2×.",
-    },
-    "sharp": {
-        "label": "Sharp",
-        "speed": "fast",
-        "hint": "Fast and crisper than Simple. Can add grain on flat areas such as skies. "
-        "Up to 2×.",
+        "hint": "The quick, clean default. Adds very little invented detail (faces, hands and "
+        "toes stay faithful) and handles JPEG photos well, but fine texture such as hair "
+        "or rock comes out a little soft.",
     },
     "natural": {
         "label": "Natural",
         "speed": "slow",
-        "hint": "4× with a clean, photographic look. Fewer invented details (toes, eyes, "
-        "hair) than Detailed, a little softer, and a bit slower.",
-    },
-    "detailed": {
-        "label": "Detailed",
-        "speed": "slow",
-        "hint": "4× and the crispest result, but it can invent fine detail: faces, hands and "
-        "textures may look over-drawn. Best when crispness matters more than fidelity.",
+        "hint": "A clean, photographic look with more fine detail than Fast. Slower, and "
+        "still careful not to invent detail.",
     },
 }
-_TIER_ORDER = ("simple", "sharp", "natural", "detailed")
+_TIER_ORDER = ("fast", "natural")
 
 _verified: set[str] = set()
 

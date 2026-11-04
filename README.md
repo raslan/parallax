@@ -32,7 +32,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 ### Images
 
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
-- **Upscale** — make a bigger (2×, 4×) or same-size "restored" copy of selected images with four bundled models (Simple and Sharp for up to 2×, Natural and Detailed for up to 4×; Natural is cleaner and softer, Detailed is crisper but can invent detail). An optional pre-scale percentage resizes the image before the model, which is faster and suits large but blurry images; the copy is saved next to the original, which is never touched (or replaces it, with the original kept in quarantine). Works on the CPU anywhere; a discrete Vulkan GPU makes it much faster and is used automatically
+- **Upscale** — make a bigger (2×, 4×) or same-size "restored" copy of selected images with two bundled 4× models (Fast, the default: quick and clean, a little soft on fine texture; Natural: slower, with more fine detail and still careful not to invent any). An optional pre-scale percentage resizes the image before the model, which is faster and suits large but blurry images; the copy is saved next to the original, which is never touched (or replaces it, with the original kept in quarantine). Works on the CPU anywhere; a discrete Vulkan GPU makes it much faster and is used automatically
 - **Duplicate detection** — find duplicate images by perceptual hash with configurable similarity threshold
 - **Content review** — filter by content detections, file size, orientation, dates, or "no detections at all"; bulk quarantine flagged images; restore or permanently delete from quarantine
 

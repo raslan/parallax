@@ -70,8 +70,8 @@ const dimsLabel = (f: ImageFile) => (f.width && f.height ? `${f.width}×${f.heig
 export function ImageUpscale() {
   const qc = useQueryClient();
   const [libraryId, setLibraryId] = useState<number | null>(null);
-  const [tier, setTier] = useState<UpscaleTierId>("sharp");
-  const [scale, setScale] = useState<UpscaleScale>(2);
+  const [tier, setTier] = useState<UpscaleTierId>("fast");
+  const [scale, setScale] = useState<UpscaleScale>(4); // the default tier's native scale
   const [resizeMode, setResizeMode] = useState<UpscaleResizeMode>("size");
   const [prescale, setPrescale] = useState(50);
   const [forceCpu, setForceCpu] = useState(false);

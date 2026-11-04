@@ -27,7 +27,7 @@ import {
 const SCALES: UpscaleScale[] = [1, 2, 4];
 
 /**
- * Trigger bar ("Sharp · 2×") + non-modal right Sheet with the upscale settings. Props-in /
+ * Trigger bar ("Fast · 4×") + non-modal right Sheet with the upscale settings. Props-in /
  * callbacks-out, like `CompressEstimatePanel`: the page owns the state and the queries.
  * Must render inside a Router (the footer links to Settings → Credits).
  *

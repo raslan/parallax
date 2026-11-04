@@ -7,31 +7,30 @@ import type { UpscaleTier } from "@/types/upscale";
 
 afterEach(cleanup);
 
-const tiers: UpscaleTier[] = [
-  { id: "simple", label: "Simple", scale: 2, speed: "fast", hint: "Conservative", scales: [1, 2] },
-  { id: "sharp", label: "Sharp", scale: 2, speed: "fast", hint: "Crisper", scales: [1, 2] },
-  {
-    id: "natural",
-    label: "Natural",
-    scale: 4,
-    speed: "slow",
-    hint: "Clean and photographic",
-    scales: [1, 2, 4],
-  },
-  {
-    id: "detailed",
-    label: "Detailed",
-    scale: 4,
-    speed: "slow",
-    hint: "Crispest, can invent detail",
-    scales: [1, 2, 4],
-  },
-];
+const fast: UpscaleTier = {
+  id: "fast",
+  label: "Fast",
+  scale: 4,
+  speed: "fast",
+  hint: "Quick and clean",
+  scales: [1, 2, 4],
+};
+const natural: UpscaleTier = {
+  id: "natural",
+  label: "Natural",
+  scale: 4,
+  speed: "slow",
+  hint: "Clean and photographic",
+  scales: [1, 2, 4],
+};
+// Both bundled models are 4×; a native-2× stand-in keeps the panel's per-scale behaviour covered.
+const fastTwoX: UpscaleTier = { ...fast, scale: 2, scales: [1, 2] };
+const tiers: UpscaleTier[] = [fast, natural];
 
 function setup(over: Partial<React.ComponentProps<typeof UpscalePanel>> = {}) {
   const props = {
     tiers,
-    tier: "sharp" as const,
+    tier: "fast" as const,
     scale: 2 as const,
     resizeMode: "size" as const,
     prescale: 50,
@@ -59,11 +58,11 @@ const percentInput = () => screen.getByLabelText(/Pre-scale percentage/) as HTML
 describe("UpscalePanel", () => {
   it("shows the current choice on the trigger bar", () => {
     setup();
-    expect(screen.getAllByText(/Sharp/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Fast/).length).toBeGreaterThan(0);
   });
 
   it("disables 4× for a 2× tier and enables it for a 4× tier", () => {
-    setup();
+    setup({ tiers: [fastTwoX, natural] });
     expect((screen.getByRole("button", { name: /^4×/ }) as HTMLButtonElement).disabled).toBe(true);
     cleanup();
     setup({ tier: "natural", scale: 4 });
@@ -76,20 +75,21 @@ describe("UpscalePanel", () => {
   });
 
   it("picking a tier resets the size to that model's native scale", () => {
-    const p = setup({ tier: "natural", scale: 4 });
-    fireEvent.click(screen.getByRole("button", { name: /^Simple/ }));
-    expect(p.onTierChange).toHaveBeenCalledWith("simple");
+    const mixed = [fastTwoX, natural];
+    const p = setup({ tiers: mixed, tier: "natural", scale: 4 });
+    fireEvent.click(screen.getByRole("button", { name: /^Fast/ }));
+    expect(p.onTierChange).toHaveBeenCalledWith("fast");
     expect(p.onScaleChange).toHaveBeenCalledWith(2);
     cleanup();
-    const q = setup({ tier: "sharp", scale: 2 });
+    const q = setup({ tiers: mixed, tier: "fast", scale: 2 });
     fireEvent.click(screen.getByRole("button", { name: /^Natural/ }));
     expect(q.onScaleChange).toHaveBeenCalledWith(4);
   });
 
   it("picking a tier with the same native scale leaves the size alone", () => {
     const p = setup({ tier: "natural", scale: 1 });
-    fireEvent.click(screen.getByRole("button", { name: /^Detailed/ }));
-    expect(p.onTierChange).toHaveBeenCalledWith("detailed");
+    fireEvent.click(screen.getByRole("button", { name: /^Fast/ }));
+    expect(p.onTierChange).toHaveBeenCalledWith("fast");
     expect(p.onScaleChange).not.toHaveBeenCalled();
   });
 
@@ -163,8 +163,8 @@ describe("UpscalePanel", () => {
 
   it("shows relative speed labels instead of times", () => {
     setup();
-    expect(screen.getAllByText("Fast")).toHaveLength(2);
-    expect(screen.getAllByText("Slow")).toHaveLength(2);
+    expect(screen.getAllByText("Slow")).toHaveLength(1);
+    expect(screen.queryByText(/\d+\s?(s|sec|min)\b/)).toBeNull();
   });
 
   it("shows output dimensions and the GPU note", () => {

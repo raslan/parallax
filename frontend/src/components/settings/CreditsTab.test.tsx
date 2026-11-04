@@ -30,8 +30,8 @@ describe("CreditsTab", () => {
     vi.mocked(upscaleApi.credits).mockResolvedValue({
       models: [
         {
-          name: "2xNomosUni_span_multijpg",
-          tier: "simple",
+          name: "4xLSDIRCompactC3",
+          tier: "fast",
           author: "Philip Hofmann (Phhofm)",
           licence: "CC-BY-4.0",
           licence_url: "https://creativecommons.org/licenses/by/4.0/",
@@ -47,7 +47,7 @@ describe("CreditsTab", () => {
       },
     });
     renderTab();
-    expect(await screen.findByText("2xNomosUni_span_multijpg")).toBeDefined();
+    expect(await screen.findByText("4xLSDIRCompactC3")).toBeDefined();
     expect(screen.getByText(/Philip Hofmann \(Phhofm\)/)).toBeDefined();
     expect(screen.getByText(/converted to ncnn format/)).toBeDefined();
     const licence = screen.getByRole("link", { name: /CC-BY-4\.0/ });
