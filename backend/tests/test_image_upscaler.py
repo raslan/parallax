@@ -340,3 +340,40 @@ def test_real_model_tiles_match_whole_image():
 
     diff = np.abs(tiled.astype(int) - whole.astype(int))[40:-40, 40:-40]
     assert diff.max() <= 8, f"seam: max diff {diff.max()}"
+
+
+def test_job_shrink_first_restores_original_size(env, monkeypatch):
+    fid, _ = env.add_image("blurry.jpg", (400, 300))
+    calls = []
+
+    def counting_tile(tier, device, tile):
+        calls.append(1)
+        return fake_tile(tier, device, tile)
+
+    monkeypatch.setattr(runtime, "run_tile", counting_tile)
+    job_id = env.new_job()
+
+    # shrink 2 -> 200x150, simple model is 2x -> 400x300 again
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, shrink=2)
+
+    assert env.load_job(job_id).status == JobStatus.COMPLETED
+    out = env.dir / "blurry_s2_2x.jpg"
+    assert Image.open(out).size == (400, 300)
+    # the model only saw the shrunk image: 200x150 = 1 row x 2 cols of 192 px tiles
+    assert len(calls) == 2
+
+
+def test_job_shrink_first_four_with_best(env):
+    fid, _ = env.add_image("b.png", (80, 60), fmt="PNG")
+    job_id = env.new_job()
+    up.run_image_upscale_job(job_id, [fid], "best", 4, False, shrink=4)
+    assert Image.open(env.dir / "b_s4_4x.png").size == (80, 60)
+
+
+def test_job_shrink_first_cap_uses_final_size(env, monkeypatch):
+    monkeypatch.setattr(upscale_plan, "MAX_OUTPUT_PIXELS", 5000)
+    fid, _ = env.add_image("p.jpg", (100, 100))  # shrink 2 then 2x = 100x100 = 10000 > 5000
+    job_id = env.new_job()
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, shrink=2)
+    res = _results(env.load_job(job_id))[0]
+    assert res["output"] is None and "150 MP" in res["skipped"]

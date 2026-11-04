@@ -18,11 +18,15 @@ function setup(over: Partial<React.ComponentProps<typeof UpscalePanel>> = {}) {
     tiers,
     tier: "sharp" as const,
     scale: 2 as const,
+    resizeMode: "size" as const,
+    shrink: 2 as const,
     forceCpu: false,
     gpuAvailable: true,
     sampleDims: { w: 1920, h: 1080 },
     onTierChange: vi.fn(),
     onScaleChange: vi.fn(),
+    onResizeModeChange: vi.fn(),
+    onShrinkChange: vi.fn(),
     onForceCpuChange: vi.fn(),
     ...over,
   };
@@ -45,19 +49,23 @@ describe("UpscalePanel", () => {
     setup();
     expect((screen.getByRole("button", { name: /^4×/ }) as HTMLButtonElement).disabled).toBe(true);
     cleanup();
-    setup({ tier: "best" });
+    setup({ tier: "best", scale: 4 });
     expect((screen.getByRole("button", { name: /^4×/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("picking a tier that can't make the current scale also lowers the scale", () => {
+  it("picking a tier resets the size to that model's native scale", () => {
     const p = setup({ tier: "best", scale: 4 });
     fireEvent.click(screen.getByRole("button", { name: /^Simple/ }));
     expect(p.onTierChange).toHaveBeenCalledWith("simple");
     expect(p.onScaleChange).toHaveBeenCalledWith(2);
+    cleanup();
+    const q = setup({ tier: "sharp", scale: 2 });
+    fireEvent.click(screen.getByRole("button", { name: /^Best/ }));
+    expect(q.onScaleChange).toHaveBeenCalledWith(4);
   });
 
-  it("picking a tier that keeps the scale does not touch it", () => {
-    const p = setup({ tier: "best", scale: 2 });
+  it("picking a tier with the same native scale leaves the size alone", () => {
+    const p = setup({ tier: "sharp", scale: 1 });
     fireEvent.click(screen.getByRole("button", { name: /^Simple/ }));
     expect(p.onScaleChange).not.toHaveBeenCalled();
   });
@@ -66,6 +74,30 @@ describe("UpscalePanel", () => {
     const p = setup();
     fireEvent.click(screen.getByRole("button", { name: /^1×/ }));
     expect(p.onScaleChange).toHaveBeenCalledWith(1);
+  });
+
+  it("offers Output size and Shrink first as the resize method", () => {
+    const p = setup();
+    fireEvent.click(screen.getByRole("button", { name: /^Shrink first/ }));
+    expect(p.onResizeModeChange).toHaveBeenCalledWith("shrink");
+  });
+
+  it("in shrink mode shows shrink factors instead of output sizes", () => {
+    const p = setup({ resizeMode: "shrink", shrink: 2 });
+    expect(screen.queryByRole("button", { name: /^1×/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^¼/ }));
+    expect(p.onShrinkChange).toHaveBeenCalledWith(4);
+  });
+
+  it("shows the final size after shrinking then upscaling", () => {
+    setup({ resizeMode: "shrink", shrink: 4 });
+    // 1920×1080 → 480×270 → ×2 (Sharp's native scale)
+    expect(screen.getByText(/960 × 540/)).toBeDefined();
+  });
+
+  it("describes shrink-first on the trigger bar", () => {
+    setup({ resizeMode: "shrink", shrink: 3 });
+    expect(screen.getAllByText(/⅓ then 2×/).length).toBeGreaterThan(0);
   });
 
   it("calls back from the CPU-only switch", () => {

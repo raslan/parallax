@@ -1,7 +1,13 @@
 import { useId, useState } from "react";
 import { Link } from "react-router";
 import { ChevronRight, SlidersHorizontal } from "lucide-react";
-import type { UpscaleScale, UpscaleTier, UpscaleTierId } from "@/types/upscale";
+import type {
+  UpscaleResizeMode,
+  UpscaleScale,
+  UpscaleShrink,
+  UpscaleTier,
+  UpscaleTierId,
+} from "@/types/upscale";
 import { RadioToggle } from "@/components/RadioToggle";
 import { PanelSheetContent } from "@/components/PanelSheetContent";
 import { Switch } from "@/components/ui/switch";
@@ -13,49 +19,72 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { clampScale, outputDims, speedLabel } from "@/lib/upscale";
+import { outputDims, speedLabel } from "@/lib/upscale";
 
 const SCALES: UpscaleScale[] = [1, 2, 4];
+const SHRINKS: { id: UpscaleShrink; label: string }[] = [
+  { id: 2, label: "½" },
+  { id: 3, label: "⅓" },
+  { id: 4, label: "¼" },
+];
+const SHRINK_LABEL: Record<number, string> = { 2: "½", 3: "⅓", 4: "¼" };
 
 /**
  * Trigger bar ("Sharp · 2×") + non-modal right Sheet with the upscale settings. Props-in /
  * callbacks-out, like `CompressEstimatePanel`: the page owns the state and the queries.
  * Must render inside a Router (the footer links to Settings → Credits).
+ *
+ * The resize method is either an output size (1×/2×/4×, default = the model's own scale) or
+ * "Shrink first": shrink the image, then run the model at its native scale. They are exclusive.
  */
 export function UpscalePanel({
   tiers,
   tier,
   scale,
+  resizeMode,
+  shrink,
   forceCpu,
   gpuAvailable,
   sampleDims,
   onTierChange,
   onScaleChange,
+  onResizeModeChange,
+  onShrinkChange,
   onForceCpuChange,
 }: {
   tiers: UpscaleTier[];
   tier: UpscaleTierId;
   scale: UpscaleScale;
+  resizeMode: UpscaleResizeMode;
+  shrink: UpscaleShrink;
   forceCpu: boolean;
   gpuAvailable: boolean;
   /** Source dimensions of the largest selected image, for the output-size line. */
   sampleDims: { w: number; h: number } | null;
   onTierChange: (t: UpscaleTierId) => void;
   onScaleChange: (s: UpscaleScale) => void;
+  onResizeModeChange: (m: UpscaleResizeMode) => void;
+  onShrinkChange: (s: UpscaleShrink) => void;
   onForceCpuChange: (v: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const cpuId = useId();
   const current = tiers.find((t) => t.id === tier);
-  const out = sampleDims ? outputDims(sampleDims.w, sampleDims.h, scale) : null;
+  const native = (current?.scale ?? 2) as UpscaleScale;
+  const shrinking = resizeMode === "shrink";
+  const out = sampleDims
+    ? shrinking
+      ? outputDims(sampleDims.w, sampleDims.h, native, shrink)
+      : outputDims(sampleDims.w, sampleDims.h, scale)
+    : null;
+  const summary = shrinking ? `${SHRINK_LABEL[shrink] ?? shrink} then ${native}×` : `${scale}×`;
 
+  // Each model has its own natural size: moving to a model with a different native scale starts
+  // from that, while a model with the same native scale keeps whatever size was chosen.
   const pickTier = (id: UpscaleTierId) => {
     onTierChange(id);
     const next = tiers.find((t) => t.id === id);
-    if (next) {
-      const clamped = clampScale(next, scale);
-      if (clamped !== scale) onScaleChange(clamped);
-    }
+    if (next && current && next.scale !== current.scale) onScaleChange(next.scale as UpscaleScale);
   };
 
   const gpuNote = forceCpu
@@ -75,7 +104,7 @@ export function UpscalePanel({
             <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary" />
             <span className="min-w-0 flex-1 truncate text-sm">
               <span className="font-medium">{current?.label ?? tier}</span>
-              <span className="text-muted-foreground">{` · ${scale}×`}</span>
+              <span className="text-muted-foreground">{` · ${summary}`}</span>
             </span>
             <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
               Upscale settings
@@ -117,24 +146,46 @@ export function UpscalePanel({
 
               <div className="space-y-2 px-4 py-4">
                 <div>
-                  <p className="text-xs font-medium text-foreground">Output size</p>
+                  <p className="text-xs font-medium text-foreground">Resize method</p>
                   <p className="mt-0.5 text-2xs text-muted-foreground/60">
-                    Relative to the source. 1× keeps the same size and only restores detail.
+                    {shrinking
+                      ? `Shrinks the image first, then the model rebuilds detail at ${native}×. Good for large but blurry images.`
+                      : "Makes the copy this much bigger than the original."}
                   </p>
                 </div>
-                <RadioToggle
-                  value={String(scale)}
-                  onChange={(v) => onScaleChange(Number(v) as UpscaleScale)}
-                  options={SCALES.map((s) => {
-                    const available = current?.scales.includes(s) ?? false;
-                    return {
-                      id: String(s),
-                      label: `${s}×`,
-                      disabled: !available,
-                      detail: available ? undefined : "needs Best",
-                    };
-                  })}
+                <RadioToggle<UpscaleResizeMode>
+                  value={resizeMode}
+                  onChange={onResizeModeChange}
+                  options={[
+                    { id: "size", label: "Output size" },
+                    { id: "shrink", label: "Shrink first" },
+                  ]}
                 />
+                {shrinking ? (
+                  <RadioToggle
+                    value={String(shrink)}
+                    onChange={(v) => onShrinkChange(Number(v) as UpscaleShrink)}
+                    options={SHRINKS.map((s) => ({ id: String(s.id), label: s.label }))}
+                  />
+                ) : (
+                  <RadioToggle
+                    value={String(scale)}
+                    onChange={(v) => onScaleChange(Number(v) as UpscaleScale)}
+                    options={SCALES.map((s) => {
+                      const available = current?.scales.includes(s) ?? false;
+                      return {
+                        id: String(s),
+                        label: `${s}×`,
+                        disabled: !available,
+                        detail: available ? undefined : "needs Best",
+                        hint:
+                          s === 1
+                            ? "Shrinking the result back to the original size mostly hides what the model added. Use Shrink first for a same-size, sharper copy."
+                            : undefined,
+                      };
+                    })}
+                  />
+                )}
                 {out && (
                   <p className="text-xs text-muted-foreground">
                     Largest selected image becomes{" "}

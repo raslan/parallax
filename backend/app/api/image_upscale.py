@@ -55,6 +55,11 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
             422, f"{tier.label} can't produce {req.scale}× output — pick a smaller size or Best"
         )
 
+    if req.shrink > 1 and req.scale != tier.scale:
+        raise HTTPException(
+            422, f"Shrink first always runs {tier.label} at its native {tier.scale}× size"
+        )
+
     ids = list(dict.fromkeys(req.file_ids))
     rows = db.query(ImageFile).filter(ImageFile.id.in_(ids)).all()
     if len(rows) != len(ids):
@@ -86,7 +91,7 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
         if not (width and height):
             size = header_size(path)
             width, height = size if size else (None, None)
-        reason = skip_reason(path, width, height, req.scale)
+        reason = skip_reason(path, width, height, req.scale, req.shrink)
         if reason:
             skipped.append(UpscaleSkipped(id=fid, reason=reason))
         else:
@@ -103,6 +108,7 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
             {
                 "tier": req.tier,
                 "scale": req.scale,
+                "shrink": req.shrink,
                 "force_cpu": req.force_cpu,
                 "skipped": [s.model_dump() for s in skipped],
             }
@@ -114,6 +120,13 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
     job_id = job.id
 
     await enqueue(
-        job_id, run_image_upscale_job, job_id, runnable, req.tier, req.scale, req.force_cpu
+        job_id,
+        run_image_upscale_job,
+        job_id,
+        runnable,
+        req.tier,
+        req.scale,
+        req.force_cpu,
+        req.shrink,
     )
     return UpscaleStartResponse(job_id=job_id, skipped=skipped)

@@ -147,11 +147,16 @@ def _upscale_one(
     src: _Source,
     tier: UpscaleTier,
     scale: int,
+    shrink: int,
     dev: _Device,
     is_cancelled: Callable[[], bool],
     on_tile: Callable[[], None],
 ) -> dict | None:
-    """Upscale one file. Returns its result dict, or None when cancelled."""
+    """Upscale one file. Returns its result dict, or None when cancelled.
+
+    With `shrink` > 1 the image is first area-averaged down by that factor (dropping the blur
+    that carries no detail) and the model then runs at its native scale (`scale`).
+    """
     result = {"id": src.id, "output": None, "skipped": None, "error": None}
     if not os.path.isfile(src.path):
         result["skipped"] = "source file no longer exists"
@@ -162,7 +167,7 @@ def _upscale_one(
         result["skipped"] = str(exc)
         return result
     h, w = loaded.rgb.shape[:2]
-    reason = upscale_plan.skip_reason(src.path, w, h, scale)
+    reason = upscale_plan.skip_reason(src.path, w, h, scale, shrink)
     if reason:
         result["skipped"] = reason
         return result
@@ -170,16 +175,22 @@ def _upscale_one(
     ext = os.path.splitext(src.path)[1]
     tmp = temp_sibling_path(src.path, ext, "compressing")
     try:
+        model_input = loaded.rgb
+        if shrink > 1:
+            sw, sh = upscale_plan.shrunk_size(w, h, shrink)
+            model_input = np.asarray(
+                Image.fromarray(loaded.rgb).resize((sw, sh), Image.Resampling.BOX)
+            )
         out = upscale_array(
-            loaded.rgb, tier, scale, dev.device, on_tile, is_cancelled, dev.run_tile
+            model_input, tier, scale, dev.device, on_tile, is_cancelled, dev.run_tile
         )
         if out is None:
             return None
         save_image(tmp, out, loaded)
         with Image.open(tmp) as check:
-            if check.size != (w * scale, h * scale):
+            if check.size != upscale_plan.output_size(w, h, tier.scale, scale, shrink):
                 raise RuntimeError("written file has the wrong dimensions")
-        final = upscale_plan.output_path(src.path, scale)
+        final = upscale_plan.output_path(src.path, scale, shrink=shrink)
         shutil.move(tmp, final)
         result["output"] = final
     except Exception as exc:
@@ -192,7 +203,12 @@ def _upscale_one(
 
 
 def run_image_upscale_job(
-    job_id: int, file_ids: list[int], tier_id: str, scale: int, force_cpu: bool
+    job_id: int,
+    file_ids: list[int],
+    tier_id: str,
+    scale: int,
+    force_cpu: bool,
+    shrink: int = 1,
 ) -> None:
     try:
         db = SessionLocal()
@@ -224,7 +240,8 @@ def run_image_upscale_job(
                 size = header_size(s.path)
                 s.width, s.height = size if size else (None, None)
             if s.width and s.height:
-                total_tiles += len(upscale_plan.plan_tiles(s.height, s.width))
+                sw, sh = upscale_plan.shrunk_size(s.width, s.height, shrink)
+                total_tiles += len(upscale_plan.plan_tiles(sh, sw))
         total_tiles = max(total_tiles, 1)
 
         arm_cancel(job_id)
@@ -256,7 +273,7 @@ def run_image_upscale_job(
                     break
                 current = os.path.basename(s.path)
                 _set_job(job_id, current_file=current)
-                res = _upscale_one(s, tier, scale, dev, is_cancelled, on_tile)
+                res = _upscale_one(s, tier, scale, shrink, dev, is_cancelled, on_tile)
                 if res is None:
                     cancelled = True
                     break

@@ -104,7 +104,7 @@ def test_start_creates_job(client, seeded):
     assert json.loads(job.settings)["tier"] == "simple"
     ((job_id, fn, args),) = api._enqueued
     assert job_id == body["job_id"]
-    assert args == (job_id, [seeded.a, seeded.b], "simple", 2, False)
+    assert args == (job_id, [seeded.a, seeded.b], "simple", 2, False, 1)
 
 
 def test_start_rejects_scale_4_for_simple(client, seeded):
@@ -156,3 +156,27 @@ def test_start_unscanned_dims_read_from_header(client, seeded):
     assert r.status_code == 200
     skipped = {s["id"]: s["reason"] for s in r.json()["skipped"]}
     assert "150 MP" in skipped[seeded.unscanned]
+
+
+def test_start_shrink_first_runs_model_at_native_scale(client, seeded):
+    r = _post(client, file_ids=[seeded.a], tier="best", scale=4, shrink=4)
+    assert r.status_code == 200
+    ((_, _, args),) = api._enqueued
+    assert args[2:] == ("best", 4, False, 4)
+    seeded.db.expire_all()
+    assert json.loads(seeded.db.get(Job, r.json()["job_id"]).settings)["shrink"] == 4
+
+
+def test_start_shrink_first_rejects_non_native_scale(client, seeded):
+    r = _post(client, file_ids=[seeded.a], tier="best", scale=2, shrink=2)
+    assert r.status_code == 422 and "native" in r.json()["detail"]
+
+
+def test_start_rejects_unknown_shrink(client, seeded):
+    assert _post(client, file_ids=[seeded.a], shrink=7).status_code == 422
+
+
+def test_start_cap_uses_the_shrunk_size(client, seeded):
+    # 12 MP at 4x is over the cap; shrunk 4x first it comes back at its own size, so it runs
+    r = _post(client, file_ids=[seeded.huge], tier="best", scale=4, shrink=4)
+    assert r.status_code == 200 and r.json()["skipped"] == []

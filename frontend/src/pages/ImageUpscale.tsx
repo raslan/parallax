@@ -8,7 +8,13 @@ import { useGridSize } from "@/hooks/useGridSize";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import type { ImageFile } from "@/types/image";
-import type { UpscaleScale, UpscaleSkipped, UpscaleTierId } from "@/types/upscale";
+import type {
+  UpscaleResizeMode,
+  UpscaleScale,
+  UpscaleShrink,
+  UpscaleSkipped,
+  UpscaleTierId,
+} from "@/types/upscale";
 import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
 import { ToolbarSearch, ViewToggle } from "@/components/DataToolbar";
@@ -30,7 +36,7 @@ import {
 } from "@/components/FileSelectGrid";
 import { Button } from "@/components/ui/button";
 import { formatSize, sumSizeOf } from "@/lib/format";
-import { clampScale, exceedsCap, outputDims } from "@/lib/upscale";
+import { exceedsCap, outputDims } from "@/lib/upscale";
 
 type SortKey = "filename" | "size" | "pixels";
 
@@ -65,6 +71,8 @@ export function ImageUpscale() {
   const [libraryId, setLibraryId] = useState<number | null>(null);
   const [tier, setTier] = useState<UpscaleTierId>("sharp");
   const [scale, setScale] = useState<UpscaleScale>(2);
+  const [resizeMode, setResizeMode] = useState<UpscaleResizeMode>("size");
+  const [shrink, setShrink] = useState<UpscaleShrink>(2);
   const [forceCpu, setForceCpu] = useState(false);
 
   const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
@@ -157,14 +165,13 @@ export function ImageUpscale() {
     [selectedFiles],
   );
   const sampleDims = largest ? { w: largest.width as number, h: largest.height as number } : null;
-  const overCap = sampleDims ? exceedsCap(sampleDims.w, sampleDims.h, scale) : false;
-  const out = sampleDims ? outputDims(sampleDims.w, sampleDims.h, scale) : null;
-
-  const handleTierChange = (id: UpscaleTierId) => {
-    setTier(id);
-    const next = tiers.find((t) => t.id === id);
-    if (next) setScale((s) => clampScale(next, s));
-  };
+  // Shrink first always runs the model at its own native scale; output size picks the scale.
+  const native = (tiers.find((t) => t.id === tier)?.scale ?? 2) as UpscaleScale;
+  const shrinking = resizeMode === "shrink";
+  const effScale = shrinking ? native : scale;
+  const effShrink: UpscaleShrink = shrinking ? shrink : 1;
+  const overCap = sampleDims ? exceedsCap(sampleDims.w, sampleDims.h, effScale, effShrink) : false;
+  const out = sampleDims ? outputDims(sampleDims.w, sampleDims.h, effScale, effShrink) : null;
 
   const {
     jobId,
@@ -195,7 +202,8 @@ export function ImageUpscale() {
       upscaleApi.start({
         file_ids: selectedFiles.map((f) => f.id),
         tier,
-        scale,
+        scale: effScale,
+        shrink: effShrink,
         force_cpu: forceCpu,
       }),
     onSuccess: (res) => {
@@ -235,11 +243,15 @@ export function ImageUpscale() {
           tiers={tiers}
           tier={tier}
           scale={scale}
+          resizeMode={resizeMode}
+          shrink={shrink}
           forceCpu={forceCpu}
           gpuAvailable={gpuAvailable}
           sampleDims={sampleDims}
-          onTierChange={handleTierChange}
+          onTierChange={setTier}
           onScaleChange={setScale}
+          onResizeModeChange={setResizeMode}
+          onShrinkChange={setShrink}
           onForceCpuChange={setForceCpu}
         />
       </div>
@@ -424,9 +436,7 @@ export function ImageUpscale() {
         onClear={selectNone}
         summary={
           overCap ? (
-            <span className="text-sm text-orange-400">
-              Too large at {scale}× — pick a smaller size
-            </span>
+            <span className="text-sm text-orange-400">Too large — pick a smaller size</span>
           ) : out ? (
             <span className="flex items-center gap-2 text-sm">
               <span aria-hidden className="text-muted-foreground">

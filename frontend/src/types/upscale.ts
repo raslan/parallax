@@ -1,5 +1,9 @@
 export type UpscaleTierId = "simple" | "sharp" | "best";
 export type UpscaleScale = 1 | 2 | 4;
+/** 1 = off; >1 shrinks the image first, then the model runs at its native scale. */
+export type UpscaleShrink = 1 | 2 | 3 | 4;
+/** How the new size is chosen: a direct output size, or shrink-first. */
+export type UpscaleResizeMode = "size" | "shrink";
 
 export interface UpscaleTier {
   id: UpscaleTierId;
@@ -21,6 +25,7 @@ export interface UpscaleStartRequest {
   file_ids: number[];
   tier: UpscaleTierId;
   scale: UpscaleScale;
+  shrink: UpscaleShrink;
   force_cpu: boolean;
 }
 

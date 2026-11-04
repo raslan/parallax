@@ -430,6 +430,8 @@ class UpscaleStartRequest(BaseModel):
     file_ids: list[int]
     tier: Literal["simple", "sharp", "best"]
     scale: Literal[1, 2, 4]
+    # 1 = off. >1 shrinks the source first, then runs the model at its native scale.
+    shrink: Literal[1, 2, 3, 4] = 1
     force_cpu: bool = False
 
 

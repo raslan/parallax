@@ -117,6 +117,44 @@ describe("ImageUpscale", () => {
         file_ids: [1],
         tier: "sharp",
         scale: 2,
+        shrink: 1,
+        force_cpu: false,
+      }),
+    );
+  });
+
+  it("shrink first sends the model's native scale with the chosen shrink factor", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Shrink first/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^¼/ }));
+    // 1000×800 → 250×200 → ×2 (Sharp's native scale) = 500×400
+    expect(screen.getAllByText(/500×400|500 × 400/).length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
+    await waitFor(() =>
+      expect(upscaleApi.start).toHaveBeenCalledWith({
+        file_ids: [1],
+        tier: "sharp",
+        scale: 2,
+        shrink: 4,
+        force_cpu: false,
+      }),
+    );
+  });
+
+  it("switching to a model with a different native scale starts from that scale", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Best/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
+    await waitFor(() =>
+      expect(upscaleApi.start).toHaveBeenCalledWith({
+        file_ids: [1],
+        tier: "best",
+        scale: 4,
+        shrink: 1,
         force_cpu: false,
       }),
     );
@@ -145,7 +183,7 @@ describe("ImageUpscale", () => {
     fireEvent.click(await screen.findByText("huge.jpg"));
     const btn = (await screen.findByRole("button", { name: /Upscale 1/ })) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
-    expect(screen.getByText(/Too large at 2×/)).toBeDefined();
+    expect(screen.getByText(/Too large/)).toBeDefined();
   });
   it("only counts and sends the selected images that are still visible", async () => {
     renderPage();

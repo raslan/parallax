@@ -62,3 +62,38 @@ def test_output_path_names():
 
 def test_output_path_keeps_extension_case():
     assert plan.output_path("/a/P.JPG", 1, exists=lambda _: False) == "/a/P_1x.JPG"
+
+
+def test_output_size_with_shrink_runs_model_at_native():
+    # 4000x3000 shrunk 4x = 1000x750, then the 4x model -> back to 4000x3000
+    assert plan.output_size(4000, 3000, 4, 4, shrink=4) == (4000, 3000)
+    # shrunk 2x then 2x model -> original size
+    # odd sizes round the shrunk side half-up: 801/2 -> 401, then x2
+    assert plan.output_size(801, 601, 2, 2, shrink=2) == (802, 602)
+
+
+def test_output_size_shrink_requires_native_scale():
+    with pytest.raises(ValueError):
+        plan.output_size(800, 600, 4, 2, shrink=2)
+
+
+def test_shrunk_size_never_zero():
+    assert plan.shrunk_size(3, 2, 4) == (1, 1)
+    assert plan.shrunk_size(1000, 500, 3) == (333, 167)
+
+
+def test_skip_reason_cap_accounts_for_shrink():
+    # 12 MP x4 is over the cap, but shrunk 4x first (then x4 again) it is the original size
+    assert "150 MP" in plan.skip_reason("/a/p.jpg", 4000, 3000, 4)
+    assert plan.skip_reason("/a/p.jpg", 4000, 3000, 4, shrink=4) is None
+    # shrunk 2x then the 4x model = 2x the source per side: 12 MP -> 48 MP, fine
+    assert plan.skip_reason("/a/p.jpg", 4000, 3000, 4, shrink=2) is None
+    assert "150 MP" in plan.skip_reason("/a/p.jpg", 9000, 6000, 4, shrink=2)
+
+
+def test_output_path_shrink_tag():
+    assert plan.output_path("/a/p.jpg", 2, exists=lambda _: False, shrink=2) == "/a/p_s2_2x.jpg"
+    taken = {"/a/p_s2_2x.jpg"}
+    assert (
+        plan.output_path("/a/p.jpg", 2, exists=taken.__contains__, shrink=2) == "/a/p_s2_2x_1.jpg"
+    )
