@@ -19,7 +19,8 @@ import { EmptyState, NoLibrariesState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
 import { ToolbarSearch, ViewToggle } from "@/components/DataToolbar";
 import { useConfirm } from "@/components/ConfirmProvider";
-import { KeepOriginalsToggle, LibraryBar } from "@/components/LibraryBar";
+import { LibraryBar } from "@/components/LibraryBar";
+import { RadioToggle } from "@/components/RadioToggle";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { ImageThumbnail } from "@/components/ImageThumbnail";
 import { ImageViewerModal } from "@/components/ImageViewerModal";
@@ -75,8 +76,9 @@ export function ImageUpscale() {
   const [resizeMode, setResizeMode] = useState<UpscaleResizeMode>("size");
   const [shrink, setShrink] = useState<UpscaleShrink>(2);
   const [forceCpu, setForceCpu] = useState(false);
-  const [replace, setReplace] = useState(false);
-  const [keepOriginal, setKeepOriginal] = useState(true);
+  const [originals, setOriginals] = useState<"keep" | "quarantine" | "overwrite">("keep");
+  const replace = originals !== "keep";
+  const keepOriginal = originals !== "overwrite";
   const confirm = useConfirm();
 
   const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
@@ -225,7 +227,7 @@ export function ImageUpscale() {
       !keepOriginal &&
       !(await confirm({
         title: "Replace originals?",
-        description: `${describeSelection(selectedFiles.length, "image", selectedBytes)} will be permanently overwritten by the upscaled copies. Turn on "Keep originals" to move them to quarantine instead.`,
+        description: `${describeSelection(selectedFiles.length, "image", selectedBytes)} will be permanently overwritten by the upscaled copies. Choose "Replace" instead to move them to quarantine.`,
         confirmText: "Replace",
         destructive: true,
       }))
@@ -265,20 +267,27 @@ export function ImageUpscale() {
           libraryId={libraryId}
           onLibraryChange={changeLibrary}
           right={
-            <div className="flex min-w-0 flex-col gap-2">
-              <KeepOriginalsToggle
-                label="Replace originals"
-                checked={replace}
-                onChange={setReplace}
-                hint="The upscaled copy takes the original's place instead of sitting beside it"
-              />
-              {replace && (
-                <KeepOriginalsToggle
-                  checked={keepOriginal}
-                  onChange={setKeepOriginal}
-                  hint="Move each original to _quarantine/ — restore it from the Quarantined page"
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="shrink-0 text-sm text-muted-foreground">Originals</span>
+                <RadioToggle
+                  value={originals}
+                  onChange={setOriginals}
+                  options={[
+                    { id: "keep", label: "Keep both" },
+                    { id: "quarantine", label: "Replace" },
+                    { id: "overwrite", label: "Overwrite" },
+                  ]}
                 />
-              )}
+              </div>
+              <span className="text-2xs leading-tight text-muted-foreground/60">
+                {originals === "keep" &&
+                  "The upscaled copy is saved next to each original, which is not changed"}
+                {originals === "quarantine" &&
+                  "The copy takes the original's place; the original goes to _quarantine/ and can be restored"}
+                {originals === "overwrite" &&
+                  "The copy takes the original's place; the original is permanently deleted"}
+              </span>
             </div>
           }
         />

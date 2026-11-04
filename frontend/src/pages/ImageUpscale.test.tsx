@@ -153,7 +153,7 @@ describe("ImageUpscale", () => {
   it("replace originals keeps them in quarantine by default and needs no confirmation", async () => {
     renderPage();
     fireEvent.click(await screen.findByText("a.jpg"));
-    fireEvent.click(screen.getByRole("switch", { name: /Replace originals/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
     fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
     await waitFor(() =>
       expect(upscaleApi.start).toHaveBeenCalledWith(
@@ -165,8 +165,7 @@ describe("ImageUpscale", () => {
   it("replacing without keeping originals asks before overwriting", async () => {
     renderPage();
     fireEvent.click(await screen.findByText("a.jpg"));
-    fireEvent.click(screen.getByRole("switch", { name: /Replace originals/ }));
-    fireEvent.click(screen.getByRole("switch", { name: /Keep originals/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Overwrite" }));
     fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
     expect(await screen.findByText(/permanently overwritten/i)).toBeDefined();
     expect(upscaleApi.start).not.toHaveBeenCalled();
@@ -181,8 +180,7 @@ describe("ImageUpscale", () => {
   it("cancelling the overwrite confirmation starts nothing", async () => {
     renderPage();
     fireEvent.click(await screen.findByText("a.jpg"));
-    fireEvent.click(screen.getByRole("switch", { name: /Replace originals/ }));
-    fireEvent.click(screen.getByRole("switch", { name: /Keep originals/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Overwrite" }));
     fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Cancel/ }));
     await waitFor(() => expect(screen.queryByText(/permanently overwritten/i)).toBeNull());
