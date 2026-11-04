@@ -35,7 +35,7 @@ function DialogContent({ className, children, onClose, ...rest }: DialogContentP
   return (
     <div
       className={cn(
-        "relative z-50 w-full max-w-lg rounded-lg border bg-card p-6 shadow-lg",
+        "relative z-50 w-full max-w-lg min-w-0 break-words rounded-lg border bg-card p-6 shadow-lg",
         className,
       )}
       {...rest}
