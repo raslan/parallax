@@ -1,0 +1,100 @@
+{
+  "converted_with": {
+    "pnnx": "20261020",
+    "ncnn": "1.0.20261020"
+  },
+  "credits": {
+    "ncnn": {
+      "copyright": "Copyright (C) 2017 Tencent. All rights reserved.",
+      "licence_name": "BSD 3-Clause License",
+      "url": "https://github.com/Tencent/ncnn",
+      "text": "Tencent is pleased to support the open source community by making ncnn available.\nCopyright (C) 2017 Tencent.  All rights reserved.\n\nncnn is licensed under the BSD 3-Clause License (https://github.com/Tencent/ncnn/blob/master/LICENSE.txt).\n\nTerms of the BSD 3-Clause License:\n--------------------------------------------------------------------\n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\nRedistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\nRedistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\nNeither the name of [copyright holder] nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+    }
+  },
+  "models": [
+    {
+      "name": "2xNomosUni_span_multijpg",
+      "tier": "simple",
+      "scale": 2,
+      "arch": "SPAN",
+      "input_blob": "in0",
+      "output_blob": "out0",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "CC-BY-4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "release_url": "https://github.com/Phhofm/models/releases/tag/2xNomosUni_span_multijpg",
+      "note": "converted to ncnn format",
+      "source_page": "https://github.com/Phhofm/models/releases/tag/2xNomosUni_span_multijpg",
+      "source_url": "https://github.com/Phhofm/models/releases/download/2xNomosUni_span_multijpg/2xNomosUni_span_multijpg_fp32_opset17.onnx",
+      "source_sha256": "4c088922fcb40584a95a1b98009e3042a61ada46f237a9e72e8a2ed127832004",
+      "param": "2xNomosUni_span_multijpg.param",
+      "bin": "2xNomosUni_span_multijpg.bin",
+      "param_sha256": "50a7923563532f2d5e7bec9e0733b433cef7e91a27fec6ba632709116debb5ae",
+      "bin_sha256": "18f451966d86454ea221ad5d7b877920866903d742d77e7462a4771975156bfa",
+      "size_bytes": 1649018,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 120.0,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 64.1
+        }
+      }
+    },
+    {
+      "name": "2xNomosUni_compact_otf_medium",
+      "tier": "sharp",
+      "scale": 2,
+      "arch": "Compact",
+      "input_blob": "in0",
+      "output_blob": "out0",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "CC-BY-4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "release_url": "https://github.com/Phhofm/models/releases/tag/2xNomosUni_compact_otf_medium",
+      "note": "converted to ncnn format",
+      "source_page": "https://github.com/Phhofm/models/releases/tag/2xNomosUni_compact_otf_medium",
+      "source_url": "https://github.com/Phhofm/models/releases/download/2xNomosUni_compact_otf_medium/2xNomosUni_compact_otf_medium_fp32_opset17.onnx",
+      "source_sha256": "69c5d780acf2fa5814ef6eaa76822ab8c5439641d21f2c80be16c0ff5e9c1992",
+      "param": "2xNomosUni_compact_otf_medium.param",
+      "bin": "2xNomosUni_compact_otf_medium.bin",
+      "param_sha256": "a14247c2546714e748ab10079b04f085c89ec53b40e4cce3d11e5057308bf67b",
+      "bin_sha256": "624017b254d27da68747d95bd2358db23f1998cd721630a3eb385a2aec84e371",
+      "size_bytes": 2406224,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 120.0,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 66.7
+        }
+      }
+    },
+    {
+      "name": "4xNomosWebPhoto_RealPLKSR",
+      "tier": "best",
+      "scale": 4,
+      "arch": "RealPLKSR",
+      "input_blob": "in0",
+      "output_blob": "out0",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "CC-BY-4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "release_url": "https://github.com/Phhofm/models/releases/tag/4xNomosWebPhoto_RealPLKSR",
+      "note": "converted to ncnn format",
+      "source_page": "https://github.com/Phhofm/models/releases/tag/4xNomosWebPhoto_RealPLKSR",
+      "source_url": "https://github.com/Phhofm/models/releases/download/4xNomosWebPhoto_RealPLKSR/4xNomosWebPhoto_RealPLKSR.pth",
+      "source_sha256": "a9db66c9b674c6a5025b6ef3bee71a57c33b8605d8a2de0980470f89002efbbe",
+      "param": "4xNomosWebPhoto_RealPLKSR.param",
+      "bin": "4xNomosWebPhoto_RealPLKSR.bin",
+      "param_sha256": "06f81f204849cb0e4e437409186f58040f168b4c299d7d0b2dbb8edd289ef851",
+      "bin_sha256": "526d4e39dc2ca34296f29d796b49348821b4e4269fadf3b26e85a33da44e2f9f",
+      "size_bytes": 29591103,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 118.7,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 66.4
+        }
+      }
+    }
+  ]
+}
