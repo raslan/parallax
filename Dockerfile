@@ -29,7 +29,7 @@ FROM python:3.12-slim AS base
 ARG JELLYFIN_FFMPEG_VERSION
 ARG JELLYFIN_FFMPEG_DEB
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends unar curl && \
+    apt-get install -y --no-install-recommends unar curl libvulkan1 && \
     curl -fL -o /tmp/jellyfin-ffmpeg.deb \
       "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v${JELLYFIN_FFMPEG_VERSION}/${JELLYFIN_FFMPEG_DEB}" && \
     apt-get install -y --no-install-recommends /tmp/jellyfin-ffmpeg.deb && \

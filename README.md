@@ -137,10 +137,12 @@ deploy:
       devices:
         - driver: nvidia
           count: all
-          capabilities: [gpu, video]
+          capabilities: [gpu, video, graphics, utility]
 ```
 
 `count: all` forwards every NVIDIA GPU on the host into the container — with more than one, Compress and Toolbox jobs automatically spread transcode work across all of them, no extra configuration needed.
+
+The `graphics` and `utility` capabilities let the image **Upscale** page use the GPU through Vulkan. Without them (or with no discrete GPU) Upscale still works, just on the CPU, and much more slowly. With plain `docker run`, add `-e NVIDIA_DRIVER_CAPABILITIES=all` to `--gpus all` for the same effect.
 
 **AMD (VA-API):** add these to the service above instead:
 
