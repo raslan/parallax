@@ -18,6 +18,7 @@ const TYPE_LABEL: Record<string, string> = {
   audio_duplicates: "Audio Duplicates",
   toolbox_fix: "Toolbox fix",
   splice_merge: "Splice",
+  image_upscale: "Image Upscale",
   thumbnail_warm: "Generating thumbnails",
   // Stat-only kind: files removed by Cleanup, duplicates or image delete (no queue job).
   delete: "Cleanup",

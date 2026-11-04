@@ -419,7 +419,7 @@ export function ImageUpscale() {
       )}
 
       <SelectionBar
-        count={selected.size}
+        count={selectedFiles.length}
         bytes={selectedBytes}
         onClear={selectNone}
         summary={
@@ -449,7 +449,7 @@ export function ImageUpscale() {
           ) : (
             <Sparkles className="h-4 w-4 mr-2" />
           )}
-          Upscale {selected.size}
+          Upscale {selectedFiles.length}
         </Button>
       </SelectionBar>
 

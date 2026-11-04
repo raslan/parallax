@@ -138,3 +138,42 @@ def test_mpo_phone_jpeg_is_treated_as_jpeg(tmp_path):
     assert Image.open(p).format == "MPO"
     loaded = io.load_image(str(p))
     assert loaded.fmt == "JPEG" and loaded.rgb.shape == (12, 16, 3)
+
+
+def test_gray_icc_profile_not_attached_to_rgb_output(tmp_path):
+    from PIL import ImageCms
+
+    icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    p = tmp_path / "gray.png"
+    Image.new("L", (8, 8), 90).save(p, icc_profile=icc)
+    loaded = io.load_image(str(p))
+    assert loaded.icc is None  # the output is RGB; a Gray profile would mismatch it
+
+
+def test_colour_key_transparency_becomes_alpha(tmp_path):
+    arr = np.zeros((10, 20, 3), dtype=np.uint8)
+    arr[:, :10] = (10, 20, 30)  # keyed colour
+    arr[:, 10:] = (200, 100, 50)
+    p = tmp_path / "key.png"
+    Image.fromarray(arr, "RGB").save(p, transparency=(10, 20, 30))
+    loaded = io.load_image(str(p))
+    assert loaded.alpha is not None
+    a = np.asarray(loaded.alpha)
+    assert a[5, 2] == 0 and a[5, 15] == 255
+
+
+def test_webp_alpha_roundtrip(tmp_path):
+    rgba = np.zeros((20, 30, 4), dtype=np.uint8)
+    rgba[:, :, :3] = (10, 120, 200)
+    rgba[:, :15, 3] = 255
+    p = tmp_path / "a.webp"
+    Image.fromarray(rgba, "RGBA").save(p, lossless=True)
+    loaded = io.load_image(str(p))
+    assert loaded.alpha is not None and loaded.fmt == "WEBP"
+    big = np.repeat(np.repeat(loaded.rgb, 2, axis=0), 2, axis=1)
+    out = tmp_path / "o.webp"
+    io.save_image(str(out), big, loaded)
+    res = Image.open(out)
+    assert res.mode == "RGBA" and res.size == (60, 40)
+    a = np.array(res)[:, :, 3]
+    assert a[20, 5] > 200 and a[20, 55] < 50

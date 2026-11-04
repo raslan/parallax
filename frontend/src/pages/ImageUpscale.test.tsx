@@ -147,4 +147,11 @@ describe("ImageUpscale", () => {
     expect(btn.disabled).toBe(true);
     expect(screen.getByText(/Too large at 2×/)).toBeDefined();
   });
+  it("only counts and sends the selected images that are still visible", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    await screen.findByRole("button", { name: /Upscale 1/ });
+    fireEvent.change(screen.getByPlaceholderText("Search images…"), { target: { value: "zzz" } });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Upscale \d/ })).toBeNull());
+  });
 });

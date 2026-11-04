@@ -307,3 +307,36 @@ def test_no_stat_event_written(env):
     stats.record_finished_job(job_id)
     env.db.expire_all()
     assert env.db.query(StatEvent).count() == before
+
+
+def test_watcher_reconciled_once_per_batch(env):
+    a, _ = env.add_image("a.jpg", (20, 20))
+    b, _ = env.add_image("b.jpg", (20, 20))
+    job_id = env.new_job()
+    up.run_image_upscale_job(job_id, [a, b], "simple", 2, False)
+    # _apply reconciles the whole library; once per output would walk it N times.
+    assert len(env.applied) == 1
+    assert env.applied[0][2] == frozenset({str(env.dir / "a_2x.jpg"), str(env.dir / "b_2x.jpg")})
+
+
+def test_real_model_tiles_match_whole_image():
+    """The 16 px reflect padding must be enough context for the real net: no visible seams."""
+    pytest.importorskip("ncnn")
+    from app.services import _image_upscaler_impl as impl
+
+    tier = get_tier("simple")
+    rng = np.random.default_rng(3)
+    rgb = _gradient(250, 300)
+    rgb = np.clip(rgb.astype(int) + rng.integers(-6, 7, rgb.shape), 0, 255).astype(np.uint8)
+    rgb[100:140, 120:200] = (240, 30, 30)  # a hard edge crossing the tile boundary at x=192
+
+    def real_tile(t, device, tile):
+        return impl.run_tile(t.param_path, t.bin_path, "cpu", tile)
+
+    tiled = up.upscale_array(rgb, tier, 2, "cpu", lambda: None, lambda: False, tile_fn=real_tile)
+
+    net = impl._load(tier.param_path, tier.bin_path, "cpu", 0)
+    whole = up._to_uint8(impl._infer(net, np.ascontiguousarray(rgb.transpose(2, 0, 1)) / 255.0))
+
+    diff = np.abs(tiled.astype(int) - whole.astype(int))[40:-40, 40:-40]
+    assert diff.max() <= 8, f"seam: max diff {diff.max()}"

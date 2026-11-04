@@ -188,10 +188,6 @@ def _upscale_one(
     finally:
         with contextlib.suppress(OSError):
             os.remove(tmp)
-    if result["output"]:
-        # Best-effort: show the new file at once instead of waiting for the watcher's debounce.
-        with contextlib.suppress(Exception):
-            fs_watcher._apply("image", src.library_id, frozenset({result["output"]}))
     return result
 
 
@@ -270,6 +266,14 @@ def run_image_upscale_job(
             clear_cancel(job_id)
 
         ok = [r for r in results if r["output"]]
+        if ok and sources:
+            # Best-effort, once per batch: `_apply` reconciles the whole library (a full walk plus a
+            # stat of every row, under a global lock), so doing it per output would repeat that
+            # N times. This makes the new files appear now instead of after the watcher debounce.
+            with contextlib.suppress(Exception):
+                fs_watcher._apply(
+                    "image", sources[0].library_id, frozenset(r["output"] for r in ok)
+                )
         bad = [r for r in results if not r["output"]]
         if cancelled:
             status = JobStatus.CANCELLED

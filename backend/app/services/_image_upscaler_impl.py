@@ -36,8 +36,10 @@ def _load(param_path: str, bin_path: str, device: str, gpu_index: int):
 def _infer(net, tile: np.ndarray) -> np.ndarray:
     import ncnn
 
+    # ncnn.Mat borrows the array's memory: keep a reference until the clone has copied it.
+    data = np.ascontiguousarray(tile, dtype=np.float32)
     with net.create_extractor() as ex:
-        ex.input("in0", ncnn.Mat(np.ascontiguousarray(tile, dtype=np.float32)).clone())
+        ex.input("in0", ncnn.Mat(data).clone())
         _, out = ex.extract("out0")
         return np.array(out)
 

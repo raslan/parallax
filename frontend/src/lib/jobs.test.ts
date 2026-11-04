@@ -26,6 +26,10 @@ describe("jobLabel", () => {
     expect(jobLabel("audio_toolbox")).toBe("Audio Toolbox");
     expect(jobLabel("something_new")).toBe("something_new");
   });
+
+  it("labels image upscale jobs", () => {
+    expect(jobLabel("image_upscale")).toBe("Image Upscale");
+  });
 });
 
 describe("newlyCompleted", () => {

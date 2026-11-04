@@ -48,6 +48,9 @@ def _load(path: str) -> LoadedImage:
         if fmt not in _FORMATS:
             raise UnsupportedImage("format not supported")
         icc = img.info.get("icc_profile")
+        if img.mode in ("L", "LA", "1"):
+            icc = None  # a Gray profile must not be attached to the RGB output
+        has_colour_key = "transparency" in img.info
         img.load()
         upright = ImageOps.exif_transpose(img)
 
@@ -58,7 +61,8 @@ def _load(path: str) -> LoadedImage:
     exif.pop(_ORIENTATION_TAG, None)  # baked into the pixels below; must not rotate twice
     exif_bytes = exif.tobytes() if len(exif) else None
 
-    if upright.mode == "P" and "transparency" in upright.info:
+    # Palette transparency and PNG colour-key (tRNS) transparency both become a real alpha plane.
+    if has_colour_key and upright.mode in ("P", "L", "RGB"):
         upright = upright.convert("RGBA")
     alpha = None
     if upright.mode in _ALPHA_MODES:
