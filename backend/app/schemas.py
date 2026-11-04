@@ -428,7 +428,7 @@ class PruneDetailsResult(BaseModel):
 
 class UpscaleStartRequest(BaseModel):
     file_ids: list[int]
-    tier: Literal["fast", "natural"]
+    tier: Literal["fast", "sharp", "natural"]
     scale: Literal[1, 2, 4]
     # Percent of the original size to resize to *before* the model (100 = off); the model then runs
     # at its native scale, so the output is `prescaled × native`. Any value from 10 to 100 works.

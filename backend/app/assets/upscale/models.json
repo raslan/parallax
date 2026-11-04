@@ -41,6 +41,34 @@
       }
     },
     {
+      "name": "4xNERVE_OTF_fidelity",
+      "tier": "sharp",
+      "scale": 4,
+      "arch": "NERVE",
+      "input_blob": "in0",
+      "output_blob": "out0",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "Apache-2.0",
+      "licence_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "release_url": "https://huggingface.co/Phips/NERVE",
+      "note": "fp16 ncnn model published by the author, bundled unchanged",
+      "source_page": "https://huggingface.co/Phips/NERVE",
+      "source_url": "https://huggingface.co/Phips/NERVE/tree/main/ncnn",
+      "source_sha256": "4454d5059cfcf52461cf7cb2251cbfd78c0b0702eb17ba251a48d75a5da48b05",
+      "param": "4xNERVE_OTF_fidelity.param",
+      "bin": "4xNERVE_OTF_fidelity.bin",
+      "param_sha256": "2c84e617c00c0c3e472df75672ad0b082796c4a459a36c85af8971607cd3cda5",
+      "bin_sha256": "4454d5059cfcf52461cf7cb2251cbfd78c0b0702eb17ba251a48d75a5da48b05",
+      "size_bytes": 3613370,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 89.0,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 67.9
+        }
+      }
+    },
+    {
       "name": "4xNomos8kSC",
       "tier": "natural",
       "scale": 4,

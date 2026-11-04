@@ -77,13 +77,13 @@ def _post(client, **kw):
     return client.post("/api/image-upscale/start", json=body)
 
 
-def test_tiers_lists_two(client):
+def test_tiers_lists_three(client):
     r = client.get("/api/image-upscale/tiers")
     assert r.status_code == 200
     data = r.json()
-    assert [t["id"] for t in data["tiers"]] == ["fast", "natural"]
-    assert [t["scales"] for t in data["tiers"]] == [[1, 2, 4], [1, 2, 4]]
-    assert [t["speed"] for t in data["tiers"]] == ["fast", "slow"]
+    assert [t["id"] for t in data["tiers"]] == ["fast", "sharp", "natural"]
+    assert [t["scales"] for t in data["tiers"]] == [[1, 2, 4]] * 3
+    assert [t["speed"] for t in data["tiers"]] == ["fast", "fast", "slow"]
     assert all(t["hint"] for t in data["tiers"])
     assert data["gpu_available"] is True
 
@@ -91,7 +91,7 @@ def test_tiers_lists_two(client):
 def test_credits_ok(client):
     r = client.get("/api/image-upscale/credits")
     assert r.status_code == 200
-    assert len(r.json()["models"]) == 2 and "BSD" in r.json()["ncnn"]["text"]
+    assert len(r.json()["models"]) == 3 and "BSD" in r.json()["ncnn"]["text"]
 
 
 def test_start_creates_job(client, seeded):
@@ -117,7 +117,7 @@ def test_start_rejects_a_scale_the_tier_cannot_produce(client, seeded, monkeypat
     assert r.status_code == 422 and "4" in r.json()["detail"]
 
 
-@pytest.mark.parametrize("tier", ["fast", "natural"])
+@pytest.mark.parametrize("tier", ["fast", "sharp", "natural"])
 def test_start_allows_scale_4_for_the_4x_models(client, seeded, tier):
     assert _post(client, file_ids=[seeded.a], tier=tier, scale=4).status_code == 200
 

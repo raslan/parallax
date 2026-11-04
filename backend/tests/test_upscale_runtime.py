@@ -125,11 +125,12 @@ def test_run_tile_forwards_the_tiers_blob_names_to_the_worker(monkeypatch):
     assert seen["args"][-2:] == ("data", "output")
 
 
-def test_real_natural_model_runs_with_its_own_blob_names():
+@pytest.mark.parametrize("tier_id", ["fast", "sharp", "natural"])
+def test_every_real_model_runs_with_its_own_blob_names(tier_id):
     pytest.importorskip("ncnn")
     from app.services import _image_upscaler_impl as impl
 
-    tier = get_tier("natural")
+    tier = get_tier(tier_id)
     assert tier.scale == 4
     rng = np.random.default_rng(1)
     tile = rng.random((3, 32, 32), dtype=np.float32) * 0.5 + 0.25  # fully convolutional: any size

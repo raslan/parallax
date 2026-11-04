@@ -22,6 +22,12 @@ _TIER_COPY: dict[str, dict[str, str]] = {
         "toes stay faithful) and handles JPEG photos well, but fine texture such as hair "
         "or rock comes out a little soft.",
     },
+    "sharp": {
+        "label": "Sharp",
+        "speed": "fast",
+        "hint": "As quick as Fast but crisper, and good at cleaning up JPEG artefacts. Can add "
+        "faint texture to fine detail such as toes or eyelids.",
+    },
     "natural": {
         "label": "Natural",
         "speed": "slow",
@@ -29,7 +35,7 @@ _TIER_COPY: dict[str, dict[str, str]] = {
         "still careful not to invent detail.",
     },
 }
-_TIER_ORDER = ("fast", "natural")
+_TIER_ORDER = ("fast", "sharp", "natural")
 
 _verified: set[str] = set()
 

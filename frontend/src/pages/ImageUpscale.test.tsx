@@ -80,6 +80,7 @@ beforeEach(() => {
     gpu_available: false,
     tiers: [
       { id: "fast", label: "Fast", scale: 4, speed: "fast", hint: "", scales: [1, 2, 4] },
+      { id: "sharp", label: "Sharp", scale: 4, speed: "fast", hint: "", scales: [1, 2, 4] },
       { id: "natural", label: "Natural", scale: 4, speed: "slow", hint: "", scales: [1, 2, 4] },
     ],
   });
