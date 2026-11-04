@@ -6,67 +6,26 @@ Non-GPU helpers (metadata, phash, cosine_similarity) run in-process.
 """
 
 import json
-import multiprocessing
 import os
 import struct
-import threading
-from concurrent.futures import BrokenExecutor, ProcessPoolExecutor
 
 import imagehash
 import numpy as np
 from PIL import ExifTags, Image
 
-_spawn_ctx = multiprocessing.get_context("spawn")
-_executor: ProcessPoolExecutor | None = None
-_executor_lock = threading.Lock()
+from app.services.worker_common import WorkerPool
 
-_IDLE_TIMEOUT = 120  # seconds
-_idle_timer: threading.Timer | None = None
-_idle_timer_lock = threading.Lock()
-
-
-def _get_executor() -> ProcessPoolExecutor:
-    global _executor
-    with _executor_lock:
-        if _executor is None:
-            _executor = ProcessPoolExecutor(max_workers=1, mp_context=_spawn_ctx)
-    return _executor
-
-
-def _reset_idle_timer() -> None:
-    global _idle_timer
-    with _idle_timer_lock:
-        if _idle_timer is not None:
-            _idle_timer.cancel()
-        _idle_timer = threading.Timer(_IDLE_TIMEOUT, release_sessions)
-        _idle_timer.daemon = True
-        _idle_timer.start()
+_pool = WorkerPool(idle_timeout=120)  # seconds
 
 
 def release_sessions() -> None:
     """Terminate the inference worker process, fully freeing GPU memory."""
-    global _executor, _idle_timer
-    with _idle_timer_lock:
-        if _idle_timer is not None:
-            _idle_timer.cancel()
-            _idle_timer = None
-    with _executor_lock:
-        if _executor is not None:
-            _executor.shutdown(wait=False, cancel_futures=True)
-            _executor = None
+    _pool.release()
 
 
 def _submit(fn, *args):
-    """Submit fn(*args) to the worker, recreating executor if it crashed."""
-    try:
-        result = _get_executor().submit(fn, *args).result()
-    except BrokenExecutor:
-        with _executor_lock:
-            global _executor
-            _executor = None
-        result = _get_executor().submit(fn, *args).result()
-    _reset_idle_timer()  # start/reset idle countdown after call finishes
-    return result
+    """Submit fn(*args) to the worker, recreating it if it crashed."""
+    return _pool.submit(fn, *args)
 
 
 # ---------------------------------------------------------------------------
