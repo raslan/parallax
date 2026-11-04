@@ -52,12 +52,13 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
     tier = get_tier(req.tier)
     if req.scale not in allowed_scales(tier):
         raise HTTPException(
-            422, f"{tier.label} can't produce {req.scale}× output — pick a smaller size or Best"
+            422,
+            f"{tier.label} can't produce {req.scale}× output — pick a smaller size or a 4× model",
         )
 
-    if req.shrink > 1 and req.scale != tier.scale:
+    if req.prescale < 100 and req.scale != tier.scale:
         raise HTTPException(
-            422, f"Shrink first always runs {tier.label} at its native {tier.scale}× size"
+            422, f"Pre-scaling always runs {tier.label} at its native {tier.scale}× size"
         )
 
     ids = list(dict.fromkeys(req.file_ids))
@@ -94,7 +95,7 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
         if not (width and height):
             size = header_size(path)
             width, height = size if size else (None, None)
-        reason = skip_reason(path, width, height, req.scale, req.shrink)
+        reason = skip_reason(path, width, height, req.scale, req.prescale)
         if reason:
             skipped.append(UpscaleSkipped(id=fid, reason=reason))
         else:
@@ -111,7 +112,7 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
             {
                 "tier": req.tier,
                 "scale": req.scale,
-                "shrink": req.shrink,
+                "prescale": req.prescale,
                 "replace": req.replace,
                 "keep_original": req.keep_original,
                 "force_cpu": req.force_cpu,
@@ -132,7 +133,7 @@ async def start_upscale(req: UpscaleStartRequest, db: Session = Depends(get_db))
         req.tier,
         req.scale,
         req.force_cpu,
-        req.shrink,
+        req.prescale,
         req.replace,
         req.keep_original,
     )

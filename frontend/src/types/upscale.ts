@@ -1,9 +1,7 @@
-export type UpscaleTierId = "simple" | "sharp" | "best";
+export type UpscaleTierId = "simple" | "sharp" | "natural" | "detailed";
 export type UpscaleScale = 1 | 2 | 4;
-/** 1 = off; >1 shrinks the image first, then the model runs at its native scale. */
-export type UpscaleShrink = 1 | 2 | 3 | 4;
-/** How the new size is chosen: a direct output size, or shrink-first. */
-export type UpscaleResizeMode = "size" | "shrink";
+/** How the new size is chosen: a direct output size, or a pre-scale percentage. */
+export type UpscaleResizeMode = "size" | "prescale";
 
 export interface UpscaleTier {
   id: UpscaleTierId;
@@ -25,7 +23,8 @@ export interface UpscaleStartRequest {
   file_ids: number[];
   tier: UpscaleTierId;
   scale: UpscaleScale;
-  shrink: UpscaleShrink;
+  /** Percent of the original size to resize to before the model (100 = off, 10–100); the model then runs at its native scale. */
+  prescale: number;
   /** The new file takes the original's place; the original goes to quarantine unless `keep_original` is off. */
   replace: boolean;
   keep_original: boolean;

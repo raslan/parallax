@@ -18,20 +18,29 @@ _TIER_COPY: dict[str, dict[str, str]] = {
     "simple": {
         "label": "Simple",
         "speed": "fast",
-        "hint": "Conservative — adds the least invented detail",
+        "hint": "Fastest and most conservative. Adds the least invented detail, so it's the safe "
+        "pick when the photo should stay faithful. Up to 2×.",
     },
     "sharp": {
         "label": "Sharp",
         "speed": "fast",
-        "hint": "Crisper; can add grain on flat areas",
+        "hint": "Fast and crisper than Simple. Can add grain on flat areas such as skies. "
+        "Up to 2×.",
     },
-    "best": {
-        "label": "Best",
+    "natural": {
+        "label": "Natural",
         "speed": "slow",
-        "hint": "Highest quality — much slower, especially on CPU",
+        "hint": "4× with a clean, photographic look. Fewer invented details (toes, eyes, "
+        "hair) than Detailed, a little softer, and a bit slower.",
+    },
+    "detailed": {
+        "label": "Detailed",
+        "speed": "slow",
+        "hint": "4× and the crispest result, but it can invent fine detail: faces, hands and "
+        "textures may look over-drawn. Best when crispness matters more than fidelity.",
     },
 }
-_TIER_ORDER = ("simple", "sharp", "best")
+_TIER_ORDER = ("simple", "sharp", "natural", "detailed")
 
 _verified: set[str] = set()
 
@@ -51,6 +60,8 @@ class UpscaleTier:
     param_path: str
     bin_path: str
     size_bytes: int
+    input_blob: str = "in0"  # pnnx output; pre-converted hub files use "data" / "output"
+    output_blob: str = "out0"
 
 
 def _load() -> dict:
@@ -79,6 +90,8 @@ def _tier_from(m: dict) -> UpscaleTier:
         param_path=str(ASSETS_DIR / m["param"]),
         bin_path=str(ASSETS_DIR / m["bin"]),
         size_bytes=m["size_bytes"],
+        input_blob=m["input_blob"],
+        output_blob=m["output_blob"],
     )
 
 

@@ -428,10 +428,11 @@ class PruneDetailsResult(BaseModel):
 
 class UpscaleStartRequest(BaseModel):
     file_ids: list[int]
-    tier: Literal["simple", "sharp", "best"]
+    tier: Literal["simple", "sharp", "natural", "detailed"]
     scale: Literal[1, 2, 4]
-    # 1 = off. >1 shrinks the source first, then runs the model at its native scale.
-    shrink: Literal[1, 2, 3, 4] = 1
+    # Percent of the original size to resize to *before* the model (100 = off); the model then runs
+    # at its native scale, so the output is `prescaled × native`. Any value from 10 to 100 works.
+    prescale: int = Field(100, ge=10, le=100)
     # True: the new file takes the original's path. The original then goes to `_quarantine/`
     # (restorable) when `keep_original`, or is overwritten when not.
     replace: bool = False

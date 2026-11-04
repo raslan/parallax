@@ -81,7 +81,8 @@ beforeEach(() => {
     tiers: [
       { id: "simple", label: "Simple", scale: 2, speed: "fast", hint: "", scales: [1, 2] },
       { id: "sharp", label: "Sharp", scale: 2, speed: "fast", hint: "", scales: [1, 2] },
-      { id: "best", label: "Best", scale: 4, speed: "slow", hint: "", scales: [1, 2, 4] },
+      { id: "natural", label: "Natural", scale: 4, speed: "slow", hint: "", scales: [1, 2, 4] },
+      { id: "detailed", label: "Detailed", scale: 4, speed: "slow", hint: "", scales: [1, 2, 4] },
     ],
   });
   vi.mocked(api.getJobs).mockResolvedValue([]);
@@ -120,7 +121,7 @@ describe("ImageUpscale", () => {
         file_ids: [1],
         tier: "sharp",
         scale: 2,
-        shrink: 1,
+        prescale: 100,
         replace: false,
         keep_original: true,
         force_cpu: false,
@@ -128,12 +129,12 @@ describe("ImageUpscale", () => {
     );
   });
 
-  it("shrink first sends the model's native scale with the chosen shrink factor", async () => {
+  it("pre-scale sends the model's native scale with the chosen percentage", async () => {
     renderPage();
     fireEvent.click(await screen.findByText("a.jpg"));
     fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^Shrink first/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^¼/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Pre-scale/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^25%/ }));
     // 1000×800 → 250×200 → ×2 (Sharp's native scale) = 500×400
     expect(screen.getAllByText(/500×400|500 × 400/).length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
@@ -142,11 +143,37 @@ describe("ImageUpscale", () => {
         file_ids: [1],
         tier: "sharp",
         scale: 2,
-        shrink: 4,
+        prescale: 25,
         replace: false,
         keep_original: true,
         force_cpu: false,
       }),
+    );
+  });
+
+  it("pre-scale takes a custom percentage, not only the 25 / 50 / 75 chips", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Pre-scale/ }));
+    fireEvent.change(screen.getByLabelText(/Pre-scale percentage/), { target: { value: "60" } });
+    // 1000×800 → 600×480 → ×2 = 1200×960
+    expect(screen.getAllByText(/1200×960|1200 × 960/).length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
+    await waitFor(() =>
+      expect(upscaleApi.start).toHaveBeenCalledWith(expect.objectContaining({ prescale: 60 })),
+    );
+  });
+
+  it("output-size mode never sends a pre-scale", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("a.jpg"));
+    fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Pre-scale/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Output size/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
+    await waitFor(() =>
+      expect(upscaleApi.start).toHaveBeenCalledWith(expect.objectContaining({ prescale: 100 })),
     );
   });
 
@@ -191,14 +218,14 @@ describe("ImageUpscale", () => {
     renderPage();
     fireEvent.click(await screen.findByText("a.jpg"));
     fireEvent.click(screen.getByRole("button", { name: /Upscale settings/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^Best/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Natural/ }));
     fireEvent.click(await screen.findByRole("button", { name: /Upscale 1/ }));
     await waitFor(() =>
       expect(upscaleApi.start).toHaveBeenCalledWith({
         file_ids: [1],
-        tier: "best",
+        tier: "natural",
         scale: 4,
-        shrink: 1,
+        prescale: 100,
         replace: false,
         keep_original: true,
         force_cpu: false,

@@ -1,15 +1,10 @@
 import { useId, useState } from "react";
 import { Link } from "react-router";
 import { ChevronRight, SlidersHorizontal } from "lucide-react";
-import type {
-  UpscaleResizeMode,
-  UpscaleScale,
-  UpscaleShrink,
-  UpscaleTier,
-  UpscaleTierId,
-} from "@/types/upscale";
+import type { UpscaleResizeMode, UpscaleScale, UpscaleTier, UpscaleTierId } from "@/types/upscale";
 import { RadioToggle } from "@/components/RadioToggle";
 import { PanelSheetContent } from "@/components/PanelSheetContent";
+import { UnitInput } from "@/components/UnitInput";
 import { Switch } from "@/components/ui/switch";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -19,44 +14,49 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { outputDims, speedLabel } from "@/lib/upscale";
+import {
+  PRESCALE_MIN,
+  PRESCALE_PRESETS,
+  clampPrescale,
+  formatScale,
+  outputDims,
+  overallScale,
+  speedLabel,
+} from "@/lib/upscale";
 
 const SCALES: UpscaleScale[] = [1, 2, 4];
-const SHRINKS: { id: UpscaleShrink; label: string }[] = [
-  { id: 2, label: "½" },
-  { id: 3, label: "⅓" },
-  { id: 4, label: "¼" },
-];
-const SHRINK_LABEL: Record<number, string> = { 2: "½", 3: "⅓", 4: "¼" };
 
 /**
  * Trigger bar ("Sharp · 2×") + non-modal right Sheet with the upscale settings. Props-in /
  * callbacks-out, like `CompressEstimatePanel`: the page owns the state and the queries.
  * Must render inside a Router (the footer links to Settings → Credits).
  *
- * The resize method is either an output size (1×/2×/4×, default = the model's own scale) or
- * "Shrink first": shrink the image, then run the model at its native scale. They are exclusive.
+ * The resize method is either an output size (1×/2×/4×, default = the model's own scale) or a
+ * "Pre-scale" percentage: resize the image first, then run the model at its native scale. They
+ * are exclusive. The percentage is a free input (any whole percent) with 25 / 50 / 75 chips as
+ * one-click suggestions — the model never needs a whole-number ratio.
  */
 export function UpscalePanel({
   tiers,
   tier,
   scale,
   resizeMode,
-  shrink,
+  prescale,
   forceCpu,
   gpuAvailable,
   sampleDims,
   onTierChange,
   onScaleChange,
   onResizeModeChange,
-  onShrinkChange,
+  onPrescaleChange,
   onForceCpuChange,
 }: {
   tiers: UpscaleTier[];
   tier: UpscaleTierId;
   scale: UpscaleScale;
   resizeMode: UpscaleResizeMode;
-  shrink: UpscaleShrink;
+  /** Percent of the original size to resize to first (10–100). */
+  prescale: number;
   forceCpu: boolean;
   gpuAvailable: boolean;
   /** Source dimensions of the largest selected image, for the output-size line. */
@@ -64,20 +64,22 @@ export function UpscalePanel({
   onTierChange: (t: UpscaleTierId) => void;
   onScaleChange: (s: UpscaleScale) => void;
   onResizeModeChange: (m: UpscaleResizeMode) => void;
-  onShrinkChange: (s: UpscaleShrink) => void;
+  onPrescaleChange: (pct: number) => void;
   onForceCpuChange: (v: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Text being typed in the percentage box; null = show the committed value.
+  const [draft, setDraft] = useState<string | null>(null);
   const cpuId = useId();
   const current = tiers.find((t) => t.id === tier);
   const native = (current?.scale ?? 2) as UpscaleScale;
-  const shrinking = resizeMode === "shrink";
+  const prescaling = resizeMode === "prescale";
   const out = sampleDims
-    ? shrinking
-      ? outputDims(sampleDims.w, sampleDims.h, native, shrink)
+    ? prescaling
+      ? outputDims(sampleDims.w, sampleDims.h, native, prescale)
       : outputDims(sampleDims.w, sampleDims.h, scale)
     : null;
-  const summary = shrinking ? `${SHRINK_LABEL[shrink] ?? shrink} then ${native}×` : `${scale}×`;
+  const summary = prescaling ? `${prescale}% then ${native}×` : `${scale}×`;
 
   // Each model has its own natural size: moving to a model with a different native scale starts
   // from that, while a model with the same native scale keeps whatever size was chosen.
@@ -85,6 +87,21 @@ export function UpscalePanel({
     onTierChange(id);
     const next = tiers.find((t) => t.id === id);
     if (next && current && next.scale !== current.scale) onScaleChange(next.scale as UpscaleScale);
+  };
+
+  // Typing "5" on the way to "50" must not be pushed up as a (too small) percentage: only a valid
+  // value is committed while typing, and blur clamps whatever is left.
+  const typePercent = (text: string) => {
+    setDraft(text);
+    const n = Number(text);
+    if (text.trim() !== "" && Number.isInteger(n) && n >= PRESCALE_MIN && n <= 100) {
+      onPrescaleChange(n);
+    }
+  };
+  const commitPercent = () => {
+    if (draft === null) return;
+    onPrescaleChange(clampPrescale(draft.trim() === "" ? prescale : Number(draft)));
+    setDraft(null);
   };
 
   const gpuNote = forceCpu
@@ -148,8 +165,8 @@ export function UpscalePanel({
                 <div>
                   <p className="text-xs font-medium text-foreground">Resize method</p>
                   <p className="mt-0.5 text-2xs text-muted-foreground/60">
-                    {shrinking
-                      ? `Shrinks the image first, then the model rebuilds detail at ${native}×. Good for large but blurry images.`
+                    {prescaling
+                      ? `Resizes the image to this percentage first, then the model rebuilds detail at ${native}×. Good for large but blurry images; a smaller percentage is faster but invents more.`
                       : "Makes the copy this much bigger than the original."}
                   </p>
                 </div>
@@ -158,15 +175,38 @@ export function UpscalePanel({
                   onChange={onResizeModeChange}
                   options={[
                     { id: "size", label: "Output size" },
-                    { id: "shrink", label: "Shrink first" },
+                    { id: "prescale", label: "Pre-scale" },
                   ]}
                 />
-                {shrinking ? (
-                  <RadioToggle
-                    value={String(shrink)}
-                    onChange={(v) => onShrinkChange(Number(v) as UpscaleShrink)}
-                    options={SHRINKS.map((s) => ({ id: String(s.id), label: s.label }))}
-                  />
+                {prescaling ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <RadioToggle
+                      value={
+                        (PRESCALE_PRESETS as readonly number[]).includes(prescale)
+                          ? String(prescale)
+                          : ""
+                      }
+                      onChange={(v) => {
+                        setDraft(null);
+                        onPrescaleChange(Number(v));
+                      }}
+                      options={PRESCALE_PRESETS.map((p) => ({ id: String(p), label: `${p}%` }))}
+                    />
+                    <UnitInput
+                      unit="%"
+                      aria-label="Pre-scale percentage"
+                      min={PRESCALE_MIN}
+                      max={100}
+                      step={1}
+                      value={draft ?? String(prescale)}
+                      onChange={(e) => typePercent(e.target.value)}
+                      onBlur={commitPercent}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitPercent();
+                      }}
+                      className="w-24"
+                    />
+                  </div>
                 ) : (
                   <RadioToggle
                     value={String(scale)}
@@ -177,10 +217,10 @@ export function UpscalePanel({
                         id: String(s),
                         label: `${s}×`,
                         disabled: !available,
-                        detail: available ? undefined : "needs Best",
+                        detail: available ? undefined : "needs a 4× model",
                         hint:
                           s === 1
-                            ? "Shrinking the result back to the original size mostly hides what the model added. Use Shrink first for a same-size, sharper copy."
+                            ? "Shrinking the result back to the original size mostly hides what the model added. Use Pre-scale for a same-size, sharper copy."
                             : undefined,
                       };
                     })}
@@ -192,6 +232,11 @@ export function UpscalePanel({
                     <span className="font-mono tabular-nums text-foreground">
                       {out.w} × {out.h}
                     </span>
+                    {prescaling && sampleDims && (
+                      <span className="text-muted-foreground/70">
+                        {` (${formatScale(overallScale(native, prescale))} the original)`}
+                      </span>
+                    )}
                   </p>
                 )}
               </div>

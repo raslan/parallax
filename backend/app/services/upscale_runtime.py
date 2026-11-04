@@ -120,7 +120,9 @@ def run_tile(tier: UpscaleTier, device: str, tile: np.ndarray) -> np.ndarray:
     from app.services._image_upscaler_impl import run_tile as _fn
 
     index = (gpu_device_index() or 0) if device == "gpu" else 0
-    return _pool.submit(_fn, tier.param_path, tier.bin_path, device, tile, index)
+    return _pool.submit(
+        _fn, tier.param_path, tier.bin_path, device, tile, index, tier.input_blob, tier.output_blob
+    )
 
 
 def release_sessions() -> None:

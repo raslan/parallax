@@ -178,7 +178,7 @@ def _upscale_one(
     src: _Source,
     tier: UpscaleTier,
     scale: int,
-    shrink: int,
+    prescale: int,
     replace: bool,
     keep_original: bool,
     dev: _Device,
@@ -187,9 +187,10 @@ def _upscale_one(
 ) -> dict | None:
     """Upscale one file. Returns its result dict, or None when cancelled.
 
-    With `shrink` > 1 the image is first area-averaged down by that factor (dropping the blur
-    that carries no detail) and the model then runs at its native scale (`scale`). With `replace`
-    the new file takes the original's place instead of sitting next to it.
+    With `prescale` < 100 the image is first resized to that percentage with Lanczos (dropping
+    blur that carries no detail, so the model has less to invent) and the model then runs at its
+    native scale (`scale`). With `replace` the new file takes the original's place instead of
+    sitting next to it.
     """
     result = {"id": src.id, "output": None, "skipped": None, "error": None}
     if not os.path.isfile(src.path):
@@ -201,7 +202,7 @@ def _upscale_one(
         result["skipped"] = str(exc)
         return result
     h, w = loaded.rgb.shape[:2]
-    reason = upscale_plan.skip_reason(src.path, w, h, scale, shrink)
+    reason = upscale_plan.skip_reason(src.path, w, h, scale, prescale)
     if reason:
         result["skipped"] = reason
         return result
@@ -210,10 +211,10 @@ def _upscale_one(
     tmp = temp_sibling_path(src.path, ext, "compressing")
     try:
         model_input = loaded.rgb
-        if shrink > 1:
-            sw, sh = upscale_plan.shrunk_size(w, h, shrink)
+        if prescale < 100:
+            sw, sh = upscale_plan.prescaled_size(w, h, prescale)
             model_input = np.asarray(
-                Image.fromarray(loaded.rgb).resize((sw, sh), Image.Resampling.BOX)
+                Image.fromarray(loaded.rgb).resize((sw, sh), Image.Resampling.LANCZOS)
             )
         out = upscale_array(
             model_input, tier, scale, dev.device, on_tile, is_cancelled, dev.run_tile
@@ -222,12 +223,12 @@ def _upscale_one(
             return None
         save_image(tmp, out, loaded)
         with Image.open(tmp) as check:
-            if check.size != upscale_plan.output_size(w, h, tier.scale, scale, shrink):
+            if check.size != upscale_plan.output_size(w, h, tier.scale, scale, prescale):
                 raise RuntimeError("written file has the wrong dimensions")
         if replace:
             final = _replace_original(src, tmp, keep_original)
         else:
-            final = upscale_plan.output_path(src.path, scale, shrink=shrink)
+            final = upscale_plan.output_path(src.path, scale, prescale=prescale)
             shutil.move(tmp, final)
         result["output"] = final
     except Exception as exc:
@@ -245,7 +246,7 @@ def run_image_upscale_job(
     tier_id: str,
     scale: int,
     force_cpu: bool,
-    shrink: int = 1,
+    prescale: int = 100,
     replace: bool = False,
     keep_original: bool = True,
 ) -> None:
@@ -279,7 +280,7 @@ def run_image_upscale_job(
                 size = header_size(s.path)
                 s.width, s.height = size if size else (None, None)
             if s.width and s.height:
-                sw, sh = upscale_plan.shrunk_size(s.width, s.height, shrink)
+                sw, sh = upscale_plan.prescaled_size(s.width, s.height, prescale)
                 total_tiles += len(upscale_plan.plan_tiles(sh, sw))
         total_tiles = max(total_tiles, 1)
 
@@ -313,7 +314,7 @@ def run_image_upscale_job(
                 current = os.path.basename(s.path)
                 _set_job(job_id, current_file=current)
                 res = _upscale_one(
-                    s, tier, scale, shrink, replace, keep_original, dev, is_cancelled, on_tile
+                    s, tier, scale, prescale, replace, keep_original, dev, is_cancelled, on_tile
                 )
                 if res is None:
                     cancelled = True

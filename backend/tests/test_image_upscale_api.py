@@ -76,20 +76,21 @@ def _post(client, **kw):
     return client.post("/api/image-upscale/start", json=body)
 
 
-def test_tiers_lists_three(client):
+def test_tiers_lists_four(client):
     r = client.get("/api/image-upscale/tiers")
     assert r.status_code == 200
     data = r.json()
-    assert [t["id"] for t in data["tiers"]] == ["simple", "sharp", "best"]
-    assert [t["scales"] for t in data["tiers"]] == [[1, 2], [1, 2], [1, 2, 4]]
-    assert data["tiers"][2]["speed"] == "slow"
+    assert [t["id"] for t in data["tiers"]] == ["simple", "sharp", "natural", "detailed"]
+    assert [t["scales"] for t in data["tiers"]] == [[1, 2], [1, 2], [1, 2, 4], [1, 2, 4]]
+    assert [t["speed"] for t in data["tiers"]] == ["fast", "fast", "slow", "slow"]
+    assert all(t["hint"] for t in data["tiers"])
     assert data["gpu_available"] is True
 
 
 def test_credits_ok(client):
     r = client.get("/api/image-upscale/credits")
     assert r.status_code == 200
-    assert len(r.json()["models"]) == 3 and "BSD" in r.json()["ncnn"]["text"]
+    assert len(r.json()["models"]) == 4 and "BSD" in r.json()["ncnn"]["text"]
 
 
 def test_start_creates_job(client, seeded):
@@ -104,13 +105,17 @@ def test_start_creates_job(client, seeded):
     assert json.loads(job.settings)["tier"] == "simple"
     ((job_id, fn, args),) = api._enqueued
     assert job_id == body["job_id"]
-    assert args == (job_id, [seeded.a, seeded.b], "simple", 2, False, 1, False, True)
+    assert args == (job_id, [seeded.a, seeded.b], "simple", 2, False, 100, False, True)
 
 
 def test_start_rejects_scale_4_for_simple(client, seeded):
     r = _post(client, file_ids=[seeded.a], scale=4)
     assert r.status_code == 422 and "4" in r.json()["detail"]
-    assert _post(client, file_ids=[seeded.a], tier="best", scale=4).status_code == 200
+
+
+@pytest.mark.parametrize("tier", ["natural", "detailed"])
+def test_start_allows_scale_4_for_the_4x_models(client, seeded, tier):
+    assert _post(client, file_ids=[seeded.a], tier=tier, scale=4).status_code == 200
 
 
 def test_start_rejects_unknown_tier_and_scale(client, seeded):
@@ -134,7 +139,7 @@ def test_start_409_when_active(client, seeded):
 
 
 def test_start_reports_skipped_gif_and_oversize(client, seeded):
-    r = _post(client, file_ids=[seeded.a, seeded.gif, seeded.huge], tier="best", scale=4)
+    r = _post(client, file_ids=[seeded.a, seeded.gif, seeded.huge], tier="detailed", scale=4)
     assert r.status_code == 200
     skipped = {s["id"]: s["reason"] for s in r.json()["skipped"]}
     assert skipped[seeded.gif] == "format not supported"
@@ -152,19 +157,19 @@ def test_start_all_skipped_422(client, seeded):
 
 
 def test_start_unscanned_dims_read_from_header(client, seeded):
-    r = _post(client, file_ids=[seeded.unscanned, seeded.a], tier="best", scale=4)
+    r = _post(client, file_ids=[seeded.unscanned, seeded.a], tier="detailed", scale=4)
     assert r.status_code == 200
     skipped = {s["id"]: s["reason"] for s in r.json()["skipped"]}
     assert "150 MP" in skipped[seeded.unscanned]
 
 
-def test_start_shrink_first_runs_model_at_native_scale(client, seeded):
-    r = _post(client, file_ids=[seeded.a], tier="best", scale=4, shrink=4)
+def test_start_prescale_runs_model_at_native_scale(client, seeded):
+    r = _post(client, file_ids=[seeded.a], tier="natural", scale=4, prescale=75)
     assert r.status_code == 200
     ((_, _, args),) = api._enqueued
-    assert args[2:] == ("best", 4, False, 4, False, True)
+    assert args[2:] == ("natural", 4, False, 75, False, True)
     seeded.db.expire_all()
-    assert json.loads(seeded.db.get(Job, r.json()["job_id"]).settings)["shrink"] == 4
+    assert json.loads(seeded.db.get(Job, r.json()["job_id"]).settings)["prescale"] == 75
 
 
 def test_start_replace_passes_replace_and_keep_original(client, seeded):
@@ -188,16 +193,24 @@ def test_start_skips_already_quarantined_images(client, seeded):
     assert args[1] == [seeded.a]
 
 
-def test_start_shrink_first_rejects_non_native_scale(client, seeded):
-    r = _post(client, file_ids=[seeded.a], tier="best", scale=2, shrink=2)
+def test_start_prescale_rejects_non_native_scale(client, seeded):
+    r = _post(client, file_ids=[seeded.a], tier="detailed", scale=2, prescale=50)
     assert r.status_code == 422 and "native" in r.json()["detail"]
 
 
-def test_start_rejects_unknown_shrink(client, seeded):
-    assert _post(client, file_ids=[seeded.a], shrink=7).status_code == 422
+@pytest.mark.parametrize("bad", [0, 5, 9, 101, 250, -50])
+def test_start_rejects_out_of_range_prescale(client, seeded, bad):
+    # below 10% there is nothing left to upscale; above 100% is an enlargement, not a pre-scale
+    assert _post(client, file_ids=[seeded.a], prescale=bad).status_code == 422
 
 
-def test_start_cap_uses_the_shrunk_size(client, seeded):
-    # 12 MP at 4x is over the cap; shrunk 4x first it comes back at its own size, so it runs
-    r = _post(client, file_ids=[seeded.huge], tier="best", scale=4, shrink=4)
+@pytest.mark.parametrize("pct", [10, 33, 50, 75, 99, 100])
+def test_start_accepts_any_percentage_in_range(client, seeded, pct):
+    r = _post(client, file_ids=[seeded.a], tier="detailed", scale=4, prescale=pct)
+    assert r.status_code == 200, r.text
+
+
+def test_start_cap_uses_the_prescaled_size(client, seeded):
+    # 12 MP at 4x is over the cap; at 25% first it comes back at its own size, so it runs
+    r = _post(client, file_ids=[seeded.huge], tier="detailed", scale=4, prescale=25)
     assert r.status_code == 200 and r.json()["skipped"] == []

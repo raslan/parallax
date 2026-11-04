@@ -11,7 +11,6 @@ import type { ImageFile } from "@/types/image";
 import type {
   UpscaleResizeMode,
   UpscaleScale,
-  UpscaleShrink,
   UpscaleSkipped,
   UpscaleTierId,
 } from "@/types/upscale";
@@ -74,7 +73,7 @@ export function ImageUpscale() {
   const [tier, setTier] = useState<UpscaleTierId>("sharp");
   const [scale, setScale] = useState<UpscaleScale>(2);
   const [resizeMode, setResizeMode] = useState<UpscaleResizeMode>("size");
-  const [shrink, setShrink] = useState<UpscaleShrink>(2);
+  const [prescale, setPrescale] = useState(50);
   const [forceCpu, setForceCpu] = useState(false);
   const [originals, setOriginals] = useState<"keep" | "quarantine" | "overwrite">("keep");
   const replace = originals !== "keep";
@@ -171,13 +170,15 @@ export function ImageUpscale() {
     [selectedFiles],
   );
   const sampleDims = largest ? { w: largest.width as number, h: largest.height as number } : null;
-  // Shrink first always runs the model at its own native scale; output size picks the scale.
+  // Pre-scaling always runs the model at its own native scale; output size picks the scale.
   const native = (tiers.find((t) => t.id === tier)?.scale ?? 2) as UpscaleScale;
-  const shrinking = resizeMode === "shrink";
-  const effScale = shrinking ? native : scale;
-  const effShrink: UpscaleShrink = shrinking ? shrink : 1;
-  const overCap = sampleDims ? exceedsCap(sampleDims.w, sampleDims.h, effScale, effShrink) : false;
-  const out = sampleDims ? outputDims(sampleDims.w, sampleDims.h, effScale, effShrink) : null;
+  const prescaling = resizeMode === "prescale";
+  const effScale = prescaling ? native : scale;
+  const effPrescale = prescaling ? prescale : 100;
+  const overCap = sampleDims
+    ? exceedsCap(sampleDims.w, sampleDims.h, effScale, effPrescale)
+    : false;
+  const out = sampleDims ? outputDims(sampleDims.w, sampleDims.h, effScale, effPrescale) : null;
 
   const {
     jobId,
@@ -209,7 +210,7 @@ export function ImageUpscale() {
         file_ids: selectedFiles.map((f) => f.id),
         tier,
         scale: effScale,
-        shrink: effShrink,
+        prescale: effPrescale,
         replace,
         keep_original: keepOriginal,
         force_cpu: forceCpu,
@@ -296,14 +297,14 @@ export function ImageUpscale() {
           tier={tier}
           scale={scale}
           resizeMode={resizeMode}
-          shrink={shrink}
+          prescale={prescale}
           forceCpu={forceCpu}
           gpuAvailable={gpuAvailable}
           sampleDims={sampleDims}
           onTierChange={setTier}
           onScaleChange={setScale}
           onResizeModeChange={setResizeMode}
-          onShrinkChange={setShrink}
+          onPrescaleChange={setPrescale}
           onForceCpuChange={setForceCpu}
         />
       </div>

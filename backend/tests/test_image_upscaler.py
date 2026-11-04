@@ -42,7 +42,7 @@ def _nearest(rgb, n):
 @pytest.mark.parametrize("native,scale", [(2, 2), (2, 1), (4, 4), (4, 2), (4, 1)])
 def test_upscale_array_shapes(size, native, scale):
     h, w = size
-    tier = get_tier("simple" if native == 2 else "best")
+    tier = get_tier("simple" if native == 2 else "detailed")
     rgb = _gradient(h, w)
     out = up.upscale_array(rgb, tier, scale, "cpu", lambda: None, lambda: False, tile_fn=fake_tile)
     assert out.shape == (h * scale, w * scale, 3)
@@ -58,7 +58,7 @@ def test_upscale_array_matches_whole_image_at_native_scale():
 
 def test_downscale_per_tile_has_no_seams():
     rgb = _gradient(300, 450)
-    tier = get_tier("best")  # native 4, fake = nearest x4
+    tier = get_tier("detailed")  # native 4, fake = nearest x4
     out = up.upscale_array(rgb, tier, 2, "cpu", lambda: None, lambda: False, tile_fn=fake_tile)
     whole = Image.fromarray(_nearest(rgb, 4)).resize((450 * 2, 300 * 2), Image.Resampling.LANCZOS)
     diff = np.abs(out.astype(int) - np.asarray(whole).astype(int))
@@ -182,7 +182,7 @@ def test_job_collision_suffix(env):
 def test_job_one_x_names_and_sizes(env):
     fid, _ = env.add_image("p.webp", (33, 21), fmt="WEBP")
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "best", 1, False)
+    up.run_image_upscale_job(job_id, [fid], "detailed", 1, False)
     assert Image.open(env.dir / "p_1x.webp").size == (33, 21)
 
 
@@ -342,7 +342,7 @@ def test_real_model_tiles_match_whole_image():
     assert diff.max() <= 8, f"seam: max diff {diff.max()}"
 
 
-def test_job_shrink_first_restores_original_size(env, monkeypatch):
+def test_job_prescale_half_restores_original_size(env, monkeypatch):
     fid, _ = env.add_image("blurry.jpg", (400, 300))
     calls = []
 
@@ -353,28 +353,37 @@ def test_job_shrink_first_restores_original_size(env, monkeypatch):
     monkeypatch.setattr(runtime, "run_tile", counting_tile)
     job_id = env.new_job()
 
-    # shrink 2 -> 200x150, simple model is 2x -> 400x300 again
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, shrink=2)
+    # 50% -> 200x150, simple model is 2x -> 400x300 again
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, prescale=50)
 
     assert env.load_job(job_id).status == JobStatus.COMPLETED
-    out = env.dir / "blurry_s2_2x.jpg"
+    out = env.dir / "blurry_p50_2x.jpg"
     assert Image.open(out).size == (400, 300)
-    # the model only saw the shrunk image: 200x150 = 1 row x 2 cols of 192 px tiles
+    # the model only saw the pre-scaled image: 200x150 = 1 row x 2 cols of 192 px tiles
     assert len(calls) == 2
 
 
-def test_job_shrink_first_four_with_best(env):
+def test_job_prescale_any_percentage_works(env):
+    # 75% of 101x61 -> 76x46 (75.75 / 45.75 round half up), then the 4x model -> 304x184
+    fid, _ = env.add_image("odd.png", (101, 61), fmt="PNG")
+    job_id = env.new_job()
+    up.run_image_upscale_job(job_id, [fid], "natural", 4, False, prescale=75)
+    assert env.load_job(job_id).status == JobStatus.COMPLETED
+    assert Image.open(env.dir / "odd_p75_4x.png").size == (304, 184)
+
+
+def test_job_prescale_quarter_with_a_4x_model_gives_the_original_size(env):
     fid, _ = env.add_image("b.png", (80, 60), fmt="PNG")
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "best", 4, False, shrink=4)
-    assert Image.open(env.dir / "b_s4_4x.png").size == (80, 60)
+    up.run_image_upscale_job(job_id, [fid], "detailed", 4, False, prescale=25)
+    assert Image.open(env.dir / "b_p25_4x.png").size == (80, 60)
 
 
-def test_job_shrink_first_cap_uses_final_size(env, monkeypatch):
+def test_job_prescale_cap_uses_final_size(env, monkeypatch):
     monkeypatch.setattr(upscale_plan, "MAX_OUTPUT_PIXELS", 5000)
-    fid, _ = env.add_image("p.jpg", (100, 100))  # shrink 2 then 2x = 100x100 = 10000 > 5000
+    fid, _ = env.add_image("p.jpg", (100, 100))  # 50% then 2x = 100x100 = 10000 > 5000
     job_id = env.new_job()
-    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, shrink=2)
+    up.run_image_upscale_job(job_id, [fid], "simple", 2, False, prescale=50)
     res = _results(env.load_job(job_id))[0]
     assert res["output"] is None and "150 MP" in res["skipped"]
 
@@ -453,10 +462,10 @@ def test_replace_puts_the_original_back_if_the_swap_fails(env, monkeypatch):
     assert _results(env.load_job(job_id))[0]["error"]
 
 
-def test_replace_uses_the_shrunk_size_too(env):
+def test_replace_uses_the_prescaled_size_too(env):
     fid, src = env.add_image("p.jpg", (400, 300))
     job_id = env.new_job()
     up.run_image_upscale_job(
-        job_id, [fid], "simple", 2, False, shrink=2, replace=True, keep_original=True
+        job_id, [fid], "simple", 2, False, prescale=50, replace=True, keep_original=True
     )
     assert Image.open(src).size == (400, 300)

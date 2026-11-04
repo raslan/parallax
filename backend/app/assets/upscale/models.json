@@ -70,7 +70,7 @@
     },
     {
       "name": "4xNomosWebPhoto_RealPLKSR",
-      "tier": "best",
+      "tier": "detailed",
       "scale": 4,
       "arch": "RealPLKSR",
       "input_blob": "in0",
@@ -93,6 +93,34 @@
         "vulkan_fp16": {
           "nan": false,
           "psnr_vs_original_db": 66.4
+        }
+      }
+    },
+    {
+      "name": "4xNomos8kSC",
+      "tier": "natural",
+      "scale": 4,
+      "arch": "ESRGAN (RRDBNet)",
+      "input_blob": "data",
+      "output_blob": "output",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "CC-BY-4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "release_url": "https://github.com/Phhofm/models/releases/tag/4xNomos8kSC",
+      "note": "pre-converted ncnn model from TNTwise/Upscaling-Models-NCNN (Universal-NCNN-Upscaler), bundled unchanged",
+      "source_page": "https://github.com/Phhofm/models/releases/tag/4xNomos8kSC",
+      "source_url": "https://github.com/TNTwise/Universal-NCNN-Upscaler/releases/download/Realistic/4xNomo8kSC.zip",
+      "source_sha256": "aae36e3f3c5b1398acf4f47ef3b97a383734e282539dfca588cbef039f5d652d",
+      "param": "4xNomos8kSC.param",
+      "bin": "4xNomos8kSC.bin",
+      "param_sha256": "208469a7034b8733aec41488bc8eacc89a9b2b82477f4d702ed801b9bbb0f374",
+      "bin_sha256": "da16e3880d87b177b7c6b659bbd880f8a101b868eb9ebc08d69eaa6d3edc4517",
+      "size_bytes": 33590102,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 80.1,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 56.1
         }
       }
     }

@@ -10,7 +10,22 @@ afterEach(cleanup);
 const tiers: UpscaleTier[] = [
   { id: "simple", label: "Simple", scale: 2, speed: "fast", hint: "Conservative", scales: [1, 2] },
   { id: "sharp", label: "Sharp", scale: 2, speed: "fast", hint: "Crisper", scales: [1, 2] },
-  { id: "best", label: "Best", scale: 4, speed: "slow", hint: "Highest", scales: [1, 2, 4] },
+  {
+    id: "natural",
+    label: "Natural",
+    scale: 4,
+    speed: "slow",
+    hint: "Clean and photographic",
+    scales: [1, 2, 4],
+  },
+  {
+    id: "detailed",
+    label: "Detailed",
+    scale: 4,
+    speed: "slow",
+    hint: "Crispest, can invent detail",
+    scales: [1, 2, 4],
+  },
 ];
 
 function setup(over: Partial<React.ComponentProps<typeof UpscalePanel>> = {}) {
@@ -19,14 +34,14 @@ function setup(over: Partial<React.ComponentProps<typeof UpscalePanel>> = {}) {
     tier: "sharp" as const,
     scale: 2 as const,
     resizeMode: "size" as const,
-    shrink: 2 as const,
+    prescale: 50,
     forceCpu: false,
     gpuAvailable: true,
     sampleDims: { w: 1920, h: 1080 },
     onTierChange: vi.fn(),
     onScaleChange: vi.fn(),
     onResizeModeChange: vi.fn(),
-    onShrinkChange: vi.fn(),
+    onPrescaleChange: vi.fn(),
     onForceCpuChange: vi.fn(),
     ...over,
   };
@@ -39,34 +54,42 @@ function setup(over: Partial<React.ComponentProps<typeof UpscalePanel>> = {}) {
   return props;
 }
 
+const percentInput = () => screen.getByLabelText(/Pre-scale percentage/) as HTMLInputElement;
+
 describe("UpscalePanel", () => {
   it("shows the current choice on the trigger bar", () => {
     setup();
     expect(screen.getAllByText(/Sharp/).length).toBeGreaterThan(0);
   });
 
-  it("disables 4× for a 2× tier and enables it for Best", () => {
+  it("disables 4× for a 2× tier and enables it for a 4× tier", () => {
     setup();
     expect((screen.getByRole("button", { name: /^4×/ }) as HTMLButtonElement).disabled).toBe(true);
     cleanup();
-    setup({ tier: "best", scale: 4 });
+    setup({ tier: "natural", scale: 4 });
     expect((screen.getByRole("button", { name: /^4×/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it("describes the current tier under Quality", () => {
+    setup({ tier: "natural", scale: 4 });
+    expect(screen.getByText("Clean and photographic", { selector: "p" })).toBeDefined();
+  });
+
   it("picking a tier resets the size to that model's native scale", () => {
-    const p = setup({ tier: "best", scale: 4 });
+    const p = setup({ tier: "natural", scale: 4 });
     fireEvent.click(screen.getByRole("button", { name: /^Simple/ }));
     expect(p.onTierChange).toHaveBeenCalledWith("simple");
     expect(p.onScaleChange).toHaveBeenCalledWith(2);
     cleanup();
     const q = setup({ tier: "sharp", scale: 2 });
-    fireEvent.click(screen.getByRole("button", { name: /^Best/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Natural/ }));
     expect(q.onScaleChange).toHaveBeenCalledWith(4);
   });
 
   it("picking a tier with the same native scale leaves the size alone", () => {
-    const p = setup({ tier: "sharp", scale: 1 });
-    fireEvent.click(screen.getByRole("button", { name: /^Simple/ }));
+    const p = setup({ tier: "natural", scale: 1 });
+    fireEvent.click(screen.getByRole("button", { name: /^Detailed/ }));
+    expect(p.onTierChange).toHaveBeenCalledWith("detailed");
     expect(p.onScaleChange).not.toHaveBeenCalled();
   });
 
@@ -76,28 +99,60 @@ describe("UpscalePanel", () => {
     expect(p.onScaleChange).toHaveBeenCalledWith(1);
   });
 
-  it("offers Output size and Shrink first as the resize method", () => {
+  it("offers Output size and Pre-scale as the resize method", () => {
     const p = setup();
-    fireEvent.click(screen.getByRole("button", { name: /^Shrink first/ }));
-    expect(p.onResizeModeChange).toHaveBeenCalledWith("shrink");
+    fireEvent.click(screen.getByRole("button", { name: /^Pre-scale/ }));
+    expect(p.onResizeModeChange).toHaveBeenCalledWith("prescale");
   });
 
-  it("in shrink mode shows shrink factors instead of output sizes", () => {
-    const p = setup({ resizeMode: "shrink", shrink: 2 });
+  it("in pre-scale mode shows percentages instead of output sizes", () => {
+    setup({ resizeMode: "prescale" });
     expect(screen.queryByRole("button", { name: /^1×/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /^¼/ }));
-    expect(p.onShrinkChange).toHaveBeenCalledWith(4);
+    expect(percentInput().value).toBe("50");
   });
 
-  it("shows the final size after shrinking then upscaling", () => {
-    setup({ resizeMode: "shrink", shrink: 4 });
-    // 1920×1080 → 480×270 → ×2 (Sharp's native scale)
-    expect(screen.getByText(/960 × 540/)).toBeDefined();
+  it("fills the percentage from the 25 / 50 / 75 chips", () => {
+    const p = setup({ resizeMode: "prescale", prescale: 50 });
+    fireEvent.click(screen.getByRole("button", { name: /^75%/ }));
+    expect(p.onPrescaleChange).toHaveBeenCalledWith(75);
+    fireEvent.click(screen.getByRole("button", { name: /^25%/ }));
+    expect(p.onPrescaleChange).toHaveBeenCalledWith(25);
   });
 
-  it("describes shrink-first on the trigger bar", () => {
-    setup({ resizeMode: "shrink", shrink: 3 });
-    expect(screen.getAllByText(/⅓ then 2×/).length).toBeGreaterThan(0);
+  it("marks the chip that matches the current percentage, and none for a custom one", () => {
+    setup({ resizeMode: "prescale", prescale: 50 });
+    expect(screen.getByRole("button", { name: /^50%/ }).getAttribute("aria-pressed")).toBe("true");
+    cleanup();
+    setup({ resizeMode: "prescale", prescale: 60 });
+    expect(screen.getByRole("button", { name: /^50%/ }).getAttribute("aria-pressed")).toBe("false");
+    expect(percentInput().value).toBe("60");
+  });
+
+  it("takes any whole percentage typed into the input", () => {
+    const p = setup({ resizeMode: "prescale" });
+    fireEvent.change(percentInput(), { target: { value: "62" } });
+    expect(p.onPrescaleChange).toHaveBeenCalledWith(62);
+  });
+
+  it("waits for a valid percentage while typing, then clamps on blur", () => {
+    const p = setup({ resizeMode: "prescale" });
+    fireEvent.change(percentInput(), { target: { value: "5" } }); // on the way to "50"
+    expect(p.onPrescaleChange).not.toHaveBeenCalled();
+    expect(percentInput().value).toBe("5");
+    fireEvent.blur(percentInput());
+    expect(p.onPrescaleChange).toHaveBeenCalledWith(10);
+  });
+
+  it("shows how much bigger the copy is and its final size", () => {
+    setup({ resizeMode: "prescale", prescale: 75, tier: "natural", scale: 4 });
+    // 1920×1080 → 1440×810 → ×4 (Natural's native scale)
+    expect(screen.getByText(/5760 × 3240/)).toBeDefined();
+    expect(screen.getByText(/3× the original/)).toBeDefined();
+  });
+
+  it("describes the pre-scale on the trigger bar", () => {
+    setup({ resizeMode: "prescale", prescale: 75, tier: "natural", scale: 4 });
+    expect(screen.getAllByText(/75% then 4×/).length).toBeGreaterThan(0);
   });
 
   it("calls back from the CPU-only switch", () => {
@@ -109,7 +164,7 @@ describe("UpscalePanel", () => {
   it("shows relative speed labels instead of times", () => {
     setup();
     expect(screen.getAllByText("Fast")).toHaveLength(2);
-    expect(screen.getAllByText("Slow")).toHaveLength(1);
+    expect(screen.getAllByText("Slow")).toHaveLength(2);
   });
 
   it("shows output dimensions and the GPU note", () => {

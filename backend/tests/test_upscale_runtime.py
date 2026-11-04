@@ -110,6 +110,35 @@ def test_real_tile_shape_cpu():
     assert abs(float(out.mean()) - float(tile.mean())) < 0.25
 
 
+def test_run_tile_forwards_the_tiers_blob_names_to_the_worker(monkeypatch):
+    seen = {}
+
+    def fake_submit(fn, *args):
+        seen["args"] = args
+        return np.zeros((3, 8, 8), dtype=np.float32)
+
+    monkeypatch.setattr(rt._pool, "submit", fake_submit)
+    tier = get_tier("natural")
+    rt.run_tile(tier, "cpu", _tile())
+    assert seen["args"][-2:] == ("data", "output")
+
+
+def test_real_natural_model_runs_with_its_own_blob_names():
+    pytest.importorskip("ncnn")
+    from app.services import _image_upscaler_impl as impl
+
+    tier = get_tier("natural")
+    assert tier.scale == 4
+    rng = np.random.default_rng(1)
+    tile = rng.random((3, 32, 32), dtype=np.float32) * 0.5 + 0.25  # fully convolutional: any size
+    out = impl.run_tile(
+        tier.param_path, tier.bin_path, "cpu", tile, 0, tier.input_blob, tier.output_blob
+    )
+    assert out.shape == (3, 128, 128)
+    assert np.isfinite(out).all()
+    assert abs(float(out.mean()) - float(tile.mean())) < 0.25
+
+
 def test_probe_logs_why_vulkan_found_nothing(monkeypatch, caplog):
     import logging
 
