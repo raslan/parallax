@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+/* Per-theme --color-fd-* blocks, generated from the app's theme files (npm run sync-themes). */
+@import "./themes.generated.css";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /* Parallax radius is 0.4rem (tight). */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.3rem;
+  --radius-lg: 0.4rem;
+  --radius-xl: 0.55rem;
+}
+
+body {
+  font-family: var(--font-sans);
+}

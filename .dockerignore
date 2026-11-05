@@ -17,6 +17,9 @@ docs
 .worktrees
 .playwright-mcp
 
+# Public docs site (its own package; never part of the app image)
+site
+
 # Python caches & local test artifacts
 **/__pycache__
 **/*.pyc

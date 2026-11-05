@@ -1,0 +1,47 @@
+{
+  "tools/organize/name-groups": {
+    "id": "tools/organize/name-groups",
+    "kind": "still",
+    "alt": "Organize listing an unsorted folder, with common-name chips and one-click smart selection by file type.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "src": "tools/organize/name-groups.webp",
+    "width": 1184,
+    "height": 290,
+    "bytes": 40784,
+    "quality": 90
+  },
+  "videos/files/grid": {
+    "id": "videos/files/grid",
+    "kind": "still",
+    "alt": "The Files page showing a library as a grid of video thumbnails with codec, size and bitrate under each.",
+    "route": "/files",
+    "src": "videos/files/grid.webp",
+    "width": 1184,
+    "height": 580,
+    "bytes": 217288,
+    "quality": 90
+  },
+  "videos/cleanup/duration-filter": {
+    "id": "videos/cleanup/duration-filter",
+    "kind": "clip",
+    "alt": "Adding a duration filter on the Cleanup page narrows thirteen files down to the short ones.",
+    "route": "/cleanup",
+    "src": "videos/cleanup/duration-filter.mp4",
+    "poster": "videos/cleanup/duration-filter.poster.webp",
+    "width": 960,
+    "height": 510,
+    "bytes": 110407,
+    "crf": 26
+  },
+  "images/content-review/label-filter": {
+    "id": "images/content-review/label-filter",
+    "kind": "still",
+    "alt": "Content Review with a detection-label filter: matching images appear in a grid with their detection labels, thumbnails blurred.",
+    "route": "/content-review",
+    "src": "images/content-review/label-filter.webp",
+    "width": 1184,
+    "height": 410,
+    "bytes": 28172,
+    "quality": 90
+  }
+}

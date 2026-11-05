@@ -11,6 +11,13 @@ export default {
       `${path.join(frontendBinDir, "prettier")} --config frontend/.prettierrc.json --write ${quoted}`,
     ];
   },
+  // The public site (site/) is its own package; reuse the frontend's prettier + config for formatting.
+  "site/**/*.{ts,tsx,mjs,json,css,mdx}": (absolutePaths) => {
+    const files = absolutePaths.filter((p) => !p.includes("/site/public/"));
+    if (files.length === 0) return [];
+    const quoted = files.map((p) => JSON.stringify(p)).join(" ");
+    return [`${path.join(frontendBinDir, "prettier")} --config frontend/.prettierrc.json --write ${quoted}`];
+  },
   "backend/**/*.py": (absolutePaths) => {
     const quoted = absolutePaths.map((p) => JSON.stringify(p)).join(" ");
     return [`ruff check --fix ${quoted}`, `ruff format ${quoted}`];
