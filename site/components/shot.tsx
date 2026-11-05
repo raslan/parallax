@@ -24,7 +24,11 @@ export function Shot({ id, className }: { id: string; className?: string }) {
     );
   }
   const base = `/media/${shot.src}`;
-  const cls = `my-6 h-auto w-full rounded-lg border border-fd-border ${className ?? ""}`;
+  // Portrait shots (option panels, drawers) would otherwise stretch to the full column width and run
+  // far taller than the screen, so they keep their shape, centred, and are capped in height.
+  const tall = shot.height > shot.width;
+  const size = tall ? "mx-auto h-auto max-h-[70vh] w-auto max-w-full" : "h-auto w-full";
+  const cls = `my-6 ${size} rounded-lg border border-fd-border ${className ?? ""}`;
 
   if (shot.kind === "clip") {
     return (
