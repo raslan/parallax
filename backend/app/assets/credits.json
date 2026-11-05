@@ -291,6 +291,18 @@
       "show": { "app": true, "site": true }
     },
     {
+      "id": "playfair",
+      "group": "fonts",
+      "name": "Playfair",
+      "description": "The typeface used for the large headings on this website.",
+      "author": "Claus Eggers Sørensen",
+      "licence": "SIL Open Font License 1.1",
+      "licence_url": "https://openfontlicense.org",
+      "url": "https://github.com/clauseggers/Playfair",
+      "how": "site",
+      "show": { "app": false, "site": true }
+    },
+    {
       "id": "inspired-jellyfin",
       "group": "inspired",
       "name": "Jellyfin",
