@@ -15,7 +15,7 @@ from app.schemas import (
     UpscaleTiersResponse,
 )
 from app.services.image_upscaler import header_size, run_image_upscale_job
-from app.services.upscale_models import allowed_scales, credits, get_tier, list_tiers
+from app.services.upscale_models import allowed_scales, get_tier, list_tiers
 from app.services.upscale_plan import skip_reason
 from app.services.upscale_runtime import gpu_available
 
@@ -38,11 +38,6 @@ def get_tiers():
         ],
         gpu_available=gpu_available(),
     )
-
-
-@router.get("/credits")
-def get_credits():
-    return credits()
 
 
 @router.post("/start", response_model=UpscaleStartResponse)

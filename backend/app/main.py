@@ -17,6 +17,7 @@ from app.api.audio_libraries import router as audio_libraries_router
 from app.api.audio_originals import router as audio_originals_router
 from app.api.audio_toolbox import router as audio_toolbox_router
 from app.api.compress import router as compress_router
+from app.api.credits import router as credits_router
 from app.api.downloads import router as downloads_router
 from app.api.files import router as files_router
 from app.api.galleries import router as galleries_router
@@ -379,6 +380,7 @@ _OPENAPI_TAGS = [
         "description": "Prepare and serve playback for videos with sound browsers cannot play.",
     },
     {"name": "stats", "description": "Lifetime usage statistics shown on the Home page."},
+    {"name": "credits", "description": "Credits and licences for everything Parallax uses."},
     {"name": "settings", "description": "App settings, and the purge of all library data."},
 ]
 
@@ -420,6 +422,7 @@ app.include_router(image_upscale_router, prefix="/api")
 app.include_router(audio_toolbox_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
+app.include_router(credits_router, prefix="/api")
 app.include_router(galleries_router, prefix="/api")
 app.include_router(splice_router, prefix="/api", tags=["splice"])
 app.include_router(toolbox_router, prefix="/api", tags=["toolbox"])

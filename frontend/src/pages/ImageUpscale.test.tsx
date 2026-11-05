@@ -10,7 +10,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     ...actual,
     api: { ...actual.api, getJobs: vi.fn(), getJob: vi.fn(), cancelJob: vi.fn() },
     imageApi: { ...actual.imageApi, listLibraries: vi.fn(), listImages: vi.fn() },
-    upscaleApi: { tiers: vi.fn(), start: vi.fn(), credits: vi.fn() },
+    upscaleApi: { tiers: vi.fn(), start: vi.fn() },
   };
 });
 vi.mock("@/components/VirtualizedGrid", () => ({

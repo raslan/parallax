@@ -1,6 +1,5 @@
 import { req } from "./client";
 import type {
-  UpscaleCredits,
   UpscaleStartRequest,
   UpscaleStartResponse,
   UpscaleTiersResponse,
@@ -8,8 +7,6 @@ import type {
 
 export const upscaleApi = {
   tiers: () => req<UpscaleTiersResponse>("/image-upscale/tiers"),
-
-  credits: () => req<UpscaleCredits>("/image-upscale/credits"),
 
   start: (body: UpscaleStartRequest) =>
     req<UpscaleStartResponse>("/image-upscale/start", {

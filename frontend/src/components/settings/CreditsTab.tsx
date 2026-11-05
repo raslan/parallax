@@ -1,8 +1,20 @@
+import { useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { qk, upscaleApi } from "@/lib/api";
+import { creditsApi, qk } from "@/lib/api";
 import { QueryError } from "@/components/QueryError";
 import { Card, CardContent } from "@/components/ui/card";
+import type { CreditEntry, CreditHow } from "@/types/credits";
+
+const HOW_LABEL: Record<CreditHow, string> = {
+  shipped: "Included with Parallax",
+  installed: "Installed with Parallax",
+  downloaded: "Downloaded on first use",
+  adapted: "Adapted code",
+  service: "Online service",
+  media: "Demo media",
+  site: "Website",
+};
 
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -18,15 +30,70 @@ function ExtLink({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
+/** A logo loaded straight from its owner's site. Nothing is stored; if it fails to load it simply isn't shown. */
+function RemoteLogo({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="h-4 w-auto max-w-40"
+    />
+  );
+}
+
+function Entry({ entry }: { entry: CreditEntry }) {
+  return (
+    <Card>
+      <CardContent className="space-y-1.5 p-4 text-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+          <p className="font-medium">
+            <ExtLink href={entry.url}>{entry.name}</ExtLink>
+          </p>
+          <span className="text-2xs text-muted-foreground">{HOW_LABEL[entry.how]}</span>
+        </div>
+        <p className="text-muted-foreground">{entry.description}</p>
+        <p className="flex flex-wrap gap-x-4 text-muted-foreground">
+          <span>by {entry.author}</span>
+          <ExtLink href={entry.licence_url}>{entry.licence}</ExtLink>
+          {entry.source_url && <ExtLink href={entry.source_url}>Source code</ExtLink>}
+        </p>
+        {entry.note && <p className="text-xs text-muted-foreground">{entry.note}</p>}
+        {entry.notice && (
+          <div className="space-y-2 pt-1">
+            {entry.logo && <RemoteLogo src={entry.logo} />}
+            <p className="text-xs text-muted-foreground">{entry.notice}</p>
+          </div>
+        )}
+        {entry.text && (
+          <details className="pt-1">
+            <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+              Licence text
+            </summary>
+            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/30 p-3 text-2xs text-muted-foreground">
+              {entry.text}
+            </pre>
+          </details>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /**
- * Attribution for third-party work bundled with Parallax. Self-contained like the other tabs
- * (own query, no form, no Save): the text comes from the backend, so it can't drift from the
- * files actually shipped.
+ * Credits for everything Parallax uses, ships or adapts. Self-contained like the other tabs
+ * (own query, no form, no Save). The list comes from the backend's `credits.json`, which is
+ * also what the public documentation's Acknowledgements page is built from, so there is one
+ * place to maintain it.
  */
 export function CreditsTab() {
   const { data, error, refetch } = useQuery({
-    queryKey: qk.upscaleCredits(),
-    queryFn: () => upscaleApi.credits(),
+    queryKey: qk.credits(),
+    queryFn: () => creditsApi.get(),
     staleTime: Infinity,
   });
 
@@ -34,44 +101,24 @@ export function CreditsTab() {
   if (!data) return null;
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <section className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Image upscaling models
-        </h2>
-        {data.models.map((m) => (
-          <Card key={m.name}>
-            <CardContent className="space-y-1 p-4 text-sm">
-              <p className="font-mono font-medium">{m.name}</p>
-              <p className="text-muted-foreground">
-                by {m.author} · {m.note}
-              </p>
-              <p className="flex flex-wrap gap-x-4 text-muted-foreground">
-                <ExtLink href={m.licence_url}>{m.licence}</ExtLink>
-                <ExtLink href={m.release_url}>Release page</ExtLink>
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Inference runtime
-        </h2>
-        <Card>
-          <CardContent className="space-y-2 p-4 text-sm">
-            <p className="font-medium">
-              <ExtLink href={data.ncnn.url}>ncnn</ExtLink>{" "}
-              <span className="font-normal text-muted-foreground">· {data.ncnn.licence_name}</span>
-            </p>
-            <p className="text-muted-foreground">{data.ncnn.copyright}</p>
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/30 p-3 text-2xs text-muted-foreground">
-              {data.ncnn.text}
-            </pre>
-          </CardContent>
-        </Card>
-      </section>
+    <div className="max-w-4xl space-y-8">
+      <p className="text-sm text-muted-foreground">
+        Parallax is free and open source (GPL-3.0). It is built on the work of these projects.
+      </p>
+      {data.groups.map((group) => (
+        <section key={group.id} className="space-y-3">
+          <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            {group.title}
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            {data.entries
+              .filter((e) => e.group === group.id)
+              .map((e) => (
+                <Entry key={e.id} entry={e} />
+              ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

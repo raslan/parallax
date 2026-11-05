@@ -72,21 +72,3 @@ def test_verify_missing_file_raises(tmp_path, monkeypatch):
     (tmp_path / "upscale" / tier.param_path.rsplit("/", 1)[1]).unlink()
     with pytest.raises(um.UpscaleModelError):
         um.verify_tier_files(tier)
-
-
-def test_credits_has_author_and_ncnn_text():
-    c = um.credits()
-    assert [m["tier"] for m in c["models"]] == ["fast", "sharp", "natural"]
-    licences = {m["tier"]: m["licence"] for m in c["models"]}
-    assert licences == {"fast": "CC-BY-4.0", "sharp": "Apache-2.0", "natural": "CC-BY-4.0"}
-    for m in c["models"]:
-        assert m["author"] == "Philip Hofmann (Phhofm)"
-        assert m["licence_url"].startswith("https://")
-        assert m["release_url"].startswith("https://")
-        assert m["note"]
-    natural = next(m for m in c["models"] if m["tier"] == "natural")
-    assert "pre-converted" in natural["note"] and "Universal-NCNN-Upscaler" in natural["note"]
-    fast = next(m for m in c["models"] if m["tier"] == "fast")
-    assert fast["name"] == "4xLSDIRCompactC3" and "pre-converted" in fast["note"]
-    assert "BSD" in c["ncnn"]["text"]
-    assert "Tencent" in c["ncnn"]["copyright"]

@@ -1,10 +1,11 @@
 """Registry of the bundled ncnn upscaler models.
 
 Data lives in `app/assets/upscale/models.json` next to the model files, which are pre-converted
-ncnn files bundled unchanged (provenance and licence per model are recorded there); this module
-resolves paths, verifies file hashes lazily on first use, and exposes the attribution data for
-Settings → Credits. To add or replace a model: drop its `.param`/`.bin` in that folder, add an
-entry to `models.json` and `SHA256SUMS`, and add its tier copy to `_TIER_COPY` below.
+ncnn files bundled unchanged (source and file hashes per model are recorded there); this module
+resolves paths and verifies file hashes lazily on first use. Attribution and licences live in
+`app/assets/credits.json` (one entry per model, matched by name). To add or replace a model: drop
+its `.param`/`.bin` in that folder, add an entry to `models.json` and `SHA256SUMS`, add its tier
+copy to `_TIER_COPY` below, and add its credit to `credits.json`.
 """
 
 import hashlib
@@ -129,21 +130,3 @@ def verify_tier_files(tier: UpscaleTier) -> None:
         if _sha256(p) != expected:
             raise UpscaleModelError(f"Upscale model file is corrupt: {p.name}")
     _verified.add(key)
-
-
-def credits() -> dict:
-    """Attribution data straight from models.json: per-model entries plus the ncnn licence block."""
-    data = _load()
-    models = [
-        {
-            "name": m["name"],
-            "tier": m["tier"],
-            "author": m["author"],
-            "licence": m["licence"],
-            "licence_url": m["licence_url"],
-            "release_url": m["release_url"],
-            "note": m["note"],
-        }
-        for m in data["models"]
-    ]
-    return {"models": models, "ncnn": data["credits"]["ncnn"]}

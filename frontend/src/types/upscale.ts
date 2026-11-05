@@ -40,23 +40,3 @@ export interface UpscaleStartResponse {
   job_id: number;
   skipped: UpscaleSkipped[];
 }
-
-interface UpscaleCreditModel {
-  name: string;
-  tier: UpscaleTierId;
-  author: string;
-  licence: string;
-  licence_url: string;
-  release_url: string;
-  note: string;
-}
-
-export interface UpscaleCredits {
-  models: UpscaleCreditModel[];
-  ncnn: {
-    copyright: string;
-    licence_name: string;
-    url: string;
-    text: string;
-  };
-}

@@ -88,12 +88,6 @@ def test_tiers_lists_three(client):
     assert data["gpu_available"] is True
 
 
-def test_credits_ok(client):
-    r = client.get("/api/image-upscale/credits")
-    assert r.status_code == 200
-    assert len(r.json()["models"]) == 3 and "BSD" in r.json()["ncnn"]["text"]
-
-
 def test_start_creates_job(client, seeded):
     r = _post(client, file_ids=[seeded.a, seeded.b])
     assert r.status_code == 200
