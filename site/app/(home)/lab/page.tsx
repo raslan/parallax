@@ -16,7 +16,6 @@ const clip = (name: string) =>
 const BEATS = [
   {
     id: "organize",
-    toc: "Organize your media",
     name: "Organize",
     title: "See what is in a folder before you touch it.",
     text: "Parallax spots the names your files have in common, so one click picks every holiday photo or every voice memo. Then move, rename or delete them in one go.",
@@ -24,7 +23,6 @@ const BEATS = [
   },
   {
     id: "identify",
-    toc: "Identify movies and shows",
     name: "Identify",
     title: "Turn messy file names into ones your media server understands.",
     text: "Pick the folder and the show, and every episode drops into its place. Check the new names, then apply.",
@@ -32,7 +30,6 @@ const BEATS = [
   },
   {
     id: "cleanup",
-    toc: "Search and delete content",
     name: "Cleanup",
     title: "Stack filters until only the files you mean are left.",
     text: "Duration, size, resolution, name, date. Join them with AND or OR, and watch the list narrow as you go.",
@@ -40,7 +37,6 @@ const BEATS = [
   },
   {
     id: "duplicates",
-    toc: "Find duplicates",
     name: "Duplicates",
     title: "Find the copies and keep the best one.",
     text: "Match on size, length, how it looks or how it sounds. Take a rule away and the groups reshape straight away.",
@@ -48,7 +44,6 @@ const BEATS = [
   },
   {
     id: "compress",
-    toc: "Compress your media",
     name: "Compress",
     title: "See what you would save before you save it.",
     text: "Slide the quality and the estimated size moves with it, for the whole library or just what you have picked.",
@@ -77,10 +72,31 @@ export default function LandingPrototype() {
             <h1 id="hero-title" className="lp-display">
               The Swiss Army knife for <em>your media library.</em>
             </h1>
+            <p className="lp-verbs">
+              <a href="#organize" className="lp-inline">
+                Organize it
+              </a>
+              ,{" "}
+              <a href="#identify" className="lp-inline">
+                identify it
+              </a>
+              ,{" "}
+              <a href="#cleanup" className="lp-inline">
+                filter it
+              </a>
+              ,{" "}
+              <a href="#duplicates" className="lp-inline">
+                weed out the duplicates
+              </a>
+              ,{" "}
+              <a href="#compress" className="lp-inline">
+                compress it
+              </a>
+              .
+            </p>
             <p className="lp-lead">
-              Rename it, tidy it, shrink it, weed out the duplicates. Parallax is a free, open
-              source toolkit that sits alongside your media player and looks after the files behind
-              it.
+              Parallax is a free, open source toolkit that sits alongside your media player and
+              looks after the files behind it.
             </p>
             <div className="lp-actions">
               <Link href="/docs" className="lp-cta">
@@ -110,21 +126,6 @@ export default function LandingPrototype() {
               priority
             />
           </div>
-        </section>
-
-        <section className="lp-section lp-toc-section">
-          <nav className="lp-toc" aria-labelledby="toc-title">
-            <h2 id="toc-title" className="lp-toc-title">
-              Parallax can
-            </h2>
-            <ol>
-              {BEATS.map((f) => (
-                <li key={f.id}>
-                  <a href={`#${f.id}`}>{f.toc}</a>
-                </li>
-              ))}
-            </ol>
-          </nav>
         </section>
 
         {BEATS.map((b, i) => (

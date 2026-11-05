@@ -238,53 +238,40 @@
   transform: translateX(5px);
 }
 
-/* The five features, as a numbered list. */
-.lp-toc-section {
-  padding-top: 3.5rem;
-  padding-bottom: 2rem;
-}
-.lp-toc {
-  max-width: 44rem;
-  margin: 0 auto;
-}
-.lp-toc-title {
-  font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--lp-muted);
-  text-align: center;
-}
-.lp-toc ol {
-  list-style: none;
-  padding: 0;
-  margin: 1.5rem 0 0;
-  counter-reset: toc;
-}
-.lp-toc a {
-  counter-increment: toc;
-  display: flex;
-  align-items: baseline;
-  gap: 0.9rem;
-  padding: 0.85rem 0;
-  border-bottom: 1px solid var(--lp-line);
+/* The hero's own sentence doubles as the way into the page: each phrase is a link to its section. */
+.lp-verbs {
+  margin-top: 1.25rem;
+  max-width: 34rem;
   font-family: "Playfair Variable", Georgia, serif;
-  font-size: clamp(1.35rem, 2.3vw, 1.85rem);
+  font-size: clamp(1.4rem, 2.4vw, 1.75rem);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+.lp-inline {
+  color: var(--lp-fg);
+  background-image:
+    linear-gradient(var(--lp-accent), var(--lp-accent)),
+    linear-gradient(var(--lp-line), var(--lp-line));
+  background-repeat: no-repeat;
+  background-position:
+    left 100%,
+    left 100%;
+  background-size:
+    0% 1px,
+    100% 1px;
+  padding-bottom: 0.08em;
+  /* A phrase that wraps onto a second line keeps its whole underline on both lines. */
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
   transition:
-    color 0.2s,
-    padding-left 0.3s var(--lp-ease);
+    background-size 0.5s var(--lp-ease),
+    color 0.3s;
 }
-.lp-toc a::before {
-  content: counter(toc, decimal-leading-zero);
-  font-family: var(--font-sans);
-  font-size: 0.8125rem;
-  color: var(--lp-muted);
-  font-variant-numeric: tabular-nums;
-}
-.lp-toc a:hover {
+.lp-inline:hover {
   color: var(--lp-accent);
-  padding-left: 0.5rem;
+  background-size:
+    100% 1px,
+    100% 1px;
 }
 
 /* The hero screenshot runs off the bottom of the first screen and fades out. */
@@ -460,19 +447,6 @@
     overflow: visible;
   }
   /* The list of features becomes a two-column band, read down the first column and then the second. */
-  .lp-toc-section {
-    padding-top: 6rem;
-    padding-bottom: 4rem;
-  }
-  .lp-toc {
-    max-width: 66rem;
-  }
-  .lp-toc ol {
-    display: grid;
-    grid-auto-flow: column;
-    grid-template-rows: repeat(3, auto);
-    column-gap: 4rem;
-  }
 }
 
 @media (min-width: 1024px) {
