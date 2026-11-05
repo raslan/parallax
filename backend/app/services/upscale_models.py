@@ -1,8 +1,10 @@
 """Registry of the bundled ncnn upscaler models.
 
-Data lives in `app/assets/upscale/models.json` (written by the model build kit); this module
+Data lives in `app/assets/upscale/models.json` next to the model files, which are pre-converted
+ncnn files bundled unchanged (provenance and licence per model are recorded there); this module
 resolves paths, verifies file hashes lazily on first use, and exposes the attribution data for
-Settings → Credits.
+Settings → Credits. To add or replace a model: drop its `.param`/`.bin` in that folder, add an
+entry to `models.json` and `SHA256SUMS`, and add its tier copy to `_TIER_COPY` below.
 """
 
 import hashlib
