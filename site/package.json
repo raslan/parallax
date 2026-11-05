@@ -6,11 +6,12 @@
   "scripts": {
     "capture": "node capture/run.mjs",
     "sync-themes": "node scripts/sync-themes.mjs",
-    "predev": "npm run sync-themes && npm run sync-changelog && npm run gen-api-docs",
+    "predev": "npm run sync-themes && npm run sync-credits && npm run sync-changelog && npm run gen-api-docs",
     "dev": "next dev",
-    "prebuild": "npm run sync-themes && npm run sync-changelog && npm run gen-api-docs",
+    "prebuild": "npm run sync-themes && npm run sync-credits && npm run sync-changelog && npm run gen-api-docs",
     "build": "next build",
     "postinstall": "fumadocs-mdx",
+    "sync-credits": "node scripts/sync-credits.mjs",
     "sync-changelog": "node scripts/sync-changelog.mjs",
     "gen-openapi": "python3 scripts/gen-openapi.py",
     "gen-api-docs": "node scripts/generate-api-docs.mjs"
