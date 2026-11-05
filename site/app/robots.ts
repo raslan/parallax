@@ -9,7 +9,13 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      disallow: ["/docs/tools/downloads", "/docs/api", "/docs/acknowledgements", "/api/search"],
+      disallow: [
+        "/docs/tools/downloads",
+        "/docs/tools/galleries",
+        "/docs/api",
+        "/docs/acknowledgements",
+        "/api/search",
+      ],
     },
   };
 }

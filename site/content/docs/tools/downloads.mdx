@@ -1,9 +1,9 @@
 ---
 title: Downloads
-description: Save videos and audio from links, and fetch whole galleries of pictures.
+description: Save videos and audio from links you paste in.
 ---
 
-Downloads saves videos and audio from links you paste in, and Galleries does the same for galleries and albums of images. Both live under **Tools** and both put the files in a folder of your choice, ready to add to a library.
+Downloads saves videos and audio from links you paste in, and [Galleries](/docs/tools/galleries) does the same for galleries and albums of images. Both live under **Tools** and both put the files in a folder of your choice, ready to add to a library.
 
 Please only download things you have the right to keep.
 
@@ -11,7 +11,7 @@ Please only download things you have the right to keep.
 
 Downloads uses [yt-dlp](https://github.com/yt-dlp/yt-dlp), a well-known open source download tool, which is not installed to begin with. Open **Settings → Downloads** and click **Install** next to it. You will also see a banner on the Downloads page that does the same thing. You can pick which release channel to follow, **stable** or **nightly**. Stable is the sensible choice.
 
-Sites change often, so downloads sometimes stop working until the tool is updated. The **Update** button on the Downloads and Galleries pages, or in **Settings → Downloads**, brings it up to date.
+Sites change often, so downloads sometimes stop working until the tool is updated. The **Update** button on the Downloads page, or in **Settings → Downloads**, brings it up to date.
 
 Also in **Settings → Downloads**:
 
@@ -57,29 +57,4 @@ Playlists are grouped together in the queue.
 
 ## Galleries
 
-Galleries is for pages that hold a lot of images or clips, like albums and galleries. It uses [gallery-dl](https://codeberg.org/mikf/gallery-dl), another open source tool, which comes with Parallax and needs no setup. It is not in the sidebar. You reach it from the **download galleries** link at the top of the Downloads page, or go straight to `/galleries` in your address bar.
-
-It has two ways of giving it links:
-
-- **Paste** takes a list of links, one per line, just like Downloads. Click **Fetch**.
-- **File** uses a saved list. A list is a named set of links that you can fetch again any time, which is handy for keeping an album up to date. Create, edit, rename and delete lists from the same tab. The Fetch button runs the chosen list.
-
-<Shot id="tools/galleries/options" />
-
-The options on the right:
-
-- **Base directory** is where everything is saved. Pick it before your first fetch.
-- **Parallel URLs** is how many links are fetched at once, from 1 to 5.
-- **Content type** is what to keep: **Video**, **Audio**, **Image** or **Any**. A saved list can have its own choice. Switch the toggle from **All lists** to **This list**.
-- **Max file size** skips very large files, and **+ min size** adds a lower limit too.
-- **Retries** and **HTTP timeout** control how hard it tries when a download fails or is slow.
-- **Stop after N existing files** stops a fetch once it keeps running into files you already have. This is the key to keeping an album up to date by running the same list again.
-- **Skip already-downloaded (archive)** remembers what has been fetched and never downloads it twice. **Reset archive** forgets that list.
-
-**Advanced** adds a range, browser impersonation, rate limiting, a delay between requests, a filename template and a box for extra options.
-
-Progress counts up as files arrive: how many were saved, skipped or failed, and the name of the latest file. Galleries has no thumbnails and no player, since it is just for getting files onto your disk. The queue works like the one in Downloads: stop, retry, remove, and clear completed or all.
-
-Links to video sites, such as a channel or a playlist, work here too. A **YouTube options** panel next to the Fetch button sets the quality, codec, audio-only mode and subtitles for those links. These are saved in a folder named after the channel or playlist inside your base directory.
-
-Just like Downloads, Galleries uses the **Cookies** button for pages that need you signed in, and an **Update** button next to gallery-dl's version.
+Albums and galleries of images have their own page, [Galleries](/docs/tools/galleries). You find it under **Tools → Galleries**, or from the **download galleries** link at the top of this page.

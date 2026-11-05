@@ -1,0 +1,47 @@
+---
+title: Galleries
+description: Fetch whole galleries and albums of images and clips, and keep them up to date.
+---
+
+Galleries is for pages that hold a lot of images or clips, like albums and galleries. It uses [gallery-dl](https://codeberg.org/mikf/gallery-dl), an open source tool that comes with Parallax and needs no setup. Files go into a folder of your choice, ready to add to a library.
+
+Please only download things you have the right to keep.
+
+## Finding it
+
+Open **Tools → Galleries** in the sidebar. There is also a **download galleries** link at the top of the [Downloads](/docs/tools/downloads) page.
+
+## Adding links
+
+It has two ways of giving it links:
+
+- **Paste** takes a list of links, one per line, just like Downloads. Click **Fetch**.
+- **File** uses a saved list. A list is a named set of links that you can fetch again any time, which is handy for keeping an album up to date. Create, edit, rename and delete lists from the same tab. The Fetch button runs the chosen list.
+
+<Shot id="tools/galleries/options" />
+
+## Options
+
+The options on the right:
+
+- **Base directory** is where everything is saved. Pick it before your first fetch.
+- **Parallel URLs** is how many links are fetched at once, from 1 to 5.
+- **Content type** is what to keep: **Video**, **Audio**, **Image** or **Any**. A saved list can have its own choice. Switch the toggle from **All lists** to **This list**.
+- **Max file size** skips very large files, and **+ min size** adds a lower limit too.
+- **Retries** and **HTTP timeout** control how hard it tries when a download fails or is slow.
+- **Stop after N existing files** stops a fetch once it keeps running into files you already have. This is the key to keeping an album up to date by running the same list again.
+- **Skip already-downloaded (archive)** remembers what has been fetched and never downloads it twice. **Reset archive** forgets that list.
+
+**Advanced** adds a range, browser impersonation, rate limiting, a delay between requests, a filename template and a box for extra options.
+
+## Progress
+
+Progress counts up as files arrive: how many were saved, skipped or failed, and the name of the latest file. Galleries has no thumbnails and no player, since it is just for getting files onto your disk. The queue works like the one in [Downloads](/docs/tools/downloads#the-queue): stop, retry, remove, and clear completed or all.
+
+## Video sites
+
+Links to video sites, such as a channel or a playlist, work here too. A **YouTube options** panel next to the Fetch button sets the quality, codec, audio-only mode and subtitles for those links. These are saved in a folder named after the channel or playlist inside your base directory.
+
+## Logging in and updating
+
+Just like Downloads, Galleries uses the **Cookies** button for pages that need you signed in, and an **Update** button next to gallery-dl's version.
