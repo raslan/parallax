@@ -34,7 +34,7 @@
       "id": "ffmpeg",
       "group": "media-tools",
       "name": "FFmpeg (Jellyfin build)",
-      "description": "Reads, converts and joins video and audio, and makes thumbnails. Includes Chromaprint for audio fingerprints.",
+      "description": "The engine behind nearly everything Parallax does with video and audio: reading, converting, joining, thumbnails and playback. Parallax couldn't exist without it. The Jellyfin team's build adds hardware encoding support and Chromaprint for audio fingerprints.",
       "author": "The FFmpeg developers and the Jellyfin project",
       "licence": "GPL-3.0 (this build includes GPL components)",
       "licence_url": "https://github.com/jellyfin/jellyfin-ffmpeg/blob/master/LICENSE.md",
