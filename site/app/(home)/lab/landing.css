@@ -244,7 +244,7 @@
   max-width: 34rem;
   font-family: "Playfair Variable", Georgia, serif;
   font-size: clamp(1.4rem, 2.4vw, 1.75rem);
-  line-height: 1.4;
+  line-height: 1.8;
   letter-spacing: -0.01em;
 }
 .lp-inline {
