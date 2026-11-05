@@ -1,0 +1,423 @@
+@import "@fontsource-variable/playfair/opsz.css";
+@import "@fontsource-variable/playfair/opsz-italic.css";
+
+/*
+ * Landing page. Mobile first: everything below is the phone layout, wider screens are added with min-width
+ * queries. Colours come from the site's theme tokens (--color-fd-*), so picking a theme re-colours the page.
+ * Motion is only ever transform and opacity. `[data-motion="off"]` (the visitor's choice, or their system
+ * setting) turns all of it off, and the page stays fully readable.
+ */
+
+.lp {
+  --lp-bg: var(--color-fd-background);
+  --lp-fg: var(--color-fd-foreground);
+  --lp-muted: var(--color-fd-muted-foreground);
+  --lp-line: var(--color-fd-border);
+  --lp-accent: var(--color-fd-primary);
+  --lp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --lp-gutter: 20px;
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  background: var(--lp-bg);
+  color: var(--lp-fg);
+}
+
+.lp *:focus-visible {
+  outline: 2px solid var(--lp-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.lp-display {
+  font-family: "Playfair Variable", "Playfair", Georgia, "Times New Roman", serif;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+.lp-display em {
+  font-style: italic;
+  color: var(--lp-accent);
+}
+
+.lp-skip {
+  position: absolute;
+  left: var(--lp-gutter);
+  top: -4rem;
+  z-index: 50;
+  padding: 0.6rem 1rem;
+  background: var(--lp-accent);
+  color: var(--color-fd-primary-foreground);
+  border-radius: 0.4rem;
+  font-weight: 600;
+}
+.lp-skip:focus {
+  top: 0.75rem;
+}
+
+/* ---- the sky ------------------------------------------------------------------------------ */
+
+.lp-sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--lp-accent);
+  /* Stars fade out toward the middle of the page so body text never sits on top of them. */
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, #000 100%);
+}
+@media (max-width: 767px) {
+  .lp-sky {
+    mask-image: none;
+    opacity: 0.55;
+  }
+}
+.lp-layer {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 200vh;
+  will-change: transform;
+}
+.lp-tile {
+  position: relative;
+  height: 100vh;
+}
+.lp-star {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--lp-fg);
+}
+.lp-sparkle {
+  position: absolute;
+  color: var(--lp-accent);
+  opacity: 0.8;
+}
+.lp-twinkle,
+.lp-sparkle {
+  animation: lp-twinkle 5s ease-in-out infinite;
+}
+@keyframes lp-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.1);
+  }
+}
+
+/* ---- layout ------------------------------------------------------------------------------- */
+
+.lp-section {
+  padding: 4.5rem var(--lp-gutter);
+  max-width: 76rem;
+  margin: 0 auto;
+}
+.lp-section:focus {
+  outline: none;
+}
+
+.lp-hero {
+  padding-top: 3rem;
+  padding-bottom: 0;
+}
+.lp-hero h1 {
+  font-size: clamp(2.6rem, 9.5vw, 4rem);
+}
+.lp-lead {
+  margin-top: 1.25rem;
+  max-width: 34rem;
+  font-size: 1.125rem;
+  line-height: 1.55;
+  color: var(--lp-muted);
+}
+
+.lp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+.lp-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--lp-line);
+  font-weight: 600;
+  transition:
+    transform 0.25s var(--lp-ease),
+    background-color 0.2s,
+    border-color 0.2s;
+}
+.lp-button:hover {
+  transform: translateY(-2px);
+  border-color: var(--lp-accent);
+}
+.lp-button:active {
+  transform: translateY(0) scale(0.98);
+}
+.lp-button--primary {
+  background: var(--lp-accent);
+  border-color: var(--lp-accent);
+  color: var(--color-fd-primary-foreground);
+}
+
+/* The five features, as a numbered list. */
+.lp-toc {
+  margin-top: 2.5rem;
+}
+.lp-toc-title {
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-muted);
+}
+.lp-toc ol {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  counter-reset: toc;
+}
+.lp-toc a {
+  counter-increment: toc;
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--lp-line);
+  font-family: "Playfair Variable", Georgia, serif;
+  font-size: 1.5rem;
+  transition:
+    color 0.2s,
+    padding-left 0.3s var(--lp-ease);
+}
+.lp-toc a::before {
+  content: counter(toc, decimal-leading-zero);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--lp-muted);
+  font-variant-numeric: tabular-nums;
+}
+.lp-toc a:hover {
+  color: var(--lp-accent);
+  padding-left: 0.5rem;
+}
+
+/* The hero screenshot runs off the bottom of the first screen and fades out. */
+.lp-hero-shot {
+  margin: 2.5rem auto 0;
+  max-width: 24rem;
+  max-height: 34rem;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+}
+.lp-zoom {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.lp-zoom img,
+.lp-dialog img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.55rem 0.55rem 0 0;
+  border: 1px solid var(--lp-line);
+  border-bottom: 0;
+}
+
+.lp-dialog {
+  max-width: min(96vw, 1500px);
+  max-height: 94vh;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--lp-line);
+  border-radius: 0.55rem;
+  background: var(--lp-bg);
+  overflow: auto;
+}
+.lp-dialog::backdrop {
+  background: rgb(0 0 0 / 0.8);
+}
+.lp-dialog img {
+  border: 0;
+  border-radius: 0;
+}
+.lp-dialog-close {
+  position: sticky;
+  top: 0.5rem;
+  float: right;
+  margin: 0.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--lp-line);
+  background: var(--lp-bg);
+  color: var(--lp-fg);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+/* ---- feature beats ------------------------------------------------------------------------ */
+
+.lp-beat {
+  display: grid;
+  gap: 1.75rem;
+  align-items: center;
+}
+.lp-beat-no {
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-accent);
+}
+.lp-beat h2 {
+  margin-top: 0.5rem;
+  font-size: clamp(2.1rem, 6.5vw, 3.75rem);
+}
+.lp-beat p {
+  margin-top: 1rem;
+  max-width: 30rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--lp-muted);
+}
+.lp-more {
+  display: inline-flex;
+  margin-top: 1.25rem;
+  font-weight: 600;
+  color: var(--lp-accent);
+  text-underline-offset: 4px;
+}
+.lp-more:hover {
+  text-decoration: underline;
+}
+
+.lp-clip {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.55rem;
+  border: 1px solid var(--lp-line);
+  background: var(--color-fd-card);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.7);
+}
+.lp-clip video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---- reveal on scroll (only when the script is running and motion is on) ------------------- */
+
+.lp[data-js][data-motion="on"] [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity 0.7s var(--lp-ease),
+    transform 0.9s var(--lp-ease);
+}
+.lp[data-js][data-motion="on"] [data-reveal][data-visible] {
+  opacity: 1;
+  transform: none;
+}
+.lp[data-js][data-motion="on"] [data-reveal="late"] {
+  transition-delay: 0.12s;
+}
+
+/* ---- the pause switch --------------------------------------------------------------------- */
+
+.lp-motion-toggle {
+  position: fixed;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--lp-line);
+  background: color-mix(in srgb, var(--lp-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--lp-fg);
+  font-size: 0.875rem;
+}
+.lp-motion-toggle:hover {
+  border-color: var(--lp-accent);
+}
+
+/* ---- motion off: nothing moves ------------------------------------------------------------ */
+
+.lp[data-motion="off"] *,
+.lp[data-motion="off"] *::before,
+.lp[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+.lp[data-motion="off"] .lp-sky {
+  opacity: 0.5;
+}
+
+/* ---- wider screens ------------------------------------------------------------------------ */
+
+@media (min-width: 768px) {
+  .lp {
+    --lp-gutter: 40px;
+  }
+  .lp-section {
+    padding-top: 7rem;
+    padding-bottom: 7rem;
+  }
+  .lp-hero-shot {
+    max-width: none;
+    max-height: none;
+    margin-left: 0;
+    margin-right: 0;
+    overflow: visible;
+  }
+}
+
+@media (min-width: 1024px) {
+  .lp-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
+    column-gap: 3.5rem;
+    align-items: start;
+    padding-top: 4rem;
+  }
+  .lp-hero h1 {
+    font-size: clamp(2.75rem, 4.4vw, 4.25rem);
+  }
+  .lp-hero-copy {
+    padding-top: 1rem;
+  }
+  .lp-hero-shot {
+    margin-top: 1rem;
+    margin-right: calc((100vw - min(100vw, 76rem)) / -2 - var(--lp-gutter));
+  }
+  .lp-hero-shot .lp-zoom img {
+    border-top-left-radius: 0.55rem;
+  }
+  .lp-beat {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 4rem;
+  }
+  .lp-beat-copy {
+    position: sticky;
+    top: 22vh;
+  }
+}

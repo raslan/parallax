@@ -119,7 +119,7 @@ async function settle(page, shot) {
 }
 
 /** Resolve a crop spec to a viewport rect. {rect} | {selectors:[...], pad} (union of boxes). */
-async function cropRect(page, crop) {
+async function cropRect(page, crop, vp = VIEWPORT) {
   let r;
   if (crop.rect) {
     r = { ...crop.rect };
@@ -140,8 +140,8 @@ async function cropRect(page, crop) {
   }
   const x = Math.max(0, Math.floor(r.x));
   const y = Math.max(0, Math.floor(r.y));
-  const width = Math.min(VIEWPORT.width - x, Math.floor(r.width)) & ~1;
-  const height = Math.min(VIEWPORT.height - y, Math.floor(r.height)) & ~1;
+  const width = Math.min(vp.width - x, Math.floor(r.width)) & ~1;
+  const height = Math.min(vp.height - y, Math.floor(r.height)) & ~1;
   return { x, y, width, height };
 }
 
@@ -194,26 +194,49 @@ function encodeClip(src, out, rect, startSec, budgetBytes) {
 
 // ---------------------------------------------------------------- shot runners
 async function runStill(browser, shot, tmp) {
+  // `shot.viewport` captures the app at another window size (e.g. a phone, to show its own mobile layout).
+  const vp = shot.viewport ?? VIEWPORT;
   const ctx = await browser.newContext({
-    viewport: VIEWPORT,
+    viewport: vp,
     deviceScaleFactor: 2,
     reducedMotion: "reduce",
     colorScheme: "dark",
   });
   const page = await ctx.newPage();
   await settle(page, shot);
-  const rect = await cropRect(page, shot.crop);
+  const rect = await cropRect(page, shot.crop, vp);
   const png = join(tmp, "shot.png");
   await page.screenshot({ path: png, clip: rect });
   await ctx.close();
   const out = join(OUT, `${shot.id}.webp`);
   mkdirSync(dirname(out), { recursive: true });
   const enc = encodeStill(png, out, (shot.budgetKB ?? BUDGET_KB.still) * 1024);
+  // Optional smaller copies for responsive `srcset` (shot.variants = widths in CSS px, each ≤ the crop width).
+  // The full-size file is `rect.width` CSS px wide at 2x, so it is also the 2x copy of that width.
+  const variants = [];
+  for (const w of shot.variants ?? []) {
+    if (w >= rect.width) continue;
+    const file = `${shot.id}-${w}w.webp`;
+    const vOut = join(OUT, file);
+    ffmpeg([
+      "-i",
+      out,
+      "-vf",
+      `scale=${w * 2}:-2:flags=lanczos`,
+      "-c:v",
+      "libwebp",
+      "-quality",
+      String(enc.quality),
+      vOut,
+    ]);
+    variants.push({ src: file, width: w, bytes: statSync(vOut).size });
+  }
   return {
     src: `${shot.id}.webp`,
     width: rect.width,
     height: rect.height,
     bytes: statSync(out).size,
+    ...(variants.length ? { variants } : {}),
     ...enc,
   };
 }

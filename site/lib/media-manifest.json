@@ -395,5 +395,39 @@
     "height": 780,
     "bytes": 203450,
     "quality": 90
+  },
+  "landing/hero/files-grid": {
+    "id": "landing/hero/files-grid",
+    "kind": "still",
+    "alt": "The Parallax Files page: the top bar with the section tabs, the sidebar, and a grid of video thumbnails with codec, size and duration under each.",
+    "route": "/files",
+    "src": "landing/hero/files-grid.webp",
+    "width": 1440,
+    "height": 690,
+    "bytes": 237178,
+    "variants": [
+      {
+        "src": "landing/hero/files-grid-720w.webp",
+        "width": 720,
+        "bytes": 108476
+      },
+      {
+        "src": "landing/hero/files-grid-1080w.webp",
+        "width": 1080,
+        "bytes": 178884
+      }
+    ],
+    "quality": 90
+  },
+  "landing/hero/files-grid-mobile": {
+    "id": "landing/hero/files-grid-mobile",
+    "kind": "still",
+    "alt": "The Parallax Files page on a phone.",
+    "route": "/files",
+    "src": "landing/hero/files-grid-mobile.webp",
+    "width": 430,
+    "height": 900,
+    "bytes": 117104,
+    "quality": 90
   }
 }
