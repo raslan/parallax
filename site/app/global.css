@@ -13,6 +13,12 @@
   --radius-xl: 0.55rem;
 }
 
+/* Fumadocs caps and centres the docs layout at 1400px, which leaves a wide empty gutter left of the
+   sidebar on big monitors. Let it span the viewport; page content keeps its own max width. */
+:root {
+  --fd-layout-width: 100vw;
+}
+
 body {
   font-family: var(--font-sans);
 }
