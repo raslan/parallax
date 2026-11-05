@@ -429,5 +429,85 @@
     "height": 900,
     "bytes": 117104,
     "quality": 90
+  },
+  "landing/beats/cleanup": {
+    "id": "landing/beats/cleanup",
+    "kind": "clip",
+    "alt": "On the Cleanup page, a duration filter is added, then a filename filter joined to it with AND. The AND/OR switch is flipped to OR and back, and the list of files narrows to the matches.",
+    "route": "/cleanup",
+    "src": "landing/beats/cleanup.mp4",
+    "webm": "landing/beats/cleanup.webm",
+    "poster": "landing/beats/cleanup.poster.webp",
+    "width": 2000,
+    "height": 1064,
+    "bytes": 473962,
+    "mp4Bytes": 398812,
+    "duration": 11.07,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.8,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.6,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.14,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.94,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 7.85,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 8.65,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 9.75,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 10.55,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 34
   }
 }

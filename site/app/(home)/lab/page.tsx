@@ -4,6 +4,17 @@ import Link from "next/link";
 import { LoopVideo } from "@/components/landing/loop-video";
 import { Motion, Stars } from "@/components/landing/motion";
 import { ZoomImage } from "@/components/landing/zoom-image";
+import type { CameraKey } from "@/components/landing/loop-video";
+import manifest from "@/lib/media-manifest.json";
+
+// The recorded clip, with the camera moves the capture tool wrote down while it filmed it.
+const CLEANUP = manifest["landing/beats/cleanup" as keyof typeof manifest] as unknown as {
+  id: string;
+  alt: string;
+  width: number;
+  height: number;
+  camera: CameraKey[];
+};
 
 // A working prototype of the landing page, not linked from anywhere and kept out of search results.
 export const metadata: Metadata = {
@@ -97,8 +108,8 @@ export default function LandingPrototype() {
               Stack filters until only the files you mean are left.
             </h2>
             <p>
-              Duration, size, resolution, name, date. Add as many as you like and the list narrows
-              as you go.
+              Duration, size, resolution, name, date. Join them with AND or OR, and watch the list
+              narrow as you go.
             </p>
             <Link href="/docs/features/cleanup" className="lp-link lp-more">
               Read about Cleanup
@@ -110,10 +121,12 @@ export default function LandingPrototype() {
           </div>
           <div data-reveal="late" data-parallax="0.04">
             <LoopVideo
-              id="features/cleanup/duration-filter"
-              alt="Adding a duration filter on the Cleanup page narrows thirteen files down to the short ones."
-              width={960}
-              height={510}
+              id={CLEANUP.id}
+              alt={CLEANUP.alt}
+              width={CLEANUP.width}
+              height={CLEANUP.height}
+              webm
+              camera={CLEANUP.camera}
             />
           </div>
         </section>

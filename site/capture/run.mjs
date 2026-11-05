@@ -285,6 +285,196 @@ async function runClip(browser, shot, tmp) {
   };
 }
 
+// ------------------------------------------------- hi-res clips with a virtual camera (landing page)
+// Recorded at 2x so the page can zoom into the clip and stay sharp. `steps(page, { sleep, focus })` can call
+// `focus(target, { pad, move })`: the runner records the exact time and the target's box, and the page later
+// plays that as a smooth camera move (zoom in, hold, zoom out). `focus(null)` returns to the whole view.
+// Target: a Playwright locator, a CSS selector, or a rect in page px. The camera is stored normalised to the crop.
+const HIRES_MAX_WIDTH = 2000;
+
+// `input` is ffmpeg's input arguments for the already-cropped 2x frames (a concat list of screenshots).
+function encodeHiresClip(input, outBase, rect, budgetBytes) {
+  const w = Math.min(rect.width * 2, HIRES_MAX_WIDTH) & ~1;
+  const vf = `scale=${w}:-2:flags=lanczos,fps=30`;
+  const mp4 = `${outBase}.mp4`;
+  const webm = `${outBase}.webm`;
+  let used = null;
+  for (const crf of [34, 36, 38, 40, 42, 44]) {
+    ffmpeg([
+      ...input,
+      "-vf",
+      vf,
+      "-an",
+      "-c:v",
+      "libvpx-vp9",
+      "-b:v",
+      "0",
+      "-crf",
+      String(crf),
+      "-row-mt",
+      "1",
+      "-pix_fmt",
+      "yuv420p",
+      webm,
+    ]);
+    if (statSync(webm).size <= budgetBytes) {
+      used = { crf };
+      break;
+    }
+  }
+  if (!used)
+    die(
+      `${webm} is ${Math.round(statSync(webm).size / 1024)} KB at CRF 44, over its ${Math.round(budgetBytes / 1024)} KB budget; crop tighter or raise budgetKB`,
+    );
+  // H.264 fallback for browsers without VP9 (older iOS); allowed a little more room.
+  for (const crf of [28, 30, 32, 34, 36, 38]) {
+    ffmpeg([
+      ...input,
+      "-vf",
+      vf,
+      "-an",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "slow",
+      "-crf",
+      String(crf),
+      "-pix_fmt",
+      "yuv420p",
+      "-movflags",
+      "+faststart",
+      mp4,
+    ]);
+    if (statSync(mp4).size <= budgetBytes * 1.5) return { ...used, width: w, mp4Crf: crf };
+  }
+  die(`${mp4} is over its budget at CRF 38`);
+}
+
+async function runHiresClip(browser, shot, tmp) {
+  // Playwright's own video recording is 1x whatever the pixel ratio, so the frames are 2x screenshots of the crop
+  // taken in a loop (about 13 per second) while the steps run, then stitched with their real timings.
+  const ctx = await browser.newContext({
+    viewport: VIEWPORT,
+    deviceScaleFactor: 2,
+    colorScheme: "dark",
+  });
+  const page = await ctx.newPage();
+  await settle(page, shot);
+  const rect = await cropRect(page, shot.crop);
+  const t0 = Date.now();
+  const now = () => (Date.now() - t0) / 1000;
+  const framesDir = join(tmp, `frames-${shot.id.replace(/\W+/g, "-")}`);
+  mkdirSync(framesDir, { recursive: true });
+  const frames = [];
+  let recording = true;
+  const grab = (async () => {
+    while (recording) {
+      const t = now();
+      const buf = await page.screenshot({
+        type: "jpeg",
+        quality: 92,
+        clip: rect,
+        animations: "allow",
+        caret: "initial",
+      });
+      const file = join(framesDir, `f${String(frames.length).padStart(5, "0")}.jpg`);
+      writeFileSync(file, buf);
+      frames.push({ t, file });
+    }
+  })();
+
+  const FULL = { x: 0, y: 0, w: 1, h: 1 };
+  const camera = [];
+  let current = FULL;
+  const toRect = async (target, pad) => {
+    if (target == null) return FULL;
+    let b;
+    if (typeof target === "string") b = await page.locator(target).first().boundingBox();
+    else if (typeof target.boundingBox === "function") b = await target.boundingBox();
+    else b = target;
+    if (!b) die(`${shot.id}: focus target not visible`);
+    const x0 = Math.max(rect.x, b.x - pad.x);
+    const y0 = Math.max(rect.y, b.y - pad.y);
+    const x1 = Math.min(rect.x + rect.width, b.x + b.width + pad.x);
+    const y1 = Math.min(rect.y + rect.height, b.y + b.height + pad.y);
+    const r = (v) => Math.round(v * 10000) / 10000;
+    return {
+      x: r((x0 - rect.x) / rect.width),
+      y: r((y0 - rect.y) / rect.height),
+      w: r((x1 - x0) / rect.width),
+      h: r((y1 - y0) / rect.height),
+    };
+  };
+  const focus = async (target, { pad = { x: 24, y: 24 }, move = 0.8 } = {}) => {
+    const next = await toRect(target, pad);
+    const t = now();
+    if (!camera.length) camera.push({ t: 0, ...current });
+    camera.push({ t: Math.round(t * 100) / 100, ...current }); // hold until the move starts
+    camera.push({ t: Math.round((t + move) * 100) / 100, ...next });
+    current = next;
+  };
+
+  await shot.steps(page, { sleep, focus });
+  if (current !== FULL) await focus(null);
+  await sleep(shot.tailMs ?? 1200);
+  recording = false;
+  await grab;
+  const endT = now();
+  await ctx.close();
+
+  // ffmpeg concat list: each frame is held until the next one was taken (the last until the end).
+  const list = frames
+    .map(
+      (f, i) =>
+        `file '${f.file}'\nduration ${((frames[i + 1]?.t ?? endT) - f.t || 0.04).toFixed(3)}`,
+    )
+    .join("\n");
+  const listFile = join(framesDir, "list.txt");
+  writeFileSync(listFile, `${list}\nfile '${frames.at(-1).file}'\n`);
+
+  const outBase = join(OUT, shot.id);
+  mkdirSync(dirname(outBase), { recursive: true });
+  const enc = encodeHiresClip(
+    ["-f", "concat", "-safe", "0", "-i", listFile],
+    outBase,
+    rect,
+    (shot.budgetKB ?? 900) * 1024,
+  );
+  const poster = `${outBase}.poster.webp`;
+  ffmpeg([
+    "-ss",
+    "0.15",
+    "-i",
+    `${outBase}.webm`,
+    "-frames:v",
+    "1",
+    "-c:v",
+    "libwebp",
+    "-quality",
+    "82",
+    poster,
+  ]);
+  const probe = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", `${outBase}.webm`],
+    { encoding: "utf8" },
+  );
+  const duration = Math.round(parseFloat(probe.stdout) * 100) / 100;
+  const h = Math.round((enc.width * rect.height) / rect.width / 2) * 2;
+  return {
+    src: `${shot.id}.mp4`,
+    webm: `${shot.id}.webm`,
+    poster: `${shot.id}.poster.webp`,
+    width: enc.width,
+    height: h,
+    bytes: statSync(`${outBase}.webm`).size,
+    mp4Bytes: statSync(`${outBase}.mp4`).size,
+    duration,
+    camera,
+    crf: enc.crf,
+  };
+}
+
 // ---------------------------------------------------------------- main
 const shots = await loadShots();
 if (argv.includes("--list")) {
@@ -308,7 +498,9 @@ for (const shot of selected) {
     const res =
       shot.kind === "still"
         ? await runStill(browser, shot, tmp)
-        : await runClip(browser, shot, tmp);
+        : shot.hires
+          ? await runHiresClip(browser, shot, tmp)
+          : await runClip(browser, shot, tmp);
     manifest[shot.id] = { id: shot.id, kind: shot.kind, alt: shot.alt, route: shot.route, ...res };
     console.log(`${Math.round(res.bytes / 1024)} KB  ${res.width}×${res.height}`);
   } catch (e) {
