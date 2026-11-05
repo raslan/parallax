@@ -1,4 +1,13 @@
 {
   "title": "Parallax",
-  "pages": ["index", "getting-started", "general-concepts", "features", "tools", "advanced", "api"]
+  "pages": [
+    "index",
+    "getting-started",
+    "general-concepts",
+    "features",
+    "tools",
+    "advanced",
+    "api",
+    "acknowledgements"
+  ]
 }

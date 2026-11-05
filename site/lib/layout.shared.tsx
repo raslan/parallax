@@ -24,12 +24,6 @@ export function SidebarFooter() {
         <GithubIcon className="size-4" />
         GitHub
       </a>
-      <a
-        href="/acknowledgements"
-        className="text-center text-xs text-fd-muted-foreground transition-colors hover:text-fd-foreground"
-      >
-        Acknowledgements
-      </a>
     </div>
   );
 }
@@ -70,12 +64,6 @@ export function baseOptions(includeDocsLink = false): BaseLayoutProps {
     },
     // Dark only; the theme picker replaces the light/dark toggle.
     themeSwitch: { enabled: false },
-    links: includeDocsLink
-      ? [
-          { text: "Docs", url: "/docs" },
-          { text: "Acknowledgements", url: "/acknowledgements" },
-          ...homeLinks,
-        ]
-      : [],
+    links: includeDocsLink ? [{ text: "Docs", url: "/docs" }, ...homeLinks] : [],
   };
 }

@@ -2,6 +2,7 @@ import defaultComponents from "fumadocs-ui/mdx";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import type { MDXComponents } from "mdx/types";
+import { CreditsList } from "./credits-list";
 import { Shot } from "./shot";
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
@@ -12,6 +13,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Step,
     Steps,
     Shot,
+    CreditsList,
     ...components,
   };
 }
