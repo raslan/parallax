@@ -11,3 +11,4 @@ lib/themes.generated.ts
 capture/out/
 # written by `next dev`
 AGENTS.md
+content/docs/getting-started/changelog.mdx

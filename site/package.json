@@ -6,11 +6,12 @@
   "scripts": {
     "capture": "node capture/run.mjs",
     "sync-themes": "node scripts/sync-themes.mjs",
-    "predev": "npm run sync-themes",
+    "predev": "npm run sync-themes && npm run sync-changelog",
     "dev": "next dev",
-    "prebuild": "npm run sync-themes",
+    "prebuild": "npm run sync-themes && npm run sync-changelog",
     "build": "next build",
-    "postinstall": "fumadocs-mdx"
+    "postinstall": "fumadocs-mdx",
+    "sync-changelog": "node scripts/sync-changelog.mjs"
   },
   "dependencies": {
     "fumadocs-core": "^16.18.0",

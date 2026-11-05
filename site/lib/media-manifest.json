@@ -43,5 +43,49 @@
     "height": 410,
     "bytes": 27352,
     "quality": 90
+  },
+  "getting-started/concepts/jobs": {
+    "id": "getting-started/concepts/jobs",
+    "kind": "still",
+    "alt": "The Jobs page listing finished jobs with their status, and a Logs toggle on each.",
+    "route": "/jobs",
+    "src": "getting-started/concepts/jobs.webp",
+    "width": 1184,
+    "height": 420,
+    "bytes": 37804,
+    "quality": 90
+  },
+  "getting-started/hardware/transcoder-tab": {
+    "id": "getting-started/hardware/transcoder-tab",
+    "kind": "still",
+    "alt": "Settings, Transcoder tab: the detected GPU is named in the concurrent-transcodes hint, with a slider for files per GPU.",
+    "route": "/settings?tab=transcoder",
+    "src": "getting-started/hardware/transcoder-tab.webp",
+    "width": 1176,
+    "height": 380,
+    "bytes": 74444,
+    "quality": 90
+  },
+  "getting-started/first-scan/add-library": {
+    "id": "getting-started/first-scan/add-library",
+    "kind": "still",
+    "alt": "The Add Library dialog: a path field with a folder-browse button, a split-into-sub-libraries option and a scan-after-creation option.",
+    "route": "/libraries",
+    "src": "getting-started/first-scan/add-library.webp",
+    "width": 516,
+    "height": 342,
+    "bytes": 29610,
+    "quality": 90
+  },
+  "getting-started/first-scan/folder-picker": {
+    "id": "getting-started/first-scan/folder-picker",
+    "kind": "still",
+    "alt": "The folder picker listing the folders mounted into the container under /media.",
+    "route": "/libraries",
+    "src": "getting-started/first-scan/folder-picker.webp",
+    "width": 516,
+    "height": 396,
+    "bytes": 17418,
+    "quality": 90
   }
 }
