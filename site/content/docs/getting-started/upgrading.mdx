@@ -1,0 +1,39 @@
+---
+title: Upgrading
+description: Move to a newer version of Parallax without losing anything.
+---
+
+Your libraries, settings and thumbnails live in the `data` folder you set up during [install](/docs/getting-started/install). Upgrading replaces the app and leaves that folder alone.
+
+## Update to the latest version
+
+From the folder that holds your `docker-compose.yml`:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+The first command downloads the new version, and the second restarts Parallax with it. Parallax updates its own data when it starts, so there is nothing else to do.
+
+If you chose a version tag such as `3.5` instead of `latest`, you will get small fixes for that version this way. To move to a newer version, change the tag in your compose file and run the same two commands.
+
+## Back up first
+
+Before a big jump, it is worth copying the `data` folder somewhere safe:
+
+```bash
+docker compose down
+cp -r data data-backup
+docker compose up -d
+```
+
+Newer versions may change how Parallax stores things, and a backup is the easy way back if you decide to return to the older version.
+
+## Trying unreleased work
+
+The `nightly` tag always holds the newest unfinished work. It is only for trying things out and can break. Do not point it at a library you care about without a backup.
+
+## What changed?
+
+The [Changelog](/docs/getting-started/changelog) lists what is new in each release.

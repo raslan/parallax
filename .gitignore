@@ -20,7 +20,7 @@ Thumbs.db
 # Internal docs
 CLAUDE.md
 **/CLAUDE.md
-docs/
+/docs/
 scratchpad/
 .claude/
 

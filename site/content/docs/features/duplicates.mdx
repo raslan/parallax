@@ -1,0 +1,72 @@
+---
+title: Duplicates
+description: Find files you have more than once and free up the space.
+---
+
+Duplicates finds files that are really the same thing, even when they look different: a copy in another folder, or the same movie, photo or song saved in a different size or quality.
+
+It lives in **Videos → Duplicates**, **Images → Duplicates** and **Audio → Duplicates**. They share the same idea, with different ways of deciding what counts as "the same".
+
+<Tabs items={["Videos", "Images", "Audio"]}>
+<Tab value="Videos">
+
+<Shot id="features/duplicates/results" />
+
+You pick a library and choose what counts as "the same". Each choice is a chip in a row, and **a pair of videos is only matched when every chip agrees**. Click a chip to adjust it, the × to remove it, or **Add criterion** to bring in another.
+
+The ones that look at details Parallax already knows are instant:
+
+- **Exact size** means the files are exactly the same size.
+- **Duration** means they run for the same time, give or take a few seconds you can set.
+- **Resolution** and **Orientation** need the picture size and shape (landscape, portrait or square) to match.
+- **Content date** looks for videos recorded within a window of days.
+- **Bitrate** allows a percentage difference in how much data each second of video holds.
+- **Filename** matches names that are similar, not just identical, with a similarity you can set.
+
+Three more look inside the files, so they need a short preparation step first:
+
+- **Byte hash** is a strict check that two files are exact copies.
+- **Visual** compares how the picture looks, so it can spot the same video saved at a different size or quality. You set how similar it has to be, whether to look at just the first frame or several frames, and how many frames to check. More frames is more thorough and slower.
+- **Audio fingerprint** compares how the sound is, which finds the same soundtrack under different pictures.
+
+You start with Exact size, Duration and Visual switched on. Because all of them have to match, take **Exact size** off when you are hunting for the same video at different sizes, such as a smaller copy you made earlier.
+
+</Tab>
+<Tab value="Images">
+
+<Shot id="features/duplicates/images" />
+
+Images are matched by how they look, so a picture saved at a different size or with different compression still counts. There is one setting, **Min similarity**. A higher number only matches pictures that are almost identical, and a lower number catches looser look-alikes.
+
+Click **Find Duplicates**. If some images have not been prepared for comparison yet, a short background job does that first, and then the groups appear.
+
+</Tab>
+<Tab value="Audio">
+
+<Shot id="features/duplicates/audio" />
+
+Audio has four chips: **Exact size**, **Duration**, **Content date** and **Audio fingerprint**. As with video, every chip you switch on has to match. You start with Duration (within 2 seconds) and Audio fingerprint, which compares how the music actually sounds, so a song saved at two different bitrates is found.
+
+Click **Find duplicates** to prepare the fingerprints, and the groups appear when it finishes.
+
+</Tab>
+</Tabs>
+
+## Preparing files
+
+For video and audio, the criteria that look inside the files need information that Parallax collects first. For video this is the **Extract** button, and for audio it is **Find duplicates**. It starts a background job, and you can watch it on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page.
+
+It is as lazy as it can be. It uses the instant checks first to rule out files that cannot possibly match and only does the slow work on the ones left. It also skips anything it has already done, so running it again later only handles new files or new settings.
+
+Once it has finished, changing chips updates the results straight away with no waiting. If files change, or you add a chip that needs more preparation than you have done, a yellow banner tells you the results may be incomplete and offers to run it again.
+
+## Choosing what to delete
+
+Matches show up as groups, each with every copy side by side. Click a thumbnail or the play button to look at or play it.
+
+Parallax suggests one copy to keep in every group, marked **KEEP**. For video it is the one with the higher bitrate, or the bigger file if that ties. Every other copy is ticked for removal. You can change the ticks however you like.
+
+The bar above the groups shows how many files are selected and how much space you would get back.
+
+- For video and audio, **Delete selected** asks you to confirm and then moves those files into an `_originals` folder next to where each one was, and removes them from the library. They are not gone for good until you delete them from the [Originals](/docs/features/originals) page, so you can still change your mind.
+- For images, **Quarantine** sets the selected pictures aside in a `_quarantine` folder instead. You can restore or permanently delete them from the [Quarantine page](/docs/features/originals#quarantined-images).

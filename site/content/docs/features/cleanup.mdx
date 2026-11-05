@@ -1,0 +1,61 @@
+---
+title: Cleanup
+description: Find files that match rules you set, such as very short, small or old, and clear them out in bulk.
+---
+
+Cleanup helps you get rid of files you do not want. You describe what you are looking for, Parallax shows everything that matches, and you delete the ones you choose.
+
+It is on **Videos → Cleanup** and **Audio → Cleanup**. (Images have [Content Review](/docs/features/content-review) for the same job.)
+
+<Shot id="features/cleanup/duration-filter" />
+
+## Building a filter
+
+Pick a library, then click **Add filter** and choose what to filter on.
+
+<Tabs items={["Videos", "Audio"]}>
+<Tab value="Videos">
+
+- **Duration**: shorter or longer than a number of seconds. Handy for clips and samples.
+- **Framerate**: below or above a number of frames per second.
+- **Content date** and **File added**: before or after a point in time, such as 30 days ago or a date from the calendar.
+- **File size**: over or under a size. There are shortcuts for 100 MB up to 2 GB.
+- **Orientation**: portrait, landscape or square.
+- **Resolution**: over or under 4K, 1440p, 1080p, 720p or 480p. This is measured on the shorter side of the picture, so a portrait video is judged the same way as a landscape one.
+- **Filename**: contains some text, does not contain it, or roughly matches it, which also catches names that are spelled a little differently.
+
+</Tab>
+<Tab value="Audio">
+
+Audio has four things to filter on, since there is no picture:
+
+- **Duration**
+- **Content date**
+- **File size**
+- **Filename**
+
+They work the same as the video versions.
+
+</Tab>
+</Tabs>
+
+Results update as you build the filter, and the list shows how many files match. You can add as many filters as you like.
+
+By default **every filter has to match**. Click the word between two filters to switch it from AND to OR, which makes a file match if it passes either one.
+
+<Callout title="Content date and File added">
+  Content date comes from the information stored in the file and falls back to the file's date on
+  disk. File added is the file's date on disk.
+</Callout>
+
+## Choosing and deleting
+
+The results appear as a grid or a list for video, and a list for audio. You can sort them, tick the files you want, use **Select all**, or drag a box around them. A bar at the bottom shows how many you have picked and how much space they take.
+
+Click **Delete** to finish. Parallax asks you to confirm, telling you how many files and how much space is involved. The files are then moved into an `_originals` folder next to where each one was, and removed from the library. Nothing is gone for good until you delete the backups from the [Originals](/docs/features/originals) page, so you can still change your mind.
+
+Space you free up this way is added to the total on your Home page.
+
+## Before you start
+
+The library has to have been scanned, so Cleanup has files to look at. If it has not, you will be asked to scan it first.

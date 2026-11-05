@@ -1,0 +1,76 @@
+---
+title: Install
+description: Get Parallax running with Docker in a few minutes.
+---
+
+Parallax runs as a single Docker container. If you already use Docker Compose, you are about two minutes from your first look at it.
+
+## What you need
+
+- A computer or server that runs Docker with Docker Compose.
+- Your media on that machine, in folders you can share with the container.
+
+On Windows, install [Docker Desktop](https://www.docker.com/products/docker-desktop/) first and leave it running. The default WSL 2 setup is the one you want.
+
+## Set it up
+
+Make a folder for Parallax, and inside it create a file called `docker-compose.yml`:
+
+```yaml
+services:
+  parallax:
+    image: ghcr.io/raslan/parallax:latest
+    container_name: parallax
+    ports:
+      - "7899:7899"
+    volumes:
+      - ./data:/app/data
+      - /mnt/media:/media
+    environment:
+      - DATA_DIR=/app/data
+    user: "1000:1000"
+    restart: unless-stopped
+```
+
+Change a few things to fit your setup:
+
+- **`/mnt/media`** is the folder on your machine that holds your media. Put your own path on the left side of the colon and leave `/media` on the right. You can add more lines like it for other folders.
+- **`./data`** is where Parallax keeps its own things, like your settings and thumbnails. Docker creates it for you.
+- **`user: "1000:1000"`** should match your own user on the host, so the files Parallax creates belong to you. Run `id` in a terminal to see your numbers.
+
+Then start it:
+
+```bash
+docker compose up -d
+```
+
+Open `http://your-machine:7899` in a browser (or `http://localhost:7899` if you are on the same machine). You should see the Parallax home page.
+
+<Callout title="Give Parallax write access to your media folders">
+  Parallax saves things next to your files: backups of originals, compressed copies, subtitles and
+  so on. If you mount a folder as read-only, those features will not work in it.
+</Callout>
+
+## Using a different port
+
+To open Parallax on another port, change the left number in the `ports` line. For example, `"8080:7899"` makes it available on port 8080. Leave the right number alone.
+
+## There is no login
+
+Parallax does not have a password screen. Anyone who can reach the page can use it, including deleting files. Keep it on your home network, or put it behind something that asks for a login, like a VPN or a reverse proxy with authentication. Please do not expose it straight to the internet.
+
+## Using a graphics card
+
+If your machine has a graphics card, you can give it to Docker and Parallax will use it to make compression faster. It works without one, just more slowly. See [Hardware acceleration](/docs/advanced/hardware-acceleration) for the details when you are ready.
+
+## Which version to run
+
+| Tag                            | What it is                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------- |
+| `latest`                       | The newest release. This is what most people want.                                          |
+| A version number such as `3.5` | Stays on that release line and only picks up small fixes.                                   |
+| `nightly`                      | The newest unfinished work. It can be broken, so do not use it on a library you care about. |
+
+## Building it yourself
+
+If you want to build the image from the source code instead, the [repository on GitHub](https://github.com/raslan/parallax) has a `Dockerfile` and instructions.

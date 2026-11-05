@@ -1,0 +1,85 @@
+---
+title: Downloads
+description: Save videos and audio from links, and fetch whole galleries of pictures.
+---
+
+Downloads saves videos and audio from links you paste in, and Galleries does the same for galleries and albums of images. Both live under **Tools** and both put the files in a folder of your choice, ready to add to a library.
+
+Please only download things you have the right to keep.
+
+## Getting set up
+
+Parallax uses a separate download tool for this, which is not installed to begin with. Open **Settings → Downloads** and click **Install** next to it. You will also see a banner on the Downloads page that does the same thing. You can pick which release channel to follow, **stable** or **nightly**. Stable is the sensible choice.
+
+Sites change often, so downloads sometimes stop working until the tool is updated. The **Update** button on the Downloads and Galleries pages, or in **Settings → Downloads**, brings it up to date.
+
+Also in **Settings → Downloads**:
+
+- **Default download directory** is where new downloads are saved unless you choose otherwise on the page.
+- **Max concurrent downloads** is how many links download at the same time.
+
+## Downloading a video or audio
+
+1. Open **Tools → Downloads**.
+2. Paste one or more links into the box, one per line.
+3. Choose your options on the right, then click **Add to queue**, or press Ctrl+Enter.
+
+If a link is already in the queue, Parallax warns you rather than adding it twice.
+
+<Shot id="tools/downloads/options" />
+
+The options on the right:
+
+- **Mode** is **Video**, or **Audio only** if you just want the sound. For audio you choose the format instead of a codec.
+- **Quality** is the best available, or a cap such as 1080p or 720p.
+- **Codec** chooses the video format. **Auto** is fine for most things.
+- **Parallel fragments** is how many connections are used for each download. Higher can be faster for some sites.
+- **Trim** takes only part of the video. Enter a start and an end time as hours, minutes and seconds.
+- **Output directory** is where this download goes. Click **Change** to pick a folder.
+- **Download subtitles** also fetches subtitle files, and you choose which languages.
+- **Group by uploader** puts each download in a folder named after whoever uploaded it.
+
+Under **Advanced** there are options for harder cases. **Impersonate browser** makes requests look like a normal browser, which some sites need. There are also settings for sites that slow a download down part way through, a field for a referring address, and a box for extra options if you know what you are doing.
+
+### Logging in with cookies
+
+Some videos only play for a signed-in account. The **Cookies** button lets you paste in the cookies from your browser (or drop in a cookies file) so a download can use your session. They are used for that session only and are never saved to disk.
+
+## The queue
+
+Each download appears under **Queue** with live progress, speed and time remaining. History is kept between restarts.
+
+On each item you can open the original link, play the finished file in Parallax, stop a running download, retry one that failed, remove it from the list, or delete the downloaded file as well. Hold Shift when clicking delete to skip the confirmation. There is also **Retry all failed**, and filters at the top for each status.
+
+**Clear completed** removes finished items from the list without touching the files. **Clear all** also removes failed and cancelled ones. Neither deletes anything from your disk.
+
+Playlists are grouped together in the queue.
+
+## Galleries
+
+Galleries is for pages that hold a lot of images or clips, like albums and galleries. It is not in the sidebar. You reach it from the **download galleries** link at the top of the Downloads page, or go straight to `/galleries` in your address bar.
+
+It has two ways of giving it links:
+
+- **Paste** takes a list of links, one per line, just like Downloads. Click **Fetch**.
+- **File** uses a saved list. A list is a named set of links that you can fetch again any time, which is handy for keeping an album up to date. Create, edit, rename and delete lists from the same tab. The Fetch button runs the chosen list.
+
+<Shot id="tools/galleries/options" />
+
+The options on the right:
+
+- **Base directory** is where everything is saved. Pick it before your first fetch.
+- **Parallel URLs** is how many links are fetched at once, from 1 to 5.
+- **Content type** is what to keep: **Video**, **Audio**, **Image** or **Any**. A saved list can have its own choice. Switch the toggle from **All lists** to **This list**.
+- **Max file size** skips very large files, and **+ min size** adds a lower limit too.
+- **Retries** and **HTTP timeout** control how hard it tries when a download fails or is slow.
+- **Stop after N existing files** stops a fetch once it keeps running into files you already have. This is the key to keeping an album up to date by running the same list again.
+- **Skip already-downloaded (archive)** remembers what has been fetched and never downloads it twice. **Reset archive** forgets that list.
+
+**Advanced** adds a range, browser impersonation, rate limiting, a delay between requests, a filename template and a box for extra options.
+
+Progress counts up as files arrive: how many were saved, skipped or failed, and the name of the latest file. Galleries has no thumbnails and no player, since it is just for getting files onto your disk. The queue works like the one in Downloads: stop, retry, remove, and clear completed or all.
+
+Links to video sites, such as a channel or a playlist, work here too. A **YouTube options** panel next to the Fetch button sets the quality, codec, audio-only mode and subtitles for those links. These are saved in a folder named after the channel or playlist inside your base directory.
+
+Just like Downloads, Galleries uses the **Cookies** button for pages that need you signed in, and an **Update** button next to the tool's version.

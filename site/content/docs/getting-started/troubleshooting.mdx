@@ -1,0 +1,48 @@
+---
+title: Troubleshooting and FAQ
+description: Quick answers to the problems people run into most often.
+---
+
+## The page will not load
+
+Check that the container is running with `docker compose ps`, and look at its messages with `docker compose logs`. If you changed the port, remember the left number in the `ports` line is the one you open in the browser.
+
+## I cannot see my folders when adding a library
+
+The folder picker only shows what the container can see. Make sure the folder is listed under `volumes` in your compose file, then run `docker compose up -d` again. Your media shows up inside the container wherever you put the right-hand side of that line, for example `/media`.
+
+## Files made by Parallax belong to the wrong user
+
+Set `user:` in your compose file to your own user and group numbers. Run `id` in a terminal to find them, then restart the container.
+
+## A library says it has no files
+
+New libraries only fill up once they are scanned. Click the refresh button on the library's row. If the scan finishes and it is still empty, check the folder really has video, image or audio files in it, and that Parallax is allowed to read it.
+
+## A video plays with no sound in the browser
+
+Some audio formats, like the ones used on many Blu-ray rips, cannot be played by browsers. Parallax converts the sound on the fly when you press play, so the video starts after a couple of seconds and then plays normally. Your file is not changed.
+
+## Compression is slow
+
+Compressing video is heavy work, and without a graphics card it all runs on your processor. If you have a graphics card, you can give it to Docker. Look under **Settings → Transcoder** to see whether Parallax found one, and read [Hardware acceleration](/docs/advanced/hardware-acceleration).
+
+## Thumbnails take a moment to show up
+
+Thumbnails are made when you first look at them, and a background job fills in the rest after a scan. Large libraries can take a little while.
+
+## Identify cannot find my show
+
+Matching TV shows and movies needs a free TMDB key. Create one on the TMDB website and paste it under **Settings → Keys & Accounts**. Use the short key called **API Key**, not the very long **API Read Access Token**. Custom mode in Identify works without any key.
+
+## Where does Parallax keep its data?
+
+In the `data` folder next to your compose file. That has your libraries, settings and thumbnails. Your actual media is never copied in there.
+
+## Is there a password?
+
+No. See [Install](/docs/getting-started/install#there-is-no-login) for what to do about that.
+
+## It still is not working
+
+Open an issue on [GitHub](https://github.com/raslan/parallax/issues) and include the output of `docker compose logs` so it is easier to see what happened.

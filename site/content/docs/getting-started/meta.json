@@ -1,0 +1,11 @@
+{
+  "title": "Getting started",
+  "pages": [
+    "install",
+    "first-scan",
+    "how-parallax-works",
+    "upgrading",
+    "troubleshooting",
+    "changelog"
+  ]
+}
