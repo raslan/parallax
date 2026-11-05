@@ -140,33 +140,104 @@
 .lp-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.75rem;
+  align-items: center;
+  gap: 1.25rem 2rem;
+  margin-top: 2rem;
 }
-.lp-button {
+
+/* The main button: a filled pill in Playfair italic, with a thin ring around it that swells on hover. */
+.lp-cta {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 2.75rem;
-  padding: 0.65rem 1.25rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--lp-line);
-  font-weight: 600;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.7rem 1.6rem 0.7rem 1.75rem;
+  border-radius: 999px;
+  background: var(--lp-accent);
+  color: var(--color-fd-primary-foreground);
+  font-family: "Playfair Variable", Georgia, serif;
+  font-style: italic;
+  font-size: 1.3rem;
+  line-height: 1;
+  box-shadow: 0 10px 34px -10px color-mix(in srgb, var(--lp-accent) 70%, transparent);
   transition:
-    transform 0.25s var(--lp-ease),
-    background-color 0.2s,
-    border-color 0.2s;
+    transform 0.4s var(--lp-ease),
+    box-shadow 0.4s var(--lp-ease);
 }
-.lp-button:hover {
+.lp-cta::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 1px solid color-mix(in srgb, var(--lp-accent) 45%, transparent);
+  transition:
+    transform 0.5s var(--lp-ease),
+    opacity 0.4s;
+}
+.lp-cta-arrow,
+.lp-link-arrow {
+  width: 1.15em;
+  height: 1.15em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+  transition: transform 0.4s var(--lp-ease);
+}
+.lp-cta:hover {
   transform: translateY(-2px);
-  border-color: var(--lp-accent);
+  box-shadow: 0 16px 44px -10px color-mix(in srgb, var(--lp-accent) 85%, transparent);
 }
-.lp-button:active {
+.lp-cta:hover::after {
+  transform: scale(1.045, 1.18);
+  opacity: 0.6;
+}
+.lp-cta:hover .lp-cta-arrow {
+  transform: translateX(5px);
+}
+.lp-cta:active {
   transform: translateY(0) scale(0.98);
 }
-.lp-button--primary {
-  background: var(--lp-accent);
-  border-color: var(--lp-accent);
-  color: var(--color-fd-primary-foreground);
+
+/* Text links: Playfair italic with an underline that draws in from the left. */
+.lp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding-bottom: 0.1em;
+  font-family: "Playfair Variable", Georgia, serif;
+  font-style: italic;
+  font-size: 1.2rem;
+  color: var(--lp-fg);
+  background-image:
+    linear-gradient(var(--lp-accent), var(--lp-accent)),
+    linear-gradient(var(--lp-line), var(--lp-line));
+  background-repeat: no-repeat;
+  background-position:
+    left calc(100% - 0.55rem),
+    left calc(100% - 0.55rem);
+  background-size:
+    0% 1px,
+    100% 1px;
+  transition:
+    background-size 0.5s var(--lp-ease),
+    color 0.3s;
+}
+.lp-link:hover {
+  color: var(--lp-accent);
+  background-size:
+    100% 1px,
+    100% 1px;
+}
+.lp-link:hover .lp-link-arrow {
+  transform: translate(3px, -3px);
+}
+.lp-link.lp-more:hover .lp-link-arrow {
+  transform: translateX(5px);
 }
 
 /* The five features, as a numbered list. */
@@ -294,14 +365,7 @@
   color: var(--lp-muted);
 }
 .lp-more {
-  display: inline-flex;
   margin-top: 1.25rem;
-  font-weight: 600;
-  color: var(--lp-accent);
-  text-underline-offset: 4px;
-}
-.lp-more:hover {
-  text-decoration: underline;
 }
 
 .lp-clip {
@@ -392,18 +456,30 @@
 }
 
 @media (min-width: 1024px) {
+  /* Words on the left (headline, then the list of features), the screenshot filling the right. */
   .lp-hero {
     display: grid;
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
+    grid-template-areas:
+      "intro shot"
+      "toc shot";
+    grid-template-rows: auto 1fr;
     column-gap: 3.5rem;
     align-items: start;
     padding-top: 4rem;
   }
-  .lp-hero h1 {
-    font-size: clamp(2.75rem, 4.4vw, 4.25rem);
-  }
-  .lp-hero-copy {
+  .lp-hero-intro {
+    grid-area: intro;
     padding-top: 1rem;
+  }
+  .lp-hero-shot {
+    grid-area: shot;
+  }
+  .lp-toc {
+    grid-area: toc;
+  }
+  .lp-hero h1 {
+    font-size: clamp(2.5rem, 3.7vw, 3.75rem);
   }
   .lp-hero-shot {
     margin-top: 1rem;

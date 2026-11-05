@@ -30,35 +30,29 @@ export default function LandingPrototype() {
 
       <main id="main" tabIndex={-1}>
         <section className="lp-section lp-hero" aria-labelledby="hero-title">
-          <div className="lp-hero-copy">
+          <div className="lp-hero-intro">
             <h1 id="hero-title" className="lp-display">
-              Your whole media library, <em>in one place.</em>
+              The Swiss Army knife for <em>your media library.</em>
             </h1>
             <p className="lp-lead">
-              Parallax is a free, open source manager for the videos, pictures and music on your own
-              machine.
+              Rename it, tidy it, shrink it, weed out the duplicates. Parallax is a free, open
+              source toolkit that sits alongside your media player and looks after the files behind
+              it.
             </p>
             <div className="lp-actions">
-              <Link href="/docs" className="lp-button lp-button--primary">
-                Get started
+              <Link href="/docs" className="lp-cta">
+                <span className="lp-cta-label">Get started</span>
+                <svg className="lp-cta-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 12h15M13 5.5 19.5 12 13 18.5" />
+                </svg>
               </Link>
-              <a href="https://github.com/raslan/parallax" className="lp-button">
+              <a href="https://github.com/raslan/parallax" className="lp-link">
                 GitHub
+                <svg className="lp-link-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 17 17 7M8.5 7H17v8.5" />
+                </svg>
               </a>
             </div>
-
-            <nav className="lp-toc" aria-labelledby="toc-title">
-              <p id="toc-title" className="lp-toc-title">
-                Parallax can
-              </p>
-              <ol>
-                {FEATURES.map((f) => (
-                  <li key={f.id}>
-                    <a href={`#${f.id}`}>{f.name}</a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
           </div>
 
           <div className="lp-hero-shot">
@@ -73,6 +67,19 @@ export default function LandingPrototype() {
               priority
             />
           </div>
+
+          <nav className="lp-toc" aria-labelledby="toc-title">
+            <p id="toc-title" className="lp-toc-title">
+              Parallax can
+            </p>
+            <ol>
+              {FEATURES.map((f) => (
+                <li key={f.id}>
+                  <a href={`#${f.id}`}>{f.name}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
         </section>
 
         {/* Placeholder beat: the real Cleanup clip stands in until each feature has its own capture. */}
@@ -93,9 +100,12 @@ export default function LandingPrototype() {
               Duration, size, resolution, name, date. Add as many as you like and the list narrows
               as you go.
             </p>
-            <Link href="/docs/features/cleanup" className="lp-more">
+            <Link href="/docs/features/cleanup" className="lp-link lp-more">
               Read about Cleanup
               <span className="sr-only"> in the documentation</span>
+              <svg className="lp-link-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 12h15M13 5.5 19.5 12 13 18.5" />
+              </svg>
             </Link>
           </div>
           <div data-reveal="late" data-parallax="0.04">
