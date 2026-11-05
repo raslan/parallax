@@ -440,9 +440,9 @@
     "poster": "landing/beats/cleanup.poster.webp",
     "width": 2000,
     "height": 1064,
-    "bytes": 473962,
-    "mp4Bytes": 398812,
-    "duration": 11.07,
+    "bytes": 474067,
+    "mp4Bytes": 397155,
+    "duration": 11.13,
     "camera": [
       {
         "t": 0,
@@ -466,42 +466,376 @@
         "h": 0.2667
       },
       {
-        "t": 3.14,
+        "t": 3.1,
         "x": 0,
         "y": 0,
         "w": 0.5068,
         "h": 0.2667
       },
       {
-        "t": 3.94,
+        "t": 3.9,
         "x": 0.174,
         "y": 0,
         "w": 0.5642,
         "h": 0.2667
       },
       {
-        "t": 7.85,
+        "t": 7.81,
         "x": 0.174,
         "y": 0,
         "w": 0.5642,
         "h": 0.2667
       },
       {
-        "t": 8.65,
+        "t": 8.61,
         "x": 0,
         "y": 0.2317,
         "w": 0.8277,
         "h": 0.6
       },
       {
-        "t": 9.75,
+        "t": 9.71,
         "x": 0,
         "y": 0.2317,
         "w": 0.8277,
         "h": 0.6
       },
       {
-        "t": 10.55,
+        "t": 10.51,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 34
+  },
+  "landing/beats/organize": {
+    "id": "landing/beats/organize",
+    "kind": "clip",
+    "alt": "In Organize, a messy folder shows common names found in its file names. Clicking one filters the folder to those files, then one click selects all the images, and the action bar for moving, renaming and deleting appears.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "src": "landing/beats/organize.mp4",
+    "webm": "landing/beats/organize.webm",
+    "poster": "landing/beats/organize.poster.webp",
+    "width": 2000,
+    "height": 810,
+    "bytes": 263018,
+    "mp4Bytes": 167860,
+    "duration": 8.13,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.72,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.52,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 3.22,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 4.02,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 4.88,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 5.68,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 6.88,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 7.68,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 34
+  },
+  "landing/beats/identify": {
+    "id": "landing/beats/identify",
+    "kind": "clip",
+    "alt": "In Identify, a folder of badly named episodes is matched to a TV show: the show is picked from the search results, every file drops into its episode slot, and the preview lists each old name next to its new, properly formatted name.",
+    "route": "/identify",
+    "src": "landing/beats/identify.mp4",
+    "webm": "landing/beats/identify.webm",
+    "poster": "landing/beats/identify.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 595402,
+    "mp4Bytes": 283619,
+    "duration": 9.4,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.6,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.4,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.17,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.97,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 5.84,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 6.64,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.14,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.94,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 34
+  },
+  "landing/beats/compress": {
+    "id": "landing/beats/compress",
+    "kind": "clip",
+    "alt": "On the Compress page, the encoding settings drawer opens and the quality slider is moved. The estimated output size and savings change as it moves.",
+    "route": "/compress",
+    "src": "landing/beats/compress.mp4",
+    "webm": "landing/beats/compress.webm",
+    "poster": "landing/beats/compress.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 702586,
+    "mp4Bytes": 460529,
+    "duration": 12.8,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.71,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.51,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 2.55,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 3.35,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 5.95,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 6.75,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 11.5,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 12.3,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 34
+  },
+  "landing/beats/duplicates": {
+    "id": "landing/beats/duplicates",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "src": "landing/beats/duplicates.mp4",
+    "webm": "landing/beats/duplicates.webm",
+    "poster": "landing/beats/duplicates.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 383976,
+    "mp4Bytes": 267617,
+    "duration": 10.63,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.5,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.7,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.5,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 5.9,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.7,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.14,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.94,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.57,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.37,
         "x": 0,
         "y": 0,
         "w": 1,

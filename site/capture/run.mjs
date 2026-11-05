@@ -440,10 +440,12 @@ async function runHiresClip(browser, shot, tmp) {
     rect,
     (shot.budgetKB ?? 900) * 1024,
   );
+  // The still shown before the clip plays (and with motion off) is its finished state, whole and settled:
+  // the camera is back to the full view by then, and the first frame is often still loading.
   const poster = `${outBase}.poster.webp`;
   ffmpeg([
-    "-ss",
-    "0.15",
+    "-sseof",
+    "-0.5",
     "-i",
     `${outBase}.webm`,
     "-frames:v",

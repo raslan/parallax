@@ -7,28 +7,55 @@ import { ZoomImage } from "@/components/landing/zoom-image";
 import type { CameraKey } from "@/components/landing/loop-video";
 import manifest from "@/lib/media-manifest.json";
 
-// The recorded clip, with the camera moves the capture tool wrote down while it filmed it.
-const CLEANUP = manifest["landing/beats/cleanup" as keyof typeof manifest] as unknown as {
-  id: string;
-  alt: string;
-  width: number;
-  height: number;
-  camera: CameraKey[];
-};
+type Clip = { id: string; alt: string; width: number; height: number; camera: CameraKey[] };
+const clip = (name: string) =>
+  manifest[`landing/beats/${name}` as keyof typeof manifest] as unknown as Clip;
+
+// The five features, in the order they appear. Each beat is a real clip of the app with the camera moves the
+// capture tool wrote down while filming it. The wording is a placeholder for the copy pass.
+const BEATS = [
+  {
+    id: "organize",
+    name: "Organize",
+    title: "See what is in a folder before you touch it.",
+    text: "Parallax spots the names your files have in common, so one click picks every holiday photo or every voice memo. Then move, rename or delete them in one go.",
+    docs: "/docs/tools/organize",
+  },
+  {
+    id: "identify",
+    name: "Identify",
+    title: "Turn messy file names into ones your media server understands.",
+    text: "Pick the folder and the show, and every episode drops into its place. Check the new names, then apply.",
+    docs: "/docs/tools/identify",
+  },
+  {
+    id: "cleanup",
+    name: "Cleanup",
+    title: "Stack filters until only the files you mean are left.",
+    text: "Duration, size, resolution, name, date. Join them with AND or OR, and watch the list narrow as you go.",
+    docs: "/docs/features/cleanup",
+  },
+  {
+    id: "duplicates",
+    name: "Duplicates",
+    title: "Find the copies and keep the best one.",
+    text: "Match on size, length, how it looks or how it sounds. Take a rule away and the groups reshape straight away.",
+    docs: "/docs/features/duplicates",
+  },
+  {
+    id: "compress",
+    name: "Compress",
+    title: "See what you would save before you save it.",
+    text: "Slide the quality and the estimated size moves with it, for the whole library or just what you have picked.",
+    docs: "/docs/features/compress",
+  },
+].map((b) => ({ ...b, clip: clip(b.id) }));
 
 // A working prototype of the landing page, not linked from anywhere and kept out of search results.
 export const metadata: Metadata = {
   title: "Landing prototype",
   robots: { index: false, follow: false },
 };
-
-const FEATURES = [
-  { id: "organize", name: "Organize" },
-  { id: "identify", name: "Identify" },
-  { id: "cleanup", name: "Cleanup" },
-  { id: "duplicates", name: "Duplicates" },
-  { id: "compress", name: "Compress" },
-];
 
 export default function LandingPrototype() {
   return (
@@ -84,7 +111,7 @@ export default function LandingPrototype() {
               Parallax can
             </p>
             <ol>
-              {FEATURES.map((f) => (
+              {BEATS.map((f) => (
                 <li key={f.id}>
                   <a href={`#${f.id}`}>{f.name}</a>
                 </li>
@@ -93,43 +120,42 @@ export default function LandingPrototype() {
           </nav>
         </section>
 
-        {/* Placeholder beat: the real Cleanup clip stands in until each feature has its own capture. */}
-        <section
-          id="cleanup"
-          tabIndex={-1}
-          className="lp-section lp-beat"
-          aria-labelledby="cleanup-title"
-        >
-          <div className="lp-beat-copy" data-reveal>
-            <p className="lp-beat-no" aria-hidden="true">
-              03
-            </p>
-            <h2 id="cleanup-title" className="lp-display">
-              Stack filters until only the files you mean are left.
-            </h2>
-            <p>
-              Duration, size, resolution, name, date. Join them with AND or OR, and watch the list
-              narrow as you go.
-            </p>
-            <Link href="/docs/features/cleanup" className="lp-link lp-more">
-              Read about Cleanup
-              <span className="sr-only"> in the documentation</span>
-              <svg className="lp-link-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 12h15M13 5.5 19.5 12 13 18.5" />
-              </svg>
-            </Link>
-          </div>
-          <div data-reveal="late" data-parallax="0.04">
-            <LoopVideo
-              id={CLEANUP.id}
-              alt={CLEANUP.alt}
-              width={CLEANUP.width}
-              height={CLEANUP.height}
-              webm
-              camera={CLEANUP.camera}
-            />
-          </div>
-        </section>
+        {BEATS.map((b, i) => (
+          <section
+            key={b.id}
+            id={b.id}
+            tabIndex={-1}
+            className={`lp-section lp-beat${i % 2 ? " lp-beat--flip" : ""}`}
+            aria-labelledby={`${b.id}-title`}
+          >
+            <div className="lp-beat-copy" data-reveal>
+              <p className="lp-beat-no" aria-hidden="true">
+                {String(i + 1).padStart(2, "0")}
+              </p>
+              <h2 id={`${b.id}-title`} className="lp-display">
+                {b.title}
+              </h2>
+              <p>{b.text}</p>
+              <Link href={b.docs} className="lp-link lp-more">
+                Read about {b.name}
+                <span className="sr-only"> in the documentation</span>
+                <svg className="lp-link-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 12h15M13 5.5 19.5 12 13 18.5" />
+                </svg>
+              </Link>
+            </div>
+            <div data-reveal="late" data-parallax="0.04">
+              <LoopVideo
+                id={b.clip.id}
+                alt={b.clip.alt}
+                width={b.clip.width}
+                height={b.clip.height}
+                webm
+                camera={b.clip.camera}
+              />
+            </div>
+          </section>
+        ))}
       </main>
     </div>
   );

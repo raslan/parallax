@@ -494,4 +494,11 @@
     position: sticky;
     top: 22vh;
   }
+  /* Every other beat puts the words on the right. */
+  .lp-beat--flip {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  }
+  .lp-beat--flip .lp-beat-copy {
+    order: 2;
+  }
 }
