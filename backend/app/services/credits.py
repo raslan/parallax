@@ -14,7 +14,16 @@ from typing import Literal
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
 # How Parallax relates to the thing, in the order the UI explains them.
-HOW_VALUES = ("shipped", "installed", "downloaded", "adapted", "service", "media", "site")
+HOW_VALUES = (
+    "shipped",
+    "installed",
+    "downloaded",
+    "adapted",
+    "service",
+    "media",
+    "site",
+    "inspiration",
+)
 
 Scope = Literal["app", "site"]
 

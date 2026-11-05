@@ -14,6 +14,7 @@ const HOW_LABEL: Record<CreditHow, string> = {
   service: "Online service",
   media: "Demo media",
   site: "Website",
+  inspiration: "Inspiration",
 };
 
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -58,8 +59,10 @@ function Entry({ entry }: { entry: CreditEntry }) {
         </div>
         <p className="text-muted-foreground">{entry.description}</p>
         <p className="flex flex-wrap gap-x-4 text-muted-foreground">
-          <span>by {entry.author}</span>
-          <ExtLink href={entry.licence_url}>{entry.licence}</ExtLink>
+          {entry.author && <span>by {entry.author}</span>}
+          {entry.licence && entry.licence_url && (
+            <ExtLink href={entry.licence_url}>{entry.licence}</ExtLink>
+          )}
           {entry.source_url && <ExtLink href={entry.source_url}>Source code</ExtLink>}
         </p>
         {entry.note && <p className="text-xs text-muted-foreground">{entry.note}</p>}
@@ -110,6 +113,7 @@ export function CreditsTab() {
           <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             {group.title}
           </h2>
+          {group.note && <p className="text-sm text-muted-foreground">{group.note}</p>}
           <div className="grid gap-3 md:grid-cols-2">
             {data.entries
               .filter((e) => e.group === group.id)

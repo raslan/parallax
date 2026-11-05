@@ -1,10 +1,12 @@
 /** How Parallax relates to a credited thing. */
 export type CreditHow =
-  "shipped" | "installed" | "downloaded" | "adapted" | "service" | "media" | "site";
+  "shipped" | "installed" | "downloaded" | "adapted" | "service" | "media" | "site" | "inspiration";
 
 interface CreditGroup {
   id: string;
   title: string;
+  /** A sentence shown under the heading. */
+  note?: string;
 }
 
 export interface CreditEntry {
@@ -12,9 +14,10 @@ export interface CreditEntry {
   group: string;
   name: string;
   description: string;
-  author: string;
-  licence: string;
-  licence_url: string;
+  /** Absent for "inspiration" entries: no code was taken, so there is no author or licence to credit. */
+  author?: string;
+  licence?: string;
+  licence_url?: string;
   url: string;
   how: CreditHow;
   note?: string;

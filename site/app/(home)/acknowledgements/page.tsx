@@ -12,9 +12,9 @@ type Entry = {
   group: string;
   name: string;
   description: string;
-  author: string;
-  licence: string;
-  licence_url: string;
+  author?: string;
+  licence?: string;
+  licence_url?: string;
   url: string;
   how: string;
   note?: string;
@@ -25,6 +25,7 @@ type Entry = {
 };
 
 const entries = credits.entries as Entry[];
+const groups = credits.groups as { id: string; title: string; note?: string }[];
 
 function Ext({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -53,11 +54,12 @@ export default function AcknowledgementsPage() {
         The same list is in the app under Settings, then Credits.
       </p>
 
-      {credits.groups.map((group) => (
+      {groups.map((group) => (
         <section key={group.id} className="mt-12">
           <h2 className="border-b border-fd-border pb-2 text-xl font-semibold tracking-tight">
             {group.title}
           </h2>
+          {group.note && <p className="mt-3 text-sm text-fd-muted-foreground">{group.note}</p>}
           <ul className="mt-4 space-y-6">
             {entries
               .filter((e) => e.group === group.id)
@@ -68,8 +70,8 @@ export default function AcknowledgementsPage() {
                   </p>
                   <p className="text-sm text-fd-muted-foreground">{e.description}</p>
                   <p className="mt-1 flex flex-wrap gap-x-4 text-sm text-fd-muted-foreground">
-                    <span>by {e.author}</span>
-                    <Ext href={e.licence_url}>{e.licence}</Ext>
+                    {e.author && <span>by {e.author}</span>}
+                    {e.licence && e.licence_url && <Ext href={e.licence_url}>{e.licence}</Ext>}
                     {e.source_url && <Ext href={e.source_url}>Source code</Ext>}
                   </p>
                   {e.note && <p className="mt-1 text-sm text-fd-muted-foreground">{e.note}</p>}

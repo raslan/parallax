@@ -14,6 +14,7 @@ from app.services import upscale_models as um
 FORBIDDEN_ON_SITE = re.compile(r"yt[-_]?dlp|ytdl|youtube[-_]?dl|gallery[-_]?dl", re.IGNORECASE)
 
 REQUIRED = ("id", "group", "name", "description", "author", "licence", "licence_url", "url", "how")
+REQUIRED_INSPIRATION = ("id", "group", "name", "description", "url", "how")
 
 
 @pytest.fixture(scope="module")
@@ -23,12 +24,24 @@ def data() -> dict:
 
 def test_every_entry_has_the_required_fields(data):
     for e in data["entries"]:
-        missing = [k for k in REQUIRED if not e.get(k)]
+        # "Inspired by" entries have no author or licence: no code was taken from them.
+        required = REQUIRED_INSPIRATION if e.get("how") == "inspiration" else REQUIRED
+        missing = [k for k in required if not e.get(k)]
         assert not missing, f"{e.get('id')}: missing {missing}"
         assert set(e["show"]) == {"app", "site"}, e["id"]
         assert e["how"] in credits_service.HOW_VALUES, e["id"]
-        assert e["licence_url"].startswith("https://"), e["id"]
+        if e["how"] != "inspiration":
+            assert e["licence_url"].startswith("https://"), e["id"]
         assert e["url"].startswith("https://"), e["id"]
+
+
+def test_inspiration_entries_claim_no_licence_and_live_in_their_own_group(data):
+    for e in data["entries"]:
+        assert (e["how"] == "inspiration") == (e["group"] == "inspired"), e["id"]
+        if e["how"] == "inspiration":
+            assert not {"licence", "licence_url", "source_url", "text"} & set(e), e["id"]
+    inspired = next(g for g in data["groups"] if g["id"] == "inspired")
+    assert "does not use code" in inspired["note"]
 
 
 def test_ids_are_unique_and_groups_exist(data):

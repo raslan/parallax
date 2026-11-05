@@ -85,6 +85,33 @@ describe("CreditsTab", () => {
     expect(licence?.getAttribute("href")).toBe("https://creativecommons.org/licenses/by/4.0/");
   });
 
+  it("shows an inspiration entry with the group note and no author or licence", async () => {
+    vi.mocked(creditsApi.get).mockResolvedValue({
+      groups: [
+        {
+          id: "inspired",
+          title: "Inspired by",
+          note: "Parallax does not use code from these projects.",
+        },
+      ],
+      entries: [
+        {
+          id: "inspired-handbrake",
+          group: "inspired",
+          name: "HandBrake",
+          description: "The inspiration behind Compress.",
+          url: "https://handbrake.fr",
+          how: "inspiration",
+        },
+      ],
+    });
+    renderTab();
+    expect(await screen.findByText("Inspired by")).toBeDefined();
+    expect(screen.getByText("Parallax does not use code from these projects.")).toBeDefined();
+    expect(screen.getByText("HandBrake")).toBeDefined();
+    expect(screen.queryByText(/^by /)).toBeNull();
+  });
+
   it("keeps licence text behind a disclosure", async () => {
     vi.mocked(creditsApi.get).mockResolvedValue(RESPONSE);
     renderTab();

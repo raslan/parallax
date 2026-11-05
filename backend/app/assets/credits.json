@@ -9,6 +9,11 @@
     { "id": "downloads", "title": "Downloads" },
     { "id": "libraries", "title": "Libraries" },
     { "id": "fonts", "title": "Fonts" },
+    {
+      "id": "inspired",
+      "title": "Inspired by",
+      "note": "Parallax does not use code from these projects. They shaped how some of its features work. The code Parallax does adapt is credited above."
+    },
     { "id": "demo", "title": "Demo media in the screenshots" },
     { "id": "site", "title": "This website" }
   ],
@@ -17,7 +22,7 @@
       "id": "bazarr",
       "group": "adapted",
       "name": "Bazarr",
-      "description": "The subtitle search code for the first subtitle source is adapted from Bazarr's providers.",
+      "description": "The subtitle search code for the first subtitle source is adapted from Bazarr's providers, and most of the subtitle features follow Bazarr's lead.",
       "author": "morpheus65535 and contributors",
       "licence": "GPL-3.0",
       "licence_url": "https://www.gnu.org/licenses/gpl-3.0.html",
@@ -282,6 +287,60 @@
       "licence_url": "https://openfontlicense.org",
       "url": "https://rsms.me/inter/",
       "how": "shipped",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "inspired-plex",
+      "group": "inspired",
+      "name": "Plex",
+      "description": "The idea behind the subtitle search dialog, and the naming rules Identify follows.",
+      "url": "https://www.plex.tv",
+      "how": "inspiration",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "inspired-media-servers",
+      "group": "inspired",
+      "name": "Jellyfin, Kodi and Emby",
+      "description": "The naming rules Identify follows, so renamed files and folders are picked up correctly.",
+      "url": "https://jellyfin.org",
+      "how": "inspiration",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "inspired-arr",
+      "group": "inspired",
+      "name": "Sonarr and Radarr",
+      "description": "The idea behind Identify: match a folder of files to a show or movie and rename it properly.",
+      "url": "https://sonarr.tv",
+      "how": "inspiration",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "inspired-pinchflat",
+      "group": "inspired",
+      "name": "Pinchflat",
+      "description": "The idea behind Identify's Custom mode, which turns any folder into a show.",
+      "url": "https://github.com/kieraneglin/pinchflat",
+      "how": "inspiration",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "inspired-metube",
+      "group": "inspired",
+      "name": "MeTube",
+      "description": "The idea behind the Downloads page.",
+      "url": "https://github.com/alexta69/metube",
+      "how": "inspiration",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "inspired-handbrake",
+      "group": "inspired",
+      "name": "HandBrake",
+      "description": "The inspiration behind Compress, Splice and Toolbox.",
+      "url": "https://handbrake.fr",
+      "how": "inspiration",
       "show": { "app": true, "site": true }
     },
     {
