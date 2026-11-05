@@ -64,15 +64,25 @@ def test_every_bundled_upscale_model_is_credited(data):
     assert "ncnn" in credited and credited["ncnn"].get("text")
 
 
-def test_site_entries_do_not_name_the_download_tools(data):
-    for e in data["entries"]:
-        if e["show"]["site"]:
+# The two download tools may be named on the Acknowledgements page, vaguely. Nothing else
+# on the site entries may mention them, and their supporting pieces stay app-only.
+NAMED_ON_SITE = {"ytdlp", "gallerydl"}
+
+
+def test_only_the_two_tools_are_named_on_the_site_and_vaguely(data):
+    site = credits_service.credits_for("site")["entries"]
+    for e in site:
+        if e["id"] in NAMED_ON_SITE:
+            assert e["description"] == "Used internally.", e["id"]
+            assert "Settings" not in json.dumps(e), e["id"]
+        else:
             assert not FORBIDDEN_ON_SITE.search(json.dumps(e)), f"{e['id']} is on the site"
+    assert NAMED_ON_SITE <= {e["id"] for e in site}
 
 
-def test_tool_entries_are_app_only(data):
+def test_supporting_tool_entries_are_app_only(data):
     for e in data["entries"]:
-        if FORBIDDEN_ON_SITE.search(e["name"]):
+        if FORBIDDEN_ON_SITE.search(e["name"]) and e["id"] not in NAMED_ON_SITE:
             assert e["show"] == {"app": True, "site": False}, e["id"]
 
 
@@ -86,8 +96,10 @@ def test_tmdb_has_the_required_notice_and_logo(data):
 def test_scopes_filter_entries_and_drop_empty_groups():
     app = credits_service.credits_for("app")
     site = credits_service.credits_for("site")
-    assert any(e["id"] == "ytdlp" for e in app["entries"])
-    assert not any(e["id"] == "ytdlp" for e in site["entries"])
+    assert any(e["id"] == "ytdlp-ejs" for e in app["entries"])
+    assert not any(e["id"] == "ytdlp-ejs" for e in site["entries"])
+    ytdlp_app = next(e for e in app["entries"] if e["id"] == "ytdlp")
+    assert "site_description" not in ytdlp_app and ytdlp_app["description"] != "Used internally."
     assert not any(e["id"].startswith("demo-") for e in app["entries"])
     assert any(e["id"].startswith("demo-") for e in site["entries"])
     for scope in (app, site):

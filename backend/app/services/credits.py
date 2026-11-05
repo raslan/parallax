@@ -36,7 +36,12 @@ def load_credits() -> dict:
 def credits_for(scope: Scope) -> dict:
     """Groups and entries visible in `scope`, in file order, with empty groups dropped."""
     data = load_credits()
-    entries = [e for e in data["entries"] if e["show"].get(scope)]
+    entries = [dict(e) for e in data["entries"] if e["show"].get(scope)]
+    for e in entries:
+        # An entry can word itself more vaguely for the public site.
+        override = e.pop("site_description", None)
+        if scope == "site" and override:
+            e["description"] = override
     used = {e["group"] for e in entries}
     groups = [g for g in data["groups"] if g["id"] in used]
     return {"groups": groups, "entries": entries}

@@ -198,12 +198,13 @@
       "group": "downloads",
       "name": "yt-dlp",
       "description": "Powers Downloads, and the video-site side of Galleries. Installed from Settings → Downloads.",
+      "site_description": "Used internally.",
       "author": "The yt-dlp contributors",
       "licence": "Unlicense",
       "licence_url": "https://unlicense.org/",
       "url": "https://github.com/yt-dlp/yt-dlp",
       "how": "downloaded",
-      "show": { "app": true, "site": false }
+      "show": { "app": true, "site": true }
     },
     {
       "id": "ytdlp-ejs",
@@ -222,12 +223,13 @@
       "group": "downloads",
       "name": "gallery-dl",
       "description": "Powers Galleries. Run as a separate program, never linked into Parallax.",
+      "site_description": "Used internally.",
       "author": "Mike Fährmann and contributors",
       "licence": "GPL-2.0-only",
       "licence_url": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html",
       "url": "https://github.com/mikf/gallery-dl",
       "how": "installed",
-      "show": { "app": true, "site": false }
+      "show": { "app": true, "site": true }
     },
     {
       "id": "curl-cffi",
