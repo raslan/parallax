@@ -252,5 +252,82 @@
     "height": 410,
     "bytes": 27352,
     "quality": 90
+  },
+  "tools/identify/tv-match": {
+    "id": "tools/identify/tv-match",
+    "kind": "still",
+    "alt": "Identify with a TV show matched: each episode from the online database is listed with its number and title and the file placed in it, with an unassigned list on the right.",
+    "route": "/identify",
+    "src": "tools/identify/tv-match.webp",
+    "width": 1184,
+    "height": 760,
+    "bytes": 106948,
+    "quality": 90
+  },
+  "tools/identify/preview": {
+    "id": "tools/identify/preview",
+    "kind": "still",
+    "alt": "The preview drawer listing the folder and file names before and after renaming, with an Apply renames button.",
+    "route": "/identify",
+    "src": "tools/identify/preview.webp",
+    "width": 576,
+    "height": 490,
+    "bytes": 73510,
+    "quality": 90
+  },
+  "tools/identify/custom": {
+    "id": "tools/identify/custom",
+    "kind": "still",
+    "alt": "Identify in Custom mode: a folder of videos ordered into one season by upload date, with cleaned-up titles and sort options for name, added date and upload date.",
+    "route": "/identify",
+    "src": "tools/identify/custom.webp",
+    "width": 1184,
+    "height": 700,
+    "bytes": 96418,
+    "quality": 90
+  },
+  "tools/subtitles/scan": {
+    "id": "tools/subtitles/scan",
+    "kind": "still",
+    "alt": "The Subtitles page after scanning a folder: language buttons, a count of files with and without subtitles, buttons to sync or download the missing ones, and each video with a badge for every language.",
+    "route": "/subtitles",
+    "src": "tools/subtitles/scan.webp",
+    "width": 1184,
+    "height": 640,
+    "bytes": 68062,
+    "quality": 90
+  },
+  "tools/organize/folders": {
+    "id": "tools/organize/folders",
+    "kind": "still",
+    "alt": "Organize showing a folder as cards, each with its file count and size, with breadcrumbs above and sort controls beside them.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox",
+    "src": "tools/organize/folders.webp",
+    "width": 1184,
+    "height": 560,
+    "bytes": 50142,
+    "quality": 90
+  },
+  "tools/downloads/options": {
+    "id": "tools/downloads/options",
+    "kind": "still",
+    "alt": "The download options panel: video or audio only, quality from Best to 360p, codec, parallel connections, trim start and end, output folder, subtitles and group by uploader.",
+    "route": "/downloads",
+    "src": "tools/downloads/options.webp",
+    "width": 292,
+    "height": 698,
+    "bytes": 31796,
+    "quality": 90
+  },
+  "tools/galleries/options": {
+    "id": "tools/galleries/options",
+    "kind": "still",
+    "alt": "The gallery options panel: base folder, parallel URLs, content type, maximum file size, retries, timeout, stop after existing files, and the skip already downloaded switch.",
+    "route": "/galleries",
+    "src": "tools/galleries/options.webp",
+    "width": 292,
+    "height": 656,
+    "bytes": 28036,
+    "quality": 90
   }
 }
