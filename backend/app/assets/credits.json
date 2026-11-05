@@ -11,8 +11,8 @@
     { "id": "fonts", "title": "Fonts" },
     {
       "id": "inspired",
-      "title": "Inspired by",
-      "note": "Parallax does not use code from these projects. They shaped how some of its features work. The code Parallax does adapt is credited above."
+      "title": "The great projects that inspired Parallax",
+      "note": "Parallax does not use their code, only their ideas. The code it does adapt is credited above."
     },
     { "id": "demo", "title": "Demo media in the screenshots" },
     { "id": "site", "title": "This website" }
@@ -290,18 +290,9 @@
       "show": { "app": true, "site": true }
     },
     {
-      "id": "inspired-plex",
+      "id": "inspired-jellyfin",
       "group": "inspired",
-      "name": "Plex",
-      "description": "The idea behind the subtitle search dialog, and the naming rules Identify follows.",
-      "url": "https://www.plex.tv",
-      "how": "inspiration",
-      "show": { "app": true, "site": true }
-    },
-    {
-      "id": "inspired-media-servers",
-      "group": "inspired",
-      "name": "Jellyfin, Kodi and Emby",
+      "name": "Jellyfin",
       "description": "The naming rules Identify follows, so renamed files and folders are picked up correctly.",
       "url": "https://jellyfin.org",
       "how": "inspiration",

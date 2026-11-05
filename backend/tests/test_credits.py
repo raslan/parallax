@@ -41,7 +41,7 @@ def test_inspiration_entries_claim_no_licence_and_live_in_their_own_group(data):
         if e["how"] == "inspiration":
             assert not {"licence", "licence_url", "source_url", "text"} & set(e), e["id"]
     inspired = next(g for g in data["groups"] if g["id"] == "inspired")
-    assert "does not use code" in inspired["note"]
+    assert "does not use their code" in inspired["note"]
 
 
 def test_ids_are_unique_and_groups_exist(data):
