@@ -9,7 +9,7 @@ Please only download things you have the right to keep.
 
 ## Getting set up
 
-Parallax uses a separate download tool for this, which is not installed to begin with. Open **Settings → Downloads** and click **Install** next to it. You will also see a banner on the Downloads page that does the same thing. You can pick which release channel to follow, **stable** or **nightly**. Stable is the sensible choice.
+Downloads uses [yt-dlp](https://github.com/yt-dlp/yt-dlp), a well-known open source download tool, which is not installed to begin with. Open **Settings → Downloads** and click **Install** next to it. You will also see a banner on the Downloads page that does the same thing. You can pick which release channel to follow, **stable** or **nightly**. Stable is the sensible choice.
 
 Sites change often, so downloads sometimes stop working until the tool is updated. The **Update** button on the Downloads and Galleries pages, or in **Settings → Downloads**, brings it up to date.
 
@@ -57,7 +57,7 @@ Playlists are grouped together in the queue.
 
 ## Galleries
 
-Galleries is for pages that hold a lot of images or clips, like albums and galleries. It is not in the sidebar. You reach it from the **download galleries** link at the top of the Downloads page, or go straight to `/galleries` in your address bar.
+Galleries is for pages that hold a lot of images or clips, like albums and galleries. It uses [gallery-dl](https://codeberg.org/mikf/gallery-dl), another open source tool, which comes with Parallax and needs no setup. It is not in the sidebar. You reach it from the **download galleries** link at the top of the Downloads page, or go straight to `/galleries` in your address bar.
 
 It has two ways of giving it links:
 
@@ -82,4 +82,4 @@ Progress counts up as files arrive: how many were saved, skipped or failed, and 
 
 Links to video sites, such as a channel or a playlist, work here too. A **YouTube options** panel next to the Fetch button sets the quality, codec, audio-only mode and subtitles for those links. These are saved in a folder named after the channel or playlist inside your base directory.
 
-Just like Downloads, Galleries uses the **Cookies** button for pages that need you signed in, and an **Update** button next to the tool's version.
+Just like Downloads, Galleries uses the **Cookies** button for pages that need you signed in, and an **Update** button next to gallery-dl's version.

@@ -4790,23 +4790,6 @@
         }
       }
     },
-    "/api/image-upscale/credits": {
-      "get": {
-        "tags": ["image-upscale"],
-        "summary": "Get Credits",
-        "operationId": "get_credits_api_image_upscale_credits_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/image-upscale/start": {
       "post": {
         "tags": ["image-upscale"],
@@ -5054,6 +5037,57 @@
         "summary": "Stream Downloads",
         "description": "SSE stream pushing all download states every 500ms while any are active.",
         "operationId": "stream_downloads_api_downloads_stream_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/downloads/ytdlp/info": {
+      "get": {
+        "tags": ["downloads"],
+        "summary": "Ytdlp Info",
+        "operationId": "ytdlp_info_api_downloads_ytdlp_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/downloads/ytdlp/impersonate-targets": {
+      "get": {
+        "tags": ["downloads"],
+        "summary": "Ytdlp Impersonate Targets",
+        "operationId": "ytdlp_impersonate_targets_api_downloads_ytdlp_impersonate_targets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/downloads/ytdlp/update": {
+      "post": {
+        "tags": ["downloads"],
+        "summary": "Ytdlp Update",
+        "operationId": "ytdlp_update_api_downloads_ytdlp_update_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5373,6 +5407,24 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/credits": {
+      "get": {
+        "tags": ["credits"],
+        "summary": "Get Credits",
+        "description": "Everything Parallax uses, ships or adapts, with licences. Shown in Settings \u2192 Credits.",
+        "operationId": "get_credits_api_credits_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
           }
         }
       }
@@ -5938,6 +5990,23 @@
         "tags": ["galleries"],
         "summary": "Gdl Info",
         "operationId": "gdl_info_api_galleries_gdl_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/galleries/ytdl/impersonate-targets": {
+      "get": {
+        "tags": ["galleries"],
+        "summary": "Ytdl Impersonate Targets",
+        "operationId": "ytdl_impersonate_targets_api_galleries_ytdl_impersonate_targets_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -9188,6 +9257,10 @@
             "type": "integer",
             "title": "Max Concurrent Downloads"
           },
+          "ytdlp_channel": {
+            "type": "string",
+            "title": "Ytdlp Channel"
+          },
           "theme": {
             "type": "string",
             "title": "Theme"
@@ -9229,6 +9302,7 @@
           "subtitle_auto_sync",
           "download_dir",
           "max_concurrent_downloads",
+          "ytdlp_channel",
           "theme",
           "encoder_family",
           "concurrent_limit_hint",
@@ -9385,6 +9459,18 @@
               }
             ],
             "title": "Max Concurrent Downloads"
+          },
+          "ytdlp_channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(stable|nightly)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ytdlp Channel"
           },
           "theme": {
             "anyOf": [
@@ -9917,13 +10003,6 @@
           "type": {
             "type": "string",
             "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
           }
         },
         "type": "object",
@@ -10166,6 +10245,10 @@
     {
       "name": "stats",
       "description": "Lifetime usage statistics shown on the Home page."
+    },
+    {
+      "name": "credits",
+      "description": "Credits and licences for everything Parallax uses."
     },
     {
       "name": "settings",
