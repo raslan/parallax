@@ -21,7 +21,7 @@ services:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu, video]
+              capabilities: [gpu, video, graphics, utility]
 
     # ── Intel / AMD via VA-API ───────────────────────────────────────────────
     # Comment out the nvidia section above and uncomment these:

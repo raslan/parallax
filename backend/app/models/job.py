@@ -25,6 +25,7 @@ class JobType:
     AUDIO_TOOLBOX = "audio_toolbox"
     AUDIO_DUPLICATES = "audio_duplicates"
     SPLICE_MERGE = "splice_merge"
+    IMAGE_UPSCALE = "image_upscale"
 
 
 class JobStatus:

@@ -17,6 +17,7 @@ import {
   Combine,
   Download,
   Eraser,
+  Maximize2,
   AudioLines,
   type LucideIcon,
 } from "lucide-react";
@@ -50,6 +51,7 @@ export const SECTIONS: Section[] = [
       { to: "/image-libraries", icon: Library, label: "Libraries" },
       { to: "/images", icon: Images, label: "Images" },
       { to: "/image-duplicates", icon: Copy, label: "Duplicates" },
+      { to: "/image-upscale", icon: Maximize2, label: "Upscale" },
       { to: "/content-review", icon: ShieldAlert, label: "Content Review" },
       { to: "/image-quarantined", icon: FolderX, label: "Quarantined" },
     ],

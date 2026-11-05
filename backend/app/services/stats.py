@@ -44,8 +44,9 @@ RESTORE_KIND = "restore"
 # Not a queue job either, but it is user work: files removed from a library.
 REMOVAL_KIND = "delete"
 
-# Housekeeping the user didn't ask for; a stat for it would only be noise.
-_SKIPPED_TYPES = {JobType.THUMBNAIL_WARM, JobType.MODEL_DOWNLOAD}
+# Housekeeping the user didn't ask for, or work that grows files (upscale): the dashboard's
+# "space saved" would go negative, so a stat for it would only be noise.
+_SKIPPED_TYPES = {JobType.THUMBNAIL_WARM, JobType.MODEL_DOWNLOAD, JobType.IMAGE_UPSCALE}
 _TERMINAL = {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}
 
 _noted: dict[int, dict[str, float]] = defaultdict(lambda: {"in": 0, "out": 0, "seconds": 0.0})

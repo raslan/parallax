@@ -41,6 +41,8 @@ export const qk = {
   images: (params?: unknown) =>
     params === undefined ? (["images"] as const) : (["images", params] as const),
   imageQuarantined: () => ["images", "quarantined"] as const,
+  upscaleTiers: () => ["image-upscale", "tiers"] as const,
+  upscaleCredits: () => ["image-upscale", "credits"] as const,
   imageDuplicates: (libraryId: number, params?: unknown) =>
     params === undefined
       ? (["image-duplicates", libraryId] as const)

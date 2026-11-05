@@ -1,6 +1,7 @@
 import type { FieldDef } from "@/hooks/useQueryBuilder";
 import type { ImageFile } from "@/types/image";
 import { dateCutoffSeconds, type DateValue } from "@/lib/dateValue";
+import { filenameField } from "@/lib/fileFieldFactories";
 
 const LABEL_GROUPS: { label: string; labels: string[] }[] = [
   {
@@ -114,6 +115,7 @@ const generalFields: FieldDef<ImageFile>[] = [
       return operator === "gt" ? row.file_mtime > cutoff : row.file_mtime < cutoff;
     },
   },
+  filenameField((r) => r.filename),
   {
     key: "no_detections",
     label: "No detections at all",

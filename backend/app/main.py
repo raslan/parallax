@@ -22,6 +22,7 @@ from app.api.galleries import router as galleries_router
 from app.api.health import router as health_router
 from app.api.identify import router as identify_router
 from app.api.image_libraries import router as image_libraries_router
+from app.api.image_upscale import router as image_upscale_router
 from app.api.images import router as images_router
 from app.api.jobs import router as jobs_router
 from app.api.libraries import router as libraries_router
@@ -335,6 +336,7 @@ app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
 app.include_router(compress_router, prefix="/api")
 app.include_router(audio_compress_router, prefix="/api")
+app.include_router(image_upscale_router, prefix="/api")
 app.include_router(audio_toolbox_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")

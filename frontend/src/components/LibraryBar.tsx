@@ -1,5 +1,8 @@
 import * as React from "react";
 import type { Library } from "@/types/library";
+
+/** Anything a library picker needs — video, image and audio libraries all fit. */
+type LibraryOption = Pick<Library, "id" | "name" | "path">;
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -19,7 +22,7 @@ function LibraryCombobox({
   libraryId,
   onLibraryChange,
 }: {
-  libraries: Library[];
+  libraries: LibraryOption[];
   libraryId: number | null;
   onLibraryChange: (id: number) => void;
 }) {
@@ -82,7 +85,7 @@ export function LibraryBar({
   onLibraryChange,
   right,
 }: {
-  libraries: Library[];
+  libraries: LibraryOption[];
   libraryId: number | null;
   onLibraryChange: (id: number) => void;
   right?: React.ReactNode;
@@ -107,6 +110,7 @@ export function LibraryBar({
   );
 }
 
+/** A labelled on/off switch with a short hint, for the `right` slot of `LibraryBar`. */
 export function KeepOriginalsToggle({
   checked,
   onChange,

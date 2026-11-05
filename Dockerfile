@@ -28,8 +28,11 @@ RUN VITE_APP_VERSION=$APP_VERSION npm run build
 FROM python:3.12-slim AS base
 ARG JELLYFIN_FFMPEG_VERSION
 ARG JELLYFIN_FFMPEG_DEB
+# libvulkan1 + libegl1 + libx11-6 + libxext6: the Vulkan loader and the libraries NVIDIA's Vulkan
+# driver (injected by the container toolkit) loads at init. Without libegl1 the driver refuses to
+# start (`vkCreateInstance failed -9`) and image upscaling silently falls back to the CPU.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends unar curl && \
+    apt-get install -y --no-install-recommends unar curl libvulkan1 libegl1 libx11-6 libxext6 && \
     curl -fL -o /tmp/jellyfin-ffmpeg.deb \
       "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v${JELLYFIN_FFMPEG_VERSION}/${JELLYFIN_FFMPEG_DEB}" && \
     apt-get install -y --no-install-recommends /tmp/jellyfin-ffmpeg.deb && \

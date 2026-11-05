@@ -1,0 +1,100 @@
+{
+  "converted_with": {
+    "pnnx": "20261020",
+    "ncnn": "1.0.20261020"
+  },
+  "credits": {
+    "ncnn": {
+      "copyright": "Copyright (C) 2017 Tencent. All rights reserved.",
+      "licence_name": "BSD 3-Clause License",
+      "url": "https://github.com/Tencent/ncnn",
+      "text": "Tencent is pleased to support the open source community by making ncnn available.\nCopyright (C) 2017 Tencent.  All rights reserved.\n\nncnn is licensed under the BSD 3-Clause License (https://github.com/Tencent/ncnn/blob/master/LICENSE.txt).\n\nTerms of the BSD 3-Clause License:\n--------------------------------------------------------------------\n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\nRedistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\nRedistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\nNeither the name of [copyright holder] nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+    }
+  },
+  "models": [
+    {
+      "name": "4xLSDIRCompactC3",
+      "tier": "fast",
+      "scale": 4,
+      "arch": "Compact (SRVGGNetCompact)",
+      "input_blob": "data",
+      "output_blob": "output",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "CC-BY-4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "release_url": "https://huggingface.co/Phips/4xLSDIRCompactC3",
+      "note": "pre-converted ncnn model from Upscayl's custom-models repository, bundled unchanged",
+      "source_page": "https://huggingface.co/Phips/4xLSDIRCompactC3",
+      "source_url": "https://github.com/upscayl/custom-models/tree/main/models",
+      "source_sha256": "692aa5e70c86522ce2d72b94f372751339a2fee65f515d06da5d496d8cf93667",
+      "param": "4xLSDIRCompactC3.param",
+      "bin": "4xLSDIRCompactC3.bin",
+      "param_sha256": "6e3795fb5b6c68b2c39822e78bf83b575c918f96e9db6c36934a79e7d491d5e1",
+      "bin_sha256": "692aa5e70c86522ce2d72b94f372751339a2fee65f515d06da5d496d8cf93667",
+      "size_bytes": 1250135,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 76.9,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 56.3
+        }
+      }
+    },
+    {
+      "name": "4xNERVE_OTF_fidelity",
+      "tier": "sharp",
+      "scale": 4,
+      "arch": "NERVE",
+      "input_blob": "in0",
+      "output_blob": "out0",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "Apache-2.0",
+      "licence_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "release_url": "https://huggingface.co/Phips/NERVE",
+      "note": "fp16 ncnn model published by the author, bundled unchanged",
+      "source_page": "https://huggingface.co/Phips/NERVE",
+      "source_url": "https://huggingface.co/Phips/NERVE/tree/main/ncnn",
+      "source_sha256": "4454d5059cfcf52461cf7cb2251cbfd78c0b0702eb17ba251a48d75a5da48b05",
+      "param": "4xNERVE_OTF_fidelity.param",
+      "bin": "4xNERVE_OTF_fidelity.bin",
+      "param_sha256": "2c84e617c00c0c3e472df75672ad0b082796c4a459a36c85af8971607cd3cda5",
+      "bin_sha256": "4454d5059cfcf52461cf7cb2251cbfd78c0b0702eb17ba251a48d75a5da48b05",
+      "size_bytes": 3613370,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 89.0,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 67.9
+        }
+      }
+    },
+    {
+      "name": "4xNomos8kSC",
+      "tier": "natural",
+      "scale": 4,
+      "arch": "ESRGAN (RRDBNet)",
+      "input_blob": "data",
+      "output_blob": "output",
+      "author": "Philip Hofmann (Phhofm)",
+      "licence": "CC-BY-4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "release_url": "https://github.com/Phhofm/models/releases/tag/4xNomos8kSC",
+      "note": "pre-converted ncnn model from TNTwise/Upscaling-Models-NCNN (Universal-NCNN-Upscaler), bundled unchanged",
+      "source_page": "https://github.com/Phhofm/models/releases/tag/4xNomos8kSC",
+      "source_url": "https://github.com/TNTwise/Universal-NCNN-Upscaler/releases/download/Realistic/4xNomo8kSC.zip",
+      "source_sha256": "aae36e3f3c5b1398acf4f47ef3b97a383734e282539dfca588cbef039f5d652d",
+      "param": "4xNomos8kSC.param",
+      "bin": "4xNomos8kSC.bin",
+      "param_sha256": "208469a7034b8733aec41488bc8eacc89a9b2b82477f4d702ed801b9bbb0f374",
+      "bin_sha256": "da16e3880d87b177b7c6b659bbd880f8a101b868eb9ebc08d69eaa6d3edc4517",
+      "size_bytes": 33590102,
+      "verify": {
+        "cpu_fp32_psnr_vs_original_db": 80.1,
+        "vulkan_fp16": {
+          "nan": false,
+          "psnr_vs_original_db": 56.1
+        }
+      }
+    }
+  ]
+}

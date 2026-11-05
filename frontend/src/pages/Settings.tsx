@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { Palette, KeyRound, Cpu, Clapperboard, Download } from "lucide-react";
+import { Palette, KeyRound, Cpu, Clapperboard, Download, Heart } from "lucide-react";
 import { GeneralTab } from "@/components/settings/GeneralTab";
 import { TranscodingTab } from "@/components/settings/TranscodingTab";
 import { CredentialsTab } from "@/components/settings/CredentialsTab";
 import { ModelsTab } from "@/components/settings/ModelsTab";
 import { DownloadsTab } from "@/components/settings/DownloadsTab";
+import { CreditsTab } from "@/components/settings/CreditsTab";
 
 const TABS = [
   { id: "general", label: "General", icon: Palette },
@@ -13,6 +14,7 @@ const TABS = [
   { id: "credentials", label: "Keys & Accounts", icon: KeyRound },
   { id: "ai", label: "AI Models", icon: Cpu },
   { id: "downloads", label: "Downloads", icon: Download },
+  { id: "credits", label: "Credits", icon: Heart },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -59,6 +61,7 @@ export function Settings() {
       {activeTab === "credentials" && <CredentialsTab />}
       {activeTab === "ai" && <ModelsTab />}
       {activeTab === "downloads" && <DownloadsTab />}
+      {activeTab === "credits" && <CreditsTab />}
     </div>
   );
 }

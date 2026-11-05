@@ -32,6 +32,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 ### Images
 
 - **Library management** — scan image folders with automatic thumbnail generation; browse and filter your collection; libraries auto-rescan when files change on disk
+- **Upscale** — make a bigger (2×, 4×) or same-size "restored" copy of selected images with three bundled 4× models (Fast, the default: quick and clean, a little soft on fine texture; Sharp: just as quick but crisper and good at JPEG clean-up; Natural: slower, with more fine detail and still careful not to invent any). An optional pre-scale percentage resizes the image before the model, which is faster and suits large but blurry images; the copy is saved next to the original, which is never touched (or replaces it, with the original kept in quarantine). Works on the CPU anywhere; a discrete Vulkan GPU makes it much faster and is used automatically
 - **Duplicate detection** — find duplicate images by perceptual hash with configurable similarity threshold
 - **Content review** — filter by content detections, file size, orientation, dates, or "no detections at all"; bulk quarantine flagged images; restore or permanently delete from quarantine
 
@@ -137,10 +138,12 @@ deploy:
       devices:
         - driver: nvidia
           count: all
-          capabilities: [gpu, video]
+          capabilities: [gpu, video, graphics, utility]
 ```
 
 `count: all` forwards every NVIDIA GPU on the host into the container — with more than one, Compress and Toolbox jobs automatically spread transcode work across all of them, no extra configuration needed.
+
+The `graphics` and `utility` capabilities let the image **Upscale** page use the GPU through Vulkan. Without them (or with no discrete GPU) Upscale still works, just on the CPU, and much more slowly. With plain `docker run`, add `-e NVIDIA_DRIVER_CAPABILITIES=all` to `--gpus all` for the same effect.
 
 **AMD (VA-API):** add these to the service above instead:
 
