@@ -6,16 +6,19 @@
   "scripts": {
     "capture": "node capture/run.mjs",
     "sync-themes": "node scripts/sync-themes.mjs",
-    "predev": "npm run sync-themes && npm run sync-changelog",
+    "predev": "npm run sync-themes && npm run sync-changelog && npm run gen-api-docs",
     "dev": "next dev",
-    "prebuild": "npm run sync-themes && npm run sync-changelog",
+    "prebuild": "npm run sync-themes && npm run sync-changelog && npm run gen-api-docs",
     "build": "next build",
     "postinstall": "fumadocs-mdx",
-    "sync-changelog": "node scripts/sync-changelog.mjs"
+    "sync-changelog": "node scripts/sync-changelog.mjs",
+    "gen-openapi": "python3 scripts/gen-openapi.py",
+    "gen-api-docs": "node scripts/generate-api-docs.mjs"
   },
   "dependencies": {
     "fumadocs-core": "^16.18.0",
     "fumadocs-mdx": "^15.5.0",
+    "fumadocs-openapi": "^12.6.0",
     "fumadocs-ui": "^16.18.0",
     "lucide-react": "^1.69.0",
     "next": "^16.4.5",

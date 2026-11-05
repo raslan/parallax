@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+@import "fumadocs-openapi/css/preset.css";
 /* Per-theme --color-fd-* blocks, generated from the app's theme files (npm run sync-themes). */
 @import "./themes.generated.css";
 

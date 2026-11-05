@@ -1,0 +1,18 @@
+---
+title: API reference
+description: Every route Parallax exposes, generated from the app itself.
+---
+
+Everything the Parallax web app does goes through an HTTP API, and you can use it too, for example to script a scan or check on a job.
+
+This reference is generated from the app's own schema, so it matches the version you run. It covers the routes of every section, grouped the same way the app is.
+
+## The basics
+
+- All routes live under `/api` on the same address and port as the web app, for example `http://your-machine:7899/api/jobs`.
+- Requests and responses are JSON, except for the few routes that stream a file or a live feed.
+- Errors use the usual HTTP status codes, with a plain-English reason in a `detail` field.
+- Some routes start a background job and answer right away with its id. Follow progress with the Jobs routes.
+- The reference is read-only. Nothing here sends a request to your server.
+
+Each page below is one group of routes. Pick the one that matches what you want to do. Libraries, Files, Compress and Toolbox are the video side, the `audio-` ones are the audio side, and Jobs and Settings cover the whole app.
