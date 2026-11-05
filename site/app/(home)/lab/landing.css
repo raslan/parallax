@@ -249,29 +249,44 @@
 }
 .lp-inline {
   color: var(--lp-fg);
+  /* Two lines under each phrase: a steady accent underline, and a brighter one that draws in on hover. */
   background-image:
     linear-gradient(var(--lp-accent), var(--lp-accent)),
-    linear-gradient(var(--lp-line), var(--lp-line));
+    linear-gradient(
+      color-mix(in srgb, var(--lp-accent) 55%, transparent),
+      color-mix(in srgb, var(--lp-accent) 55%, transparent)
+    );
   background-repeat: no-repeat;
   background-position:
     left 100%,
     left 100%;
   background-size:
-    0% 1px,
-    100% 1px;
-  padding-bottom: 0.08em;
-  /* A phrase that wraps onto a second line keeps its whole underline on both lines. */
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+    0% 2px,
+    100% 2px;
+  padding-bottom: 0.16em;
+  /* Each phrase stays on one line, so every link is a single underlined chunk. */
+  white-space: nowrap;
   transition:
     background-size 0.5s var(--lp-ease),
     color 0.3s;
 }
+.lp-inline sup {
+  margin-left: 0.3em;
+  font-family: var(--font-sans);
+  font-size: 0.42em;
+  letter-spacing: 0.06em;
+  vertical-align: 0.9em;
+  color: var(--lp-muted);
+  transition: color 0.3s;
+}
 .lp-inline:hover {
   color: var(--lp-accent);
   background-size:
-    100% 1px,
-    100% 1px;
+    100% 2px,
+    100% 2px;
+}
+.lp-inline:hover sup {
+  color: var(--lp-accent);
 }
 
 /* The hero screenshot runs off the bottom of the first screen and fades out. */

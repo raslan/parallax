@@ -75,22 +75,27 @@ export default function LandingPrototype() {
             <p className="lp-verbs">
               <a href="#organize" className="lp-inline">
                 Organize it
+                <sup aria-hidden="true">01</sup>
               </a>
               ,{" "}
               <a href="#identify" className="lp-inline">
                 identify it
+                <sup aria-hidden="true">02</sup>
               </a>
               ,{" "}
               <a href="#cleanup" className="lp-inline">
                 filter it
+                <sup aria-hidden="true">03</sup>
               </a>
               ,{" "}
               <a href="#duplicates" className="lp-inline">
                 weed out the duplicates
+                <sup aria-hidden="true">04</sup>
               </a>
               ,{" "}
               <a href="#compress" className="lp-inline">
                 compress it
+                <sup aria-hidden="true">05</sup>
               </a>
               .
             </p>
