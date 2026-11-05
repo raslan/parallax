@@ -28,9 +28,9 @@ export function SidebarFooter() {
   );
 }
 
-// Used by the home layout, which has no sidebar: the same two controls in the top bar.
+// Used by the home layout, which has no sidebar. The landing page has its own colour strip, so the top bar
+// only carries the GitHub link.
 const homeLinks: LinkItemType[] = [
-  { type: "custom", secondary: true, children: <ThemePicker /> },
   {
     type: "custom",
     secondary: true,

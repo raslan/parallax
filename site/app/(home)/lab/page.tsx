@@ -151,6 +151,15 @@ export default function LandingPrototype() {
           </div>
         </section>
 
+        <section className="lp-pick" aria-labelledby="pick-title">
+          <h2 id="pick-title" className="lp-pick-title" data-reveal>
+            Pick your look
+          </h2>
+          <div data-reveal="late">
+            <ThemeDots />
+          </div>
+        </section>
+
         {BEATS.map((b, i) => (
           <section
             key={b.id}
@@ -190,7 +199,7 @@ export default function LandingPrototype() {
 
         <section className="lp-section lp-more-section" aria-labelledby="more-title">
           <h2 id="more-title" className="lp-display" data-reveal>
-            And a good deal more.
+            What else can it do?
           </h2>
           <p className="lp-verbs lp-more-links" data-reveal="late">
             Parallax will{" "}
@@ -204,27 +213,9 @@ export default function LandingPrototype() {
               </span>
             ))}
           </p>
-        </section>
-
-        <section className="lp-section lp-themes-section" aria-labelledby="themes-title">
-          <h2 id="themes-title" className="lp-display" data-reveal>
-            Make it <em>yours.</em>
-          </h2>
-          <p className="lp-themes-text" data-reveal="late">
-            Parallax comes in sixteen colour themes. Try a few here and the whole page follows.
-          </p>
-          <div data-reveal="late">
-            <ThemeDots />
-          </div>
-        </section>
-
-        <section className="lp-section lp-final" aria-labelledby="final-title">
-          <h2 id="final-title" className="lp-display" data-reveal>
-            Free, and yours to keep.
-          </h2>
           <div className="lp-actions" data-reveal="late">
             <Link href="/docs" className="lp-cta">
-              <span className="lp-cta-label">Get started</span>
+              <span className="lp-cta-label">And more...</span>
               <svg className="lp-cta-arrow" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 12h15M13 5.5 19.5 12 13 18.5" />
               </svg>

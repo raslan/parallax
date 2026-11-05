@@ -516,9 +516,7 @@
 
 /* ---- and a good deal more -------------------------------------------------------------- */
 
-.lp-more-section h2,
-.lp-themes-section h2,
-.lp-final h2 {
+.lp-more-section h2 {
   font-size: clamp(2.1rem, 6.5vw, 3.75rem);
 }
 .lp-more-links {
@@ -530,21 +528,32 @@
 .lp-more-links > span {
   display: inline;
 }
+.lp-more-section .lp-actions {
+  margin-top: 2.5rem;
+}
 
 /* ---- the colour strip -------------------------------------------------------------------- */
 
-.lp-themes-text {
-  margin-top: 1rem;
-  max-width: 32rem;
-  font-size: 1.0625rem;
-  line-height: 1.6;
+.lp-pick {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 2rem var(--lp-gutter) 3rem;
+  text-align: center;
+}
+.lp-pick-title {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--lp-muted);
 }
 .lp-themes {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 1.25rem 1.75rem;
-  margin: 2.25rem 0 0;
+  margin: 1.5rem 0 0;
   padding: 0;
   border: 0;
 }
@@ -594,18 +603,25 @@
   font-size: 0.8125rem;
   color: var(--lp-muted);
 }
+@media (max-width: 480px) {
+  /* Keep all five swatches on one row on a phone. */
+  .lp-themes {
+    gap: 1rem 0.7rem;
+  }
+  .lp-theme-swatch {
+    width: 3rem;
+    height: 3rem;
+  }
+  .lp-theme-name {
+    font-size: 0.75rem;
+  }
+}
 .lp-theme input:checked ~ .lp-theme-name {
   color: var(--lp-fg);
 }
 
 /* ---- closing line and footer -------------------------------------------------------------- */
 
-.lp-final {
-  padding-bottom: 5rem;
-}
-.lp-final .lp-actions {
-  margin-top: 2rem;
-}
 .lp-footer {
   max-width: 76rem;
   margin: 0 auto;
