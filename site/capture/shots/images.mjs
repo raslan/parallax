@@ -1,6 +1,6 @@
 export default [
   {
-    id: "images/content-review/label-filter",
+    id: "features/content-review/label-filter",
     kind: "still",
     route: "/content-review",
     alt: "Content Review with a detection-label filter: matching images appear in a grid with their detection labels, thumbnails blurred.",

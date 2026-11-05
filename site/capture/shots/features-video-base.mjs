@@ -1,6 +1,6 @@
 export default [
   {
-    id: "videos/files/grid",
+    id: "features/files/grid",
     kind: "still",
     route: "/files",
     alt: "The Files page showing a library as a grid of video thumbnails with codec, size and bitrate under each.",
@@ -10,7 +10,7 @@ export default [
     budgetKB: 220,
   },
   {
-    id: "videos/cleanup/duration-filter",
+    id: "features/cleanup/duration-filter",
     kind: "clip",
     route: "/cleanup",
     alt: "Adding a duration filter on the Cleanup page narrows thirteen files down to the short ones.",

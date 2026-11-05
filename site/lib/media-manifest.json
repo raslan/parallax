@@ -10,39 +10,28 @@
     "bytes": 40336,
     "quality": 90
   },
-  "videos/files/grid": {
-    "id": "videos/files/grid",
+  "features/files/grid": {
+    "id": "features/files/grid",
     "kind": "still",
     "alt": "The Files page showing a library as a grid of video thumbnails with codec, size and bitrate under each.",
     "route": "/files",
-    "src": "videos/files/grid.webp",
+    "src": "features/files/grid.webp",
     "width": 1184,
     "height": 580,
     "bytes": 217758,
     "quality": 90
   },
-  "videos/cleanup/duration-filter": {
-    "id": "videos/cleanup/duration-filter",
+  "features/cleanup/duration-filter": {
+    "id": "features/cleanup/duration-filter",
     "kind": "clip",
     "alt": "Adding a duration filter on the Cleanup page narrows thirteen files down to the short ones.",
     "route": "/cleanup",
-    "src": "videos/cleanup/duration-filter.mp4",
-    "poster": "videos/cleanup/duration-filter.poster.webp",
+    "src": "features/cleanup/duration-filter.mp4",
+    "poster": "features/cleanup/duration-filter.poster.webp",
     "width": 960,
     "height": 510,
     "bytes": 123069,
     "crf": 26
-  },
-  "images/content-review/label-filter": {
-    "id": "images/content-review/label-filter",
-    "kind": "still",
-    "alt": "Content Review with a detection-label filter: matching images appear in a grid with their detection labels, thumbnails blurred.",
-    "route": "/content-review",
-    "src": "images/content-review/label-filter.webp",
-    "width": 1184,
-    "height": 410,
-    "bytes": 27352,
-    "quality": 90
   },
   "getting-started/concepts/jobs": {
     "id": "getting-started/concepts/jobs",
@@ -86,6 +75,182 @@
     "width": 516,
     "height": 396,
     "bytes": 17418,
+    "quality": 90
+  },
+  "features/libraries/overview": {
+    "id": "features/libraries/overview",
+    "kind": "still",
+    "alt": "The Libraries page with one library card showing its folder, file count and when it was last scanned, plus refresh and delete buttons.",
+    "route": "/libraries",
+    "src": "features/libraries/overview.webp",
+    "width": 1184,
+    "height": 270,
+    "bytes": 18452,
+    "quality": 90
+  },
+  "features/files/list": {
+    "id": "features/files/list",
+    "kind": "still",
+    "alt": "The Files page in list view, with filename, codec, duration, bitrate, dates and size in columns.",
+    "route": "/files",
+    "src": "features/files/list.webp",
+    "width": 1184,
+    "height": 454,
+    "bytes": 101126,
+    "quality": 90
+  },
+  "features/duplicates/results": {
+    "id": "features/duplicates/results",
+    "kind": "still",
+    "alt": "The Duplicates page: a row of criteria chips, a count of duplicate groups found, and the first group with its copies side by side.",
+    "route": "/duplicates",
+    "src": "features/duplicates/results.webp",
+    "width": 1184,
+    "height": 700,
+    "bytes": 85152,
+    "quality": 90
+  },
+  "features/compress/select": {
+    "id": "features/compress/select",
+    "kind": "still",
+    "alt": "The Compress page with the output settings bar, a quick-select card for files that are not HEVC, and the file grid with the estimated saving on each card.",
+    "route": "/compress",
+    "src": "features/compress/select.webp",
+    "width": 1184,
+    "height": 520,
+    "bytes": 127144,
+    "quality": 90
+  },
+  "features/compress/settings": {
+    "id": "features/compress/settings",
+    "kind": "still",
+    "alt": "The encoding settings drawer: video format, encoding speed, quality slider, maximum resolution, and the estimated size and saving.",
+    "route": "/compress",
+    "src": "features/compress/settings.webp",
+    "width": 608,
+    "height": 900,
+    "bytes": 67756,
+    "quality": 90
+  },
+  "features/toolbox/fixes": {
+    "id": "features/toolbox/fixes",
+    "kind": "still",
+    "alt": "The Toolbox page with two fixes added, Trim and Normalize volume, shown as chips above the file grid.",
+    "route": "/toolbox",
+    "src": "features/toolbox/fixes.webp",
+    "width": 1184,
+    "height": 520,
+    "bytes": 142102,
+    "quality": 90
+  },
+  "features/splice/merge": {
+    "id": "features/splice/merge",
+    "kind": "still",
+    "alt": "The merge drawer listing three videos in order, a notice that they can be joined without re-encoding, an output name and a one-chapter-per-file switch.",
+    "route": "/splice",
+    "src": "features/splice/merge.webp",
+    "width": 480,
+    "height": 500,
+    "bytes": 48374,
+    "quality": 90
+  },
+  "features/originals/list": {
+    "id": "features/originals/list",
+    "kind": "still",
+    "alt": "The Originals page: a summary of backups and space that can be recovered, and a backed-up file with its original and current size and restore and delete buttons.",
+    "route": "/originals",
+    "src": "features/originals/list.webp",
+    "width": 1184,
+    "height": 380,
+    "bytes": 37870,
+    "quality": 90
+  },
+  "features/files/audio": {
+    "id": "features/files/audio",
+    "kind": "still",
+    "alt": "The Audio Files page: a list of tracks with their format, duration, bitrate and size.",
+    "route": "/audio-files",
+    "src": "features/files/audio.webp",
+    "width": 1184,
+    "height": 420,
+    "bytes": 36278,
+    "quality": 90
+  },
+  "features/duplicates/images": {
+    "id": "features/duplicates/images",
+    "kind": "still",
+    "alt": "Image duplicates: a similarity slider, a Find Duplicates button, and groups of look-alike pictures.",
+    "route": "/image-duplicates",
+    "src": "features/duplicates/images.webp",
+    "width": 1184,
+    "height": 560,
+    "bytes": 90730,
+    "quality": 90
+  },
+  "features/duplicates/audio": {
+    "id": "features/duplicates/audio",
+    "kind": "still",
+    "alt": "Audio duplicates: criteria chips for duration and audio fingerprint, and a group of matching tracks with one marked to keep.",
+    "route": "/audio-duplicates",
+    "src": "features/duplicates/audio.webp",
+    "width": 1184,
+    "height": 640,
+    "bytes": 61134,
+    "quality": 90
+  },
+  "features/compress/audio": {
+    "id": "features/compress/audio",
+    "kind": "still",
+    "alt": "Audio compression settings: output format, a bitrate slider with a quality label, and the estimated size and saving.",
+    "route": "/audio-compress",
+    "src": "features/compress/audio.webp",
+    "width": 608,
+    "height": 560,
+    "bytes": 42568,
+    "quality": 90
+  },
+  "features/files/images": {
+    "id": "features/files/images",
+    "kind": "still",
+    "alt": "The Images page showing a library as a grid of photo thumbnails, with filters and search along the top.",
+    "route": "/images",
+    "src": "features/files/images.webp",
+    "width": 1184,
+    "height": 560,
+    "bytes": 209192,
+    "quality": 75
+  },
+  "features/originals/quarantined": {
+    "id": "features/originals/quarantined",
+    "kind": "still",
+    "alt": "The Quarantined page listing images set aside, each with restore and permanent-delete buttons.",
+    "route": "/image-quarantined",
+    "src": "features/originals/quarantined.webp",
+    "width": 1184,
+    "height": 360,
+    "bytes": 44434,
+    "quality": 90
+  },
+  "features/image-upscale/options": {
+    "id": "features/image-upscale/options",
+    "kind": "still",
+    "alt": "The Upscale options: quality tiers Fast, Sharp and Natural, a resize method, and a switch to use the processor only.",
+    "route": "/image-upscale",
+    "src": "features/image-upscale/options.webp",
+    "width": 608,
+    "height": 490,
+    "bytes": 45530,
+    "quality": 90
+  },
+  "features/content-review/label-filter": {
+    "id": "features/content-review/label-filter",
+    "kind": "still",
+    "alt": "Content Review with a detection-label filter: matching images appear in a grid with their detection labels, thumbnails blurred.",
+    "route": "/content-review",
+    "src": "features/content-review/label-filter.webp",
+    "width": 1184,
+    "height": 410,
+    "bytes": 27352,
     "quality": 90
   }
 }
