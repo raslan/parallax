@@ -262,7 +262,7 @@
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--lp-line);
   font-family: "Playfair Variable", Georgia, serif;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   transition:
     color 0.2s,
     padding-left 0.3s var(--lp-ease);
@@ -451,17 +451,29 @@
     margin-right: 0;
     overflow: visible;
   }
+  /* The list of features becomes a two-column band, read down the first column and then the second. */
+  .lp-toc ol {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(3, auto);
+    column-gap: 3.5rem;
+  }
 }
 
 @media (min-width: 1024px) {
-  /* Words on the left (headline, then the list of features), the screenshot filling the right. */
+  /* Words on the left, the screenshot running off the right edge of the window, and the list of features as a
+     band underneath, the same order as on a phone. The hero is wider than the other sections so its text sits
+     nearer the left edge and balances the screenshot. */
   .lp-hero {
     display: grid;
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
     grid-template-areas:
       "intro shot"
-      "toc shot";
-    grid-template-rows: auto 1fr;
+      "toc toc";
+    max-width: none;
+    /* Near the left edge on normal screens; on very wide ones, lined up with the header's logo. */
+    padding-left: max(clamp(2rem, 4.2vw, 4.5rem), calc((100vw - 87.5rem) / 2 + 1rem));
+    padding-right: 0;
     column-gap: 3.5rem;
     align-items: start;
     padding-top: 4rem;
@@ -475,13 +487,15 @@
   }
   .lp-toc {
     grid-area: toc;
+    margin-top: 3.5rem;
+    padding-right: clamp(2rem, 4.2vw, 4.5rem);
+    max-width: 62rem;
   }
   .lp-hero h1 {
     font-size: clamp(2.5rem, 3.7vw, 3.75rem);
   }
   .lp-hero-shot {
     margin-top: 1rem;
-    margin-right: calc((100vw - min(100vw, 76rem)) / -2 - var(--lp-gutter));
   }
   .lp-hero-shot .lp-zoom img {
     border-top-left-radius: 0.55rem;

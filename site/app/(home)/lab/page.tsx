@@ -16,6 +16,7 @@ const clip = (name: string) =>
 const BEATS = [
   {
     id: "organize",
+    toc: "Organize your media",
     name: "Organize",
     title: "See what is in a folder before you touch it.",
     text: "Parallax spots the names your files have in common, so one click picks every holiday photo or every voice memo. Then move, rename or delete them in one go.",
@@ -23,6 +24,7 @@ const BEATS = [
   },
   {
     id: "identify",
+    toc: "Identify movies and shows",
     name: "Identify",
     title: "Turn messy file names into ones your media server understands.",
     text: "Pick the folder and the show, and every episode drops into its place. Check the new names, then apply.",
@@ -30,6 +32,7 @@ const BEATS = [
   },
   {
     id: "cleanup",
+    toc: "Search and delete content",
     name: "Cleanup",
     title: "Stack filters until only the files you mean are left.",
     text: "Duration, size, resolution, name, date. Join them with AND or OR, and watch the list narrow as you go.",
@@ -37,6 +40,7 @@ const BEATS = [
   },
   {
     id: "duplicates",
+    toc: "Find duplicates",
     name: "Duplicates",
     title: "Find the copies and keep the best one.",
     text: "Match on size, length, how it looks or how it sounds. Take a rule away and the groups reshape straight away.",
@@ -44,6 +48,7 @@ const BEATS = [
   },
   {
     id: "compress",
+    toc: "Compress your media",
     name: "Compress",
     title: "See what you would save before you save it.",
     text: "Slide the quality and the estimated size moves with it, for the whole library or just what you have picked.",
@@ -113,7 +118,7 @@ export default function LandingPrototype() {
             <ol>
               {BEATS.map((f) => (
                 <li key={f.id}>
-                  <a href={`#${f.id}`}>{f.name}</a>
+                  <a href={`#${f.id}`}>{f.toc}</a>
                 </li>
               ))}
             </ol>
