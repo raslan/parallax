@@ -1,0 +1,60 @@
+---
+title: Identify naming rules
+description: Exactly how Identify names files and folders, and what the extra files contain.
+---
+
+This is the reference behind [Identify](/docs/tools/identify).
+
+## TV shows
+
+```
+Show Name/
+  Season 01/
+    Show Name - S01E01 - Episode Title.mkv
+    Show Name - S01E02 - Episode Title.mkv
+  Unmatched/
+    anything you left unassigned.mkv
+```
+
+- The show folder and the show name in file names come from TMDB (or the name you typed in Custom mode).
+- Season folders are `Season 01`, `Season 02` and so on, with a two-digit number. Episode codes are `S01E01`.
+- File extensions are kept, converted to lowercase.
+- Files with no episode are moved into `Unmatched` inside the show folder with their original name.
+
+## Movies
+
+```
+Movie Title (2010)/
+  Movie Title (2010).mkv
+```
+
+The year is added when TMDB gives one.
+
+## Characters that are removed
+
+Anything a file system might refuse is dropped from names: `< > : " / \ | ? *` and control characters. Leading and trailing dots and spaces are trimmed too.
+
+## Subtitles
+
+A subtitle file next to a video is renamed to match it. The part of its name after the video's name is kept, so `Show.S01E01.en.srt` becomes `Show Name - S01E01 - Episode Title.en.srt`.
+
+## Folder rename and move
+
+The source folder itself is renamed to the show or movie name. With **Move to**, it is moved to the chosen location instead, using a move that works across different drives. Parallax will not overwrite a folder that already exists at the destination. Files are renamed first, then the folder, and any library that points at the folder or files inside it is updated to the new paths.
+
+## How files are matched to episodes
+
+Each file name is read for a season and episode number (using a name parser that understands common release naming such as `S01E03`, `1x03` and `Season 1 Episode 3`). Files that are recognised are placed into the matching episode automatically. Everything else lands in the **Unassigned** list for you to place by hand.
+
+## Custom mode extras
+
+Custom mode treats the folder as one season of a show you describe. In addition to renaming:
+
+- **Titles.** Each file's name is cleaned up for the title: bracketed tags and trailing `Part N` or `Episode N` are removed. The **Generic titles** option replaces them with `Episode N`.
+- **`tvshow.nfo`** and one **episode `.nfo`** per file, in the format Kodi, Jellyfin and Plex read. Episode files include the air date and a description when the video has them stored inside it. The show file points at the artwork.
+- **Artwork**, generated from a frame about 30% into the first episode:
+  - `poster.jpg` and `folder.jpg`, 1000 × 1500, with the frame blurred and darkened and the show name in a bold font over it.
+  - `backdrop.jpg` and `fanart.jpg`, 1920 × 1080, from the same frame with a light darkening and no text.
+  - `Season NN/folder.jpg` for each season.
+
+The artwork is created after the renames, from each episode's final location, and everything is done with software on your machine. Nothing is looked up online.

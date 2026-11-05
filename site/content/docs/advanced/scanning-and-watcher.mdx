@@ -1,0 +1,50 @@
+---
+title: Scanning and the folder watcher
+description: How Parallax finds files, keeps libraries up to date, and what it ignores.
+---
+
+A library stays correct through two things working together: scans, which you start, and a watcher, which runs on its own. This page covers both.
+
+## What gets picked up
+
+Parallax recognises files by their ending.
+
+- **Video:** mp4, mkv, avi, mov, wmv, flv, webm, m4v, mpg, mpeg, ts, m2ts, mts, vob, 3gp, ogv, rmvb and divx.
+- **Images:** jpg, jpeg, png, gif, bmp, webp, tiff, tif, heic and heif.
+- **Audio:** mp3, m4a, m4b, aac, opus, ogg, oga, flac, wav, wma, aiff, aif and alac.
+
+Everything else in a library folder is ignored.
+
+## Always ignored
+
+- Anything inside an `_originals` folder (and `_quarantine` for images), so backups never appear as library files.
+- Hidden files, meaning names that start with a dot.
+- Files Parallax is itself still writing, such as the temporary copy made while compressing. They are recognised by `.compressing` or `.transcoding` in the name.
+
+## What a scan does
+
+A scan walks the library folder and, for each file it has not seen, reads its details: length, size, format, bitrate, resolution and dates. It also removes entries for files that have disappeared. It does not change your files.
+
+- **Videos and audio** get details only. Thumbnails are made when you first look at a file, and a background job fills in the rest after the scan.
+- **Images** can also be prepared for [Duplicates](/docs/features/duplicates) and [Content Review](/docs/features/content-review) while scanning, using the options you pick for the library.
+
+A large scan can be watched on the Jobs page, and its progress is saved as it goes.
+
+## The watcher
+
+Parallax watches every library folder for changes. When something happens it waits for **3 seconds of quiet** before acting. That pause is deliberate: copying a big folder in produces a flood of events, and Parallax waits for it to settle rather than processing each file.
+
+When the pause ends, the library is **compared against the disk as a whole**, not just the files that triggered it. New files are added and missing ones removed. Looking at everything catches deletions of whole folders, files moved to the trash and files that were replaced, which do not always report each file individually.
+
+On top of that, every library is **re-checked every 90 seconds**, and once at startup. That picks up anything that changed while Parallax was stopped, and covers situations where the system lost some change notifications, for example during a very large copy.
+
+## Things that can make it lag
+
+- **Network shares.** Change notifications often do not cross a network mount, so the 90 second check is what keeps those libraries current.
+- **A scan in progress.** While a library is being scanned, the watcher leaves it alone and tries again afterwards, so the two never fight over the same files.
+- **Pictures added by the watcher** get their details and thumbnail only. They are not yet prepared for Content Review or duplicates. Both pages notice and prepare any that are missing the first time you use them.
+
+## Related
+
+- [Libraries](/docs/features/libraries) for the everyday view of this.
+- [Jobs and the queue](/docs/advanced/jobs-queue) for how scans are scheduled.

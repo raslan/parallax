@@ -329,5 +329,71 @@
     "height": 656,
     "bytes": 28036,
     "quality": 90
+  },
+  "app/home/dashboard": {
+    "id": "app/home/dashboard",
+    "kind": "still",
+    "alt": "The Home page: space saved so far, a chart of savings over time, work by type, quick-start tiles and a grid of recent activity.",
+    "route": "/",
+    "src": "app/home/dashboard.webp",
+    "width": 1184,
+    "height": 440,
+    "bytes": 54224,
+    "quality": 90
+  },
+  "app/palette/open": {
+    "id": "app/palette/open",
+    "kind": "still",
+    "alt": "The command palette open over the page with a search for compress and the matching page highlighted.",
+    "route": "/",
+    "src": "app/palette/open.webp",
+    "width": 560,
+    "height": 340,
+    "bytes": 12478,
+    "quality": 90
+  },
+  "app/themes/picker": {
+    "id": "app/themes/picker",
+    "kind": "still",
+    "alt": "Settings, General tab: the colour theme picker with the five Parallax themes, then the colour and classic groups, each shown as a small preview.",
+    "route": "/settings",
+    "src": "app/themes/picker.webp",
+    "width": 1184,
+    "height": 570,
+    "bytes": 41716,
+    "quality": 90
+  },
+  "app/settings/ai-models": {
+    "id": "app/settings/ai-models",
+    "kind": "still",
+    "alt": "Settings, AI Models tab: scan batch size and prefetch sliders, and the content detection models with their download buttons.",
+    "route": "/settings?tab=ai",
+    "src": "app/settings/ai-models.webp",
+    "width": 1184,
+    "height": 640,
+    "bytes": 57962,
+    "quality": 90
+  },
+  "app/filters/builder": {
+    "id": "app/filters/builder",
+    "kind": "still",
+    "alt": "The filter builder on Cleanup with two conditions, duration and file size, joined with AND, and the count of files that match.",
+    "route": "/cleanup",
+    "src": "app/filters/builder.webp",
+    "width": 1184,
+    "height": 110,
+    "bytes": 9938,
+    "quality": 90
+  },
+  "app/player/open": {
+    "id": "app/player/open",
+    "kind": "still",
+    "alt": "The video player open over the Files page, with the playback controls and a captions button along the bottom.",
+    "route": "/files",
+    "src": "app/player/open.webp",
+    "width": 1440,
+    "height": 780,
+    "bytes": 203450,
+    "quality": 90
   }
 }

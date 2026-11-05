@@ -1,0 +1,44 @@
+---
+title: Data folder and backups
+description: What lives in the data folder, what you can safely delete, and how to back it up.
+---
+
+Everything Parallax remembers lives in the `data` folder you mounted at `/app/data` when you [installed it](/docs/getting-started/install). Your media is never copied in there. This page explains what is inside, so you know what to back up and what is safe to throw away.
+
+## What is in it
+
+| Item                                           | What it is                                                                                                                 | Can it be rebuilt?                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `transcoder.db` (plus `-wal` and `-shm` files) | The database: your libraries, the list of files and their details, settings, job history, download history and statistics. | No. This is the one that matters.                    |
+| `thumbnails/`                                  | Video thumbnails.                                                                                                          | Yes, they are made again when you look at the files. |
+| `image-thumbnails/`                            | Picture thumbnails.                                                                                                        | Yes.                                                 |
+| `organize-thumbnails/`                         | Thumbnails for the Organize page. Old ones are cleared out automatically.                                                  | Yes.                                                 |
+| `models/`                                      | Downloaded detection models, such as the larger content detection model.                                                   | Yes, from **Settings → AI Models**.                  |
+| `stream-cache/`                                | The playback cache, described on [Playback and audio conversion](/docs/advanced/playback).                                 | Yes. It is wiped every time Parallax starts.         |
+| Download tool files                            | The download tool and its helper, which **Settings → Downloads** installs.                                                 | Yes, install them again.                             |
+| `alass`                                        | The subtitle sync tool.                                                                                                    | Yes.                                                 |
+| A Galleries folder                             | Saved gallery link lists, the "already downloaded" archive and any tool updates.                                           | The lists and archive cannot. The rest can.          |
+
+## Backing up
+
+The database is the only thing you really need. If you copy the whole `data` folder you get everything, which is the simplest option.
+
+1. Stop Parallax: `docker compose down`.
+2. Copy the `data` folder somewhere safe.
+3. Start it again: `docker compose up -d`.
+
+Stop it first, because the database is in the middle of being written to while Parallax runs, and a copy taken then can be inconsistent. The database also uses extra `-wal` and `-shm` files next to it, and all three need to be copied together.
+
+To go back, stop Parallax, put the backup in place of `data`, and start it again.
+
+Moving Parallax to a new machine works the same way: copy the folder across, mount it at `/app/data` and start. If your media is mounted at the same path inside the container, everything will be exactly where it was.
+
+## Making space
+
+If the `data` folder has grown big, the safe things to delete are the thumbnail folders and `stream-cache`, with Parallax stopped. They will be made again when needed, so the only cost is a short wait the next time you browse.
+
+To start completely fresh without touching your files, use **Purge all library data** in **Settings → General** rather than deleting things by hand. See [Settings](/docs/app/settings).
+
+## Permissions
+
+The folder has to be writable by the user you run the container as (the `user:` line in your compose file). If it is not, Parallax cannot start properly. See [Troubleshooting](/docs/getting-started/troubleshooting).

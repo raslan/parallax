@@ -1,0 +1,36 @@
+---
+title: Jobs and the queue
+description: How Parallax schedules background work, and what it does when something goes wrong.
+---
+
+The [Jobs](/docs/app/jobs) page shows what is happening. This page explains how it is organised.
+
+## The queue
+
+Every tracked job, such as a scan, a compress or a duplicate search, goes into one queue. A single dispatcher takes jobs from the front and starts them, and a limit decides how many may run at the same moment. That limit is **Concurrent jobs** in **Settings → General** (default 1). Changing it applies to jobs that have not started yet.
+
+The queue is for whole jobs. Inside a job, work on individual files has its own limit. Compress and Toolbox use **Concurrent video transcodes (per GPU)**, audio uses **Concurrent audio transcodes**, and each of those is set in **Settings → Transcoder**. They are independent, so raising one does not change the other.
+
+Each job has a status: waiting, running, completed, failed or cancelled.
+
+## Cancelling
+
+A job that is waiting is dropped from the queue immediately. A running job is told to stop, and it stops at the next safe point, such as between two files, so it can tidy up. That is why a cancel can take a moment to show.
+
+Files being written are always written to a temporary name first and only renamed on success, so a cancelled job never leaves a half-finished file in place of an original.
+
+## Live updates
+
+The pages follow jobs live. The server pushes updates to the browser about twice a second while something is running, and backs off to once every 10 seconds when everything is idle. Each update opens a fresh short database session, so many open tabs cannot use up the connections.
+
+## When something goes wrong
+
+- **A job fails.** It is marked as failed with an error, its log is kept, and the next job in the queue carries on. A single bad file inside a batch does not stop the batch for most jobs, and is reported in the log.
+- **An unexpected crash.** If a job function ends in an unexpected error, the queue catches it and marks the job failed, so no job is ever left looking as if it is still running.
+- **A restart.** Jobs that were running or waiting when Parallax stopped are marked failed on the next start. Downloads and gallery fetches that were in progress are cleaned up the same way.
+
+## What is recorded
+
+Every finished job adds a small entry to the statistics shown on Home: what kind of job it was, how long it took, and, for compress jobs, how many bytes went in and came out. The entry holds no file names or paths. See [Home and statistics](/docs/app/home).
+
+Downloads and Galleries run on their own small schedulers rather than this queue, because each row needs its own live counters and history. They show up on their own pages, not on Jobs.

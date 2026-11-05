@@ -1,0 +1,45 @@
+---
+title: How duplicate matching works
+description: The details behind Duplicates, for video, images and audio.
+---
+
+The [Duplicates](/docs/features/duplicates) page keeps things simple. This page explains what actually happens, which helps when you want to tune the settings.
+
+## Two steps: prepare, then compare
+
+Finding duplicates is split in two on purpose.
+
+1. **Preparing** (the **Extract** or **Find duplicates** button) runs in the background and reads extra information out of the files that scanning does not collect. The results are stored with each file.
+2. **Comparing** happens in your browser, over the information that is already loaded. Parallax does not store a list of results, and the server does no comparing at all.
+
+Because comparing is just a calculation over data you already have, switching a chip on or off updates the groups instantly, without a new job. The calculation runs in a background thread of the page, so the page never freezes.
+
+## Cheap checks first
+
+Some criteria use details already known from scanning: size, duration, resolution, content date, orientation, bitrate and file name. These cost nothing.
+
+Before preparing anything, Parallax applies the cheap criteria you have switched on, in that order, and throws away every file that cannot end up in a group of two or more. Only the files that survive are read in depth. So a library of thousands of files with Exact size and Duration switched on may need only a handful of files prepared. The same logic is used again in the browser when it forms groups, so both agree.
+
+Preparing is also incremental. A file that already has what the current settings need is skipped. Changing the visual match to use more frames, for example, prepares only the files that were done with fewer.
+
+## The criteria in detail
+
+**Filename.** Compares names by their overlapping pairs of letters ("bigrams") and gives a similarity from 0 to 100 percent. The threshold slider sets how high that has to be.
+
+**Byte hash.** A fingerprint of the entire contents of the file. Two files with the same hash are identical byte for byte, regardless of name or folder. It is the only exact check, and it reads the whole file, so it is the slowest one to prepare.
+
+**Visual.** For each video, Parallax pulls out frames at a small size (256 pixels) and reduces each to a 64 bit perceptual hash, a compact description of what the picture looks like that does not change much when the file is re-encoded or resized. Two hashes are compared by counting the bits that differ, between 0 and 64. Similarity is shown as `100 - (differing bits ÷ 64 × 100)`. The default of 84% therefore allows up to 10 bits of difference.
+
+- **First frame only** is quick but can be fooled by videos that open the same way, such as the same studio logo.
+- **All frames** takes the number of frames you choose, from 4 to 64 (16 by default), spread through the video. Two videos match when their frames line up, which is far more reliable and takes proportionally longer.
+
+**Audio fingerprint.** The sound is turned into a compact fingerprint using Chromaprint, the same technology used to recognise songs. Fingerprints are compared by how many of their bits agree, as a percentage. It matches the same soundtrack even when the video differs or the audio was re-encoded.
+
+## Images and audio
+
+- **Images** use the same 64 bit perceptual hash on the single picture, and the grouping is done on the server, not in the browser. The hash is stored when an image is scanned, and the Find Duplicates button fills in any that are missing.
+- **Audio** has four criteria: exact size, duration, content date and the audio fingerprint. Preparing computes the fingerprints, and grouping happens in the browser exactly as for video.
+
+## Which copy is kept
+
+For video, the suggested copy to keep is the one with the highest bitrate, then the biggest file. For images, Parallax also suggests one copy to keep. You can always tick and untick copies yourself before anything is removed.

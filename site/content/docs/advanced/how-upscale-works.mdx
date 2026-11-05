@@ -1,0 +1,50 @@
+---
+title: How Upscale works
+description: The models, the tile process and the limits behind Image Upscale.
+---
+
+[Upscale](/docs/features/image-upscale) rebuilds an image at a larger size using a small neural network. This page covers what runs, what it does to your picture, and where its limits are.
+
+## The models
+
+Three models are bundled with Parallax, each used as its author published it, so nothing is downloaded and nothing needs a setup step. All three make a picture four times larger in each direction.
+
+| Tier        | Model                | What it is like                                                           |
+| ----------- | -------------------- | ------------------------------------------------------------------------- |
+| **Fast**    | 4xLSDIRCompactC3     | A very small network. Quick and clean, and a little soft on fine texture. |
+| **Sharp**   | 4xNERVE_OTF_fidelity | Crisper than Fast and good on JPEG, can add faint texture to fine detail. |
+| **Natural** | 4xNomos8kSC          | A larger network with more fine detail, and noticeably slower.            |
+
+They run through ncnn, a lightweight inference library. Credits and licences are listed under **Settings → Credits**.
+
+## What happens to each image
+
+1. The picture is loaded with its orientation applied, so a photo that was stored sideways comes out upright. A transparent background is separated out and scaled on its own. Palette and greyscale images are converted to colour. Animated, 16-bit and CMYK images are skipped with a reason.
+2. If you chose **Pre-scale**, it is first resized down (or kept) to the percentage you picked, using a high quality resize.
+3. The model runs over the picture in overlapping tiles about 224 pixels wide, with a reflected border so edges look right. Working in tiles keeps memory use low, no matter how big the picture is.
+4. When you asked for 2× or 1× instead of the model's native 4×, each tile is resized down before being stitched in.
+5. The result is saved in the same format as the original, at high quality, with the original's colour profile and metadata kept.
+6. Parallax checks that the file has the expected size before it is moved into place.
+
+The final picture is never larger than 150 megapixels. Anything that would be is skipped and listed with the reason. Only JPG, PNG and WebP pictures are handled.
+
+## Output size and pre-scale
+
+- **Output size** is the model's own 4×, optionally shrunk to 2× or 1× tile by tile. Shrinking mostly hides the benefit, which is why 1× is not recommended.
+- **Pre-scale** is a percentage of each side, from 10 to 100. The picture is resized to that first, then the model runs at its native 4×. The final size is the percentage times 4, so 25% gives a result about the same size as the original, 50% gives twice the size, and so on. Any percentage works.
+
+## Files and originals
+
+The new file is named after the original with the size added (`photo_4x.jpg`, or `photo_p25_4x.jpg` when pre-scaled). If a file with that name exists, a number is added. With **Replace**, the new picture takes the original's path inside a safe swap that the folder watcher cannot see half-finished. If anything goes wrong in the swap, the original is put back.
+
+## Graphics card or processor
+
+Upscale looks for a **discrete** graphics card that supports Vulkan, and uses it automatically. Built-in graphics are deliberately skipped because they measured slower than the processor. Without a suitable card it runs on the processor using all its threads. The **Use CPU only** switch forces that.
+
+To give the container a card, see the NVIDIA section of [Hardware acceleration](/docs/advanced/hardware-acceleration).
+
+If a tile on the graphics card produces an invalid result, that tile is redone on the processor, so a job does not fail because of one bad tile.
+
+## How it runs
+
+The model runs in its own worker process, which starts when needed and shuts down after about two minutes of nothing to do, freeing memory. Only one upscale job can run at a time. Starting another while one is running is refused.

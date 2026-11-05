@@ -1,0 +1,44 @@
+---
+title: Settings
+description: Every setting in Parallax, tab by tab.
+---
+
+Open Settings from the cog in the top bar. It has six tabs. Each tab has its own **Save changes** button, so changes you make on one tab are not saved until you press it on that tab. (The theme is the exception. It applies as soon as you click it.)
+
+<Shot id="app/settings/ai-models" />
+
+## General
+
+- **Colour theme** picks the look of the app. See [Themes](/docs/app/themes).
+- **Concurrent jobs** is how many jobs of any kind run at once across the whole app. The default is 1. See [Jobs](/docs/app/jobs).
+- **Statistics** has **Clear statistics**, which wipes the totals on the Home page. It does not touch your libraries or files. See [Home and statistics](/docs/app/home).
+- **Danger Zone** has **Purge all library data**, with a confirmation. It removes every library, the list of files, thumbnails and the other things Parallax keeps about them. Your settings, downloaded AI models and statistics stay, and **your files on disk are not touched**. You can add libraries again afterwards.
+
+## Transcoder
+
+- **Concurrent video transcodes (per GPU)** is how many files each graphics card works on at once during Compress and Toolbox. Without a graphics card it applies to the processor.
+- **Concurrent audio transcodes** is how many audio files are processed at once. Audio always uses the processor.
+
+The text on this tab also tells you which graphics cards Parallax found. See [Hardware acceleration](/docs/advanced/hardware-acceleration).
+
+## Keys & Accounts
+
+- **TMDB API key** is needed to match TV shows and movies in [Identify](/docs/tools/identify), and for the movie source in Subtitles search. A free key from the TMDB website is all it takes.
+- **Subtitle sync engine** chooses between **alass** and **ffsubsync** for fixing subtitles that are out of time. alass is the default.
+- **Auto-sync downloaded subtitles** runs the sync automatically after each subtitle is downloaded.
+
+## AI Models
+
+- **Scan batch size** is how many images are checked in one go by Content Review. Higher is faster and uses more memory.
+- **Scan prefetch** is how many batches are loaded ahead of time while the current one is being checked. Higher keeps things moving and uses more memory.
+- **Content detection models** lists the available models. The standard one is built in. The larger one can be downloaded here, and you choose which one to use.
+
+## Downloads
+
+- **Default download directory** is where [Downloads](/docs/tools/downloads) saves things unless you pick another folder on the page.
+- **Max concurrent downloads** is how many links download at the same time.
+- The download tool itself is installed and updated here, and you can follow the **stable** or **nightly** release channel.
+
+## Credits
+
+A list of the models and tools that Parallax is built on, with their licences and where they come from. The credit and licence text for the bundled upscaling models is here too.

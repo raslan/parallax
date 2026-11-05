@@ -1,0 +1,41 @@
+---
+title: Filters
+description: How the filter builder works, which Cleanup, Content Review and Organize all share.
+---
+
+Several pages let you describe what you are looking for by stacking up conditions: [Cleanup](/docs/features/cleanup) (video and audio), [Content Review](/docs/features/content-review) and [Organize](/docs/tools/organize). They all use the same filter builder, so once you know one you know them all.
+
+<Shot id="app/filters/builder" />
+
+## Adding a condition
+
+Click **Add filter**, then type to search the list of things you can filter on, or scroll through it. Pick one and a small editor opens, where you set how it should compare and the value. Press Enter or click away when you are done, and it collapses into a chip.
+
+Click a chip to open its editor again, or click the **×** to remove it.
+
+## How a condition reads
+
+Most conditions have two parts after the name, which is how to compare and what to compare against.
+
+- **Numbers** like duration, file size, frame rate and resolution use **is over** or **is under**. Many have shortcuts to common values, such as 1 GB or 1080p.
+- **Dates** use **is after** or **is before**. You can say "30 days ago" or pick a date from the calendar.
+- **Names** use **contains**, **doesn't contain**, or **roughly matches**. Roughly matches also catches names that are spelled a little differently.
+- **Choices** like orientation or file type are picked from a short list.
+- **Percentages**, used by detection labels in Content Review, use **at least** or **under** a confidence level.
+
+Results update live as you change anything, and the page tells you how many things match.
+
+## Combining conditions
+
+Between each pair of chips there is a switch with **AND** and **OR**.
+
+- **AND** means a file has to match both conditions. This is the default, so more conditions means fewer results.
+- **OR** means a file matches if it passes either one, so more conditions means more results.
+
+Click the switch to flip it. Each switch works on the pair next to it, so you can mix them to build up something like "short **AND** small **OR** old".
+
+## Where it shows up
+
+- **Cleanup** uses it to find files to delete, with a different set of fields for video and audio.
+- **Content Review** adds detection labels, so you can look for specific things in pictures.
+- **Organize** uses it on any folder, with extra fields such as extension and type, and a row of common names to filter on with one click.

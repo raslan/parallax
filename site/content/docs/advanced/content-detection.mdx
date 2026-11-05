@@ -1,0 +1,41 @@
+---
+title: Content detection
+description: How Content Review recognises things in pictures, and how to tune it.
+---
+
+[Content Review](/docs/features/content-review) is powered by a small detection model that looks at each picture and lists what it can recognise, with a confidence for each. The model is NudeNet, an open-source detector, and it runs entirely on your machine.
+
+## The models
+
+Two models are available under **Settings → AI Models**:
+
+| Model    | Size        | Notes                                                                                                          |
+| -------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
+| **320n** | about 5 MB  | Built in. Fast, with standard accuracy.                                                                        |
+| **640m** | about 99 MB | A download. Looks at pictures at higher resolution, so it is better at small or partly visible things. Slower. |
+
+Pick one in the **Content Detection** card of that tab. Switching models does not re-check pictures that have already been checked. If you want everything re-checked with the new model, use the reset and rescan option on the image library. It rebuilds that library's picture records from scratch, so use it on purpose.
+
+## What it reports
+
+Each detection is a label, a confidence between 0 and 100 percent, and where in the picture it is. Labels cover exposed and covered body parts, plus faces, feet, belly and armpits. The Content Review filter lets you choose a label and set how confident Parallax has to be before a picture counts as a match.
+
+## Speed and memory
+
+Two settings on **Settings → AI Models** control how a batch of pictures is processed:
+
+- **Scan batch size** (1 to 32, default 4) is how many pictures go into the model together. Bigger batches are faster and need more memory.
+- **Scan prefetch** (1 to 20, default 4) is how many batches are read from disk ahead of time, so the model is never waiting on the drive. Higher uses more memory.
+
+Detection always runs on the processor. It does not use a graphics card, even if one is available.
+
+## How it runs
+
+The model runs in a separate worker process, not inside the main app. That keeps a large batch from slowing the rest of Parallax, and it lets the memory be handed back cleanly. The worker starts on demand, and after about two minutes with nothing to do, it shuts down and releases everything.
+
+## When pictures get checked
+
+Pictures are checked in one of two ways:
+
+- When you scan an image library with the **Content review** option on.
+- Automatically, the first time you add a detection label to a filter in Content Review. Parallax finds every picture that has never been checked, including ones added by the folder watcher, and checks them in the background. A picture that has been checked once is not checked again, even if nothing was found in it.

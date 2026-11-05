@@ -1,0 +1,36 @@
+---
+title: Playback and audio conversion
+description: How Parallax plays videos that browsers cannot play on their own.
+---
+
+Browsers play video with a limited set of sound formats. Files from discs and some downloads use others, like AC3, DTS or TrueHD, so the picture plays with no sound. Parallax fixes that on the fly without touching your file.
+
+## What happens when you press play
+
+1. Parallax inspects the sound track. If it is already something browsers play (AAC, MP3, Opus, Vorbis or FLAC), the file is played as it is, straight from disk.
+2. If not, Parallax prepares an **on-demand stream**. The picture is copied untouched, and only the sound is converted to AAC.
+3. The video starts after about two seconds, and you can skip to any point.
+
+## How it starts so quickly
+
+Rather than convert the whole file first, Parallax builds the full playlist up front by reading the file's keyframes, the points a video can safely be cut at. The player is given a playlist for the entire video straight away, so the seek bar covers the whole thing from the first second.
+
+The video is then cut into short pieces, and each piece is converted only when the player asks for it. Skipping ahead makes Parallax start converting from where you landed, so there is no waiting for the part before it. Work is done in chunks of 15 pieces at a time, and a chunk that is already finished stays on disk, so going back is instant.
+
+The result is delivered as HLS, a streaming format every modern browser understands.
+
+## The cache
+
+Converted pieces are kept in `stream-cache` inside the [data folder](/docs/advanced/data-folder).
+
+- There is **one slot**. Playing a different video replaces the previous one's converted pieces.
+- A conversion that nobody has asked for in five minutes is stopped, and the whole cache is cleared after an hour of no use.
+- The cache is wiped every time Parallax starts.
+
+It is small and temporary. You never need to manage it.
+
+## Things to know
+
+- Converting needs a processor, not a graphics card.
+- Your video file is never altered. The converted pieces exist only in the cache.
+- If a video plays with sound straight away, it simply did not need converting.

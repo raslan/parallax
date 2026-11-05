@@ -1,0 +1,63 @@
+---
+title: How Compress works
+description: What happens to a file when you compress it, and how the size estimates are worked out.
+---
+
+The [Compress](/docs/features/compress) page keeps the choices simple. This page covers what Parallax actually does with each file.
+
+## One pass per file
+
+Each file is processed with a single call to ffmpeg that does the codec change and, when you chose a maximum resolution, the scaling as well. Quality is governed by the quality (CRF) number. The resolution cap only changes how many pixels there are to encode.
+
+The result is written to a temporary file next to the original, with `.compressing` in its name so the folder watcher ignores it. Only when ffmpeg finishes successfully does it replace the original. A failed or cancelled run leaves the original alone and removes the temporary file.
+
+If **Keep originals** is on, the original is moved into the `_originals` folder first. If it is off, the original is replaced and cannot be recovered.
+
+## Choosing the encoder
+
+For each codec Parallax asks ffmpeg what is available and takes the first match from a fixed order of preference.
+
+- **H.264:** NVENC, QSV, AMF, VA-API, then the software encoder.
+- **HEVC:** the same order.
+- **AV1:** NVENC, QSV, AMF, then the software encoders.
+
+A hardware encoder is therefore used whenever ffmpeg reports one. Whether a graphics card is actually reachable from inside the container is a separate matter. See [Hardware acceleration](/docs/advanced/hardware-acceleration) for how cards are found and shared between files.
+
+Decoding is accelerated too (CUDA or VA-API). When a maximum resolution is set, the frames are brought back into normal memory for the scaling step and then handed to the encoder, so the decode is still on the card but not as direct.
+
+## Quality numbers
+
+CRF (constant rate factor) is a quality target, where lower means higher quality and larger files. Each codec has its own default and its own scale:
+
+| Codec | Default CRF |
+| ----- | ----------- |
+| H.264 | 23          |
+| HEVC  | 28          |
+| AV1   | 35          |
+
+The numbers are not comparable between codecs. An HEVC value of 28 looks roughly like an H.264 value of 23, at a smaller size. Within a codec, every 6 points roughly halves the bitrate.
+
+For hardware encoders the same number is passed as a constant-quality target, and the speed setting maps to the encoder's presets (NVENC `p7`, `p5` and `p3` for slow, medium and fast; SVT-AV1 presets 4, 8 and 10).
+
+## Containers and tags
+
+- HEVC in MP4, M4V and MOV files is tagged `hvc1` so Apple devices and many players accept it.
+- `.m4v` files are written as `.mp4` when the new codec is HEVC or AV1, because the M4V muxer refuses them.
+- `.avi`, `.wmv`, `.flv` and `.webm` files are written as `.mkv`, since those containers cannot hold what the encoders produce. The file name changes accordingly, and the library entry follows it.
+- Audio is copied as it is, and only converted to AAC when the new container cannot hold the original format.
+
+## The estimates
+
+Estimates are calculated in your browser. Every source codec has an efficiency figure (for example H.264 is 1.0, HEVC 0.55, AV1 0.45, and old formats like MPEG-2 are well above 1) and so does the target codec. The estimate is
+
+`source size × (target efficiency ÷ source efficiency) × 2^(−(CRF − default CRF) ÷ 6) × speed factor × resolution factor`
+
+- The **speed factor** is 0.92 for slow, 1.0 for medium and 1.08 for fast.
+- The **resolution factor** is the square of the scale (the new short side divided by the old one), because the pixel count falls with the square of the size, and is 1 if no scaling happens.
+- The result is never shown as less than 5% of the original.
+
+That is a simple model of how encoders behave, which is why the page says an estimate can be out by around 20 percent. Content matters a lot. Grainy footage compresses less than clean animation.
+
+## Running many files
+
+Files in a job are handled in parallel up to the **Concurrent video transcodes (per GPU)** setting, spread across cards as described on the hardware page. When a card fails to start for a file, that card is set aside for the rest of the job and the file is tried on another one.

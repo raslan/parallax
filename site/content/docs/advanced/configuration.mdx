@@ -1,0 +1,38 @@
+---
+title: Configuration reference
+description: Every environment variable, mount and container option Parallax understands.
+---
+
+Almost everything you can change is in the app, under [Settings](/docs/app/settings). This page lists what is set outside the app, in your compose file or `docker run` command.
+
+## Environment variables
+
+| Variable                     | Default                  | What it does                                                                                                                                                              |
+| ---------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_DIR`                   | `/app/data`              | Where Parallax keeps its database, thumbnails and caches. Leave it at the default and mount your folder there. See [Data folder and backups](/docs/advanced/data-folder). |
+| `LOG_LEVEL`                  | `INFO`                   | How much the container writes to its log. Use `DEBUG` for more detail when tracking down a problem, or `WARNING` for less.                                                |
+| `NVIDIA_DRIVER_CAPABILITIES` | set by the compose block | Only needed with plain `docker run` and an NVIDIA card. Use `all`, as described in [Hardware acceleration](/docs/advanced/hardware-acceleration).                         |
+
+There is no variable for the port. Parallax always listens on 7899 inside the container, so change the left side of the `ports` mapping instead.
+
+## Mounts
+
+| Path inside the container       | Required | Purpose                                                                                                                                                 |
+| ------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/app/data`                     | Yes      | Parallax's own data. Must be writable.                                                                                                                  |
+| `/media` (or any path you like) | Yes      | Your media. Add as many as you need, and make them writable. Library paths you add in the app are paths as the container sees them.                     |
+| `/app/scratch`                  | No       | A fast disk for work in progress during Compress and Toolbox. See [Hardware acceleration](/docs/advanced/hardware-acceleration#staging-on-a-fast-disk). |
+
+## Container options
+
+- **`user`**: set it to your own user and group (`id` shows them) so files Parallax creates belong to you. It has to be able to write to `/app/data` and to your media folders.
+- **`restart`**: `unless-stopped` is what the examples use, so Parallax starts again after a reboot.
+- **GPU access**: the `deploy` block for NVIDIA, or `devices` and `group_add` for Intel and AMD. See [Hardware acceleration](/docs/advanced/hardware-acceleration).
+
+## Checking it is healthy
+
+Parallax answers on `/api/health` with a short status. It is a handy target for an uptime monitor or a Docker health check, for example `http://your-machine:7899/api/health`.
+
+## Everything else
+
+All other behaviour is controlled from the app and saved in the database, which is why a backup of the [data folder](/docs/advanced/data-folder) brings your whole setup back.

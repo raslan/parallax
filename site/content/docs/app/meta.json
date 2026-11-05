@@ -1,0 +1,4 @@
+{
+  "title": "The app",
+  "pages": ["home", "jobs", "command-palette", "player", "filters", "themes", "settings"]
+}

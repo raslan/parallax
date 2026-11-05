@@ -1,4 +1,16 @@
 {
   "title": "Advanced",
-  "pages": ["hardware-acceleration"]
+  "pages": [
+    "hardware-acceleration",
+    "how-compress-works",
+    "how-upscale-works",
+    "duplicate-matching",
+    "playback",
+    "scanning-and-watcher",
+    "content-detection",
+    "identify-naming",
+    "jobs-queue",
+    "data-folder",
+    "configuration"
+  ]
 }
