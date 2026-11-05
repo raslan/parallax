@@ -110,11 +110,13 @@ export default function LandingPrototype() {
               priority
             />
           </div>
+        </section>
 
+        <section className="lp-section lp-toc-section">
           <nav className="lp-toc" aria-labelledby="toc-title">
-            <p id="toc-title" className="lp-toc-title">
+            <h2 id="toc-title" className="lp-toc-title">
               Parallax can
-            </p>
+            </h2>
             <ol>
               {BEATS.map((f) => (
                 <li key={f.id}>

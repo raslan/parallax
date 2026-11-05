@@ -239,19 +239,27 @@
 }
 
 /* The five features, as a numbered list. */
+.lp-toc-section {
+  padding-top: 3.5rem;
+  padding-bottom: 2rem;
+}
 .lp-toc {
-  margin-top: 2.5rem;
+  max-width: 44rem;
+  margin: 0 auto;
 }
 .lp-toc-title {
+  font-family: var(--font-sans);
   font-size: 0.8125rem;
+  font-weight: 400;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--lp-muted);
+  text-align: center;
 }
 .lp-toc ol {
   list-style: none;
   padding: 0;
-  margin: 0.75rem 0 0;
+  margin: 1.5rem 0 0;
   counter-reset: toc;
 }
 .lp-toc a {
@@ -452,50 +460,50 @@
     overflow: visible;
   }
   /* The list of features becomes a two-column band, read down the first column and then the second. */
+  .lp-toc-section {
+    padding-top: 6rem;
+    padding-bottom: 4rem;
+  }
+  .lp-toc {
+    max-width: 52rem;
+  }
   .lp-toc ol {
     display: grid;
     grid-auto-flow: column;
     grid-template-rows: repeat(3, auto);
-    column-gap: 3.5rem;
+    column-gap: 4rem;
   }
 }
 
 @media (min-width: 1024px) {
-  /* Words on the left, the screenshot running off the right edge of the window, and the list of features as a
-     band underneath, the same order as on a phone. The hero is wider than the other sections so its text sits
-     nearer the left edge and balances the screenshot. */
+  /* Words on the left and the screenshot running off the right edge of the window, the pair centred
+     vertically in the first screen. The hero is wider than the other sections so its text sits nearer the
+     left edge and balances the screenshot. */
   .lp-hero {
     display: grid;
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
-    grid-template-areas:
-      "intro shot"
-      "toc toc";
+    grid-template-areas: "intro shot";
+    min-height: calc(100svh - 3.5rem);
     max-width: none;
     /* Near the left edge on normal screens; on very wide ones, lined up with the header's logo. */
     padding-left: max(clamp(2rem, 4.2vw, 4.5rem), calc((100vw - 87.5rem) / 2 + 1rem));
     padding-right: 0;
     column-gap: 3.5rem;
-    align-items: start;
-    padding-top: 4rem;
+    align-items: center;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
   }
   .lp-hero-intro {
     grid-area: intro;
-    padding-top: 1rem;
   }
   .lp-hero-shot {
     grid-area: shot;
-  }
-  .lp-toc {
-    grid-area: toc;
-    margin-top: 3.5rem;
-    padding-right: clamp(2rem, 4.2vw, 4.5rem);
-    max-width: 62rem;
   }
   .lp-hero h1 {
     font-size: clamp(2.5rem, 3.7vw, 3.75rem);
   }
   .lp-hero-shot {
-    margin-top: 1rem;
+    margin-top: 0;
   }
   .lp-hero-shot .lp-zoom img {
     border-top-left-radius: 0.55rem;
