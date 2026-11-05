@@ -513,3 +513,122 @@
     order: 2;
   }
 }
+
+/* ---- and a good deal more -------------------------------------------------------------- */
+
+.lp-more-section h2,
+.lp-themes-section h2,
+.lp-final h2 {
+  font-size: clamp(2.1rem, 6.5vw, 3.75rem);
+}
+.lp-more-links {
+  max-width: 52rem;
+  margin-top: 1.75rem;
+  /* A little tighter than the hero's line, since there is a lot more of it. */
+  line-height: 1.75;
+}
+.lp-more-links > span {
+  display: inline;
+}
+
+/* ---- the colour strip -------------------------------------------------------------------- */
+
+.lp-themes-text {
+  margin-top: 1rem;
+  max-width: 32rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--lp-muted);
+}
+.lp-themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 1.75rem;
+  margin: 2.25rem 0 0;
+  padding: 0;
+  border: 0;
+}
+.lp-theme {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+.lp-theme input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.lp-theme-swatch {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--lp-line);
+  transition:
+    transform 0.4s var(--lp-ease),
+    box-shadow 0.4s var(--lp-ease),
+    border-color 0.3s;
+}
+.lp-theme-swatch > span {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+}
+.lp-theme:hover .lp-theme-swatch {
+  transform: translateY(-3px) scale(1.06);
+}
+.lp-theme input:checked + .lp-theme-swatch {
+  border-color: var(--lp-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--lp-accent) 30%, transparent);
+}
+.lp-theme input:focus-visible + .lp-theme-swatch {
+  outline: 2px solid var(--lp-accent);
+  outline-offset: 5px;
+}
+.lp-theme-name {
+  font-size: 0.8125rem;
+  color: var(--lp-muted);
+}
+.lp-theme input:checked ~ .lp-theme-name {
+  color: var(--lp-fg);
+}
+
+/* ---- closing line and footer -------------------------------------------------------------- */
+
+.lp-final {
+  padding-bottom: 5rem;
+}
+.lp-final .lp-actions {
+  margin-top: 2rem;
+}
+.lp-footer {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 2.5rem var(--lp-gutter) 6rem;
+  border-top: 1px solid var(--lp-line);
+  font-size: 0.9375rem;
+  color: var(--lp-muted);
+}
+.lp-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.75rem;
+  margin-bottom: 1rem;
+}
+.lp-footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--lp-fg);
+  text-underline-offset: 5px;
+  transition: color 0.2s;
+}
+.lp-footer-link:hover {
+  color: var(--lp-accent);
+  text-decoration: underline;
+}

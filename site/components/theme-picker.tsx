@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "fumadocs-ui/components/ui/popover";
 import { DEFAULT_THEME, THEMES, type ThemeId } from "@/lib/themes.generated";
-import { THEME_STORAGE_KEY } from "@/lib/theme-storage";
+import { applyTheme, THEME_EVENT, THEME_STORAGE_KEY } from "@/lib/theme-storage";
 
 type Theme = (typeof THEMES)[number];
 
@@ -37,17 +37,16 @@ export function ThemePicker() {
 
   useEffect(() => {
     setTheme(readStored());
+    // Another control (for example the landing page's colour strip) can change the theme too.
+    const onChange = (e: Event) => setTheme((e as CustomEvent<{ id: ThemeId }>).detail.id);
+    window.addEventListener(THEME_EVENT, onChange);
+    return () => window.removeEventListener(THEME_EVENT, onChange);
   }, []);
 
   function choose(next: ThemeId) {
     setTheme(next);
     setOpen(false);
-    document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, next);
-    } catch {
-      // not persisted; still applies for this page view
-    }
+    applyTheme(next);
   }
 
   const current = THEMES.find((t) => t.id === theme) ?? THEMES[0];

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LoopVideo } from "@/components/landing/loop-video";
 import { Motion, Stars } from "@/components/landing/motion";
+import { ThemeDots } from "@/components/landing/theme-dots";
 import { ZoomImage } from "@/components/landing/zoom-image";
 import type { CameraKey } from "@/components/landing/loop-video";
 import manifest from "@/lib/media-manifest.json";
@@ -10,6 +11,23 @@ import manifest from "@/lib/media-manifest.json";
 type Clip = { id: string; alt: string; width: number; height: number; camera: CameraKey[] };
 const clip = (name: string) =>
   manifest[`landing/beats/${name}` as keyof typeof manifest] as unknown as Clip;
+
+// Everything else, as short phrases that each link to their page in the docs.
+const MORE: [string, string][] = [
+  ["find subtitles", "/docs/tools/subtitles"],
+  ["upscale images", "/docs/features/image-upscale"],
+  ["filter inappropriate images", "/docs/features/content-review"],
+  ["splice videos together", "/docs/features/splice"],
+  ["trim clips and fix the sound", "/docs/features/toolbox"],
+  ["shrink music too", "/docs/features/compress"],
+  ["restore your originals", "/docs/features/originals"],
+  ["match duplicate photos and songs", "/docs/features/duplicates"],
+  ["play anything in the browser", "/docs/general-concepts/player"],
+  ["show how much space you have saved", "/docs/general-concepts/home"],
+  ["use your graphics card", "/docs/advanced/hardware-acceleration"],
+  ["keep up with your folders on its own", "/docs/advanced/scanning-and-watcher"],
+  ["jump anywhere from the keyboard", "/docs/general-concepts/command-palette"],
+];
 
 // The five features, in the order they appear. Each beat is a real clip of the app with the camera moves the
 // capture tool wrote down while filming it. The wording is a placeholder for the copy pass.
@@ -169,7 +187,72 @@ export default function LandingPrototype() {
             </div>
           </section>
         ))}
+
+        <section className="lp-section lp-more-section" aria-labelledby="more-title">
+          <h2 id="more-title" className="lp-display" data-reveal>
+            And a good deal more.
+          </h2>
+          <p className="lp-verbs lp-more-links" data-reveal="late">
+            Parallax will{" "}
+            {MORE.map(([text, href], i) => (
+              <span key={href}>
+                {i === MORE.length - 1 ? "and " : ""}
+                <Link href={href} className="lp-inline">
+                  {text}
+                </Link>
+                {i === MORE.length - 1 ? "." : ", "}
+              </span>
+            ))}
+          </p>
+        </section>
+
+        <section className="lp-section lp-themes-section" aria-labelledby="themes-title">
+          <h2 id="themes-title" className="lp-display" data-reveal>
+            Make it <em>yours.</em>
+          </h2>
+          <p className="lp-themes-text" data-reveal="late">
+            Parallax comes in sixteen colour themes. Try a few here and the whole page follows.
+          </p>
+          <div data-reveal="late">
+            <ThemeDots />
+          </div>
+        </section>
+
+        <section className="lp-section lp-final" aria-labelledby="final-title">
+          <h2 id="final-title" className="lp-display" data-reveal>
+            Free, and yours to keep.
+          </h2>
+          <div className="lp-actions" data-reveal="late">
+            <Link href="/docs" className="lp-cta">
+              <span className="lp-cta-label">Get started</span>
+              <svg className="lp-cta-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 12h15M13 5.5 19.5 12 13 18.5" />
+              </svg>
+            </Link>
+          </div>
+        </section>
       </main>
+
+      <footer className="lp-footer">
+        <nav aria-label="Footer">
+          <Link href="/docs" className="lp-footer-link">
+            Documentation
+          </Link>
+          <Link href="/docs/api" className="lp-footer-link">
+            API reference
+          </Link>
+          <Link href="/docs/getting-started/changelog" className="lp-footer-link">
+            Changelog
+          </Link>
+          <Link href="/docs/acknowledgements" className="lp-footer-link">
+            Acknowledgements
+          </Link>
+          <a href="https://github.com/raslan/parallax" className="lp-footer-link">
+            GitHub
+          </a>
+        </nav>
+        <p>Parallax is free and open source, released under the GPL-3.0.</p>
+      </footer>
     </div>
   );
 }
