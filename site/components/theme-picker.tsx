@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Palette } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "fumadocs-ui/components/ui/popover";
 import { DEFAULT_THEME, THEMES, type ThemeId } from "@/lib/themes.generated";
 import { THEME_STORAGE_KEY } from "@/lib/theme-storage";
+
+type Theme = (typeof THEMES)[number];
 
 function readStored(): ThemeId {
   try {
@@ -15,8 +18,22 @@ function readStored(): ThemeId {
   return DEFAULT_THEME as ThemeId;
 }
 
+/** A small preview of a theme: its page colour with an accent dot on top. */
+function Swatch({ theme }: { theme: Theme }) {
+  return (
+    <span
+      aria-hidden
+      className="flex size-6 shrink-0 items-center justify-center rounded-md border border-fd-border"
+      style={{ background: theme.background }}
+    >
+      <span className="size-2.5 rounded-full" style={{ background: theme.accent }} />
+    </span>
+  );
+}
+
 export function ThemePicker() {
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME as ThemeId);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setTheme(readStored());
@@ -24,6 +41,7 @@ export function ThemePicker() {
 
   function choose(next: ThemeId) {
     setTheme(next);
+    setOpen(false);
     document.documentElement.dataset.theme = next;
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next);
@@ -32,21 +50,39 @@ export function ThemePicker() {
     }
   }
 
+  const current = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+
   return (
-    <label className="flex items-center gap-2 text-sm text-fd-muted-foreground">
-      <Palette className="size-4" aria-hidden />
-      <span className="sr-only">Theme</span>
-      <select
-        value={theme}
-        onChange={(e) => choose(e.target.value as ThemeId)}
-        className="rounded-md border border-fd-border bg-fd-card px-2 py-1 text-fd-foreground"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        aria-label="Choose a theme"
+        className="flex w-full items-center gap-2.5 rounded-lg border border-fd-border bg-fd-secondary/50 px-3 py-2 text-sm text-fd-foreground transition-colors hover:bg-fd-accent"
       >
-        {THEMES.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        <Swatch theme={current} />
+        <span className="flex-1 truncate text-left">{current.label}</span>
+        <ChevronsUpDown className="size-4 shrink-0 text-fd-muted-foreground" aria-hidden />
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-(--radix-popover-trigger-width) min-w-52 p-1.5"
+      >
+        <ul role="listbox" aria-label="Themes" className="flex flex-col gap-0.5">
+          {THEMES.map((t) => (
+            <li key={t.id} role="option" aria-selected={t.id === theme}>
+              <button
+                type="button"
+                onClick={() => choose(t.id)}
+                className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm text-fd-foreground transition-colors hover:bg-fd-accent"
+              >
+                <Swatch theme={t} />
+                <span className="flex-1">{t.label}</span>
+                {t.id === theme && <Check className="size-4 text-fd-primary" aria-hidden />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }

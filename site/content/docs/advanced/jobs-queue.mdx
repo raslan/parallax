@@ -3,7 +3,7 @@ title: Jobs and the queue
 description: How Parallax schedules background work, and what it does when something goes wrong.
 ---
 
-The [Jobs](/docs/app/jobs) page shows what is happening. This page explains how it is organised.
+The [Jobs](/docs/general-concepts/jobs) page shows what is happening. This page explains how it is organised.
 
 ## The queue
 
@@ -31,6 +31,6 @@ The pages follow jobs live. The server pushes updates to the browser about twice
 
 ## What is recorded
 
-Every finished job adds a small entry to the statistics shown on Home: what kind of job it was, how long it took, and, for compress jobs, how many bytes went in and came out. The entry holds no file names or paths. See [Home and statistics](/docs/app/home).
+Every finished job adds a small entry to the statistics shown on Home: what kind of job it was, how long it took, and, for compress jobs, how many bytes went in and came out. The entry holds no file names or paths. See [Home and statistics](/docs/general-concepts/home).
 
 Downloads and Galleries run on their own small schedulers rather than this queue, because each row needs its own live counters and history. They show up on their own pages, not on Jobs.
