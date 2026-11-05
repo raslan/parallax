@@ -10,7 +10,7 @@ import { ytdlpApi } from "./ytdlp";
 import { identifyApi } from "./identify";
 import { downloadsApi } from "./downloads";
 import { galleriesApi } from "./galleries";
-import { pruneApi } from "./prune";
+import { organizeApi } from "./organize";
 
 export const api = {
   ...librariesApi,
@@ -25,7 +25,7 @@ export const api = {
   ...identifyApi,
   ...downloadsApi,
   ...galleriesApi,
-  ...pruneApi,
+  ...organizeApi,
 };
 
 export { qk } from "./queryKeys";

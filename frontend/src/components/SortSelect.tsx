@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 
 /**
- * Prune's sort control (folders and files, grid and list): a key `Select` plus a
+ * Organize's sort control (folders and files, grid and list): a key `Select` plus a
  * direction arrow button, visually matching the inline Select + arrow on Cleanup.
  * Pairs with `useSort`: `onSort(key)` is its `toggleSort`, so picking a new key
  * applies that key's default direction and the arrow re-sorts on the current key

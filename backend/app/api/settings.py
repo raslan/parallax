@@ -16,6 +16,7 @@ from app.services.model_manager import (
     NUDENET_MODELS,
     is_nudenet_downloaded,
 )
+from app.services.scanner import clear_thumbnail_failed_marker
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -227,6 +228,7 @@ def purge_library_data(db: Session = Depends(get_db)):
             os.remove(thumb)
         except FileNotFoundError:
             pass
+        clear_thumbnail_failed_marker(f.id)
     db.query(File).delete(synchronize_session=False)
     db.query(Schedule).delete(synchronize_session=False)
 

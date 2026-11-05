@@ -1,0 +1,140 @@
+import type { FieldDef, Operator } from "@/hooks/useQueryBuilder";
+import type { FileDetails, OrganizeFile } from "@/types/organize";
+import {
+  dateField,
+  durationField,
+  filenameField,
+  orientationField,
+  resolutionField,
+  sizeField,
+} from "@/lib/fileFieldFactories";
+import { extensionOf } from "@/lib/path";
+
+type OrganizeRow = OrganizeFile & { details?: FileDetails | null };
+
+function textOf(value: unknown): string {
+  return (value as { text?: string } | null)?.text ?? "";
+}
+
+/** Case-insensitive, NFC-normalised comparison for the extension and codec fields. */
+function matchText(subjectRaw: string, operator: Operator, raw: string): boolean {
+  // NFC both sides so decomposed (macOS) names match composed queries.
+  const s = subjectRaw.normalize("NFC").toLowerCase();
+  const q = raw.normalize("NFC").toLowerCase();
+  switch (operator) {
+    case "contains":
+      return s.includes(q);
+    case "not_contains":
+      return !s.includes(q);
+    case "eq":
+      return s === q;
+    case "neq":
+      return s !== q;
+    default:
+      return true;
+  }
+}
+
+/**
+ * Organize's filter fields. Name, size, file added, duration, resolution and
+ * orientation are the shared definitions Cleanup uses (`fileFieldFactories`); name
+ * adds starts/ends/exact/regex and NFC matching, the size presets suit a mixed
+ * folder. Details-backed fields are false until a file's details have loaded.
+ */
+export const organizeFields: FieldDef<OrganizeRow>[] = [
+  filenameField((r) => r.name, {
+    key: "name",
+    label: "Name",
+    operators: [
+      "contains",
+      "not_contains",
+      "fuzzy_contains",
+      "starts_with",
+      "ends_with",
+      "eq",
+      "regex",
+    ],
+    nfc: true,
+  }),
+  {
+    key: "extension",
+    label: "Extension",
+    category: "search",
+    valueType: "text",
+    operators: ["eq", "neq"],
+    defaultOperator: "eq",
+    defaultValue: { text: "" },
+    test: (row, operator, value) => {
+      const q = textOf(value).trim().replace(/^\./, "");
+      if (!q) return true;
+      return matchText(extensionOf(row.name), operator, q);
+    },
+  },
+  {
+    key: "kind",
+    label: "Type",
+    category: "label",
+    valueType: "select",
+    operators: ["eq", "neq"],
+    defaultOperator: "eq",
+    defaultValue: "video",
+    options: [
+      { label: "Video", value: "video" },
+      { label: "Image", value: "image" },
+      { label: "Audio", value: "audio" },
+      { label: "Other", value: "other" },
+    ],
+    test: (row, operator, value) => (operator === "neq" ? row.kind !== value : row.kind === value),
+  },
+  sizeField((r) => r.size, {
+    defaultValue: 100,
+    presets: [
+      { label: "10 MB", value: 10 },
+      { label: "100 MB", value: 100 },
+      { label: "500 MB", value: 500 },
+      { label: "1 GB", value: 1000 },
+    ],
+  }),
+  dateField("file_added", "File added", (r) => r.mtime),
+  durationField((r) => r.details?.duration),
+  resolutionField(
+    (r) => r.details?.width,
+    (r) => r.details?.height,
+  ),
+  orientationField(
+    (r) => r.details?.width,
+    (r) => r.details?.height,
+  ),
+  {
+    key: "codec",
+    label: "Codec",
+    category: "search",
+    valueType: "text",
+    operators: ["eq", "neq", "contains", "not_contains"],
+    defaultOperator: "eq",
+    defaultValue: { text: "" },
+    test: (row, operator, value) => {
+      const codec = row.details?.codec;
+      if (codec == null) return false;
+      const q = textOf(value).trim();
+      if (!q) return true;
+      return matchText(codec, operator, q);
+    },
+  },
+  {
+    key: "bitrate",
+    label: "Bitrate",
+    category: "numeric",
+    valueType: "number",
+    operators: ["gt", "lt"],
+    defaultOperator: "gt",
+    defaultValue: 5000,
+    unitLabel: "kbps",
+    test: (row, operator, value) => {
+      const b = row.details?.bitrate;
+      if (b == null) return false;
+      const kbps = b / 1000;
+      return operator === "gt" ? kbps > (value as number) : kbps < (value as number);
+    },
+  },
+];

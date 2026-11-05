@@ -326,18 +326,18 @@ class AudioFileRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Prune schemas ────────────────────────────────────────────────────────────
+# ── Organize schemas ────────────────────────────────────────────────────────────
 
 
-class PruneRoot(BaseModel):
+class OrganizeRoot(BaseModel):
     root: str | None = None
 
 
-class PruneRootBody(BaseModel):
+class OrganizeRootBody(BaseModel):
     path: str
 
 
-class PruneCounts(BaseModel):
+class OrganizeCounts(BaseModel):
     files: int = 0
     images: int = 0
     videos: int = 0
@@ -346,35 +346,35 @@ class PruneCounts(BaseModel):
     bytes: int = 0
 
 
-class PruneScanState(BaseModel):
+class OrganizeScanState(BaseModel):
     status: Literal["idle", "running", "done", "error"]
     folders_scanned: int
     root: str | None = None
 
 
-class PruneCrumb(BaseModel):
+class OrganizeCrumb(BaseModel):
     name: str
     path: str
 
 
-class PruneSubfolder(BaseModel):
+class OrganizeSubfolder(BaseModel):
     name: str
     path: str
-    direct: PruneCounts
-    total: PruneCounts
+    direct: OrganizeCounts
+    total: OrganizeCounts
 
 
-class PruneFolder(BaseModel):
+class OrganizeFolder(BaseModel):
     path: str
     name: str
     parent: str | None = None
-    breadcrumbs: list[PruneCrumb]
-    direct: PruneCounts
-    total: PruneCounts
-    subfolders: list[PruneSubfolder]
+    breadcrumbs: list[OrganizeCrumb]
+    direct: OrganizeCounts
+    total: OrganizeCounts
+    subfolders: list[OrganizeSubfolder]
 
 
-class PruneFile(BaseModel):
+class OrganizeFile(BaseModel):
     name: str
     path: str
     kind: Literal["image", "video", "audio", "other"]
@@ -382,32 +382,79 @@ class PruneFile(BaseModel):
     mtime: float
 
 
-class PruneDeleteBody(BaseModel):
+class OrganizeDeleteBody(BaseModel):
     # The client sends chunks of 500; the cap bounds one synchronous request.
     paths: list[str] = Field(max_length=5000)
 
 
-class PruneDeleteFailure(BaseModel):
+class OrganizeDeleteFailure(BaseModel):
     path: str
     error: str
 
 
-class PruneDeleteResult(BaseModel):
+class OrganizeDeleteResult(BaseModel):
     deleted: list[str]
-    failed: list[PruneDeleteFailure]
+    failed: list[OrganizeDeleteFailure]
     empty_folders: list[str]
 
 
-class PruneDeleteFolderBody(BaseModel):
+class OrganizeMoveBody(BaseModel):
+    folder: str  # the open folder; every path must be a direct file of it
+    paths: list[str] = Field(max_length=20000)
+    name: str  # new (or existing) subfolder of ``folder``
+
+
+class OrganizeMoveResult(BaseModel):
+    folder: str  # the subfolder's path
+    moved: list[str]  # original paths of the files that moved
+    failed: list[OrganizeDeleteFailure]
+
+
+class OrganizeMoveToFolderBody(BaseModel):
+    folder: str  # the open folder; every path must be a direct file of it
+    paths: list[str] = Field(max_length=20000)
+    destination: str  # an existing folder inside the root
+
+
+class OrganizeRenameItem(BaseModel):
+    path: str
+    name: str  # the new file name (a single component, extension included)
+
+
+class OrganizeRenameBody(BaseModel):
+    folder: str  # the open folder; every path must be a direct file of it
+    items: list[OrganizeRenameItem] = Field(max_length=20000)
+
+
+class OrganizeRenamed(BaseModel):
+    path: str
+    new_path: str
+
+
+class OrganizeRenameResult(BaseModel):
+    renamed: list[OrganizeRenamed]
+    failed: list[OrganizeDeleteFailure]
+
+
+class OrganizeRenameFolderBody(BaseModel):
+    path: str
+    name: str
+
+
+class OrganizeRenameFolderResult(BaseModel):
+    path: str  # the folder's new path
+
+
+class OrganizeDeleteFolderBody(BaseModel):
     path: str
     only_if_empty: bool = False  # rmdir, 409 if the folder gained entries
 
 
-class PruneDetailsBody(BaseModel):
+class OrganizeDetailsBody(BaseModel):
     paths: list[str]
 
 
-class PruneDetails(BaseModel):
+class OrganizeDetails(BaseModel):
     duration: float | None
     width: int | None
     height: int | None
@@ -415,12 +462,12 @@ class PruneDetails(BaseModel):
     bitrate: int | None
 
 
-class PruneStreamBody(BaseModel):
+class OrganizeStreamBody(BaseModel):
     path: str
 
 
-class PruneDetailsResult(BaseModel):
-    details: dict[str, PruneDetails | None]
+class OrganizeDetailsResult(BaseModel):
+    details: dict[str, OrganizeDetails | None]
 
 
 # --- Image upscale ---------------------------------------------------------

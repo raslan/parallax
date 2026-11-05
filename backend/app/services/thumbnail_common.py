@@ -1,8 +1,8 @@
 """Get-or-create thumbnail mechanism shared by the video library (``scanner``), the
-image library (``image_scanner``) and Prune (``prune_files``).
+image library (``image_scanner``) and Organize (``organize_files``).
 
 Each caller keeps its own paths, keying and generator (video's id-keyed jpg with
-its stale-file pre-delete, image's temp + ``os.replace``, Prune's sha1 stems); this
+its stale-file pre-delete, image's temp + ``os.replace``, Organize's sha1 stems); this
 module owns only the cache steps and the concurrency caps they share.
 """
 
@@ -21,7 +21,7 @@ THUMBNAIL_GEN_LIMIT = max(1, (os.cpu_count() or 4) // 2)
 
 # One pool for video frames (ffmpeg) and one for image resizes (Pillow), each
 # THUMBNAIL_GEN_LIMIT wide. The library pages and the warm-up jobs use them, and
-# Prune's thumbnails go through the same pool as their kind.
+# Organize's thumbnails go through the same pool as their kind.
 VIDEO_THUMB_SEMAPHORE = threading.Semaphore(THUMBNAIL_GEN_LIMIT)
 IMAGE_THUMB_SEMAPHORE = threading.Semaphore(THUMBNAIL_GEN_LIMIT)
 

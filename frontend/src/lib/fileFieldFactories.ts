@@ -3,7 +3,7 @@ import { dateCutoffSeconds, type DateValue } from "@/lib/dateValue";
 
 /**
  * Field factories shared by the file filter registries (`cleanupFields`,
- * `audioCleanupFields`, `pruneFields`), so "Duration", "File size", "Resolution",
+ * `audioCleanupFields`, `organizeFields`), so "Duration", "File size", "Resolution",
  * "Orientation", the date fields and "Filename" mean the same thing on every page.
  * Each takes a getter over the page's own row shape; a getter returning null /
  * undefined (missing metadata) makes the clause not match.

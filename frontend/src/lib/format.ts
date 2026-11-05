@@ -33,7 +33,7 @@ export function describeSelection(count: number, noun: string, bytes?: number): 
 
 /**
  * Combined `size` of the items whose id is in `ids`. Pass `key` to match on
- * something other than `id` (e.g. Prune's path-keyed files).
+ * something other than `id` (e.g. Organize's path-keyed files).
  */
 export function sumSizeOf(
   items: readonly { id: number; size: number }[],

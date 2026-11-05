@@ -16,7 +16,7 @@ import {
   Captions,
   Combine,
   Download,
-  Eraser,
+  FolderTree,
   Maximize2,
   AudioLines,
   type LucideIcon,
@@ -75,10 +75,10 @@ export const SECTIONS: Section[] = [
     label: "Tools",
     icon: Wrench,
     items: [
+      { to: "/organize", icon: FolderTree, label: "Organize" },
       { to: "/identify", icon: Wand2, label: "Identify" },
       { to: "/subtitles", icon: Captions, label: "Subtitles" },
       { to: "/downloads", icon: Download, label: "Downloads" },
-      { to: "/prune", icon: Eraser, label: "Prune" },
     ],
   },
 ];

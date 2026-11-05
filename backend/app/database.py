@@ -99,6 +99,15 @@ def init_db():
     finally:
         raw.close()
 
+    # Prune was renamed Organize: carry the saved root over to its new settings key.
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE settings SET key='organize_root' WHERE key='prune_root' "
+                "AND NOT EXISTS (SELECT 1 FROM settings WHERE key='organize_root')"
+            )
+        )
+
     # Lightweight migrations for columns added after initial creation
     with engine.begin() as conn:
         for sql in [

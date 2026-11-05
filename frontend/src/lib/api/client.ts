@@ -16,6 +16,21 @@ export function httpStatus(e: unknown): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/**
+ * The server's `{"detail": "..."}` message from an error thrown by `req()` (whose
+ * message is `"<status>: <body>"`), else `fallback`.
+ */
+export function errorDetail(e: unknown, fallback: string): string {
+  const body = /^\d{3}: (.*)$/s.exec(getErrorMessage(e, ""))?.[1];
+  if (!body) return fallback;
+  try {
+    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
+    return typeof detail === "string" && detail ? detail : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     cache: "no-store",

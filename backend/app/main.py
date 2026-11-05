@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 from datetime import UTC
 
@@ -27,9 +28,9 @@ from app.api.images import router as images_router
 from app.api.jobs import router as jobs_router
 from app.api.libraries import router as libraries_router
 from app.api.models import router as models_router
+from app.api.organize import router as organize_router
+from app.api.organize import sandbox_error_handler
 from app.api.originals import router as originals_router
-from app.api.prune import router as prune_router
-from app.api.prune import sandbox_error_handler
 from app.api.settings import get_theme, safe_theme_id
 from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
@@ -41,7 +42,7 @@ from app.config import GALLERY_DL_DIR
 from app.database import SessionLocal, init_db
 from app.queue import start_worker
 from app.services.encoder import detect_encoder
-from app.services.prune_sandbox import SandboxError
+from app.services.organize_sandbox import SandboxError
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -93,7 +94,8 @@ def _sweep_orphaned_thumbnails():
 
     removed = 0
     for name in os.listdir(THUMBNAILS_DIR):
-        stem, ext = os.path.splitext(name)
+        # `<id>.jpg` thumbnails and `<id>.jpg.failed` generation-failure markers.
+        stem, ext = os.path.splitext(name[: -len(".failed")] if name.endswith(".failed") else name)
         if ext != ".jpg" or stem in live_ids:
             continue
         try:
@@ -268,11 +270,11 @@ async def lifespan(app: FastAPI):
 
     stream_cache.start_sweeper()
 
-    # Trim the Prune thumbnail cache (age + size cap) in a background thread; it is
-    # re-run lazily at most every few hours from thumbnail requests.
-    from app.services import prune_files
+    # Organize's thumbnail cache is per-session: wipe it on boot (background thread). While
+    # the app runs it is still trimmed by age + size, lazily, from thumbnail requests.
+    from app.services import organize_files
 
-    prune_files.maybe_evict_thumbnails()
+    threading.Thread(target=organize_files.clear_thumbnail_cache, daemon=True).start()
 
     # Best-effort fetch of the alass binary for subtitle sync — never block
     # startup on it (offline environments should still boot fine).
@@ -327,7 +329,7 @@ app.include_router(audio_files_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(originals_router, prefix="/api")
-app.include_router(prune_router, prefix="/api")
+app.include_router(organize_router, prefix="/api")
 app.include_router(audio_originals_router, prefix="/api")
 app.include_router(identify_router, prefix="/api")
 app.include_router(image_libraries_router, prefix="/api")

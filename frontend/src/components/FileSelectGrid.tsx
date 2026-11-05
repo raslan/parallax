@@ -46,7 +46,7 @@ export function FileGridCard({
   badge?: ReactNode;
   /** Page-specific entries appended after Play / Copy path in the card's menu. */
   actions?: RowAction[];
-  /** Replaces the built-in `<VideoThumbnail>` inside the 4:3 well (e.g. Prune's path thumbnails). */
+  /** Replaces the built-in `<VideoThumbnail>` inside the 4:3 well (e.g. Organize's path thumbnails). */
   thumbnail?: ReactNode;
   /** Replaces the codec/size/duration meta row under the filename. */
   footer?: ReactNode;

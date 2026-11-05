@@ -86,18 +86,18 @@ describe("routeToTab", () => {
 describe("sectionItemsById", () => {
   it("returns the tools items regardless of library flags", () => {
     expect(sectionItemsById("tools", false, false).map((i) => i.label)).toEqual([
+      "Organize",
       "Identify",
       "Subtitles",
       "Downloads",
-      "Prune",
     ]);
   });
 
-  it("lists Prune under Tools and routes it to the tools section", () => {
+  it("lists Organize under Tools and routes it to the tools section", () => {
     const tools = SECTIONS.find((s) => s.id === "tools")!;
-    expect(tools.items.map((i) => i.to)).toContain("/prune");
-    expect(routeToTab("/prune")).toBe("tools");
-    expect(routeLabel("/prune")).toBe("Prune · Tools");
+    expect(tools.items.map((i) => i.to)).toContain("/organize");
+    expect(routeToTab("/organize")).toBe("tools");
+    expect(routeLabel("/organize")).toBe("Organize · Tools");
   });
 
   it("collapses videos to just Libraries when there are no video libraries", () => {

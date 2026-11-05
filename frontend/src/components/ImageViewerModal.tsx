@@ -4,7 +4,7 @@ import { imageApi } from "@/lib/api";
 import type { ImageFile } from "@/types/image";
 import { formatSize } from "@/lib/format";
 
-/** `src` overrides the image-library full-size URL for files that are not library rows (Prune). */
+/** `src` overrides the image-library full-size URL for files that are not library rows (Organize). */
 export function ImageViewerModal({
   img,
   src,

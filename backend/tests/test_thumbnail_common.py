@@ -1,4 +1,4 @@
-"""The shared get-or-create thumbnail mechanism (video library, image library, Prune)."""
+"""The shared get-or-create thumbnail mechanism (video library, image library, Organize)."""
 
 import os
 import threading
