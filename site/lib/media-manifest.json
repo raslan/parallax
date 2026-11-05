@@ -7,7 +7,7 @@
     "src": "tools/organize/name-groups.webp",
     "width": 1184,
     "height": 290,
-    "bytes": 40784,
+    "bytes": 40336,
     "quality": 90
   },
   "videos/files/grid": {
@@ -18,7 +18,7 @@
     "src": "videos/files/grid.webp",
     "width": 1184,
     "height": 580,
-    "bytes": 217288,
+    "bytes": 217758,
     "quality": 90
   },
   "videos/cleanup/duration-filter": {
@@ -30,7 +30,7 @@
     "poster": "videos/cleanup/duration-filter.poster.webp",
     "width": 960,
     "height": 510,
-    "bytes": 110407,
+    "bytes": 123069,
     "crf": 26
   },
   "images/content-review/label-filter": {
@@ -41,7 +41,7 @@
     "src": "images/content-review/label-filter.webp",
     "width": 1184,
     "height": 410,
-    "bytes": 28172,
+    "bytes": 27352,
     "quality": 90
   }
 }

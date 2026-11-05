@@ -9,3 +9,5 @@ app/themes.generated.css
 lib/themes.generated.ts
 # capture runner output (curated assets are copied into public/media)
 capture/out/
+# written by `next dev`
+AGENTS.md
