@@ -19,6 +19,12 @@
   --fd-layout-width: 100vw;
 }
 
+/* Bold text in the docs picks up the theme accent, so button and menu names stand out from body text. */
+.prose :where(strong):not(:where(h1, h2, h3, h4, h5, h6, th, summary) *) {
+  color: var(--color-fd-primary);
+  font-weight: 600;
+}
+
 body {
   font-family: var(--font-sans);
 }
