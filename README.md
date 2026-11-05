@@ -62,7 +62,7 @@ A self-hosted media library manager with hardware-accelerated compression, dupli
 - **Command palette** — ⌘K / Ctrl+K (or the header search button) jumps to any page or switches theme
 - **Job queue** — background jobs with live progress, phase labels, logs, and cancellation
 - **Library delete safety** — when deleting a library that has `_originals/` or `_quarantine/` leftovers, prompts to delete them, review them, or keep them on disk
-- **Sixteen themes** in three groups — Parallax set: Parallax (default), Graphite, Nightfall, Rose Quartz, OLED · Colour set: Deep Space, Modern HUD, Neon Grid · Classic palettes: Catppuccin Mocha, Dracula, Nord, Tokyo Night, Gruvbox Dark, Solarized Dark, One Dark, Rose Pine — pick one in Settings → General
+- **Sixteen themes** in three groups — Parallax set: Parallax (default), Elegance, Graphite, Rose Quartz, OLED · Colour set: Deep Space, Modern HUD, Neon Grid · Classic palettes: Catppuccin Mocha, Dracula, Nord, Tokyo Night, Gruvbox Dark, Solarized Dark, One Dark, Rose Pine — pick one in Settings → General
 - **Grid size control** — every card grid (Files, Cleanup, Compress, Toolbox, Images) has a slider for card size, persisted globally across all pages
 
 ---

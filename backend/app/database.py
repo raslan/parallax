@@ -108,6 +108,21 @@ def init_db():
             )
         )
 
+    # Themes were renamed: the old "parallax" (Ayu, gold) is now "elegance" and the old
+    # "nightfall" is now "parallax" (the new default). Swap the saved id exactly once. The marker
+    # row is what makes this safe to run on every start: a second swap would turn the *new*
+    # "parallax" into "elegance". A fresh install has no `theme` row, so only the marker is written.
+    with engine.begin() as conn:
+        if conn.execute(text("SELECT 1 FROM settings WHERE key='theme_ids_v2'")).first() is None:
+            conn.execute(
+                text(
+                    "UPDATE settings SET value = CASE value "
+                    "WHEN 'parallax' THEN 'elegance' WHEN 'nightfall' THEN 'parallax' END "
+                    "WHERE key='theme' AND value IN ('parallax', 'nightfall')"
+                )
+            )
+            conn.execute(text("INSERT INTO settings (key, value) VALUES ('theme_ids_v2', '1')"))
+
     # Lightweight migrations for columns added after initial creation
     with engine.begin() as conn:
         for sql in [

@@ -1,5 +1,5 @@
 /* Graphite: neutral cool-grey scaffold (hue 220, ~10% sat); only --primary/--ring carry the
-   theme's colour. Nightfall and Rose share this scaffold, differing in accent + bg depth. */
+   theme's colour. Parallax and Rose share this scaffold, differing in accent + bg depth. */
 [data-theme="graphite"] {
   --background: 220 14% 6%;
   --foreground: 220 10% 92%;

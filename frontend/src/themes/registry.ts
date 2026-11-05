@@ -18,8 +18,8 @@ interface ThemeEntry {
 // Order is the picker/palette order.
 export const THEME_META = [
   { id: "parallax", label: "Parallax", group: "Parallax" },
+  { id: "elegance", label: "Elegance", group: "Parallax" },
   { id: "graphite", label: "Graphite", group: "Parallax" },
-  { id: "nightfall", label: "Nightfall", group: "Parallax" },
   { id: "rose", label: "Rose Quartz", group: "Parallax" },
   { id: "oled", label: "OLED", group: "Parallax" },
   { id: "violet", label: "Deep Space", group: "Colour" },

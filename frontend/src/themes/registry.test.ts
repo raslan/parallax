@@ -44,8 +44,8 @@ describe("theme registry", () => {
   it("keeps the original eight themes first, in order", () => {
     expect(THEMES.slice(0, 8)).toEqual([
       "parallax",
+      "elegance",
       "graphite",
-      "nightfall",
       "rose",
       "oled",
       "violet",
