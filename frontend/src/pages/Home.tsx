@@ -44,7 +44,7 @@ function loadRange(): RangeKey {
   }
 }
 
-// Every route here is a nav page; Galleries is deliberately absent (see CLAUDE.md).
+// Every route here is a nav page. Galleries is in the nav but not offered as a quick start.
 const QUICK_START: readonly QuickStartItem[] = [
   {
     to: "/compress",

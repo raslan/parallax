@@ -19,6 +19,7 @@ import {
   FolderTree,
   Maximize2,
   AudioLines,
+  GalleryThumbnails,
   type LucideIcon,
 } from "lucide-react";
 
@@ -79,6 +80,7 @@ export const SECTIONS: Section[] = [
       { to: "/identify", icon: Wand2, label: "Identify" },
       { to: "/subtitles", icon: Captions, label: "Subtitles" },
       { to: "/downloads", icon: Download, label: "Downloads" },
+      { to: "/galleries", icon: GalleryThumbnails, label: "Galleries" },
     ],
   },
 ];

@@ -19,7 +19,11 @@ describe("routeLabel", () => {
     expect(routeLabel("/settings")).toBe("Settings");
   });
   it("gives no label to a route outside the nav", () => {
-    expect(routeLabel("/galleries")).toBeNull();
+    expect(routeLabel("/not-a-page")).toBeNull();
+  });
+  it("labels Galleries, which sits in the Tools section", () => {
+    expect(routeLabel("/galleries")).toBe("Galleries · Tools");
+    expect(routeToTab("/galleries")).toBe("tools");
   });
 });
 
@@ -90,6 +94,7 @@ describe("sectionItemsById", () => {
       "Identify",
       "Subtitles",
       "Downloads",
+      "Galleries",
     ]);
   });
 

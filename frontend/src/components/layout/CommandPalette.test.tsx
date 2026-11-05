@@ -52,9 +52,9 @@ describe("CommandPalette", () => {
     expect(screen.getByText("OLED")).toBeDefined();
   });
 
-  it("never offers the hidden Galleries page", () => {
+  it("offers the Galleries page", () => {
     renderPalette();
-    expect(screen.queryByText(/galler/i)).toBeNull();
+    expect(screen.getByText("Galleries")).toBeDefined();
   });
 
   it("hides pages of a media type that has no libraries yet", () => {
