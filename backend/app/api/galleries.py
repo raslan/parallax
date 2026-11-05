@@ -236,7 +236,7 @@ def get_archive(db: Session = Depends(get_db)):
 def reset_gallery_archive(db: Session = Depends(get_db)):
     """Delete the download archive so already-fetched items become eligible again.
 
-    409 while a gallery is pending/running — gallery-dl has the file open and would write
+    409 while a gallery is pending/running — the downloader has the file open and would write
     back into (or recreate) it mid-reset.
     """
     if db.query(GalleryDownload).filter(GalleryDownload.status.in_(_ACTIVE)).first():

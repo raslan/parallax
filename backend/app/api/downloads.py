@@ -265,7 +265,7 @@ class ClearDownloadsRequest(BaseModel):
 @router.post("/clear")
 def clear_downloads(req: ClearDownloadsRequest, db: Session = Depends(get_db)):
     """Delete every download row in the given statuses, cleaning up any leftover
-    .part/.ytdl files on disk. Restricted to terminal statuses — active downloads
+    partial files on disk. Restricted to terminal statuses — active downloads
     must go through /stop-all so they're cancelled, not just dropped."""
     allowed = {DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED}
     statuses = [s for s in req.statuses if s in allowed]

@@ -309,7 +309,85 @@ async def lifespan(app: FastAPI):
     stream_cache.stop_sweeper()
 
 
-app = FastAPI(title="Transcoder", lifespan=lifespan)
+_API_DESCRIPTION = (
+    "The HTTP API behind the Parallax web app. Everything the app does in the browser goes "
+    "through these routes, all under `/api`."
+)
+
+# One line per tag; shown in the public API reference and in /docs.
+_OPENAPI_TAGS = [
+    {"name": "health", "description": "Liveness check."},
+    {
+        "name": "libraries",
+        "description": "Video libraries: add, scan, remove, plus duplicate and cleanup helpers.",
+    },
+    {"name": "files", "description": "Browse, stream and thumbnail video files."},
+    {"name": "compress", "description": "Re-encode videos to a smaller size or resolution."},
+    {
+        "name": "toolbox",
+        "description": "Per-file video fixes: trim, audio channel, rotate, normalize, sync.",
+    },
+    {"name": "splice", "description": "Join several videos into one new file."},
+    {
+        "name": "originals",
+        "description": "Backups kept in `_originals` folders for video: list, restore, delete.",
+    },
+    {
+        "name": "audio-libraries",
+        "description": "Audio libraries: add, scan, remove, and find duplicates.",
+    },
+    {"name": "audio-files", "description": "Browse, stream and delete audio files."},
+    {
+        "name": "audio-compress",
+        "description": "Re-encode audio to Opus, AAC or MP3 at a target bitrate.",
+    },
+    {
+        "name": "audio-toolbox",
+        "description": "Audio fixes: trim, channel fix and loudness normalization.",
+    },
+    {
+        "name": "audio-originals",
+        "description": "Backups kept in `_originals` folders for audio: list, restore, delete.",
+    },
+    {"name": "image-libraries", "description": "Image libraries: add, scan and remove."},
+    {
+        "name": "images",
+        "description": "Browse images, content detections, duplicates and the quarantine.",
+    },
+    {"name": "image-upscale", "description": "Make larger or sharper copies of images."},
+    {
+        "name": "jobs",
+        "description": "Background jobs: list, inspect logs, cancel, and a live event stream.",
+    },
+    {
+        "name": "identify",
+        "description": "Rename videos to Plex, Jellyfin and Kodi naming, with TMDB matching.",
+    },
+    {
+        "name": "subtitles",
+        "description": "Scan for missing subtitles, download, sync and delete them.",
+    },
+    {
+        "name": "organize",
+        "description": "Browse any folder and move, rename or delete what is in it.",
+    },
+    {"name": "downloads", "description": "Save videos and audio from links."},
+    {"name": "galleries", "description": "Fetch galleries and albums of images and clips."},
+    {"name": "models", "description": "Content detection models: list, download, remove."},
+    {
+        "name": "stream",
+        "description": "Prepare and serve playback for videos with sound browsers cannot play.",
+    },
+    {"name": "stats", "description": "Lifetime usage statistics shown on the Home page."},
+    {"name": "settings", "description": "App settings, and the purge of all library data."},
+]
+
+app = FastAPI(
+    title="Parallax API",
+    description=_API_DESCRIPTION,
+    openapi_tags=_OPENAPI_TAGS,
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -336,15 +414,15 @@ app.include_router(image_libraries_router, prefix="/api")
 app.include_router(images_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
-app.include_router(compress_router, prefix="/api")
-app.include_router(audio_compress_router, prefix="/api")
+app.include_router(compress_router, prefix="/api", tags=["compress"])
+app.include_router(audio_compress_router, prefix="/api", tags=["audio-compress"])
 app.include_router(image_upscale_router, prefix="/api")
 app.include_router(audio_toolbox_router, prefix="/api")
 app.include_router(downloads_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
 app.include_router(galleries_router, prefix="/api")
-app.include_router(splice_router, prefix="/api")
-app.include_router(toolbox_router, prefix="/api")
+app.include_router(splice_router, prefix="/api", tags=["splice"])
+app.include_router(toolbox_router, prefix="/api", tags=["toolbox"])
 app.include_router(stream_router, prefix="/api")
 
 # Serve the built React frontend — must come after all API routes
