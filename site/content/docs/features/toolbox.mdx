@@ -14,7 +14,7 @@ It is on **Videos → Toolbox** and **Audio → Toolbox**.
 1. Open **Toolbox** and pick a library.
 2. Click **Add fix** and choose what you want done. Each fix becomes a chip. Click a chip to change its settings, or the × to remove it.
 3. Select the files.
-4. Click **Fix**.
+4. Click **Fix** in the bar that appears at the bottom of the page once something is selected.
 
 You can stack as many fixes as you like. They are all applied in a single pass, so each file is only processed once.
 
@@ -51,8 +51,10 @@ Audio has three fixes:
 
 ## Keeping your originals
 
-**Keep originals** is on by default. Each fixed file replaces the old one, and the old one is moved to an `_originals` folder next to it so you can go back. See [Originals](/docs/features/originals). Tags and chapters are kept.
+**Keep originals** is a switch in the strip at the top of the page, next to the library picker, and it is on by default. Each fixed file replaces the old one, and the old one is moved to an `_originals` folder next to it so you can go back. See [Originals](/docs/features/originals). Tags and chapters are kept.
 
 ## While it runs
 
 The job runs in the background, with a banner showing progress. You can cancel it, and it also appears on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page. If you have given Docker a graphics card, video fixes that need re-encoding use it. See [Hardware acceleration](/docs/advanced/hardware-acceleration).
+
+How many files a job handles at once is set by **Concurrent video transcodes (per GPU)** and **Concurrent audio transcodes** under **Settings → Transcoder**.

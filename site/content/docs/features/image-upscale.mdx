@@ -11,7 +11,7 @@ By default your original is not touched. The new picture is saved next to it wit
 
 1. Open **Images → Upscale** and pick a library.
 2. Select the pictures you want.
-3. Open the upscale settings and choose a quality and a size.
+3. Click the bar showing the current choice (it starts as **Fast · 4×**) to open the upscale settings, and choose a quality and a size.
 4. Click **Upscale**.
 
 The bar at the bottom tells you how big the largest picture will become. Very large results (over 150 megapixels) are skipped, and Parallax lists any it skipped and why.
@@ -33,7 +33,7 @@ The bar at the bottom tells you how big the largest picture will become. Very la
 
 ## Your originals
 
-The **Originals** switch at the top decides what happens to the original picture:
+The **Originals** choice at the top of the page, next to the library picker, decides what happens to the original picture:
 
 - **Keep both** saves the new copy next to the original, which is not changed. This is the default.
 - **Replace** gives the new picture the original's place and moves the original to the quarantine, so you can [restore it](/docs/features/originals#quarantined-images).
@@ -41,7 +41,7 @@ The **Originals** switch at the top decides what happens to the original picture
 
 ## Speed and graphics cards
 
-If your machine has a separate graphics card that Docker can use, Parallax uses it automatically and upscaling is much faster. Without one it still works on the processor, only more slowly. The switch **Use CPU only** forces the processor. See [Hardware acceleration](/docs/advanced/hardware-acceleration) for how to give Docker a card.
+If your machine has a separate graphics card that Docker can use, Parallax uses it automatically and upscaling is much faster. Without one it still works on the processor, only more slowly. **Use CPU only**, a switch at the bottom of the upscale settings, forces the processor. See [Hardware acceleration](/docs/advanced/hardware-acceleration) for how to give Docker a card.
 
 Only one upscale job runs at a time.
 

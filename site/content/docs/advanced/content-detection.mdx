@@ -3,7 +3,17 @@ title: Content detection
 description: How Content Review recognises things in pictures, and how to tune it.
 ---
 
-[Content Review](/docs/features/content-review) is powered by a small detection model that looks at each picture and lists what it can recognise, with a confidence for each. The model is NudeNet, an open-source detector, and it runs entirely on your machine.
+[Content Review](/docs/features/content-review) is powered by a small detection model that looks at each picture and lists what it can recognise, with a confidence for each. It is built to spot things like exposed body parts, which makes it useful for finding and filtering potentially inappropriate content in a large collection of images. The model is NudeNet, an open-source detector, and it runs entirely on your machine.
+
+## What it can recognise
+
+The Content Review filter lists the labels in three groups:
+
+- **Exposed**: female breast, female genitalia, male genitalia, male breast, buttocks and anus, when they are uncovered.
+- **Covered**: female breast, female genitalia, male genitalia, buttocks and anus, when they are covered, for example by clothing or swimwear.
+- **Other**: belly, armpits and feet (each exposed or covered), and male and female faces.
+
+Each label can be filtered on its own, so you can look for just the exposed ones, or only faces. It does not decide what is acceptable. It only reports what it sees, and you choose what to do about it.
 
 ## The models
 
@@ -14,11 +24,11 @@ Two models are available under **Settings → AI Models**:
 | **320n** | about 5 MB  | Built in. Fast, with standard accuracy.                                                                        |
 | **640m** | about 99 MB | A download. Looks at pictures at higher resolution, so it is better at small or partly visible things. Slower. |
 
-Pick one in the **Content Detection** card of that tab. Switching models does not re-check pictures that have already been checked. If you want everything re-checked with the new model, use the reset and rescan option on the image library. It rebuilds that library's picture records from scratch, so use it on purpose.
+Pick one in the **Content Detection** card of that tab: click **Download** on **640m** to fetch it, then **Use**. The one in use is marked **Active**. Switching models does not re-check pictures that have already been checked. If you want everything re-checked with the new model, open the scan menu (the scan icon on the library's card on the Image Libraries page) and click **Reset & rescan all**. It rebuilds that library's picture records from scratch, so use it on purpose.
 
 ## What it reports
 
-Each detection is a label, a confidence between 0 and 100 percent, and where in the picture it is. Labels cover exposed and covered body parts, plus faces, feet, belly and armpits. The Content Review filter lets you choose a label and set how confident Parallax has to be before a picture counts as a match.
+Each detection is one of the labels above, a confidence between 0 and 100 percent, and where in the picture it is. The Content Review filter lets you choose a label and set how confident Parallax has to be before a picture counts as a match.
 
 ## Speed and memory
 
@@ -37,5 +47,5 @@ The model runs in a separate worker process, not inside the main app. That keeps
 
 Pictures are checked in one of two ways:
 
-- When you scan an image library with the **Content review** option on.
+- When you scan an image library with **Content review (NudeNet)** ticked in the scan menu.
 - Automatically, the first time you add a detection label to a filter in Content Review. Parallax finds every picture that has never been checked, including ones added by the folder watcher, and checks them in the background. A picture that has been checked once is not checked again, even if nothing was found in it.

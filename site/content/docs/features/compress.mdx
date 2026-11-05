@@ -14,7 +14,7 @@ It is on **Videos → Compress** and **Audio → Compress**.
 1. Open **Compress** and pick a library.
 2. Choose how you want the files to come out in **Encoding settings**.
 3. Select the files to compress.
-4. Click **Compress**.
+4. Click **Compress** in the bar that appears at the bottom of the page once something is selected.
 
 The page shows a live estimate of how much space you will save before you start, so you can try different settings first without changing anything.
 
@@ -71,7 +71,7 @@ Every video card also shows the saving it would get.
 
 ## Keeping your originals
 
-**Keep originals** is switched on by default. When it is on, the old version of each file is moved to an `_originals` folder next to it and the new, smaller one takes its place. You can look through, restore or delete them on the [Originals](/docs/features/originals) page.
+**Keep originals** is a switch in the strip at the top of the page, next to the library picker, and it is on by default. When it is on, the old version of each file is moved to an `_originals` folder next to it and the new, smaller one takes its place. You can look through, restore or delete them on the [Originals](/docs/features/originals) page.
 
 If you switch it off, the original is replaced and you cannot get it back. Leave it on until you are sure you like the result.
 
@@ -80,3 +80,5 @@ If you switch it off, the original is replaced and you cannot get it back. Leave
 Compressing happens in the background. A banner on the page shows which file Parallax is working on and how far along it is, and you can cancel at any time. It also appears on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page. The space you save is added to your totals on the Home page.
 
 If you have given Docker a graphics card, Parallax uses it to compress video faster. See [Hardware acceleration](/docs/advanced/hardware-acceleration) if you want to set that up.
+
+To compress several files at the same time, change **Concurrent video transcodes (per GPU)** under **Settings → Transcoder**. Music has its own **Concurrent audio transcodes** setting on the same tab, because it always runs on the processor. These control how many files one job handles at once. **Concurrent jobs** in **Settings → General** is a different setting, for how many whole jobs run side by side.
