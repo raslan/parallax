@@ -1,30 +1,29 @@
-/* Parallax (default): canonical Ayu Dark palette (bg #0B0E14, accent #E6B450, fg #BFBDB6). */
+/* Parallax (default; formerly "Nightfall"): very dark, strong indigo accent. */
 [data-theme="parallax"] {
-  --background: 220 28% 6%;
-  --foreground: 45 7% 73%;
-  --card: 220 25% 8%;
-  --card-foreground: 45 7% 73%;
-  --popover: 220 25% 8%;
-  --popover-foreground: 45 7% 73%;
-  --primary: 40 74% 61%;
-  --primary-foreground: 220 28% 6%;
-  --secondary: 220 18% 14%;
-  --secondary-foreground: 45 7% 80%;
-  --muted: 220 18% 13%;
-  --muted-foreground: 215 12% 52%;
-  --accent: 220 18% 14%;
-  --accent-foreground: 45 7% 73%;
-  --border: 210 16% 18%;
-  --input: 220 18% 13%;
-  --ring: 40 74% 61%;
-  --sidebar: 220 30% 5%;
-  --sidebar-foreground: 45 7% 73%;
-  --sidebar-border: 210 15% 15%;
-  --sidebar-accent: 220 18% 11%;
+  --background: 220 16% 4%;
+  --foreground: 220 10% 93%;
+  --card: 220 14% 6%;
+  --card-foreground: 220 10% 93%;
+  --popover: 220 14% 6%;
+  --popover-foreground: 220 10% 93%;
+  --primary: 236 100% 74%;
+  --primary-foreground: 220 16% 4%;
+  --secondary: 220 12% 12%;
+  --secondary-foreground: 220 12% 82%;
+  --muted: 220 12% 11%;
+  --muted-foreground: 220 8% 64%;
+  --accent: 220 12% 12%;
+  --accent-foreground: 220 10% 93%;
+  --border: 220 12% 18%;
+  --input: 220 12% 12%;
+  --ring: 236 100% 74%;
+  --sidebar: 220 18% 3%;
+  --sidebar-foreground: 220 10% 93%;
+  --sidebar-border: 220 12% 14%;
+  --sidebar-accent: 220 12% 10%;
 
   /* Overrides: the derivation is >3/255 off the original hand-tuned look. */
-  --px-accent: #e6b450; /* exact, so the alpha tints stay exact too */
-  --px-accent-secondary: #d9a441;
-  --px-bg-elevated: #161b24;
-  --px-text-muted: #8b929c;
+  --px-accent-secondary: #545ae0;
+  --px-accent-dim: rgb(from var(--px-accent) r g b / 0.14); /* stronger tints */
+  --px-accent-border: rgb(from var(--px-accent) r g b / 0.3);
 }
