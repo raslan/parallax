@@ -267,10 +267,10 @@
   display: flex;
   align-items: baseline;
   gap: 0.9rem;
-  padding: 0.6rem 0;
+  padding: 0.85rem 0;
   border-bottom: 1px solid var(--lp-line);
   font-family: "Playfair Variable", Georgia, serif;
-  font-size: 1.2rem;
+  font-size: clamp(1.35rem, 2.3vw, 1.85rem);
   transition:
     color 0.2s,
     padding-left 0.3s var(--lp-ease);
@@ -278,7 +278,7 @@
 .lp-toc a::before {
   content: counter(toc, decimal-leading-zero);
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--lp-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -465,7 +465,7 @@
     padding-bottom: 4rem;
   }
   .lp-toc {
-    max-width: 52rem;
+    max-width: 66rem;
   }
   .lp-toc ol {
     display: grid;
