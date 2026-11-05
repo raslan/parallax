@@ -1,4 +1,5 @@
 import type { BaseLayoutProps, LinkItemType } from "fumadocs-ui/layouts/shared";
+import { ParallaxLogo } from "@/components/parallax-logo";
 import { ThemePicker } from "@/components/theme-picker";
 
 const GITHUB_URL = "https://github.com/raslan/parallax";
@@ -53,7 +54,14 @@ const homeLinks: LinkItemType[] = [
  */
 export function baseOptions(includeDocsLink = false): BaseLayoutProps {
   return {
-    nav: { title: "Parallax" },
+    nav: {
+      title: (
+        <span className="flex items-center gap-2.5">
+          <ParallaxLogo className="h-5 w-5 shrink-0" />
+          <span className="font-semibold tracking-tight">Parallax</span>
+        </span>
+      ),
+    },
     // Dark only; the theme picker replaces the light/dark toggle.
     themeSwitch: { enabled: false },
     links: includeDocsLink ? [{ text: "Docs", url: "/docs" }, ...homeLinks] : [],
