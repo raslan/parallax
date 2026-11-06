@@ -64,7 +64,20 @@ Once it has finished, changing chips updates the results straight away with no w
 
 Matches show up as groups, each with every copy side by side. Click a thumbnail or the play button to look at or play it.
 
-Parallax suggests one copy to keep in every group, marked **KEEP**. For video it is the one with the higher bitrate, or the bigger file if that ties. Every other copy is ticked for removal. You can change the ticks however you like.
+Parallax suggests one copy to keep in every group, marked **KEEP**, and ticks every other copy for removal. It aims for the copy you would pick yourself:
+
+For video it looks at, in this order:
+
+1. The **complete** copy. A copy that is noticeably shorter never beats the full-length one.
+2. The one with the **bigger picture**.
+3. The one with the **better quality for its size**. A newer format counts for more than the same bitrate in an older one, so a smaller, cleaner file can beat a bloated one.
+4. The smoother one (higher frame rate), then the bigger file.
+
+Audio goes complete copy first, then lossless over lossy, then quality for its size, then sample rate and number of channels. Images go bigger picture first, then lossless over lossy, then quality for its size. Photo details such as the date, camera and location do not count, so a copy that lost them can still be the one kept.
+
+When copies are identical in every way Parallax can see, it keeps the first one it found.
+
+You can change the ticks however you like. If you tick or untick a copy and then change a chip or the files change, your choices stay as you left them while you are on the page. Only the copies you did not touch follow the new suggestions. Picking another library starts fresh.
 
 The bar above the groups shows how many files are selected and how much space you would get back.
 
