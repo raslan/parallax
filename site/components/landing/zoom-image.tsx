@@ -76,7 +76,7 @@ function Pic({
  * page behind it is inert.
  */
 export function ZoomImage(props: Props) {
-  const { id, alt, width, height, mobile } = props;
+  const { id, alt, mobile } = props;
   const dialog = useRef<HTMLDialogElement>(null);
   const theme = useTheme();
 
@@ -116,13 +116,8 @@ export function ZoomImage(props: Props) {
             />
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/media/${themedId(id, theme)}.webp`}
-            alt={alt}
-            width={width}
-            height={height}
-            loading="lazy"
-          />
+          {/* No width and height here: the dialog's picture swaps between desktop and phone shapes. */}
+          <img src={`/media/${themedId(id, theme)}.webp`} alt={alt} loading="lazy" />
         </picture>
       </dialog>
     </>

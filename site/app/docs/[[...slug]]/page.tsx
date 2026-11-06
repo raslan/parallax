@@ -5,6 +5,8 @@ import { getMDXComponents } from "@/components/mdx-components";
 import { OpenAPIPage } from "@/components/api-page";
 import { openapi } from "@/lib/openapi";
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
+import { SITE_DESCRIPTION } from "@/lib/site-url";
 
 export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
   const params = await props.params;
@@ -41,5 +43,9 @@ export async function generateMetadata(props: {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
-  return { title: page.data.title, description: page.data.description };
+  return pageMetadata({
+    title: page.data.title,
+    description: page.data.description ?? SITE_DESCRIPTION,
+    path: page.url,
+  });
 }

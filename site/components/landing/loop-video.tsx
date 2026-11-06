@@ -218,7 +218,8 @@ export function LoopVideo({ alt, width, height, takes }: Props) {
             loop
             playsInline
             preload={i === front ? "none" : "auto"}
-            poster={`/media/${take.id}.poster.webp`}
+            // The still loads with the clip (when it is near the screen), not with the page.
+            poster={near ? `/media/${take.id}.poster.webp` : undefined}
             src={hasSource ? `/media/${take.id}.mp4` : undefined}
             width={width}
             height={height}

@@ -7,6 +7,8 @@ import { ThemeDots } from "@/components/landing/theme-dots";
 import { ZoomImage } from "@/components/landing/zoom-image";
 import type { CameraKey, ClipTake } from "@/components/landing/loop-video";
 import { LANDING_MORE } from "@/lib/features";
+import { pageMetadata } from "@/lib/seo";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site-url";
 import { themedId } from "@/lib/theme-assets";
 import { DEFAULT_THEME, THEMES } from "@/lib/themes.generated";
 import manifest from "@/lib/media-manifest.json";
@@ -76,17 +78,34 @@ const BEATS = [
   },
 ].map((b) => ({ ...b, clip: clip(b.id) }));
 
-export const metadata: Metadata = {
-  title: {
-    absolute: "Parallax: free, open source tools for your media library",
-  },
-  description:
-    "Parallax is a free, open source toolkit that sits alongside your media player and looks after the files behind it. Organize, identify, filter, de-duplicate and compress your videos, photos and music.",
+export const metadata: Metadata = pageMetadata({
+  title: { absolute: "Parallax: free, open source tools for your media library" },
+  description: SITE_DESCRIPTION,
+  path: "/",
+});
+
+// Tells search engines what this is: a free, open source app. (Plain data, no tracking.)
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  url: SITE_URL,
+  applicationCategory: "MultimediaApplication",
+  operatingSystem: "Docker (Linux, macOS, Windows)",
+  isAccessibleForFree: true,
+  license: "https://www.gnu.org/licenses/gpl-3.0.html",
+  codeRepository: "https://github.com/raslan/parallax",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 };
 
 export default function LandingPage() {
   return (
     <div id="lp" className="lp" data-motion="on">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <a href="#main" className="lp-skip">
         Skip to content
       </a>
