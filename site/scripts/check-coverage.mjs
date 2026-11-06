@@ -159,6 +159,25 @@ for (const base of landingBases) {
       );
   }
 }
+// The docs home page lists every feature (lib/features.ts). Each user-facing page has to be in that list, and
+// each entry has to point at a page that exists.
+{
+  const featuresSource = read(path.join(site, "lib/features.ts"));
+  const listed = new Set([...featuresSource.matchAll(/href: "(\/docs\/[^"]+)"/g)].map((m) => m[1]));
+  const userFacing = mdxFiles
+    .map((f) => path.relative(docsDir, f).replace(/\.mdx$/, ""))
+    .filter((p) => /^(features|general-concepts|tools)\//.test(p) && p !== "tools/index");
+  for (const p of userFacing) {
+    if (!listed.has(`/docs/${p}`))
+      fail(`docs page ${p} is not in lib/features.ts, so the docs home page does not list it`);
+  }
+  const existing = new Set(
+    mdxFiles.map((f) => `/docs/${path.relative(docsDir, f).replace(/\.mdx$/, "")}`),
+  );
+  for (const href of listed) {
+    if (!existing.has(href)) fail(`lib/features.ts links to ${href}, which is not a docs page`);
+  }
+}
 for (const page of new Set(Object.values(ROUTE_DOCS))) {
   if (!pagesWithShots.has(page)) warn(`docs page ${page} has no screenshot or clip`);
 }

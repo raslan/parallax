@@ -6,6 +6,7 @@ import { Motion, Stars } from "@/components/landing/motion";
 import { ThemeDots } from "@/components/landing/theme-dots";
 import { ZoomImage } from "@/components/landing/zoom-image";
 import type { CameraKey, ClipTake } from "@/components/landing/loop-video";
+import { LANDING_MORE } from "@/lib/features";
 import { themedId } from "@/lib/theme-assets";
 import { DEFAULT_THEME, THEMES } from "@/lib/themes.generated";
 import manifest from "@/lib/media-manifest.json";
@@ -31,22 +32,9 @@ function clip(name: string) {
   return { alt: base.alt, width: base.width, height: base.height, takes };
 }
 
-// Everything else, as short phrases that each link to their page in the docs.
-const MORE: [string, string][] = [
-  ["find subtitles", "/docs/tools/subtitles"],
-  ["upscale images", "/docs/features/image-upscale"],
-  ["filter inappropriate images", "/docs/features/content-review"],
-  ["splice videos together", "/docs/features/splice"],
-  ["trim clips and fix the sound", "/docs/features/toolbox"],
-  ["shrink music too", "/docs/features/compress"],
-  ["restore your originals", "/docs/features/originals"],
-  ["match duplicate photos and songs", "/docs/features/duplicates"],
-  ["play anything in the browser", "/docs/general-concepts/player"],
-  ["show how much space you have saved", "/docs/general-concepts/home"],
-  ["use your graphics card", "/docs/advanced/hardware-acceleration"],
-  ["keep up with your folders on its own", "/docs/advanced/scanning-and-watcher"],
-  ["jump anywhere from the keyboard", "/docs/general-concepts/command-palette"],
-];
+// Everything else, as short phrases that each link to their page in the docs. They come from the same list as
+// the docs home page (lib/features.ts), so the two cannot drift apart.
+const MORE = LANDING_MORE;
 
 // The five features, in the order they appear. Each beat is a real clip of the app with the camera moves the
 // capture tool wrote down while filming it. The wording is a placeholder for the copy pass.
