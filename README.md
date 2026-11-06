@@ -2,7 +2,7 @@
 
 **The Swiss Army knife for your media library.** Parallax is a free, open source toolkit that sits alongside your media player and looks after the files behind it. It runs in Docker on your own machine and you use it from a web browser.
 
-![The Parallax Files page: a grid of video thumbnails](site/public/media/landing/hero/files-grid.webp)
+![Parallax: the Swiss Army knife for your media library, next to a screenshot of the Files page](site/public/og.png)
 
 **[Documentation](https://parallax.raslan.dev/docs)** · **[Website](https://parallax.raslan.dev)** · [Changelog](CHANGELOG.md)
 

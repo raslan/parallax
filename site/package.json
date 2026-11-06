@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "capture": "node capture/run.mjs",
+    "postcapture": "node scripts/og-image.mjs",
     "sync-themes": "node scripts/sync-themes.mjs",
     "predev": "npm run sync-themes && npm run sync-credits && npm run sync-changelog && npm run gen-api-docs",
     "dev": "next dev",
