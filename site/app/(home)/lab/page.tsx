@@ -241,6 +241,9 @@ export default function LandingPrototype() {
           <a href="https://github.com/raslan/parallax" className="lp-footer-link">
             GitHub
           </a>
+          <a href="https://raslan.dev" className="lp-footer-link">
+            Built with love by raslan
+          </a>
         </nav>
         <p>Parallax is free and open source, released under the GPL-3.0.</p>
       </footer>

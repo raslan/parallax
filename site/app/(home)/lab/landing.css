@@ -43,9 +43,11 @@
 }
 
 .lp-skip {
-  position: absolute;
+  /* Fixed to the window and parked well above it, so no part of it ever shows under the header. */
+  position: fixed;
   left: var(--lp-gutter);
-  top: -4rem;
+  top: 0;
+  transform: translateY(-200%);
   z-index: 50;
   padding: 0.6rem 1rem;
   background: var(--lp-accent);
@@ -54,7 +56,7 @@
   font-weight: 600;
 }
 .lp-skip:focus {
-  top: 0.75rem;
+  transform: translateY(0.75rem);
 }
 
 /* ---- the sky ------------------------------------------------------------------------------ */
@@ -158,6 +160,7 @@
   color: var(--color-fd-primary-foreground);
   font-family: "Playfair Variable", Georgia, serif;
   font-size: 1.3rem;
+  font-weight: 700;
   line-height: 1;
   box-shadow: 0 10px 34px -10px color-mix(in srgb, var(--lp-accent) 70%, transparent);
   transition:

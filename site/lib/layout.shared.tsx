@@ -28,9 +28,13 @@ export function SidebarFooter() {
   );
 }
 
-// Used by the home layout, which has no sidebar. The landing page has its own colour strip, so the top bar
-// only carries the GitHub link.
+// Used by the home layout, which has no sidebar. The same links as the landing page's footer, then GitHub. The
+// landing page has its own colour strip, so there is no theme picker here.
 const homeLinks: LinkItemType[] = [
+  { text: "Documentation", url: "/docs" },
+  { text: "API reference", url: "/docs/api" },
+  { text: "Changelog", url: "/docs/getting-started/changelog" },
+  { text: "Acknowledgements", url: "/docs/acknowledgements" },
   {
     type: "custom",
     secondary: true,
@@ -64,6 +68,6 @@ export function baseOptions(includeDocsLink = false): BaseLayoutProps {
     },
     // Dark only; the theme picker replaces the light/dark toggle.
     themeSwitch: { enabled: false },
-    links: includeDocsLink ? [{ text: "Docs", url: "/docs" }, ...homeLinks] : [],
+    links: includeDocsLink ? homeLinks : [],
   };
 }
