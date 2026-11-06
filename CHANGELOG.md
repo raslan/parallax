@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [4.0.1](https://github.com/raslan/parallax/compare/v4.0.0...v4.0.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **site:** let Vercel find the static export output on its own ([92a788a](https://github.com/raslan/parallax/commit/92a788a21e8b98c04f2f5ce3585bfd57dc4d9db4))
+
 ## [4.0.0](https://github.com/raslan/parallax/compare/v3.5.0...v4.0.0) (2026-11-06)
 
 
