@@ -86,7 +86,7 @@ for (const route of navRoutes) {
   const page = ROUTE_DOCS[route];
   if (!page)
     fail(
-      `nav route ${route} has no docs page in frontend/src/lib/docsRoutes.json (the app's "Learn more" map)`,
+      `nav route ${route} has no docs page in frontend/src/lib/docsRoutes.json (the app's "Documentation" link map)`,
     );
 }
 for (const [route, page] of Object.entries(ROUTE_DOCS)) {
