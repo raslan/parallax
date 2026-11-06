@@ -501,6 +501,17 @@
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
     gap: 4rem;
   }
+  /* Ultrawide: stop stretching. The hero becomes a centred block with even margins, screenshot included. */
+  @media (min-width: 1800px) {
+    .lp-hero {
+      max-width: 112rem;
+      margin-inline: auto;
+      padding-inline: 4.5rem;
+    }
+    .lp-hero-shot .lp-zoom img {
+      border-radius: 0.55rem 0.55rem 0 0;
+    }
+  }
   .lp-beat-copy {
     position: sticky;
     top: 22vh;
