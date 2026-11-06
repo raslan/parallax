@@ -3,6 +3,86 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [4.0.0](https://github.com/raslan/parallax/compare/v3.5.0...v4.0.0) (2026-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* 4.0 with a new docs site, landing page and a refreshed app
+
+### Features
+
+* 4.0 with a new docs site, landing page and a refreshed app ([d2410e8](https://github.com/raslan/parallax/commit/d2410e89bf3285a5ceadf4c6fe8de396b8fbbc03))
+* **app:** add a Learn more link to each page's hosted docs ([001f3d4](https://github.com/raslan/parallax/commit/001f3d4aa4a40e223a433664a3b0b0e7c0a04577))
+* **app:** show the Documentation link beside each page title ([dc39a86](https://github.com/raslan/parallax/commit/dc39a86691e8b3005e6dc15f49f252701787b2f6))
+* **content-review:** add a filename filter ([e8904df](https://github.com/raslan/parallax/commit/e8904df002dcbb90e023e2748fac3af092ea8eb3))
+* **credits:** add an Inspired by group to the credits ([538fb66](https://github.com/raslan/parallax/commit/538fb663eb3850435d6dbff15e3280ef58073ecc))
+* **credits:** let the site name two tools with a vague description ([92a3af6](https://github.com/raslan/parallax/commit/92a3af61e27c459b8ee46c108c882d742afbded8))
+* **credits:** one credits file for Settings and the docs site ([b635eea](https://github.com/raslan/parallax/commit/b635eeaed05b4178ececeb0f11a0f85261b7ca9b))
+* **nav:** add Galleries to the Tools sidebar section ([b3413fc](https://github.com/raslan/parallax/commit/b3413fcf30aebb6d294a65201a0d4fc94a3485ab))
+* **organize:** replace Prune with Organize, add move and rename ([37c33b1](https://github.com/raslan/parallax/commit/37c33b158462db063bd6f0996ca848c808ad5597))
+* **settings:** add credits tab ([fecda27](https://github.com/raslan/parallax/commit/fecda278a4d77413d162c3dce6d7965373e1e9a6))
+* **site:** add a Galleries docs page under Tools ([60a8d5c](https://github.com/raslan/parallax/commit/60a8d5c097603b871b3a98983706b1264a73bdd3))
+* **site:** add a hidden landing prototype at /lab ([205a0fc](https://github.com/raslan/parallax/commit/205a0fc0d1d9b15a6ad3f87cd9da86671a2b434d))
+* **site:** add an axe accessibility audit and fix what it found ([8bd3798](https://github.com/raslan/parallax/commit/8bd37984b64cad2172187c16c8a142bfa39f8de8))
+* **site:** add coverage and forbidden-terms checks ([b53ab24](https://github.com/raslan/parallax/commit/b53ab246fbd1de883ed194f86f63583198cc5056))
+* **site:** add robots.txt and show two tools on Acknowledgements ([dede8fa](https://github.com/raslan/parallax/commit/dede8fab85cb3f8c41932960bf511d175ef474df))
+* **site:** add SEO metadata, preview image, sitemap and Vercel config ([038113e](https://github.com/raslan/parallax/commit/038113ec76fdd6e055beee2046f96044b404c9fc))
+* **site:** add the Acknowledgements page from the shared credits file ([350f6c1](https://github.com/raslan/parallax/commit/350f6c19c1b9e67639973bc7435c3f7d0f3d0e64))
+* **site:** add the app logo next to the name ([aefa871](https://github.com/raslan/parallax/commit/aefa87156b56bf6fdab3a2cbe34f54300a0ad3ef))
+* **site:** add the five landing beat clips and wire them in ([9d70546](https://github.com/raslan/parallax/commit/9d7054678b479d1a0b1c22c0e2b0d3819a25da66))
+* **site:** add the generated API reference ([882b1c7](https://github.com/raslan/parallax/commit/882b1c7ebd65d9f8e1d7f754eb4bb3758e6ba999))
+* **site:** add the more-links, colour strip, closing line and footer ([c8bc6fe](https://github.com/raslan/parallax/commit/c8bc6feac5d4781bed432e7547b049d4625dc42a))
+* **site:** centre the landing hero, list in its own section ([7cfd1d8](https://github.com/raslan/parallax/commit/7cfd1d87cc938b9f87179641f8d195476dcfabdf))
+* **site:** copy pass and a contents list for the docs intro ([0d34328](https://github.com/raslan/parallax/commit/0d3432832c24b35180a099a899d3d60fe023cc84))
+* **site:** film the landing shots in all five themes and swap live ([72ba1c2](https://github.com/raslan/parallax/commit/72ba1c269c7bb960fd4a1ae86b35f1cf65dd96b4))
+* **site:** footer links in the nav, bold buttons, fix stray nav glow ([1f1fcff](https://github.com/raslan/parallax/commit/1f1fcff4360b85576ff650e823a21351cbed515a))
+* **site:** landing clips with a recorded virtual camera ([529d47d](https://github.com/raslan/parallax/commit/529d47d9474b1bb83f15ce81de9719a9f3e35917))
+* **site:** list every feature on the docs home page ([49fd9d0](https://github.com/raslan/parallax/commit/49fd9d0f2ac060b7cc9c78898696792136771248))
+* **site:** make the hero sentence the way into the five features ([17a9d47](https://github.com/raslan/parallax/commit/17a9d474b73b3a7f461e89fd9dd49bb2e765eb06))
+* **site:** make the landing feature list larger ([308b308](https://github.com/raslan/parallax/commit/308b308aa07451ae7470295f2b30762b721ae2a7))
+* **site:** make the landing page the home page, add the theme note ([931ca4c](https://github.com/raslan/parallax/commit/931ca4c9c6a2027f24a22bde2b0e511c953b958b))
+* **site:** move Acknowledgements into the docs sidebar ([62d4160](https://github.com/raslan/parallax/commit/62d41600a78a53de150be46a2fd34c1975097774))
+* **site:** move the colour strip under the hero, fold the closing CTA ([26c07d7](https://github.com/raslan/parallax/commit/26c07d72b6669147d225c42ae6c3610a9a57331c))
+* **site:** name the download tools on three pages and narrow robots.txt ([b1d7c01](https://github.com/raslan/parallax/commit/b1d7c0178c2d2bf05823fffcf089faef580a9d04))
+* **site:** number and separately underline the hero links ([77c7ef6](https://github.com/raslan/parallax/commit/77c7ef6a05edb5b6651351c85391b72ba7aed509))
+* **site:** rework landing hero order, buttons, links and copy ([656e0e3](https://github.com/raslan/parallax/commit/656e0e3f5b7be378052cbd37e1fd2fb177cd0a82))
+* **site:** rework the landing hero layout and feature list ([6956fe1](https://github.com/raslan/parallax/commit/6956fe1d5dac1e3697e5a5b54d845797adf2db19))
+* **site:** scaffold fumadocs shell and move capture tooling ([eaa04dc](https://github.com/raslan/parallax/commit/eaa04dc420a6ede97c6f716db6918606525f876f))
+* **site:** sidebar footer, theme picker and General Concepts ([78ec9f5](https://github.com/raslan/parallax/commit/78ec9f5d941766a9fdff9825d5e922f58061ce1e))
+* **site:** use the app favicon ([9a4a027](https://github.com/raslan/parallax/commit/9a4a0277e977c55856077f0c06354df19d399709))
+* **themes:** rename Nightfall to Parallax and Parallax to Elegance ([07cf04b](https://github.com/raslan/parallax/commit/07cf04b098a35d38016c10f176a2b2e9af3a5d24))
+* **upscale:** add image load/save with exif and alpha ([f4b46c8](https://github.com/raslan/parallax/commit/f4b46c8bfcf5d728671728f9ff9562a1edf7cc6f))
+* **upscale:** add image upscale API ([d8c8163](https://github.com/raslan/parallax/commit/d8c8163a1aed7c79a1c1ac9394f03afcb844f253))
+* **upscale:** add image upscale page ([92ddc7e](https://github.com/raslan/parallax/commit/92ddc7e1f4a8f2418aeddf5f0425ecd7de20ea37))
+* **upscale:** add model registry service ([018abb3](https://github.com/raslan/parallax/commit/018abb3abb926a9d89b85af4e45fabe823e5def2))
+* **upscale:** add ncnn worker process and device choice ([bdb1d29](https://github.com/raslan/parallax/commit/bdb1d299d7df8b7fb2e2d7eeded7ca2a2d70dbe9))
+* **upscale:** add replace originals option ([edc0cd7](https://github.com/raslan/parallax/commit/edc0cd7e57aa25ebd6b971290709b6ed7f619da6))
+* **upscale:** add shrink-first resize method ([2973dca](https://github.com/raslan/parallax/commit/2973dca87a38698292c90366026e5b173e08b146))
+* **upscale:** add the Natural tier and percentage pre-scale ([0309eff](https://github.com/raslan/parallax/commit/0309eff57dc6934eb27cc92648ffe0a1ac4bce89))
+* **upscale:** add the Sharp tier (NERVE OTF fidelity) ([6ffdaee](https://github.com/raslan/parallax/commit/6ffdaee353dca4779eb7385fe3484e586aa107df))
+* **upscale:** add tile planning and naming helpers ([a25820c](https://github.com/raslan/parallax/commit/a25820c8a66285383e261a5a10c020bd28ea49f7))
+* **upscale:** add upscale job runner ([28d20cc](https://github.com/raslan/parallax/commit/28d20cc24e0d39e40acc6108783de0b5687df4ec))
+* **upscale:** bundle ncnn upscaler models ([88e4c82](https://github.com/raslan/parallax/commit/88e4c828d2c8f344a42394b34be52b03c5b6ba10))
+* **upscale:** replace the bundled models with Fast and Natural ([973d8a3](https://github.com/raslan/parallax/commit/973d8a30e2286bc97a525af553e245b63ce0173f))
+* **video:** persist volume and mute to avoid deaf ears ([5be2b60](https://github.com/raslan/parallax/commit/5be2b60961fa3f7d4b84678054a2aeacd1bfad21))
+
+
+### Bug Fixes
+
+* **site:** cap the height of portrait screenshots ([31d4f1f](https://github.com/raslan/parallax/commit/31d4f1f2d243bb3c571a607680136766a73610f2))
+* **site:** labelled github link, full-width docs layout ([292b6e3](https://github.com/raslan/parallax/commit/292b6e3faa5b757f7e328f282710c43696942a1a))
+* **site:** ship the clips as H.264 only, WebM stalled on Windows ([b26b615](https://github.com/raslan/parallax/commit/b26b615029922189af042abe64675ea44f74b4a5))
+* **site:** stop ignoring the docs route and content ([d3a5604](https://github.com/raslan/parallax/commit/d3a5604a5f54a1afb78639f0035fc6a641f2229b))
+* **site:** use built-in github link, hide dev badge ([44f2d12](https://github.com/raslan/parallax/commit/44f2d120e3cc1a5d860ece0f5760a2c206adb2af))
+* **upscale:** address review findings ([e3ce6ed](https://github.com/raslan/parallax/commit/e3ce6edbd789dcaf9072f8e194d90dbb94de4d39))
+* **upscale:** install libegl1 so nvidia vulkan initialises in docker ([8624f76](https://github.com/raslan/parallax/commit/8624f7642299829f1781841cf4845f77306cd36e))
+
+
+### Performance Improvements
+
+* **site:** load the italic font after the page, match favicon ([a63c599](https://github.com/raslan/parallax/commit/a63c599ea560436d77859d07e224ed6044e216bb))
+
 ## [3.5.0](https://github.com/raslan/parallax/compare/v3.4.0...v3.5.0) (2026-11-02)
 
 
