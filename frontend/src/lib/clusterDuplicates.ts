@@ -1,4 +1,5 @@
 import { bigramSimilarity } from "./fileFieldFactories";
+import { pickVideoKeep } from "./pickKeep";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
 
@@ -190,12 +191,6 @@ export function anyCriteriaEnabled(criteria: DuplicateCriteria): boolean {
   );
 }
 
-function pickKeep(files: VideoFile[]): number {
-  return [...files].sort(
-    (a, b) => (b.video_bitrate ?? 0) - (a.video_bitrate ?? 0) || (b.size ?? 0) - (a.size ?? 0),
-  )[0]!.id;
-}
-
 export function clusterDuplicates(
   files: VideoFile[],
   criteria: DuplicateCriteria,
@@ -303,5 +298,5 @@ export function clusterDuplicates(
   const finalGroups = (enabled ? groups.filter((g) => g.length > 1) : groups).filter(
     (g) => g.length > 0,
   );
-  return finalGroups.map((g) => ({ files: g, keep_id: pickKeep(g) }));
+  return finalGroups.map((g) => ({ files: g, keep_id: pickVideoKeep(g) }));
 }

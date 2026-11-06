@@ -33,7 +33,7 @@ import {
 } from "@/lib/format";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
+import { seedFromGroups, useSeededSelection } from "@/hooks/useSeededSelection";
 import { useWorkerRequest } from "@/hooks/useWorkerRequest";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { FileListRow } from "@/components/FileSelectGrid";
@@ -141,7 +141,6 @@ export function AudioDuplicates() {
     queryFn: () => audioLibrariesApi.listLibraries(),
   });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<AudioFile | null>(null);
   const [criteria, setCriteria] = useState<AudioDuplicateCriteria>(DEFAULT_AUDIO_CRITERIA);
@@ -203,23 +202,20 @@ export function AudioDuplicates() {
 
   const { groups, isComputing: clustering } = useClusterAudioDuplicates(files, criteria);
 
-  // Seed the delete selection whenever the computed groups change — "everyone
-  // except the suggested keep" per group. Skip when no criteria are enabled
-  // (clusterAudioDuplicates returns nothing then anyway).
-  useEffect(() => {
-    if (!anyAudioCriteriaEnabled(criteria)) {
-      setDeleteIds(new Set());
-      return;
-    }
-    const init = new Set<number>();
-    groups.forEach((g) =>
-      g.files.forEach((f) => {
-        if (f.id !== g.keep_id) init.add(f.id);
-      }),
-    );
-    setDeleteIds(init);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups, criteria]);
+  // The delete selection follows the computed groups — "everyone except the
+  // suggested keep" in each group — with the user's own ticks laid over the top
+  // so they survive a recompute. Nothing is seeded when no criteria are
+  // enabled (clusterAudioDuplicates returns nothing then anyway).
+  const { seed, visible } = useMemo(
+    () => seedFromGroups(anyAudioCriteriaEnabled(criteria) ? groups : []),
+    [groups, criteria],
+  );
+  const {
+    selected: deleteIds,
+    toggle: toggleDelete,
+    clear: clearDelete,
+    reset: resetDelete,
+  } = useSeededSelection(seed, visible);
 
   const handleFindDuplicates = async () => {
     if (!selectedId) return;
@@ -246,7 +242,7 @@ export function AudioDuplicates() {
     try {
       await audioFilesApi.deleteFiles([...deleteIds]);
       queryClient.invalidateQueries({ queryKey: qk.audioFiles(selectedId) });
-      setDeleteIds(new Set());
+      clearDelete();
     } finally {
       setDeleting(false);
     }
@@ -306,7 +302,7 @@ export function AudioDuplicates() {
           libraryId={selectedId}
           onLibraryChange={(id) => {
             setSelectedId(id);
-            setDeleteIds(new Set());
+            resetDelete();
             setLastExtractedCriteria(null);
           }}
         />

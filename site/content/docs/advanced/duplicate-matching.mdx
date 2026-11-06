@@ -42,4 +42,41 @@ Preparing is also incremental. A file that already has what the current settings
 
 ## Which copy is kept
 
-For video, the suggested copy to keep is the one with the highest bitrate, then the biggest file. For images, Parallax also suggests one copy to keep. You can always tick and untick copies yourself before anything is removed.
+The suggested copy comes from the information Parallax already has about each file. Nothing extra is read from the files. For video and audio it is worked out in the browser together with the grouping. For images the groups come from the server, and the suggestion is worked out in the browser from the images in each group.
+
+Copies are compared one step at a time. At each step, Parallax finds the best copy and drops every copy that is clearly worse. Copies within the step's tolerance of the best one count as tied and go on to the next step. A difference smaller than the tolerance never decides on its own.
+
+**Video**
+
+1. **Duration.** The longer copy wins. Differences under a second or 0.5% are ignored.
+2. **Resolution.** More pixels win. Within 2% counts as the same.
+3. **Quality per bit.** Video bitrate multiplied by how efficient the codec is, relative to H.264. For example AV1 is 1.9, HEVC 1.6, VP9 1.4, H.264 1.0, VP8 0.9 and MPEG-4 0.6; older codecs such as MPEG-2 are lower still. Within 3% counts as a tie. If either file has no video bitrate, both use their whole-file average (size ÷ duration) so the two sides stay comparable.
+4. **Frame rate.** The higher one wins. Within 2% counts as the same.
+5. **File size.** The bigger file, as a last resort.
+
+**Audio**
+
+1. Duration, as for video.
+2. Lossless over lossy (FLAC, ALAC, WavPack, APE, TTA and PCM count as lossless).
+3. Bitrate multiplied by codec efficiency (Opus 1.7, AAC 1.3, Vorbis 1.2, E-AC-3 1.1, MP3 1.0, WMA 0.9, AC-3 0.8, MP2 0.7). Within 3% counts as a tie.
+4. Sample rate (within 2% counts as the same), then number of channels.
+5. File size.
+
+**Images**
+
+1. Pixel count (within 2% is a tie).
+2. Lossless format (PNG, BMP, TIFF) over lossy.
+3. Bytes per pixel, weighted by format efficiency (AVIF 1.9, HEIC 1.6, WebP 1.3, others 1.0). Within 3% counts as a tie.
+4. File size.
+
+Photo details such as the date, camera and location are not compared. Parallax picks the better picture, not the one with more labels.
+
+### Perfect copies
+
+Copies that tie on every step, such as exact duplicates in two folders, are all equally good, so Parallax keeps the one with the lowest internal id, which is the one it saw first. The result never depends on the order the group was built in.
+
+### Your own ticks
+
+The ticks you see are Parallax's suggestions with your own choices laid over the top. Every time you tick or untick a copy, Parallax remembers that choice for that copy. When the groups change, because you toggled a chip, the files changed or a different copy became the suggested keeper, your choices still apply and only the copies you never touched follow the new suggestions. A copy you unticked stays unticked even if it leaves every group and comes back later.
+
+Your choices are kept while you stay on the page. Picking a different library, or leaving the page, forgets them. Using **Clear** after a delete also counts as your choice, so those copies stay unticked.
