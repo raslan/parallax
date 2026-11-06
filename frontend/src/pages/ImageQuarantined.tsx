@@ -13,6 +13,7 @@ import { StatPanel } from "@/components/StatPanel";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { IconButton } from "@/components/IconButton";
 import { Tip } from "@/components/Tip";
+import { PageTitle } from "@/components/PageTitle";
 
 // ── Per-library group ─────────────────────────────────────────────────────────
 
@@ -277,7 +278,7 @@ export function ImageQuarantined() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Quarantine</h1>
+          <PageTitle>Quarantine</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Images moved to quarantine from content review. Restore to return them, or delete
             permanently.

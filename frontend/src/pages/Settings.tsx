@@ -7,6 +7,7 @@ import { CredentialsTab } from "@/components/settings/CredentialsTab";
 import { ModelsTab } from "@/components/settings/ModelsTab";
 import { DownloadsTab } from "@/components/settings/DownloadsTab";
 import { CreditsTab } from "@/components/settings/CreditsTab";
+import { PageTitle } from "@/components/PageTitle";
 
 const TABS = [
   { id: "general", label: "General", icon: Palette },
@@ -32,7 +33,7 @@ export function Settings() {
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <PageTitle>Settings</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">Configure Parallax behaviour.</p>
       </div>
 

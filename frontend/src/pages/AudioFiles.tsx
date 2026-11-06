@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageTitle } from "@/components/PageTitle";
 
 // ─── List row ────────────────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ export function AudioFiles() {
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="shrink-0">
-        <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
+        <PageTitle>Files</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Browse and play the audio files in this library.
         </p>

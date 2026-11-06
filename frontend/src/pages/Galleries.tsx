@@ -23,6 +23,7 @@ import { useConfirm } from "@/components/ConfirmProvider";
 import { YtdlOptionsSheet } from "@/components/galleries/YtdlOptionsSheet";
 import { ytdlSummary } from "@/lib/galleryYtdl";
 import { GalleryDlBanner } from "@/components/galleries/GalleryDlBanner";
+import { PageTitle } from "@/components/PageTitle";
 
 type Filter = "all" | "active" | "done" | "failed";
 
@@ -313,7 +314,7 @@ export function Galleries() {
       <TwoColumnShell id="galleries-split">
         <div className="space-y-6 min-w-0">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Galleries</h1>
+            <PageTitle>Galleries</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Download image &amp; video galleries with gallery-dl.
             </p>

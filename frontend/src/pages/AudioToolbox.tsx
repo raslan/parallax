@@ -31,6 +31,7 @@ import { sumSizeOf } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
 import { cn } from "@/lib/utils";
+import { PageTitle } from "@/components/PageTitle";
 
 type SortKey = "filename" | "codec" | "duration" | "size";
 
@@ -235,7 +236,7 @@ export function AudioToolbox() {
       )}
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Toolbox</h1>
+        <PageTitle>Toolbox</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Trim, fix channels, and normalize loudness — stack as many as you need, one job, one pass.
           Originals saved to <code className="font-mono text-xs">_originals/</code> when enabled.

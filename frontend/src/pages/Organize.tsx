@@ -74,6 +74,7 @@ import type {
   OrganizeRenameResult,
   ScanState,
 } from "@/types/organize";
+import { PageTitle } from "@/components/PageTitle";
 
 /** Stable identity while the file list loads, so the details hook doesn't restart. */
 const NO_FILES: OrganizeFile[] = [];
@@ -512,7 +513,7 @@ export function Organize() {
 
   const header = (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Organize</h1>
+      <PageTitle>Organize</PageTitle>
       <p className="mt-1 text-sm text-muted-foreground">
         Walk a folder, see what is in it and clear out what you do not need.
       </p>

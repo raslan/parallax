@@ -32,6 +32,7 @@ import {
   type RangeKey,
 } from "@/lib/dashboard";
 import type { Job } from "@/types/job";
+import { PageTitle } from "@/components/PageTitle";
 
 const RANGE_STORAGE_KEY = "parallax-home-range";
 
@@ -196,7 +197,7 @@ export function Home() {
     <div className="space-y-6 p-4 md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Home</h1>
+          <PageTitle>Home</PageTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             What Parallax has done for your storage, and where to go next.
           </p>

@@ -32,6 +32,7 @@ import {
   SortDir,
 } from "@/components/FileSelectGrid";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
+import { PageTitle } from "@/components/PageTitle";
 
 // ── Estimation ────────────────────────────────────────────────────────────────
 
@@ -404,7 +405,7 @@ export function Compress() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Compress</h1>
+        <PageTitle>Compress</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Re-encode library files with modern codecs to reduce storage. Originals saved to{" "}
           <code className="font-mono text-xs">_originals/</code> when enabled.

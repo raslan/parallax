@@ -32,6 +32,7 @@ import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { WorkingState } from "@/components/WorkingState";
 import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
 import { useConfirm } from "@/components/ConfirmProvider";
+import { PageTitle } from "@/components/PageTitle";
 
 // Stable reference so `files` doesn't get a fresh `[]` identity every render
 // while the query has no data yet (e.g. still loading, or erroring with no
@@ -390,7 +391,7 @@ export function Duplicates() {
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
+          <PageTitle>Duplicates</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Toggle criteria below — matching recomputes instantly. Extract fills in the
             visual/audio/byte-hash signals those criteria need.

@@ -23,6 +23,7 @@ import { useConfirm } from "@/components/ConfirmProvider";
 import { IconButton } from "@/components/IconButton";
 import { Tip } from "@/components/Tip";
 import type { Original as OriginalEntry } from "@/types/original";
+import { PageTitle } from "@/components/PageTitle";
 
 // ── Kind config ───────────────────────────────────────────────────────────────
 // A TS shape (API fns + copy) — NOT the backend `OriginalsKind` dataclass. The
@@ -379,7 +380,7 @@ export function OriginalsPage({ kind }: { kind: OriginalsKind }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{kind.title}</h1>
+          <PageTitle>{kind.title}</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">{kind.subtitle}</p>
         </div>
         <IconButton

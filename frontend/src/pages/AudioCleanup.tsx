@@ -35,6 +35,7 @@ import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { useConfirm } from "@/components/ConfirmProvider";
+import { PageTitle } from "@/components/PageTitle";
 
 function CleanupColumns({ file }: { file: AudioFile }) {
   return (
@@ -176,7 +177,7 @@ export function AudioCleanup() {
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cleanup</h1>
+          <PageTitle>Cleanup</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Stack filters to find files matching all conditions, then bulk-delete matches.
           </p>

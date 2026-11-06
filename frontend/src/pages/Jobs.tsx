@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/SectionHeader";
 import { StatusDot } from "@/components/StatusDot";
 import { ProgressBar } from "@/components/ProgressBar";
+import { PageTitle } from "@/components/PageTitle";
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   pending: <Clock className="h-4 w-4 text-muted-foreground" />,
@@ -260,7 +261,7 @@ export function Jobs() {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
+          <PageTitle>Jobs</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">Monitor scan and transcode jobs.</p>
         </div>
         <div className="flex items-center gap-2">

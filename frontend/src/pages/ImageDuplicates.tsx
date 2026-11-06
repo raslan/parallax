@@ -19,6 +19,7 @@ import { useJobPoll } from "@/hooks/useJobPoll";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useSelection } from "@/hooks/useSelection";
 import { useConfirm } from "@/components/ConfirmProvider";
+import { PageTitle } from "@/components/PageTitle";
 
 function recommendKeep(images: ImageFile[]): number {
   return images.reduce((best, img) => {
@@ -255,7 +256,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Image Duplicates</h1>
+          <PageTitle>Image Duplicates</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Check images to quarantine, uncheck to keep. Click any image to preview.
           </p>

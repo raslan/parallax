@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageTitle } from "@/components/PageTitle";
 
 const FETCH_ALL_PAGE_SIZE = 10000;
 
@@ -509,7 +510,7 @@ export function Files() {
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="shrink-0">
-        <h1 className="text-2xl font-semibold tracking-tight">Files</h1>
+        <PageTitle>Files</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Browse and manage video files across all libraries.
         </p>

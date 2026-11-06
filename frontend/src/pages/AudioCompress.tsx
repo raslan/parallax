@@ -29,6 +29,7 @@ import {
   applySortDir,
   type SortDir,
 } from "@/components/FileSelectGrid";
+import { PageTitle } from "@/components/PageTitle";
 
 type SortKey = "filename" | "codec" | "duration" | "size" | "estimated";
 
@@ -266,7 +267,7 @@ export function AudioCompress() {
       )}
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Compress</h1>
+        <PageTitle>Compress</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Re-encode audio files to a smaller lossy codec. Originals saved to{" "}
           <code className="font-mono text-xs">_originals/</code> when enabled.

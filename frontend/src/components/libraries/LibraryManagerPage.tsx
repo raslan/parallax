@@ -12,6 +12,7 @@ import { RelativeTime } from "@/components/RelativeTime";
 import { DeleteLibraryDialog } from "./DeleteLibraryDialog";
 import { DeleteAllLibrariesDialog } from "./DeleteAllLibrariesDialog";
 import type { LibraryBase, LibraryKind } from "./types";
+import { PageTitle } from "@/components/PageTitle";
 
 /**
  * Shared list page behind both `/` (video libraries) and `/images` (image
@@ -67,7 +68,7 @@ export function LibraryManagerPage<T extends LibraryBase>({ kind }: { kind: Libr
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{kind.title}</h1>
+          <PageTitle>{kind.title}</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">{kind.subtitle(libraries)}</p>
         </div>
         <div className="flex gap-2">

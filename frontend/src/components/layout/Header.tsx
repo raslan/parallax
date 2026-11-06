@@ -4,7 +4,6 @@ import { ParallaxLogo } from "@/components/ParallaxLogo";
 import { Separator } from "@/components/ui/separator";
 import { SECTIONS, useSectionNav } from "./nav-config";
 import { JobsMenu } from "./JobsMenu";
-import { LearnMore } from "./LearnMore";
 import { cn } from "@/lib/utils";
 
 /** @public */
@@ -76,7 +75,6 @@ export function Header({ onOpenPalette }: { onOpenPalette?: () => void } = {}) {
             </kbd>
           </button>
         )}
-        <LearnMore />
         <JobsMenu />
         <NavLink
           to="/settings"

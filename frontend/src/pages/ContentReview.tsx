@@ -15,6 +15,7 @@ import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { QueryBuilder } from "@/components/QueryBuilder";
 import { contentReviewFields } from "@/lib/contentReviewFields";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PageTitle } from "@/components/PageTitle";
 
 function ImageGrid({
   images,
@@ -186,7 +187,7 @@ export function ContentReview() {
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Content Review</h1>
+        <PageTitle>Content Review</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Compose a query from detection labels. Results update live as you build it.
         </p>

@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DirPicker } from "@/components/DirPicker";
 import { cn } from "@/lib/utils";
+import { PageTitle } from "@/components/PageTitle";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -459,7 +460,7 @@ export function Subtitles() {
       )}
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Subtitles</h1>
+        <PageTitle>Subtitles</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Download and match subtitle files for a folder of videos.
         </p>

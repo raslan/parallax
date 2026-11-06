@@ -47,7 +47,7 @@ function walk(dir, filter = () => true) {
 
 /** App route -> the docs page that covers it, relative to content/docs, no extension. Twin pages (the image and
  *  audio versions of a video page) share the video page. This is the app's own map (`frontend/src/lib/docsRoutes.json`),
- *  which the app reads to show its "Learn more" link, so the two cannot disagree. Routes outside the nav (Home, Jobs,
+ *  which the app reads to show its "Documentation" link, so the two cannot disagree. Routes outside the nav (Home, Jobs,
  *  Settings) are listed there too. */
 const ROUTE_DOCS = JSON.parse(read(path.join(repo, "frontend/src/lib/docsRoutes.json"))).routes;
 const NON_NAV_ROUTES = ["/", "/jobs", "/settings"];

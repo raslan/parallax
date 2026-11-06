@@ -32,6 +32,7 @@ import {
   reorderWithinGroup,
 } from "@/lib/customShow";
 import { Link } from "react-router";
+import { PageTitle } from "@/components/PageTitle";
 
 interface ApplyResult {
   successes: string[];
@@ -395,7 +396,7 @@ export function Identify() {
   return (
     <div className="flex min-h-full flex-col p-4 md:p-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Identify &amp; Rename</h1>
+        <PageTitle>Identify &amp; Rename</PageTitle>
         <p className="mt-1 text-sm text-muted-foreground">
           Point at a folder of badly-named files and rename them to Plex/Jellyfin format.
         </p>

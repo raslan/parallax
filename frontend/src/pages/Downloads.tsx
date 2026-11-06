@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { PageTitle } from "@/components/PageTitle";
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -299,7 +300,7 @@ export function Downloads() {
         <div className="space-y-6 min-w-0">
           {/* Header */}
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Downloads</h1>
+            <PageTitle>Downloads</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Queue URLs for yt-dlp download. Supports YouTube, Vimeo, Twitch, and{" "}
               <a

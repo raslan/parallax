@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageTitle } from "@/components/PageTitle";
 
 const SORT_OPTIONS = [
   { value: "filename", label: "Name" },
@@ -181,7 +182,7 @@ export function Images() {
   return (
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="shrink-0">
-        <h1 className="text-2xl font-semibold tracking-tight">Images</h1>
+        <PageTitle>Images</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Browse and manage images across all libraries.
         </p>

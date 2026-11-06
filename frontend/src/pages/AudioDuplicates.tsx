@@ -39,6 +39,7 @@ import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { FileListRow } from "@/components/FileSelectGrid";
 import { WorkingState } from "@/components/WorkingState";
 import { useConfirm } from "@/components/ConfirmProvider";
+import { PageTitle } from "@/components/PageTitle";
 
 // Stable reference so `files` doesn't get a fresh `[]` identity every render
 // while the query has no data yet — a fresh identity would re-trigger the
@@ -276,7 +277,7 @@ export function AudioDuplicates() {
     <div className="p-4 md:p-8 space-y-6 h-full flex flex-col">
       <div className="flex items-start justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Duplicates</h1>
+          <PageTitle>Duplicates</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Toggle criteria below — matching recomputes instantly. Find duplicates fills in the
             audio fingerprint signal the fingerprint criterion needs.

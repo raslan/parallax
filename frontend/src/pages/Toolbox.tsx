@@ -30,6 +30,7 @@ import { sumSizeOf } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
 import { cn } from "@/lib/utils";
+import { PageTitle } from "@/components/PageTitle";
 
 type SortKey = "filename" | "codec" | "duration" | "size";
 
@@ -242,7 +243,7 @@ export function Toolbox() {
       )}
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Toolbox</h1>
+        <PageTitle>Toolbox</PageTitle>
         <p className="text-sm text-muted-foreground mt-1">
           Trim, fix audio, rotate, normalize, and other lossless-where-possible per-file fixes.
           Stack as many as you need — one job, one pass. Originals saved to{" "}
