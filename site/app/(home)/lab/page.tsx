@@ -8,7 +8,13 @@ import { ZoomImage } from "@/components/landing/zoom-image";
 import type { CameraKey } from "@/components/landing/loop-video";
 import manifest from "@/lib/media-manifest.json";
 
-type Clip = { id: string; alt: string; width: number; height: number; camera: CameraKey[] };
+type Clip = {
+  id: string;
+  alt: string;
+  width: number;
+  height: number;
+  camera: CameraKey[];
+};
 const clip = (name: string) =>
   manifest[`landing/beats/${name}` as keyof typeof manifest] as unknown as Clip;
 
@@ -145,7 +151,11 @@ export default function LandingPrototype() {
               height={690}
               variants={[720, 1080]}
               sizes="(min-width: 1024px) 60vw, 100vw"
-              mobile={{ id: "landing/hero/files-grid-mobile", width: 430, height: 900 }}
+              mobile={{
+                id: "landing/hero/files-grid-mobile",
+                width: 430,
+                height: 900,
+              }}
               priority
             />
           </div>
@@ -190,7 +200,6 @@ export default function LandingPrototype() {
                 alt={b.clip.alt}
                 width={b.clip.width}
                 height={b.clip.height}
-                webm
                 camera={b.clip.camera}
               />
             </div>

@@ -136,7 +136,12 @@ async function cropRect(page, crop, vp = VIEWPORT) {
     const x2 = Math.max(...boxes.map((b) => b.x + b.width));
     const y2 = Math.max(...boxes.map((b) => b.y + b.height));
     const pad = crop.pad ?? 12;
-    r = { x: x - pad, y: y - pad, width: x2 - x + 2 * pad, height: y2 - y + 2 * pad };
+    r = {
+      x: x - pad,
+      y: y - pad,
+      width: x2 - x + 2 * pad,
+      height: y2 - y + 2 * pad,
+    };
   }
   const x = Math.max(0, Math.floor(r.x));
   const y = Math.max(0, Math.floor(r.y));
@@ -147,7 +152,9 @@ async function cropRect(page, crop, vp = VIEWPORT) {
 
 // ---------------------------------------------------------------- encoders
 function ffmpeg(args) {
-  const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", ...args], { encoding: "utf8" });
+  const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", ...args], {
+    encoding: "utf8",
+  });
   if (r.status !== 0) die(`ffmpeg failed: ${r.stderr}`);
 }
 
@@ -297,36 +304,8 @@ function encodeHiresClip(input, outBase, rect, budgetBytes) {
   const w = Math.min(rect.width * 2, HIRES_MAX_WIDTH) & ~1;
   const vf = `scale=${w}:-2:flags=lanczos,fps=30`;
   const mp4 = `${outBase}.mp4`;
-  const webm = `${outBase}.webm`;
-  let used = null;
-  for (const crf of [34, 36, 38, 40, 42, 44]) {
-    ffmpeg([
-      ...input,
-      "-vf",
-      vf,
-      "-an",
-      "-c:v",
-      "libvpx-vp9",
-      "-b:v",
-      "0",
-      "-crf",
-      String(crf),
-      "-row-mt",
-      "1",
-      "-pix_fmt",
-      "yuv420p",
-      webm,
-    ]);
-    if (statSync(webm).size <= budgetBytes) {
-      used = { crf };
-      break;
-    }
-  }
-  if (!used)
-    die(
-      `${webm} is ${Math.round(statSync(webm).size / 1024)} KB at CRF 44, over its ${Math.round(budgetBytes / 1024)} KB budget; crop tighter or raise budgetKB`,
-    );
-  // H.264 fallback for browsers without VP9 (older iOS); allowed a little more room.
+  // H.264 only: it plays everywhere (a VP9 WebM stalled after a second in Chrome on one Windows PC) and, for
+  // these screen recordings, comes out smaller than VP9 anyway.
   for (const crf of [28, 30, 32, 34, 36, 38]) {
     ffmpeg([
       ...input,
@@ -345,9 +324,11 @@ function encodeHiresClip(input, outBase, rect, budgetBytes) {
       "+faststart",
       mp4,
     ]);
-    if (statSync(mp4).size <= budgetBytes * 1.5) return { ...used, width: w, mp4Crf: crf };
+    if (statSync(mp4).size <= budgetBytes) return { width: w, crf };
   }
-  die(`${mp4} is over its budget at CRF 38`);
+  die(
+    `${mp4} is over its ${Math.round(budgetBytes / 1024)} KB budget at CRF 38; crop tighter or raise budgetKB`,
+  );
 }
 
 async function runHiresClip(browser, shot, tmp) {
@@ -447,7 +428,7 @@ async function runHiresClip(browser, shot, tmp) {
     "-sseof",
     "-0.5",
     "-i",
-    `${outBase}.webm`,
+    `${outBase}.mp4`,
     "-frames:v",
     "1",
     "-c:v",
@@ -458,19 +439,17 @@ async function runHiresClip(browser, shot, tmp) {
   ]);
   const probe = spawnSync(
     "ffprobe",
-    ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", `${outBase}.webm`],
+    ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", `${outBase}.mp4`],
     { encoding: "utf8" },
   );
   const duration = Math.round(parseFloat(probe.stdout) * 100) / 100;
   const h = Math.round((enc.width * rect.height) / rect.width / 2) * 2;
   return {
     src: `${shot.id}.mp4`,
-    webm: `${shot.id}.webm`,
     poster: `${shot.id}.poster.webp`,
     width: enc.width,
     height: h,
-    bytes: statSync(`${outBase}.webm`).size,
-    mp4Bytes: statSync(`${outBase}.mp4`).size,
+    bytes: statSync(`${outBase}.mp4`).size,
     duration,
     camera,
     crf: enc.crf,
@@ -503,7 +482,13 @@ for (const shot of selected) {
         : shot.hires
           ? await runHiresClip(browser, shot, tmp)
           : await runClip(browser, shot, tmp);
-    manifest[shot.id] = { id: shot.id, kind: shot.kind, alt: shot.alt, route: shot.route, ...res };
+    manifest[shot.id] = {
+      id: shot.id,
+      kind: shot.kind,
+      alt: shot.alt,
+      route: shot.route,
+      ...res,
+    };
     console.log(`${Math.round(res.bytes / 1024)} KB  ${res.width}×${res.height}`);
   } catch (e) {
     failed++;

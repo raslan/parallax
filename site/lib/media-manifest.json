@@ -436,12 +436,10 @@
     "alt": "On the Cleanup page, a duration filter is added, then a filename filter joined to it with AND. The AND/OR switch is flipped to OR and back, and the list of files narrows to the matches.",
     "route": "/cleanup",
     "src": "landing/beats/cleanup.mp4",
-    "webm": "landing/beats/cleanup.webm",
     "poster": "landing/beats/cleanup.poster.webp",
     "width": 2000,
     "height": 1064,
-    "bytes": 474067,
-    "mp4Bytes": 397155,
+    "bytes": 397155,
     "duration": 11.13,
     "camera": [
       {
@@ -516,12 +514,10 @@
     "alt": "In Organize, a messy folder shows common names found in its file names. Clicking one filters the folder to those files, then one click selects all the images, and the action bar for moving, renaming and deleting appears.",
     "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
     "src": "landing/beats/organize.mp4",
-    "webm": "landing/beats/organize.webm",
     "poster": "landing/beats/organize.poster.webp",
     "width": 2000,
     "height": 810,
-    "bytes": 263018,
-    "mp4Bytes": 167860,
+    "bytes": 167860,
     "duration": 8.13,
     "camera": [
       {
@@ -596,12 +592,10 @@
     "alt": "In Identify, a folder of badly named episodes is matched to a TV show: the show is picked from the search results, every file drops into its episode slot, and the preview lists each old name next to its new, properly formatted name.",
     "route": "/identify",
     "src": "landing/beats/identify.mp4",
-    "webm": "landing/beats/identify.webm",
     "poster": "landing/beats/identify.poster.webp",
     "width": 2000,
     "height": 1500,
-    "bytes": 595402,
-    "mp4Bytes": 283619,
+    "bytes": 283619,
     "duration": 9.4,
     "camera": [
       {
@@ -676,12 +670,10 @@
     "alt": "On the Compress page, the encoding settings drawer opens and the quality slider is moved. The estimated output size and savings change as it moves.",
     "route": "/compress",
     "src": "landing/beats/compress.mp4",
-    "webm": "landing/beats/compress.webm",
     "poster": "landing/beats/compress.poster.webp",
     "width": 2000,
     "height": 1500,
-    "bytes": 702586,
-    "mp4Bytes": 460529,
+    "bytes": 460529,
     "duration": 12.8,
     "camera": [
       {
@@ -756,12 +748,10 @@
     "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
     "route": "/duplicates",
     "src": "landing/beats/duplicates.mp4",
-    "webm": "landing/beats/duplicates.webm",
     "poster": "landing/beats/duplicates.poster.webp",
     "width": 2000,
     "height": 1352,
-    "bytes": 383976,
-    "mp4Bytes": 267617,
+    "bytes": 267617,
     "duration": 10.63,
     "camera": [
       {

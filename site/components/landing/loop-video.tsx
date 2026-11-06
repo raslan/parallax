@@ -4,17 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import { MOTION_EVENT } from "./motion";
 
 /** A camera position: the part of the clip to show, as fractions of its width and height. */
-export type CameraKey = { t: number; x: number; y: number; w: number; h: number };
+export type CameraKey = {
+  t: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
 
 type Props = {
-  /** Path under /media, e.g. "landing/beats/cleanup". Expects `.mp4` and `.poster.webp`, and `.webm` if `webm`. */
+  /** Path under /media, e.g. "landing/beats/cleanup". Expects `.mp4` and `.poster.webp`. */
   id: string;
   /** What the clip shows, for people who cannot see it. */
   alt: string;
   width: number;
   height: number;
-  /** The clip also exists as a smaller WebM, which is tried first. */
-  webm?: boolean;
   /** Recorded camera moves (zoom in on the part that matters, then back out). Played while the clip plays. */
   camera?: CameraKey[];
 };
@@ -60,7 +64,7 @@ function frame(r: CameraKey): string {
  * glides in on the part of the app being used, then back out. The video itself is hidden from assistive
  * technology; the wrapper carries the description.
  */
-export function LoopVideo({ id, alt, width, height, webm, camera }: Props) {
+export function LoopVideo({ id, alt, width, height, camera }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const [near, setNear] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -145,7 +149,6 @@ export function LoopVideo({ id, alt, width, height, webm, camera }: Props) {
         height={height}
         style={camera?.length ? { transformOrigin: "0 0", willChange: "transform" } : undefined}
       >
-        {near && webm && <source src={`/media/${id}.webm`} type="video/webm" />}
         {near && <source src={`/media/${id}.mp4`} type="video/mp4" />}
       </video>
     </div>
