@@ -20,7 +20,7 @@ export default {
   },
   // Coverage + forbidden-terms checks for the public site (source-only, no build needed). Also runs when the
   // app's nav changes, since every nav route must be covered by a docs page. See site/scripts/check-coverage.mjs.
-  "{site/**,frontend/src/components/layout/nav-config.ts}": () => ["npm --prefix site run check:quick"],
+  "{site/**,frontend/src/components/layout/nav-config.ts,frontend/src/lib/docsRoutes.json}": () => ["npm --prefix site run check:quick"],
   "backend/**/*.py": (absolutePaths) => {
     const quoted = absolutePaths.map((p) => JSON.stringify(p)).join(" ");
     return [`ruff check --fix ${quoted}`, `ruff format ${quoted}`];

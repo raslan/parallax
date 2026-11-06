@@ -5,7 +5,7 @@
 //
 // Checks:
 //   1. Every app route in the nav (frontend/src/components/layout/nav-config.ts) is covered by a docs page,
-//      and every page named in ROUTE_DOCS exists.
+//      and every page named in the app's docsRoutes.json exists.
 //   2. Every <Shot id> in the docs has a manifest entry, and every manifest asset exists on disk.
 //   3. Backend routers <-> API reference: the committed OpenAPI file matches the number of routes in
 //      backend/app/api, every operation is tagged, and every tag has a generated page.
@@ -45,36 +45,12 @@ function walk(dir, filter = () => true) {
 // ---------------------------------------------------------------------------------------------
 // Config
 
-/** App route (from the nav) -> the docs page(s) that cover it, relative to content/docs, no extension.
- *  Twin pages (image/audio versions of a video page) are covered by a callout on the video page. */
-const ROUTE_DOCS = {
-  "/libraries": "general-concepts/libraries",
-  "/image-libraries": "general-concepts/libraries",
-  "/audio-libraries": "general-concepts/libraries",
-  "/files": "features/files",
-  "/audio-files": "features/files",
-  "/images": "features/files",
-  "/compress": "features/compress",
-  "/audio-compress": "features/compress",
-  "/toolbox": "features/toolbox",
-  "/audio-toolbox": "features/toolbox",
-  "/splice": "features/splice",
-  "/duplicates": "features/duplicates",
-  "/image-duplicates": "features/duplicates",
-  "/audio-duplicates": "features/duplicates",
-  "/cleanup": "features/cleanup",
-  "/audio-cleanup": "features/cleanup",
-  "/originals": "features/originals",
-  "/audio-originals": "features/originals",
-  "/image-quarantined": "features/originals",
-  "/content-review": "features/content-review",
-  "/image-upscale": "features/image-upscale",
-  "/organize": "tools/organize",
-  "/identify": "tools/identify",
-  "/subtitles": "tools/subtitles",
-  "/downloads": "tools/downloads",
-  "/galleries": "tools/galleries",
-};
+/** App route -> the docs page that covers it, relative to content/docs, no extension. Twin pages (the image and
+ *  audio versions of a video page) share the video page. This is the app's own map (`frontend/src/lib/docsRoutes.json`),
+ *  which the app reads to show its "Learn more" link, so the two cannot disagree. Routes outside the nav (Home, Jobs,
+ *  Settings) are listed there too. */
+const ROUTE_DOCS = JSON.parse(read(path.join(repo, "frontend/src/lib/docsRoutes.json"))).routes;
+const NON_NAV_ROUTES = ["/", "/jobs", "/settings"];
 
 /** The only places the two download tools may be named (all kept out of crawlers by robots.txt). Each entry is a
  *  URL path prefix and the source files that produce it. */
@@ -108,10 +84,14 @@ const docsDir = path.join(site, "content/docs");
 
 for (const route of navRoutes) {
   const page = ROUTE_DOCS[route];
-  if (!page) fail(`nav route ${route} has no docs page in ROUTE_DOCS (scripts/check-coverage.mjs)`);
+  if (!page)
+    fail(
+      `nav route ${route} has no docs page in frontend/src/lib/docsRoutes.json (the app's "Learn more" map)`,
+    );
 }
 for (const [route, page] of Object.entries(ROUTE_DOCS)) {
-  if (!navRoutes.includes(route)) fail(`ROUTE_DOCS lists ${route}, which is no longer in the nav`);
+  if (!navRoutes.includes(route) && !NON_NAV_ROUTES.includes(route))
+    fail(`docsRoutes.json lists ${route}, which is no longer in the nav`);
   if (!existsSync(path.join(docsDir, `${page}.mdx`)))
     fail(`${route}: docs page content/docs/${page}.mdx does not exist`);
 }
