@@ -3,7 +3,7 @@
 // phone width. Contrast is the one that matters most here, since the colours change with the theme.
 //
 //   npm run build && npx serve out -l 4173      (in another terminal)
-//   npm run a11y -- [--url http://localhost:4173] [--only /lab] [--theme rose]
+//   npm run a11y -- [--url http://localhost:4173] [--only /] [--theme rose]
 //
 // Pages are loaded with reduced motion, so nothing is mid-fade when axe measures colours. axe cannot judge
 // everything (reading order, whether alt text is any good, focus behaviour): a real screen-reader pass is still
@@ -35,7 +35,7 @@ const ONLY_THEME = opt("--theme", "");
 // The landing page plus one page of each docs kind: prose with screenshots and clips, a tool page, the API
 // reference (tables, code), and the acknowledgements list.
 const PAGES = [
-  "/lab",
+  "/",
   "/docs",
   "/docs/tools/organize",
   "/docs/features/duplicates",
@@ -79,7 +79,7 @@ for (const theme of themes) {
       }
     }, theme);
     const page = await ctx.newPage();
-    for (const path of motion === "reduce" ? pages : pages.filter((p) => p === "/lab")) {
+    for (const path of motion === "reduce" ? pages : pages.filter((p) => p === "/")) {
       const res = await page.goto(BASE + path, { waitUntil: "networkidle" }).catch(() => null);
       if (!res || !res.ok()) {
         console.error(`✘ ${path} did not load (${res?.status() ?? "no response"})`);
