@@ -1,6 +1,6 @@
 {
   "name": "parallax",
-  "version": "1.14.0",
+  "version": "4.0.0",
   "private": true,
   "description": "A self-hosted video and image library manager with transcoding, AI scanning, duplicate detection, and media identification. Runs in Docker, accessible from any browser.",
   "main": "index.js",
