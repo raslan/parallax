@@ -43,6 +43,20 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
+# NVIDIA Vulkan ICD manifest. The container toolkit injects libGLX_nvidia.so.0 but can only inject
+# nvidia_icd.json if the host has one; some hosts (TrueNAS SCALE) ship the lib without it, so the
+# loader finds no driver (`vkCreateInstance failed -9`). Shipping the manifest here is harmless
+# elsewhere: a host-injected one overrides it, and with no NVIDIA lib the loader skips this ICD.
+RUN mkdir -p /usr/share/vulkan/icd.d && \
+    printf '%s\n' \
+      '{' \
+      '  "file_format_version": "1.0.0",' \
+      '  "ICD": {' \
+      '    "library_path": "libGLX_nvidia.so.0",' \
+      '    "api_version": "1.3.277"' \
+      '  }' \
+      '}' > /usr/share/vulkan/icd.d/nvidia_icd.json
+
 WORKDIR /app
 
 COPY backend/requirements.txt ./

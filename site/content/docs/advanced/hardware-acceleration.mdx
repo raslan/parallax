@@ -39,6 +39,8 @@ deploy:
 
 The `video` capability gives Parallax NVENC and NVDEC. `graphics` and `utility` are what let Image Upscale use the card through Vulkan. Leave them out and upscaling still works on the processor, only more slowly.
 
+Some hosts, such as TrueNAS SCALE, install the NVIDIA driver without the small file Vulkan uses to find it (`nvidia_icd.json`). Parallax ships its own copy, so upscaling should still find the card. If **Image Upscale** logs `No usable Vulkan GPU for upscaling` even though Compress uses the card, check that the container has the `graphics` capability and that the host driver provides `libGLX_nvidia.so.0`.
+
 With `docker run`, use `--gpus all` and add `-e NVIDIA_DRIVER_CAPABILITIES=all`.
 
 On Windows with Docker Desktop and WSL 2, a recent NVIDIA driver (521 or newer) is enough. You do not install the toolkit separately.
