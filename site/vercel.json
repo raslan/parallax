@@ -4,6 +4,7 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": "out",
+  "build": { "env": { "NEXT_PUBLIC_SITE_URL": "https://parallax.raslan.dev" } },
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../frontend/src/themes ../backend/app/assets/credits.json ../CHANGELOG.md",
   "headers": [
     {

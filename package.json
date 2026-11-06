@@ -8,8 +8,6 @@
     "doc": "docs"
   },
   "scripts": {
-    "generate:site": "node scripts/build-landing.js",
-    "generate:image": "node scripts/screenshot-og.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky"
   },
