@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [4.0.2](https://github.com/raslan/parallax/compare/v4.0.1...v4.0.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **docker:** ship nvidia vulkan icd manifest for upscale ([5df2beb](https://github.com/raslan/parallax/commit/5df2beb37243ac3aea323f75cf1a6ce4c270fb3e))
+
 ## [4.0.1](https://github.com/raslan/parallax/compare/v4.0.0...v4.0.1) (2026-11-06)
 
 
