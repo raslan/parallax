@@ -43,7 +43,7 @@ const BEATS = [
     id: "organize",
     name: "Organize",
     title: "See what is in a folder before you touch it.",
-    text: "Parallax spots the names your files have in common, so one click picks every holiday photo or every voice memo. Then move, rename or delete them in one go.",
+    text: "Parallax spots the names your files have in common, so one click selects every holiday photo or voice memo. Then move, rename or delete them together.",
     docs: "/docs/tools/organize",
   },
   {
@@ -71,7 +71,7 @@ const BEATS = [
     id: "compress",
     name: "Compress",
     title: "See what you would save before you save it.",
-    text: "Slide the quality and the estimated size moves with it, for the whole library or just what you have picked.",
+    text: "Slide the quality and the estimated size moves with it, for the whole library or just what you have picked. Files get much smaller with no quality loss you would notice.",
     docs: "/docs/features/compress",
   },
 ].map((b) => ({ ...b, clip: clip(b.id) }));

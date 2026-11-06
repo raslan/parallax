@@ -70,7 +70,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         href: "/docs/features/cleanup",
         title: "Cleanup",
         summary:
-          "Filter a library down to the files that match rules you set, such as very short, tiny or old, and clear them out together.",
+          "Find the files that match rules you set, like very short, tiny or old, and clear them out together.",
       },
       {
         href: "/docs/features/originals",
@@ -131,7 +131,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       {
         href: "/docs/features/content-review",
         title: "Content Review",
-        summary: "Find pictures you may not want in a collection and set them aside together.",
+        summary: "Find pictures that may be inappropriate and set them aside together.",
         landing: "filter inappropriate images",
       },
       {
@@ -202,10 +202,35 @@ const LANDING_EXTRAS: { phrase: string; href: string }[] = [
   },
 ];
 
-/** The phrases for the landing page's "Parallax will ..." sentence, each with the page it links to. */
-export const LANDING_MORE: [string, string][] = [
+// The order the phrases read in on the landing page, most useful first. Not the docs order.
+const LANDING_ORDER = [
+  "/docs/tools/subtitles",
+  "/docs/features/image-upscale",
+  "/docs/features/toolbox",
+  "/docs/features/splice",
+  "/docs/features/originals",
+  "/docs/features/compress",
+  "/docs/features/duplicates",
+  "/docs/features/content-review",
+  "/docs/general-concepts/player",
+  "/docs/general-concepts/home",
+  "/docs/general-concepts/command-palette",
+  "/docs/advanced/hardware-acceleration",
+  "/docs/advanced/scanning-and-watcher",
+];
+
+const landingPhrases: [string, string][] = [
   ...FEATURE_GROUPS.flatMap((g) => g.features)
     .filter((f) => f.landing)
     .map((f): [string, string] => [f.landing!, f.href]),
   ...LANDING_EXTRAS.map((e): [string, string] => [e.phrase, e.href]),
 ];
+
+/** The phrases for the landing page's "Parallax will ..." sentence, each with the page it links to. */
+export const LANDING_MORE: [string, string][] = LANDING_ORDER.map((href) => {
+  const hit = landingPhrases.find(([, h]) => h === href);
+  if (!hit) throw new Error(`LANDING_ORDER lists ${href}, which has no landing phrase`);
+  return hit;
+});
+if (LANDING_ORDER.length !== landingPhrases.length)
+  throw new Error("A landing phrase is missing from LANDING_ORDER in lib/features.ts");

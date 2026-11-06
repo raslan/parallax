@@ -177,6 +177,16 @@ for (const base of landingBases) {
   for (const href of listed) {
     if (!existing.has(href)) fail(`lib/features.ts links to ${href}, which is not a docs page`);
   }
+  // The docs home page writes each group's heading itself (so it appears in the table of contents).
+  const intro = read(path.join(docsDir, "index.mdx"));
+  for (const m of featuresSource.matchAll(/id: "([a-z-]+)",\s*title: "([^"]+)",\s*features:/g)) {
+    if (!intro.includes(`<FeatureGroup id="${m[1]}" />`))
+      fail(
+        `content/docs/index.mdx does not show the "${m[2]}" group (<FeatureGroup id="${m[1]}" />)`,
+      );
+    if (!new RegExp(`^### ${m[2]}$`, "m").test(intro))
+      fail(`content/docs/index.mdx has no "### ${m[2]}" heading for its group`);
+  }
 }
 for (const page of new Set(Object.values(ROUTE_DOCS))) {
   if (!pagesWithShots.has(page)) warn(`docs page ${page} has no screenshot or clip`);
