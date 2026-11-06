@@ -1,3 +1,4 @@
+import { pickAudioKeep } from "./pickKeep";
 import type { AudioDuplicateCriteria } from "@/types/audioDuplicate";
 import type { AudioFile } from "@/types/audio";
 import { anyAudioCriteriaEnabled } from "@/types/audioDuplicate";
@@ -131,12 +132,6 @@ function splitByPairwise<T extends { id: number }>(
 
 // ── audio-specific ──
 
-function pickKeep(files: AudioFile[]): number {
-  return [...files].sort(
-    (a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0) || (b.size ?? 0) - (a.size ?? 0),
-  )[0]!.id;
-}
-
 /**
  * Client-side duplicate-matching engine for the Audio Duplicates page. Runs
  * entirely in the browser, no server round-trip. Four stackable criteria in a
@@ -180,5 +175,5 @@ export function clusterAudioDuplicates(
   // splitByTolerance / splitByPairwise) already drops sub-2 groups, so this
   // filter is a no-op once any criterion has run — kept so a singleton can
   // never reach pickKeep. Mirrors the equivalent guard in clusterDuplicates.ts.
-  return groups.filter((g) => g.length > 1).map((g) => ({ files: g, keep_id: pickKeep(g) }));
+  return groups.filter((g) => g.length > 1).map((g) => ({ files: g, keep_id: pickAudioKeep(g) }));
 }

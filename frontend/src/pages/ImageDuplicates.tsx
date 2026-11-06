@@ -17,17 +17,10 @@ import { Slider } from "@/components/ui/slider";
 import { formatSize, describeSelection, sumSizeOf } from "@/lib/format";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
-import { useSelection } from "@/hooks/useSelection";
+import { seedFromGroups, useSeededSelection } from "@/hooks/useSeededSelection";
+import { pickImageKeep } from "@/lib/pickKeep";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { PageTitle } from "@/components/PageTitle";
-
-function recommendKeep(images: ImageFile[]): number {
-  return images.reduce((best, img) => {
-    const bScore = (best.width ?? 0) * (best.height ?? 0) || best.size;
-    const iScore = (img.width ?? 0) * (img.height ?? 0) || img.size;
-    return iScore > bScore ? img : best;
-  }).id;
-}
 
 function ImageCard({
   img,
@@ -97,7 +90,7 @@ function ClusterCard({
   onView,
 }: {
   images: ImageFile[];
-  suggestedKeepId: number;
+  suggestedKeepId: number | null;
   deleteIds: Set<number>;
   onToggle: (id: number) => void;
   onView: (img: ImageFile) => void;
@@ -134,7 +127,6 @@ function ClusterCard({
 export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
-  const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [quarantining, setQuarantining] = useState(false);
   const [viewingImg, setViewingImg] = useState<ImageFile | null>(null);
   const [threshold, setThreshold] = useState(10);
@@ -168,36 +160,38 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     [data],
   );
 
-  const suggestedKeepIds = useMemo(() => {
-    const keep: Record<number, number> = {};
-    clusters.forEach((ids, i) => {
-      const imgs = ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[];
-      if (imgs.length) keep[i] = recommendKeep(imgs);
-    });
-    return keep;
-  }, [clusters, allImages]);
-
-  // Seed the quarantine selection from a fresh scan (all copies except the suggested keep).
-  useEffect(() => {
-    if (!data) return;
-    const next = new Set<number>();
-    clusters.forEach((ids, i) => {
-      const keepId = suggestedKeepIds[i];
-      ids.forEach((id) => {
-        if (id !== keepId) next.add(id);
-      });
-    });
-    setDeleteIds(next);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setResultsStale(false);
-  }, [data, clusters, suggestedKeepIds, setDeleteIds]);
-
-  useLiveFiles("image", libraryId ?? null, () => setResultsStale(true));
-
   const clusterImages = useMemo(
     () => clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
     [clusters, allImages],
   );
+
+  // Suggested keep per cluster (null for an empty one).
+  const keepIds = useMemo(
+    () => clusterImages.map((imgs) => (imgs.length ? pickImageKeep(imgs) : null)),
+    [clusterImages],
+  );
+
+  // The quarantine selection follows the clusters: every copy except the
+  // suggested keep. Ticks the user made by hand survive a refetch.
+  const { seed, visible } = useMemo(
+    () =>
+      seedFromGroups(
+        clusterImages.flatMap((files, i) => {
+          const keep_id = keepIds[i];
+          return keep_id != null ? [{ files, keep_id }] : [];
+        }),
+      ),
+    [clusterImages, keepIds],
+  );
+  const { selected: deleteIds, toggle: toggleDelete } = useSeededSelection(seed, visible);
+
+  // A fresh scan clears the "results may be out of date" banner.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (data) setResultsStale(false);
+  }, [data]);
+
+  useLiveFiles("image", libraryId ?? null, () => setResultsStale(true));
 
   const showResults = () => {
     if (threshold === appliedThreshold) refetch();
@@ -365,7 +359,7 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
               <ClusterCard
                 key={i}
                 images={clusterImages[i] ?? []}
-                suggestedKeepId={suggestedKeepIds[i]!}
+                suggestedKeepId={keepIds[i] ?? null}
                 deleteIds={deleteIds}
                 onToggle={toggleDelete}
                 onView={setViewingImg}

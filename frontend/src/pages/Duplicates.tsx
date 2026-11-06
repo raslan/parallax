@@ -27,7 +27,7 @@ import {
 } from "@/lib/format";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSelection } from "@/hooks/useSelection";
+import { seedFromGroups, useSeededSelection } from "@/hooks/useSeededSelection";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import { WorkingState } from "@/components/WorkingState";
 import { useClusterDuplicates } from "@/hooks/useClusterDuplicates";
@@ -220,7 +220,6 @@ export function Duplicates() {
     queryFn: () => api.getLibraries(),
   });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const { selected: deleteIds, setSelected: setDeleteIds, toggle: toggleDelete } = useSelection();
   const [deleting, setDeleting] = useState(false);
   const [playingFile, setPlayingFile] = useState<VideoFile | null>(null);
   const [criteria, setCriteria] = useState<DuplicateCriteria>(loadCriteria);
@@ -294,27 +293,23 @@ export function Duplicates() {
 
   const { groups, isComputing: clustering } = useClusterDuplicates(files, criteria);
 
-  // Seed/refresh the delete selection whenever the computed groups change
-  // (new files loaded, or criteria changed) — "everyone except the suggested
-  // keep" in each group. With zero criteria enabled, clusterDuplicates
-  // returns one pass-through group containing the entire library (spec'd
-  // behavior) — auto-selecting the whole library for deletion there would be
-  // dangerous, so skip the auto-seed in that case and leave the selection
-  // empty instead.
-  useEffect(() => {
-    if (!anyCriteriaEnabled(criteria)) {
-      setDeleteIds(new Set());
-      return;
-    }
-    const init = new Set<number>();
-    groups.forEach((g) =>
-      g.files.forEach((f) => {
-        if (f.id !== g.keep_id) init.add(f.id);
-      }),
-    );
-    setDeleteIds(init);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups, criteria]);
+  // The delete selection follows the computed groups (new files loaded, or
+  // criteria changed): "everyone except the suggested keep" in each group,
+  // with the user's own ticks and unticks laid over the top so they survive a
+  // recompute. With zero criteria enabled, clusterDuplicates returns one
+  // pass-through group containing the entire library (spec'd behavior) —
+  // auto-selecting the whole library for deletion there would be dangerous, so
+  // nothing is seeded or visible in that case and the selection stays empty.
+  const { seed, visible } = useMemo(
+    () => seedFromGroups(anyCriteriaEnabled(criteria) ? groups : []),
+    [groups, criteria],
+  );
+  const {
+    selected: deleteIds,
+    toggle: toggleDelete,
+    clear: clearDelete,
+    reset: resetDelete,
+  } = useSeededSelection(seed, visible);
 
   const handleExtract = async () => {
     if (!selectedId) return;
@@ -343,7 +338,7 @@ export function Duplicates() {
       queryClient.setQueryData<VideoFile[]>(qk.duplicateFiles(selectedId), (prev) =>
         prev ? prev.filter((f) => !deleteIds.has(f.id)) : prev,
       );
-      setDeleteIds(new Set());
+      clearDelete();
     } finally {
       setDeleting(false);
     }
@@ -420,7 +415,7 @@ export function Duplicates() {
           libraryId={selectedId}
           onLibraryChange={(id) => {
             setSelectedId(id);
-            setDeleteIds(new Set());
+            resetDelete();
             setLastExtractedCriteria(null);
           }}
         />
