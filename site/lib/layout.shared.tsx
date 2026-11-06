@@ -38,16 +38,19 @@ const homeLinks: LinkItemType[] = [
   {
     type: "custom",
     secondary: true,
+    // The nav puts custom items straight into a <ul>, so this one brings its own <li>.
     children: (
-      <a
-        href={GITHUB_URL}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-2 text-sm text-fd-muted-foreground transition-colors hover:text-fd-foreground"
-      >
-        <GithubIcon className="size-4" />
-        GitHub
-      </a>
+      <li className="list-none">
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2 text-sm text-fd-muted-foreground transition-colors hover:text-fd-foreground"
+        >
+          <GithubIcon className="size-4" />
+          GitHub
+        </a>
+      </li>
     ),
   },
 ];

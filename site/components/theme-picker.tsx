@@ -54,7 +54,7 @@ export function ThemePicker() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        aria-label="Choose a theme"
+        aria-label={`${current.label}, choose a theme`}
         className="flex w-full items-center gap-2.5 rounded-lg border border-fd-border bg-fd-secondary/50 px-3 py-2 text-sm text-fd-foreground transition-colors hover:bg-fd-accent"
       >
         <Swatch theme={current} />

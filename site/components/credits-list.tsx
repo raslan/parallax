@@ -27,7 +27,7 @@ function Ext({ href, children }: { href: string; children: React.ReactNode }) {
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="text-fd-primary underline underline-offset-4"
+      className="inline-block py-1 text-fd-primary underline underline-offset-4"
     >
       {children}
     </a>

@@ -35,7 +35,38 @@ function readVars(id) {
   )) {
     vars[m[1]] = `${m[2]} ${m[3]}% ${m[4]}%`;
   }
-  return vars;
+  return readableMuted(vars);
+}
+
+// Contrast (WCAG) between two "H S% L%" triplets.
+function luminance(triplet) {
+  const [h, s, l] = triplet.split(" ").map((x) => parseFloat(x));
+  const sat = s / 100;
+  const lig = l / 100;
+  const a = sat * Math.min(lig, 1 - lig);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const c = lig - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * f(0) + 0.7152 * f(8) + 0.0722 * f(4);
+}
+const contrast = (a, b) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+// The site is read, not operated, so its secondary text must pass WCAG AA (4.5:1) on every surface it sits on,
+// in every theme. The app's own muted text is a touch dimmer; where it falls short here, lighten it just enough.
+function readableMuted(vars) {
+  const surfaces = ["background", "card", "muted", "secondary", "sidebar"]
+    .map((n) => vars[n])
+    .filter(Boolean);
+  const [h, s, l] = vars["muted-foreground"].split(" ").map((x) => parseFloat(x));
+  let light = l;
+  const worst = (lt) => Math.min(...surfaces.map((bg) => contrast(`${h} ${s}% ${lt}%`, bg)));
+  while (worst(light) < 4.6 && light < 95) light += 1;
+  return light === l ? vars : { ...vars, "muted-foreground": `${h} ${s}% ${light}%` };
 }
 
 const hsl = (vars, name) => {

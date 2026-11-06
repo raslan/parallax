@@ -12,6 +12,7 @@
     "build": "next build",
     "postbuild": "node scripts/check-coverage.mjs",
     "check": "node scripts/check-coverage.mjs",
+    "a11y": "node scripts/a11y.mjs",
     "check:quick": "npm run gen-api-docs && node scripts/check-coverage.mjs --quick",
     "postinstall": "fumadocs-mdx",
     "sync-credits": "node scripts/sync-credits.mjs",
@@ -37,6 +38,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "axe-core": "^4.14.0",
     "tailwindcss": "^4.3.4",
     "typescript": "^5.9.0"
   }

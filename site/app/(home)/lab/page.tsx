@@ -103,7 +103,8 @@ export default function LandingPrototype() {
       <Stars />
       <Motion rootId="lp" />
 
-      <main id="main" tabIndex={-1}>
+      {/* The site's layout already supplies the <main> landmark around the page. */}
+      <div id="main" tabIndex={-1}>
         <section className="lp-section lp-hero" aria-labelledby="hero-title">
           <div className="lp-hero-intro">
             <h1 id="hero-title" className="lp-display">
@@ -243,7 +244,7 @@ export default function LandingPrototype() {
             </Link>
           </div>
         </section>
-      </main>
+      </div>
 
       <footer className="lp-footer">
         <nav aria-label="Footer">

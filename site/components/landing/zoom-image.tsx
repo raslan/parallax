@@ -86,7 +86,6 @@ export function ZoomImage(props: Props) {
       <button
         type="button"
         className="lp-zoom"
-        aria-label="View the screenshot full size"
         aria-haspopup="dialog"
         onClick={() => dialog.current?.showModal()}
       >
