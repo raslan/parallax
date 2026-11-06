@@ -1,6 +1,7 @@
 import "./landing.css";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LateFonts } from "@/components/landing/late-fonts";
 import { LoopVideo } from "@/components/landing/loop-video";
 import { Motion, Stars } from "@/components/landing/motion";
 import { ThemeDots } from "@/components/landing/theme-dots";
@@ -110,6 +111,7 @@ export default function LandingPage() {
         Skip to content
       </a>
       <Stars />
+      <LateFonts />
       <Motion rootId="lp" />
 
       {/* The site's layout already supplies the <main> landmark around the page. */}
