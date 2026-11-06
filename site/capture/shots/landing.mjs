@@ -3,6 +3,7 @@
 export default [
   {
     id: "landing/hero/files-grid",
+    themes: true,
     kind: "still",
     route: "/files",
     alt: "The Parallax Files page: the top bar with the section tabs, the sidebar, and a grid of video thumbnails with codec, size and duration under each.",
@@ -17,6 +18,7 @@ export default [
   {
     // Beat: Cleanup filters. Recorded at 2x with a virtual camera (zoom to the filter, then to the results).
     id: "landing/beats/cleanup",
+    themes: true,
     kind: "clip",
     hires: true,
     route: "/cleanup",
@@ -67,6 +69,7 @@ export default [
   {
     // Beat: Organize. Common names found in a messy folder, one click to filter, one click to select a kind.
     id: "landing/beats/organize",
+    themes: true,
     kind: "clip",
     hires: true,
     route: "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
@@ -96,6 +99,7 @@ export default [
   {
     // Beat: Identify. Search the show, the files drop into their episodes, preview the new names.
     id: "landing/beats/identify",
+    themes: true,
     kind: "clip",
     hires: true,
     route: "/identify",
@@ -142,6 +146,7 @@ export default [
   {
     // Beat: Duplicates. Take criteria away and the groups reshape; open one to tune it.
     id: "landing/beats/duplicates",
+    themes: true,
     kind: "clip",
     hires: true,
     route: "/duplicates",
@@ -209,6 +214,7 @@ export default [
   {
     // Beat: Compress. Open the settings, slide the quality, watch the estimate move.
     id: "landing/beats/compress",
+    themes: true,
     kind: "clip",
     hires: true,
     route: "/compress",
@@ -218,7 +224,9 @@ export default [
     crop: { rect: { x: 240, y: 0, width: 1200, height: 900 } },
     steps: async (page, { sleep, focus }) => {
       await sleep(700);
-      await focus(page.getByText("Encoding settings").first(), { pad: { x: 300, y: 40 } });
+      await focus(page.getByText("Encoding settings").first(), {
+        pad: { x: 300, y: 40 },
+      });
       await sleep(900);
       await page.getByText("Encoding settings").first().click();
       await page.getByText("Max resolution").first().waitFor();
@@ -246,6 +254,7 @@ export default [
   {
     // The same page at phone size, so phones see the app's own mobile layout, readable, instead of a shrunken desktop.
     id: "landing/hero/files-grid-mobile",
+    themes: true,
     kind: "still",
     route: "/files",
     alt: "The Parallax Files page on a phone.",

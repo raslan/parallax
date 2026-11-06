@@ -79,8 +79,14 @@ const ROUTE_DOCS = {
 /** The only places the two download tools may be named (all kept out of crawlers by robots.txt). Each entry is a
  *  URL path prefix and the source files that produce it. */
 const NAMED_PAGES = [
-  { url: "/docs/tools/downloads", source: ["content/docs/tools/downloads.mdx"] },
-  { url: "/docs/tools/galleries", source: ["content/docs/tools/galleries.mdx"] },
+  {
+    url: "/docs/tools/downloads",
+    source: ["content/docs/tools/downloads.mdx"],
+  },
+  {
+    url: "/docs/tools/galleries",
+    source: ["content/docs/tools/galleries.mdx"],
+  },
   { url: "/docs/api", source: ["content/docs/api", "openapi/parallax.json"] },
   {
     url: "/docs/acknowledgements",
@@ -131,7 +137,27 @@ for (const [id, entry] of Object.entries(manifest)) {
       fail(`manifest ${id}: public/media/${entry[key]} is missing`);
     }
   }
-  if (!usedShots.has(id)) warn(`shot ${id} is in the manifest but no page uses it`);
+  if (!usedShots.has(id) && !id.startsWith("landing/"))
+    warn(`shot ${id} is in the manifest but no page uses it`);
+}
+// Landing shots are filmed once per theme on the colour strip: each one needs a take for every theme, or that
+// theme silently shows the default look.
+const themeIds = [
+  ...read(path.join(site, "lib/themes.generated.ts")).matchAll(/"id": "([^"]+)"/g),
+].map((m) => m[1]);
+const landingBases = new Set(
+  Object.keys(manifest)
+    .filter((id) => id.startsWith("landing/"))
+    .map((id) => manifest[id].baseId ?? id),
+);
+for (const base of landingBases) {
+  for (const t of themeIds) {
+    const id = t === themeIds[0] ? base : `${base}.${t}`;
+    if (!manifest[id])
+      fail(
+        `landing shot ${base} has no take for the "${t}" theme (${id}); run npm run capture -- --only ${base}`,
+      );
+  }
 }
 for (const page of new Set(Object.values(ROUTE_DOCS))) {
   if (!pagesWithShots.has(page)) warn(`docs page ${page} has no screenshot or clip`);
@@ -143,7 +169,11 @@ for (const page of new Set(Object.values(ROUTE_DOCS))) {
 const spec = JSON.parse(read(path.join(site, "openapi/parallax.json")));
 const METHODS = ["get", "post", "put", "patch", "delete"];
 const operations = Object.entries(spec.paths).flatMap(([p, item]) =>
-  METHODS.filter((m) => item[m]).map((m) => ({ path: p, method: m, op: item[m] })),
+  METHODS.filter((m) => item[m]).map((m) => ({
+    path: p,
+    method: m,
+    op: item[m],
+  })),
 );
 const apiDir = path.join(repo, "backend/app/api");
 let decorators = 0;

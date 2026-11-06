@@ -439,8 +439,8 @@
     "poster": "landing/beats/cleanup.poster.webp",
     "width": 2000,
     "height": 1064,
-    "bytes": 397155,
-    "duration": 11.13,
+    "bytes": 407710,
+    "duration": 11.27,
     "camera": [
       {
         "t": 0,
@@ -464,49 +464,49 @@
         "h": 0.2667
       },
       {
-        "t": 3.1,
+        "t": 3.22,
         "x": 0,
         "y": 0,
         "w": 0.5068,
         "h": 0.2667
       },
       {
-        "t": 3.9,
+        "t": 4.02,
         "x": 0.174,
         "y": 0,
         "w": 0.5642,
         "h": 0.2667
       },
       {
-        "t": 7.81,
+        "t": 7.97,
         "x": 0.174,
         "y": 0,
         "w": 0.5642,
         "h": 0.2667
       },
       {
-        "t": 8.61,
+        "t": 8.77,
         "x": 0,
         "y": 0.2317,
         "w": 0.8277,
         "h": 0.6
       },
       {
-        "t": 9.71,
+        "t": 9.87,
         "x": 0,
         "y": 0.2317,
         "w": 0.8277,
         "h": 0.6
       },
       {
-        "t": 10.51,
+        "t": 10.67,
         "x": 0,
         "y": 0,
         "w": 1,
         "h": 1
       }
     ],
-    "crf": 34
+    "crf": 28
   },
   "landing/beats/organize": {
     "id": "landing/beats/organize",
@@ -517,7 +517,7 @@
     "poster": "landing/beats/organize.poster.webp",
     "width": 2000,
     "height": 810,
-    "bytes": 167860,
+    "bytes": 169199,
     "duration": 8.13,
     "camera": [
       {
@@ -542,49 +542,49 @@
         "h": 0.2167
       },
       {
-        "t": 3.22,
+        "t": 3.2,
         "x": 0,
         "y": 0.2542,
         "w": 0.3994,
         "h": 0.2167
       },
       {
-        "t": 4.02,
+        "t": 4,
         "x": 0,
         "y": 0.3521,
         "w": 0.6462,
         "h": 0.2813
       },
       {
-        "t": 4.88,
+        "t": 4.86,
         "x": 0,
         "y": 0.3521,
         "w": 0.6462,
         "h": 0.2813
       },
       {
-        "t": 5.68,
+        "t": 5.66,
         "x": 0,
         "y": 0.7917,
         "w": 1,
         "h": 0.2083
       },
       {
-        "t": 6.88,
+        "t": 6.86,
         "x": 0,
         "y": 0.7917,
         "w": 1,
         "h": 0.2083
       },
       {
-        "t": 7.68,
+        "t": 7.66,
         "x": 0,
         "y": 0,
         "w": 1,
         "h": 1
       }
     ],
-    "crf": 34
+    "crf": 28
   },
   "landing/beats/identify": {
     "id": "landing/beats/identify",
@@ -595,8 +595,8 @@
     "poster": "landing/beats/identify.poster.webp",
     "width": 2000,
     "height": 1500,
-    "bytes": 283619,
-    "duration": 9.4,
+    "bytes": 399712,
+    "duration": 9.57,
     "camera": [
       {
         "t": 0,
@@ -620,49 +620,49 @@
         "h": 0.5056
       },
       {
-        "t": 3.17,
+        "t": 3.18,
         "x": 0.1042,
         "y": 0.2478,
         "w": 0.5925,
         "h": 0.5056
       },
       {
-        "t": 3.97,
+        "t": 3.98,
         "x": 0.0133,
         "y": 0.3567,
         "w": 0.68,
         "h": 0.5778
       },
       {
-        "t": 5.84,
+        "t": 5.89,
         "x": 0.0133,
         "y": 0.3567,
         "w": 0.68,
         "h": 0.5778
       },
       {
-        "t": 6.64,
+        "t": 6.69,
         "x": 0.52,
         "y": 0,
         "w": 0.48,
         "h": 0.5444
       },
       {
-        "t": 8.14,
+        "t": 8.19,
         "x": 0.52,
         "y": 0,
         "w": 0.48,
         "h": 0.5444
       },
       {
-        "t": 8.94,
+        "t": 8.99,
         "x": 0,
         "y": 0,
         "w": 1,
         "h": 1
       }
     ],
-    "crf": 34
+    "crf": 28
   },
   "landing/beats/compress": {
     "id": "landing/beats/compress",
@@ -673,8 +673,8 @@
     "poster": "landing/beats/compress.poster.webp",
     "width": 2000,
     "height": 1500,
-    "bytes": 460529,
-    "duration": 12.8,
+    "bytes": 449912,
+    "duration": 12.87,
     "camera": [
       {
         "t": 0,
@@ -698,49 +698,49 @@
         "h": 0.1067
       },
       {
-        "t": 2.55,
+        "t": 2.56,
         "x": 0.605,
         "y": 0.2389,
         "w": 0.395,
         "h": 0.1067
       },
       {
-        "t": 3.35,
+        "t": 3.36,
         "x": 0.5075,
         "y": 0.3333,
         "w": 0.4792,
         "h": 0.1667
       },
       {
-        "t": 5.95,
+        "t": 5.89,
         "x": 0.5075,
         "y": 0.3333,
         "w": 0.4792,
         "h": 0.1667
       },
       {
-        "t": 6.75,
+        "t": 6.69,
         "x": 0.5075,
         "y": 0.7111,
         "w": 0.4792,
         "h": 0.2333
       },
       {
-        "t": 11.5,
+        "t": 11.54,
         "x": 0.5075,
         "y": 0.7111,
         "w": 0.4792,
         "h": 0.2333
       },
       {
-        "t": 12.3,
+        "t": 12.34,
         "x": 0,
         "y": 0,
         "w": 1,
         "h": 1
       }
     ],
-    "crf": 34
+    "crf": 28
   },
   "landing/beats/duplicates": {
     "id": "landing/beats/duplicates",
@@ -751,7 +751,7 @@
     "poster": "landing/beats/duplicates.poster.webp",
     "width": 2000,
     "height": 1352,
-    "bytes": 267617,
+    "bytes": 263504,
     "duration": 10.63,
     "camera": [
       {
@@ -804,14 +804,1450 @@
         "h": 0.1838
       },
       {
-        "t": 7.14,
+        "t": 7.17,
         "x": 0.0135,
         "y": 0.1688,
         "w": 0.973,
         "h": 0.1838
       },
       {
-        "t": 7.94,
+        "t": 7.97,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.58,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.38,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/hero/files-grid.elegance": {
+    "id": "landing/hero/files-grid.elegance",
+    "kind": "still",
+    "alt": "The Parallax Files page: the top bar with the section tabs, the sidebar, and a grid of video thumbnails with codec, size and duration under each.",
+    "route": "/files",
+    "theme": "elegance",
+    "baseId": "landing/hero/files-grid",
+    "src": "landing/hero/files-grid.elegance.webp",
+    "width": 1440,
+    "height": 690,
+    "bytes": 233972,
+    "variants": [
+      {
+        "src": "landing/hero/files-grid.elegance-720w.webp",
+        "width": 720,
+        "bytes": 106106
+      },
+      {
+        "src": "landing/hero/files-grid.elegance-1080w.webp",
+        "width": 1080,
+        "bytes": 175642
+      }
+    ],
+    "quality": 90
+  },
+  "landing/hero/files-grid.graphite": {
+    "id": "landing/hero/files-grid.graphite",
+    "kind": "still",
+    "alt": "The Parallax Files page: the top bar with the section tabs, the sidebar, and a grid of video thumbnails with codec, size and duration under each.",
+    "route": "/files",
+    "theme": "graphite",
+    "baseId": "landing/hero/files-grid",
+    "src": "landing/hero/files-grid.graphite.webp",
+    "width": 1440,
+    "height": 690,
+    "bytes": 236626,
+    "variants": [
+      {
+        "src": "landing/hero/files-grid.graphite-720w.webp",
+        "width": 720,
+        "bytes": 107848
+      },
+      {
+        "src": "landing/hero/files-grid.graphite-1080w.webp",
+        "width": 1080,
+        "bytes": 177008
+      }
+    ],
+    "quality": 90
+  },
+  "landing/hero/files-grid.rose": {
+    "id": "landing/hero/files-grid.rose",
+    "kind": "still",
+    "alt": "The Parallax Files page: the top bar with the section tabs, the sidebar, and a grid of video thumbnails with codec, size and duration under each.",
+    "route": "/files",
+    "theme": "rose",
+    "baseId": "landing/hero/files-grid",
+    "src": "landing/hero/files-grid.rose.webp",
+    "width": 1440,
+    "height": 690,
+    "bytes": 238880,
+    "variants": [
+      {
+        "src": "landing/hero/files-grid.rose-720w.webp",
+        "width": 720,
+        "bytes": 108380
+      },
+      {
+        "src": "landing/hero/files-grid.rose-1080w.webp",
+        "width": 1080,
+        "bytes": 178252
+      }
+    ],
+    "quality": 90
+  },
+  "landing/hero/files-grid.oled": {
+    "id": "landing/hero/files-grid.oled",
+    "kind": "still",
+    "alt": "The Parallax Files page: the top bar with the section tabs, the sidebar, and a grid of video thumbnails with codec, size and duration under each.",
+    "route": "/files",
+    "theme": "oled",
+    "baseId": "landing/hero/files-grid",
+    "src": "landing/hero/files-grid.oled.webp",
+    "width": 1440,
+    "height": 690,
+    "bytes": 242524,
+    "variants": [
+      {
+        "src": "landing/hero/files-grid.oled-720w.webp",
+        "width": 720,
+        "bytes": 111296
+      },
+      {
+        "src": "landing/hero/files-grid.oled-1080w.webp",
+        "width": 1080,
+        "bytes": 183280
+      }
+    ],
+    "quality": 90
+  },
+  "landing/beats/cleanup.elegance": {
+    "id": "landing/beats/cleanup.elegance",
+    "kind": "clip",
+    "alt": "On the Cleanup page, a duration filter is added, then a filename filter joined to it with AND. The AND/OR switch is flipped to OR and back, and the list of files narrows to the matches.",
+    "route": "/cleanup",
+    "theme": "elegance",
+    "baseId": "landing/beats/cleanup",
+    "src": "landing/beats/cleanup.elegance.mp4",
+    "poster": "landing/beats/cleanup.elegance.poster.webp",
+    "width": 2000,
+    "height": 1064,
+    "bytes": 374172,
+    "duration": 11.23,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.8,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.6,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.17,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.97,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 7.99,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 8.79,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 9.89,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 10.69,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/cleanup.graphite": {
+    "id": "landing/beats/cleanup.graphite",
+    "kind": "clip",
+    "alt": "On the Cleanup page, a duration filter is added, then a filename filter joined to it with AND. The AND/OR switch is flipped to OR and back, and the list of files narrows to the matches.",
+    "route": "/cleanup",
+    "theme": "graphite",
+    "baseId": "landing/beats/cleanup",
+    "src": "landing/beats/cleanup.graphite.mp4",
+    "poster": "landing/beats/cleanup.graphite.poster.webp",
+    "width": 2000,
+    "height": 1064,
+    "bytes": 388731,
+    "duration": 11.2,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.8,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.6,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.15,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.95,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 7.88,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 8.68,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 9.78,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 10.58,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/cleanup.rose": {
+    "id": "landing/beats/cleanup.rose",
+    "kind": "clip",
+    "alt": "On the Cleanup page, a duration filter is added, then a filename filter joined to it with AND. The AND/OR switch is flipped to OR and back, and the list of files narrows to the matches.",
+    "route": "/cleanup",
+    "theme": "rose",
+    "baseId": "landing/beats/cleanup",
+    "src": "landing/beats/cleanup.rose.mp4",
+    "poster": "landing/beats/cleanup.rose.poster.webp",
+    "width": 2000,
+    "height": 1064,
+    "bytes": 374702,
+    "duration": 11.27,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.8,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.6,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.27,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 4.07,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 7.97,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 8.77,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 9.87,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 10.67,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/cleanup.oled": {
+    "id": "landing/beats/cleanup.oled",
+    "kind": "clip",
+    "alt": "On the Cleanup page, a duration filter is added, then a filename filter joined to it with AND. The AND/OR switch is flipped to OR and back, and the list of files narrows to the matches.",
+    "route": "/cleanup",
+    "theme": "oled",
+    "baseId": "landing/beats/cleanup",
+    "src": "landing/beats/cleanup.oled.mp4",
+    "poster": "landing/beats/cleanup.oled.poster.webp",
+    "width": 2000,
+    "height": 1064,
+    "bytes": 404431,
+    "duration": 11.2,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.8,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.6,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.18,
+        "x": 0,
+        "y": 0,
+        "w": 0.5068,
+        "h": 0.2667
+      },
+      {
+        "t": 3.98,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 7.92,
+        "x": 0.174,
+        "y": 0,
+        "w": 0.5642,
+        "h": 0.2667
+      },
+      {
+        "t": 8.72,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 9.82,
+        "x": 0,
+        "y": 0.2317,
+        "w": 0.8277,
+        "h": 0.6
+      },
+      {
+        "t": 10.62,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/organize.elegance": {
+    "id": "landing/beats/organize.elegance",
+    "kind": "clip",
+    "alt": "In Organize, a messy folder shows common names found in its file names. Clicking one filters the folder to those files, then one click selects all the images, and the action bar for moving, renaming and deleting appears.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "theme": "elegance",
+    "baseId": "landing/beats/organize",
+    "src": "landing/beats/organize.elegance.mp4",
+    "poster": "landing/beats/organize.elegance.poster.webp",
+    "width": 2000,
+    "height": 810,
+    "bytes": 159969,
+    "duration": 8.17,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.73,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.53,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 3.24,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 4.04,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 4.9,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 5.7,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 6.9,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 7.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/organize.graphite": {
+    "id": "landing/beats/organize.graphite",
+    "kind": "clip",
+    "alt": "In Organize, a messy folder shows common names found in its file names. Clicking one filters the folder to those files, then one click selects all the images, and the action bar for moving, renaming and deleting appears.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "theme": "graphite",
+    "baseId": "landing/beats/organize",
+    "src": "landing/beats/organize.graphite.mp4",
+    "poster": "landing/beats/organize.graphite.poster.webp",
+    "width": 2000,
+    "height": 810,
+    "bytes": 154735,
+    "duration": 8.23,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.72,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.52,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 3.28,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 4.08,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 4.98,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 5.78,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 6.98,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 7.78,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/organize.rose": {
+    "id": "landing/beats/organize.rose",
+    "kind": "clip",
+    "alt": "In Organize, a messy folder shows common names found in its file names. Clicking one filters the folder to those files, then one click selects all the images, and the action bar for moving, renaming and deleting appears.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "theme": "rose",
+    "baseId": "landing/beats/organize",
+    "src": "landing/beats/organize.rose.mp4",
+    "poster": "landing/beats/organize.rose.poster.webp",
+    "width": 2000,
+    "height": 810,
+    "bytes": 173216,
+    "duration": 8.13,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.71,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.51,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 3.21,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 4.01,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 4.87,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 5.67,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 6.87,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 7.67,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/organize.oled": {
+    "id": "landing/beats/organize.oled",
+    "kind": "clip",
+    "alt": "In Organize, a messy folder shows common names found in its file names. Clicking one filters the folder to those files, then one click selects all the images, and the action bar for moving, renaming and deleting appears.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "theme": "oled",
+    "baseId": "landing/beats/organize",
+    "src": "landing/beats/organize.oled.mp4",
+    "poster": "landing/beats/organize.oled.poster.webp",
+    "width": 2000,
+    "height": 810,
+    "bytes": 176522,
+    "duration": 8.2,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.74,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.54,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 3.27,
+        "x": 0,
+        "y": 0.2542,
+        "w": 0.3994,
+        "h": 0.2167
+      },
+      {
+        "t": 4.07,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 4.96,
+        "x": 0,
+        "y": 0.3521,
+        "w": 0.6462,
+        "h": 0.2813
+      },
+      {
+        "t": 5.76,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 6.96,
+        "x": 0,
+        "y": 0.7917,
+        "w": 1,
+        "h": 0.2083
+      },
+      {
+        "t": 7.76,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/identify.elegance": {
+    "id": "landing/beats/identify.elegance",
+    "kind": "clip",
+    "alt": "In Identify, a folder of badly named episodes is matched to a TV show: the show is picked from the search results, every file drops into its episode slot, and the preview lists each old name next to its new, properly formatted name.",
+    "route": "/identify",
+    "theme": "elegance",
+    "baseId": "landing/beats/identify",
+    "src": "landing/beats/identify.elegance.mp4",
+    "poster": "landing/beats/identify.elegance.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 282069,
+    "duration": 9.47,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.6,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.4,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.16,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.96,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 5.86,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 6.66,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.16,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.97,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/identify.graphite": {
+    "id": "landing/beats/identify.graphite",
+    "kind": "clip",
+    "alt": "In Identify, a folder of badly named episodes is matched to a TV show: the show is picked from the search results, every file drops into its episode slot, and the preview lists each old name next to its new, properly formatted name.",
+    "route": "/identify",
+    "theme": "graphite",
+    "baseId": "landing/beats/identify",
+    "src": "landing/beats/identify.graphite.mp4",
+    "poster": "landing/beats/identify.graphite.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 282685,
+    "duration": 9.37,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.6,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.4,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.15,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.95,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 5.82,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 6.62,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.12,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.92,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/identify.rose": {
+    "id": "landing/beats/identify.rose",
+    "kind": "clip",
+    "alt": "In Identify, a folder of badly named episodes is matched to a TV show: the show is picked from the search results, every file drops into its episode slot, and the preview lists each old name next to its new, properly formatted name.",
+    "route": "/identify",
+    "theme": "rose",
+    "baseId": "landing/beats/identify",
+    "src": "landing/beats/identify.rose.mp4",
+    "poster": "landing/beats/identify.rose.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 276255,
+    "duration": 9.53,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.6,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.4,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.14,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.94,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 5.84,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 6.64,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.14,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.94,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/identify.oled": {
+    "id": "landing/beats/identify.oled",
+    "kind": "clip",
+    "alt": "In Identify, a folder of badly named episodes is matched to a TV show: the show is picked from the search results, every file drops into its episode slot, and the preview lists each old name next to its new, properly formatted name.",
+    "route": "/identify",
+    "theme": "oled",
+    "baseId": "landing/beats/identify",
+    "src": "landing/beats/identify.oled.mp4",
+    "poster": "landing/beats/identify.oled.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 284756,
+    "duration": 9.57,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.6,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.4,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.16,
+        "x": 0.1042,
+        "y": 0.2478,
+        "w": 0.5925,
+        "h": 0.5056
+      },
+      {
+        "t": 3.96,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 5.88,
+        "x": 0.0133,
+        "y": 0.3567,
+        "w": 0.68,
+        "h": 0.5778
+      },
+      {
+        "t": 6.68,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.18,
+        "x": 0.52,
+        "y": 0,
+        "w": 0.48,
+        "h": 0.5444
+      },
+      {
+        "t": 8.98,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/duplicates.elegance": {
+    "id": "landing/beats/duplicates.elegance",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "theme": "elegance",
+    "baseId": "landing/beats/duplicates",
+    "src": "landing/beats/duplicates.elegance.mp4",
+    "poster": "landing/beats/duplicates.elegance.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 262991,
+    "duration": 10.6,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.5,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.7,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.5,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 5.9,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.7,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.15,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.95,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.55,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.35,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/duplicates.graphite": {
+    "id": "landing/beats/duplicates.graphite",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "theme": "graphite",
+    "baseId": "landing/beats/duplicates",
+    "src": "landing/beats/duplicates.graphite.mp4",
+    "poster": "landing/beats/duplicates.graphite.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 255617,
+    "duration": 10.67,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.5,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.7,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.5,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 5.9,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.7,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.17,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.97,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.59,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.39,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/duplicates.rose": {
+    "id": "landing/beats/duplicates.rose",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "theme": "rose",
+    "baseId": "landing/beats/duplicates",
+    "src": "landing/beats/duplicates.rose.mp4",
+    "poster": "landing/beats/duplicates.rose.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 267922,
+    "duration": 10.67,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.5,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.71,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.51,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 5.91,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.71,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.19,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.99,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.61,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.41,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/duplicates.oled": {
+    "id": "landing/beats/duplicates.oled",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "theme": "oled",
+    "baseId": "landing/beats/duplicates",
+    "src": "landing/beats/duplicates.oled.mp4",
+    "poster": "landing/beats/duplicates.oled.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 268721,
+    "duration": 10.6,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.5,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.71,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.51,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 5.91,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.71,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.17,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.97,
         "x": 0.0135,
         "y": 0.2188,
         "w": 0.5405,
@@ -832,6 +2268,378 @@
         "h": 1
       }
     ],
-    "crf": 34
+    "crf": 28
+  },
+  "landing/beats/compress.elegance": {
+    "id": "landing/beats/compress.elegance",
+    "kind": "clip",
+    "alt": "On the Compress page, the encoding settings drawer opens and the quality slider is moved. The estimated output size and savings change as it moves.",
+    "route": "/compress",
+    "theme": "elegance",
+    "baseId": "landing/beats/compress",
+    "src": "landing/beats/compress.elegance.mp4",
+    "poster": "landing/beats/compress.elegance.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 446030,
+    "duration": 12.93,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.71,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.51,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 2.62,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 3.42,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 6.01,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 6.81,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 11.68,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 12.48,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/compress.graphite": {
+    "id": "landing/beats/compress.graphite",
+    "kind": "clip",
+    "alt": "On the Compress page, the encoding settings drawer opens and the quality slider is moved. The estimated output size and savings change as it moves.",
+    "route": "/compress",
+    "theme": "graphite",
+    "baseId": "landing/beats/compress",
+    "src": "landing/beats/compress.graphite.mp4",
+    "poster": "landing/beats/compress.graphite.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 442423,
+    "duration": 12.87,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.72,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.52,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 2.58,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 3.38,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 5.98,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 6.78,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 11.61,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 12.41,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/compress.rose": {
+    "id": "landing/beats/compress.rose",
+    "kind": "clip",
+    "alt": "On the Compress page, the encoding settings drawer opens and the quality slider is moved. The estimated output size and savings change as it moves.",
+    "route": "/compress",
+    "theme": "rose",
+    "baseId": "landing/beats/compress",
+    "src": "landing/beats/compress.rose.mp4",
+    "poster": "landing/beats/compress.rose.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 454665,
+    "duration": 12.73,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.73,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.53,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 2.62,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 3.42,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 6,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 6.8,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 11.47,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 12.27,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/compress.oled": {
+    "id": "landing/beats/compress.oled",
+    "kind": "clip",
+    "alt": "On the Compress page, the encoding settings drawer opens and the quality slider is moved. The estimated output size and savings change as it moves.",
+    "route": "/compress",
+    "theme": "oled",
+    "baseId": "landing/beats/compress",
+    "src": "landing/beats/compress.oled.mp4",
+    "poster": "landing/beats/compress.oled.poster.webp",
+    "width": 2000,
+    "height": 1500,
+    "bytes": 460706,
+    "duration": 12.97,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.71,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.51,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 2.57,
+        "x": 0.605,
+        "y": 0.2389,
+        "w": 0.395,
+        "h": 0.1067
+      },
+      {
+        "t": 3.37,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 5.98,
+        "x": 0.5075,
+        "y": 0.3333,
+        "w": 0.4792,
+        "h": 0.1667
+      },
+      {
+        "t": 6.78,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 11.58,
+        "x": 0.5075,
+        "y": 0.7111,
+        "w": 0.4792,
+        "h": 0.2333
+      },
+      {
+        "t": 12.38,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/hero/files-grid-mobile.elegance": {
+    "id": "landing/hero/files-grid-mobile.elegance",
+    "kind": "still",
+    "alt": "The Parallax Files page on a phone.",
+    "route": "/files",
+    "theme": "elegance",
+    "baseId": "landing/hero/files-grid-mobile",
+    "src": "landing/hero/files-grid-mobile.elegance.webp",
+    "width": 430,
+    "height": 900,
+    "bytes": 115292,
+    "quality": 90
+  },
+  "landing/hero/files-grid-mobile.graphite": {
+    "id": "landing/hero/files-grid-mobile.graphite",
+    "kind": "still",
+    "alt": "The Parallax Files page on a phone.",
+    "route": "/files",
+    "theme": "graphite",
+    "baseId": "landing/hero/files-grid-mobile",
+    "src": "landing/hero/files-grid-mobile.graphite.webp",
+    "width": 430,
+    "height": 900,
+    "bytes": 115502,
+    "quality": 90
+  },
+  "landing/hero/files-grid-mobile.rose": {
+    "id": "landing/hero/files-grid-mobile.rose",
+    "kind": "still",
+    "alt": "The Parallax Files page on a phone.",
+    "route": "/files",
+    "theme": "rose",
+    "baseId": "landing/hero/files-grid-mobile",
+    "src": "landing/hero/files-grid-mobile.rose.webp",
+    "width": 430,
+    "height": 900,
+    "bytes": 116346,
+    "quality": 90
+  },
+  "landing/hero/files-grid-mobile.oled": {
+    "id": "landing/hero/files-grid-mobile.oled",
+    "kind": "still",
+    "alt": "The Parallax Files page on a phone.",
+    "route": "/files",
+    "theme": "oled",
+    "baseId": "landing/hero/files-grid-mobile",
+    "src": "landing/hero/files-grid-mobile.oled.webp",
+    "width": 430,
+    "height": 900,
+    "bytes": 117300,
+    "quality": 90
   }
 }

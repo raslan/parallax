@@ -44,6 +44,9 @@ const DEBUG = argv.includes("--debug");
 const VIEWPORT = { width: 1440, height: 900 };
 const BUDGET_KB = { still: 150, clip: 600 };
 const MAX_CLIP_WIDTH = 960;
+// The five looks on the landing page's colour strip (same ids as site/lib/themes.generated.ts).
+const DEFAULT_THEME = "parallax";
+const LANDING_THEMES = ["parallax", "elegance", "graphite", "rose", "oled"];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const die = (msg) => {
@@ -59,7 +62,20 @@ async function loadShots() {
     .filter((n) => n.endsWith(".mjs"))
     .sort()) {
     const mod = await import(pathToFileURL(join(dir, f)).href);
-    for (const s of mod.default) shots.push({ ...s, _file: f });
+    for (const s of mod.default) {
+      shots.push({ ...s, _file: f, theme: DEFAULT_THEME });
+      // `themes: true` films the same shot once per landing theme: `<id>` is the default look, `<id>.<theme>` the rest.
+      if (s.themes)
+        for (const theme of LANDING_THEMES)
+          if (theme !== DEFAULT_THEME)
+            shots.push({
+              ...s,
+              id: `${s.id}.${theme}`,
+              _file: f,
+              theme,
+              baseId: s.id,
+            });
+    }
   }
   const seen = new Set();
   for (const s of shots) {
@@ -100,6 +116,10 @@ async function guard() {
 async function settle(page, shot) {
   await page.goto(BASE + shot.route);
   await page.waitForLoadState("networkidle");
+  // The app stamps its saved theme on <html>; shots filmed in another look override it for this page only
+  // (nothing is saved to the demo's settings).
+  if (shot.themes || shot.baseId)
+    await page.evaluate((t) => (document.documentElement.dataset.theme = t), shot.theme);
   for (const w of shot.waitFor ?? []) {
     await (typeof w === "string" ? page.locator(w) : page.getByText(w))
       .first()
@@ -487,6 +507,7 @@ for (const shot of selected) {
       kind: shot.kind,
       alt: shot.alt,
       route: shot.route,
+      ...(shot.baseId ? { theme: shot.theme, baseId: shot.baseId } : {}),
       ...res,
     };
     console.log(`${Math.round(res.bytes / 1024)} KB  ${res.width}×${res.height}`);

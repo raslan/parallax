@@ -64,7 +64,10 @@ export default [
       await page.getByText("Encoding settings").first().click();
       await page.getByText("Max resolution").first().waitFor();
     },
-    crop: { selectors: ["[role=dialog], [data-state=open][class*=fixed]"], pad: 0 },
+    crop: {
+      selectors: ["[role=dialog], [data-state=open][class*=fixed]"],
+      pad: 0,
+    },
   },
   {
     id: "features/toolbox/fixes",

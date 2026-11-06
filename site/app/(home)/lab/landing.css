@@ -388,11 +388,22 @@
   background: var(--color-fd-card);
   box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.7);
 }
+/* Two videos are stacked so a theme change can crossfade from the old look to the new one. */
 .lp-clip video {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.lp-clip video[data-front] {
+  opacity: 1;
+}
+.lp[data-motion="off"] .lp-clip video {
+  transition: none;
 }
 
 /* ---- reveal on scroll (only when the script is running and motion is on) ------------------- */

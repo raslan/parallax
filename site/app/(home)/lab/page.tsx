@@ -5,18 +5,31 @@ import { LoopVideo } from "@/components/landing/loop-video";
 import { Motion, Stars } from "@/components/landing/motion";
 import { ThemeDots } from "@/components/landing/theme-dots";
 import { ZoomImage } from "@/components/landing/zoom-image";
-import type { CameraKey } from "@/components/landing/loop-video";
+import type { CameraKey, ClipTake } from "@/components/landing/loop-video";
+import { themedId } from "@/lib/theme-assets";
+import { DEFAULT_THEME, THEMES } from "@/lib/themes.generated";
 import manifest from "@/lib/media-manifest.json";
 
-type Clip = {
+type Take = {
   id: string;
   alt: string;
   width: number;
   height: number;
   camera: CameraKey[];
 };
-const clip = (name: string) =>
-  manifest[`landing/beats/${name}` as keyof typeof manifest] as unknown as Clip;
+const take = (id: string) => manifest[id as keyof typeof manifest] as unknown as Take | undefined;
+
+// A clip is filmed once per theme (see the capture tool's `themes`); a theme without its own take falls back
+// to the default look.
+function clip(name: string) {
+  const base = take(themedId(`landing/beats/${name}`, DEFAULT_THEME))!;
+  const takes: Record<string, ClipTake> = {};
+  for (const t of THEMES) {
+    const m = take(themedId(`landing/beats/${name}`, t.id));
+    if (m) takes[t.id] = { id: m.id, camera: m.camera };
+  }
+  return { alt: base.alt, width: base.width, height: base.height, takes };
+}
 
 // Everything else, as short phrases that each link to their page in the docs.
 const MORE: [string, string][] = [
@@ -196,11 +209,10 @@ export default function LandingPrototype() {
             </div>
             <div data-reveal="late" data-parallax="0.04">
               <LoopVideo
-                id={b.clip.id}
                 alt={b.clip.alt}
                 width={b.clip.width}
                 height={b.clip.height}
-                camera={b.clip.camera}
+                takes={b.clip.takes}
               />
             </div>
           </section>

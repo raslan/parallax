@@ -53,9 +53,21 @@ function makeSparkles(count: number, seed: number): Sparkle[] {
 
 // Three depths: far stars barely move, near ones move more. The logo's own sparkle shape is used for a few.
 const LAYERS = [
-  { speed: 0.06, stars: makeStars(70, 11, [1, 1.6], [0.25, 0.55]), sparkles: [] as Sparkle[] },
-  { speed: 0.14, stars: makeStars(34, 23, [1.4, 2.2], [0.35, 0.7]), sparkles: makeSparkles(3, 5) },
-  { speed: 0.26, stars: makeStars(14, 37, [2, 3], [0.45, 0.85]), sparkles: makeSparkles(3, 9) },
+  {
+    speed: 0.06,
+    stars: makeStars(70, 11, [1, 1.6], [0.25, 0.55]),
+    sparkles: [] as Sparkle[],
+  },
+  {
+    speed: 0.14,
+    stars: makeStars(34, 23, [1.4, 2.2], [0.35, 0.7]),
+    sparkles: makeSparkles(3, 5),
+  },
+  {
+    speed: 0.26,
+    stars: makeStars(14, 37, [2, 3], [0.45, 0.85]),
+    sparkles: makeSparkles(3, 9),
+  },
 ];
 
 function Sparkles({ items }: { items: Sparkle[] }) {
@@ -239,7 +251,10 @@ export function Motion({ rootId }: { rootId: string }) {
       const target = document.getElementById(link.getAttribute("href")!.slice(1));
       if (!target) return;
       event.preventDefault();
-      target.scrollIntoView({ behavior: offRef.current ? "auto" : "smooth", block: "start" });
+      target.scrollIntoView({
+        behavior: offRef.current ? "auto" : "smooth",
+        block: "start",
+      });
       history.replaceState(null, "", link.getAttribute("href"));
       target.focus({ preventScroll: true });
     };
