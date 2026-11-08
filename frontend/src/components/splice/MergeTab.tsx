@@ -17,6 +17,9 @@ import {
 import { CompressProgress } from "@/components/compress/CompressProgress";
 import { GridSizeControl } from "@/components/GridSizeControl";
 import { LibraryBar } from "@/components/LibraryBar";
+import { QueryBuilder } from "@/components/QueryBuilder";
+import { useQueryBuilder } from "@/hooks/useQueryBuilder";
+import { cleanupFields } from "@/lib/cleanupFields";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { VideoThumbnail } from "@/components/VideoThumbnail";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
@@ -79,6 +82,8 @@ export function MergeTab() {
   const queryClient = useQueryClient();
   const [libraryId, setLibraryId] = useState<number | null>(null);
 
+  const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
+    useQueryBuilder(cleanupFields);
   const { selected, setSelected } = useSelection();
   const marqueeBase = useRef<ReadonlySet<number>>(new Set());
   const [order, setOrder] = useState<number[]>([]);
@@ -161,9 +166,17 @@ export function MergeTab() {
     [files, sortKey, sortDir],
   );
   const filteredFiles = useMemo(
-    () => (displayFiles ? filterByFilename(displayFiles, search) : null),
-    [displayFiles, search],
+    () =>
+      displayFiles
+        ? filterByFilename(
+            displayFiles.filter((f) => evaluate(f)),
+            search,
+          )
+        : null,
+    [displayFiles, evaluate, search],
   );
+  const filtering = clauses.length > 0 || search.trim() !== "";
+  const filterKey = JSON.stringify(clauses);
 
   // Selection changes also re-sync the merge order in the same handler.
   const applySelection = (next: Set<number>) => {
@@ -333,6 +346,17 @@ export function MergeTab() {
         />
       </div>
 
+      <div className="rounded-lg border bg-card p-4 shrink-0">
+        <QueryBuilder
+          registry={cleanupFields}
+          clauses={clauses}
+          fieldsByKey={fieldsByKey}
+          onAdd={addClause}
+          onRemove={removeClause}
+          onUpdate={updateClause}
+        />
+      </div>
+
       {(isRunning || isDone) && jobId != null && (
         <div className="space-y-2">
           <CompressProgress
@@ -395,8 +419,8 @@ export function MergeTab() {
 
           {filteredFiles.length === 0 ? (
             <EmptyState
-              icon={search.trim() ? SearchX : Film}
-              title={search.trim() ? "No files match your search" : "No files in this library"}
+              icon={filtering ? SearchX : Film}
+              title={filtering ? "No files match your filters" : "No files in this library"}
             />
           ) : viewMode === "grid" ? (
             <div className="flex-1 min-h-[200px]">
@@ -409,7 +433,7 @@ export function MergeTab() {
                 itemAspectRatio={4 / 3}
                 itemChromeHeight={48}
                 minColumnWidth={gridSize}
-                resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}-${gridSize}`}
+                resetKey={`${libraryId}-${sortKey}-${sortDir}-${search}-${filterKey}-${gridSize}`}
                 renderItem={(f) => (
                   <FileGridCard
                     file={f}
@@ -493,7 +517,7 @@ export function MergeTab() {
 
       <SelectionBar
         count={selected.size}
-        bytes={sumSizeOf(filteredFiles ?? [], selected)}
+        bytes={sumSizeOf(files ?? [], selected)}
         onClear={selectNone}
       >
         <Button
