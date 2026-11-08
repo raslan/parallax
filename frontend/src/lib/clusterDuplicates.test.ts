@@ -22,6 +22,8 @@ const BASE_CRITERIA: DuplicateCriteria = {
   phash_frames: 16,
   use_audio: false,
   audio_threshold: 0.9,
+  audio_similarity: 0.75,
+  audio_min_stretch: 10,
 };
 
 function file(id: number, overrides: Partial<VideoFile> = {}): VideoFile {
@@ -47,12 +49,67 @@ function file(id: number, overrides: Partial<VideoFile> = {}): VideoFile {
     phash: null,
     phash_frames: null,
     byte_hash: null,
-    audio_fingerprint: null,
+    shared_audio: null,
     ...overrides,
   };
 }
 
 describe("clusterDuplicates", () => {
+  it("lists the suggested keeper first in its group, the others in their original order", () => {
+    // 3 is the longest, so it is the keeper; 1, 2 and 4 follow in the order they came in.
+    const files = [
+      file(1, { duration: 50 }),
+      file(2, { duration: 50 }),
+      file(3, { duration: 60 }),
+      file(4, { duration: 50 }),
+    ];
+    const groups = clusterDuplicates(files, { ...BASE_CRITERIA, use_size: true });
+    expect(groups[0]!.keep_id).toBe(3);
+    expect(groups[0]!.files.map((f) => f.id)).toEqual([3, 1, 2, 4]);
+  });
+
+  describe("shared audio", () => {
+    const audio = { ...BASE_CRITERIA, use_audio: true, audio_threshold: 0.8 };
+    // File 1 is the long cut. 2 and 3 are pieces of it that share nothing with each other.
+    const files = () => [
+      file(1, {
+        shared_audio: JSON.stringify([
+          [2, 1.0],
+          [3, 0.9],
+          [4, 0.3],
+        ]),
+      }),
+      file(2, { shared_audio: JSON.stringify([[1, 1.0]]) }),
+      file(3, { shared_audio: JSON.stringify([[1, 0.9]]) }),
+      file(4, { shared_audio: JSON.stringify([[1, 0.3]]) }),
+      file(5),
+    ];
+
+    it("groups files chained through the one they are inside of, at or above the threshold", () => {
+      const groups = clusterDuplicates(files(), audio);
+      expect(groups).toHaveLength(1);
+      expect(groups[0]!.files.map((f) => f.id)).toEqual([1, 2, 3]);
+    });
+
+    it("a lower threshold pulls in weaker matches", () => {
+      const groups = clusterDuplicates(files(), { ...audio, audio_threshold: 0.2 });
+      expect(groups[0]!.files.map((f) => f.id)).toEqual([1, 2, 3, 4]);
+    });
+
+    it("only links files that are in the same group after the other criteria", () => {
+      const groups = clusterDuplicates(
+        [file(1, { size: 10, shared_audio: JSON.stringify([[2, 1.0]]) }), file(2, { size: 20 })],
+        { ...audio, use_size: true },
+      );
+      expect(groups).toEqual([]);
+    });
+
+    it("ignores a missing or malformed value", () => {
+      const groups = clusterDuplicates([file(1, { shared_audio: "not json" }), file(2)], audio);
+      expect(groups).toEqual([]);
+    });
+  });
+
   it("zero criteria groups the whole library into one group", () => {
     const files = [file(1), file(2), file(3)];
     const groups = clusterDuplicates(files, BASE_CRITERIA);

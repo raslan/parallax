@@ -6,10 +6,15 @@ from app.database import SessionLocal
 from app.models.file import File, FileStatus
 from app.models.job import Job, JobStatus
 from app.models.settings import get_setting
-from app.services.audio_fingerprint import compute_audio_fingerprint
 from app.services.byte_hash import compute_byte_hash
-from app.services.common import arm_cancel, clear_cancel, fail_job, now, should_cancel
+from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 from app.services.phash_scanner import _Cancelled, _extract_phash_frames
+from app.services.shared_audio import (
+    compute_shared_audio,
+    describe_plan,
+    measured_settings,
+    write_shared_audio,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +64,18 @@ def _orientation(width: int | None, height: int | None) -> str | None:
 
 
 def scope_extraction_candidates(files: list[dict], criteria: dict) -> set[int]:
+    """The ids that survive `scope_extraction_groups`."""
+    return {f["id"] for group in scope_extraction_groups(files, criteria) for f in group}
+
+
+def scope_extraction_groups(files: list[dict], criteria: dict) -> list[list[dict]]:
     """Free-tier funnel (no ffmpeg, only fields already in the DB): narrows
     the full candidate set down to files that land in a >=2-file cluster
     under every *enabled* stage, in the same cheapest-first order the
     client's clustering engine uses. Files whose relevant field is None are
     excluded from that stage's clustering only when the stage is enabled.
+    Returns those clusters, so work that compares files (shared audio) can stay
+    inside a cluster instead of pairing every survivor with every other.
 
     This is what Task 5's extraction job scopes ffmpeg work to — extraction
     should never run for a file that could never reach comparison anyway.
@@ -102,12 +114,12 @@ def scope_extraction_candidates(files: list[dict], criteria: dict) -> set[int]:
     if criteria["use_size"]:
         groups = split(lambda f: f["size"])
     if not groups:
-        return set()
+        return []
 
     if criteria["use_duration"]:
         groups = split_tolerance(lambda f: f["duration"], criteria["duration_tolerance"])
     if not groups:
-        return set()
+        return []
 
     if criteria["use_resolution"]:
         groups = split(
@@ -116,17 +128,17 @@ def scope_extraction_candidates(files: list[dict], criteria: dict) -> set[int]:
             else None
         )
     if not groups:
-        return set()
+        return []
 
     if criteria["use_content_date"]:
         groups = split_tolerance(lambda f: f["file_date"], criteria["content_date_tolerance"])
     if not groups:
-        return set()
+        return []
 
     if criteria["use_orientation"]:
         groups = split(lambda f: _orientation(f["file_width"], f["file_height"]))
     if not groups:
-        return set()
+        return []
 
     if criteria["use_bitrate"]:
         tol_pct = criteria["bitrate_tolerance_pct"] / 100.0
@@ -149,7 +161,7 @@ def scope_extraction_candidates(files: list[dict], criteria: dict) -> set[int]:
                 i = j if j > i else i + 1
         groups = next_groups
     if not groups:
-        return set()
+        return []
 
     if criteria["use_filename"]:
         threshold = criteria["filename_threshold"]
@@ -171,16 +183,18 @@ def scope_extraction_candidates(files: list[dict], criteria: dict) -> set[int]:
                     next_groups.append(cluster)
         groups = next_groups
 
-    return {f["id"] for group in groups for f in group}
+    return groups
 
 
 def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
     """Extraction-only: no comparison, no cached result. Scopes ffmpeg work
     to files that survive the free-tier funnel first (Task 4), then
-    extracts whichever of byte-hash / pHash / audio-fingerprint are
-    enabled and not already cached at the requested fidelity. All
-    comparison happens client-side (see frontend/src/lib/clusterDuplicates.ts)
-    against the columns this job fills in.
+    extracts whichever of byte-hash / pHash are enabled and not already
+    cached at the requested fidelity. The audio criterion is different: it
+    is a relation between files, so it is recomputed on every run (shared
+    audio, written to `File.shared_audio`). All grouping happens client-side
+    (see frontend/src/lib/clusterDuplicates.ts) against the columns this
+    job fills in.
     """
     db = SessionLocal()
     job = db.get(Job, job_id)
@@ -188,6 +202,10 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
         if job:
             job.status = JobStatus.RUNNING
             job.started_at = now()
+            if criteria["use_audio"]:
+                # What the stored shared-audio values will be measured with, so the page can
+                # tell later (even after a reload) whether the sliders still match them.
+                job.settings = measured_settings(criteria)
             db.commit()
             arm_cancel(job_id)
 
@@ -211,33 +229,38 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
                 "file_date": f.file_date,
                 "video_bitrate": f.video_bitrate,
                 "filename": f.filename,
+                # Read now: later commits expire the ORM rows, and a file deleted meanwhile
+                # would make reading its path afterwards raise.
+                "path": f.path,
             }
             for f in all_files
         ]
-        candidate_ids = scope_extraction_candidates(plain, criteria)
+        groups = scope_extraction_groups(plain, criteria)
+        candidate_ids = {f["id"] for group in groups for f in group}
 
-        to_extract: list[tuple[File, bool, bool, bool]] = []
+        to_extract: list[tuple[File, bool, bool]] = []
         for fid in candidate_ids:
             f = by_id[fid]
             needs_byte_hash = criteria["use_byte_hash"] and f.byte_hash is None
             needs_phash = criteria["use_phash"] and _needs_phash_rescan(f, criteria)
-            needs_audio = criteria["use_audio"] and f.audio_fingerprint is None
-            if needs_byte_hash or needs_phash or needs_audio:
-                to_extract.append((f, needs_byte_hash, needs_phash, needs_audio))
+            if needs_byte_hash or needs_phash:
+                to_extract.append((f, needs_byte_hash, needs_phash))
 
         if job:
             job.total_files = len(to_extract)
             db.commit()
 
-        if not to_extract:
+        # Shared audio is a relation between files, so unlike the signals above it is
+        # never "already extracted": every Extract recomputes it for the funnel groups.
+        if not to_extract and not criteria["use_audio"]:
             _finish(db, job, cancelled=False)
             return
 
         n_concurrent = max(1, int(get_setting(db, "scan_prefetch", "4")))
-        by_id_extract = {f.id: f for f, _, _, _ in to_extract}
+        by_id_extract = {f.id: f for f, _, _ in to_extract}
         work_items = [
-            (f.id, f.path, needs_byte_hash, needs_phash, needs_audio)
-            for f, needs_byte_hash, needs_phash, needs_audio in to_extract
+            (f.id, f.path, needs_byte_hash, needs_phash)
+            for f, needs_byte_hash, needs_phash in to_extract
         ]
 
         def _extract_one(
@@ -245,11 +268,10 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
             path: str,
             needs_byte_hash: bool,
             needs_phash: bool,
-            needs_audio: bool,
         ) -> tuple[int, dict, dict[str, str]]:
             # Each signal is computed independently: a failure extracting one
-            # (e.g. audio fingerprint) must not discard a signal that already
-            # succeeded for this file (e.g. byte-hash).
+            # (e.g. pHash) must not discard a signal that already succeeded
+            # for this file (e.g. byte-hash).
             result: dict = {}
             errors: dict[str, str] = {}
             if needs_byte_hash:
@@ -269,21 +291,17 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
                     errors["phash"] = "cancelled"
                 except Exception as exc:
                     errors["phash"] = str(exc)
-            if needs_audio:
-                try:
-                    result["audio_fingerprint"] = compute_audio_fingerprint(path, job_id)
-                except _Cancelled:
-                    errors["audio"] = "cancelled"
-                except Exception as exc:
-                    errors["audio"] = str(exc)
             return file_id, result, errors
 
+        # With shared audio on, the per-file extractions fill the first 40% of the
+        # progress bar and the audio fingerprinting + matching the rest.
+        # With nothing else to extract, shared audio gets the whole bar.
+        pool_share = 1.0 if not criteria["use_audio"] else (0.4 if to_extract else 0.0)
         completed = 0
         was_cancelled = False
         with _cf.ThreadPoolExecutor(max_workers=n_concurrent) as pool:
             pending = {
-                pool.submit(_extract_one, fid, path, nbh, nph, nau)
-                for fid, path, nbh, nph, nau in work_items
+                pool.submit(_extract_one, fid, path, nbh, nph) for fid, path, nbh, nph in work_items
             }
             while pending:
                 done, pending = _cf.wait(pending, timeout=2.0)
@@ -307,8 +325,6 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
                         f.phash = hashes[0]
                         f.phash_frames = json.dumps([str(h) for h in hashes])
                         f.phash_scanned_at = now()
-                    if "audio_fingerprint" in result and result["audio_fingerprint"]:
-                        f.audio_fingerprint = json.dumps(result["audio_fingerprint"])
                     if result:
                         completed += 1
                     for signal, err in errors.items():
@@ -321,9 +337,50 @@ def find_duplicates(library_id: int, job_id: int, criteria: dict) -> None:
                 if job:
                     job.processed_files = completed
                     job.progress = (
-                        min(99.0, completed / len(to_extract) * 100) if to_extract else 100.0
+                        min(99.0, completed / len(to_extract) * 100 * pool_share)
+                        if to_extract
+                        else 100.0 * pool_share
                     )
                     db.commit()
+
+        if criteria["use_audio"] and not was_cancelled:
+            # The audio phase counts its own files: the tracks that survived the other criteria.
+            n_audio = sum(len(group) for group in groups if len(group) > 1)
+            if job:
+                job.total_files = n_audio
+                job.processed_files = 0
+                db.commit()
+
+            def _audio_progress(p: float) -> None:
+                if job:
+                    job.progress = min(99.0, 100.0 * pool_share + p * (100.0 - 100.0 * pool_share))
+                    # Fingerprinting is the first half of the audio phase, one count per file.
+                    job.processed_files = min(n_audio, int(p * 2 * n_audio))
+                    db.commit()
+
+            def _plan(files: int, group_count: int, pairs: int) -> None:
+                message, level = describe_plan(files, group_count, pairs)
+                log(db, job_id, message, level)
+
+            # End the open transaction: the fingerprinting below can run for a long time and
+            # must not hold a pooled connection while it does.
+            db.commit()
+            shared = compute_shared_audio(
+                [[(f["id"], f["path"]) for f in group] for group in groups],
+                workers=n_concurrent,
+                is_cancelled=lambda: should_cancel(job_id),
+                on_progress=_audio_progress,
+                on_plan=_plan,
+                similarity=criteria.get("audio_similarity", 0.75),
+                min_stretch_s=criteria.get("audio_min_stretch", 10.0),
+            )
+            if shared is None:
+                was_cancelled = True
+            else:
+                # A file deleted during the run is simply skipped, and the previous run's
+                # values for every file are replaced, never mixed with this run's.
+                write_shared_audio(db, File.__table__, File.library_id == library_id, shared)
+                db.commit()
 
         _finish(db, job, cancelled=was_cancelled)
     except Exception as e:

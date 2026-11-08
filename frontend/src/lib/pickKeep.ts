@@ -202,3 +202,9 @@ const imageTiers: Tier<ImageFile>[] = [
 export function pickImageKeep(files: ImageFile[]): number {
   return pick(files, imageTiers);
 }
+
+/** `files` with the suggested keeper first; the others keep their order. */
+export function keeperFirst<T extends { id: number }>(files: T[], keepId: number): T[] {
+  const keeper = files.find((f) => f.id === keepId);
+  return keeper ? [keeper, ...files.filter((f) => f !== keeper)] : files;
+}

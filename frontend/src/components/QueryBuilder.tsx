@@ -119,10 +119,15 @@ export function PercentSlider({
   leading,
   value,
   onChange,
+  min = 0,
+  max = 100,
 }: {
   leading: React.ReactNode;
   value: number;
   onChange: (v: number) => void;
+  /** The range the slider covers, so it has no stretch where the value is not allowed. */
+  min?: number;
+  max?: number;
 }) {
   return (
     <div className="flex w-full min-w-[260px] flex-col gap-2">
@@ -136,8 +141,8 @@ export function PercentSlider({
         </span>
       </div>
       <Slider
-        min={0}
-        max={100}
+        min={min}
+        max={max}
         step={1}
         value={[value]}
         onValueChange={([v]) => onChange(v ?? value)}

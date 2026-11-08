@@ -26,7 +26,8 @@ export interface AudioFile {
   scan_error: string | null;
   scanned_at: string | null;
   compressed_at: string | null;
-  audio_fingerprint?: string | null;
+  /** JSON [[otherFileId, share of the shorter one found in the other], ...], set by Find duplicates. */
+  shared_audio: string | null;
   created_at: string;
 }
 

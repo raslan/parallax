@@ -28,6 +28,7 @@ function row(over: Partial<AudioFile>): AudioFile {
     scan_error: null,
     scanned_at: null,
     compressed_at: null,
+    shared_audio: null,
     created_at: "",
     ...over,
   };

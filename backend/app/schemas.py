@@ -23,6 +23,26 @@ class DuplicateCriteriaRequest(BaseModel):
     phash_frames: int = 16
     use_audio: bool = False
     audio_threshold: float = 0.9
+    # Shared-audio matching (the browser's "Min shared" is audio_threshold; these two change
+    # what the server measures, so they are part of the Extract request).
+    # Below ~65% unrelated music starts to count as "the same audio" (measured on real files).
+    audio_similarity: float = Field(default=0.75, ge=0.65, le=0.95)
+    audio_min_stretch: float = Field(default=10.0, ge=0.0, le=3600.0)  # seconds
+
+
+class AudioDuplicateCriteriaRequest(BaseModel):
+    """The audio Duplicates page's criteria; the defaults mirror the page's own."""
+
+    use_size: bool = False
+    use_duration: bool = True
+    duration_tolerance: float = 2.0
+    use_content_date: bool = False
+    content_date_tolerance: float = 60.0
+    use_audio: bool = True
+    audio_threshold: float = 0.85
+    # Below ~65% unrelated music starts to count as "the same audio" (measured on real files).
+    audio_similarity: float = Field(default=0.75, ge=0.65, le=0.95)
+    audio_min_stretch: float = Field(default=10.0, ge=0.0, le=3600.0)  # seconds
 
 
 class LibraryCreate(BaseModel):
@@ -87,7 +107,7 @@ class FileRead(BaseModel):
     phash: str | None = None
     phash_frames: str | None = None
     byte_hash: str | None = None
-    audio_fingerprint: str | None = None
+    shared_audio: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -314,7 +334,7 @@ class AudioFileRead(BaseModel):
     sample_rate: int | None = None
     channels: int | None = None
     channel_layout: str | None = None
-    audio_fingerprint: str | None = None
+    shared_audio: str | None = None
     file_date: float | None = None
     file_mtime: float | None = None
     status: str

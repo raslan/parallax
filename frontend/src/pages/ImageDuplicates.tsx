@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Check, Copy, FolderX, Loader2, ScanSearch } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
@@ -18,7 +18,8 @@ import { formatSize, describeSelection, sumSizeOf } from "@/lib/format";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useLiveFiles } from "@/hooks/useLiveFiles";
 import { seedFromGroups, useSeededSelection } from "@/hooks/useSeededSelection";
-import { pickImageKeep } from "@/lib/pickKeep";
+import { LIVE_QUIET_MS, ignoreLiveStream } from "@/lib/duplicateCriteria";
+import { keeperFirst, pickImageKeep } from "@/lib/pickKeep";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { PageTitle } from "@/components/PageTitle";
 
@@ -132,6 +133,10 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
   const [threshold, setThreshold] = useState(10);
   const [appliedThreshold, setAppliedThreshold] = useState(10);
   const [resultsStale, setResultsStale] = useState(false);
+  // The pHash extraction writes image rows, and the live stream reports those a tick or two
+  // after the job says it is done — they are not changes from outside, so the stream is
+  // ignored until then (see `ignoreLiveStream`). Only read inside callbacks, never in render.
+  const quietUntil = useRef(0);
 
   const similarityPct = Math.round((1 - threshold / 64) * 100);
 
@@ -160,15 +165,21 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     [data],
   );
 
-  const clusterImages = useMemo(
+  const rawClusterImages = useMemo(
     () => clusters.map((ids) => ids.map((id) => allImages.get(id)).filter(Boolean) as ImageFile[]),
     [clusters, allImages],
   );
 
   // Suggested keep per cluster (null for an empty one).
   const keepIds = useMemo(
-    () => clusterImages.map((imgs) => (imgs.length ? pickImageKeep(imgs) : null)),
-    [clusterImages],
+    () => rawClusterImages.map((imgs) => (imgs.length ? pickImageKeep(imgs) : null)),
+    [rawClusterImages],
+  );
+
+  // The suggested keeper is listed first in its cluster; the others keep their order.
+  const clusterImages = useMemo(
+    () => rawClusterImages.map((imgs, i) => keeperFirst(imgs, keepIds[i] ?? -1)),
+    [rawClusterImages, keepIds],
   );
 
   // The quarantine selection follows the clusters: every copy except the
@@ -191,8 +202,6 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     if (data) setResultsStale(false);
   }, [data]);
 
-  useLiveFiles("image", libraryId ?? null, () => setResultsStale(true));
-
   const showResults = () => {
     if (threshold === appliedThreshold) refetch();
     else setAppliedThreshold(threshold);
@@ -208,11 +217,17 @@ export function ImageDuplicates({ libraryId }: { libraryId?: number } = {}) {
     start,
   } = useJobPoll({
     onTerminal: (job) => {
+      quietUntil.current = Date.now() + LIVE_QUIET_MS;
       if (job.status === "completed") showResults();
       else if (job.status === "failed" && job.error) toast.error(job.error);
     },
   });
   const extracting = jobStatus === "pending" || jobStatus === "running";
+
+  useLiveFiles("image", libraryId ?? null, () => {
+    if (ignoreLiveStream(extracting, quietUntil.current, Date.now())) return;
+    setResultsStale(true);
+  });
 
   const handleFind = async () => {
     try {

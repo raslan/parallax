@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Loader2, ScanSearch, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryError } from "@/components/QueryError";
@@ -20,6 +20,13 @@ import {
   DEFAULT_AUDIO_CRITERIA,
   type AudioDuplicateCriteria,
 } from "@/types/audioDuplicate";
+import {
+  LIVE_QUIET_MS,
+  audioCriteriaReachFurther,
+  audioDialsStale,
+  ignoreLiveStream,
+  measuredAudioDials,
+} from "@/lib/duplicateCriteria";
 import type { AudioFile } from "@/types/audio";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { AudioDuplicateCriteriaPanel } from "@/components/audio-duplicates/AudioDuplicateCriteriaPanel";
@@ -148,6 +155,13 @@ export function AudioDuplicates() {
   const [lastExtractedCriteria, setLastExtractedCriteria] = useState<AudioDuplicateCriteria | null>(
     null,
   );
+  // This page's own run writes file rows, and the live stream reports those a tick or two
+  // after the job says it is done — they are not changes from outside, so the stream is
+  // ignored until then (see `ignoreLiveStream`). Both refs are only read inside callbacks.
+  const quietUntil = useRef(0);
+  // The criteria the running Find duplicates was started with: `criteria` may have been
+  // edited by the time the job finishes, and the results were measured with the sent ones.
+  const sentCriteria = useRef<AudioDuplicateCriteria | null>(null);
 
   useEffect(() => {
     if (selectedId != null || !librariesLoaded) return;
@@ -169,10 +183,11 @@ export function AudioDuplicates() {
     resume,
   } = useJobPoll({
     onTerminal: (job) => {
+      quietUntil.current = Date.now() + LIVE_QUIET_MS;
       if (job.status === "completed" && selectedId != null) {
         queryClient.invalidateQueries({ queryKey: qk.audioFiles(selectedId) });
         setResultsStale(false);
-        setLastExtractedCriteria(criteria);
+        setLastExtractedCriteria(sentCriteria.current ?? criteria);
       }
       if (job.status === "failed" && job.error) {
         toast.error(job.error);
@@ -198,7 +213,10 @@ export function AudioDuplicates() {
     enabled: selectedId != null,
   });
 
-  useLiveFiles("audio", selectedId, () => setResultsStale(true));
+  useLiveFiles("audio", selectedId, () => {
+    if (ignoreLiveStream(extracting, quietUntil.current, Date.now())) return;
+    setResultsStale(true);
+  });
 
   const { groups, isComputing: clustering } = useClusterAudioDuplicates(files, criteria);
 
@@ -219,8 +237,9 @@ export function AudioDuplicates() {
 
   const handleFindDuplicates = async () => {
     if (!selectedId) return;
+    sentCriteria.current = criteria;
     try {
-      const { job_id } = await audioDuplicatesApi.findDuplicates(selectedId);
+      const { job_id } = await audioDuplicatesApi.findDuplicates(selectedId, criteria);
       start(job_id);
     } catch (e) {
       toast.error(getErrorMessage(e));
@@ -248,21 +267,25 @@ export function AudioDuplicates() {
     }
   };
 
-  // "Results may be incomplete": files changed on disk (useLiveFiles), or the
-  // current criteria now reach further than the last fingerprint extract.
-  const criteriaOutgrewExtraction = useMemo(() => {
-    const last = lastExtractedCriteria;
-    if (!last) return false;
-    return (
-      criteria.duration_tolerance > last.duration_tolerance ||
-      criteria.content_date_tolerance > last.content_date_tolerance ||
-      (criteria.use_audio && !last.use_audio) ||
-      (!criteria.use_size && last.use_size) ||
-      (!criteria.use_duration && last.use_duration) ||
-      (!criteria.use_content_date && last.use_content_date)
-    );
-  }, [criteria, lastExtractedCriteria]);
-  const showStaleBanner = resultsStale || criteriaOutgrewExtraction;
+  // "Results may be incomplete": files changed on disk (useLiveFiles), the criteria now reach
+  // further than the last Find duplicates run, or the two Shared audio sliders that change what
+  // the server measures no longer match what the stored values were measured with. That
+  // baseline is recorded by the server with the job, so it survives a reload — unlike this
+  // page's criteria, which are page state and start from the defaults on every visit.
+  const criteriaOutgrewExtraction = useMemo(
+    () =>
+      lastExtractedCriteria !== null && audioCriteriaReachFurther(criteria, lastExtractedCriteria),
+    [criteria, lastExtractedCriteria],
+  );
+  const measuredDials = useMemo(
+    () => measuredAudioDials(allJobs ?? [], "audio_duplicates", selectedId),
+    [allJobs, selectedId],
+  );
+  const dialsStale = useMemo(
+    () => audioDialsStale(criteria, measuredDials, lastExtractedCriteria),
+    [criteria, measuredDials, lastExtractedCriteria],
+  );
+  const showStaleBanner = resultsStale || criteriaOutgrewExtraction || dialsStale;
 
   const recoverable = groups.reduce(
     (sum, g) => sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0),
@@ -275,8 +298,8 @@ export function AudioDuplicates() {
         <div>
           <PageTitle>Duplicates</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Toggle criteria below — matching recomputes instantly. Find duplicates fills in the
-            audio fingerprint signal the fingerprint criterion needs.
+            Toggle criteria below — matching recomputes instantly. Find duplicates measures which
+            tracks share audio, which the Shared audio criterion needs.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -284,7 +307,7 @@ export function AudioDuplicates() {
             {extracting ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                Fingerprinting… {Math.round(progress)}%
+                Scanning… {Math.round(progress)}%
               </>
             ) : (
               <>
@@ -321,8 +344,9 @@ export function AudioDuplicates() {
       {showStaleBanner && groups.length > 0 && (
         <div className="shrink-0 flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
           <span className="text-amber-400">
-            Results may be incomplete —{" "}
-            {resultsStale ? "files changed" : "criteria now reach further than the last run"}.
+            {resultsStale || criteriaOutgrewExtraction
+              ? `Results may be incomplete — ${resultsStale ? "files changed" : "criteria now reach further than the last run"}.`
+              : "Shared audio was measured with different Sounds alike / Shared for at least settings than the ones set now."}
           </span>
           <Button size="sm" variant="outline" onClick={handleFindDuplicates} disabled={extracting}>
             Find duplicates
@@ -376,7 +400,7 @@ export function AudioDuplicates() {
         {!filesLoading && files.length > 0 && groups.length === 0 && (extracting || clustering) && (
           <WorkingState
             title="Finding duplicates"
-            message="Fingerprinting your library…"
+            message="Comparing your library's audio…"
             progress={extracting ? progress : null}
           />
         )}
@@ -385,7 +409,7 @@ export function AudioDuplicates() {
           <EmptyState
             icon={Copy}
             title="No duplicates found"
-            description="No files match every enabled criterion. Adjust criteria above, or run Find duplicates if the fingerprint signal is missing."
+            description="No files match every enabled criterion. Adjust criteria above, or run Find duplicates if shared audio hasn't been measured yet."
           />
         )}
 

@@ -2,6 +2,7 @@ import { Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PercentSlider } from "@/components/QueryBuilder";
+import { SharedAudioEditor } from "@/components/duplicates/SharedAudioEditor";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import { cn } from "@/lib/utils";
 import { UnitInput } from "@/components/UnitInput";
@@ -181,16 +182,12 @@ const CRITERIA: CritDef[] = [
   },
   {
     flag: "use_audio",
-    label: "Audio fingerprint",
+    label: "Shared audio",
     category: "extraction",
-    hint: "Chromaprint similarity — matches the same audio track.",
+    hint: "Finds files whose audio is found inside another's, such as a cut or an extended edition. Size, duration and visual would rule such files out, so turn those off.",
     summary: (c) => `≥${Math.round(c.audio_threshold * 100)}%`,
     editor: (c, onChange) => (
-      <PercentSlider
-        leading={<span className="text-xs text-muted-foreground">Min similarity</span>}
-        value={Math.round(c.audio_threshold * 100)}
-        onChange={(v) => onChange({ audio_threshold: v / 100 })}
-      />
+      <SharedAudioEditor settings={c} runLabel="Extract" onChange={onChange} />
     ),
   },
 ];

@@ -41,7 +41,9 @@ class File(Base):
     phash_frames: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array of ints
     phash_scanned_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     byte_hash: Mapped[str] = mapped_column(String(32), nullable=True)
-    audio_fingerprint: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array of int32
+    # JSON [[other_file_id, share_of_shorter_found_in_the_other], ...] — a relation to other
+    # files in the library, so (unlike the columns above) it is rewritten by every Extract.
+    shared_audio: Mapped[str] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

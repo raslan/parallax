@@ -16,5 +16,10 @@ export interface DuplicateCriteria {
   phash_mode: "first_frame" | "all_frames";
   phash_frames: number;
   use_audio: boolean;
+  /** Shared audio, "Min shared": share (0-1) of the shorter file that must be found in the other. */
   audio_threshold: number;
+  /** Shared audio, "Sounds alike" (0.65-0.95): server-side, changing it needs a new Extract. */
+  audio_similarity: number;
+  /** Shared audio, "Shared for at least" (seconds): server-side, changing it needs a new Extract. */
+  audio_min_stretch: number;
 }

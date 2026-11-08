@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -9,7 +9,12 @@ from app.database import get_db
 from app.models.audio_file import AudioFile
 from app.models.audio_library import AudioLibrary
 from app.models.job import Job, JobStatus, JobType
-from app.schemas import AudioLibraryCreate, AudioLibraryRead, AudioLibraryUpdate
+from app.schemas import (
+    AudioDuplicateCriteriaRequest,
+    AudioLibraryCreate,
+    AudioLibraryRead,
+    AudioLibraryUpdate,
+)
 from app.services.common import request_cancel
 
 router = APIRouter(prefix="/audio-libraries", tags=["audio-libraries"])
@@ -208,7 +213,11 @@ async def scan_audio_library_endpoint(library_id: int, db: Session = Depends(get
 
 
 @router.post("/{library_id}/find-duplicates", status_code=202)
-async def find_audio_duplicates_endpoint(library_id: int, db: Session = Depends(get_db)):
+async def find_audio_duplicates_endpoint(
+    library_id: int,
+    body: AudioDuplicateCriteriaRequest = Body(default=AudioDuplicateCriteriaRequest()),
+    db: Session = Depends(get_db),
+):
     lib = db.get(AudioLibrary, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
@@ -228,7 +237,7 @@ async def find_audio_duplicates_endpoint(library_id: int, db: Session = Depends(
     db.refresh(job)
 
     from app.queue import enqueue
-    from app.services.audio_duplicates import extract_audio_fingerprints
+    from app.services.audio_duplicates import find_audio_duplicates
 
-    await enqueue(job.id, extract_audio_fingerprints, library_id, job.id)
-    return {"job_id": job.id, "message": "Audio fingerprint extraction queued"}
+    await enqueue(job.id, find_audio_duplicates, library_id, job.id, body.model_dump())
+    return {"job_id": job.id, "message": "Shared-audio scan queued"}

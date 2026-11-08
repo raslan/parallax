@@ -1,5 +1,6 @@
 import { bigramSimilarity } from "./fileFieldFactories";
-import { pickVideoKeep } from "./pickKeep";
+import { keeperFirst, pickVideoKeep } from "./pickKeep";
+import { splitBySharedAudio } from "./sharedAudio";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
 
@@ -46,21 +47,8 @@ function hamming64(a: bigint, b: bigint): number {
   return count;
 }
 
-// 32-bit Hamming distance for audio fingerprint values, which are genuinely
-// int32 and safe as plain JS numbers.
-function hamming32(a: number, b: number, mask: number): number {
-  let x = (a ^ b) & mask;
-  let count = 0;
-  while (x !== 0) {
-    count += x & 1;
-    x >>>= 1;
-  }
-  return count;
-}
-
 // Average of per-frame minimum Hamming distances (avg-of-minimums), generic
-// over the value type + distance function so pHash (bigint/64-bit) and audio
-// fingerprint (number/32-bit) can share the same shape.
+// over the value type + distance function.
 function framesDistanceBy<T>(a: T[], b: T[], distance: (x: T, y: T) => number): number {
   if (a.length === 0 || b.length === 0) return Infinity;
   let total = 0;
@@ -73,10 +61,6 @@ function phashFramesDistance(a: bigint[], b: bigint[]): number {
   return framesDistanceBy(a, b, hamming64);
 }
 
-function audioFramesDistance(a: number[], b: number[]): number {
-  return framesDistanceBy(a, b, (x, y) => hamming32(x, y, 0xffffffff));
-}
-
 // phash_frames is a JSON array of decimal-string int64 values (see
 // backend/app/services/duplicates.py) — parse each as a BigInt to preserve
 // full 64-bit precision (a plain JS number can't exactly represent int64
@@ -87,16 +71,6 @@ function parsePhashFrames(json: string | null): bigint[] {
     const parsed = JSON.parse(json);
     if (!Array.isArray(parsed)) return [];
     return parsed.map((v) => BigInt(v));
-  } catch {
-    return [];
-  }
-}
-
-function parseAudioFrames(json: string | null): number[] {
-  if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -274,16 +248,7 @@ export function clusterDuplicates(
   }
 
   if (criteria.use_audio) {
-    const maxDistance = (1 - criteria.audio_threshold) * 32; // 32 bits per fingerprint value
-    groups = splitByPairwise(
-      groups,
-      (a, b) =>
-        audioFramesDistance(
-          parseAudioFrames(a.audio_fingerprint),
-          parseAudioFrames(b.audio_fingerprint),
-        ),
-      maxDistance,
-    );
+    groups = splitBySharedAudio(groups, criteria.audio_threshold);
   }
 
   // With no criteria enabled at all, no splitting stage ran and the single
@@ -298,5 +263,8 @@ export function clusterDuplicates(
   const finalGroups = (enabled ? groups.filter((g) => g.length > 1) : groups).filter(
     (g) => g.length > 0,
   );
-  return finalGroups.map((g) => ({ files: g, keep_id: pickVideoKeep(g) }));
+  return finalGroups.map((g) => {
+    const keep_id = pickVideoKeep(g);
+    return { files: keeperFirst(g, keep_id), keep_id };
+  });
 }

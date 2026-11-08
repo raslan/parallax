@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck, Trash2, Play } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { RowContextMenu, buildRowActions } from "@/components/RowMenu";
@@ -12,6 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api, qk } from "@/lib/api";
 import { anyCriteriaEnabled, type DuplicateGroup } from "@/lib/clusterDuplicates";
+import {
+  CRITERIA_KEY,
+  LIVE_QUIET_MS,
+  audioDialsStale,
+  criteriaReachFurther,
+  ignoreLiveStream,
+  loadCriteria,
+  measuredAudioDials,
+} from "@/lib/duplicateCriteria";
 import type { DuplicateCriteria } from "@/types/duplicate";
 import type { VideoFile } from "@/types/file";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -181,37 +190,6 @@ function DuplicatesWorkingState({
   );
 }
 
-const CRITERIA_KEY = "parallax-dup-criteria-v2"; // v2: shape changed (10 fields), don't reuse v1's key
-
-function loadCriteria(): DuplicateCriteria {
-  try {
-    const stored = localStorage.getItem(CRITERIA_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {
-    // fall through to defaults
-  }
-  return {
-    use_size: true,
-    use_duration: true,
-    duration_tolerance: 1,
-    use_resolution: false,
-    use_content_date: false,
-    content_date_tolerance: 86400,
-    use_orientation: false,
-    use_bitrate: false,
-    bitrate_tolerance_pct: 10,
-    use_filename: false,
-    filename_threshold: 0.4,
-    use_byte_hash: false,
-    use_phash: true,
-    phash_threshold: 10,
-    phash_mode: "first_frame",
-    phash_frames: 16,
-    use_audio: false,
-    audio_threshold: 0.9,
-  };
-}
-
 export function Duplicates() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -235,6 +213,13 @@ export function Duplicates() {
   const [lastExtractedCriteria, setLastExtractedCriteria] = useState<DuplicateCriteria | null>(
     null,
   );
+  // Extract writes file rows, and the live stream reports those a tick or two after the job
+  // says it is done — they are not changes from outside, so the stream is ignored until then
+  // (see `ignoreLiveStream`). Both refs are only read inside callbacks, never during render.
+  const quietUntil = useRef(0);
+  // The criteria the running Extract was started with. `criteria` itself may have been edited
+  // by the time the job finishes, and the results were measured with the sent ones.
+  const sentCriteria = useRef<DuplicateCriteria | null>(null);
 
   useEffect(() => {
     localStorage.setItem(CRITERIA_KEY, JSON.stringify(criteria));
@@ -260,10 +245,11 @@ export function Duplicates() {
     resume,
   } = useJobPoll({
     onTerminal: (job) => {
+      quietUntil.current = Date.now() + LIVE_QUIET_MS;
       if (job.status === "completed" && selectedId != null) {
         queryClient.invalidateQueries({ queryKey: qk.duplicateFiles(selectedId) });
         setResultsStale(false);
-        setLastExtractedCriteria(criteria);
+        setLastExtractedCriteria(sentCriteria.current ?? criteria);
       }
       if (job.status === "failed" && job.error) {
         toast.error(job.error);
@@ -289,7 +275,10 @@ export function Duplicates() {
     enabled: selectedId != null,
   });
 
-  useLiveFiles("video", selectedId, () => setResultsStale(true));
+  useLiveFiles("video", selectedId, () => {
+    if (ignoreLiveStream(extracting, quietUntil.current, Date.now())) return;
+    setResultsStale(true);
+  });
 
   const { groups, isComputing: clustering } = useClusterDuplicates(files, criteria);
 
@@ -313,6 +302,7 @@ export function Duplicates() {
 
   const handleExtract = async () => {
     if (!selectedId) return;
+    sentCriteria.current = criteria;
     try {
       const { job_id } = await api.findDuplicates(selectedId, criteria);
       start(job_id);
@@ -344,38 +334,24 @@ export function Duplicates() {
     }
   };
 
-  // Two causes for "results may be incomplete": files changed on disk
-  // (useLiveFiles above), or the current criteria now reach further than
-  // what was last extracted for (e.g. duration tolerance loosened, or a
-  // new extraction-tier signal just enabled).
-  const criteriaOutgrewExtraction = useMemo(() => {
-    const last = lastExtractedCriteria;
-    if (!last) return false;
-    return (
-      criteria.duration_tolerance > last.duration_tolerance ||
-      criteria.content_date_tolerance > last.content_date_tolerance ||
-      criteria.bitrate_tolerance_pct > last.bitrate_tolerance_pct ||
-      (criteria.use_byte_hash && !last.use_byte_hash) ||
-      (criteria.use_phash && !last.use_phash) ||
-      (criteria.use_phash && criteria.phash_frames !== last.phash_frames) ||
-      (criteria.use_phash && criteria.phash_mode !== last.phash_mode) ||
-      (criteria.use_audio && !last.use_audio) ||
-      // Turning OFF a free-tier criterion widens the funnel's candidate set
-      // just as much as loosening a tolerance — fewer files get excluded
-      // before reaching the extraction-tier stages.
-      (!criteria.use_size && last.use_size) ||
-      (!criteria.use_duration && last.use_duration) ||
-      (!criteria.use_resolution && last.use_resolution) ||
-      (!criteria.use_content_date && last.use_content_date) ||
-      (!criteria.use_orientation && last.use_orientation) ||
-      (!criteria.use_bitrate && last.use_bitrate) ||
-      (!criteria.use_filename && last.use_filename) ||
-      // A lower filename threshold matches more files, same direction as
-      // loosening a tolerance.
-      criteria.filename_threshold < last.filename_threshold
-    );
-  }, [criteria, lastExtractedCriteria]);
-  const showStaleBanner = resultsStale || criteriaOutgrewExtraction;
+  // Three causes for "results may be incomplete": files changed on disk (useLiveFiles above), the
+  // criteria now reach further than what was last extracted for (a tolerance loosened, a new
+  // extraction-tier signal just enabled), or the two Shared audio sliders that change what the
+  // server measures no longer match what the stored values were measured with. That baseline is
+  // recorded by the server with the job, so it survives a reload.
+  const criteriaOutgrewExtraction = useMemo(
+    () => lastExtractedCriteria !== null && criteriaReachFurther(criteria, lastExtractedCriteria),
+    [criteria, lastExtractedCriteria],
+  );
+  const measuredDials = useMemo(
+    () => measuredAudioDials(allJobs ?? [], "duplicates", selectedId),
+    [allJobs, selectedId],
+  );
+  const dialsStale = useMemo(
+    () => audioDialsStale(criteria, measuredDials, lastExtractedCriteria),
+    [criteria, measuredDials, lastExtractedCriteria],
+  );
+  const showStaleBanner = resultsStale || criteriaOutgrewExtraction || dialsStale;
 
   const recoverable = groups.reduce(
     (sum, g) => sum + g.files.filter((f) => deleteIds.has(f.id)).reduce((s, f) => s + f.size, 0),
@@ -437,8 +413,9 @@ export function Duplicates() {
       {showStaleBanner && groups.length > 0 && (
         <div className="shrink-0 flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
           <span className="text-amber-400">
-            Results may be incomplete —{" "}
-            {resultsStale ? "files changed" : "criteria now reach further than the last extract"}.
+            {resultsStale || criteriaOutgrewExtraction
+              ? `Results may be incomplete — ${resultsStale ? "files changed" : "criteria now reach further than the last extract"}.`
+              : "Shared audio was measured with different Sounds alike / Shared for at least settings than the ones set now."}
           </span>
           <Button size="sm" variant="outline" onClick={handleExtract} disabled={extracting}>
             Extract

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickAudioKeep, pickImageKeep, pickVideoKeep } from "./pickKeep";
+import { keeperFirst, pickAudioKeep, pickImageKeep, pickVideoKeep } from "./pickKeep";
 import type { AudioFile } from "@/types/audio";
 import type { VideoFile } from "@/types/file";
 import type { ImageFile } from "@/types/image";
@@ -27,7 +27,7 @@ function video(id: number, over: Partial<VideoFile> = {}): VideoFile {
     phash: null,
     phash_frames: null,
     byte_hash: null,
-    audio_fingerprint: null,
+    shared_audio: null,
     ...over,
   };
 }
@@ -52,6 +52,7 @@ function audio(id: number, over: Partial<AudioFile> = {}): AudioFile {
     scan_error: null,
     scanned_at: null,
     compressed_at: null,
+    shared_audio: null,
     created_at: "",
     ...over,
   };
@@ -247,5 +248,19 @@ describe("pickImageKeep", () => {
 
   it("keeps the lowest id for perfect copies", () => {
     expect(pickImageKeep([image(9), image(6)])).toBe(6);
+  });
+});
+
+describe("keeperFirst", () => {
+  it("moves the keeper to the front and leaves the others in their order", () => {
+    const files = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+    expect(keeperFirst(files, 3).map((f) => f.id)).toEqual([3, 1, 2, 4]);
+  });
+
+  it("leaves the order alone when the keeper is already first or missing", () => {
+    const files = [{ id: 1 }, { id: 2 }];
+    expect(keeperFirst(files, 1)).toEqual(files);
+    expect(keeperFirst(files, 99)).toEqual(files);
+    expect(keeperFirst([], 1)).toEqual([]);
   });
 });

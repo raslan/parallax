@@ -87,7 +87,7 @@ def _to_file_read(f: File) -> FileRead:
         phash=f.phash,
         phash_frames=f.phash_frames,
         byte_hash=f.byte_hash,
-        audio_fingerprint=f.audio_fingerprint,
+        shared_audio=f.shared_audio,
     )
 
 

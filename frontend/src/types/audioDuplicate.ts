@@ -5,7 +5,12 @@ export interface AudioDuplicateCriteria {
   use_content_date: boolean;
   content_date_tolerance: number;
   use_audio: boolean;
+  /** Shared audio, "Min shared": share (0-1) of the shorter file that must be found in the other. */
   audio_threshold: number;
+  /** Shared audio, "Sounds alike" (0.65-0.95): server-side, changing it needs a new run. */
+  audio_similarity: number;
+  /** Shared audio, "Shared for at least" (seconds): server-side, changing it needs a new run. */
+  audio_min_stretch: number;
 }
 
 export const DEFAULT_AUDIO_CRITERIA: AudioDuplicateCriteria = {
@@ -16,6 +21,8 @@ export const DEFAULT_AUDIO_CRITERIA: AudioDuplicateCriteria = {
   content_date_tolerance: 60,
   use_audio: true,
   audio_threshold: 0.85,
+  audio_similarity: 0.75,
+  audio_min_stretch: 10,
 };
 
 export function anyAudioCriteriaEnabled(c: AudioDuplicateCriteria): boolean {

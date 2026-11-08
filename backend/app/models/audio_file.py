@@ -22,7 +22,9 @@ class AudioFile(Base):
     sample_rate: Mapped[int] = mapped_column(Integer, nullable=True)
     channels: Mapped[int] = mapped_column(Integer, nullable=True)
     channel_layout: Mapped[str] = mapped_column(String(64), nullable=True)
-    audio_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON [[other_file_id, share_of_shorter_found_in_the_other], ...], rewritten by every
+    # Find duplicates run (see File.shared_audio).
+    shared_audio: Mapped[str | None] = mapped_column(Text, nullable=True)
     file_date: Mapped[float] = mapped_column(Float, nullable=True)
     file_mtime: Mapped[float] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default=FileStatus.UNKNOWN)

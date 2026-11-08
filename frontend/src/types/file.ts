@@ -20,7 +20,8 @@ export interface VideoFile {
   phash: string | null;
   phash_frames: string | null;
   byte_hash: string | null;
-  audio_fingerprint: string | null;
+  /** JSON [[otherFileId, share of the shorter one found in the other], ...], set by Extract. */
+  shared_audio: string | null;
 }
 
 export interface FilesResponse {
