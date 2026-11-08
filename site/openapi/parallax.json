@@ -3,7 +3,7 @@
   "info": {
     "title": "Parallax API",
     "description": "The HTTP API behind the Parallax web app. Everything the app does in the browser goes through these routes, all under `/api`.",
-    "version": "3.5.0"
+    "version": "4.0.2"
   },
   "paths": {
     "/api/health": {
