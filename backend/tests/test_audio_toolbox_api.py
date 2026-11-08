@@ -71,18 +71,18 @@ def test_start_rejects_trim_longer_than_duration(client, seeded):
     assert "b.mp3" in r.json()["detail"]
 
 
-def test_start_rejects_cross_library_selection(client, seeded, engine):
+def test_start_rejects_cross_library_selection(client, seeded, engine, tmp_path):
     _lib, f1, _f2 = seeded
     from sqlalchemy.orm import sessionmaker
 
     Session = sessionmaker(bind=engine)
     db = Session()
-    other = AudioLibrary(name="O", path="/tmp/other")
+    other = AudioLibrary(name="O", path=str(tmp_path / "other"))
     db.add(other)
     db.commit()
     stray = AudioFile(
         library_id=other.id,
-        path="/tmp/other/c.mp3",
+        path=str(tmp_path / "other" / "c.mp3"),
         filename="c.mp3",
         extension=".mp3",
         size=1,
