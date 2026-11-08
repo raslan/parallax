@@ -526,7 +526,9 @@
                   "phash_mode": "first_frame",
                   "phash_frames": 16,
                   "use_audio": false,
-                  "audio_threshold": 0.9
+                  "audio_threshold": 0.9,
+                  "audio_similarity": 0.75,
+                  "audio_min_stretch": 10.0
                 }
               }
             }
@@ -974,6 +976,26 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioDuplicateCriteriaRequest",
+                "default": {
+                  "use_size": false,
+                  "use_duration": true,
+                  "duration_tolerance": 2.0,
+                  "use_content_date": false,
+                  "content_date_tolerance": 60.0,
+                  "use_audio": true,
+                  "audio_threshold": 0.85,
+                  "audio_similarity": 0.75,
+                  "audio_min_stretch": 10.0
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Successful Response",
@@ -6463,6 +6485,62 @@
         "required": ["file_ids"],
         "title": "AudioCompressStartRequest"
       },
+      "AudioDuplicateCriteriaRequest": {
+        "properties": {
+          "use_size": {
+            "type": "boolean",
+            "title": "Use Size",
+            "default": false
+          },
+          "use_duration": {
+            "type": "boolean",
+            "title": "Use Duration",
+            "default": true
+          },
+          "duration_tolerance": {
+            "type": "number",
+            "title": "Duration Tolerance",
+            "default": 2.0
+          },
+          "use_content_date": {
+            "type": "boolean",
+            "title": "Use Content Date",
+            "default": false
+          },
+          "content_date_tolerance": {
+            "type": "number",
+            "title": "Content Date Tolerance",
+            "default": 60.0
+          },
+          "use_audio": {
+            "type": "boolean",
+            "title": "Use Audio",
+            "default": true
+          },
+          "audio_threshold": {
+            "type": "number",
+            "title": "Audio Threshold",
+            "default": 0.85
+          },
+          "audio_similarity": {
+            "type": "number",
+            "maximum": 0.95,
+            "minimum": 0.65,
+            "title": "Audio Similarity",
+            "default": 0.75
+          },
+          "audio_min_stretch": {
+            "type": "number",
+            "maximum": 3600.0,
+            "minimum": 0.0,
+            "title": "Audio Min Stretch",
+            "default": 10.0
+          }
+        },
+        "type": "object",
+        "title": "AudioDuplicateCriteriaRequest",
+        "description": "The audio Duplicates page's criteria; the defaults mirror the page's own."
+      },
       "AudioFileDeleteRequest": {
         "properties": {
           "file_ids": {
@@ -6581,7 +6659,7 @@
             ],
             "title": "Channel Layout"
           },
-          "audio_fingerprint": {
+          "shared_audio": {
             "anyOf": [
               {
                 "type": "string"
@@ -6590,7 +6668,7 @@
                 "type": "null"
               }
             ],
-            "title": "Audio Fingerprint"
+            "title": "Shared Audio"
           },
           "file_date": {
             "anyOf": [
@@ -7077,6 +7155,20 @@
             "type": "number",
             "title": "Audio Threshold",
             "default": 0.9
+          },
+          "audio_similarity": {
+            "type": "number",
+            "maximum": 0.95,
+            "minimum": 0.65,
+            "title": "Audio Similarity",
+            "default": 0.75
+          },
+          "audio_min_stretch": {
+            "type": "number",
+            "maximum": 3600.0,
+            "minimum": 0.0,
+            "title": "Audio Min Stretch",
+            "default": 10.0
           }
         },
         "type": "object",
@@ -7353,7 +7445,7 @@
             ],
             "title": "Byte Hash"
           },
-          "audio_fingerprint": {
+          "shared_audio": {
             "anyOf": [
               {
                 "type": "string"
@@ -7362,7 +7454,7 @@
                 "type": "null"
               }
             ],
-            "title": "Audio Fingerprint"
+            "title": "Shared Audio"
           }
         },
         "type": "object",

@@ -107,7 +107,7 @@
     "src": "features/duplicates/results.webp",
     "width": 1184,
     "height": 700,
-    "bytes": 85152,
+    "bytes": 88560,
     "quality": 90
   },
   "features/compress/select": {
@@ -184,18 +184,18 @@
     "src": "features/duplicates/images.webp",
     "width": 1184,
     "height": 560,
-    "bytes": 90730,
+    "bytes": 92530,
     "quality": 90
   },
   "features/duplicates/audio": {
     "id": "features/duplicates/audio",
     "kind": "still",
-    "alt": "Audio duplicates: criteria chips for duration and audio fingerprint, and a group of matching tracks with one marked to keep.",
+    "alt": "Audio duplicates: criteria chips for duration and shared audio, and a group of matching tracks with the one to keep listed first and marked.",
     "route": "/audio-duplicates",
     "src": "features/duplicates/audio.webp",
     "width": 1184,
     "height": 640,
-    "bytes": 61134,
+    "bytes": 63494,
     "quality": 90
   },
   "features/compress/audio": {
@@ -751,8 +751,8 @@
     "poster": "landing/beats/duplicates.poster.webp",
     "width": 2000,
     "height": 1352,
-    "bytes": 263504,
-    "duration": 10.63,
+    "bytes": 264668,
+    "duration": 10.67,
     "camera": [
       {
         "t": 0,
@@ -776,56 +776,56 @@
         "h": 0.1838
       },
       {
-        "t": 3.7,
+        "t": 3.75,
         "x": 0.0135,
         "y": 0.1688,
         "w": 0.973,
         "h": 0.1838
       },
       {
-        "t": 4.5,
+        "t": 4.55,
         "x": 0.0135,
         "y": 0.3125,
         "w": 0.973,
         "h": 0.625
       },
       {
-        "t": 5.9,
+        "t": 5.95,
         "x": 0.0135,
         "y": 0.3125,
         "w": 0.973,
         "h": 0.625
       },
       {
-        "t": 6.7,
+        "t": 6.75,
         "x": 0.0135,
         "y": 0.1688,
         "w": 0.973,
         "h": 0.1838
       },
       {
-        "t": 7.17,
+        "t": 7.22,
         "x": 0.0135,
         "y": 0.1688,
         "w": 0.973,
         "h": 0.1838
       },
       {
-        "t": 7.97,
+        "t": 8.02,
         "x": 0.0135,
         "y": 0.2188,
         "w": 0.5405,
         "h": 0.35
       },
       {
-        "t": 9.58,
+        "t": 9.63,
         "x": 0.0135,
         "y": 0.2188,
         "w": 0.5405,
         "h": 0.35
       },
       {
-        "t": 10.38,
+        "t": 10.43,
         "x": 0,
         "y": 0,
         "w": 1,
@@ -1905,195 +1905,7 @@
     "poster": "landing/beats/duplicates.elegance.poster.webp",
     "width": 2000,
     "height": 1352,
-    "bytes": 262991,
-    "duration": 10.6,
-    "camera": [
-      {
-        "t": 0,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      },
-      {
-        "t": 0.7,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      },
-      {
-        "t": 1.5,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 3.7,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 4.5,
-        "x": 0.0135,
-        "y": 0.3125,
-        "w": 0.973,
-        "h": 0.625
-      },
-      {
-        "t": 5.9,
-        "x": 0.0135,
-        "y": 0.3125,
-        "w": 0.973,
-        "h": 0.625
-      },
-      {
-        "t": 6.7,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 7.15,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 7.95,
-        "x": 0.0135,
-        "y": 0.2188,
-        "w": 0.5405,
-        "h": 0.35
-      },
-      {
-        "t": 9.55,
-        "x": 0.0135,
-        "y": 0.2188,
-        "w": 0.5405,
-        "h": 0.35
-      },
-      {
-        "t": 10.35,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      }
-    ],
-    "crf": 28
-  },
-  "landing/beats/duplicates.graphite": {
-    "id": "landing/beats/duplicates.graphite",
-    "kind": "clip",
-    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
-    "route": "/duplicates",
-    "theme": "graphite",
-    "baseId": "landing/beats/duplicates",
-    "src": "landing/beats/duplicates.graphite.mp4",
-    "poster": "landing/beats/duplicates.graphite.poster.webp",
-    "width": 2000,
-    "height": 1352,
-    "bytes": 255617,
-    "duration": 10.67,
-    "camera": [
-      {
-        "t": 0,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      },
-      {
-        "t": 0.7,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      },
-      {
-        "t": 1.5,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 3.7,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 4.5,
-        "x": 0.0135,
-        "y": 0.3125,
-        "w": 0.973,
-        "h": 0.625
-      },
-      {
-        "t": 5.9,
-        "x": 0.0135,
-        "y": 0.3125,
-        "w": 0.973,
-        "h": 0.625
-      },
-      {
-        "t": 6.7,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 7.17,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 7.97,
-        "x": 0.0135,
-        "y": 0.2188,
-        "w": 0.5405,
-        "h": 0.35
-      },
-      {
-        "t": 9.59,
-        "x": 0.0135,
-        "y": 0.2188,
-        "w": 0.5405,
-        "h": 0.35
-      },
-      {
-        "t": 10.39,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      }
-    ],
-    "crf": 28
-  },
-  "landing/beats/duplicates.rose": {
-    "id": "landing/beats/duplicates.rose",
-    "kind": "clip",
-    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
-    "route": "/duplicates",
-    "theme": "rose",
-    "baseId": "landing/beats/duplicates",
-    "src": "landing/beats/duplicates.rose.mp4",
-    "poster": "landing/beats/duplicates.rose.poster.webp",
-    "width": 2000,
-    "height": 1352,
-    "bytes": 267922,
+    "bytes": 256814,
     "duration": 10.67,
     "camera": [
       {
@@ -2140,6 +1952,288 @@
       },
       {
         "t": 6.71,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.16,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.96,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.58,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.38,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/duplicates.graphite": {
+    "id": "landing/beats/duplicates.graphite",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "theme": "graphite",
+    "baseId": "landing/beats/duplicates",
+    "src": "landing/beats/duplicates.graphite.mp4",
+    "poster": "landing/beats/duplicates.graphite.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 257436,
+    "duration": 10.73,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.5,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.78,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.58,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 5.98,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.78,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.23,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 8.03,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.63,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.43,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/duplicates.rose": {
+    "id": "landing/beats/duplicates.rose",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "theme": "rose",
+    "baseId": "landing/beats/duplicates",
+    "src": "landing/beats/duplicates.rose.mp4",
+    "poster": "landing/beats/duplicates.rose.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 269946,
+    "duration": 11.37,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.71,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.51,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.92,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.72,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.14,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.94,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 7.45,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 8.25,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 9.95,
+        "x": 0.0135,
+        "y": 0.2188,
+        "w": 0.5405,
+        "h": 0.35
+      },
+      {
+        "t": 10.75,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    ],
+    "crf": 28
+  },
+  "landing/beats/duplicates.oled": {
+    "id": "landing/beats/duplicates.oled",
+    "kind": "clip",
+    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
+    "route": "/duplicates",
+    "theme": "oled",
+    "baseId": "landing/beats/duplicates",
+    "src": "landing/beats/duplicates.oled.mp4",
+    "poster": "landing/beats/duplicates.oled.poster.webp",
+    "width": 2000,
+    "height": 1352,
+    "bytes": 262965,
+    "duration": 10.63,
+    "camera": [
+      {
+        "t": 0,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 0.7,
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      {
+        "t": 1.5,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 3.72,
+        "x": 0.0135,
+        "y": 0.1688,
+        "w": 0.973,
+        "h": 0.1838
+      },
+      {
+        "t": 4.52,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 5.92,
+        "x": 0.0135,
+        "y": 0.3125,
+        "w": 0.973,
+        "h": 0.625
+      },
+      {
+        "t": 6.72,
         "x": 0.0135,
         "y": 0.1688,
         "w": 0.973,
@@ -2160,108 +2254,14 @@
         "h": 0.35
       },
       {
-        "t": 9.61,
+        "t": 9.59,
         "x": 0.0135,
         "y": 0.2188,
         "w": 0.5405,
         "h": 0.35
       },
       {
-        "t": 10.41,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      }
-    ],
-    "crf": 28
-  },
-  "landing/beats/duplicates.oled": {
-    "id": "landing/beats/duplicates.oled",
-    "kind": "clip",
-    "alt": "On the Duplicates page, the row of match criteria is edited. Removing Exact size and Duration makes a second group of look-alike videos appear, and the Visual match opens to show its similarity setting.",
-    "route": "/duplicates",
-    "theme": "oled",
-    "baseId": "landing/beats/duplicates",
-    "src": "landing/beats/duplicates.oled.mp4",
-    "poster": "landing/beats/duplicates.oled.poster.webp",
-    "width": 2000,
-    "height": 1352,
-    "bytes": 268721,
-    "duration": 10.6,
-    "camera": [
-      {
-        "t": 0,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      },
-      {
-        "t": 0.7,
-        "x": 0,
-        "y": 0,
-        "w": 1,
-        "h": 1
-      },
-      {
-        "t": 1.5,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 3.71,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 4.51,
-        "x": 0.0135,
-        "y": 0.3125,
-        "w": 0.973,
-        "h": 0.625
-      },
-      {
-        "t": 5.91,
-        "x": 0.0135,
-        "y": 0.3125,
-        "w": 0.973,
-        "h": 0.625
-      },
-      {
-        "t": 6.71,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 7.17,
-        "x": 0.0135,
-        "y": 0.1688,
-        "w": 0.973,
-        "h": 0.1838
-      },
-      {
-        "t": 7.97,
-        "x": 0.0135,
-        "y": 0.2188,
-        "w": 0.5405,
-        "h": 0.35
-      },
-      {
-        "t": 9.57,
-        "x": 0.0135,
-        "y": 0.2188,
-        "w": 0.5405,
-        "h": 0.35
-      },
-      {
-        "t": 10.37,
+        "t": 10.39,
         "x": 0,
         "y": 0,
         "w": 1,

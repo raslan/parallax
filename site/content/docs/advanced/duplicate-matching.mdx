@@ -10,7 +10,7 @@ The [Duplicates](/docs/features/duplicates) page keeps things simple. This page 
 Finding duplicates is split in two on purpose.
 
 1. **Preparing** (the **Extract** or **Find duplicates** button) runs in the background and reads extra information out of the files that scanning does not collect. The results are stored with each file.
-2. **Comparing** happens in your browser, over the information that is already loaded. Parallax does not store a list of results, and the server does no comparing at all.
+2. **Comparing** happens in your browser, over the information that is already loaded. Parallax does not store a list of results. The server does no comparing either, with one exception: Shared audio is a relation between two files, so the server measures it while preparing and stores it on each file (see below).
 
 Because comparing is just a calculation over data you already have, switching a chip on or off updates the groups instantly, without a new job. The calculation runs in a background thread of the page, so the page never freezes.
 
@@ -21,6 +21,8 @@ Some criteria use details already known from scanning: size, duration, resolutio
 Before preparing anything, Parallax applies the cheap criteria you have switched on, in that order, and throws away every file that cannot end up in a group of two or more. Only the files that survive are read in depth. So a library of thousands of files with Exact size and Duration switched on may need only a handful of files prepared. The same logic is used again in the browser when it forms groups, so both agree.
 
 Preparing is also incremental. A file that already has what the current settings need is skipped. Changing the visual match to use more frames, for example, prepares only the files that were done with fewer.
+
+The cheap checks do one more job for Shared audio: the groups they form are the groups Shared audio compares inside. Files are only listened to if they land in a group of two or more, and a file is only compared with the others in its group, so a narrow group means far fewer comparisons.
 
 ## The criteria in detail
 
@@ -33,18 +35,37 @@ Preparing is also incremental. A file that already has what the current settings
 - **First frame only** is quick but can be fooled by videos that open the same way, such as the same studio logo.
 - **All frames** takes the number of frames you choose, from 4 to 64 (16 by default), spread through the video. Two videos match when their frames line up, which is far more reliable and takes proportionally longer.
 
-**Audio fingerprint.** The sound is turned into a compact fingerprint using Chromaprint, the same technology used to recognise songs. Fingerprints are compared by how many of their bits agree, as a percentage. It matches the same soundtrack even when the video differs or the audio was re-encoded.
+**Shared audio.** The whole first audio track is turned into a fingerprint using Chromaprint, the same technology used to recognise songs. That is about 8 values per second, so a two hour film has roughly 58,000. The track is mixed down to mono first, which is why 5.1 soundtracks work. A couple of seconds of every track are not fingerprinted, which is a property of Chromaprint.
+
+Each fingerprint is saved in `audio-fingerprints` inside your data folder, named after the file's id, size and modified time. A changed file is listened to again, and the folder is safe to delete: it only costs the listening time again. Video and audio files use separate names, because their ids both start at 1. A file is written under a temporary name and renamed when it is complete, so a failed write leaves no half-finished file. A file that cannot be read (no audio stream, or ffmpeg fails) is not saved, is skipped for the rest of that run and is tried again on the next one. The reason is written to Parallax's log output (the container's logs), not to the Jobs page.
+
+To compare two tracks, Parallax first looks for values that appear in both and counts how far apart in time the two copies sit. Real shared sound piles up at a few time offsets, while chance matches spread out. Each offset is then checked in windows of about 5 seconds. A window counts if at most a quarter of its bits differ, which is what **Sounds alike** at 75% means (the setting is the share of bits that must agree, from 65% to 95%; below about 65%, unrelated music started to count in our tests). A window of near-silence, where the values hardly change, never counts, and values that turn up very often in a track are not used to find offsets, so a track that is mostly a short loop may fail to match even a copy of itself. Windows that pass are joined into stretches, and a stretch only counts if it runs unbroken for **Shared for at least** seconds in the shorter file. That length is capped just under the shorter track's own length so that a short clip can still match whole.
+
+The result is one number for the pair: the share of the shorter track that is covered by counted stretches. It is the same number from either side, and pairs under 10% are not stored. It is saved on both files as a list of other file ids and shares. Every run of Extract or Find duplicates first clears what the previous run saved on every file in the library, including files that were not compared this time, and then writes the new values, so results from different runs or different settings are never mixed. A file deleted while a run is going is simply skipped. Deleted files leave their ids in the other files' lists until the next run, and these are ignored when groups are formed. A cancelled run stops listening within about a quarter of a second and comparing within a few seconds, and saves nothing, so the previous results stay as they were.
+
+The two settings that change the measurement, **Sounds alike** and **Shared for at least**, are saved with the run (in the job's settings). That is how the page knows, even after a reload, whether the sliders still match the stored numbers. A run with Shared audio switched off saves no settings and leaves the stored numbers alone.
+
+The browser forms groups from those numbers. Files are joined in chains, so if two clips are both inside one long video, all three end up in one group, even though the clips share nothing with each other.
+
+Some limits to know about:
+
+- A stretch is measured in whole windows, and a window that is mostly matching still counts, so a stretch can come out up to a couple of seconds longer on each side than it really is. A **Shared for at least** of 10 seconds therefore behaves like a little less.
+- Clips shorter than one window (about 5 seconds) cannot be checked.
+- A speed change makes the copies drift apart, so a copy sped up by 4% (24 to 25 frames per second) only matches near one point.
+- Music that is quiet and repetitive, such as ambient tracks, can share some stretches with unrelated tracks. Raising **Sounds alike** or **Shared for at least** removes those.
+- Chaining can join two groups through a clip that is inside both, such as a channel intro. Each such link is real, but you may not want the groups merged.
+- Comparing every pair in a group is quadratic in the group's size. Measured on two hour films, one comparison takes about 20 ms and a group holds up to about 1.4 MB of memory per film while it is being compared (a file is released once all its comparisons are done). With nothing to split the library into groups, 1,000 films mean about 500,000 comparisons. Four minute songs take about 0.2 ms each. The job's log states the number of comparisons before it starts and warns above 50,000.
 
 ## Images and audio
 
 - **Images** use the same 64 bit perceptual hash on the single picture, and the grouping is done on the server, not in the browser. The hash is stored when an image is scanned, and the Find Duplicates button fills in any that are missing.
-- **Audio** has four criteria: exact size, duration, content date and the audio fingerprint. Preparing computes the fingerprints, and grouping happens in the browser exactly as for video.
+- **Audio** has four criteria: exact size, duration, content date and shared audio. **Find duplicates** measures shared audio between the tracks in each group, the same way as for video, and grouping happens in the browser exactly as for video.
 
 ## Which copy is kept
 
 The suggested copy comes from the information Parallax already has about each file. Nothing extra is read from the files. For video and audio it is worked out in the browser together with the grouping. For images the groups come from the server, and the suggestion is worked out in the browser from the images in each group.
 
-Copies are compared one step at a time. At each step, Parallax finds the best copy and drops every copy that is clearly worse. Copies within the step's tolerance of the best one count as tied and go on to the next step. A difference smaller than the tolerance never decides on its own.
+The copy to keep is listed first in its group, on the video, audio and image pages, and the others keep their order. Copies are compared one step at a time. At each step, Parallax finds the best copy and drops every copy that is clearly worse. Copies within the step's tolerance of the best one count as tied and go on to the next step. A difference smaller than the tolerance never decides on its own.
 
 **Video**
 

@@ -40,7 +40,7 @@ export default [
     id: "features/duplicates/audio",
     kind: "still",
     route: "/audio-duplicates",
-    alt: "Audio duplicates: criteria chips for duration and audio fingerprint, and a group of matching tracks with one marked to keep.",
+    alt: "Audio duplicates: criteria chips for duration and shared audio, and a group of matching tracks with the one to keep listed first and marked.",
     waitFor: [/Duplicates/],
     setup: async (page) => {
       await page
