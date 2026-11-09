@@ -43,6 +43,7 @@ def init_db():
     from app.models import (  # noqa: F401  # noqa: F401
         audio_file,
         audio_library,
+        auth,
         download,
         file,
         gallery_download,
