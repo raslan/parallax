@@ -10,6 +10,9 @@
  */
 
 export const qk = {
+  // ── auth (who is signed in; drives AuthGate) ──
+  auth: () => ["auth"] as const,
+
   // ── stats (durable, file-agnostic usage metrics) ──
   stats: () => ["stats"] as const,
   statsSummary: (days: number) => ["stats", "summary", days] as const,

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { api, imageApi, audioFilesApi } from "@/lib/api";
+import { notifyUnauthorized } from "@/lib/api/client";
 
 /**
  * Subscribes to the backend's file-change SSE stream for one library (or,
@@ -42,13 +43,14 @@ export function useLiveFiles(
       }
     };
 
-    // No onerror handler: the browser auto-reconnects EventSource on its own,
-    // reusing this same `es` object — so `lastSignature` survives the drop,
-    // and the reconnected stream's first message goes through the same
-    // comparison above. A dropped connection alone is not a data change;
-    // firing onChange from onerror would report every network blip (or, on
-    // Cleanup/Duplicates, show a false "results may be out of date" banner)
-    // as if a file had actually changed, whether or not one had.
+    // The browser auto-reconnects EventSource on its own, reusing this same `es` object — so
+    // `lastSignature` survives the drop, and the reconnected stream's first message goes through
+    // the same comparison above. A dropped connection alone is not a data change; firing
+    // onChange from onerror would report every network blip (or, on Cleanup/Duplicates, show a
+    // false "results may be out of date" banner) as if a file had actually changed. onerror
+    // therefore only asks whether the session is still valid: a 401 closes an EventSource for
+    // good (no reconnect), and the auth gate shows the login page if the answer is no.
+    es.onerror = () => notifyUnauthorized();
 
     return () => es.close();
   }, [kind, libraryId]);

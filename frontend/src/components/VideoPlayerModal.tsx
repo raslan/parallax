@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { streamApi } from "@/lib/api";
-import { BASE } from "@/lib/api/client";
+import { BASE, notifyUnauthorized } from "@/lib/api/client";
 import type { StreamPrepareStatus } from "@/types/stream";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
@@ -146,7 +146,10 @@ export function VideoPlayerModal({
       return;
     }
     fetch(subtitleTracksUrl)
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (r.status === 401) notifyUnauthorized();
+        return r.ok ? r.json() : [];
+      })
       .then((t: SubtitleTrack[]) => {
         setTracks(t);
         setTracksReady(true);

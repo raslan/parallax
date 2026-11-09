@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { notifyUnauthorized } from "@/lib/api/client";
 
 /**
  * Subscribes to a JSON-per-message SSE endpoint. Relies on the browser's
@@ -33,7 +34,11 @@ export function useEventSource<T>(
       }
     };
 
-    es.onerror = () => onErrorRef.current?.();
+    es.onerror = () => {
+      // A 401 closes an EventSource for good; ask the auth gate whether the session is gone.
+      notifyUnauthorized();
+      onErrorRef.current?.();
+    };
 
     return () => es.close();
   }, [url]);

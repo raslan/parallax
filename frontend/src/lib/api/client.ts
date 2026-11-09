@@ -31,12 +31,30 @@ export function errorDetail(e: unknown, fallback: string): string {
   }
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+/** Registered once by `queryClient.ts`: what to do when the server says "not signed in". */
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
+/**
+ * Tell the app the session may be gone (a 401 from any request, or a dropped event stream).
+ * It re-reads `/auth/status`, and `AuthGate` swaps in the login page if that now says so.
+ */
+export function notifyUnauthorized(): void {
+  onUnauthorized?.();
+}
+
 export async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     cache: "no-store",
     headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
   });
+  // A 401 from the sign-in routes just means a wrong password; anywhere else it means the
+  // session expired or was revoked.
+  if (res.status === 401 && !path.startsWith("/auth/")) notifyUnauthorized();
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`${res.status}: ${text}`);
