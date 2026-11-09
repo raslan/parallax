@@ -32,7 +32,7 @@ There is no variable for the port. Parallax always listens on 7899 inside the co
 
 ## Checking it is healthy
 
-Parallax answers on `/api/health` with a short status, and it is the one route that needs no sign-in. It is a handy target for an uptime monitor or a Docker health check, for example `http://your-machine:7899/api/health`.
+Parallax answers a `GET` request on `/api/health` with a short status, and it is the one route that needs no sign-in. It is a handy target for an uptime monitor or a Docker health check, for example `http://your-machine:7899/api/health`. Use `GET`, not `HEAD`.
 
 ## Everything else
 

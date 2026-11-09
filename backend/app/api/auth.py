@@ -24,9 +24,10 @@ class Credentials(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    # Not length-checked: a wrong-length guess is just a wrong password.
-    username: str
-    password: str
+    # Not held to the 8-128 rule (a wrong-length guess is just a wrong password), but bounded
+    # so nobody can feed megabytes to the hash.
+    username: str = Field(max_length=256)
+    password: str = Field(max_length=1024)
 
 
 class AccountUpdate(BaseModel):

@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import math
 import secrets
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -145,6 +146,7 @@ class LoginThrottle:
 
 
 THROTTLE = LoginThrottle()
+_PASSWORD_CHECK_LOCK = threading.Lock()
 
 
 # ── account ──────────────────────────────────────────────────────────────────
@@ -193,8 +195,14 @@ def update_account(
     user = get_user(db)
     if user is None:
         raise NoAccount()
-    if not verify_password(current_password, user.password_hash):
-        raise WrongPassword()
+    # The current-password check is what stops a stolen cookie from taking over the account,
+    # so it is throttled exactly like a login (and shares its counter).
+    with _PASSWORD_CHECK_LOCK:
+        THROTTLE.check()
+        if not verify_password(current_password, user.password_hash):
+            THROTTLE.fail()
+            raise WrongPassword()
+        THROTTLE.reset()
     if new_username is not None:
         user.username = _clean_username(new_username)
     if new_password is not None:
@@ -229,15 +237,21 @@ def create_session(db: Session) -> str:
 
 def login(db: Session, username: str, password: str) -> str:
     """Check the credentials and open a session; returns the raw cookie token."""
-    THROTTLE.check()
-    user = get_user(db)
-    name_ok = user is not None and user.username.casefold() == _clean_username(username).casefold()
-    stored = user.password_hash if (user is not None and name_ok) else _DUMMY_HASH
-    pw_ok = verify_password(password, stored)
-    if not (name_ok and pw_ok):
-        THROTTLE.fail()
-        raise InvalidCredentials()
-    THROTTLE.reset()
+    # One password check at a time: otherwise a burst of parallel requests all pass the
+    # throttle before any of them fails (many guesses per lockout window), and each scrypt
+    # call holds ~32 MiB.
+    with _PASSWORD_CHECK_LOCK:
+        THROTTLE.check()
+        user = get_user(db)
+        name_ok = (
+            user is not None and user.username.casefold() == _clean_username(username).casefold()
+        )
+        stored = user.password_hash if (user is not None and name_ok) else _DUMMY_HASH
+        pw_ok = verify_password(password, stored)
+        if not (name_ok and pw_ok):
+            THROTTLE.fail()
+            raise InvalidCredentials()
+        THROTTLE.reset()
     return create_session(db)
 
 

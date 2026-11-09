@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authApi, type AuthStatus } from "@/lib/api/auth";
-import { errorDetail } from "@/lib/api/client";
+import { errorDetail, httpStatus } from "@/lib/api/client";
 import { qk } from "@/lib/api/queryKeys";
 import { loginSchema, setupSchema, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/schemas/auth";
 import { zodResolver } from "@/lib/zodResolver";
@@ -91,6 +91,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== qk.auth()[0] });
       qc.setQueryData(qk.auth(), status);
     },
+    onError: (e) => {
+      // Someone else created the account first: re-read the status so this page becomes the
+      // sign-in page instead of staying on a setup form that can no longer work.
+      if (httpStatus(e) === 409) void qc.invalidateQueries({ queryKey: qk.auth() });
+    },
   });
 
   const pending = signIn.isPending;
@@ -145,7 +150,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
                   className="pr-10"
                   aria-invalid={!!errors.password}
                   aria-describedby={
-                    errors.password ? `${ids.password}-error` : `${ids.password}-hint`
+                    errors.password
+                      ? `${ids.password}-error`
+                      : mode === "setup"
+                        ? `${ids.password}-hint`
+                        : undefined
                   }
                   {...register("password")}
                 />

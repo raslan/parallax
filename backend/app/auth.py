@@ -14,6 +14,7 @@ Pure ASGI on purpose: `BaseHTTPMiddleware` interferes with streaming responses a
 import json
 import os
 import time
+from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
 
 from starlette.concurrency import run_in_threadpool
@@ -101,16 +102,49 @@ class SessionRevoked(Exception):
     """Raised inside a streaming response when its session no longer exists."""
 
 
-def _stop_when_revoked(send: Send, token: str | None) -> Send:
+def _session_cookie_header(token: str, secure: bool) -> bytes:
+    cookie = SimpleCookie()
+    cookie[SESSION_COOKIE] = token
+    morsel = cookie[SESSION_COOKIE]
+    morsel["path"] = "/"
+    morsel["max-age"] = str(svc.SESSION_DAYS * 24 * 3600)
+    morsel["httponly"] = True
+    morsel["samesite"] = "lax"
+    if secure:
+        morsel["secure"] = True
+    return morsel.OutputString().encode("latin-1")
+
+
+def _is_https(scope: Scope) -> bool:
+    forwarded = ""
+    for name, value in scope.get("headers", []):
+        if name == b"x-forwarded-proto":
+            forwarded = value.decode("latin-1").split(",")[0].strip().lower()
+    return scope.get("scheme") == "https" or forwarded == "https"
+
+
+def _guard_response(send: Send, scope: Scope, token: str | None, reissue: bool) -> Send:
+    """Wrap `send` for a signed-in request.
+
+    - `reissue`: the server just slid the session's expiry, so hand the browser a fresh cookie
+      too, or it would drop the cookie 30 days after sign-in however often it is used.
+    - While a response keeps streaming (SSE), re-check every few seconds that the session still
+      exists, and end the response when it is gone.
+    """
     last_check = _now()
 
     async def guarded(message):
         nonlocal last_check
-        if message["type"] == "http.response.body" and message.get("more_body"):
+        if message["type"] == "http.response.start" and reissue and token:
+            headers = list(message.get("headers", []))
+            headers.append((b"set-cookie", _session_cookie_header(token, _is_https(scope))))
+            message = {**message, "headers": headers}
+        elif message["type"] == "http.response.body" and message.get("more_body"):
             current = _now()
             if current - last_check >= RECHECK_SECONDS:
                 last_check = current
-                if _resolve(token)[0] is None:
+                resolved, _ = await run_in_threadpool(_resolve, token)
+                if resolved is None:
                     raise SessionRevoked
         await send(message)
 
@@ -149,14 +183,16 @@ class AuthMiddleware:
         state.pop("auth_user", None)
         state.pop("auth_session_id", None)
         token = conn.cookies.get(SESSION_COOKIE)
-        resolved, needs_touch = _resolve(token)
+        # In the threadpool: the lookup can wait on the connection pool or SQLite's write lock,
+        # and must never freeze the event loop (every request and stream shares it).
+        resolved, needs_touch = await run_in_threadpool(_resolve, token)
         if resolved is not None:
             state["auth_user"] = resolved.username
             state["auth_session_id"] = resolved.session_id
             if needs_touch:
                 await run_in_threadpool(_touch, resolved.session_id)
             if kind == "http":
-                send = _stop_when_revoked(send, token)
+                send = _guard_response(send, scope, token, reissue=needs_touch)
         elif (method, path) not in PUBLIC_ROUTES:
             if kind == "websocket":
                 await send({"type": "websocket.close", "code": 1008})
@@ -169,6 +205,12 @@ class AuthMiddleware:
             # A live stream whose session ended: the response just stops. The browser's
             # EventSource errors, reconnects, gets a 401 and the app shows the login page.
             return
+        except BaseExceptionGroup as group:
+            # Some Starlette versions run a streaming response in a task group, which wraps
+            # what `send` raised.
+            _, rest = group.split(SessionRevoked)
+            if rest is not None:
+                raise rest from None
 
 
 def install_openapi_security(app) -> None:

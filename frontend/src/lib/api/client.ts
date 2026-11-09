@@ -31,6 +31,9 @@ export function errorDetail(e: unknown, fallback: string): string {
   }
 }
 
+/** A 401 from these only means a wrong password. From any other route it means the session is gone. */
+const SIGN_IN_PATHS = new Set(["/auth/login", "/auth/setup"]);
+
 let onUnauthorized: (() => void) | null = null;
 
 /** Registered once by `queryClient.ts`: what to do when the server says "not signed in". */
@@ -54,7 +57,7 @@ export async function req<T>(path: string, init?: RequestInit): Promise<T> {
   });
   // A 401 from the sign-in routes just means a wrong password; anywhere else it means the
   // session expired or was revoked.
-  if (res.status === 401 && !path.startsWith("/auth/")) notifyUnauthorized();
+  if (res.status === 401 && !SIGN_IN_PATHS.has(path)) notifyUnauthorized();
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`${res.status}: ${text}`);

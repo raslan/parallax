@@ -59,6 +59,15 @@ describe("401 handling", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("treats a 401 from the other account routes as a lost session", async () => {
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+    await call("/auth/logout", 401);
+    await call("/auth/logout-all", 401);
+    await call("/auth/account", 401);
+    expect(handler).toHaveBeenCalledTimes(3);
+  });
+
   it("does not treat other failures as a lost session", async () => {
     const handler = vi.fn();
     setUnauthorizedHandler(handler);

@@ -43,6 +43,22 @@ def test_the_walk_actually_finds_routes():
     assert len(list(_protected_routes())) > 100
 
 
+# The only routes allowed outside the protected prefixes: the SPA shell and its static assets,
+# which must stay public or the login page could not load.
+_PUBLIC_SHELL = {"/{full_path:path}", "/assets"}
+
+
+def test_no_route_hides_outside_the_protected_prefixes():
+    """A router added without the /api prefix (or a route next to the SPA one) would be served
+    to anyone and escape every other test here, so name every unprotected path."""
+    outside = {
+        route.path
+        for route in _flatten(app.routes)
+        if getattr(route, "path", None) and not auth.is_protected_path(route.path)
+    }
+    assert outside <= _PUBLIC_SHELL, f"unprotected routes: {sorted(outside - _PUBLIC_SHELL)}"
+
+
 def test_every_route_but_the_allowlist_is_401_anonymously(anon_client):
     # One loop, not one test per route: each test would start the whole app.
     wrong = []

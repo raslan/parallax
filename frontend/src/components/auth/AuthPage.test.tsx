@@ -118,6 +118,19 @@ describe("AuthPage setup", () => {
     expect(authApi.setup).not.toHaveBeenCalled();
   });
 
+  it("re-reads the status when someone else created the account first", async () => {
+    vi.mocked(authApi.setup).mockRejectedValue(
+      new Error('409: {"detail":"An account already exists"}'),
+    );
+    const qc = renderPage("setup");
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    type("Username", "owner");
+    type("Password", "correct horse battery");
+    type("Confirm password", "correct horse battery");
+    submit("Create account");
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.auth() }));
+  });
+
   it("accepts an all-lowercase passphrase", async () => {
     vi.mocked(authApi.setup).mockResolvedValue({
       enabled: true,
