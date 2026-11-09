@@ -28,6 +28,37 @@ class JobType:
     IMAGE_UPSCALE = "image_upscale"
 
 
+# Which library kind a job type belongs to. Video, image and audio library ids all count from 1
+# and `Job` has no kind column, so deleting a library may only cancel / detach the jobs of its
+# own kind — otherwise deleting video library 1 stops the running scan of image library 1.
+# `THUMBNAIL_WARM` is run by both video and image libraries and cannot be told apart, so it is in
+# both sets (a stray warm-up cancel is harmless).
+AUDIO_LIBRARY_JOB_TYPES = (
+    JobType.AUDIO_SCAN,
+    JobType.AUDIO_COMPRESS,
+    JobType.AUDIO_TOOLBOX,
+    JobType.AUDIO_DUPLICATES,
+)
+IMAGE_LIBRARY_JOB_TYPES = (
+    JobType.IMAGE_SCAN,
+    JobType.IMAGE_DUPLICATES,
+    JobType.IMAGE_CONTENT_SCAN,
+    JobType.IMAGE_UPSCALE,
+    JobType.THUMBNAIL_WARM,
+)
+# Everything that is neither audio nor image-only is a video-library job (scan, compress,
+# duplicates, toolbox, splice, subtitles, ...).
+_NOT_VIDEO_JOB_TYPES = (
+    *AUDIO_LIBRARY_JOB_TYPES,
+    *(t for t in IMAGE_LIBRARY_JOB_TYPES if t != JobType.THUMBNAIL_WARM),
+)
+
+
+def video_library_job_filter():
+    """SQL clause selecting the job types a video library owns."""
+    return Job.type.notin_(_NOT_VIDEO_JOB_TYPES)
+
+
 class JobStatus:
     PENDING = "pending"
     RUNNING = "running"

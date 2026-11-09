@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.utils import active_job_exists
 from app.database import get_db
 from app.models.file import File
-from app.models.job import Job, JobStatus, JobType
+from app.models.job import Job, JobStatus, JobType, video_library_job_filter
 from app.models.library import Library
 from app.queue import enqueue
 from app.schemas import (
@@ -22,6 +22,8 @@ from app.schemas import (
     StatsRead,
 )
 from app.services import stats
+from app.services.common import library_overlap
+from app.services.originals_common import move_to_originals
 from app.services.scanner import clear_thumbnail_failed_marker, scan_library, thumbnail_path
 
 router = APIRouter(prefix="/libraries", tags=["libraries"])
@@ -67,21 +69,24 @@ def create_library(body: LibraryCreate, db: Session = Depends(get_db)):
         from app.services import fs_watcher
 
         created = []
+        covered = [p for (p,) in db.query(Library.path)]
         for subdir in subdirs:
-            if db.query(Library).filter(Library.path == subdir).first():
+            if library_overlap(covered, subdir):
                 continue
             lib = Library(name=os.path.basename(subdir), path=subdir)
             db.add(lib)
             db.commit()
             db.refresh(lib)
+            covered.append(lib.path)
             created.append(lib)
             fs_watcher.watch_library(lib.id, lib.path, kind="video")
         return _with_counts(created, db)
     else:
         if not os.path.isdir(body.path):
             raise HTTPException(400, "Path does not exist or is not a directory")
-        if db.query(Library).filter(Library.path == body.path).first():
-            raise HTTPException(400, "A library with this path already exists")
+        overlapping = library_overlap([p for (p,) in db.query(Library.path)], body.path)
+        if overlapping:
+            raise HTTPException(400, f"This folder overlaps the existing library at {overlapping}")
         lib = Library(name=body.name, path=body.path)
         db.add(lib)
         db.commit()
@@ -140,6 +145,42 @@ def update_library(library_id: int, body: LibraryUpdate, db: Session = Depends(g
     return lib
 
 
+def _remove_files(db: Session, library_id: int, file_ids: list[int]) -> None:
+    """Move library files into their folder's `_originals/` and forget their rows — the whole of
+    Cleanup's and Duplicates' delete.
+
+    A backup is never overwritten (`move_to_originals`). A file that cannot be moved (read-only
+    folder, permissions) stays on disk *and* in the library; the files that did move are
+    committed first, so no row is left pointing at a path that no longer exists, and the failure
+    is reported rather than aborting the batch half-way.
+    """
+    removed = removed_bytes = 0
+    failed: list[str] = []
+    for file_id in file_ids:
+        f = db.get(File, file_id)
+        if not f or f.library_id != library_id:
+            continue
+        if os.path.exists(f.path):
+            try:
+                move_to_originals(f.path, f.filename, f.id)
+            except OSError as exc:
+                failed.append(f"{f.filename} ({exc})")
+                continue
+            # Only a file that was really on disk counts as removed.
+            removed += 1
+            removed_bytes += f.size or 0
+        try:
+            os.remove(thumbnail_path(f.id))
+        except FileNotFoundError:
+            pass
+        clear_thumbnail_failed_marker(f.id)
+        db.delete(f)
+    db.commit()
+    stats.record_removal("video", removed, removed_bytes)
+    if failed:
+        raise HTTPException(500, "Could not move: " + ", ".join(failed))
+
+
 @router.get("/{library_id}/leftovers")
 def library_leftovers(library_id: int, db: Session = Depends(get_db)):
     """Check for _originals/ directories inside the library path."""
@@ -177,19 +218,21 @@ def delete_library(library_id: int, delete_leftovers: bool = False, db: Session 
     from app.services import fs_watcher
 
     fs_watcher.unwatch_library(library_id, kind="video")
-    # Signal any running jobs for this library to stop
+    # Signal any running jobs for this library to stop. Only video-library job types: image and
+    # audio library ids count from 1 too, and `Job` has no kind column (see models/job.py).
     active_jobs = (
         db.query(Job)
         .filter(
             Job.library_id == library_id,
+            video_library_job_filter(),
             Job.status.in_([JobStatus.RUNNING, JobStatus.PENDING]),
         )
         .all()
     )
     for job in active_jobs:
         request_cancel(job.id)
-    # Null out library_id on all job records (FK prevents library delete otherwise)
-    db.query(Job).filter(Job.library_id == library_id).update(
+    # Detach this library's job history from it
+    db.query(Job).filter(Job.library_id == library_id, video_library_job_filter()).update(
         {Job.library_id: None}, synchronize_session=False
     )
     files = db.query(File).filter(File.library_id == library_id).all()
@@ -265,7 +308,10 @@ def browse_library(
     current = f"{base}/{path}".rstrip("/") if path else base
     prefix = current + "/"
 
-    q = db.query(File).filter(File.library_id == library_id, File.path.like(f"{prefix}%"))
+    # `startswith(autoescape=True)`, not LIKE: `_` and `%` in a folder name are wildcards in LIKE.
+    q = db.query(File).filter(
+        File.library_id == library_id, File.path.startswith(prefix, autoescape=True)
+    )
     if status:
         q = q.filter(File.status == status)
     all_files = q.all()
@@ -394,26 +440,7 @@ def delete_duplicates_endpoint(
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
-    removed = removed_bytes = 0
-    for file_id in body.file_ids:
-        f = db.get(File, file_id)
-        if not f or f.library_id != library_id:
-            continue
-        if os.path.exists(f.path):
-            originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
-            os.makedirs(originals_dir, exist_ok=True)
-            shutil.move(f.path, os.path.join(originals_dir, f.filename))
-            # Only a file that was really on disk counts as removed.
-            removed += 1
-            removed_bytes += f.size or 0
-        try:
-            os.remove(thumbnail_path(f.id))
-        except FileNotFoundError:
-            pass
-        clear_thumbnail_failed_marker(f.id)
-        db.delete(f)
-    db.commit()
-    stats.record_removal("video", removed, removed_bytes)
+    _remove_files(db, library_id, body.file_ids)
 
 
 @router.get("/{library_id}/cleanup", response_model=list[FileRead])
@@ -467,26 +494,4 @@ def delete_cleanup_files(
     lib = db.get(Library, library_id)
     if not lib:
         raise HTTPException(404, "Library not found")
-    removed = removed_bytes = 0
-    for file_id in body.file_ids:
-        f = db.get(File, file_id)
-        if not f or f.library_id != library_id:
-            continue
-        if os.path.exists(f.path):
-            originals_dir = os.path.join(os.path.dirname(f.path), "_originals")
-            os.makedirs(originals_dir, exist_ok=True)
-            dest = os.path.join(originals_dir, f.filename)
-            if os.path.exists(dest):
-                base, ext = os.path.splitext(f.filename)
-                dest = os.path.join(originals_dir, f"{base}_{f.id}{ext}")
-            shutil.move(f.path, dest)
-            removed += 1
-            removed_bytes += f.size or 0
-        try:
-            os.remove(thumbnail_path(f.id))
-        except FileNotFoundError:
-            pass
-        clear_thumbnail_failed_marker(f.id)
-        db.delete(f)
-    db.commit()
-    stats.record_removal("video", removed, removed_bytes)
+    _remove_files(db, library_id, body.file_ids)

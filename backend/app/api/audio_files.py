@@ -1,6 +1,5 @@
 import asyncio
 import os
-import shutil
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
@@ -13,6 +12,7 @@ from app.database import SessionLocal, get_db
 from app.models.audio_file import AudioFile
 from app.schemas import AudioFileRead
 from app.services import stats
+from app.services.originals_common import move_to_originals
 
 router = APIRouter(prefix="/audio-files", tags=["audio-files"])
 
@@ -101,31 +101,29 @@ class AudioFileDeleteRequest(BaseModel):
 @router.post("/delete", status_code=204)
 def delete_audio_files(body: AudioFileDeleteRequest, db: Session = Depends(get_db)):
     removed = removed_bytes = 0
+    failed: list[str] = []
     for file_id in body.file_ids:
         row = db.get(AudioFile, file_id)
         if row is None:
             continue
         if os.path.isfile(row.path):
+            try:
+                if body.keep_original:
+                    move_to_originals(row.path, row.filename, row.id)
+                else:
+                    try:
+                        os.remove(row.path)
+                    except FileNotFoundError:
+                        pass
+            except OSError as exc:
+                # Stays on disk and in the library; the others still go (see libraries.py).
+                failed.append(f"{row.filename} ({exc})")
+                continue
             # Only a file that was really on disk counts as removed.
             removed += 1
             removed_bytes += row.size or 0
-            if body.keep_original:
-                originals_dir = os.path.join(os.path.dirname(row.path), "_originals")
-                os.makedirs(originals_dir, exist_ok=True)
-                dest = os.path.join(originals_dir, row.filename)
-                if os.path.exists(dest):
-                    base, ext = os.path.splitext(row.filename)
-                    dest = os.path.join(originals_dir, f"{base}_{row.id}{ext}")
-                    n = 1
-                    while os.path.exists(dest):
-                        dest = os.path.join(originals_dir, f"{base}_{row.id}_{n}{ext}")
-                        n += 1
-                shutil.move(row.path, dest)
-            else:
-                try:
-                    os.remove(row.path)
-                except FileNotFoundError:
-                    pass
         db.delete(row)
     db.commit()
     stats.record_removal("audio", removed, removed_bytes)
+    if failed:
+        raise HTTPException(500, "Could not remove: " + ", ".join(failed))

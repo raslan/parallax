@@ -20,6 +20,26 @@ def is_ignored_media_name(name: str) -> bool:
     return name.startswith(".") or ".compressing" in name or ".transcoding" in name
 
 
+def library_overlap(existing_paths, path: str) -> str | None:
+    """The existing library folder that `path` equals, sits inside, or contains — else None.
+
+    Two libraries of one kind that both cover a folder can't both index it: `files.path` (and
+    `audio_files.path`, `images.path`) is UNIQUE, so the second scan dies on the constraint and
+    the watcher logs the same error on every sweep. Compared on resolved paths, so a trailing
+    slash, `.` segments and symlinks to the same folder all count as the same folder.
+    """
+
+    def norm(p: str) -> str:
+        return os.path.realpath(p).rstrip(os.sep) + os.sep
+
+    candidate = norm(path)
+    for existing in existing_paths:
+        other = norm(existing)
+        if candidate.startswith(other) or other.startswith(candidate):
+            return existing
+    return None
+
+
 def temp_sibling_path(src: str, ext: str, infix: str) -> str:
     """A short, collision-free temp path for in-progress media output — in
     `SCRATCH_DIR` if that's actually mounted (a fast disk staging area, opt-in

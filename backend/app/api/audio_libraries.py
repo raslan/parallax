@@ -8,14 +8,14 @@ from app.api.utils import active_job_exists
 from app.database import get_db
 from app.models.audio_file import AudioFile
 from app.models.audio_library import AudioLibrary
-from app.models.job import Job, JobStatus, JobType
+from app.models.job import AUDIO_LIBRARY_JOB_TYPES, Job, JobStatus, JobType
 from app.schemas import (
     AudioDuplicateCriteriaRequest,
     AudioLibraryCreate,
     AudioLibraryRead,
     AudioLibraryUpdate,
 )
-from app.services.common import request_cancel
+from app.services.common import library_overlap, request_cancel
 
 router = APIRouter(prefix="/audio-libraries", tags=["audio-libraries"])
 
@@ -70,13 +70,15 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
             raise HTTPException(422, "No subdirectories found at the selected path")
 
         created: list[AudioLibrary] = []
+        covered = [p for (p,) in db.query(AudioLibrary.path)]
         for subdir in subdirs:
-            if db.query(AudioLibrary).filter(AudioLibrary.path == subdir).first():
+            if library_overlap(covered, subdir):
                 continue
             lib = AudioLibrary(name=os.path.basename(subdir), path=subdir)
             db.add(lib)
             db.commit()
             db.refresh(lib)
+            covered.append(lib.path)
             fs_watcher.watch_library(lib.id, lib.path, kind="audio")
             created.append(lib)
         if not created:
@@ -85,9 +87,9 @@ async def create_audio_library(body: AudioLibraryCreate, db: Session = Depends(g
 
     if not os.path.isdir(body.path):
         raise HTTPException(400, "Path does not exist or is not a directory")
-    existing = db.query(AudioLibrary).filter(AudioLibrary.path == body.path).first()
-    if existing:
-        raise HTTPException(409, "A library with this path already exists")
+    overlapping = library_overlap([p for (p,) in db.query(AudioLibrary.path)], body.path)
+    if overlapping:
+        raise HTTPException(409, f"This folder overlaps the existing library at {overlapping}")
     name = body.name or os.path.basename(body.path.rstrip("/"))
     lib = AudioLibrary(name=name, path=body.path)
     db.add(lib)
@@ -149,7 +151,7 @@ def delete_audio_library(
 
     fs_watcher.unwatch_library(library_id, kind="audio")
 
-    _audio_job_types = (JobType.AUDIO_SCAN, JobType.AUDIO_COMPRESS)
+    _audio_job_types = AUDIO_LIBRARY_JOB_TYPES
     active_jobs = (
         db.query(Job)
         .filter(

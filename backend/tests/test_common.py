@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 import app.services.common as common
 
 
@@ -39,3 +41,43 @@ def test_temp_sibling_path_names_stay_collision_free_across_calls(monkeypatch, t
     b = common.temp_sibling_path(str(tmp_path / "b" / "two.mp4"), ".mp4", "compressing")
 
     assert a == b
+
+
+# --- library_overlap ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("/media/movies", "/media/movies"),  # the same folder
+        ("/media/movies/", "/media/movies"),  # trailing slash
+        ("/media/movies/./", "/media/movies"),
+        ("/media/movies/action", "/media/movies"),  # inside an existing library
+        ("/media", "/media/movies"),  # around an existing library
+        ("/", "/media/movies"),
+        ("/media/movies2", None),  # a name prefix is not a parent
+        ("/media/music", None),
+        ("/other", None),
+    ],
+)
+def test_library_overlap(path, expected):
+    from app.services.common import library_overlap
+
+    assert library_overlap(["/media/movies"], path) == expected
+
+
+def test_library_overlap_follows_symlinks(tmp_path):
+    from app.services.common import library_overlap
+
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+
+    assert library_overlap([str(real)], str(link)) == str(real)
+
+
+def test_library_overlap_with_no_libraries():
+    from app.services.common import library_overlap
+
+    assert library_overlap([], "/anything") is None

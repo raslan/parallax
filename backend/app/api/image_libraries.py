@@ -8,9 +8,9 @@ from app.api.utils import active_job_exists
 from app.database import DATA_DIR, get_db
 from app.models.image import ImageDetection, ImageFile
 from app.models.image_library import ImageLibrary
-from app.models.job import Job, JobStatus, JobType
+from app.models.job import IMAGE_LIBRARY_JOB_TYPES, Job, JobStatus, JobType
 from app.schemas import ImageLibraryCreate, ImageLibraryRead, ImageScanRequest
-from app.services.common import request_cancel
+from app.services.common import library_overlap, request_cancel
 
 router = APIRouter(prefix="/image-libraries", tags=["image-libraries"])
 
@@ -52,9 +52,9 @@ def list_image_libraries(db: Session = Depends(get_db)):
 def create_image_library(body: ImageLibraryCreate, db: Session = Depends(get_db)):
     if not os.path.isdir(body.path):
         raise HTTPException(400, "Path does not exist or is not a directory")
-    existing = db.query(ImageLibrary).filter(ImageLibrary.path == body.path).first()
-    if existing:
-        raise HTTPException(409, "A library with this path already exists")
+    overlapping = library_overlap([p for (p,) in db.query(ImageLibrary.path)], body.path)
+    if overlapping:
+        raise HTTPException(409, f"This folder overlaps the existing library at {overlapping}")
     name = body.name or os.path.basename(body.path.rstrip("/"))
     lib = ImageLibrary(name=name, path=body.path)
     db.add(lib)
@@ -104,10 +104,13 @@ def delete_image_library(
 
     fs_watcher.unwatch_library(library_id, kind="image")
 
+    # Only image-library job types: video and audio library ids count from 1 too, and `Job` has
+    # no kind column (see models/job.py).
     active_jobs = (
         db.query(Job)
         .filter(
             Job.library_id == library_id,
+            Job.type.in_(IMAGE_LIBRARY_JOB_TYPES),
             Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
         )
         .all()
@@ -115,10 +118,10 @@ def delete_image_library(
     for job in active_jobs:
         request_cancel(job.id)
 
-    # Null out library_id on all job records (FK prevents library delete otherwise)
-    db.query(Job).filter(Job.library_id == library_id).update(
-        {Job.library_id: None}, synchronize_session=False
-    )
+    # Detach this library's job history from it
+    db.query(Job).filter(
+        Job.library_id == library_id, Job.type.in_(IMAGE_LIBRARY_JOB_TYPES)
+    ).update({Job.library_id: None}, synchronize_session=False)
     image_ids = [
         row[0] for row in db.query(ImageFile.id).filter(ImageFile.library_id == library_id).all()
     ]
