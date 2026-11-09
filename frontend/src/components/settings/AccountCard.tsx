@@ -85,7 +85,7 @@ export function AccountCard() {
   };
 
   return (
-    <Card className="max-w-xl">
+    <Card id="account" className="max-w-xl">
       <CardContent className="space-y-5 pt-6">
         <div>
           <p className="text-sm font-medium">Account</p>
@@ -111,6 +111,16 @@ export function AccountCard() {
             readOnly
             hidden
           />
+          <Field id={ids.current} label="Current password" error={errors.currentPassword?.message}>
+            <Input
+              id={ids.current}
+              type="password"
+              autoComplete="current-password"
+              aria-invalid={!!errors.currentPassword}
+              aria-describedby={errors.currentPassword ? `${ids.current}-error` : undefined}
+              {...register("currentPassword")}
+            />
+          </Field>
           <Field id={ids.username} label="New username" error={errors.newUsername?.message}>
             <Input
               id={ids.username}
@@ -141,16 +151,6 @@ export function AccountCard() {
               aria-invalid={!!errors.confirm}
               aria-describedby={errors.confirm ? `${ids.confirm}-error` : undefined}
               {...register("confirm")}
-            />
-          </Field>
-          <Field id={ids.current} label="Current password" error={errors.currentPassword?.message}>
-            <Input
-              id={ids.current}
-              type="password"
-              autoComplete="current-password"
-              aria-invalid={!!errors.currentPassword}
-              aria-describedby={errors.currentPassword ? `${ids.current}-error` : undefined}
-              {...register("currentPassword")}
             />
           </Field>
 

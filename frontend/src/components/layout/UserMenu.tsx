@@ -33,7 +33,7 @@ export function UserMenu() {
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/settings">
+          <Link to="/settings#account">
             <Settings2 className="mr-2 h-3.5 w-3.5" />
             Account settings
           </Link>
