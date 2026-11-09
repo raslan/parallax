@@ -8,11 +8,11 @@ import { cn } from "@/lib/utils";
  */
 const FRAMES = [
   // depth = pixels of travel at the screen edge; the far frames move least.
-  { cls: "left-[6%] top-[10%] w-[34vmin] bg-px-surface", depth: 14 },
-  { cls: "right-[8%] top-[18%] w-[26vmin] border border-primary/25", depth: 26 },
-  { cls: "left-[14%] bottom-[8%] w-[22vmin] border border-border", depth: 38 },
-  { cls: "right-[12%] bottom-[12%] w-[38vmin] bg-px-elevated", depth: 20 },
-  { cls: "left-[44%] top-[4%] w-[14vmin] border border-primary/40", depth: 52 },
+  { cls: "left-[6%] top-[10%] w-[34vmin] border border-border bg-px-surface", depth: 14 },
+  { cls: "right-[8%] top-[18%] w-[26vmin] border border-primary/30", depth: 26 },
+  { cls: "left-[14%] bottom-[8%] w-[22vmin] border border-border bg-px-surface", depth: 38 },
+  { cls: "right-[12%] bottom-[12%] w-[38vmin] border border-border bg-px-elevated", depth: 20 },
+  { cls: "left-[44%] top-[4%] w-[14vmin] border border-primary/50", depth: 52 },
 ] as const;
 
 export function AuthBackdrop({ className }: { className?: string }) {
@@ -40,7 +40,7 @@ export function AuthBackdrop({ className }: { className?: string }) {
         <div
           key={i}
           className={cn(
-            "absolute aspect-[4/3] rounded-[0.4rem] opacity-70 transition-transform duration-300 ease-out",
+            "absolute aspect-[4/3] rounded-[0.4rem] transition-transform duration-300 ease-out",
             f.cls,
           )}
           style={{

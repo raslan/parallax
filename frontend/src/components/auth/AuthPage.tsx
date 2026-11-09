@@ -166,12 +166,9 @@ export function AuthPage({ mode }: { mode: Mode }) {
               )}
             </Field>
 
-            {/* Reserved in both modes so the card keeps one height. */}
-            <div
-              className={mode === "setup" ? undefined : "invisible h-[4.25rem]"}
-              aria-hidden={mode !== "setup"}
-            >
-              {mode === "setup" && (
+            {/* Same height in both modes: setup's confirm field, or login's reset hint. */}
+            <div className="min-h-[4.25rem]">
+              {mode === "setup" ? (
                 <Field id={ids.confirm} label="Confirm password" error={errors.confirm?.message}>
                   <Input
                     id={ids.confirm}
@@ -182,6 +179,13 @@ export function AuthPage({ mode }: { mode: Mode }) {
                     {...register("confirm")}
                   />
                 </Field>
+              ) : (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Forgot your password? On the server, run{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-2xs">
+                    docker exec -it parallax python -m app.reset_password
+                  </code>
+                </p>
               )}
             </div>
 
@@ -203,15 +207,6 @@ export function AuthPage({ mode }: { mode: Mode }) {
                 copy.submit
               )}
             </Button>
-
-            {mode === "login" && (
-              <p className="text-xs text-muted-foreground">
-                Forgot your password? On the server, run{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-2xs">
-                  docker exec -it parallax python -m app.reset_password
-                </code>
-              </p>
-            )}
           </form>
         </CardContent>
       </Card>

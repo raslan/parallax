@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Settings2, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +33,10 @@ export function UserMenu() {
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/settings">Account settings</Link>
+          <Link to="/settings">
+            <Settings2 className="mr-2 h-3.5 w-3.5" />
+            Account settings
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => signOut.mutate()}>
           <LogOut className="mr-2 h-3.5 w-3.5" />

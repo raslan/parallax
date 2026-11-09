@@ -85,7 +85,7 @@ export function AccountCard() {
   };
 
   return (
-    <Card>
+    <Card className="max-w-xl">
       <CardContent className="space-y-5 pt-6">
         <div>
           <p className="text-sm font-medium">Account</p>

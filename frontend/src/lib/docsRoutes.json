@@ -4,6 +4,8 @@
     "/": "general-concepts/home",
     "/jobs": "general-concepts/jobs",
     "/settings": "general-concepts/settings",
+    "/login": "general-concepts/account",
+    "/setup": "general-concepts/account",
     "/libraries": "general-concepts/libraries",
     "/image-libraries": "general-concepts/libraries",
     "/audio-libraries": "general-concepts/libraries",
