@@ -59,7 +59,7 @@ To open Parallax on another port, change the left number in the `ports` line. Fo
 
 Parallax has one account, which you create the first time you open it. Open the page yourself before you share the address with anyone, because whoever gets there first makes the account. After that, everything needs a sign-in, including thumbnails and playback. See [Account and sign-in](/docs/general-concepts/account) for changing the password and for what to do if you forget it.
 
-The sign-in protects you on a home network and behind a VPN. If you want to reach Parallax from the internet, put it behind HTTPS (a reverse proxy such as Nginx Proxy Manager or Caddy does this) so your password is not sent in the clear. The proxy has to pass the original `Host` header on (most do by default; with plain nginx add `proxy_set_header Host $host;`), or sign-in is refused with "Cross-origin request refused".
+The sign-in protects you on a home network and behind a VPN. If you want to reach Parallax from the internet, put it behind HTTPS (a reverse proxy such as Nginx Proxy Manager or Caddy does this) so your password is not sent in the clear. Parallax works behind a reverse proxy with its default settings, so a plain `proxy_pass` is enough and there is nothing extra to configure.
 
 ## Using a graphics card
 

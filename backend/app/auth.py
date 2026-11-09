@@ -15,7 +15,6 @@ import json
 import os
 import time
 from http.cookies import SimpleCookie
-from urllib.parse import urlsplit
 
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import HTTPConnection
@@ -51,16 +50,16 @@ def is_protected_path(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") for p in _PROTECTED_PREFIXES)
 
 
-def _same_origin(conn: HTTPConnection) -> bool:
-    """A state-changing request that names an Origin must name this host. No Origin (curl,
-    scripts, same-origin GET-like navigations) passes. Defence in depth on top of SameSite=Lax."""
-    origin = conn.headers.get("origin")
-    if origin is None:
-        return True
-    expected = (conn.headers.get("x-forwarded-host") or conn.headers.get("host") or "").split(",")[
-        0
-    ]
-    return urlsplit(origin).netloc.casefold() == expected.strip().casefold()
+def _from_foreign_site(conn: HTTPConnection) -> bool:
+    """True when the browser says a request came from another site (or another origin of the
+    same site, e.g. a sibling subdomain).
+
+    Browsers label every request with `Sec-Fetch-Site`: `same-origin` for our own pages, `none`
+    for the address bar, `same-site`/`cross-site` otherwise. The label is set by the browser,
+    so it does not depend on the Host header, which reverse proxies (a stock nginx `proxy_pass`)
+    often rewrite. Curl and scripts send no label and pass. Defence in depth on top of the
+    cookie's SameSite=Lax."""
+    return conn.headers.get("sec-fetch-site") in ("cross-site", "same-site")
 
 
 def _resolve(token: str | None) -> tuple[svc.Resolved | None, bool]:
@@ -167,15 +166,8 @@ class AuthMiddleware:
 
         conn = HTTPConnection(scope)
         method = scope.get("method", "GET")
-        if kind == "http" and method in _UNSAFE_METHODS and not _same_origin(conn):
-            await _send_json(
-                send,
-                403,
-                {
-                    "detail": "Cross-origin request refused. Behind a reverse proxy, "
-                    "make it pass the original Host header."
-                },
-            )
+        if kind == "http" and method in _UNSAFE_METHODS and _from_foreign_site(conn):
+            await _send_json(send, 403, {"detail": "Cross-site request refused"})
             return
 
         # Not read from the request's own state before this point, so a client cannot forge it.

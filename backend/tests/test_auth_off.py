@@ -16,9 +16,9 @@ def test_auth_off_makes_account_routes_409(anon_client, monkeypatch):
     assert r.status_code == 409
 
 
-def test_auth_off_skips_the_origin_check(anon_client, monkeypatch):
+def test_auth_off_skips_the_cross_site_check(anon_client, monkeypatch):
     monkeypatch.setenv("PARALLAX_AUTH", "off")
-    r = anon_client.post("/api/auth/logout", headers={"Origin": "http://elsewhere.example"})
+    r = anon_client.post("/api/auth/logout", headers={"Sec-Fetch-Site": "cross-site"})
     assert r.status_code == 204
 
 

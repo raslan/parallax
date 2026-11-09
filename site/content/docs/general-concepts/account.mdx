@@ -75,5 +75,5 @@ Only the sign-in page itself and the health check, `/api/health`, which an uptim
 
 - Your password is stored only as a salted scrypt hash. The session cookie is `parallax_session`, a random token that is stored hashed, so a copy of the database cannot be used to sign in.
 - The cookie is `HttpOnly` and `SameSite=Lax`. It is marked `Secure` when you reach Parallax over HTTPS, including through a reverse proxy that sends `X-Forwarded-Proto: https`.
-- A request that changes something and names a different site in its `Origin` header is refused, so other web pages cannot make your browser act on Parallax.
+- A request that changes something and that your browser labels as coming from another site (`Sec-Fetch-Site: cross-site` or `same-site`) is refused, so other web pages cannot make your browser act on Parallax. The browser sets that label itself, so it works the same behind any reverse proxy.
 - Parallax allows no cross-origin requests at all.

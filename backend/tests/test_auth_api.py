@@ -147,33 +147,41 @@ def test_password_change_keeps_this_session_and_drops_others(client):
     assert other.get("/api/libraries").status_code == 401
 
 
-def test_csrf_origin_mismatch_is_403(client):
-    r = client.post("/api/auth/logout-all", headers={"Origin": "http://evil.example"})
+@pytest.mark.parametrize("site", ["cross-site", "same-site"])
+def test_csrf_a_foreign_site_is_refused(client, site):
+    r = client.post("/api/auth/logout-all", headers={"Sec-Fetch-Site": site})
     assert r.status_code == 403
     assert client.get("/api/libraries").status_code == 200  # not signed out
 
 
-def test_csrf_matching_or_missing_origin_passes(client):
-    assert (
-        client.patch(
-            "/api/auth/account",
-            json={"current_password": TEST_PASSWORD, "new_username": "a"},
-            headers={"Origin": "http://testserver"},
-        ).status_code
-        == 200
+@pytest.mark.parametrize("site", ["same-origin", "none"])
+def test_csrf_our_own_pages_pass(client, site):
+    r = client.patch(
+        "/api/auth/account",
+        json={"current_password": TEST_PASSWORD, "new_username": "a"},
+        headers={"Sec-Fetch-Site": site},
     )
+    assert r.status_code == 200
+
+
+def test_csrf_scripts_without_the_header_pass(client):
     assert client.post("/api/auth/logout-all").status_code == 204
 
 
-def test_csrf_honours_forwarded_host(client):
+def test_csrf_does_not_depend_on_host_or_origin_so_default_nginx_works(client):
+    # A proxy that rewrites Host to the upstream name and sends no X-Forwarded-Host: the
+    # browser's Origin then never matches Host, which must not matter.
     r = client.post(
         "/api/auth/logout-all",
-        headers={"Origin": "https://parallax.example", "X-Forwarded-Host": "parallax.example"},
+        headers={
+            "Origin": "https://parallax.example",
+            "Host": "parallax:7899",
+            "Sec-Fetch-Site": "same-origin",
+        },
     )
     assert r.status_code == 204
 
 
-def test_csrf_does_not_block_get(client):
-    assert (
-        client.get("/api/libraries", headers={"Origin": "http://evil.example"}).status_code == 200
-    )
+def test_csrf_does_not_block_reads(client):
+    r = client.get("/api/libraries", headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 200
