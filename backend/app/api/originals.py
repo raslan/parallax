@@ -15,7 +15,7 @@ from app.models.library import Library
 from app.schemas import OriginalsSummary
 from app.services import originals_common
 from app.services.originals_common import OriginalsKind
-from app.services.scanner import rescan_file
+from app.services.scanner import VIDEO_EXTENSIONS, rescan_file
 
 router = APIRouter(prefix="/originals", tags=["originals"])
 
@@ -24,6 +24,7 @@ VIDEO_ORIGINALS = OriginalsKind(
     file_model=File,
     rescan_fn=rescan_file,
     route_prefix="/originals",
+    extensions=VIDEO_EXTENSIONS,
 )
 
 

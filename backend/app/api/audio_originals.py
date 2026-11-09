@@ -14,7 +14,7 @@ from app.models.audio_file import AudioFile
 from app.models.audio_library import AudioLibrary
 from app.schemas import OriginalsSummary
 from app.services import originals_common
-from app.services.audio_scanner import rescan_audio_file
+from app.services.audio_scanner import AUDIO_EXTENSIONS, rescan_audio_file
 from app.services.originals_common import OriginalsKind
 
 router = APIRouter(prefix="/audio-originals", tags=["audio-originals"])
@@ -26,6 +26,8 @@ AUDIO_ORIGINALS = OriginalsKind(
     route_prefix="/audio-originals",
     reset_at_field="compressed_at",
     media="audio",
+    extensions=AUDIO_EXTENSIONS,
+    dotted_extension=True,
 )
 
 
