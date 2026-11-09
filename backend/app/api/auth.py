@@ -31,7 +31,7 @@ class LoginRequest(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    current_password: str
+    current_password: str = Field(max_length=1024)
     new_username: Username | None = None
     new_password: Password | None = None
 

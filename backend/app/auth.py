@@ -51,15 +51,28 @@ def is_protected_path(path: str) -> bool:
 
 
 def _from_foreign_site(conn: HTTPConnection) -> bool:
-    """True when the browser says a request came from another site (or another origin of the
-    same site, e.g. a sibling subdomain).
+    """True when a state-changing request looks like it came from another web page.
 
-    Browsers label every request with `Sec-Fetch-Site`: `same-origin` for our own pages, `none`
-    for the address bar, `same-site`/`cross-site` otherwise. The label is set by the browser,
-    so it does not depend on the Host header, which reverse proxies (a stock nginx `proxy_pass`)
-    often rewrite. Curl and scripts send no label and pass. Defence in depth on top of the
-    cookie's SameSite=Lax."""
-    return conn.headers.get("sec-fetch-site") in ("cross-site", "same-site")
+    Two signals, neither of which looks at the Host header (a stock nginx `proxy_pass` rewrites
+    it, which is why an Origin-vs-Host comparison locked people out):
+
+    1. `Sec-Fetch-Site`, set by the browser: `same-origin` for our own pages, `none` for the
+       address bar, `same-site`/`cross-site` otherwise. But browsers only send it to HTTPS and
+       localhost, so on a plain `http://<lan address>` install it never arrives.
+    2. An `Origin` header on a request that is not JSON. Our frontend always sends
+       `application/json`, and a page on another origin (even another port of the same host,
+       which the cookie's SameSite=Lax counts as the same site) cannot send JSON without a CORS
+       preflight, which fails because Parallax allows no cross-origin requests. A plain form or
+       a no-cors fetch can only send simple content types, so it is refused here.
+
+    Curl and scripts send no Origin and no label, so they pass. Defence in depth on top of
+    SameSite=Lax."""
+    if conn.headers.get("sec-fetch-site") in ("cross-site", "same-site"):
+        return True
+    if "origin" in conn.headers:
+        content_type = conn.headers.get("content-type", "").split(";")[0].strip().lower()
+        return content_type != "application/json"
+    return False
 
 
 def _resolve(token: str | None) -> tuple[svc.Resolved | None, bool]:
@@ -136,7 +149,14 @@ def _guard_response(send: Send, scope: Scope, token: str | None, reissue: bool) 
         nonlocal last_check
         if message["type"] == "http.response.start" and reissue and token:
             headers = list(message.get("headers", []))
-            headers.append((b"set-cookie", _session_cookie_header(token, _is_https(scope))))
+            already_sets_it = any(
+                name == b"set-cookie" and value.startswith(SESSION_COOKIE.encode() + b"=")
+                for name, value in headers
+            )
+            # A sign-out response clears the cookie itself; a second Set-Cookie after it would
+            # win and keep the browser holding a (dead) token.
+            if not already_sets_it:
+                headers.append((b"set-cookie", _session_cookie_header(token, _is_https(scope))))
             message = {**message, "headers": headers}
         elif message["type"] == "http.response.body" and message.get("more_body"):
             current = _now()

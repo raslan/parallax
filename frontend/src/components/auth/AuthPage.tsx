@@ -111,7 +111,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const passwordType = showPassword ? "text" : "password";
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center gap-8 bg-background px-4 py-10">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center gap-8 bg-background px-4 pb-16 pt-10">
       <AuthSky />
       <div className="relative z-10 flex items-center gap-3">
         <ParallaxLogo className="h-10 w-10 shrink-0" />
@@ -212,7 +212,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
             {/* Below the button, in a line that is always reserved: it pads the card and an
                 error never moves anything. */}
-            <div className="min-h-5 text-center" aria-live="polite">
+            <div className="min-h-5 text-center">
               {serverError && (
                 <p role="alert" className="text-sm text-destructive">
                   {serverError}

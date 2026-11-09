@@ -30,14 +30,16 @@ const ACCOUNT_HASH = "#account";
  */
 export function Settings() {
   const [searchParams] = useSearchParams();
-  const { hash } = useLocation();
+  const { hash, key } = useLocation();
   const initialTab =
     hash === ACCOUNT_HASH ? "general" : ((searchParams.get("tab") as TabId | null) ?? "general");
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
-  // The header menu's "Account settings" links to /settings#account: show General and bring the
-  // Account card into view. The card appears once the sign-in status has rendered, so look for
-  // it for a few frames instead of assuming it is there.
+  // The header menu's "Account settings" links to /settings#account: show General, bring the
+  // Account card into view and move keyboard focus onto it (so a keyboard user does not end up
+  // back on the menu button). The card appears once the sign-in status has rendered, so look
+  // for it for a few frames instead of assuming it is there. Keyed on the navigation too, so
+  // choosing the link again from another tab works although the hash did not change.
   useEffect(() => {
     if (hash !== ACCOUNT_HASH) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -47,12 +49,14 @@ export function Settings() {
     let frame = 0;
     const reveal = () => {
       const card = document.getElementById("account");
-      if (card) card.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
-      else if (++tries < 30) frame = requestAnimationFrame(reveal);
+      if (card) {
+        card.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" });
+        card.focus({ preventScroll: true });
+      } else if (++tries < 30) frame = requestAnimationFrame(reveal);
     };
     frame = requestAnimationFrame(reveal);
     return () => cancelAnimationFrame(frame);
-  }, [hash]);
+  }, [hash, key]);
 
   return (
     <div className="p-4 md:p-8 space-y-6">

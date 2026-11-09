@@ -39,6 +39,10 @@ Matching TV shows and movies needs a free TMDB key. Create one on the TMDB websi
 
 In the `data` folder next to your compose file. That has your libraries, settings and thumbnails. Your actual media is never copied in there.
 
+## Sign-in tells me to wait
+
+After ten wrong passwords in a row, Parallax makes you wait up to a minute before the next try. A correct password does not skip the wait. Restart the container (`docker restart parallax`) to clear it at once. See [Account and sign-in](/docs/general-concepts/account).
+
 ## I forgot my password
 
 Run `docker exec -it parallax python -m app.reset_password` on the machine where Parallax runs. It asks for a new password and signs every browser out. See [Account and sign-in](/docs/general-concepts/account#if-you-forget-your-password).

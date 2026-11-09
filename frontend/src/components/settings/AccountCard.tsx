@@ -85,7 +85,11 @@ export function AccountCard() {
   };
 
   return (
-    <Card id="account" className="max-w-xl">
+    <Card
+      id="account"
+      tabIndex={-1}
+      className="max-w-xl focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
       <CardContent className="space-y-5 pt-6">
         <div>
           <p className="text-sm font-medium">Account</p>
@@ -154,7 +158,7 @@ export function AccountCard() {
             />
           </Field>
 
-          <div className="min-h-5" aria-live="polite">
+          <div className="min-h-5">
             {save.error && (
               <p role="alert" className="text-sm text-destructive">
                 {errorDetail(save.error, "Could not save. Try again.")}

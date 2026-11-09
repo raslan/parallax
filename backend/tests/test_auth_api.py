@@ -171,17 +171,91 @@ def test_csrf_scripts_without_the_header_pass(client):
 def test_csrf_does_not_depend_on_host_or_origin_so_default_nginx_works(client):
     # A proxy that rewrites Host to the upstream name and sends no X-Forwarded-Host: the
     # browser's Origin then never matches Host, which must not matter.
+    # What our own frontend sends: an Origin, and always a JSON content type.
     r = client.post(
         "/api/auth/logout-all",
         headers={
             "Origin": "https://parallax.example",
             "Host": "parallax:7899",
             "Sec-Fetch-Site": "same-origin",
+            "Content-Type": "application/json",
         },
     )
     assert r.status_code == 204
 
 
+@pytest.mark.parametrize(
+    "content_type",
+    ["text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x", None],
+)
+def test_csrf_a_page_on_another_port_cannot_post_over_plain_http(client, content_type):
+    # Over http://<lan address> browsers send no Sec-Fetch-* headers, and another app on the
+    # same host counts as "same site" for the cookie. A form or no-cors fetch can send an
+    # Origin with a simple content type and no preflight, so anything but JSON is refused.
+    headers = {"Origin": "http://192.168.1.10:8080"}
+    if content_type:
+        headers["Content-Type"] = content_type
+    r = client.post("/api/auth/logout-all", headers=headers)
+    assert r.status_code == 403
+    assert client.get("/api/libraries").status_code == 200  # not signed out
+
+
+def test_csrf_json_from_our_own_page_passes_over_plain_http(client):
+    r = client.post(
+        "/api/auth/logout-all",
+        headers={"Origin": "http://192.168.1.10:7899", "Content-Type": "application/json"},
+    )
+    assert r.status_code == 204
+
+
+def test_csrf_json_content_type_may_carry_a_charset(client):
+    r = client.post(
+        "/api/auth/logout-all",
+        headers={"Origin": "http://nas:7899", "Content-Type": "application/json; charset=utf-8"},
+    )
+    assert r.status_code == 204
+
+
+def test_csrf_scripts_with_any_content_type_pass_because_they_send_no_origin(client):
+    r = client.post("/api/auth/logout-all", headers={"Content-Type": "text/plain"})
+    assert r.status_code == 204
+
+
 def test_csrf_does_not_block_reads(client):
-    r = client.get("/api/libraries", headers={"Sec-Fetch-Site": "cross-site"})
+    r = client.get(
+        "/api/libraries",
+        headers={"Sec-Fetch-Site": "cross-site", "Origin": "http://192.168.1.10:8080"},
+    )
     assert r.status_code == 200
+
+
+# ── the sign-out routes must not hand the browser a fresh cookie ───────────────────────────
+
+
+@pytest.mark.parametrize("route", ["/api/auth/logout", "/api/auth/logout-all"])
+def test_signing_out_after_an_idle_hour_still_clears_the_cookie(client, engine, route):
+    from datetime import timedelta
+
+    from sqlalchemy.orm import sessionmaker
+
+    from app.models.auth import AuthSession
+    from app.services.common import now
+
+    s = sessionmaker(bind=engine)()
+    s.query(AuthSession).update({"last_seen_at": now() - timedelta(hours=2)})
+    s.commit()
+    s.close()
+    r = client.post(route)
+    cookies = [h.lower() for h in r.headers.get_list("set-cookie") if "parallax_session" in h]
+    assert len(cookies) == 1
+    assert "max-age=0" in cookies[0]
+
+
+# ── lengths ────────────────────────────────────────────────────────────────────────────────
+
+
+def test_account_change_rejects_an_absurdly_long_current_password(client):
+    r = client.patch(
+        "/api/auth/account", json={"current_password": "x" * 5000, "new_username": "zed"}
+    )
+    assert r.status_code == 422
