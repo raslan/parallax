@@ -31,7 +31,7 @@ const COPY = {
   },
   setup: {
     title: "Welcome to Parallax",
-    lead: "Choose a username and password to get started. Parallax has a single account, and whoever creates it first owns it, so set it up before you share this address.",
+    lead: "Choose a username and password to get started.",
     submit: "Create account",
     busy: "Creating account",
   },

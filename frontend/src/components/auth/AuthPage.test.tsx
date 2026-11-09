@@ -61,10 +61,10 @@ describe("AuthPage animation", () => {
     expect(sky.outerHTML).toBe(before);
   });
 
-  it("welcomes a first visitor and says whoever signs up first owns the account", () => {
+  it("welcomes a first visitor in a friendly way", () => {
     renderPage("setup");
     expect(screen.getByText("Welcome to Parallax")).toBeTruthy();
-    expect(screen.getByText(/whoever creates it first owns it/i)).toBeTruthy();
+    expect(screen.getByText("Choose a username and password to get started.")).toBeTruthy();
   });
 });
 
