@@ -272,6 +272,12 @@ def scan_audio_library(library_id: int, job_id: int) -> None:
         job.started_at = now()
         db.commit()
 
+        # An unmounted drive looks like "every file was deleted" and the prune at the end would
+        # wipe the library's rows. Fail loudly instead (see scanner.scan_library).
+        if not os.path.isdir(library.path):
+            fail_job(db, job, FileNotFoundError(f"Library folder not found: {library.path}"))
+            return
+
         # The filesystem watcher leaves this library alone until we finish — see
         # common.library_scan_active. Registered before the row snapshot below.
         scan_guard.enter_context(library_scan_active("audio", library_id))

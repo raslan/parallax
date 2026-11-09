@@ -273,6 +273,12 @@ def scan_image_library(
         job.started_at = now()
         db.commit()
 
+        # An unmounted drive looks like "every image was deleted" (and a reset would wipe the
+        # rows before finding that out). Fail loudly instead (see scanner.scan_library).
+        if not os.path.isdir(library.path):
+            fail_job(db, job, FileNotFoundError(f"Library folder not found: {library.path}"))
+            return
+
         # From here the filesystem watcher leaves this library alone until we
         # finish (it would insert the paths we haven't reached yet). Registered
         # before the existing-paths snapshot below so the two can't interleave.
@@ -286,6 +292,13 @@ def scan_image_library(
                 except FileNotFoundError:
                     pass
             count = len(existing)
+            # Detections reference these rows (foreign keys are enforced), so they go first —
+            # as in a library delete.
+            db.query(ImageDetection).filter(
+                ImageDetection.image_id.in_(
+                    db.query(ImageFile.id).filter(ImageFile.library_id == library_id)
+                )
+            ).delete(synchronize_session=False)
             db.query(ImageFile).filter(ImageFile.library_id == library_id).delete()
             db.commit()
             log(db, job_id, f"Reset: removed {count} existing image records")

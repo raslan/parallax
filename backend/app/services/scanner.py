@@ -335,16 +335,22 @@ def probe_metadata(path: str) -> dict:
             result["file_width"] = s.get("width")
             result["file_height"] = s.get("height")
 
-            raw_fps = s.get("r_frame_rate", "")
-            if "/" in raw_fps:
-                num, den = raw_fps.split("/")
-                result["file_fps"] = round(int(num) / int(den), 3) if int(den) else None
-            elif raw_fps:
-                result["file_fps"] = float(raw_fps)
+            raw_fps = s.get("r_frame_rate") or ""
+            try:
+                if "/" in raw_fps:
+                    num, den = raw_fps.split("/")
+                    result["file_fps"] = round(int(num) / int(den), 3) if int(den) else None
+                elif raw_fps:
+                    result["file_fps"] = float(raw_fps)
+            except (ValueError, TypeError):
+                # "N/A" or other junk: no frame rate, not a failed probe of the whole file.
+                result["file_fps"] = None
 
     creation_time_str = (
         data.get("format", {}).get("tags", {}).get("creation_time") if data else None
     )
+    # Raises OSError if the file vanished mid-probe — deliberately: Organize reads that as "no
+    # details" and the scan / watcher isolate it per file (one bad file costs only itself).
     file_mtime = os.path.getmtime(path)
     file_date = file_mtime
     if creation_time_str:
@@ -430,6 +436,13 @@ def scan_library(library_id: int):
         db.add(job)
         db.commit()
         db.refresh(job)
+
+        # An unmounted drive or a removed bind mount would look like "every file was deleted" and
+        # the prune at the end would wipe the library's rows (and every hash / pHash / shared
+        # audio value extracted for them). Fail loudly instead.
+        if not os.path.isdir(library.path):
+            fail_job(db, job, FileNotFoundError(f"Library folder not found: {library.path}"))
+            return
 
         # The filesystem watcher leaves this library alone until we finish — see
         # common.library_scan_active. Registered before the row snapshot below.
