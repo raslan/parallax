@@ -5,6 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { useTheme } from "@/components/ThemeProvider";
 import { THEME_GROUPS, THEME_META, type ThemeMeta } from "@/themes/registry";
 import { generalSettingsSchema, seedGeneral } from "@/lib/schemas/settings";
+import { AccountCard } from "./AccountCard";
 import { DangerZone } from "./DangerZone";
 import { StatsCard } from "./StatsCard";
 import { SaveButton } from "./SaveButton";
@@ -142,6 +143,7 @@ export function GeneralTab() {
           )}
         </CardContent>
       </Card>
+      <AccountCard />
       <StatsCard />
       <DangerZone />
     </>

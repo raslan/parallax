@@ -4,6 +4,7 @@ import { ParallaxLogo } from "@/components/ParallaxLogo";
 import { Separator } from "@/components/ui/separator";
 import { SECTIONS, useSectionNav } from "./nav-config";
 import { JobsMenu } from "./JobsMenu";
+import { UserMenu } from "./UserMenu";
 import { cn } from "@/lib/utils";
 
 /** @public */
@@ -90,6 +91,7 @@ export function Header({ onOpenPalette }: { onOpenPalette?: () => void } = {}) {
         >
           <Settings className="h-4 w-4" />
         </NavLink>
+        <UserMenu />
       </div>
     </header>
   );

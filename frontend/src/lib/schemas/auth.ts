@@ -15,6 +15,28 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Enter your password"),
 });
 
+/** Change username and/or password. Each is optional; the current password is always needed. */
+export const accountSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    newUsername: z.string().trim().max(64, "Use at most 64 characters"),
+    newPassword: z.union([z.literal(""), newPassword]),
+    confirm: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.newUsername && !v.newPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["newUsername"],
+        message: "Enter a new username, a new password, or both",
+      });
+    }
+    if (v.newPassword && v.newPassword !== v.confirm) {
+      ctx.addIssue({ code: "custom", path: ["confirm"], message: "The passwords don't match" });
+    }
+  });
+export type AccountForm = z.infer<typeof accountSchema>;
+
 export const setupSchema = z
   .object({ username, password: newPassword, confirm: z.string() })
   .refine((v) => v.password === v.confirm, {
