@@ -13,6 +13,7 @@ Pure ASGI on purpose: `BaseHTTPMiddleware` interferes with streaming responses a
 
 import json
 import os
+import time
 from urllib.parse import urlsplit
 
 from starlette.concurrency import run_in_threadpool
@@ -90,6 +91,32 @@ async def _send_json(send: Send, status: int, body: dict) -> None:
     await send({"type": "http.response.body", "body": payload})
 
 
+_now = time.monotonic
+# How often a response that is still streaming re-checks that its session exists. A stream
+# (SSE) is checked when it connects, so without this it would outlive a sign-out.
+RECHECK_SECONDS = 5.0
+
+
+class SessionRevoked(Exception):
+    """Raised inside a streaming response when its session no longer exists."""
+
+
+def _stop_when_revoked(send: Send, token: str | None) -> Send:
+    last_check = _now()
+
+    async def guarded(message):
+        nonlocal last_check
+        if message["type"] == "http.response.body" and message.get("more_body"):
+            current = _now()
+            if current - last_check >= RECHECK_SECONDS:
+                last_check = current
+                if _resolve(token)[0] is None:
+                    raise SessionRevoked
+        await send(message)
+
+    return guarded
+
+
 class AuthMiddleware:
     def __init__(self, app: ASGIApp):
         self.app = app
@@ -121,19 +148,27 @@ class AuthMiddleware:
         state = scope.setdefault("state", {})
         state.pop("auth_user", None)
         state.pop("auth_session_id", None)
-        resolved, needs_touch = _resolve(conn.cookies.get(SESSION_COOKIE))
+        token = conn.cookies.get(SESSION_COOKIE)
+        resolved, needs_touch = _resolve(token)
         if resolved is not None:
             state["auth_user"] = resolved.username
             state["auth_session_id"] = resolved.session_id
             if needs_touch:
                 await run_in_threadpool(_touch, resolved.session_id)
+            if kind == "http":
+                send = _stop_when_revoked(send, token)
         elif (method, path) not in PUBLIC_ROUTES:
             if kind == "websocket":
                 await send({"type": "websocket.close", "code": 1008})
             else:
                 await _send_json(send, 401, {"detail": "Not authenticated"})
             return
-        await self.app(scope, receive, send)
+        try:
+            await self.app(scope, receive, send)
+        except SessionRevoked:
+            # A live stream whose session ended: the response just stops. The browser's
+            # EventSource errors, reconnects, gets a 401 and the app shows the login page.
+            return
 
 
 def install_openapi_security(app) -> None:
