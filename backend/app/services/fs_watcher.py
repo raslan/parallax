@@ -18,30 +18,12 @@ from typing import Literal
 
 from app.services.audio_scanner import AUDIO_EXTENSIONS
 from app.services.common import apply_lock, scan_active
+from app.services.image_scanner import SUPPORTED_EXTENSIONS as _IMAGE_EXTS
+from app.services.scanner import VIDEO_EXTENSIONS as _VIDEO_EXTS
 
 logger = logging.getLogger(__name__)
 
 _DEBOUNCE = 3.0
-
-_VIDEO_EXTS = {
-    ".mkv",
-    ".mp4",
-    ".avi",
-    ".mov",
-    ".m4v",
-    ".wmv",
-    ".flv",
-    ".ts",
-    ".m2ts",
-    ".mpg",
-    ".mpeg",
-    ".mts",
-    ".vob",
-    ".3gp",
-    ".ogv",
-    ".divx",
-}
-_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".heic", ".heif"}
 
 # Keyed by (kind, library_id) — video, image and audio library IDs all start at
 # 1 and would otherwise collide, silently leaving libraries unwatched. The kind
@@ -156,6 +138,92 @@ def _fire(key: _Key) -> None:
             _arm_timer(key, q)
 
 
+def _folder_missing(kind: str, library) -> bool:
+    """True (with a warning) when the library's folder is gone: an unmounted drive, a removed
+    bind mount, a renamed parent. Every row then looks deleted, and the sweep would prune the
+    whole library — its rows and everything extracted for them (hashes, pHash, shared audio).
+    `reconcile_all` already skips such libraries; a live fire must agree."""
+    if os.path.isdir(library.path):
+        return False
+    logger.warning(
+        "Watcher: %s library %d folder is missing (%s) — leaving its rows alone",
+        kind,
+        library.id,
+        library.path,
+    )
+    return True
+
+
+def _refresh_video_file(db, f, path: str, *, is_new: bool) -> None:
+    """Re-probe one video row and commit it only if something really changed."""
+    from app.services.scanner import (
+        _now,
+        clear_thumbnail_failed_marker,
+        probe_metadata,
+        thumbnail_path,
+    )
+
+    before = (
+        f.size,
+        f.duration,
+        f.codec_name,
+        f.video_bitrate,
+        f.file_width,
+        f.file_height,
+        f.file_fps,
+        f.file_date,
+        f.file_mtime,
+    )
+
+    meta = probe_metadata(path)
+    if meta["size"] is not None:
+        f.size = meta["size"]
+    if meta["probe_ok"]:
+        for key in (
+            "duration",
+            "codec_name",
+            "video_bitrate",
+            "file_width",
+            "file_height",
+            "file_fps",
+        ):
+            setattr(f, key, meta[key])
+    f.file_mtime = meta["file_mtime"]
+    f.file_date = meta["file_date"]
+
+    after = (
+        f.size,
+        f.duration,
+        f.codec_name,
+        f.video_bitrate,
+        f.file_width,
+        f.file_height,
+        f.file_fps,
+        f.file_date,
+        f.file_mtime,
+    )
+
+    if is_new or before != after:
+        f.scanned_at = _now()
+        db.commit()
+        if not is_new:
+            # Content genuinely changed under an existing path (e.g. a file replaced outside
+            # Parallax) — the old thumbnail is now stale. Remove it so the next view lazily
+            # regenerates from the new bytes instead of serving the old ones forever
+            # (get_or_create_thumbnail only fills in misses).
+            try:
+                os.remove(thumbnail_path(f.id))
+            except FileNotFoundError:
+                pass
+        clear_thumbnail_failed_marker(f.id)
+    else:
+        # Re-probed values are identical — a spurious fs event (e.g. another process touching
+        # the file's mtime with no real content change). Discard the no-op assignments so the
+        # flush doesn't bump File.updated_at and falsely signal "changed" to every page
+        # watching this library's SSE stream.
+        db.rollback()
+
+
 def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
     from app.database import SessionLocal
     from app.models.file import File, FileStatus
@@ -164,14 +232,13 @@ def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
         _find_video_files,
         _now,
         clear_thumbnail_failed_marker,
-        probe_metadata,
         thumbnail_path,
     )
 
     db = SessionLocal()
     try:
         library = db.get(Library, library_id)
-        if not library:
+        if not library or _folder_missing("video", library):
             return
 
         # Deletions — stat every row in the library, not just the paths that
@@ -199,8 +266,14 @@ def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
         # library against disk each fire, not just the event paths.
         # ponytail: one os.walk per fire. Fine for normal libraries; if a huge
         # tree makes fires slow, gate this to startup + a periodic interval.
-        known = {p for (p,) in db.query(File.path).filter(File.library_id == library_id)}
-        changed = changed | (frozenset(_find_video_files(library.path)) - known)
+        rows = db.query(File.path, File.scanned_at).filter(File.library_id == library_id).all()
+        known = {p for p, _ in rows}
+        # A row that was registered but never probed (the probe raised, or the app stopped
+        # between the insert and the probe) would stay metadata-less forever: nothing announces
+        # it again. Retry it on every sweep. A file whose ffprobe merely *failed* still gets
+        # `scanned_at`, so that does not loop.
+        unprobed = {p for p, scanned_at in rows if scanned_at is None}
+        changed = changed | unprobed | (frozenset(_find_video_files(library.path)) - known)
 
         # New / modified — batch-insert every genuinely-new path in one shot
         # (one query + one commit for the whole set) instead of a round-trip
@@ -242,69 +315,13 @@ def _apply_video_changes(library_id: int, changed: frozenset[str]) -> None:
                 # (e.g. it appeared between the two os.path.exists calls) —
                 # skip for now, the next debounce cycle will pick it up.
                 continue
-            is_new = path in new_path_set
-
-            before = (
-                f.size,
-                f.duration,
-                f.codec_name,
-                f.video_bitrate,
-                f.file_width,
-                f.file_height,
-                f.file_fps,
-                f.file_date,
-                f.file_mtime,
-            )
-
-            meta = probe_metadata(path)
-            if meta["size"] is not None:
-                f.size = meta["size"]
-            if meta["probe_ok"]:
-                for key in (
-                    "duration",
-                    "codec_name",
-                    "video_bitrate",
-                    "file_width",
-                    "file_height",
-                    "file_fps",
-                ):
-                    setattr(f, key, meta[key])
-            f.file_mtime = meta["file_mtime"]
-            f.file_date = meta["file_date"]
-
-            after = (
-                f.size,
-                f.duration,
-                f.codec_name,
-                f.video_bitrate,
-                f.file_width,
-                f.file_height,
-                f.file_fps,
-                f.file_date,
-                f.file_mtime,
-            )
-
-            if is_new or before != after:
-                f.scanned_at = _now()
-                db.commit()
-                if not is_new:
-                    # Content genuinely changed under an existing path (e.g. a
-                    # file replaced outside Parallax) — the old thumbnail is
-                    # now stale. Remove it so the next view lazily regenerates
-                    # from the new bytes instead of serving the old ones
-                    # forever (get_or_create_thumbnail only fills in misses).
-                    try:
-                        os.remove(thumbnail_path(f.id))
-                    except FileNotFoundError:
-                        pass
-                clear_thumbnail_failed_marker(f.id)
-            else:
-                # Re-probed values are identical — a spurious fs event (e.g.
-                # another process touching the file's mtime with no real
-                # content change). Discard the no-op assignments so the flush
-                # doesn't bump File.updated_at and falsely signal "changed"
-                # to every page watching this library's SSE stream.
+            # One bad file (it vanished between the walk and its probe, a stale network
+            # handle...) costs only that file, not the rest of a debounced batch.
+            try:
+                _refresh_video_file(db, f, path, is_new=path in new_path_set)
+            except Exception:
                 db.rollback()
+                logger.exception("Watcher: could not refresh %s", path)
 
         if changed or pruned:
             library.last_scanned_at = _now()
@@ -337,7 +354,7 @@ def _apply_image_changes(library_id: int, changed: frozenset[str]) -> None:
     db = SessionLocal()
     try:
         library = db.get(ImageLibrary, library_id)
-        if not library:
+        if not library or _folder_missing("image", library):
             return
 
         # Deletions — full existence sweep, not just the delete-event paths.
@@ -365,59 +382,62 @@ def _apply_image_changes(library_id: int, changed: frozenset[str]) -> None:
         changed = changed | (frozenset(collect_image_paths(library.path)) - known)
 
         # New / modified — basic metadata + thumbnail, no AI
-        import os as _os
-
         from app.models.image import ImageStatus
         from app.services.image_analyzer import get_image_metadata
 
         for path in changed:
-            if not _os.path.exists(path):
+            if not os.path.exists(path):
                 continue
-            f = db.query(ImageFile).filter(ImageFile.path == path).first()
-            if f:
-                # Update existing record
-                before = (f.size, f.width, f.height, f.exif_date, f.exif_gps, f.exif_camera)
-                meta = get_image_metadata(path)
-                f.size = meta["size"]
-                f.width = meta["width"]
-                f.height = meta["height"]
-                f.exif_date = meta["exif_date"]
-                f.exif_gps = meta["exif_gps"]
-                f.exif_camera = meta["exif_camera"]
-                after = (f.size, f.width, f.height, f.exif_date, f.exif_gps, f.exif_camera)
-                if before != after:
-                    f.scanned_at = now()
-                    db.commit()
-                    img_thumb(path, _thumbnail_path(f.id))
+            try:
+                f = db.query(ImageFile).filter(ImageFile.path == path).first()
+                if f:
+                    # Update existing record
+                    before = (f.size, f.width, f.height, f.exif_date, f.exif_gps, f.exif_camera)
+                    meta = get_image_metadata(path)
+                    f.size = meta["size"]
+                    f.width = meta["width"]
+                    f.height = meta["height"]
+                    f.exif_date = meta["exif_date"]
+                    f.exif_gps = meta["exif_gps"]
+                    f.exif_camera = meta["exif_camera"]
+                    after = (f.size, f.width, f.height, f.exif_date, f.exif_gps, f.exif_camera)
+                    if before != after:
+                        f.scanned_at = now()
+                        db.commit()
+                        img_thumb(path, _thumbnail_path(f.id))
+                    else:
+                        # Spurious fs event, nothing actually changed — don't
+                        # bump ImageFile.updated_at with a no-op write.
+                        db.rollback()
                 else:
-                    # Spurious fs event, nothing actually changed — don't
-                    # bump ImageFile.updated_at with a no-op write.
-                    db.rollback()
-            else:
-                # New file — re-check library still exists before inserting
-                db.expire(library)
-                if db.get(ImageLibrary, library_id) is None:
-                    return
-                meta = get_image_metadata(path)
-                ext = _os.path.splitext(path)[1].lower().lstrip(".")
-                f = ImageFile(
-                    library_id=library_id,
-                    path=path,
-                    filename=_os.path.basename(path),
-                    extension=ext,
-                    size=meta["size"],
-                    width=meta["width"],
-                    height=meta["height"],
-                    exif_date=meta["exif_date"],
-                    exif_gps=meta["exif_gps"],
-                    exif_camera=meta["exif_camera"],
-                    status=ImageStatus.SCANNED,
-                    scanned_at=now(),
-                )
-                db.add(f)
-                db.commit()
-                db.refresh(f)
-                img_thumb(path, _thumbnail_path(f.id))
+                    # New file — re-check library still exists before inserting
+                    db.expire(library)
+                    if db.get(ImageLibrary, library_id) is None:
+                        return
+                    meta = get_image_metadata(path)
+                    ext = os.path.splitext(path)[1].lower().lstrip(".")
+                    f = ImageFile(
+                        library_id=library_id,
+                        path=path,
+                        filename=os.path.basename(path),
+                        extension=ext,
+                        size=meta["size"],
+                        width=meta["width"],
+                        height=meta["height"],
+                        exif_date=meta["exif_date"],
+                        exif_gps=meta["exif_gps"],
+                        exif_camera=meta["exif_camera"],
+                        status=ImageStatus.SCANNED,
+                        scanned_at=now(),
+                    )
+                    db.add(f)
+                    db.commit()
+                    db.refresh(f)
+                    img_thumb(path, _thumbnail_path(f.id))
+            except Exception:
+                # One bad image costs only itself, not the rest of the batch.
+                db.rollback()
+                logger.exception("Watcher: could not refresh %s", path)
 
         if changed or pruned:
             logger.info(
@@ -430,6 +450,68 @@ def _apply_image_changes(library_id: int, changed: frozenset[str]) -> None:
         logger.exception("Watcher: error in image incremental scan for library %d", library_id)
     finally:
         db.close()
+
+
+def _refresh_audio_file(db, f, path: str, *, is_new: bool) -> None:
+    """Re-probe one audio row and commit it only if something really changed."""
+    from app.models.file import FileStatus
+    from app.services import audio_scanner
+    from app.services.common import now
+
+    before = (
+        f.size,
+        f.duration,
+        f.codec_name,
+        f.bitrate,
+        f.sample_rate,
+        f.channels,
+        f.channel_layout,
+        f.file_date,
+        f.file_mtime,
+    )
+
+    meta = audio_scanner.probe_audio_metadata(path)
+    if meta["size"] is not None:
+        f.size = meta["size"]
+    if meta["probe_ok"]:
+        for key in (
+            "duration",
+            "codec_name",
+            "bitrate",
+            "sample_rate",
+            "channels",
+            "channel_layout",
+        ):
+            setattr(f, key, meta[key])
+        f.status = FileStatus.DONE
+        f.scan_error = None
+    else:
+        f.status = FileStatus.UNKNOWN
+        f.scan_error = "ffprobe failed"
+    f.file_mtime = meta["file_mtime"]
+    f.file_date = meta["file_date"]
+
+    after = (
+        f.size,
+        f.duration,
+        f.codec_name,
+        f.bitrate,
+        f.sample_rate,
+        f.channels,
+        f.channel_layout,
+        f.file_date,
+        f.file_mtime,
+    )
+
+    if is_new or before != after:
+        f.scanned_at = now()
+        db.commit()
+    else:
+        # Re-probed values are identical — a spurious fs event (e.g. another process touching
+        # the file's mtime with no real content change). Discard the no-op assignments so the
+        # flush doesn't bump AudioFile.updated_at and falsely signal "changed" to every page
+        # watching this library's SSE stream.
+        db.rollback()
 
 
 def _apply_audio_changes(library_id: int, changed: frozenset[str]) -> None:
@@ -445,7 +527,7 @@ def _apply_audio_changes(library_id: int, changed: frozenset[str]) -> None:
     db = SessionLocal()
     try:
         library = db.get(AudioLibrary, library_id)
-        if not library:
+        if not library or _folder_missing("audio", library):
             return
 
         # Deletions — stat every row in the library, not just the paths that
@@ -466,8 +548,17 @@ def _apply_audio_changes(library_id: int, changed: frozenset[str]) -> None:
         # was never scanned), or events lost to an inotify queue overflow
         # during a big copy. Mirror the delete sweep — reconcile the whole
         # library against disk each fire, not just the event paths.
-        known = {p for (p,) in db.query(AudioFile.path).filter(AudioFile.library_id == library_id)}
-        changed = changed | (frozenset(audio_scanner._find_audio_files(library.path)) - known)
+        rows = (
+            db.query(AudioFile.path, AudioFile.scanned_at)
+            .filter(AudioFile.library_id == library_id)
+            .all()
+        )
+        known = {p for p, _ in rows}
+        # Registered but never probed (see _apply_video_changes): retry on every sweep.
+        unprobed = {p for p, scanned_at in rows if scanned_at is None}
+        changed = (
+            changed | unprobed | (frozenset(audio_scanner._find_audio_files(library.path)) - known)
+        )
 
         # New / modified — batch-insert every genuinely-new path in one shot
         # (one query + one commit for the whole set) instead of a round-trip
@@ -509,63 +600,11 @@ def _apply_audio_changes(library_id: int, changed: frozenset[str]) -> None:
                 # (e.g. it appeared between the two os.path.exists calls) —
                 # skip for now, the next debounce cycle will pick it up.
                 continue
-            is_new = path in new_path_set
-
-            before = (
-                f.size,
-                f.duration,
-                f.codec_name,
-                f.bitrate,
-                f.sample_rate,
-                f.channels,
-                f.channel_layout,
-                f.file_date,
-                f.file_mtime,
-            )
-
-            meta = audio_scanner.probe_audio_metadata(path)
-            if meta["size"] is not None:
-                f.size = meta["size"]
-            if meta["probe_ok"]:
-                for key in (
-                    "duration",
-                    "codec_name",
-                    "bitrate",
-                    "sample_rate",
-                    "channels",
-                    "channel_layout",
-                ):
-                    setattr(f, key, meta[key])
-                f.status = FileStatus.DONE
-                f.scan_error = None
-            else:
-                f.status = FileStatus.UNKNOWN
-                f.scan_error = "ffprobe failed"
-            f.file_mtime = meta["file_mtime"]
-            f.file_date = meta["file_date"]
-
-            after = (
-                f.size,
-                f.duration,
-                f.codec_name,
-                f.bitrate,
-                f.sample_rate,
-                f.channels,
-                f.channel_layout,
-                f.file_date,
-                f.file_mtime,
-            )
-
-            if is_new or before != after:
-                f.scanned_at = now()
-                db.commit()
-            else:
-                # Re-probed values are identical — a spurious fs event (e.g.
-                # another process touching the file's mtime with no real
-                # content change). Discard the no-op assignments so the flush
-                # doesn't bump AudioFile.updated_at and falsely signal "changed"
-                # to every page watching this library's SSE stream.
+            try:
+                _refresh_audio_file(db, f, path, is_new=path in new_path_set)
+            except Exception:
                 db.rollback()
+                logger.exception("Watcher: could not refresh %s", path)
 
         if changed or pruned:
             library.last_scanned_at = now()
