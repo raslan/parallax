@@ -17,13 +17,17 @@ Videos, images and audio each have their own **Libraries** page, under **Videos*
 
 Click **Add Library**, pick a folder and decide whether to scan it right away. The [first scan guide](/docs/getting-started/first-scan) walks through it with screenshots.
 
-If you tick **Split into sub-libraries** (video libraries only), you get one library for each folder inside the one you picked. Each is named after its folder, and its files belong only to that library. It is a good fit when one big folder holds several collections.
+If you tick **Split into sub-libraries** (video libraries only), you get one library for each folder inside the one you picked. Each is named after its folder, and its files belong only to that library. It is a good fit when one big folder holds several collections. Folders that already belong to a library are skipped.
+
+A folder can only be in one library of each type. Parallax refuses a folder that is already in a library, sits inside one, or contains one, because two libraries covering the same files would fight over them. A video library and an audio library can share a folder, since each only keeps track of its own kind of file.
 
 Image libraries also let you choose what a scan prepares: information for finding duplicates, and information for [Content Review](/docs/features/content-review). The choices are the **Duplicates (pHash)** and **Content review (NudeNet)** tick boxes, in the Add dialog and in the scan menu on an image library's card.
 
 ## Scanning
 
 The refresh button on a video library's card (hover it to see **Scan for new / removed files**) scans that library again. On an image or audio library the same button has a scan icon. On an image library it opens a small menu with **Scan new images** and **Reset & rescan all**, which throws away that library's picture records and thumbnails and starts again from scratch. A scan finds new files, notices files that have gone, and reads each file's details such as its length, size and format. It never changes your files.
+
+If a library's folder can't be found, for example because a drive isn't plugged in or a network share isn't mounted, the scan stops with an error and the library keeps everything it knew. Parallax does not treat a missing folder as "every file was deleted". Reconnect the drive and scan again.
 
 You rarely need to press it. Parallax watches your library folders and updates on its own a few seconds after something changes, including when you add, rename or delete files outside the app. It also does a full check every so often to catch anything missed.
 
