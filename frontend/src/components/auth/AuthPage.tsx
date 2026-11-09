@@ -12,7 +12,7 @@ import { errorDetail, httpStatus } from "@/lib/api/client";
 import { qk } from "@/lib/api/queryKeys";
 import { loginSchema, setupSchema, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/schemas/auth";
 import { zodResolver } from "@/lib/zodResolver";
-import { AuthBackdrop } from "./AuthBackdrop";
+import { AuthSky } from "./AuthSky";
 
 type Mode = "login" | "setup";
 
@@ -24,14 +24,12 @@ interface FormValues {
 
 const COPY = {
   login: {
-    title: "Sign in to Parallax",
-    lead: "Your libraries are private to this server.",
+    title: "Sign in",
     submit: "Sign in",
     busy: "Signing in",
   },
   setup: {
     title: "Create your account",
-    lead: "This is the only account on this server. Whoever opens this page first creates it.",
     submit: "Create account",
     busy: "Creating account",
   },
@@ -111,15 +109,15 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const passwordType = showPassword ? "text" : "password";
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center bg-background px-4 py-10">
-      <AuthBackdrop />
-      <Card className="relative z-10 w-full max-w-sm bg-card/95 shadow-xl backdrop-blur-sm">
-        <CardHeader className="space-y-3 pb-4">
-          <ParallaxLogo className="h-9 w-9" />
-          <div className="space-y-1.5">
-            <CardTitle className="text-xl font-semibold tracking-tight">{copy.title}</CardTitle>
-            <p className="min-h-[2.5rem] text-sm text-muted-foreground">{copy.lead}</p>
-          </div>
+    <main className="relative flex min-h-dvh flex-col items-center justify-center gap-8 bg-background px-4 py-10">
+      <AuthSky />
+      <div className="relative z-10 flex items-center gap-3">
+        <ParallaxLogo className="h-10 w-10 shrink-0" />
+        <span className="text-3xl font-semibold tracking-tight">Parallax</span>
+      </div>
+      <Card className="relative z-10 w-full max-w-sm shadow-2xl shadow-black/40">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-semibold tracking-tight">{copy.title}</CardTitle>
         </CardHeader>
         <CardContent>
           <form

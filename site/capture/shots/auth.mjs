@@ -8,9 +8,9 @@ export default [
     kind: "still",
     auth: "setup",
     route: "/",
-    alt: "The first-run page: a card to create the one account, with a username, a password and a confirmation field, over a backdrop of layered frames.",
+    alt: "The first-run page: the Parallax logo and name above a card to create the account, with a username, a password and a confirmation field.",
     waitFor: [/Create your account/],
-    crop: { rect: { x: 320, y: 110, width: 800, height: 680 } },
+    crop: { selectors: ["main > div"], pad: 40 },
   },
   {
     id: "auth/account/login",
@@ -18,8 +18,8 @@ export default [
     auth: "login",
     route: "/",
     alt: "The sign-in page: a card with a username field, a password field with a show button, and a Sign in button, with a note on how to reset a forgotten password.",
-    waitFor: [/Sign in to Parallax/],
-    crop: { rect: { x: 320, y: 110, width: 800, height: 680 } },
+    waitFor: [/Forgot your password/],
+    crop: { selectors: ["main > div"], pad: 40 },
   },
   {
     id: "auth/account/settings",
