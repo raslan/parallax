@@ -44,7 +44,13 @@ def test_copy_merge_joins_moves_sources_and_names_output(tmp_path):
     assert [p for p in os.listdir(tmp_path) if p.startswith(".")] == []  # no temp left
 
 
-def test_reencode_merge_mixed_resolution_and_missing_audio(tmp_path):
+def test_reencode_merge_mixed_resolution_and_missing_audio(tmp_path, monkeypatch):
+    import app.services.splice as sp
+
+    # This test is about scaling and silence, not hardware. `_resolve_encoder` takes the first
+    # encoder `ffmpeg -encoders` *lists* (an ffmpeg build with NVENC compiled in reports it with
+    # no GPU present), so left alone this fails on any machine or CI runner without one.
+    monkeypatch.setattr(sp, "_resolve_encoder", sp.software_encoder)
     _clip(tmp_path / "a.mp4")
     _clip(tmp_path / "b.mp4", size="160x120", audio=False)
     s = _settings(
