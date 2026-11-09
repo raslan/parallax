@@ -27,6 +27,44 @@ const type = (label: string | RegExp, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const submit = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
 
+describe("AuthPage animation", () => {
+  afterEach(() => localStorage.clear());
+
+  it("has a visible pause button, and the choice is remembered", () => {
+    renderPage("login");
+    fireEvent.click(screen.getByRole("button", { name: "Pause animation" }));
+    expect(screen.getByRole("button", { name: "Play animation" })).toBeTruthy();
+    expect(localStorage.getItem("parallax-auth-sky-paused")).toBe("1");
+    cleanup();
+    renderPage("login"); // a later visit starts paused
+    expect(screen.getByRole("button", { name: "Play animation" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Play animation" }));
+    expect(localStorage.getItem("parallax-auth-sky-paused")).toBe("0");
+  });
+
+  it("freezes the falling stars while paused", () => {
+    renderPage("login");
+    const falling = () =>
+      [...document.querySelectorAll<HTMLElement>("[style*='--fall']")].map(
+        (e) => e.style.animationPlayState,
+      );
+    expect(falling()).toEqual(["running", "running", "running"]);
+    fireEvent.click(screen.getByRole("button", { name: "Pause animation" }));
+    expect(falling()).toEqual(["paused", "paused", "paused"]);
+  });
+
+  it("does not follow the pointer once paused", () => {
+    renderPage("login");
+    const sky = document.querySelector<HTMLElement>("[aria-hidden]")!;
+    fireEvent.pointerMove(window, { clientX: 0, clientY: 0 });
+    expect(sky.style.getPropertyValue("--mx")).not.toBe("0");
+    fireEvent.click(screen.getByRole("button", { name: "Pause animation" }));
+    expect(sky.style.getPropertyValue("--mx")).toBe("0");
+    fireEvent.pointerMove(window, { clientX: 0, clientY: 0 });
+    expect(sky.style.getPropertyValue("--mx")).toBe("0");
+  });
+});
+
 describe("AuthPage login", () => {
   it("uses the attributes password managers look for, and focuses the username", () => {
     renderPage("login");
