@@ -5,6 +5,9 @@
 #   docker compose -f site/capture/demo/docker-compose.demo.yml up --build -d
 #   python3 -P site/capture/demo/seed.py                            # key, theme, libraries, scans (idempotent)
 #   ...capture...
+#   (auth shots only: python3 -P site/capture/demo/demo.py reset-auth, then
+#    PARALLAX_AUTH=on docker compose -f site/capture/demo/docker-compose.demo.yml up -d,
+#    npm run capture -- --only auth in site/, then up -d again without PARALLAX_AUTH)
 #   docker compose -f site/capture/demo/docker-compose.demo.yml down
 #   python3 -P site/capture/demo/demo.py clean                      # remove the temporary library/
 #
@@ -29,6 +32,10 @@ services:
     user: "1000:1000"
     environment:
       - DATA_DIR=/app/data
+      # The demo runs with authentication off so every other shot can browse freely. The auth
+      # shots (`npm run capture -- --only auth`) need it on: start with PARALLAX_AUTH=on, film,
+      # then start again without it.
+      - PARALLAX_AUTH=${PARALLAX_AUTH:-off}
     restart: "no"
     # Captures only ever run on this machine, whose CPU is slow, so use the GPU (same block as
     # the root compose file).

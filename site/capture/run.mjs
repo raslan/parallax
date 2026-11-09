@@ -219,16 +219,52 @@ function encodeClip(src, out, rect, startSec, budgetBytes) {
   );
 }
 
+// ---------------------------------------------------------------- demo account (auth shots)
+const DEMO_ACCOUNT = { username: "demo", password: "parallax-demo-pass" };
+let demoCookie = null;
+
+/**
+ * Gets the demo ready for an auth shot. `setup` needs a fresh instance (no account yet, so the
+ * setup page shows); every other auth shot needs the account to exist, which this creates the
+ * first time (or signs in to it, on a re-run) and remembers the session cookie for `account`.
+ */
+async function prepareAuthShot(shot) {
+  const status = await (await fetch(`${BASE}/api/auth/status`)).json();
+  if (!status.enabled)
+    die(
+      "authentication is off on the demo: start it with PARALLAX_AUTH=on (see docker-compose.demo.yml)",
+    );
+  if (shot.auth === "setup") {
+    if (status.configured)
+      die(
+        "the demo already has an account: run `python3 -P site/capture/demo/demo.py reset-auth` first",
+      );
+    return;
+  }
+  if (demoCookie) return;
+  const res = await fetch(`${BASE}/api/auth/${status.configured ? "login" : "setup"}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(DEMO_ACCOUNT),
+  });
+  if (!res.ok) die(`could not sign in to the demo (${res.status}): ${await res.text()}`);
+  demoCookie = /parallax_session=([^;]+)/.exec(res.headers.get("set-cookie") ?? "")?.[1];
+  if (!demoCookie) die("the demo did not return a session cookie");
+}
+
 // ---------------------------------------------------------------- shot runners
 async function runStill(browser, shot, tmp) {
   // `shot.viewport` captures the app at another window size (e.g. a phone, to show its own mobile layout).
   const vp = shot.viewport ?? VIEWPORT;
+  if (shot.auth) await prepareAuthShot(shot);
   const ctx = await browser.newContext({
     viewport: vp,
     deviceScaleFactor: 2,
     reducedMotion: "reduce",
     colorScheme: "dark",
   });
+  if (shot.auth === "account")
+    await ctx.addCookies([{ name: "parallax_session", value: demoCookie, url: BASE }]);
   const page = await ctx.newPage();
   await settle(page, shot);
   const rect = await cropRect(page, shot.crop, vp);
@@ -482,10 +518,20 @@ if (argv.includes("--list")) {
   for (const s of shots) console.log(`${s.kind.padEnd(5)} ${s.id}  (${s._file})`);
   process.exit(0);
 }
-const selected = shots.filter((s) => !ONLY || s.id === ONLY || s.id.startsWith(ONLY));
+// Auth shots (`auth: "setup" | "login" | "account"`) need the demo started with PARALLAX_AUTH=on,
+// so a plain run leaves them out and only `--only auth` (or another matching prefix) films them.
+const selected = shots
+  .filter((s) => !ONLY || s.id === ONLY || s.id.startsWith(ONLY))
+  .filter((s) => !s.auth || ONLY);
 if (!selected.length) die(`no shot matches --only ${ONLY}`);
 
-await guard();
+if (selected.every((s) => s.auth)) {
+  // Only sign-in pages and the Account card: they show no library data, and the demo account is
+  // created by the runner itself, so the library guard (which would need a login) does not apply.
+  if (new URL(BASE).port === "7899") die("refusing to capture port 7899 (that's the real app)");
+} else {
+  await guard();
+}
 mkdirSync(OUT, { recursive: true });
 const manifestPath = join(HERE, "../lib/media-manifest.json"); // imported by <Shot>; not served
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")) : {};

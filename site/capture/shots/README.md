@@ -16,6 +16,7 @@ Each `shots/*.mjs` default-exports an array of shot objects. `node run.mjs --lis
 | `settleMs`             | no       | extra wait after load for animations/thumbnails (default 600)                                                                   |
 | `blur`                 | no       | CSS selectors to blur (use for Content Review thumbnails)                                                                       |
 | `themes`               | no       | `true` films the shot once per landing theme: `<id>` stays the default look, the others are `<id>.<theme>` (landing page only)  |
+| `auth`                 | no       | `"setup"` / `"login"` / `"account"`: a sign-in page or the Account card. Needs the demo on `PARALLAX_AUTH=on`; skipped unless `--only` picks it (`--only auth`) |
 | `budgetKB`             | no       | asset size cap; the runner steps quality/CRF down to fit and **fails** if it can't (defaults 150 stills / 600 clips)            |
 
 Rules: brief and to the point — the written docs carry the detail. Downloads/Galleries: option-panel stills only, never URLs, results or clips. Never show the Settings credentials field with a value. Keep tool names out of `alt`.

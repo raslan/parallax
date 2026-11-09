@@ -50,7 +50,7 @@ function walk(dir, filter = () => true) {
  *  which the app reads to show its "Documentation" link, so the two cannot disagree. Routes outside the nav (Home, Jobs,
  *  Settings) are listed there too. */
 const ROUTE_DOCS = JSON.parse(read(path.join(repo, "frontend/src/lib/docsRoutes.json"))).routes;
-const NON_NAV_ROUTES = ["/", "/jobs", "/settings"];
+const NON_NAV_ROUTES = ["/", "/jobs", "/settings", "/login", "/setup"];
 
 /** The only places the two download tools may be named (all kept out of crawlers by robots.txt). Each entry is a
  *  URL path prefix and the source files that produce it. */
