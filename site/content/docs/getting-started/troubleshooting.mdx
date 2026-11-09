@@ -39,9 +39,9 @@ Matching TV shows and movies needs a free TMDB key. Create one on the TMDB websi
 
 In the `data` folder next to your compose file. That has your libraries, settings and thumbnails. Your actual media is never copied in there.
 
-## Is there a password?
+## I forgot my password
 
-No. See [Install](/docs/getting-started/install#there-is-no-login) for what to do about that.
+Run `docker exec -it parallax python -m app.reset_password` on the machine where Parallax runs. It asks for a new password and signs every browser out. See [Account and sign-in](/docs/general-concepts/account#if-you-forget-your-password).
 
 ## It still is not working
 

@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 ```
 
-Then open [http://localhost:7899](http://localhost:7899). Parallax needs write access to your media folders, because it saves backups, compressed copies and subtitles next to your files.
+Then open [http://localhost:7899](http://localhost:7899). The first visit asks you to create the one admin account, so open it before you share the address. Parallax needs write access to your media folders, because it saves backups, compressed copies and subtitles next to your files.
 
 - **Another port:** change the left number of the `ports` line, for example `"8080:7899"`.
 - **Windows:** install [Docker Desktop](https://www.docker.com/products/docker-desktop/) first and leave it running.

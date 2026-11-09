@@ -182,6 +182,11 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         summary: "Change the colours to suit you.",
       },
       {
+        href: "/docs/general-concepts/account",
+        title: "Account and sign-in",
+        summary: "One private account, so only you can open Parallax.",
+      },
+      {
         href: "/docs/general-concepts/settings",
         title: "Settings",
         summary: "Every setting in one place, tab by tab.",

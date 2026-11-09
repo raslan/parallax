@@ -10,9 +10,26 @@ This reference is generated from the app's own schema, so it matches the version
 ## The basics
 
 - All routes live under `/api` on the same address and port as the web app, for example `http://your-machine:7899/api/jobs`.
+- Every route needs you to be signed in, except `GET /api/health` and the sign-in routes themselves. A request without a valid session gets `401` and `{"detail": "Not authenticated"}`.
 - Requests and responses are JSON, except for the few routes that stream a file or a live feed.
 - Errors use the usual HTTP status codes, with a plain-English reason in a `detail` field.
 - Some routes start a background job and answer right away with its id. Follow progress with the Jobs routes.
 - The reference is read-only. Nothing here sends a request to your server.
 
 Each page below is one group of routes. Pick the one that matches what you want to do. Libraries, Files, Compress and Toolbox are the video side, the `audio-` ones are the audio side, and Jobs and Settings cover the whole app.
+
+## Signing in from a script
+
+There are no API keys. A script signs in with the same username and password as the browser, keeps the cookie that comes back and sends it with every request. With curl, a cookie file does that for you:
+
+```bash
+# Sign in once. -c saves the cookie.
+curl -c parallax.cookies -X POST http://your-machine:7899/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username": "you", "password": "your password"}'
+
+# Then use it. -b sends the cookie.
+curl -b parallax.cookies http://your-machine:7899/api/jobs
+```
+
+The cookie lasts 30 days and is renewed whenever it is used. If you turned the sign-in off with `PARALLAX_AUTH=off`, skip the first step.

@@ -20,7 +20,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/fs/browse": {
@@ -46,6 +47,173 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/status": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Who is signed in",
+        "description": "Public. Tells the web app whether to show the app, the login page or the setup page.",
+        "operationId": "status_api_auth_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/setup": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Create the account",
+        "description": "Public, once. The first visitor to a fresh instance creates the one and only account and\nis signed in. Every later call is a 409.",
+        "operationId": "setup_api_auth_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Sign in",
+        "description": "Public. Sets the `parallax_session` cookie. Scripts keep the cookie and send it back.",
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Sign out this browser",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/auth/logout-all": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Sign out everywhere",
+        "operationId": "logout_all_api_auth_logout_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/auth/account": {
+      "patch": {
+        "tags": ["auth"],
+        "summary": "Change username or password",
+        "description": "Always needs the current password. A new password signs every other browser out.",
+        "operationId": "update_account_api_auth_account_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStatus"
+                }
               }
             }
           },
@@ -6334,6 +6502,43 @@
   },
   "components": {
     "schemas": {
+      "AccountUpdate": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Username"
+          },
+          "new_password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": ["current_password"],
+        "title": "AccountUpdate"
+      },
       "ActiveDownloadInfo": {
         "properties": {
           "job_id": {
@@ -6878,6 +7083,36 @@
         "required": ["file_ids"],
         "title": "AudioToolboxStartRequest"
       },
+      "AuthStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "authenticated": {
+            "type": "boolean",
+            "title": "Authenticated"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": ["enabled", "configured", "authenticated", "username"],
+        "title": "AuthStatus"
+      },
       "BreakdownRow": {
         "properties": {
           "key": {
@@ -7026,6 +7261,25 @@
         "type": "object",
         "required": ["file_ids"],
         "title": "CompressStartRequest"
+      },
+      "Credentials": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": ["username", "password"],
+        "title": "Credentials"
       },
       "DeleteDuplicatesRequest": {
         "properties": {
@@ -8263,6 +8517,21 @@
         },
         "type": "object",
         "title": "LibraryUpdate"
+      },
+      "LoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": ["username", "password"],
+        "title": "LoginRequest"
       },
       "ModelInfo": {
         "properties": {
@@ -10239,12 +10508,23 @@
         "required": ["path"],
         "title": "DownloadRequest"
       }
+    },
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "parallax_session"
+      }
     }
   },
   "tags": [
     {
       "name": "health",
       "description": "Liveness check."
+    },
+    {
+      "name": "auth",
+      "description": "The one account: first-run setup, sign in and out, change credentials."
     },
     {
       "name": "libraries",
@@ -10345,6 +10625,11 @@
     {
       "name": "settings",
       "description": "App settings, and the purge of all library data."
+    }
+  ],
+  "security": [
+    {
+      "cookieAuth": []
     }
   ],
   "servers": [

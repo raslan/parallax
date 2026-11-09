@@ -44,7 +44,7 @@ Then start it:
 docker compose up -d
 ```
 
-Open `http://your-machine:7899` in a browser (or `http://localhost:7899` if you are on the same machine). You should see the Parallax home page.
+Open `http://your-machine:7899` in a browser (or `http://localhost:7899` if you are on the same machine). The first time, Parallax asks you to create your account: pick a username and a password. See [Account and sign-in](/docs/general-concepts/account). Then you see the Parallax home page.
 
 <Callout title="Give Parallax write access to your media folders">
   Parallax saves things next to your files: backups of originals, compressed copies, subtitles and
@@ -55,9 +55,11 @@ Open `http://your-machine:7899` in a browser (or `http://localhost:7899` if you 
 
 To open Parallax on another port, change the left number in the `ports` line. For example, `"8080:7899"` makes it available on port 8080. Leave the right number alone.
 
-## There is no login
+## Signing in
 
-Parallax does not have a password screen. Anyone who can reach the page can use it, including deleting files. Keep it on your home network, or put it behind something that asks for a login, like a VPN or a reverse proxy with authentication. Please do not expose it straight to the internet.
+Parallax has one account, which you create the first time you open it. Open the page yourself before you share the address with anyone, because whoever gets there first makes the account. After that, everything needs a sign-in, including thumbnails and playback. See [Account and sign-in](/docs/general-concepts/account) for changing the password and for what to do if you forget it.
+
+The sign-in protects you on a home network and behind a VPN. If you want to reach Parallax from the internet, put it behind HTTPS (a reverse proxy such as Nginx Proxy Manager or Caddy does this) so your password is not sent in the clear.
 
 ## Using a graphics card
 

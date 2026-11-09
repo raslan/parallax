@@ -7,11 +7,12 @@ Almost everything you can change is in the app, under [Settings](/docs/general-c
 
 ## Environment variables
 
-| Variable                     | Default                  | What it does                                                                                                                                                              |
-| ---------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATA_DIR`                   | `/app/data`              | Where Parallax keeps its database, thumbnails and caches. Leave it at the default and mount your folder there. See [Data folder and backups](/docs/advanced/data-folder). |
-| `LOG_LEVEL`                  | `INFO`                   | How much the container writes to its log. Use `DEBUG` for more detail when tracking down a problem, or `WARNING` for less.                                                |
-| `NVIDIA_DRIVER_CAPABILITIES` | set by the compose block | Only needed with plain `docker run` and an NVIDIA card. Use `all`, as described in [Hardware acceleration](/docs/advanced/hardware-acceleration).                         |
+| Variable                     | Default                  | What it does                                                                                                                                                                                                                                 |
+| ---------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_DIR`                   | `/app/data`              | Where Parallax keeps its database, thumbnails and caches. Leave it at the default and mount your folder there. See [Data folder and backups](/docs/advanced/data-folder).                                                                    |
+| `LOG_LEVEL`                  | `INFO`                   | How much the container writes to its log. Use `DEBUG` for more detail when tracking down a problem, or `WARNING` for less.                                                                                                                   |
+| `PARALLAX_AUTH`              | `on`                     | Set to `off` to turn the sign-in off completely. Only do this if something else already protects the page, such as a VPN. Parallax logs a warning at every start while it is off. See [Account and sign-in](/docs/general-concepts/account). |
+| `NVIDIA_DRIVER_CAPABILITIES` | set by the compose block | Only needed with plain `docker run` and an NVIDIA card. Use `all`, as described in [Hardware acceleration](/docs/advanced/hardware-acceleration).                                                                                            |
 
 There is no variable for the port. Parallax always listens on 7899 inside the container, so change the left side of the `ports` mapping instead.
 
@@ -31,7 +32,7 @@ There is no variable for the port. Parallax always listens on 7899 inside the co
 
 ## Checking it is healthy
 
-Parallax answers on `/api/health` with a short status. It is a handy target for an uptime monitor or a Docker health check, for example `http://your-machine:7899/api/health`.
+Parallax answers on `/api/health` with a short status, and it is the one route that needs no sign-in. It is a handy target for an uptime monitor or a Docker health check, for example `http://your-machine:7899/api/health`.
 
 ## Everything else
 

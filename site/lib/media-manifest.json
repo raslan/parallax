@@ -2641,5 +2641,38 @@
     "height": 900,
     "bytes": 117300,
     "quality": 90
+  },
+  "auth/account/setup": {
+    "id": "auth/account/setup",
+    "kind": "still",
+    "alt": "The first-run page: a card to create the one account, with a username, a password and a confirmation field, over a backdrop of layered frames.",
+    "route": "/",
+    "src": "auth/account/setup.webp",
+    "width": 800,
+    "height": 680,
+    "bytes": 29532,
+    "quality": 90
+  },
+  "auth/account/login": {
+    "id": "auth/account/login",
+    "kind": "still",
+    "alt": "The sign-in page: a card with a username field, a password field with a show button, and a Sign in button, with a note on how to reset a forgotten password.",
+    "route": "/",
+    "src": "auth/account/login.webp",
+    "width": 800,
+    "height": 680,
+    "bytes": 25726,
+    "quality": 90
+  },
+  "auth/account/settings": {
+    "id": "auth/account/settings",
+    "kind": "still",
+    "alt": "Settings, General tab: the Account card, where you change your username or password and can sign out everywhere.",
+    "route": "/settings",
+    "src": "auth/account/settings.webp",
+    "width": 606,
+    "height": 626,
+    "bytes": 35528,
+    "quality": 90
   }
 }
