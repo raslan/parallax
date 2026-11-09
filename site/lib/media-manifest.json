@@ -2645,12 +2645,12 @@
   "auth/account/setup": {
     "id": "auth/account/setup",
     "kind": "still",
-    "alt": "The first-run page: a card to create the one account, with a username, a password and a confirmation field, over a backdrop of layered frames.",
+    "alt": "The first-run page: the Parallax logo and name above a card to create the account, with a username, a password and a confirmation field.",
     "route": "/",
     "src": "auth/account/setup.webp",
-    "width": 800,
-    "height": 680,
-    "bytes": 29532,
+    "width": 1440,
+    "height": 900,
+    "bytes": 38012,
     "quality": 90
   },
   "auth/account/login": {
@@ -2659,9 +2659,9 @@
     "alt": "The sign-in page: a card with a username field, a password field with a show button, and a Sign in button, with a note on how to reset a forgotten password.",
     "route": "/",
     "src": "auth/account/login.webp",
-    "width": 800,
-    "height": 680,
-    "bytes": 25726,
+    "width": 1440,
+    "height": 900,
+    "bytes": 34934,
     "quality": 90
   },
   "auth/account/settings": {
@@ -2672,7 +2672,7 @@
     "src": "auth/account/settings.webp",
     "width": 606,
     "height": 626,
-    "bytes": 35528,
+    "bytes": 35534,
     "quality": 90
   }
 }
