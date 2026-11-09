@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from datetime import UTC
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
@@ -16,6 +15,8 @@ from app.api.audio_files import router as audio_files_router
 from app.api.audio_libraries import router as audio_libraries_router
 from app.api.audio_originals import router as audio_originals_router
 from app.api.audio_toolbox import router as audio_toolbox_router
+from app.api.auth import auth_error_handler
+from app.api.auth import router as auth_router
 from app.api.compress import router as compress_router
 from app.api.credits import router as credits_router
 from app.api.downloads import router as downloads_router
@@ -39,9 +40,11 @@ from app.api.stats import router as stats_router
 from app.api.stream import router as stream_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
+from app.auth import AuthMiddleware, auth_enabled, install_openapi_security
 from app.config import GALLERY_DL_DIR
 from app.database import SessionLocal, init_db
 from app.queue import start_worker
+from app.services.auth import AuthError
 from app.services.encoder import detect_encoder
 from app.services.organize_sandbox import SandboxError
 
@@ -234,9 +237,38 @@ def _seed_max_concurrent_jobs():
         db.close()
 
 
+def _boot_auth():
+    """Drop expired sessions, and say so loudly when authentication is switched off."""
+    from app.services import auth as auth_service
+
+    if not auth_enabled():
+        logging.getLogger("parallax.auth").warning(
+            "PARALLAX_AUTH=off: authentication is DISABLED. Anyone who can reach this server "
+            "can use and delete everything in it."
+        )
+    db = SessionLocal()
+    try:
+        auth_service.purge_expired(db)
+    finally:
+        db.close()
+
+
+def safe_static_file(static_dir: str, full_path: str) -> str | None:
+    """The file under `static_dir` that `full_path` names, or None. Never leaves `static_dir`
+    (a `..` path used to read arbitrary files, and this route is public by design)."""
+    if not full_path:
+        return None
+    root = os.path.realpath(static_dir)
+    candidate = os.path.realpath(os.path.join(root, full_path))
+    if os.path.commonpath([root, candidate]) != root or not os.path.isfile(candidate):
+        return None
+    return candidate
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _boot_auth()
     os.makedirs(GALLERY_DL_DIR, exist_ok=True)
     _cleanup_legacy_dirs()
     _migrate_siglip_to_clip()
@@ -319,6 +351,10 @@ _API_DESCRIPTION = (
 _OPENAPI_TAGS = [
     {"name": "health", "description": "Liveness check."},
     {
+        "name": "auth",
+        "description": "The one account: first-run setup, sign in and out, change credentials.",
+    },
+    {
         "name": "libraries",
         "description": "Video libraries: add, scan, remove, plus duplicate and cleanup helpers.",
     },
@@ -391,17 +427,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# No CORS middleware on purpose: the SPA is same-origin (Vite dev uses its /api proxy), and a
+# wildcard policy let any web page open in the owner's browser call a reachable instance.
+# Everything under /api (and the docs pages) sits behind this default-deny middleware; the
+# only exceptions are the allowlist in app/auth.py.
+app.add_middleware(AuthMiddleware)
+install_openapi_security(app)
 
 # Typed service errors mapped to status + {"detail": ...} once (CODE_CONVENTIONS B3).
 app.add_exception_handler(SandboxError, sandbox_error_handler)
+app.add_exception_handler(AuthError, auth_error_handler)
 
 app.include_router(health_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
 app.include_router(libraries_router, prefix="/api")
 app.include_router(audio_libraries_router, prefix="/api")
 app.include_router(files_router, prefix="/api")
@@ -446,8 +484,8 @@ if os.path.isdir(STATIC_DIR):
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        candidate = os.path.join(STATIC_DIR, full_path)
-        if full_path and os.path.isfile(candidate):
+        candidate = safe_static_file(STATIC_DIR, full_path)
+        if candidate:
             return FileResponse(candidate)
         return await run_in_threadpool(_index_html)
 else:
