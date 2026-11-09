@@ -9,7 +9,7 @@ export default [
     auth: "setup",
     route: "/",
     alt: "The first-run page: the Parallax logo and name above a card to create the account, with a username, a password and a confirmation field.",
-    waitFor: [/Create your account/],
+    waitFor: [/Welcome to Parallax/],
     crop: { selectors: ["main > div"], pad: 40 },
   },
   {

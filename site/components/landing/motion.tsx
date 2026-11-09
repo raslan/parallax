@@ -55,16 +55,19 @@ function makeSparkles(count: number, seed: number): Sparkle[] {
 const LAYERS = [
   {
     speed: 0.06,
+    fall: 180,
     stars: makeStars(70, 11, [1, 1.6], [0.25, 0.55]),
     sparkles: [] as Sparkle[],
   },
   {
     speed: 0.14,
+    fall: 110,
     stars: makeStars(34, 23, [1.4, 2.2], [0.35, 0.7]),
     sparkles: makeSparkles(3, 5),
   },
   {
     speed: 0.26,
+    fall: 70,
     stars: makeStars(14, 37, [2, 3], [0.45, 0.85]),
     sparkles: makeSparkles(3, 9),
   },
@@ -97,25 +100,29 @@ export function Stars() {
     <div className="lp-sky" aria-hidden="true">
       {LAYERS.map((layer, li) => (
         <div key={li} className="lp-layer" data-speed={layer.speed}>
-          {[0, 1].map((tile) => (
-            <div key={tile} className="lp-tile">
-              {layer.stars.map((s, i) => (
-                <span
-                  key={i}
-                  className={s.twinkle ? "lp-star lp-twinkle" : "lp-star"}
-                  style={{
-                    left: `${s.x}%`,
-                    top: `${s.y}%`,
-                    width: s.size,
-                    height: s.size,
-                    opacity: s.opacity,
-                    animationDelay: `${s.delay}s`,
-                  }}
-                />
-              ))}
-              <Sparkles items={layer.sparkles} />
-            </div>
-          ))}
+          {/* The layer drifts with the scroll; inside it the stars slowly fall, far layers slowest.
+              Three identical screen-high tiles cover the scroll drift plus one screen of fall. */}
+          <div className="lp-fall" style={{ animationDuration: `${layer.fall}s` }}>
+            {[0, 1, 2].map((tile) => (
+              <div key={tile} className="lp-tile">
+                {layer.stars.map((s, i) => (
+                  <span
+                    key={i}
+                    className={s.twinkle ? "lp-star lp-twinkle" : "lp-star"}
+                    style={{
+                      left: `${s.x}%`,
+                      top: `${s.y}%`,
+                      width: s.size,
+                      height: s.size,
+                      opacity: s.opacity,
+                      animationDelay: `${s.delay}s`,
+                    }}
+                  />
+                ))}
+                <Sparkles items={layer.sparkles} />
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>

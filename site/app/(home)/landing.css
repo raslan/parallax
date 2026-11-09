@@ -86,6 +86,23 @@
   position: relative;
   height: 100vh;
 }
+/* The stars fall one screen at a time inside the scrolling layer. Moving three identical tiles
+   from one screen above to rest wraps without a seam. "Pause animations" and reduced motion
+   stop it through the `data-motion="off"` rule below. */
+.lp-fall {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 300vh;
+  animation: lp-fall linear infinite;
+}
+@keyframes lp-fall {
+  from {
+    transform: translateY(-100vh);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
 .lp-star {
   position: absolute;
   border-radius: 50%;

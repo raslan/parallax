@@ -53,15 +53,18 @@ describe("AuthPage animation", () => {
     expect(falling()).toEqual(["paused", "paused", "paused"]);
   });
 
-  it("does not follow the pointer once paused", () => {
+  it("does not react to the mouse at all", () => {
     renderPage("login");
     const sky = document.querySelector<HTMLElement>("[aria-hidden]")!;
-    fireEvent.pointerMove(window, { clientX: 0, clientY: 0 });
-    expect(sky.style.getPropertyValue("--mx")).not.toBe("0");
-    fireEvent.click(screen.getByRole("button", { name: "Pause animation" }));
-    expect(sky.style.getPropertyValue("--mx")).toBe("0");
-    fireEvent.pointerMove(window, { clientX: 0, clientY: 0 });
-    expect(sky.style.getPropertyValue("--mx")).toBe("0");
+    const before = sky.outerHTML;
+    fireEvent.pointerMove(window, { clientX: 5, clientY: 5 });
+    expect(sky.outerHTML).toBe(before);
+  });
+
+  it("welcomes a first visitor and says whoever signs up first owns the account", () => {
+    renderPage("setup");
+    expect(screen.getByText("Welcome to Parallax")).toBeTruthy();
+    expect(screen.getByText(/whoever creates it first owns it/i)).toBeTruthy();
   });
 });
 

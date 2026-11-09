@@ -24,12 +24,14 @@ interface FormValues {
 
 const COPY = {
   login: {
-    title: "Sign in",
+    title: "Welcome back",
+    lead: "Sign in to open your libraries.",
     submit: "Sign in",
     busy: "Signing in",
   },
   setup: {
-    title: "Create your account",
+    title: "Welcome to Parallax",
+    lead: "Choose a username and password to get started. Parallax has a single account, and whoever creates it first owns it, so set it up before you share this address.",
     submit: "Create account",
     busy: "Creating account",
   },
@@ -116,8 +118,9 @@ export function AuthPage({ mode }: { mode: Mode }) {
         <span className="text-3xl font-semibold tracking-tight">Parallax</span>
       </div>
       <Card className="relative z-10 w-full max-w-sm shadow-2xl shadow-black/40">
-        <CardHeader className="pb-4">
+        <CardHeader className="space-y-1.5 pb-4">
           <CardTitle className="text-xl font-semibold tracking-tight">{copy.title}</CardTitle>
+          <p className="text-sm leading-relaxed text-muted-foreground">{copy.lead}</p>
         </CardHeader>
         <CardContent>
           <form
