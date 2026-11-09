@@ -107,7 +107,14 @@ class AuthMiddleware:
         conn = HTTPConnection(scope)
         method = scope.get("method", "GET")
         if kind == "http" and method in _UNSAFE_METHODS and not _same_origin(conn):
-            await _send_json(send, 403, {"detail": "Cross-origin request refused"})
+            await _send_json(
+                send,
+                403,
+                {
+                    "detail": "Cross-origin request refused. Behind a reverse proxy, "
+                    "make it pass the original Host header."
+                },
+            )
             return
 
         # Not read from the request's own state before this point, so a client cannot forge it.
