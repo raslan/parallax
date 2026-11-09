@@ -2650,7 +2650,7 @@
     "src": "auth/account/setup.webp",
     "width": 1440,
     "height": 900,
-    "bytes": 38012,
+    "bytes": 37418,
     "quality": 90
   },
   "auth/account/login": {
@@ -2661,7 +2661,7 @@
     "src": "auth/account/login.webp",
     "width": 1440,
     "height": 900,
-    "bytes": 34934,
+    "bytes": 35018,
     "quality": 90
   },
   "auth/account/settings": {
