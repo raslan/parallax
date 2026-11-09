@@ -199,14 +199,6 @@ export function AuthPage({ mode }: { mode: Mode }) {
               )}
             </div>
 
-            <div className="min-h-5" aria-live="polite">
-              {serverError && (
-                <p role="alert" className="text-sm text-destructive">
-                  {serverError}
-                </p>
-              )}
-            </div>
-
             <Button type="submit" className="w-full" disabled={pending}>
               {pending ? (
                 <>
@@ -217,6 +209,16 @@ export function AuthPage({ mode }: { mode: Mode }) {
                 copy.submit
               )}
             </Button>
+
+            {/* Below the button, in a line that is always reserved: it pads the card and an
+                error never moves anything. */}
+            <div className="min-h-5 text-center" aria-live="polite">
+              {serverError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {serverError}
+                </p>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>

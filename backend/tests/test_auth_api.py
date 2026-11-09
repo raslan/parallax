@@ -1,5 +1,7 @@
 import pytest
 
+from app.services import auth as svc
+
 # The account the `client` fixture (conftest.py) creates and signs in.
 TEST_USERNAME = "tester"
 TEST_PASSWORD = "test-password-123"
@@ -76,7 +78,7 @@ def test_login_success_and_generic_failure(anon_client):
 def test_login_throttle_returns_429_with_retry_after(anon_client):
     _setup(anon_client)
     anon_client.cookies.clear()
-    for _ in range(5):
+    for _ in range(svc.LoginThrottle.FREE_FAILURES):
         anon_client.post("/api/auth/login", json={"username": "owner", "password": "wrong wrong"})
     r = anon_client.post("/api/auth/login", json={"username": "owner", "password": PASSPHRASE})
     assert r.status_code == 429

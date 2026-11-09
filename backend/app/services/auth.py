@@ -118,11 +118,12 @@ _DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
 
 class LoginThrottle:
     """Process-wide (not per-IP: behind a proxy every request shares one address).
-    After 5 consecutive failures the next attempt is refused for 1 s, doubling per further
-    failure up to 5 minutes. A success resets it. A restart clears it."""
+    After 10 consecutive failures the next attempt is refused for 1 s, doubling per further
+    failure up to 1 minute. A success resets it. A restart clears it. Deliberately lax: it
+    exists to make guessing slow, not to punish typos."""
 
-    FREE_FAILURES = 5
-    CAP_SECONDS = 300
+    FREE_FAILURES = 10
+    CAP_SECONDS = 60
 
     def __init__(self, clock: Callable[[], float] = time.monotonic):
         self._clock = clock

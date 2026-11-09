@@ -90,8 +90,8 @@ def test_sliding_expiry_only_after_an_hour(db, user):
     assert svc.resolve_session(db, token).needs_touch is False
 
 
-def test_throttle_locks_after_five_failures_even_for_right_password(db, user):
-    for _ in range(5):
+def test_throttle_locks_after_the_free_failures_even_for_right_password(db, user):
+    for _ in range(svc.LoginThrottle.FREE_FAILURES):
         with pytest.raises(svc.InvalidCredentials):
             svc.login(db, "alice", "bad password")
     with pytest.raises(svc.Throttled) as t:
@@ -103,23 +103,25 @@ def test_throttle_locks_after_five_failures_even_for_right_password(db, user):
 def test_throttle_backoff_doubles_and_caps():
     clock = [1000.0]
     th = svc.LoginThrottle(clock=lambda: clock[0])
-    for _ in range(5):
+    for _ in range(svc.LoginThrottle.FREE_FAILURES - 1):
         th.fail()
+    th.check()  # still free: one try left before the first wait
+    th.fail()
     with pytest.raises(svc.Throttled) as t:
         th.check()
     assert t.value.retry_after == 1
     clock[0] += 1.01
     th.check()  # lock expired
-    th.fail()  # 6th failure -> 2 s
+    th.fail()  # the next failure -> 2 s
     with pytest.raises(svc.Throttled) as t:
         th.check()
     assert t.value.retry_after == 2
     for _ in range(30):
-        clock[0] += 400
+        clock[0] += 400  # always past the previous wait
         th.fail()
     with pytest.raises(svc.Throttled) as t:
         th.check()
-    assert t.value.retry_after == 300
+    assert t.value.retry_after == svc.LoginThrottle.CAP_SECONDS == 60
 
 
 def test_throttle_resets_on_success(db, user):
