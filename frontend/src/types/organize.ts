@@ -53,6 +53,18 @@ export interface FileDetails {
   bitrate: number | null;
 }
 
+/** A file's embedded tags (`POST /organize/tags`). */
+export interface OrganizeTagInfo {
+  /** Canonical fields (title, description, artist, ...); only those the file has. */
+  fields: Record<string, string>;
+  /** Every tag as stored, keyed by its own name. */
+  raw: Record<string, string>;
+  /** One line per stream, e.g. "audio mp3 2ch 44100 Hz". */
+  streams: string[];
+  /** A value was cut to 500 characters (batch requests only). */
+  truncated: boolean;
+}
+
 export interface ScanState {
   status: "idle" | "running" | "done" | "error";
   folders_scanned: number;

@@ -6,6 +6,7 @@ import type {
   OrganizeRenameResult,
   OrganizeFile,
   OrganizeFolder,
+  OrganizeTagInfo,
   ScanState,
 } from "@/types/organize";
 import type { StreamPrepareStatus } from "@/types/stream";
@@ -29,6 +30,11 @@ export const organizeApi = {
     req<{ details: Record<string, FileDetails | null> }>("/organize/details", {
       method: "POST",
       body: JSON.stringify({ paths }),
+    }),
+  getOrganizeTags: (paths: string[], full = false) =>
+    req<{ tags: Record<string, OrganizeTagInfo | null> }>("/organize/tags", {
+      method: "POST",
+      body: JSON.stringify({ paths, full }),
     }),
   organizeDelete: (paths: string[]) =>
     req<OrganizeDeleteResult>("/organize/delete", {
