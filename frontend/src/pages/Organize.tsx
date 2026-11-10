@@ -83,8 +83,9 @@ export function Organize() {
   const [panelOn, setPanelOn] = useTagPanelOpen();
   const filters = useOrganizeFilters(fileList, detailsProgress, fileSort, {
     folderPath: currentPath ?? "",
-    // Tags are fetched only for a visible tag column (list view), a tag filter or the panel.
-    wanted: (viewMode === "list" && tagColumns.length > 0) || panelOn,
+    // The whole folder's tags are read only for a visible tag column (list view) or a tag
+    // filter. The panel reads just the selected files itself.
+    wanted: viewMode === "list" && tagColumns.length > 0,
   });
   const { tags, done: tagsDone } = filters.tagsProgress;
   // The panel follows the selection: it shows while the switch is on and files are selected.
@@ -107,7 +108,12 @@ export function Organize() {
   });
   // Opening another folder or changing a filter shows a different result set.
   useScrollTopOnChange(scroller, `${currentPath}|${clauseSignature(clauses)}`);
-  const panel = useOrganizeTagPanel({ files: actionFiles, tags, enabled: panelOn });
+  const panel = useOrganizeTagPanel({
+    folderPath: currentPath ?? "",
+    files: actionFiles,
+    tags,
+    enabled: panelOn,
+  });
   const exit = useOrganizeExit();
   const { move, rename, deleteFiles, deleteFolder, deleting, progress } = useOrganizeActions({
     currentPath,

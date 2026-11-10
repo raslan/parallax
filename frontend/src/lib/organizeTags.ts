@@ -42,7 +42,8 @@ export const TAG_SORT_KEY: Partial<Record<TagColumnId, FileSortKey>> = {
 
 export const TAG_COLUMNS_KEY = "parallax-organize-tag-columns";
 
-const DEFAULT_COLUMNS: TagColumnId[] = ["title", "description"];
+/** None until the user picks some: two wide columns would squeeze the file name at laptop widths. */
+const DEFAULT_COLUMNS: TagColumnId[] = [];
 
 const isColumn = (v: unknown): v is TagColumnId =>
   typeof v === "string" && (TAG_COLUMN_IDS as readonly string[]).includes(v);

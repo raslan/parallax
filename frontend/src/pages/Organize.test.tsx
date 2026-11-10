@@ -402,7 +402,16 @@ describe("Organize tag columns", () => {
     expect(api.getOrganizeTags).not.toHaveBeenCalled();
   });
 
-  it("fetches tags and shows them as columns once the list view is on", async () => {
+  it("shows no tag column and reads no tags in the list view until columns are picked", async () => {
+    await open();
+    fireEvent.click(screen.getByTestId("view-list"));
+    await screen.findByRole("button", { name: /Columns/ });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.getOrganizeTags).not.toHaveBeenCalled();
+  });
+
+  it("fetches tags and shows them as columns once the list view is on and a column is chosen", async () => {
+    localStorage.setItem("parallax-organize-tag-columns", '["description"]');
     await open();
     fireEvent.click(screen.getByTestId("view-list"));
     await waitFor(() => expect(api.getOrganizeTags).toHaveBeenCalledTimes(1));
@@ -456,5 +465,54 @@ describe("Organize tag panel", () => {
     // Both the filter card and the action dock have a Clear; either empties the selection.
     fireEvent.click(screen.getAllByRole("button", { name: "Clear" })[0]!);
     await waitFor(() => expect(screen.queryByText("Embedded tags, read-only.")).toBeNull());
+  });
+});
+
+describe("Organize tag panel switch left on", () => {
+  it("reads no tags while nothing is selected, however many files the folder has", async () => {
+    localStorage.setItem("parallax-organize-panel", "1");
+    const files = [
+      { name: "x.mp3", path: "/r/a/x.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+      { name: "y.mp3", path: "/r/a/y.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+    ];
+    const withFiles = { ...folder("/r/a"), direct: { ...ZERO, files: 2, audio: 2, bytes: 20 } };
+    vi.mocked(api.getOrganizeFolder).mockImplementation(async (p: string) =>
+      p === "/r/a" ? withFiles : folder(p),
+    );
+    vi.mocked(api.getOrganizeFiles).mockResolvedValue(files);
+    vi.mocked(api.getOrganizeDetails).mockResolvedValue({ details: {} });
+    renderAt(["/organize?path=/r/a"]);
+    await screen.findByText("x.mp3");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.getOrganizeTags).not.toHaveBeenCalled();
+  });
+
+  it("reads only the selected files' tags once several are selected", async () => {
+    localStorage.setItem("parallax-organize-panel", "1");
+    const files = ["x", "y", "z"].map((n) => ({
+      name: `${n}.mp3`,
+      path: `/r/a/${n}.mp3`,
+      kind: "audio" as const,
+      size: 10,
+      mtime: 0,
+    }));
+    const withFiles = { ...folder("/r/a"), direct: { ...ZERO, files: 3, audio: 3, bytes: 30 } };
+    vi.mocked(api.getOrganizeFolder).mockImplementation(async (p: string) =>
+      p === "/r/a" ? withFiles : folder(p),
+    );
+    vi.mocked(api.getOrganizeFiles).mockResolvedValue(files);
+    vi.mocked(api.getOrganizeDetails).mockResolvedValue({ details: {} });
+    vi.mocked(api.getOrganizeTags).mockImplementation(async (paths: string[]) => ({
+      tags: Object.fromEntries(
+        paths.map((p) => [p, { fields: { title: "T" }, raw: {}, streams: [], truncated: false }]),
+      ),
+    }));
+    renderAt(["/organize?path=/r/a"]);
+    fireEvent.click(await screen.findByText("x.mp3"));
+    fireEvent.click(await screen.findByText("y.mp3"));
+    await screen.findByText(/2 selected/);
+    await waitFor(() => expect(api.getOrganizeTags).toHaveBeenCalled());
+    const asked = vi.mocked(api.getOrganizeTags).mock.calls.flatMap(([paths]) => paths);
+    expect([...new Set(asked)].sort()).toEqual(["/r/a/x.mp3", "/r/a/y.mp3"]);
   });
 });

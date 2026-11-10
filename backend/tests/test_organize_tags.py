@@ -121,3 +121,37 @@ def test_jpeg_canonical_fields_prefer_xmp_then_exif_then_iptc(tmp_path):
     assert out["fields"]["artist"] == "Z"
     assert out["fields"]["keywords"] == "a, b"
     assert any(k.startswith("XMP-dc:") for k in out["raw"])
+
+
+def test_stream_tags_are_used_when_the_container_has_none():
+    """Ogg and Opus keep their Vorbis comments on the audio stream, not the container."""
+    probe = {
+        "format": {},
+        "streams": [
+            {"codec_type": "audio", "tags": {"title": "Opus T", "artist": "OA"}},
+            {"codec_type": "audio", "tags": {"title": "second track"}},
+        ],
+    }
+    assert organize_tags.tags_of(probe) == {"title": "Opus T", "artist": "OA"}
+
+
+def test_container_tags_win_and_stream_noise_stays_out():
+    probe = {
+        "format": {"tags": {"title": "Container"}},
+        "streams": [{"codec_type": "audio", "tags": {"title": "Stream", "DURATION": "00:01"}}],
+    }
+    assert organize_tags.tags_of(probe) == {"title": "Container"}
+
+
+@needs_ffmpeg
+def test_opus_file_tags_are_read(tmp_path):
+    p = tmp_path / "a.opus"
+    done = subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=1", "-c:a", "libopus"]
+        + ["-metadata", "title=Opus T", "-metadata", "artist=OA", str(p)],
+        capture_output=True,
+    )
+    if done.returncode != 0:
+        pytest.skip("ffmpeg has no libopus")
+    out = organize_tags.read_tags(str(p))
+    assert out["fields"] == {"title": "Opus T", "artist": "OA"}

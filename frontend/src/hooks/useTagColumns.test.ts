@@ -8,9 +8,9 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe("useTagColumns", () => {
-  it("starts with title and description when nothing is saved", () => {
+  it("starts with no columns when nothing is saved", () => {
     const { result } = renderHook(() => useTagColumns());
-    expect(result.current[0]).toEqual(["title", "description"]);
+    expect(result.current[0]).toEqual([]);
   });
 
   it("starts from the saved list", () => {

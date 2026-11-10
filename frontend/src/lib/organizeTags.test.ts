@@ -10,8 +10,8 @@ import {
 const storageOf = (value: string | null) => ({ getItem: vi.fn(() => value) });
 
 describe("loadTagColumns", () => {
-  it("falls back to title + description when nothing is saved", () => {
-    expect(loadTagColumns(storageOf(null))).toEqual(["title", "description"]);
+  it("shows no tag columns until the user picks some", () => {
+    expect(loadTagColumns(storageOf(null))).toEqual([]);
   });
 
   it("keeps known ids in the saved order and drops unknown or repeated ones", () => {
@@ -26,14 +26,14 @@ describe("loadTagColumns", () => {
   });
 
   it("falls back on unreadable data or a storage that throws", () => {
-    expect(loadTagColumns(storageOf("{not json"))).toEqual(["title", "description"]);
-    expect(loadTagColumns(storageOf('{"a":1}'))).toEqual(["title", "description"]);
+    expect(loadTagColumns(storageOf("{not json"))).toEqual([]);
+    expect(loadTagColumns(storageOf('{"a":1}'))).toEqual([]);
     const throwing = {
       getItem: () => {
         throw new Error("blocked");
       },
     };
-    expect(loadTagColumns(throwing)).toEqual(["title", "description"]);
+    expect(loadTagColumns(throwing)).toEqual([]);
   });
 });
 

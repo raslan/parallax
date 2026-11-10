@@ -163,6 +163,22 @@ def _stream_line(stream: dict) -> str:
     return line
 
 
+def tags_of(probe: dict) -> dict[str, str]:
+    """The tags ffprobe found: the container's, else the first audio stream's.
+
+    Ogg and Opus keep their Vorbis comments on the stream and leave ``format.tags`` empty.
+    The stream's tags are only a fallback (they also carry per-track noise such as
+    ``DURATION`` and ``language`` that a container with real tags would drown in).
+    """
+    container = (probe.get("format") or {}).get("tags") or {}
+    if container:
+        return container
+    for stream in probe.get("streams") or []:
+        if stream.get("codec_type") == "audio":
+            return stream.get("tags") or {}
+    return {}
+
+
 def _read_media(path: str, full: bool) -> dict | None:
     out = _run(
         [
@@ -183,8 +199,7 @@ def _read_media(path: str, full: bool) -> dict | None:
         probe = json.loads(out)
     except ValueError:
         return None
-    tags = (probe.get("format") or {}).get("tags") or {}
-    fields, raw, truncated = fields_from_tags(tags, full)
+    fields, raw, truncated = fields_from_tags(tags_of(probe), full)
     streams = [_stream_line(s) for s in probe.get("streams") or []]
     return {"fields": fields, "raw": raw, "streams": streams, "truncated": truncated}
 
