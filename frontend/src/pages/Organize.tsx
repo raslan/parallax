@@ -132,7 +132,8 @@ export function Organize() {
     <div>
       <PageTitle>Organize</PageTitle>
       <p className="mt-1 text-sm text-muted-foreground">
-        Walk a folder, see what is in it and clear out what you do not need.
+        Work on a folder by hand: browse it, find files, rename or move them, look at their tags and
+        delete what you do not need.
       </p>
     </div>
   );

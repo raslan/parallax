@@ -9,7 +9,7 @@ export function NoRootState({ onChoose }: { onChoose: () => void }) {
     <EmptyState
       icon={FolderTree}
       title="Choose a folder to organize"
-      description="Pick any folder and Organize will map it, count what is inside and let you delete files or whole folders safely."
+      description="Pick any folder and Organize will map it and count what is inside, so you can find files, look at their tags, move or rename them and delete what you do not need."
       action={
         <Button onClick={onChoose}>
           <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
