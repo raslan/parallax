@@ -4,7 +4,9 @@
  * Pure; no interpretation of values.
  */
 
-const TAG_COLUMN_IDS = [
+import type { FileSortKey } from "@/lib/organizeSort";
+
+export const TAG_COLUMN_IDS = [
   "title",
   "description",
   "artist",
@@ -16,6 +18,27 @@ const TAG_COLUMN_IDS = [
 ] as const;
 
 export type TagColumnId = (typeof TAG_COLUMN_IDS)[number];
+
+export const TAG_LABELS: Record<TagColumnId, string> = {
+  title: "Title",
+  description: "Description",
+  artist: "Artist",
+  album: "Album",
+  genre: "Genre",
+  date: "Date",
+  comment: "Comment",
+  synopsis: "Synopsis",
+};
+
+/** The list sort key of a tag column; comment and synopsis can be shown but not sorted. */
+export const TAG_SORT_KEY: Partial<Record<TagColumnId, FileSortKey>> = {
+  title: "tag_title",
+  description: "tag_description",
+  artist: "tag_artist",
+  album: "tag_album",
+  genre: "tag_genre",
+  date: "tag_date",
+};
 
 export const TAG_COLUMNS_KEY = "parallax-organize-tag-columns";
 

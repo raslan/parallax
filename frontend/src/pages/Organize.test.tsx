@@ -20,6 +20,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       organizeDeleteFolder: vi.fn(),
       organizeMoveToSubfolder: vi.fn(),
       organizeRename: vi.fn(),
+      getOrganizeTags: vi.fn(),
     },
   };
 });
@@ -365,5 +366,44 @@ describe("Organize file actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /Rescan/ }));
     await waitFor(() => expect(api.startOrganizeScan).toHaveBeenCalledWith(true));
     await waitFor(() => expect(screen.queryByText(/selected/)).toBeNull());
+  });
+});
+
+describe("Organize tag columns", () => {
+  const FILES = [
+    { name: "x.mp3", path: "/r/a/x.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+    { name: "y.mp3", path: "/r/a/y.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+  ];
+
+  async function open() {
+    const withFiles = { ...folder("/r/a"), direct: { ...ZERO, files: 2, audio: 2, bytes: 20 } };
+    vi.mocked(api.getOrganizeFolder).mockImplementation(async (p: string) =>
+      p === "/r/a" ? withFiles : folder(p),
+    );
+    vi.mocked(api.getOrganizeFiles).mockResolvedValue(FILES);
+    vi.mocked(api.getOrganizeDetails).mockResolvedValue({ details: {} });
+    vi.mocked(api.getOrganizeTags).mockImplementation(async (paths: string[]) => ({
+      tags: Object.fromEntries(
+        paths.map((p) => [
+          p,
+          { fields: { description: `desc of ${p}` }, raw: {}, streams: [], truncated: false },
+        ]),
+      ),
+    }));
+    renderAt(["/organize?path=/r/a"]);
+    await screen.findByText("x.mp3");
+  }
+
+  it("makes no tag request in the default grid view, however many files", async () => {
+    await open();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.getOrganizeTags).not.toHaveBeenCalled();
+  });
+
+  it("fetches tags and shows them as columns once the list view is on", async () => {
+    await open();
+    fireEvent.click(screen.getByTestId("view-list"));
+    await waitFor(() => expect(api.getOrganizeTags).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("desc of /r/a/x.mp3")).toBeTruthy();
   });
 });

@@ -38,6 +38,7 @@ import { useOrganizeSelection } from "@/hooks/useOrganizeSelection";
 import { useScrollParent } from "@/hooks/useScrollParent";
 import { useScrollTopOnChange } from "@/hooks/useScrollTopOnChange";
 import { useSort } from "@/hooks/useSort";
+import { useTagColumns } from "@/hooks/useTagColumns";
 
 /** Tools → Organize: walk a folder by hand. State and flows live in the hooks above. */
 export function Organize() {
@@ -75,7 +76,13 @@ export function Organize() {
   // One sort each for the folders and the files (Name ascending, counts/sizes descending).
   const folderSort = useSort<FolderSortKey>("files", folderSortDefaultDir);
   const fileSort = useSort<FileSortKey>("name", fileSortDefaultDir);
-  const filters = useOrganizeFilters(fileList, detailsProgress, fileSort);
+  const [tagColumns, setTagColumns] = useTagColumns();
+  const filters = useOrganizeFilters(fileList, detailsProgress, fileSort, {
+    folderPath: currentPath ?? "",
+    // Tags are fetched only for a visible tag column (list view) or a tag filter.
+    wanted: viewMode === "list" && tagColumns.length > 0,
+  });
+  const { tags, done: tagsDone } = filters.tagsProgress;
   const { clauses, visiblePaths } = filters;
   const {
     selected,
@@ -189,6 +196,7 @@ export function Organize() {
             onViewMode={setViewMode}
             size={cardSize}
             onSize={setCardSize}
+            tagColumns={{ selected: tagColumns, onChange: setTagColumns }}
             folderSort={
               folderQ.data && folderQ.data.subfolders.length > 0
                 ? {
@@ -275,6 +283,9 @@ export function Organize() {
                   scrollElement={scroller}
                   marquee={marqueeProps}
                   redact={redact}
+                  tagColumns={tagColumns}
+                  tags={tags}
+                  tagsLoading={!tagsDone}
                 />
               </>
             ))}

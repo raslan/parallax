@@ -48,4 +48,15 @@ describe("BrowseControls", () => {
     render(<BrowseControls {...base} />);
     expect(screen.queryByRole("combobox")).toBeNull();
   });
+  it("offers the tag Columns menu in list view only, and only when given tag columns", () => {
+    const tagColumns = { selected: ["title" as const], onChange: vi.fn() };
+    const { rerender } = render(
+      <BrowseControls {...base} viewMode="list" tagColumns={tagColumns} />,
+    );
+    expect(screen.getByRole("button", { name: /Columns/ })).toBeTruthy();
+    rerender(<BrowseControls {...base} viewMode="grid" tagColumns={tagColumns} />);
+    expect(screen.queryByRole("button", { name: /Columns/ })).toBeNull();
+    rerender(<BrowseControls {...base} viewMode="list" />);
+    expect(screen.queryByRole("button", { name: /Columns/ })).toBeNull();
+  });
 });

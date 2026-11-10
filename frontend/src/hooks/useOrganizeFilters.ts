@@ -2,8 +2,9 @@ import { useCallback, useMemo } from "react";
 import { organizeFields } from "@/lib/organizeSearch";
 import { sortFiles, type FileSortKey } from "@/lib/organizeSort";
 import type { SortDir } from "@/components/FileSelectGrid";
+import { useOrganizeTags } from "@/hooks/useOrganizeTags";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
-import type { FileDetails, OrganizeFile, OrganizeTagInfo } from "@/types/organize";
+import type { FileDetails, OrganizeFile } from "@/types/organize";
 
 /** Filter fields that need ffprobe details, which stream in after the list. */
 const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bitrate"]);
@@ -12,9 +13,13 @@ const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bit
  * The filtered and sorted view of the open folder's files: the query builder over
  * `organizeFields`, the rows it keeps (rows carry their streamed details so enriched
  * fields can test them), the order they are shown in, and how many details are still
- * loading while an enriched or tag clause waits on them. `tagsProgress` (the streamed
- * embedded tags) is optional: tag clauses are false for a file until its tags arrive,
- * and `tagsWanted` says whether a tag clause needs them fetched at all.
+ * loading while an enriched or tag clause waits on them.
+ *
+ * It also owns the embedded-tags fetch, because whether tags are needed depends on its
+ * own clauses: they are fetched while `tagSource.wanted` (a tag column, the info panel)
+ * or while a tag clause exists (`tagsWanted`), never otherwise. Tag clauses are false for
+ * a file until its tags arrive. `tagsProgress` hands the loaded tags back for the columns
+ * and the panel.
  */
 export function useOrganizeFilters(
   fileList: OrganizeFile[],
@@ -24,16 +29,18 @@ export function useOrganizeFilters(
     total: number;
   },
   sort: { sortKey: FileSortKey; sortDir: SortDir },
-  tagsProgress?: {
-    tags: Record<string, OrganizeTagInfo | null>;
-    loaded: number;
-    total: number;
-  },
+  tagSource: { folderPath: string; wanted: boolean },
 ) {
   const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
     useQueryBuilder(organizeFields);
+  const tagsWanted = clauses.some((c) => c.fieldKey.startsWith("tag_"));
+  const tagsProgress = useOrganizeTags(
+    tagSource.folderPath,
+    fileList,
+    tagSource.wanted || tagsWanted,
+  );
   const { details } = detailsProgress;
-  const tags = tagsProgress?.tags;
+  const { tags } = tagsProgress;
   const visibleFiles = useMemo(() => {
     if (clauses.length === 0) return fileList;
     return fileList.filter((f) =>
@@ -51,12 +58,10 @@ export function useOrganizeFilters(
   const fileNames = useMemo(() => fileList.map((f) => f.name), [fileList]);
 
   const enrichedActive = clauses.some((c) => ENRICHED.has(c.fieldKey));
-  const tagsWanted = clauses.some((c) => c.fieldKey.startsWith("tag_"));
   const detailsPending = enrichedActive
     ? Math.max(0, detailsProgress.total - detailsProgress.loaded)
     : 0;
-  const tagsPending =
-    tagsWanted && tagsProgress ? Math.max(0, tagsProgress.total - tagsProgress.loaded) : 0;
+  const tagsPending = tagsWanted ? Math.max(0, tagsProgress.total - tagsProgress.loaded) : 0;
   const stillLoading = Math.max(detailsPending, tagsPending);
 
   const pickName = useCallback(
@@ -86,6 +91,7 @@ export function useOrganizeFilters(
     fileNames,
     stillLoading,
     tagsWanted,
+    tagsProgress,
     pickName,
   };
 }

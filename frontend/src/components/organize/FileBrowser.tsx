@@ -16,8 +16,10 @@ import { formatBitrate, formatDuration, formatSize, formatUnixDate } from "@/lib
 import { extensionOf } from "@/lib/path";
 import { REDACTED_FILE } from "@/lib/organizeRedact";
 import type { FileSortKey } from "@/lib/organizeSort";
+import { TAG_LABELS, TAG_SORT_KEY, type TagColumnId } from "@/lib/organizeTags";
 import { cn } from "@/lib/utils";
-import type { FileDetails, OrganizeFile } from "@/types/organize";
+import { Tip } from "@/components/Tip";
+import type { FileDetails, OrganizeFile, OrganizeTagInfo } from "@/types/organize";
 
 /** Breakpoint visibility per column: [cell class, header class] (the header is flex). */
 const SHOW = {
@@ -88,6 +90,52 @@ const COLUMNS: {
     value: (f) => formatSize(f.size),
   },
 ];
+
+/** Width and visibility of a tag column; shared by its cells and its header. */
+const TAG_CELL = "hidden w-44 shrink-0 md:block";
+const TAG_HEAD = "hidden w-44 shrink-0 md:flex";
+
+/**
+ * One tag value in the list: a single truncated line (new lines collapse to spaces, so a
+ * hashtag-heavy description never makes the row taller), the full text on hover, "—" when
+ * the file has none, a shimmer until its tags arrive. Redacting hides the value and its
+ * hover text.
+ */
+function TagCell({
+  id,
+  path,
+  info,
+  loading,
+  redact,
+}: {
+  id: TagColumnId;
+  path: string;
+  info: OrganizeTagInfo | null | undefined;
+  loading: boolean;
+  redact: boolean;
+}) {
+  if (info === undefined) {
+    return loading ? <Skeleton className={cn(TAG_CELL, "h-3")} /> : <span className={TAG_CELL} />;
+  }
+  const value = info?.fields[id];
+  const cls = cn(
+    TAG_CELL,
+    "animate-fade-in truncate text-xs",
+    value ? "text-muted-foreground" : "text-muted-foreground/60",
+  );
+  const cell = (text: string) => (
+    <span data-testid={`tag-${id}-${path}`} className={cls}>
+      {text}
+    </span>
+  );
+  if (!value) return cell("—");
+  if (redact) return cell("Redacted");
+  return (
+    <Tip label={<span className="block max-w-sm break-words">{value}</span>}>
+      {cell(value.replace(/\s+/g, " "))}
+    </Tip>
+  );
+}
 
 /** Chrome plays these natively; the backend 400s `/organize/audio` for them. */
 const NATIVE_AUDIO = new Set(["mp3", "m4a", "aac", "ogg", "opus", "wav", "flac"]);
@@ -225,9 +273,16 @@ export function FileBrowser({
   sortDir,
   onSort,
   redact = false,
+  tagColumns = [],
+  tags = {},
+  tagsLoading = false,
 }: {
   /** Already filtered and sorted by the page (undefined = loading). */
   files: OrganizeFile[] | undefined;
+  /** List view: which tags show as columns after the name, and the tags streamed so far. */
+  tagColumns?: TagColumnId[];
+  tags?: Record<string, OrganizeTagInfo | null>;
+  tagsLoading?: boolean;
   /** Demo mode: "Redacted file" names, no thumbnails, no real names in the viewers. */
   redact?: boolean;
   /**
@@ -298,26 +353,38 @@ export function FileBrowser({
       {...shared(f)}
       className={motionClass("list", leaving?.has(f.path) ?? false)}
       thumbnail={<Thumb file={f} redact={redact} className="h-8 w-14 rounded" />}
-      columns={COLUMNS.map((c) => {
-        const d = details[f.path];
-        const cls = cn(c.width, "shrink-0", SHOW[c.show][0]);
-        if (c.detail && d === undefined && detailsLoading) {
-          return <Skeleton key={c.key} className={cn(cls, "h-3")} />;
-        }
-        return (
-          <span
-            key={c.key}
-            className={cn(
-              cls,
-              "truncate text-right font-mono text-xs tabular-nums",
-              c.key === "size" ? "text-muted-foreground/70" : "text-muted-foreground/60",
-              c.detail && "animate-fade-in",
-            )}
-          >
-            {c.value(f, d)}
-          </span>
-        );
-      })}
+      columns={[
+        ...tagColumns.map((id) => (
+          <TagCell
+            key={`tag-${id}`}
+            id={id}
+            path={f.path}
+            info={tags[f.path]}
+            loading={tagsLoading}
+            redact={redact}
+          />
+        )),
+        ...COLUMNS.map((c) => {
+          const d = details[f.path];
+          const cls = cn(c.width, "shrink-0", SHOW[c.show][0]);
+          if (c.detail && d === undefined && detailsLoading) {
+            return <Skeleton key={c.key} className={cn(cls, "h-3")} />;
+          }
+          return (
+            <span
+              key={c.key}
+              className={cn(
+                cls,
+                "truncate text-right font-mono text-xs tabular-nums",
+                c.key === "size" ? "text-muted-foreground/70" : "text-muted-foreground/60",
+                c.detail && "animate-fade-in",
+              )}
+            >
+              {c.value(f, d)}
+            </span>
+          );
+        }),
+      ]}
     />
   );
 
@@ -335,6 +402,30 @@ export function FileBrowser({
         onSort={onSort}
         className="min-w-0 flex-1"
       />
+      {tagColumns.map((id) => {
+        const key = TAG_SORT_KEY[id];
+        return key ? (
+          <ColHeader
+            key={`tag-${id}`}
+            label={TAG_LABELS[id]}
+            sortKey={key}
+            current={sortKey}
+            dir={sortDir}
+            onSort={onSort}
+            className={TAG_HEAD}
+          />
+        ) : (
+          <span
+            key={`tag-${id}`}
+            className={cn(
+              TAG_HEAD,
+              "items-center text-3xs uppercase tracking-wider text-muted-foreground/40",
+            )}
+          >
+            {TAG_LABELS[id]}
+          </span>
+        );
+      })}
       {COLUMNS.map((c) => (
         <ColHeader
           key={c.key}
