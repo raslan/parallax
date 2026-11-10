@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CornerLeftUp,
   FolderTree,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, qk } from "@/lib/api";
-import { errorDetail, httpStatus } from "@/lib/api/client";
+import { errorDetail, isConflict, isMissing } from "@/lib/api/client";
 import { describeSelection, formatSize, sumSizeOf } from "@/lib/format";
 import { folderAfterDelete, folderSearch, resolveOpenFolder } from "@/lib/organizeNav";
 import {
@@ -64,6 +64,7 @@ import { useScrollParent } from "@/hooks/useScrollParent";
 import { useOrganizeDelete } from "@/hooks/useOrganizeDelete";
 import { useOrganizeDetails } from "@/hooks/useOrganizeDetails";
 import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
+import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
@@ -73,7 +74,6 @@ import type {
   OrganizeFile,
   OrganizeMoveResult,
   OrganizeRenameResult,
-  ScanState,
 } from "@/types/organize";
 import { PageTitle } from "@/components/PageTitle";
 
@@ -83,14 +83,8 @@ const NO_FILES: OrganizeFile[] = [];
 /** Filter fields that need ffprobe details, which stream in after the list. */
 const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bitrate"]);
 
-/** The backend answers 409 for "no folder selected" / "folder is no longer available". */
-const isConflict = (e: unknown) => httpStatus(e) === 409;
-
-const isMissing = (e: unknown) => httpStatus(e) === 404;
-
 export function Organize() {
   const qc = useQueryClient();
-  const [picking, setPicking] = useState(false);
   const routerNavigate = useNavigate();
   // The open folder lives in the URL (`?path=`, none = the root), so Back/Forward walk
   // the folders visited. Derived here every render; a value outside the root (e.g. one
@@ -98,8 +92,18 @@ export function Organize() {
   const [searchParams] = useSearchParams();
   const pathParam = searchParams.get("path");
 
-  const rootQ = useQuery({ queryKey: qk.organizeRoot(), queryFn: () => api.getOrganizeRoot() });
-  const root = rootQ.data?.root ?? null;
+  const {
+    rootQ,
+    root,
+    scan,
+    scanDone,
+    unavailable,
+    startScan,
+    saveRoot,
+    picking,
+    setPicking,
+    markGone,
+  } = useOrganizeRoot({ onReset: () => selectNone() });
   const open = root ? resolveOpenFolder(pathParam, root) : null;
   const currentPath = open?.path ?? root;
   const badPath = open ? !open.valid : false;
@@ -137,8 +141,6 @@ export function Organize() {
   }, [viewSig, scroller]);
   const { leavingFiles, leavingFolders, leaveFiles, leaveFolders, refreshListings } =
     useOrganizeExit();
-  // A delete call answered 409: the root is gone. Tagged with the root it was seen on.
-  const [goneRoot, setGoneRoot] = useState<string | null>(null);
 
   /** Link target that opens `path` (a pushed history entry). */
   const linkTo = (path: string) => ({ search: root ? folderSearch(path, root) : "" });
@@ -150,66 +152,6 @@ export function Organize() {
   const replaceFolder = (path: string) => {
     void routerNavigate(linkTo(path), { replace: true });
   };
-
-  const scanQ = useQuery({
-    queryKey: qk.organizeScan(),
-    queryFn: () => api.getOrganizeScan(),
-    enabled: !!root,
-    retry: false,
-    refetchInterval: (q) => (q.state.data?.status === "running" ? 500 : false),
-  });
-
-  // `force` = Rescan: always re-walk. Otherwise the backend reuses a finished scan
-  // of the same root, so revisiting the page keeps listings and selection.
-  const startScan = useMutation({
-    mutationFn: (force: boolean) => api.startOrganizeScan(force),
-    meta: { skipErrorToast: true },
-    onMutate: (force) => {
-      if (!force) return;
-      // Cached listings describe the previous scan.
-      qc.removeQueries({ queryKey: qk.organizeFolder() });
-      qc.removeQueries({ queryKey: qk.organizeFiles() });
-      selectNone();
-    },
-    onSuccess: (state: ScanState) => {
-      qc.setQueryData(qk.organizeScan(), state);
-      void qc.invalidateQueries({ queryKey: qk.organizeScan() });
-    },
-  });
-
-  const saveRoot = useMutation({
-    mutationFn: (path: string) => api.putOrganizeRoot(path),
-    onSuccess: (res) => {
-      const changed = res.root !== root;
-      // Back at the (new) root; replace so Back never reopens a folder of the old tree.
-      if (pathParam !== null) void routerNavigate({ search: "" }, { replace: true });
-      selectNone();
-      setGoneRoot(null);
-      qc.setQueryData(qk.organizeRoot(), res);
-      // Re-picking the same folder is a rescan (the PUT also dropped the server cache).
-      if (!changed) startScan.mutate(true);
-    },
-  });
-
-  // Ensure a scan exists whenever a (new) root is known: on mount and after
-  // Change folder. Non-forced, so a cached scan of this root is reused as is.
-  const scannedRoot = useRef<string | null>(null);
-  const { mutate: runScan } = startScan;
-  useEffect(() => {
-    if (root && scannedRoot.current !== root) {
-      scannedRoot.current = root;
-      runScan(false);
-    }
-  }, [root, runScan]);
-
-  const scan = scanQ.data;
-  const scanDone = scan?.status === "done";
-  const unavailable =
-    !!root &&
-    (isConflict(scanQ.error) ||
-      isConflict(startScan.error) ||
-      isConflict(rootQ.error) ||
-      goneRoot === root);
 
   const folderQ = useQuery({
     queryKey: qk.organizeFolder(currentPath ?? ""),
@@ -349,7 +291,7 @@ export function Organize() {
     // The backend may have removed part of the tree and dropped its scan cache.
     onFolderFailed: () => startScan.mutate(true),
     onGone: () => {
-      if (root) setGoneRoot(root);
+      markGone();
     },
   });
 
@@ -363,7 +305,7 @@ export function Organize() {
     setMovingToFolderOpen(false);
     setRenamingFiles(false);
     setRenamingFolder(null);
-    if (root) setGoneRoot(root);
+    markGone();
   };
   /** Toast for the per-file refusals of a bulk call; they stay selected for a retry. */
   const toastFailures = (failed: { path: string; error: string }[], verb: string) => {

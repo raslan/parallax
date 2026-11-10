@@ -16,6 +16,11 @@ export function httpStatus(e: unknown): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Organize answers 409 for "no folder selected" / "folder is no longer available". */
+export const isConflict = (e: unknown) => httpStatus(e) === 409;
+
+export const isMissing = (e: unknown) => httpStatus(e) === 404;
+
 /**
  * The server's `{"detail": "..."}` message from an error thrown by `req()` (whose
  * message is `"<status>: <body>"`), else `fallback`.
