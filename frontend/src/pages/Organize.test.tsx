@@ -18,8 +18,14 @@ vi.mock("@/lib/api", async (importOriginal) => {
       getOrganizeFiles: vi.fn(),
       getOrganizeDetails: vi.fn(),
       organizeDeleteFolder: vi.fn(),
+      organizeMoveToSubfolder: vi.fn(),
+      organizeRename: vi.fn(),
     },
   };
+});
+vi.mock("sonner", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("sonner")>();
+  return { ...actual, toast: { ...actual.toast, success: vi.fn(), error: vi.fn() } };
 });
 vi.mock("@/components/VirtualizedGrid", () => ({
   VirtualizedGrid: <T,>({
@@ -66,6 +72,7 @@ vi.stubGlobal("Worker", WorkerStub);
 const scrollTo = vi.fn();
 Element.prototype.scrollTo = scrollTo as unknown as Element["scrollTo"];
 
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Organize } from "./Organize";
 import { ConfirmProvider } from "@/components/ConfirmProvider";
@@ -280,5 +287,83 @@ describe("Organize URL navigation", () => {
     expect(loc()).toBe("/organize?path=/r/a");
     fireEvent.click(screen.getByText("browser back"));
     await waitFor(() => expect(loc()).toBe("/before"));
+  });
+});
+
+/** Pins the file-action flows the page owns, so extracting them keeps them identical. */
+describe("Organize file actions", () => {
+  const FILES = [
+    { name: "x.txt", path: "/r/a/x.txt", kind: "other" as const, size: 10, mtime: 0 },
+    { name: "y.txt", path: "/r/a/y.txt", kind: "other" as const, size: 10, mtime: 0 },
+  ];
+
+  async function openWithFiles() {
+    const withFiles = { ...folder("/r/a"), direct: { ...ZERO, files: 2, other: 2, bytes: 20 } };
+    vi.mocked(api.getOrganizeFolder).mockImplementation(async (p: string) =>
+      p === "/r/a" ? withFiles : folder(p),
+    );
+    vi.mocked(api.getOrganizeFiles).mockResolvedValue(FILES);
+    renderAt(["/organize?path=/r/a"]);
+    fireEvent.click(await screen.findByText("x.txt"));
+    fireEvent.click(await screen.findByText("y.txt"));
+    expect(await screen.findByText(/2 selected/)).toBeTruthy();
+  }
+
+  it("move to subfolder: moved files leave the selection, failed ones stay and are toasted", async () => {
+    vi.mocked(api.organizeMoveToSubfolder).mockResolvedValue({
+      folder: "/r/a/s",
+      moved: ["/r/a/x.txt"],
+      failed: [{ path: "/r/a/y.txt", error: "already exists" }],
+    });
+    await openWithFiles();
+    fireEvent.click(screen.getByRole("button", { name: /Move to subfolder/ }));
+    fireEvent.change(await screen.findByLabelText("Folder name"), { target: { value: "s" } });
+    fireEvent.click(screen.getByRole("button", { name: "Move" }));
+    await waitFor(() =>
+      expect(api.organizeMoveToSubfolder).toHaveBeenCalledWith(
+        "/r/a",
+        ["/r/a/x.txt", "/r/a/y.txt"],
+        "s",
+      ),
+    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Moved 1 file to s"));
+    expect(toast.error).toHaveBeenCalled();
+    expect(await screen.findByText(/1 selected/)).toBeTruthy();
+  });
+
+  it("a 409 from a move shows the unavailable state", async () => {
+    vi.mocked(api.organizeMoveToSubfolder).mockRejectedValue(new Error("409: gone"));
+    await openWithFiles();
+    fireEvent.click(screen.getByRole("button", { name: /Move to subfolder/ }));
+    fireEvent.change(await screen.findByLabelText("Folder name"), { target: { value: "s" } });
+    fireEvent.click(screen.getByRole("button", { name: "Move" }));
+    expect(await screen.findByText("This folder is no longer available")).toBeTruthy();
+  });
+
+  it("rename: renamed paths leave the selection and a toast confirms", async () => {
+    vi.mocked(api.organizeRename).mockResolvedValue({
+      renamed: [{ path: "/r/a/x.txt", new_path: "/r/a/z.txt" }],
+      failed: [],
+    });
+    await openWithFiles();
+    fireEvent.click(screen.getByRole("button", { name: /^Rename$/ }));
+    await screen.findByText("Rename 2 files");
+    fireEvent.change(screen.getByLabelText("Find"), { target: { value: "x" } });
+    fireEvent.change(screen.getByLabelText("Replace with"), { target: { value: "z" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /^Rename/ }).at(-1)!);
+    await waitFor(() =>
+      expect(api.organizeRename).toHaveBeenCalledWith("/r/a", [
+        { path: "/r/a/x.txt", name: "z.txt" },
+      ]),
+    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Renamed 1 file"));
+    expect(await screen.findByText(/1 selected/)).toBeTruthy();
+  });
+
+  it("Rescan forces a scan and clears the selection", async () => {
+    await openWithFiles();
+    fireEvent.click(screen.getByRole("button", { name: /Rescan/ }));
+    await waitFor(() => expect(api.startOrganizeScan).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(screen.queryByText(/selected/)).toBeNull());
   });
 });
