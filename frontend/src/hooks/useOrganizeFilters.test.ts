@@ -113,3 +113,18 @@ describe("useOrganizeFilters with tags", () => {
     expect(result.current.tagsProgress.tags["/r/c"]).toBeNull();
   });
 });
+
+describe("useOrganizeFilters sorted by a tag", () => {
+  it("reads the tags it sorts by, even with no column and no tag filter", async () => {
+    serveTags();
+    renderHook(() =>
+      useOrganizeFilters(
+        files,
+        details,
+        { sortKey: "tag_artist", sortDir: "asc" },
+        { folderPath: "/r", wanted: false },
+      ),
+    );
+    await waitFor(() => expect(getOrganizeTags).toHaveBeenCalledTimes(1));
+  });
+});

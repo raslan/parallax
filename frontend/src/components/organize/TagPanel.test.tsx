@@ -63,6 +63,15 @@ describe("TagPanel, one file", () => {
     expect(screen.getByRole("button", { name: "Show less" })).toBeTruthy();
   });
 
+  it("lists two identical streams without a duplicate-key warning", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const twin = { ...info({ title: "T" }), streams: ["audio aac 2ch", "audio aac 2ch"] };
+    render(<TagPanel {...base} files={[f]} infos={{ [f.path]: twin }} />);
+    expect(screen.getAllByText("audio aac 2ch")).toHaveLength(2);
+    expect(err.mock.calls.flat().join(" ")).not.toContain("same key");
+    err.mockRestore();
+  });
+
   it("shows a dash for a file with no tags", () => {
     render(<TagPanel {...base} files={[f]} infos={{ [f.path]: null }} />);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
@@ -112,6 +121,19 @@ describe("TagPanel, several files", () => {
     render(<TagPanel {...many} redact />);
     expect(screen.getByText("Mixed (2 values, 1 empty)")).toBeTruthy();
     expect(document.body.innerHTML).not.toContain("Fancam");
+  });
+
+  it("does not call two long values the same when only their first 500 characters were compared", () => {
+    const long = "x".repeat(500) + "…";
+    const capped = { ...info({ description: long }), truncated: true };
+    render(
+      <TagPanel
+        {...base}
+        files={[file("a.mkv"), file("b.mkv")]}
+        infos={{ "/r/a.mkv": capped, "/r/b.mkv": capped }}
+      />,
+    );
+    expect(screen.getByText(/only the first 500 characters/i)).toBeTruthy();
   });
 
   it("says it is loading while some files' tags have not arrived", () => {

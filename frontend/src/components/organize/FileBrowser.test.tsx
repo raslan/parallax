@@ -81,7 +81,9 @@ describe("FileBrowser tag columns (list view)", () => {
 
   it("puts no tag text anywhere in the page when redacting", () => {
     const { container } = render(<FileBrowser {...base} redact />);
-    expect(screen.getByTestId("tag-description-/r/a.mp3").textContent).toBe("Redacted");
+    expect(screen.getAllByText("Redacted").length).toBeGreaterThan(0);
+    // Not even the file's path, in an attribute or a hover title.
+    expect(document.body.innerHTML).not.toContain("/r/a.mp3");
     expect(container.innerHTML).not.toContain("#tag line one");
     expect(document.body.innerHTML).not.toContain("#more tags");
   });

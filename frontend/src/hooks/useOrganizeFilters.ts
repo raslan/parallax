@@ -37,7 +37,7 @@ export function useOrganizeFilters(
   const tagsProgress = useOrganizeTags(
     tagSource.folderPath,
     fileList,
-    tagSource.wanted || tagsWanted,
+    tagSource.wanted || tagsWanted || sort.sortKey.startsWith("tag_"),
   );
   const { details } = detailsProgress;
   const { tags } = tagsProgress;

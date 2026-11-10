@@ -477,6 +477,15 @@ def test_tags_over_50_paths_400(client, tmp_path):
     assert client.post("/api/organize/tags", json={"paths": []}).status_code == 200
 
 
+def test_tags_full_is_for_one_file(client, tmp_path):
+    _put_root(client, tmp_path)
+    a, b = str(tmp_path / "a.mp3"), str(tmp_path / "b.mp3")
+    assert (
+        client.post("/api/organize/tags", json={"paths": [a, b], "full": True}).status_code == 400
+    )
+    assert client.post("/api/organize/tags", json={"paths": [a], "full": True}).status_code == 200
+
+
 def test_tags_without_a_root_is_409(client, tmp_path):
     assert (
         client.post("/api/organize/tags", json={"paths": [str(tmp_path / "a.mp3")]}).status_code

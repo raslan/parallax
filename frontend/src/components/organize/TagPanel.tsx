@@ -104,8 +104,8 @@ function OneFile({ info, redact }: { info: OrganizeTagInfo | null | undefined; r
       {info.streams.length > 0 && (
         <Section label="Streams">
           <ul className="space-y-0.5 text-xs text-muted-foreground">
-            {info.streams.map((s) => (
-              <li key={s}>{s}</li>
+            {info.streams.map((s, i) => (
+              <li key={`${i}-${s}`}>{s}</li>
             ))}
           </ul>
         </Section>
@@ -135,7 +135,13 @@ function ManyFiles({
           {value.kind === "empty" ? (
             DASH
           ) : value.kind === "same" ? (
-            <p className="line-clamp-4 break-words text-sm">{redact ? "Redacted" : value.value}</p>
+            <p className="line-clamp-4 break-words text-sm">
+              {redact
+                ? "Redacted"
+                : value.value.length === 501 && value.value.endsWith("…")
+                  ? "Same start (long text: only the first 500 characters are compared)"
+                  : value.value}
+            </p>
           ) : (
             <p className="text-sm italic text-amber-400">
               Mixed ({value.distinct} {value.distinct === 1 ? "value" : "values"}

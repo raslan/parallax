@@ -264,6 +264,13 @@ describe("tag fields", () => {
     expect(run("tag_artist", "contains", text("  "), tagged({ artist: "A" }))).toBe(true);
   });
 
+  it("never matches a file that cannot carry tags, whatever the operator", () => {
+    const notes = row({ name: "notes.txt", kind: "other", tags: null });
+    expect(run("tag_missing", "eq", "title", notes)).toBe(false);
+    expect(run("tag_missing", "neq", "title", notes)).toBe(false);
+    expect(run("tag_title", "not_contains", text("x"), notes)).toBe(false);
+  });
+
   it("missing tag selects loaded files without that tag, not unloaded ones", () => {
     expect(run("tag_missing", "eq", "title", tagged({}))).toBe(true);
     expect(run("tag_missing", "eq", "title", row({ tags: null }))).toBe(true);

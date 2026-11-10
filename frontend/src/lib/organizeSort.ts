@@ -26,6 +26,12 @@ export const FILE_SORT_OPTIONS: { value: FileSortKey; label: string }[] = [
   { value: "resolution", label: "Resolution" },
   { value: "codec", label: "Codec" },
   { value: "bitrate", label: "Bitrate" },
+  { value: "tag_title", label: "Tag: Title" },
+  { value: "tag_description", label: "Tag: Description" },
+  { value: "tag_artist", label: "Tag: Artist" },
+  { value: "tag_album", label: "Tag: Album" },
+  { value: "tag_genre", label: "Tag: Genre" },
+  { value: "tag_date", label: "Tag: Date" },
 ];
 
 /** Names read A→Z first; counts and sizes largest first (`useSort`'s `defaultDir`). */

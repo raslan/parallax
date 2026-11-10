@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fileSortDefaultDir, folderSortDefaultDir, sortFiles, sortFolders } from "./organizeSort";
+import {
+  FILE_SORT_OPTIONS,
+  fileSortDefaultDir,
+  folderSortDefaultDir,
+  sortFiles,
+  sortFolders,
+} from "./organizeSort";
 import type {
   Counts,
   FileDetails,
@@ -174,6 +180,22 @@ describe("sortFiles", () => {
         fileSortDefaultDir(k as never),
       ),
     ).toEqual(["desc", "desc", "desc", "desc", "desc"]);
+  });
+});
+
+describe("sort options", () => {
+  it("offer every tag key, so the picker matches a tag column's header sort", () => {
+    const values = FILE_SORT_OPTIONS.map((o) => o.value);
+    for (const key of [
+      "tag_title",
+      "tag_description",
+      "tag_artist",
+      "tag_album",
+      "tag_genre",
+      "tag_date",
+    ]) {
+      expect(values).toContain(key);
+    }
   });
 });
 

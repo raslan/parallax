@@ -201,28 +201,53 @@ def _read_media(path: str, full: bool) -> dict | None:
         return None
     fields, raw, truncated = fields_from_tags(tags_of(probe), full)
     streams = [_stream_line(s) for s in probe.get("streams") or []]
+    return _shape(fields, raw, streams, truncated, full)
+
+
+def _shape(
+    fields: dict[str, str], raw: dict[str, str], streams: list[str], truncated: bool, full: bool
+) -> dict:
+    """The result for one file. Batch reads (``full`` False, for the list's columns and
+    filters) carry only the canonical ``fields``; the raw tags and the streams are for the
+    one-file panel, which asks with ``full``."""
+    if not full:
+        raw, streams = {}, []
     return {"fields": fields, "raw": raw, "streams": streams, "truncated": truncated}
 
 
-def _read_image(path: str, full: bool) -> dict | None:
-    out = _run(["exiftool", "-j", "-G1", "-a", "--", _arg(path)])
-    if out is None:
-        return None
-    try:
-        entry = json.loads(out)[0]
-    except (ValueError, IndexError, TypeError):
-        return None
-    fields, raw, truncated = fields_from_exiftool(entry, full)
-    width, height = entry.get("File:ImageWidth"), entry.get("File:ImageHeight")
-    fmt = str(entry.get("File:FileType", "image")).lower()
-    streams = [f"image {fmt} {width}×{height}" if width and height else f"image {fmt}"]
-    return {"fields": fields, "raw": raw, "streams": streams, "truncated": truncated}
+def _read_images(paths: list[str], full: bool) -> dict[str, dict | None]:
+    """Tags of several images from ONE exiftool process (one start-up, not one per file).
+
+    exiftool echoes each file's path as ``SourceFile``; a path it printed nothing for is
+    None. Paths must be eligible already (see `_eligible`).
+    """
+    if not paths:
+        return {}
+    out = _run(["exiftool", "-j", "-G1", "-a", "--", *(_arg(p) for p in paths)])
+    entries: dict[str, dict] = {}
+    if out is not None:
+        try:
+            for entry in json.loads(out):
+                entries[entry.get("SourceFile", "")] = entry
+        except (ValueError, TypeError, AttributeError):
+            entries = {}
+    result: dict[str, dict | None] = {}
+    for path in paths:
+        entry = entries.get(_arg(path))
+        if entry is None:
+            result[path] = None
+            continue
+        fields, raw, truncated = fields_from_exiftool(entry, full)
+        width, height = entry.get("File:ImageWidth"), entry.get("File:ImageHeight")
+        fmt = str(entry.get("File:FileType", "image")).lower()
+        streams = [f"image {fmt} {width}×{height}" if width and height else f"image {fmt}"]
+        result[path] = _shape(fields, raw, streams, truncated, full)
+    return result
 
 
-def read_tags(path: str, full: bool = False) -> dict | None:
-    """The tags of one file, or None for a non-media file, a hidden file, a symlink, a
-    file that vanished or one the tool could not read."""
-    path = path.rstrip(os.sep) or path
+def _eligible(path: str) -> str | None:
+    """The file's kind (``video``/``audio``/``image``) when it can carry tags: a regular,
+    visible, non-symlink file of a media kind. None otherwise (also when it vanished)."""
     name = os.path.basename(path)
     kind = kind_of(name)
     if kind == "other" or is_hidden(name):
@@ -231,12 +256,29 @@ def read_tags(path: str, full: bool = False) -> dict | None:
         st = os.lstat(path)
     except OSError:
         return None
-    if not stat.S_ISREG(st.st_mode):  # also rejects symlinks
-        return None
-    return _read_image(path, full) if kind == "image" else _read_media(path, full)
+    return kind if stat.S_ISREG(st.st_mode) else None  # also rejects symlinks
+
+
+def read_tags(path: str, full: bool = False) -> dict | None:
+    """The tags of one file, or None for a non-media file, a hidden file, a symlink, a
+    file that vanished or one the tool could not read."""
+    return get_tags([path], full)[path]
 
 
 def get_tags(paths: list[str], full: bool = False) -> dict[str, dict | None]:
-    """Tags per path (``None`` where a file has none to read)."""
+    """Tags per path (``None`` where a file has none to read). Video and audio go through
+    ffprobe one file at a time on a small pool; all the images share one exiftool call."""
     unique = list(dict.fromkeys(paths))
-    return dict(zip(unique, _pool.map(lambda p: read_tags(p, full), unique), strict=True))
+    result: dict[str, dict | None] = dict.fromkeys(unique)
+    images: list[str] = []
+    media: list[str] = []
+    for path in unique:
+        kind = _eligible(path.rstrip(os.sep) or path)
+        if kind == "image":
+            images.append(path)
+        elif kind is not None:
+            media.append(path)
+    result.update(_read_images(images, full))
+    for path, tags in zip(media, _pool.map(lambda p: _read_media(p, full), media), strict=True):
+        result[path] = tags
+    return result

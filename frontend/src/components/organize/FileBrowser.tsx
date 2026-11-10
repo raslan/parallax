@@ -124,7 +124,7 @@ function TagCell({
     value ? "text-muted-foreground" : "text-muted-foreground/60",
   );
   const cell = (text: string) => (
-    <span data-testid={`tag-${id}-${path}`} className={cls}>
+    <span data-testid={redact ? undefined : `tag-${id}-${path}`} className={cls}>
       {text}
     </span>
   );
@@ -155,7 +155,8 @@ function asPlayable(file: OrganizeFile, d: FileDetails | null | undefined, redac
   return {
     id: 0,
     filename: redact ? REDACTED_FILE : file.name,
-    path: file.path,
+    // Redacting keeps the real path out of the page (the row's hover title shows it).
+    path: redact ? "" : file.path,
     size: file.size,
     duration: d?.duration ?? null,
     codec_name: d?.codec ?? null,

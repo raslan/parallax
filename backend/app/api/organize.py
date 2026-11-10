@@ -158,6 +158,8 @@ def read_tags(body: OrganizeTagsBody, db: Session = Depends(get_db)):
     """Embedded tags (title, description, artist, ...) of video, audio and image files."""
     if len(body.paths) > _MAX_DETAILS:
         raise HTTPException(400, f"At most {_MAX_DETAILS} paths per request")
+    if body.full and len(body.paths) > 1:
+        raise HTTPException(400, "Full tags are read for one file at a time")
     root = get_root(db)
     paths = list(dict.fromkeys(body.paths))
     for p in paths:

@@ -29,7 +29,8 @@ const TAG_FILTERS = [
 
 /** A loaded file's value for a tag ("" when it has none); undefined until its tags load. */
 function tagValue(row: OrganizeRow, name: string): string | undefined {
-  if (row.tags === undefined) return undefined;
+  // Unloaded, or a file that cannot carry tags (a .txt is not "missing a title").
+  if (row.tags === undefined || row.kind === "other") return undefined;
   return row.tags?.fields[name] ?? "";
 }
 

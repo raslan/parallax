@@ -32,11 +32,20 @@ def _media(path, *meta, video=False):
 @needs_ffmpeg
 def test_mp3_fields_raw_and_streams(tmp_path):
     p = _media(tmp_path / "a.mp3", "title=T", "artist=A")
-    out = organize_tags.read_tags(str(p))
+    out = organize_tags.read_tags(str(p), full=True)
     assert out["fields"] == {"title": "T", "artist": "A"}
     assert out["raw"]["title"] == "T"
     assert out["streams"][0].startswith("audio mp3")
     assert out["truncated"] is False
+
+
+@needs_ffmpeg
+def test_batch_reads_carry_only_the_fields_the_list_uses(tmp_path):
+    """Columns and filters read `fields`; the raw list and streams are for the one-file panel."""
+    p = _media(tmp_path / "a.mp3", "title=T")
+    out = organize_tags.read_tags(str(p))
+    assert out["fields"] == {"title": "T"}
+    assert out["raw"] == {} and out["streams"] == []
 
 
 @needs_ffmpeg
@@ -155,3 +164,42 @@ def test_opus_file_tags_are_read(tmp_path):
         pytest.skip("ffmpeg has no libopus")
     out = organize_tags.read_tags(str(p))
     assert out["fields"] == {"title": "Opus T", "artist": "OA"}
+
+
+@needs_exiftool
+def test_images_are_read_in_one_exiftool_call(tmp_path, monkeypatch):
+    paths = []
+    for name, title in (("a.jpg", "A"), ("b.jpg", "B"), ("c.jpg", "C")):
+        p = tmp_path / name
+        Image.new("RGB", (8, 8)).save(p)
+        subprocess.run(
+            ["exiftool", "-overwrite_original", f"-XMP-dc:Title={title}", str(p)],
+            check=True,
+            capture_output=True,
+        )
+        paths.append(str(p))
+    calls = []
+    real = organize_tags._run
+    monkeypatch.setattr(organize_tags, "_run", lambda cmd: calls.append(cmd[0]) or real(cmd))
+    gone = str(tmp_path / "gone.jpg")
+    out = organize_tags.get_tags([*paths, gone])
+    assert calls.count("exiftool") == 1
+    assert [out[p]["fields"]["title"] for p in paths] == ["A", "B", "C"]
+    assert out[gone] is None
+
+
+@needs_exiftool
+def test_a_batch_of_images_and_audio_reads_each_kind(tmp_path):
+    img = tmp_path / "p.jpg"
+    Image.new("RGB", (8, 8)).save(img)
+    subprocess.run(
+        ["exiftool", "-overwrite_original", "-XMP-dc:Title=Pic", str(img)],
+        check=True,
+        capture_output=True,
+    )
+    snd = _media(tmp_path / "a.mp3", "title=Song") if shutil.which("ffmpeg") else None
+    paths = [str(img)] + ([str(snd)] if snd else [])
+    out = organize_tags.get_tags(paths)
+    assert out[str(img)]["fields"]["title"] == "Pic"
+    if snd:
+        assert out[str(snd)]["fields"]["title"] == "Song"

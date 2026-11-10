@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, qk } from "@/lib/api";
 import { useOrganizeTags } from "@/hooks/useOrganizeTags";
@@ -30,11 +31,14 @@ export function useOrganizeTagPanel({
     enabled: enabled && single !== null,
     retry: false,
   });
-  const own = useOrganizeTags(folderPath, files, enabled && files.length > 1);
+  // Only the selected files the list has not already read.
+  const missing = useMemo(() => files.filter((f) => !(f.path in tags)), [files, tags]);
+  const own = useOrganizeTags(folderPath, missing, enabled && files.length > 1);
 
   const infos: Record<string, OrganizeTagInfo | null | undefined> = {};
   for (const f of files) infos[f.path] = f.path in tags ? tags[f.path] : own.tags[f.path];
-  if (single && full.data !== undefined) infos[single.path] = full.data;
+  // One file waits for its full read: the batch value carries no raw tags or streams.
+  if (single) infos[single.path] = full.data;
   const loading = files.some((f) => infos[f.path] === undefined);
   return { infos, loading };
 }
