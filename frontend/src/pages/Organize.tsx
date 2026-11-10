@@ -1,24 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  CornerLeftUp,
-  FolderTree,
-  FolderInput,
-  FolderOpen,
-  FolderOutput,
-  FolderX,
-  Loader2,
-  Pencil,
-  Trash2,
-} from "lucide-react";
-import { qk } from "@/lib/api";
+import { useState } from "react";
 import { isConflict, isMissing } from "@/lib/api/client";
 import { formatSize, sumSizeOf } from "@/lib/format";
-import { folderAfterDelete } from "@/lib/organizeNav";
-import { invertSelection, removeDeleted } from "@/lib/organizeSelect";
-import { DELETE_CHUNK } from "@/lib/organizeDelete";
-import { organizeFields } from "@/lib/organizeSearch";
+import { invertSelection } from "@/lib/organizeSelect";
 import { clauseSignature } from "@/lib/organizeScroll";
 import {
   FILE_SORT_OPTIONS,
@@ -28,42 +11,36 @@ import {
   type FileSortKey,
   type FolderSortKey,
 } from "@/lib/organizeSort";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/EmptyState";
-import { QueryBuilder } from "@/components/QueryBuilder";
+import { PageTitle } from "@/components/PageTitle";
 import { QueryError } from "@/components/QueryError";
-import { SelectionBar } from "@/components/SelectionBar";
 import { PageSkeleton } from "@/components/Skeletons";
-import { SmartSelect } from "@/components/SmartSelect";
 import { StatPanel } from "@/components/StatPanel";
 import { WorkingState } from "@/components/WorkingState";
+import type { ViewMode } from "@/components/DataToolbar";
+import { BrowseControls } from "@/components/organize/BrowseControls";
+import { FileBrowser } from "@/components/organize/FileBrowser";
 import { FolderBrowser } from "@/components/organize/FolderBrowser";
-import { NameGroupChips } from "@/components/organize/NameGroupChips";
+import { MoveToFolderDialog } from "@/components/organize/MoveToFolderDialog";
+import { MoveToSubfolderDialog } from "@/components/organize/MoveToSubfolderDialog";
+import { OrganizeFilterCard } from "@/components/organize/OrganizeFilterCard";
 import { OrganizeFolderPicker } from "@/components/organize/OrganizeFolderPicker";
 import { OrganizeRootBar } from "@/components/organize/OrganizeRootBar";
-import { FileBrowser } from "@/components/organize/FileBrowser";
-import { MoveToSubfolderDialog } from "@/components/organize/MoveToSubfolderDialog";
-import { MoveToFolderDialog } from "@/components/organize/MoveToFolderDialog";
+import { OrganizeSelectionDock } from "@/components/organize/OrganizeSelectionDock";
+import { GoneState, NoRootState, UnavailableState } from "@/components/organize/OrganizeStates";
 import { RenameDialog } from "@/components/organize/RenameDialog";
-import { Tip } from "@/components/Tip";
-import { BrowseControls } from "@/components/organize/BrowseControls";
-import type { ViewMode } from "@/components/DataToolbar";
 import { useGridSize } from "@/hooks/useGridSize";
-import { useScrollParent } from "@/hooks/useScrollParent";
-import { useOrganizeDelete } from "@/hooks/useOrganizeDelete";
+import { useOrganizeActions } from "@/hooks/useOrganizeActions";
 import { useOrganizeBrowse } from "@/hooks/useOrganizeBrowse";
-import { useOrganizeMove } from "@/hooks/useOrganizeMove";
-import { useOrganizeRename } from "@/hooks/useOrganizeRename";
-import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
-import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
+import { useOrganizeExit } from "@/hooks/useOrganizeExit";
 import { useOrganizeFilters } from "@/hooks/useOrganizeFilters";
+import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
 import { useOrganizeSelection } from "@/hooks/useOrganizeSelection";
+import { useScrollParent } from "@/hooks/useScrollParent";
+import { useScrollTopOnChange } from "@/hooks/useScrollTopOnChange";
 import { useSort } from "@/hooks/useSort";
-import type { OrganizeDeleteResult } from "@/types/organize";
-import { PageTitle } from "@/components/PageTitle";
 
+/** Tools → Organize: walk a folder by hand. State and flows live in the hooks above. */
 export function Organize() {
-  const qc = useQueryClient();
   const {
     rootQ,
     root,
@@ -98,19 +75,8 @@ export function Organize() {
   // One sort each for the folders and the files (Name ascending, counts/sizes descending).
   const folderSort = useSort<FolderSortKey>("files", folderSortDefaultDir);
   const fileSort = useSort<FileSortKey>("name", fileSortDefaultDir);
-  const {
-    clauses,
-    fieldsByKey,
-    addClause,
-    removeClause,
-    updateClause,
-    visibleFiles,
-    sortedFiles,
-    visiblePaths,
-    fileNames,
-    stillLoading,
-    pickName,
-  } = useOrganizeFilters(fileList, detailsProgress, fileSort);
+  const filters = useOrganizeFilters(fileList, detailsProgress, fileSort);
+  const { clauses, visiblePaths } = filters;
   const {
     selected,
     setSelected,
@@ -123,106 +89,26 @@ export function Organize() {
     smartOptions,
   } = useOrganizeSelection({
     currentPath,
-    visibleFiles,
+    visibleFiles: filters.visibleFiles,
     visiblePaths,
     filtered: clauses.length > 0,
   });
-  // Shared-scroll grids can't reset themselves, so opening another folder or a changed
-  // filter (a different result set) scrolls back to the top. Re-sorting, refetches and
-  // streaming details never change the signature, so they never jump the page.
-  const viewSig = `${currentPath}|${clauseSignature(clauses)}`;
-  const lastViewSig = useRef(viewSig);
-  useEffect(() => {
-    if (lastViewSig.current === viewSig) return;
-    lastViewSig.current = viewSig;
-    scroller?.scrollTo({ top: 0 });
-  }, [viewSig, scroller]);
-  const { leavingFiles, leavingFolders, leaveFiles, leaveFolders, refreshListings } =
-    useOrganizeExit();
-
-  // Delete flows (shared confirm, chunked calls, empty-folder prompts) live in the
-  // hook; the page reacts to what happened.
-  const { deleteFiles, deleteFolder, deleting, progress } = useOrganizeDelete({
-    redact,
-    onFilesResult: (result: OrganizeDeleteResult) => {
-      if (result.deleted.length === 0) return;
-      // Failed paths are not in `deleted`, so they stay selected for a retry.
-      setSelected((prev) => removeDeleted(prev, result.deleted));
-      leaveFiles(result.deleted);
-      refreshListings(EXIT_MS);
-    },
-    // Network/timeout: some files may already be gone.
-    // Same delay as a result, so a partial run's exit animation still plays.
-    onFilesError: () => refreshListings(EXIT_MS),
-    onEmptyFolderDeleted: (path) => {
-      const up = currentPath ? folderAfterDelete(path, currentPath) : null;
-      if (up !== null) replaceFolder(up);
-      leaveFolders([path], true);
-      refreshListings(EXIT_MS);
-    },
-    onFolderDeleted: (path) => {
-      // Parent of the deleted folder, even when it is an ancestor of the open one.
-      const up = currentPath ? folderAfterDelete(path, currentPath) : null;
-      if (up !== null) {
-        replaceFolder(up);
-        // Drop the deleted folder's cached listings so Back to an older history
-        // entry never flashes them before the gone state.
-        qc.removeQueries({ queryKey: qk.organizeFolder(path) });
-        qc.removeQueries({ queryKey: qk.organizeFiles(path) });
-        refreshListings();
-      } else {
-        leaveFolders([path]);
-        refreshListings(EXIT_MS);
-      }
-    },
-    // The backend may have removed part of the tree and dropped its scan cache.
-    onFolderFailed: () => startScan.mutate(true),
-    onGone: () => {
-      markGone();
-    },
-  });
-
-  // A file leaves the open folder (moved, renamed): drop it from the selection and
-  // refetch, with the exit animation when it is leaving rather than changing name.
-  const onFilesGone = (paths: string[], animate: boolean) => {
-    setSelected((prev) => removeDeleted(prev, paths));
-    if (animate) {
-      leaveFiles(paths);
-      refreshListings(EXIT_MS);
-    } else {
-      refreshListings();
-    }
-  };
-  // A vanished root (409) from any file action closes the dialogs and shows the
-  // unavailable state; any other failure throws so the dialog stays open on the message.
-  const dialogsOff = () => {
-    move.closeAll();
-    rename.closeAll();
-    markGone();
-  };
-  const move = useOrganizeMove({
+  // Opening another folder or changing a filter shows a different result set.
+  useScrollTopOnChange(scroller, `${currentPath}|${clauseSignature(clauses)}`);
+  const exit = useOrganizeExit();
+  const { move, rename, deleteFiles, deleteFolder, deleting, progress } = useOrganizeActions({
     currentPath,
+    redact,
+    unavailable,
     actionFiles,
     selectedPaths,
-    unavailable,
-    redact,
-    onFilesGone,
-    onGone: () => dialogsOff(),
-  });
-  const rename = useOrganizeRename({
-    currentPath,
-    actionFiles,
+    setSelected,
     files: filesQ.data,
     subfolders: folderQ.data?.subfolders,
-    redact,
-    onFilesGone,
-    onFolderRenamed: (oldPath) => {
-      // The old path is dead: drop its cached listings, then reload the open folder.
-      qc.removeQueries({ queryKey: qk.organizeFolder(oldPath) });
-      qc.removeQueries({ queryKey: qk.organizeFiles(oldPath) });
-      refreshListings();
-    },
-    onGone: () => dialogsOff(),
+    exit,
+    replaceFolder,
+    rescan: () => startScan.mutate(true),
+    markGone,
   });
 
   const picker = (
@@ -253,17 +139,7 @@ export function Organize() {
     return (
       <div className="space-y-6 p-4 md:p-8">
         {header}
-        <EmptyState
-          icon={FolderTree}
-          title="Choose a folder to organize"
-          description="Pick any folder and Organize will map it, count what is inside and let you delete files or whole folders safely."
-          action={
-            <Button onClick={() => setPicking(true)}>
-              <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
-              Choose folder
-            </Button>
-          }
-        />
+        <NoRootState onChoose={() => setPicking(true)} />
         {picker}
       </div>
     );
@@ -283,17 +159,7 @@ export function Organize() {
       />
 
       {unavailable ? (
-        <EmptyState
-          icon={FolderX}
-          title="This folder is no longer available"
-          description="It may have been moved, deleted or unmounted. Choose another folder to continue."
-          action={
-            <Button onClick={() => setPicking(true)}>
-              <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
-              Change folder
-            </Button>
-          }
-        />
+        <UnavailableState onChangeFolder={() => setPicking(true)} />
       ) : scan?.status === "error" ? (
         <QueryError
           title="The scan failed"
@@ -302,20 +168,7 @@ export function Organize() {
         />
       ) : badPath ||
         (folderQ.isError && !atRoot && (isMissing(folderQ.error) || isConflict(folderQ.error))) ? (
-        <EmptyState
-          icon={FolderX}
-          title="This folder is gone"
-          description="It was moved or deleted since the last scan, or the link points outside the chosen folder. Head back up, or rescan to refresh the tree."
-          action={
-            // Replaces the dead entry, so Back never lands on the gone folder again.
-            <Button asChild>
-              <Link to={{ search: "" }} replace>
-                <CornerLeftUp className="mr-1.5 h-3.5 w-3.5" />
-                Back to the top folder
-              </Link>
-            </Button>
-          }
-        />
+        <GoneState />
       ) : folderQ.isError ? (
         <QueryError error={folderQ.error} onRetry={() => void folderQ.refetch()} />
       ) : scanDone ? (
@@ -380,7 +233,7 @@ export function Organize() {
                     })
                 : undefined
             }
-            leaving={leavingFolders}
+            leaving={exit.leavingFolders}
             redact={redact}
           />
           {hasFiles &&
@@ -389,60 +242,32 @@ export function Organize() {
             ) : (
               <>
                 {filesQ.data && (
-                  <div className="space-y-3 rounded-lg border bg-card p-4">
-                    <QueryBuilder
-                      registry={organizeFields}
-                      clauses={clauses}
-                      fieldsByKey={fieldsByKey}
-                      onAdd={addClause}
-                      onRemove={removeClause}
-                      onUpdate={updateClause}
-                    />
-                    {stillLoading > 0 && (
-                      <p
-                        role="status"
-                        className="flex animate-fade-in items-center gap-1.5 text-xs text-muted-foreground"
-                      >
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span className="tabular-nums">{stillLoading.toLocaleString()}</span> still
-                        loading, matches may grow as file details arrive
-                      </p>
-                    )}
-                    {!redact && <NameGroupChips names={fileNames} onPick={pickName} />}
-                    <div className="flex flex-wrap items-stretch gap-2">
-                      <SmartSelect options={smartOptions} />
-                      <div className="flex items-center gap-1">
-                        <Tip label="Select the shown files that are not selected, and deselect the rest">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={visiblePaths.length === 0}
-                            onClick={() => selectAll(invertSelection(visiblePaths, selected))}
-                          >
-                            Invert
-                          </Button>
-                        </Tip>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={selected.size === 0}
-                          onClick={selectNone}
-                        >
-                          Clear
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  <OrganizeFilterCard
+                    clauses={clauses}
+                    fieldsByKey={filters.fieldsByKey}
+                    onAdd={filters.addClause}
+                    onRemove={filters.removeClause}
+                    onUpdate={filters.updateClause}
+                    stillLoading={filters.stillLoading}
+                    redact={redact}
+                    fileNames={filters.fileNames}
+                    onPickName={filters.pickName}
+                    smartOptions={smartOptions}
+                    visibleCount={visiblePaths.length}
+                    hasSelection={selected.size > 0}
+                    onInvert={() => selectAll(invertSelection(visiblePaths, selected))}
+                    onClear={selectNone}
+                  />
                 )}
                 <FileBrowser
-                  files={filesQ.data ? sortedFiles : undefined}
+                  files={filesQ.data ? filters.sortedFiles : undefined}
                   sortKey={fileSort.sortKey}
                   sortDir={fileSort.sortDir}
                   onSort={fileSort.toggleSort}
                   details={detailsProgress.details}
                   progress={detailsProgress}
                   selected={selected}
-                  leaving={leavingFiles}
+                  leaving={exit.leavingFiles}
                   onToggleSelect={(f) => toggle(f.path)}
                   filtered={clauses.length > 0}
                   viewMode={viewMode}
@@ -461,53 +286,17 @@ export function Organize() {
           progress={null}
         />
       )}
-      <SelectionBar
+      <OrganizeSelectionDock
         count={actionFiles.length}
         bytes={sumSizeOf(actionFiles, selectedPaths, (f) => f.path)}
+        deleting={deleting}
+        progress={progress}
         onClear={selectNone}
-      >
-        <Button variant="outline" size="sm" disabled={deleting} onClick={move.openFolderDialog}>
-          <FolderOutput className="mr-2 h-3.5 w-3.5" />
-          Move to folder
-        </Button>
-        <Button variant="outline" size="sm" disabled={deleting} onClick={move.openSubfolderDialog}>
-          <FolderInput className="mr-2 h-3.5 w-3.5" />
-          Move to subfolder
-        </Button>
-        <Button variant="outline" size="sm" disabled={deleting} onClick={rename.openFiles}>
-          <Pencil className="mr-2 h-3.5 w-3.5" />
-          Rename
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          disabled={deleting}
-          onClick={() => void deleteFiles(actionFiles)}
-        >
-          {deleting ? (
-            <>
-              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-              {progress && progress.total > DELETE_CHUNK ? (
-                // Big selections go in batches of 500: show how far it has got.
-                <span className="tabular-nums">
-                  Deleting{" "}
-                  <span key={progress.sent} className="inline-block animate-pop">
-                    {progress.sent.toLocaleString()}
-                  </span>{" "}
-                  / {progress.total.toLocaleString()}…
-                </span>
-              ) : (
-                "Deleting…"
-              )}
-            </>
-          ) : (
-            <>
-              <Trash2 className="mr-2 h-3.5 w-3.5" />
-              Delete
-            </>
-          )}
-        </Button>
-      </SelectionBar>
+        onMoveToFolder={move.openFolderDialog}
+        onMoveToSubfolder={move.openSubfolderDialog}
+        onRename={rename.openFiles}
+        onDelete={() => void deleteFiles(actionFiles)}
+      />
       <MoveToSubfolderDialog {...move.subfolderDialogProps} />
       <MoveToFolderDialog {...move.folderDialogProps} />
       <RenameDialog {...rename.dialogProps} />
