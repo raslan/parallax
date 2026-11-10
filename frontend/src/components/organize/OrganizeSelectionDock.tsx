@@ -1,4 +1,4 @@
-import { FolderInput, FolderOutput, Loader2, Pencil, Trash2 } from "lucide-react";
+import { FolderInput, FolderOutput, Loader2, Pencil, Tags, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectionBar } from "@/components/SelectionBar";
 import { DELETE_CHUNK } from "@/lib/organizeDelete";
@@ -13,6 +13,7 @@ export function OrganizeSelectionDock({
   onMoveToFolder,
   onMoveToSubfolder,
   onRename,
+  onTags,
   onDelete,
 }: {
   count: number;
@@ -24,6 +25,8 @@ export function OrganizeSelectionDock({
   onMoveToFolder: () => void;
   onMoveToSubfolder: () => void;
   onRename: () => void;
+  /** Show or hide the embedded-tags panel for the selection. */
+  onTags: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -39,6 +42,10 @@ export function OrganizeSelectionDock({
       <Button variant="outline" size="sm" disabled={deleting} onClick={onRename}>
         <Pencil className="mr-2 h-3.5 w-3.5" />
         Rename
+      </Button>
+      <Button variant="outline" size="sm" onClick={onTags}>
+        <Tags className="mr-2 h-3.5 w-3.5" />
+        Tags
       </Button>
       <Button variant="destructive" size="sm" disabled={deleting} onClick={onDelete}>
         {deleting ? (

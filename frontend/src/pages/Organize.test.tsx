@@ -120,6 +120,8 @@ function folder(path: string): OrganizeFolder {
 let root = "/r";
 beforeEach(() => {
   vi.clearAllMocks();
+  // The tag columns and the tag panel switch are remembered in localStorage.
+  localStorage.clear();
   root = "/r";
   vi.mocked(api.getOrganizeRoot).mockImplementation(async () => ({ root }));
   vi.mocked(api.putOrganizeRoot).mockImplementation(async (p: string) => {
@@ -405,5 +407,54 @@ describe("Organize tag columns", () => {
     fireEvent.click(screen.getByTestId("view-list"));
     await waitFor(() => expect(api.getOrganizeTags).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("desc of /r/a/x.mp3")).toBeTruthy();
+  });
+});
+
+describe("Organize tag panel", () => {
+  const FILES = [
+    { name: "x.mp3", path: "/r/a/x.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+    { name: "y.mp3", path: "/r/a/y.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+  ];
+
+  async function openAndSelect() {
+    const withFiles = { ...folder("/r/a"), direct: { ...ZERO, files: 2, audio: 2, bytes: 20 } };
+    vi.mocked(api.getOrganizeFolder).mockImplementation(async (p: string) =>
+      p === "/r/a" ? withFiles : folder(p),
+    );
+    vi.mocked(api.getOrganizeFiles).mockResolvedValue(FILES);
+    vi.mocked(api.getOrganizeDetails).mockResolvedValue({ details: {} });
+    vi.mocked(api.getOrganizeTags).mockImplementation(async (paths: string[], full?: boolean) => ({
+      tags: Object.fromEntries(
+        paths.map((p) => [
+          p,
+          {
+            fields: { description: `${full ? "FULL" : "capped"} ${p}` },
+            raw: {},
+            streams: [],
+            truncated: false,
+          },
+        ]),
+      ),
+    }));
+    renderAt(["/organize?path=/r/a"]);
+    fireEvent.click(await screen.findByText("x.mp3"));
+    await screen.findByText(/1 selected/);
+  }
+
+  it("shows the selected file's full tags once the Tags button is pressed", async () => {
+    await openAndSelect();
+    fireEvent.click(screen.getByRole("button", { name: /Tags/ }));
+    expect(await screen.findByText("FULL /r/a/x.mp3")).toBeTruthy();
+    const fullCalls = vi.mocked(api.getOrganizeTags).mock.calls.filter(([, full]) => full === true);
+    expect(fullCalls).toEqual([[["/r/a/x.mp3"], true]]);
+  });
+
+  it("hides the panel when nothing is selected", async () => {
+    await openAndSelect();
+    fireEvent.click(screen.getByRole("button", { name: /Tags/ }));
+    await screen.findByText("Embedded tags, read-only.");
+    // Both the filter card and the action dock have a Clear; either empties the selection.
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear" })[0]!);
+    await waitFor(() => expect(screen.queryByText("Embedded tags, read-only.")).toBeNull());
   });
 });

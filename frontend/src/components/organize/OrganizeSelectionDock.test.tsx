@@ -14,6 +14,7 @@ const base = {
   onMoveToFolder: vi.fn(),
   onMoveToSubfolder: vi.fn(),
   onRename: vi.fn(),
+  onTags: vi.fn(),
   onDelete: vi.fn(),
 };
 
@@ -28,6 +29,13 @@ describe("OrganizeSelectionDock", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: /Move to folder/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Move to subfolder/ })).toBeTruthy();
+  });
+
+  it("has a Tags button that opens the tag panel", () => {
+    const onTags = vi.fn();
+    render(<OrganizeSelectionDock {...base} onTags={onTags} />);
+    fireEvent.click(screen.getByRole("button", { name: /Tags/ }));
+    expect(onTags).toHaveBeenCalledTimes(1);
   });
 
   it("shows how far a big delete has got once it goes past one 500-file chunk", () => {

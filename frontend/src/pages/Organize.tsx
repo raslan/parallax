@@ -28,6 +28,7 @@ import { OrganizeRootBar } from "@/components/organize/OrganizeRootBar";
 import { OrganizeSelectionDock } from "@/components/organize/OrganizeSelectionDock";
 import { GoneState, NoRootState, UnavailableState } from "@/components/organize/OrganizeStates";
 import { RenameDialog } from "@/components/organize/RenameDialog";
+import { TagPanel } from "@/components/organize/TagPanel";
 import { useGridSize } from "@/hooks/useGridSize";
 import { useOrganizeActions } from "@/hooks/useOrganizeActions";
 import { useOrganizeBrowse } from "@/hooks/useOrganizeBrowse";
@@ -38,7 +39,9 @@ import { useOrganizeSelection } from "@/hooks/useOrganizeSelection";
 import { useScrollParent } from "@/hooks/useScrollParent";
 import { useScrollTopOnChange } from "@/hooks/useScrollTopOnChange";
 import { useSort } from "@/hooks/useSort";
+import { useOrganizeTagPanel } from "@/hooks/useOrganizeTagPanel";
 import { useTagColumns } from "@/hooks/useTagColumns";
+import { useTagPanelOpen } from "@/hooks/useTagPanelOpen";
 
 /** Tools → Organize: walk a folder by hand. State and flows live in the hooks above. */
 export function Organize() {
@@ -77,12 +80,14 @@ export function Organize() {
   const folderSort = useSort<FolderSortKey>("files", folderSortDefaultDir);
   const fileSort = useSort<FileSortKey>("name", fileSortDefaultDir);
   const [tagColumns, setTagColumns] = useTagColumns();
+  const [panelOn, setPanelOn] = useTagPanelOpen();
   const filters = useOrganizeFilters(fileList, detailsProgress, fileSort, {
     folderPath: currentPath ?? "",
-    // Tags are fetched only for a visible tag column (list view) or a tag filter.
-    wanted: viewMode === "list" && tagColumns.length > 0,
+    // Tags are fetched only for a visible tag column (list view), a tag filter or the panel.
+    wanted: (viewMode === "list" && tagColumns.length > 0) || panelOn,
   });
   const { tags, done: tagsDone } = filters.tagsProgress;
+  // The panel follows the selection: it shows while the switch is on and files are selected.
   const { clauses, visiblePaths } = filters;
   const {
     selected,
@@ -102,6 +107,7 @@ export function Organize() {
   });
   // Opening another folder or changing a filter shows a different result set.
   useScrollTopOnChange(scroller, `${currentPath}|${clauseSignature(clauses)}`);
+  const panel = useOrganizeTagPanel({ files: actionFiles, tags, enabled: panelOn });
   const exit = useOrganizeExit();
   const { move, rename, deleteFiles, deleteFolder, deleting, progress } = useOrganizeActions({
     currentPath,
@@ -306,11 +312,20 @@ export function Organize() {
         onMoveToFolder={move.openFolderDialog}
         onMoveToSubfolder={move.openSubfolderDialog}
         onRename={rename.openFiles}
+        onTags={() => setPanelOn(!panelOn)}
         onDelete={() => void deleteFiles(actionFiles)}
       />
       <MoveToSubfolderDialog {...move.subfolderDialogProps} />
       <MoveToFolderDialog {...move.folderDialogProps} />
       <RenameDialog {...rename.dialogProps} />
+      <TagPanel
+        open={panelOn && actionFiles.length > 0}
+        onOpenChange={setPanelOn}
+        files={actionFiles}
+        infos={panel.infos}
+        loading={panel.loading}
+        redact={redact}
+      />
       {picker}
     </div>
   );
