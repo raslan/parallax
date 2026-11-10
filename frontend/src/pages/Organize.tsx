@@ -17,13 +17,7 @@ import { api, qk } from "@/lib/api";
 import { errorDetail, isConflict, isMissing } from "@/lib/api/client";
 import { describeSelection, formatSize, sumSizeOf } from "@/lib/format";
 import { folderAfterDelete } from "@/lib/organizeNav";
-import {
-  invertSelection,
-  reconcileSelection,
-  removeDeleted,
-  sameSet,
-  selectedIn,
-} from "@/lib/organizeSelect";
+import { invertSelection, removeDeleted } from "@/lib/organizeSelect";
 import { DELETE_CHUNK } from "@/lib/organizeDelete";
 import { baseName } from "@/lib/path";
 import { REDACTED_FILE, REDACTED_FOLDER } from "@/lib/organizeRedact";
@@ -43,7 +37,7 @@ import { QueryBuilder } from "@/components/QueryBuilder";
 import { QueryError } from "@/components/QueryError";
 import { SelectionBar } from "@/components/SelectionBar";
 import { PageSkeleton } from "@/components/Skeletons";
-import { SmartSelect, type SmartSelectOption } from "@/components/SmartSelect";
+import { SmartSelect } from "@/components/SmartSelect";
 import { StatPanel } from "@/components/StatPanel";
 import { WorkingState } from "@/components/WorkingState";
 import { FolderBrowser } from "@/components/organize/FolderBrowser";
@@ -65,12 +59,11 @@ import { useOrganizeBrowse } from "@/hooks/useOrganizeBrowse";
 import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
 import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
 import { useOrganizeFilters } from "@/hooks/useOrganizeFilters";
-import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
+import { useOrganizeSelection } from "@/hooks/useOrganizeSelection";
 import { useSort } from "@/hooks/useSort";
 import type {
   FolderNodeInfo,
   OrganizeDeleteResult,
-  OrganizeFile,
   OrganizeMoveResult,
   OrganizeRenameResult,
 } from "@/types/organize";
@@ -102,15 +95,6 @@ export function Organize() {
     linkTo,
     replaceFolder,
   } = useOrganizeBrowse(root, { scanDone, unavailable });
-  const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
-    useSelection<string>();
-  // A new folder (link, breadcrumb, Back/Forward, a delete moving up) starts with
-  // nothing selected: adjusted during render, no effect.
-  const [shownPath, setShownPath] = useState(currentPath);
-  if (shownPath !== currentPath) {
-    setShownPath(currentPath);
-    selectNone();
-  }
   // One view mode + card size for folders and files; both grids virtualise against
   // the page's own scroll (the layout's main area) so there is a single scroller.
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -134,6 +118,22 @@ export function Organize() {
     stillLoading,
     pickName,
   } = useOrganizeFilters(fileList, detailsProgress, fileSort);
+  const {
+    selected,
+    setSelected,
+    toggle,
+    selectAll,
+    selectNone,
+    marqueeProps,
+    actionFiles,
+    selectedPaths,
+    smartOptions,
+  } = useOrganizeSelection({
+    currentPath,
+    visibleFiles,
+    visiblePaths,
+    filtered: clauses.length > 0,
+  });
   // Shared-scroll grids can't reset themselves, so opening another folder or a changed
   // filter (a different result set) scrolls back to the top. Re-sorting, refetches and
   // streaming details never change the signature, so they never jump the page.
@@ -146,53 +146,6 @@ export function Organize() {
   }, [viewSig, scroller]);
   const { leavingFiles, leavingFolders, leaveFiles, leaveFolders, refreshListings } =
     useOrganizeExit();
-
-  useSelectionOrder(setOrder, visiblePaths);
-
-  // Invariant: selection is a subset of the visible (filtered) results. Derived at
-  // render (`actionFiles`), and the stored set is shrunk to match in the same pass
-  // (adjusting state during render, no effect) so un-filtering never resurrects
-  // selections that a filter hid. Also covers files that vanished from the list.
-  // Strict: a file hidden only because its details haven't loaded is dropped too.
-  // A refetch (e.g. after a partly failed delete) doesn't hide anything, because
-  // useOrganizeDetails keeps unchanged files' details across list identities.
-  const actionFiles = useMemo(() => selectedIn(visibleFiles, selected), [visibleFiles, selected]);
-  const selectedPaths = useMemo(() => new Set(actionFiles.map((f) => f.path)), [actionFiles]);
-  const shrunk = reconcileSelection(selected, selectedPaths);
-  if (shrunk) setSelected(shrunk);
-
-  const smartOptions = useMemo<SmartSelectOption[]>(() => {
-    const make = (
-      id: string,
-      label: string,
-      hint: string,
-      list: OrganizeFile[],
-    ): SmartSelectOption => {
-      const paths = list.map((f) => f.path);
-      return {
-        id,
-        label,
-        hint,
-        count: list.length,
-        bytes: list.reduce((n, f) => n + f.size, 0),
-        active: list.length > 0 && sameSet(selectedPaths, new Set(paths)),
-        onSelect: () => selectAll(paths),
-      };
-    };
-    const kind = (k: OrganizeFile["kind"]) => visibleFiles.filter((f) => f.kind === k);
-    return [
-      make(
-        "matching",
-        clauses.length > 0 ? "matching the filters" : "in this folder",
-        "Select every file currently shown",
-        visibleFiles,
-      ),
-      make("video", "videos", "Select the videos currently shown", kind("video")),
-      make("image", "images", "Select the images currently shown", kind("image")),
-      make("audio", "audio", "Select the audio files currently shown", kind("audio")),
-      make("other", "other files", "Select the non-media files currently shown", kind("other")),
-    ];
-  }, [visibleFiles, clauses.length, selectedPaths, selectAll]);
 
   // Delete flows (shared confirm, chunked calls, empty-folder prompts) live in the
   // hook; the page reacts to what happened.
