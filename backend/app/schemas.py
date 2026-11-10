@@ -486,6 +486,25 @@ class OrganizeStreamBody(BaseModel):
     path: str
 
 
+class OrganizeTagsBody(BaseModel):
+    paths: list[str]
+    # False: values longer than 500 characters are cut and flagged (for lists and columns).
+    full: bool = False
+
+
+class OrganizeTagInfo(BaseModel):
+    # Canonical fields (title, description, artist, ...); only those the file has.
+    fields: dict[str, str]
+    # Every tag as stored, keyed by its own name.
+    raw: dict[str, str]
+    streams: list[str]
+    truncated: bool
+
+
+class OrganizeTagsResult(BaseModel):
+    tags: dict[str, OrganizeTagInfo | None]
+
+
 class OrganizeDetailsResult(BaseModel):
     details: dict[str, OrganizeDetails | None]
 

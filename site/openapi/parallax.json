@@ -2336,6 +2336,46 @@
         }
       }
     },
+    "/api/organize/tags": {
+      "post": {
+        "tags": ["organize"],
+        "summary": "Read Tags",
+        "description": "Embedded tags (title, description, artist, ...) of video, audio and image files.",
+        "operationId": "read_tags_api_organize_tags_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizeTagsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeTagsResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/organize/thumbnail": {
       "get": {
         "tags": ["organize"],
@@ -6506,6 +6546,7 @@
         "properties": {
           "current_password": {
             "type": "string",
+            "maxLength": 1024,
             "title": "Current Password"
           },
           "new_username": {
@@ -9152,6 +9193,78 @@
         "type": "object",
         "required": ["name", "path", "direct", "total"],
         "title": "OrganizeSubfolder"
+      },
+      "OrganizeTagInfo": {
+        "properties": {
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Fields"
+          },
+          "raw": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Raw"
+          },
+          "streams": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Streams"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": ["fields", "raw", "streams", "truncated"],
+        "title": "OrganizeTagInfo"
+      },
+      "OrganizeTagsBody": {
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paths"
+          },
+          "full": {
+            "type": "boolean",
+            "title": "Full",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": ["paths"],
+        "title": "OrganizeTagsBody"
+      },
+      "OrganizeTagsResult": {
+        "properties": {
+          "tags": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/OrganizeTagInfo"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": ["tags"],
+        "title": "OrganizeTagsResult"
       },
       "OriginalEntry": {
         "properties": {

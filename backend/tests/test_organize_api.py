@@ -437,6 +437,53 @@ def test_scan_reuses_cache_unless_forced_or_root_changed(client, engine, tmp_pat
     assert total(b)["files"] == 1
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg missing")
+def test_tags_endpoint_reads_embedded_tags(client, tmp_path):
+    import subprocess
+
+    mp3 = tmp_path / "a.mp3"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=1"]
+        + ["-metadata", "title=T", "-metadata", f"description={'x' * 600}", str(mp3)],
+        check=True,
+    )
+    (tmp_path / "n.txt").write_text("x")
+    _put_root(client, tmp_path)
+    a, n, gone = str(mp3), str(tmp_path / "n.txt"), str(tmp_path / "gone.mp3")
+    r = client.post("/api/organize/tags", json={"paths": [a, n, gone]})
+    assert r.status_code == 200
+    tags = r.json()["tags"]
+    assert tags[a]["fields"]["title"] == "T"
+    assert tags[a]["truncated"] is True and len(tags[a]["fields"]["description"]) == 501
+    assert tags[n] is None and tags[gone] is None
+    full = client.post("/api/organize/tags", json={"paths": [a], "full": True}).json()["tags"]
+    assert len(full[a]["fields"]["description"]) == 600 and full[a]["truncated"] is False
+
+
+def test_tags_rejects_outside_root_and_nul(client, tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (tmp_path / "o.mp3").write_bytes(b"x")
+    _put_root(client, root)
+    r = client.post("/api/organize/tags", json={"paths": [str(tmp_path / "o.mp3")]})
+    assert r.status_code == 403
+    assert client.post("/api/organize/tags", json={"paths": ["\x00"]}).status_code == 400
+
+
+def test_tags_over_50_paths_400(client, tmp_path):
+    _put_root(client, tmp_path)
+    paths = [str(tmp_path / f"{i}.mp3") for i in range(51)]
+    assert client.post("/api/organize/tags", json={"paths": paths}).status_code == 400
+    assert client.post("/api/organize/tags", json={"paths": []}).status_code == 200
+
+
+def test_tags_without_a_root_is_409(client, tmp_path):
+    assert (
+        client.post("/api/organize/tags", json={"paths": [str(tmp_path / "a.mp3")]}).status_code
+        == 409
+    )
+
+
 def test_hidden_symlink_and_other_files_refused(client, tmp_path, monkeypatch):
     from app.services import organize_files
 
@@ -456,6 +503,7 @@ def test_hidden_symlink_and_other_files_refused(client, tmp_path, monkeypatch):
         ("get", "/api/organize/thumbnail", {"params": {"path": str(root / ".hidden/x.jpg")}}),
         ("get", "/api/organize/audio", {"params": {"path": str(root / ".hidden/a.wma")}}),
         ("post", "/api/organize/details", {"json": {"paths": [str(root / ".hidden/v.mp4")]}}),
+        ("post", "/api/organize/tags", {"json": {"paths": [str(root / ".hidden/v.mp4")]}}),
     ]
     for method, url, kw in hidden:
         assert getattr(client, method)(url, **kw).status_code == 400, url
@@ -480,6 +528,7 @@ def test_root_gone_or_swapped_is_409_everywhere(client, tmp_path):
         ("get", "/api/organize/folder", {"params": {"path": str(d)}}),
         ("get", "/api/organize/files", {"params": {"path": str(d)}}),
         ("post", "/api/organize/details", {"json": {"paths": [p]}}),
+        ("post", "/api/organize/tags", {"json": {"paths": [p]}}),
         ("get", "/api/organize/thumbnail", {"params": {"path": p}}),
         ("get", "/api/organize/file", {"params": {"path": p}}),
         ("get", "/api/organize/audio", {"params": {"path": p}}),

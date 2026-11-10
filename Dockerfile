@@ -32,7 +32,7 @@ ARG JELLYFIN_FFMPEG_DEB
 # driver (injected by the container toolkit) loads at init. Without libegl1 the driver refuses to
 # start (`vkCreateInstance failed -9`) and image upscaling silently falls back to the CPU.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends unar curl libvulkan1 libegl1 libx11-6 libxext6 && \
+    apt-get install -y --no-install-recommends unar curl libvulkan1 libegl1 libx11-6 libxext6 libimage-exiftool-perl && \
     curl -fL -o /tmp/jellyfin-ffmpeg.deb \
       "https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v${JELLYFIN_FFMPEG_VERSION}/${JELLYFIN_FFMPEG_DEB}" && \
     apt-get install -y --no-install-recommends /tmp/jellyfin-ffmpeg.deb && \

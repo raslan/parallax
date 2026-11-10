@@ -26,8 +26,10 @@ from app.schemas import (
     OrganizeRootBody,
     OrganizeScanState,
     OrganizeStreamBody,
+    OrganizeTagsBody,
+    OrganizeTagsResult,
 )
-from app.services import organize_files, organize_scan, stream_cache
+from app.services import organize_files, organize_scan, organize_tags, stream_cache
 from app.services.organize_sandbox import (
     DeleteFailed,
     FolderNotEmpty,
@@ -149,6 +151,19 @@ def read_details(body: OrganizeDetailsBody, db: Session = Depends(get_db)):
         with contextlib.suppress(PathNotFound):  # a file that vanished just comes back null
             resolve_inside(root, p)
     return OrganizeDetailsResult(details=organize_files.get_details(paths))
+
+
+@router.post("/tags", response_model=OrganizeTagsResult)
+def read_tags(body: OrganizeTagsBody, db: Session = Depends(get_db)):
+    """Embedded tags (title, description, artist, ...) of video, audio and image files."""
+    if len(body.paths) > _MAX_DETAILS:
+        raise HTTPException(400, f"At most {_MAX_DETAILS} paths per request")
+    root = get_root(db)
+    paths = list(dict.fromkeys(body.paths))
+    for p in paths:
+        with contextlib.suppress(PathNotFound):  # a file that vanished just comes back null
+            resolve_inside(root, p)
+    return OrganizeTagsResult(tags=organize_tags.get_tags(paths, body.full))
 
 
 def _servable(db: Session, path: str) -> str:
