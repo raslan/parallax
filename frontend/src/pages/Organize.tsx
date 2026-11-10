@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,7 +34,6 @@ import {
   FOLDER_SORT_OPTIONS,
   fileSortDefaultDir,
   folderSortDefaultDir,
-  sortFiles,
   type FileSortKey,
   type FolderSortKey,
 } from "@/lib/organizeSort";
@@ -65,7 +64,7 @@ import { useOrganizeDelete } from "@/hooks/useOrganizeDelete";
 import { useOrganizeBrowse } from "@/hooks/useOrganizeBrowse";
 import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
 import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
-import { useQueryBuilder } from "@/hooks/useQueryBuilder";
+import { useOrganizeFilters } from "@/hooks/useOrganizeFilters";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import type {
@@ -76,9 +75,6 @@ import type {
   OrganizeRenameResult,
 } from "@/types/organize";
 import { PageTitle } from "@/components/PageTitle";
-
-/** Filter fields that need ffprobe details, which stream in after the list. */
-const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bitrate"]);
 
 export function Organize() {
   const qc = useQueryClient();
@@ -122,11 +118,22 @@ export function Organize() {
   const [scroller, pageRef] = useScrollParent();
   // Demo mode: every folder/file name reads "Redacted …" and thumbnails stay hidden.
   const [redact, setRedact] = useState(false);
-  const { clauses, fieldsByKey, addClause, removeClause, updateClause, evaluate } =
-    useQueryBuilder(organizeFields);
   // One sort each for the folders and the files (Name ascending, counts/sizes descending).
   const folderSort = useSort<FolderSortKey>("files", folderSortDefaultDir);
   const fileSort = useSort<FileSortKey>("name", fileSortDefaultDir);
+  const {
+    clauses,
+    fieldsByKey,
+    addClause,
+    removeClause,
+    updateClause,
+    visibleFiles,
+    sortedFiles,
+    visiblePaths,
+    fileNames,
+    stillLoading,
+    pickName,
+  } = useOrganizeFilters(fileList, detailsProgress, fileSort);
   // Shared-scroll grids can't reset themselves, so opening another folder or a changed
   // filter (a different result set) scrolls back to the top. Re-sorting, refetches and
   // streaming details never change the signature, so they never jump the page.
@@ -140,27 +147,7 @@ export function Organize() {
   const { leavingFiles, leavingFolders, leaveFiles, leaveFolders, refreshListings } =
     useOrganizeExit();
 
-  // Filter pass: rows carry their streamed details so enriched fields can test them.
-  const { details } = detailsProgress;
-  const visibleFiles = useMemo(() => {
-    if (clauses.length === 0) return fileList;
-    return fileList.filter((f) => evaluate({ ...f, details: details[f.path] }));
-  }, [clauses.length, fileList, details, evaluate]);
-  // Sorting never changes membership; shift-range selection follows this order.
-  const sortedFiles = useMemo(
-    () => sortFiles(visibleFiles, details, fileSort.sortKey, fileSort.sortDir),
-    [visibleFiles, details, fileSort.sortKey, fileSort.sortDir],
-  );
-  const visiblePaths = useMemo(() => sortedFiles.map((f) => f.path), [sortedFiles]);
   useSelectionOrder(setOrder, visiblePaths);
-
-  // Computed once per list of files (NameGroupChips defers and memoises on this identity).
-  const fileNames = useMemo(() => fileList.map((f) => f.name), [fileList]);
-
-  const enrichedActive = clauses.some((c) => ENRICHED.has(c.fieldKey));
-  const stillLoading = enrichedActive
-    ? Math.max(0, detailsProgress.total - detailsProgress.loaded)
-    : 0;
 
   // Invariant: selection is a subset of the visible (filtered) results. Derived at
   // render (`actionFiles`), and the stored set is shrunk to match in the same pass
@@ -206,21 +193,6 @@ export function Organize() {
       make("other", "other files", "Select the non-media files currently shown", kind("other")),
     ];
   }, [visibleFiles, clauses.length, selectedPaths, selectAll]);
-
-  const pickName = useCallback(
-    (text: string) => {
-      const dup = clauses.some(
-        (c) =>
-          c.fieldKey === "name" &&
-          c.operator === "contains" &&
-          (c.value as { text?: string } | null)?.text === text,
-      );
-      if (dup) return;
-      const id = addClause("name");
-      if (id) updateClause(id, { value: { text } });
-    },
-    [clauses, addClause, updateClause],
-  );
 
   // Delete flows (shared confirm, chunked calls, empty-folder prompts) live in the
   // hook; the page reacts to what happened.
