@@ -92,8 +92,10 @@ const COLUMNS: {
 ];
 
 /** Width and visibility of a tag column; shared by its cells and its header. */
-const TAG_CELL = "hidden w-44 shrink-0 md:block";
-const TAG_HEAD = "hidden w-44 shrink-0 md:flex";
+// They share the row's spare width with the file name (flex-1, no fixed width), so a few
+// tag columns can never squeeze the name down to nothing; long values just truncate.
+const TAG_CELL = "hidden min-w-0 max-w-56 flex-1 md:block";
+const TAG_HEAD = "hidden min-w-0 max-w-56 flex-1 md:flex";
 
 /**
  * One tag value in the list: a single truncated line (new lines collapse to spaces, so a

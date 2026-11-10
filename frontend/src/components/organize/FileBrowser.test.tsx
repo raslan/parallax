@@ -68,6 +68,17 @@ describe("FileBrowser tag columns (list view)", () => {
     expect(cell.textContent!.startsWith("#tag line one #more tags")).toBe(true);
   });
 
+  it("lets tag columns share the row with the file name instead of a fixed width", () => {
+    // Three fixed-width columns used to squeeze the name column down to nothing.
+    render(<FileBrowser {...base} tagColumns={["title", "artist", "date"]} />);
+    for (const id of ["title", "artist", "date"]) {
+      const cls = screen.getByTestId(`tag-${id}-/r/a.mp3`).className;
+      expect(cls).toContain("flex-1");
+      expect(cls).toContain("min-w-0");
+      expect(cls).not.toMatch(/(^|\s)w-\d+/);
+    }
+  });
+
   it("shows a dash for a file with no tags", () => {
     render(<FileBrowser {...base} />);
     expect(screen.getByTestId("tag-description-/r/b.mp3").textContent).toBe("—");
