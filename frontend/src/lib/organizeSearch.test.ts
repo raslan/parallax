@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { evaluateClauses, type Clause, type FieldDef } from "@/hooks/useQueryBuilder";
-import type { FileDetails, OrganizeFile } from "@/types/organize";
+import type { FileDetails, OrganizeFile, OrganizeTagInfo } from "@/types/organize";
 import { organizeFields } from "./organizeSearch";
 
-type Row = OrganizeFile & { details?: FileDetails | null };
+type Row = OrganizeFile & { details?: FileDetails | null; tags?: OrganizeTagInfo | null };
 
 const byKey = Object.fromEntries(organizeFields.map((f) => [f.key, f])) as Record<
   string,
@@ -50,6 +50,14 @@ describe("organizeFields keys", () => {
       "orientation",
       "codec",
       "bitrate",
+      "tag_title",
+      "tag_description",
+      "tag_artist",
+      "tag_album",
+      "tag_genre",
+      "tag_comment",
+      "tag_date",
+      "tag_missing",
     ]);
   });
   it("shares Cleanup's labels and operators where the fields overlap", () => {
@@ -223,5 +231,46 @@ describe("enriched fields", () => {
     const r = row({ details: details({ width: 1080, height: 1920 }) });
     expect(run("resolution", "gt", 1440, r)).toBe(false);
     expect(run("resolution", "lt", 1440, r)).toBe(true);
+  });
+});
+
+describe("tag fields", () => {
+  const tagged = (fields: Record<string, string>): Row =>
+    row({ tags: { fields, raw: fields, streams: [], truncated: false } });
+
+  it("contains matches a loaded value case-insensitively", () => {
+    const r = tagged({ description: "Live at #Lolla Berlin" });
+    expect(run("tag_description", "contains", text("#lolla"), r)).toBe(true);
+    expect(run("tag_description", "contains", text("paris"), r)).toBe(false);
+    expect(run("tag_description", "eq", text("live at #lolla berlin"), r)).toBe(true);
+    expect(run("tag_description", "neq", text("live at #lolla berlin"), r)).toBe(false);
+  });
+
+  it("is false until the file's tags have loaded, whatever the operator", () => {
+    const unloaded = row();
+    expect(run("tag_description", "contains", text("x"), unloaded)).toBe(false);
+    expect(run("tag_description", "not_contains", text("x"), unloaded)).toBe(false);
+    expect(run("tag_description", "contains", text(""), unloaded)).toBe(false);
+  });
+
+  it("a file with no tags (loaded as null) reads as an empty value", () => {
+    const none = row({ tags: null });
+    expect(run("tag_title", "contains", text("x"), none)).toBe(false);
+    expect(run("tag_title", "not_contains", text("x"), none)).toBe(true);
+  });
+
+  it("an empty query matches every loaded file, like the other text fields", () => {
+    expect(run("tag_artist", "contains", text(""), tagged({}))).toBe(true);
+    expect(run("tag_artist", "contains", text("  "), tagged({ artist: "A" }))).toBe(true);
+  });
+
+  it("missing tag selects loaded files without that tag, not unloaded ones", () => {
+    expect(run("tag_missing", "eq", "title", tagged({}))).toBe(true);
+    expect(run("tag_missing", "eq", "title", row({ tags: null }))).toBe(true);
+    expect(run("tag_missing", "eq", "title", tagged({ title: "x" }))).toBe(false);
+    expect(run("tag_missing", "eq", "title", row())).toBe(false);
+    expect(run("tag_missing", "neq", "title", tagged({ title: "x" }))).toBe(true);
+    expect(run("tag_missing", "neq", "title", tagged({}))).toBe(false);
+    expect(run("tag_missing", "neq", "title", row())).toBe(false);
   });
 });

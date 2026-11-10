@@ -1,11 +1,14 @@
 import type { SortDir } from "@/components/FileSelectGrid";
 import { naturalCompare } from "@/lib/naturalSort";
-import type { FileDetails, FolderNodeInfo, OrganizeFile } from "@/types/organize";
+import type { FileDetails, FolderNodeInfo, OrganizeFile, OrganizeTagInfo } from "@/types/organize";
 
 export type FolderSortKey = "files" | "size" | "name";
 
+type TagSortKey =
+  "tag_title" | "tag_description" | "tag_artist" | "tag_album" | "tag_genre" | "tag_date";
+
 export type FileSortKey =
-  "name" | "size" | "added" | "kind" | "duration" | "resolution" | "codec" | "bitrate";
+  "name" | "size" | "added" | "kind" | "duration" | "resolution" | "codec" | "bitrate" | TagSortKey;
 
 /** Options of the sort pickers in `BrowseControls`. */
 export const FOLDER_SORT_OPTIONS: { value: FolderSortKey; label: string }[] = [
@@ -31,7 +34,7 @@ export const folderSortDefaultDir = (key: FolderSortKey): SortDir =>
 
 /** Text-like keys ascending; measures (size, dates, duration, …) largest/newest first. */
 export const fileSortDefaultDir = (key: FileSortKey): SortDir =>
-  key === "name" || key === "kind" || key === "codec" ? "asc" : "desc";
+  key === "name" || key === "kind" || key === "codec" || key.startsWith("tag_") ? "asc" : "desc";
 
 /**
  * Sorts a copy of `folders`. Names use the locale-aware natural compare (so
@@ -74,25 +77,33 @@ function detailValue(d: FileDetails | null | undefined, key: FileSortKey): numbe
 
 const DETAIL_KEYS = new Set<FileSortKey>(["duration", "resolution", "codec", "bitrate"]);
 
+/** A tag key's value for a file, or null when its tags haven't loaded or lack that tag. */
+function tagSortValue(t: OrganizeTagInfo | null | undefined, key: FileSortKey): string | null {
+  return t?.fields[key.slice("tag_".length)] ?? null;
+}
+
 /**
  * Sorts a copy of `files` by `key`. Name/codec use the natural compare,
  * resolution the pixel count. For the details-backed keys (duration, resolution,
- * codec, bitrate) files without that value — details not loaded, failed, or the
- * field is null — go last in input order, whatever the direction. Ties keep their
- * input order in both directions.
+ * codec, bitrate) and the tag keys, files without that value — details or tags not
+ * loaded, failed, or the field is empty — go last in input order, whatever the
+ * direction. Ties keep their input order in both directions.
  */
 export function sortFiles(
   files: OrganizeFile[],
   details: Record<string, FileDetails | null>,
   key: FileSortKey,
   dir: SortDir,
+  tags?: Record<string, OrganizeTagInfo | null>,
 ): OrganizeFile[] {
   const sign = dir === "asc" ? 1 : -1;
-  if (DETAIL_KEYS.has(key)) {
+  if (DETAIL_KEYS.has(key) || key.startsWith("tag_")) {
     const known: { f: OrganizeFile; v: number | string }[] = [];
     const missing: OrganizeFile[] = [];
     for (const f of files) {
-      const v = detailValue(details[f.path], key);
+      const v = key.startsWith("tag_")
+        ? tagSortValue(tags?.[f.path], key)
+        : detailValue(details[f.path], key);
       if (v == null) missing.push(f);
       else known.push({ f, v });
     }

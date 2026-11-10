@@ -1,5 +1,5 @@
 import type { FieldDef, Operator } from "@/hooks/useQueryBuilder";
-import type { FileDetails, OrganizeFile } from "@/types/organize";
+import type { FileDetails, OrganizeFile, OrganizeTagInfo } from "@/types/organize";
 import {
   dateField,
   durationField,
@@ -10,7 +10,28 @@ import {
 } from "@/lib/fileFieldFactories";
 import { extensionOf } from "@/lib/path";
 
-type OrganizeRow = OrganizeFile & { details?: FileDetails | null };
+type OrganizeRow = OrganizeFile & {
+  details?: FileDetails | null;
+  /** undefined until the file's tags have loaded; null when it has none to read. */
+  tags?: OrganizeTagInfo | null;
+};
+
+/** The tags a filter can test, in the order the fields are listed. */
+const TAG_FILTERS = [
+  ["title", "Title"],
+  ["description", "Description"],
+  ["artist", "Artist"],
+  ["album", "Album"],
+  ["genre", "Genre"],
+  ["comment", "Comment"],
+  ["date", "Date"],
+] as const;
+
+/** A loaded file's value for a tag ("" when it has none); undefined until its tags load. */
+function tagValue(row: OrganizeRow, name: string): string | undefined {
+  if (row.tags === undefined) return undefined;
+  return row.tags?.fields[name] ?? "";
+}
 
 function textOf(value: unknown): string {
   return (value as { text?: string } | null)?.text ?? "";
@@ -135,6 +156,38 @@ export const organizeFields: FieldDef<OrganizeRow>[] = [
       if (b == null) return false;
       const kbps = b / 1000;
       return operator === "gt" ? kbps > (value as number) : kbps < (value as number);
+    },
+  },
+  // Tags stream in after the list, like details: false until a file's tags have loaded.
+  ...TAG_FILTERS.map(([name, label]): FieldDef<OrganizeRow> => ({
+    key: `tag_${name}`,
+    label: `Tag: ${label}`,
+    category: "search",
+    valueType: "text",
+    operators: ["contains", "not_contains", "eq", "neq"],
+    defaultOperator: "contains",
+    defaultValue: { text: "" },
+    test: (row, operator, value) => {
+      const v = tagValue(row, name);
+      if (v === undefined) return false;
+      const q = textOf(value).trim();
+      if (!q) return true;
+      return matchText(v, operator, q);
+    },
+  })),
+  {
+    key: "tag_missing",
+    label: "Missing tag",
+    category: "label",
+    valueType: "select",
+    operators: ["eq", "neq"],
+    defaultOperator: "eq",
+    defaultValue: "title",
+    options: TAG_FILTERS.map(([name, label]) => ({ label, value: name })),
+    test: (row, operator, value) => {
+      const v = tagValue(row, String(value));
+      if (v === undefined) return false;
+      return operator === "neq" ? v !== "" : v === "";
     },
   },
 ];

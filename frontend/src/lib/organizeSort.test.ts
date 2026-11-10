@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { fileSortDefaultDir, folderSortDefaultDir, sortFiles, sortFolders } from "./organizeSort";
-import type { Counts, FileDetails, FolderNodeInfo, OrganizeFile } from "@/types/organize";
+import type {
+  Counts,
+  FileDetails,
+  FolderNodeInfo,
+  OrganizeFile,
+  OrganizeTagInfo,
+} from "@/types/organize";
 
 const counts = (files: number, bytes: number): Counts => ({
   files,
@@ -168,5 +174,45 @@ describe("sortFiles", () => {
         fileSortDefaultDir(k as never),
       ),
     ).toEqual(["desc", "desc", "desc", "desc", "desc"]);
+  });
+});
+
+describe("sortFiles by tag", () => {
+  const f = (name: string): OrganizeFile => ({
+    name,
+    path: `/r/${name}`,
+    kind: "audio",
+    size: 0,
+    mtime: 0,
+  });
+  const info = (title?: string): OrganizeTagInfo => ({
+    fields: title === undefined ? {} : { title },
+    raw: {},
+    streams: [],
+    truncated: false,
+  });
+  const files = [f("x"), f("y"), f("z"), f("w")];
+  const tags: Record<string, OrganizeTagInfo | null> = {
+    "/r/x": info("Track 10"),
+    "/r/y": info("Track 2"),
+    "/r/z": info(), // loaded, no title
+    // /r/w: not loaded yet
+  };
+  const order = (fs: OrganizeFile[]) => fs.map((x) => x.name);
+
+  it("sorts by the tag with a natural compare", () => {
+    expect(order(sortFiles(files, {}, "tag_title", "asc", tags))).toEqual(["y", "x", "z", "w"]);
+  });
+
+  it("keeps files without the value last in either direction", () => {
+    expect(order(sortFiles(files, {}, "tag_title", "desc", tags))).toEqual(["x", "y", "z", "w"]);
+  });
+
+  it("without a tags map the order is the input order", () => {
+    expect(order(sortFiles(files, {}, "tag_title", "asc"))).toEqual(["x", "y", "z", "w"]);
+  });
+
+  it("tag keys read A to Z first", () => {
+    expect(fileSortDefaultDir("tag_artist")).toBe("asc");
   });
 });
