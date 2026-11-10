@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,15 +12,12 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
-import { api, qk } from "@/lib/api";
-import { errorDetail, isConflict, isMissing } from "@/lib/api/client";
-import { describeSelection, formatSize, sumSizeOf } from "@/lib/format";
+import { qk } from "@/lib/api";
+import { isConflict, isMissing } from "@/lib/api/client";
+import { formatSize, sumSizeOf } from "@/lib/format";
 import { folderAfterDelete } from "@/lib/organizeNav";
 import { invertSelection, removeDeleted } from "@/lib/organizeSelect";
 import { DELETE_CHUNK } from "@/lib/organizeDelete";
-import { toastFailures } from "@/lib/organizeToast";
-import { REDACTED_FOLDER } from "@/lib/organizeRedact";
 import { organizeFields } from "@/lib/organizeSearch";
 import { clauseSignature } from "@/lib/organizeScroll";
 import {
@@ -48,7 +45,6 @@ import { FileBrowser } from "@/components/organize/FileBrowser";
 import { MoveToSubfolderDialog } from "@/components/organize/MoveToSubfolderDialog";
 import { MoveToFolderDialog } from "@/components/organize/MoveToFolderDialog";
 import { RenameDialog } from "@/components/organize/RenameDialog";
-import type { RenameItem } from "@/lib/organizeRename";
 import { Tip } from "@/components/Tip";
 import { BrowseControls } from "@/components/organize/BrowseControls";
 import type { ViewMode } from "@/components/DataToolbar";
@@ -57,12 +53,13 @@ import { useScrollParent } from "@/hooks/useScrollParent";
 import { useOrganizeDelete } from "@/hooks/useOrganizeDelete";
 import { useOrganizeBrowse } from "@/hooks/useOrganizeBrowse";
 import { useOrganizeMove } from "@/hooks/useOrganizeMove";
+import { useOrganizeRename } from "@/hooks/useOrganizeRename";
 import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
 import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
 import { useOrganizeFilters } from "@/hooks/useOrganizeFilters";
 import { useOrganizeSelection } from "@/hooks/useOrganizeSelection";
 import { useSort } from "@/hooks/useSort";
-import type { FolderNodeInfo, OrganizeDeleteResult, OrganizeRenameResult } from "@/types/organize";
+import type { OrganizeDeleteResult } from "@/types/organize";
 import { PageTitle } from "@/components/PageTitle";
 
 export function Organize() {
@@ -196,12 +193,11 @@ export function Organize() {
       refreshListings();
     }
   };
-  // Shared by every file action: a vanished root (409) closes the dialogs and shows
-  // the unavailable state; any other failure throws so the dialog stays open on the message.
+  // A vanished root (409) from any file action closes the dialogs and shows the
+  // unavailable state; any other failure throws so the dialog stays open on the message.
   const dialogsOff = () => {
     move.closeAll();
-    setRenamingFiles(false);
-    setRenamingFolder(null);
+    rename.closeAll();
     markGone();
   };
   const move = useOrganizeMove({
@@ -213,63 +209,21 @@ export function Organize() {
     onFilesGone,
     onGone: () => dialogsOff(),
   });
-
-  // Rename: the selected files (find/replace, or a typed name for one) or one subfolder.
-  const [renamingFiles, setRenamingFiles] = useState(false);
-  const [renamingFolder, setRenamingFolder] = useState<FolderNodeInfo | null>(null);
-  const renameItems: RenameItem[] = renamingFolder
-    ? [{ path: renamingFolder.path, name: renamingFolder.name }]
-    : actionFiles.map((f) => ({ path: f.path, name: f.name }));
-  // Every name in the open folder, files and folders: a rename onto one is refused.
-  const takenNames = useMemo(
-    () =>
-      new Set([
-        ...(filesQ.data ?? []).map((f) => f.name),
-        ...(folderQ.data?.subfolders ?? []).map((f) => f.name),
-      ]),
-    [filesQ.data, folderQ.data],
-  );
-  const renameFiles = async (items: RenameItem[]) => {
-    if (!currentPath) return;
-    let result: OrganizeRenameResult | undefined;
-    let failure = "";
-    try {
-      result = await api.organizeRename(currentPath, items);
-    } catch (e) {
-      if (isConflict(e)) return dialogsOff();
-      failure = errorDetail(e, "Could not rename the files");
-    }
-    if (!result) throw new Error(failure);
-    // Renamed paths no longer exist; the rest stay selected for a retry.
-    if (result.renamed.length > 0) {
-      setSelected((prev) =>
-        removeDeleted(
-          prev,
-          result.renamed.map((r) => r.path),
-        ),
-      );
+  const rename = useOrganizeRename({
+    currentPath,
+    actionFiles,
+    files: filesQ.data,
+    subfolders: folderQ.data?.subfolders,
+    redact,
+    onFilesGone,
+    onFolderRenamed: (oldPath) => {
+      // The old path is dead: drop its cached listings, then reload the open folder.
+      qc.removeQueries({ queryKey: qk.organizeFolder(oldPath) });
+      qc.removeQueries({ queryKey: qk.organizeFiles(oldPath) });
       refreshListings();
-      toast.success(`Renamed ${describeSelection(result.renamed.length, "file")}`);
-    }
-    toastFailures(result.failed, "renamed", redact);
-  };
-  const renameFolder = async (items: RenameItem[]) => {
-    const [item] = items;
-    if (!item) return;
-    let failure = "";
-    try {
-      await api.organizeRenameFolder(item.path, item.name);
-    } catch (e) {
-      if (isConflict(e)) return dialogsOff();
-      failure = errorDetail(e, "Could not rename the folder");
-    }
-    if (failure) throw new Error(failure);
-    // The old path is dead: drop its cached listings, then reload the open folder.
-    qc.removeQueries({ queryKey: qk.organizeFolder(item.path) });
-    qc.removeQueries({ queryKey: qk.organizeFiles(item.path) });
-    refreshListings();
-    toast.success(`Renamed folder to ${redact ? REDACTED_FOLDER : item.name}`);
-  };
+    },
+    onGone: () => dialogsOff(),
+  });
 
   const picker = (
     <OrganizeFolderPicker open={picking} onOpenChange={setPicking} onSelect={saveRoot.mutate} />
@@ -415,7 +369,7 @@ export function Organize() {
             onSort={folderSort.toggleSort}
             linkTo={linkTo}
             onDelete={(f) => void deleteFolder(f)}
-            onRename={setRenamingFolder}
+            onRename={rename.openFolder}
             onDeleteOpen={
               !atRoot && folderQ.data
                 ? () =>
@@ -520,12 +474,7 @@ export function Organize() {
           <FolderInput className="mr-2 h-3.5 w-3.5" />
           Move to subfolder
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={deleting}
-          onClick={() => setRenamingFiles(true)}
-        >
+        <Button variant="outline" size="sm" disabled={deleting} onClick={rename.openFiles}>
           <Pencil className="mr-2 h-3.5 w-3.5" />
           Rename
         </Button>
@@ -561,19 +510,7 @@ export function Organize() {
       </SelectionBar>
       <MoveToSubfolderDialog {...move.subfolderDialogProps} />
       <MoveToFolderDialog {...move.folderDialogProps} />
-      <RenameDialog
-        open={renamingFiles || renamingFolder !== null}
-        onOpenChange={(v) => {
-          if (!v) {
-            setRenamingFiles(false);
-            setRenamingFolder(null);
-          }
-        }}
-        noun={renamingFolder ? "folder" : "file"}
-        items={renameItems}
-        taken={takenNames}
-        onSubmit={renamingFolder ? renameFolder : renameFiles}
-      />
+      <RenameDialog {...rename.dialogProps} />
       {picker}
     </div>
   );
