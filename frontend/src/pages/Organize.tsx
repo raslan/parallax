@@ -63,6 +63,7 @@ import { useGridSize } from "@/hooks/useGridSize";
 import { useScrollParent } from "@/hooks/useScrollParent";
 import { useOrganizeDelete } from "@/hooks/useOrganizeDelete";
 import { useOrganizeDetails } from "@/hooks/useOrganizeDetails";
+import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
 import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
@@ -81,9 +82,6 @@ const NO_FILES: OrganizeFile[] = [];
 
 /** Filter fields that need ffprobe details, which stream in after the list. */
 const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bitrate"]);
-
-/** How long the delete exit animation plays before the lists refetch. */
-const EXIT_MS = 220;
 
 /** The backend answers 409 for "no folder selected" / "folder is no longer available". */
 const isConflict = (e: unknown) => httpStatus(e) === 409;
@@ -137,12 +135,10 @@ export function Organize() {
     lastViewSig.current = viewSig;
     scroller?.scrollTo({ top: 0 });
   }, [viewSig, scroller]);
-  const [leavingFiles, setLeavingFiles] = useState<ReadonlySet<string>>(new Set());
-  const [leavingFolders, setLeavingFolders] = useState<ReadonlySet<string>>(new Set());
+  const { leavingFiles, leavingFolders, leaveFiles, leaveFolders, refreshListings } =
+    useOrganizeExit();
   // A delete call answered 409: the root is gone. Tagged with the root it was seen on.
   const [goneRoot, setGoneRoot] = useState<string | null>(null);
-  const exitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(exitTimer.current), []);
 
   /** Link target that opens `path` (a pushed history entry). */
   const linkTo = (path: string) => ({ search: root ? folderSearch(path, root) : "" });
@@ -153,17 +149,6 @@ export function Organize() {
    */
   const replaceFolder = (path: string) => {
     void routerNavigate(linkTo(path), { replace: true });
-  };
-
-  /** Refetch listings (totals change all the way up the tree) once the exit animation ends. */
-  const refreshListings = (delay = 0) => {
-    clearTimeout(exitTimer.current);
-    exitTimer.current = setTimeout(() => {
-      setLeavingFiles(new Set());
-      setLeavingFolders(new Set());
-      void qc.invalidateQueries({ queryKey: qk.organizeFolder() });
-      void qc.invalidateQueries({ queryKey: qk.organizeFiles() });
-    }, delay);
   };
 
   const scanQ = useQuery({
@@ -334,7 +319,7 @@ export function Organize() {
       if (result.deleted.length === 0) return;
       // Failed paths are not in `deleted`, so they stay selected for a retry.
       setSelected((prev) => removeDeleted(prev, result.deleted));
-      setLeavingFiles(new Set(result.deleted));
+      leaveFiles(result.deleted);
       refreshListings(EXIT_MS);
     },
     // Network/timeout: some files may already be gone.
@@ -343,7 +328,7 @@ export function Organize() {
     onEmptyFolderDeleted: (path) => {
       const up = currentPath ? folderAfterDelete(path, currentPath) : null;
       if (up !== null) replaceFolder(up);
-      setLeavingFolders((prev) => new Set(prev).add(path));
+      leaveFolders([path], true);
       refreshListings(EXIT_MS);
     },
     onFolderDeleted: (path) => {
@@ -357,7 +342,7 @@ export function Organize() {
         qc.removeQueries({ queryKey: qk.organizeFiles(path) });
         refreshListings();
       } else {
-        setLeavingFolders(new Set([path]));
+        leaveFolders([path]);
         refreshListings(EXIT_MS);
       }
     },
@@ -406,7 +391,7 @@ export function Organize() {
     // Failed paths are not in `moved`, so they stay selected for a retry.
     if (result.moved.length > 0) {
       setSelected((prev) => removeDeleted(prev, result.moved));
-      setLeavingFiles(new Set(result.moved));
+      leaveFiles(result.moved);
       refreshListings(EXIT_MS);
       toast.success(
         `Moved ${describeSelection(result.moved.length, "file")} to ${redact ? REDACTED_FOLDER : destination}`,
