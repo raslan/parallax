@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CornerLeftUp,
@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { api, qk } from "@/lib/api";
 import { errorDetail, isConflict, isMissing } from "@/lib/api/client";
 import { describeSelection, formatSize, sumSizeOf } from "@/lib/format";
-import { folderAfterDelete, folderSearch, resolveOpenFolder } from "@/lib/organizeNav";
+import { folderAfterDelete } from "@/lib/organizeNav";
 import {
   invertSelection,
   reconcileSelection,
@@ -62,7 +62,7 @@ import type { ViewMode } from "@/components/DataToolbar";
 import { useGridSize } from "@/hooks/useGridSize";
 import { useScrollParent } from "@/hooks/useScrollParent";
 import { useOrganizeDelete } from "@/hooks/useOrganizeDelete";
-import { useOrganizeDetails } from "@/hooks/useOrganizeDetails";
+import { useOrganizeBrowse } from "@/hooks/useOrganizeBrowse";
 import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
 import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
 import { useQueryBuilder } from "@/hooks/useQueryBuilder";
@@ -77,21 +77,11 @@ import type {
 } from "@/types/organize";
 import { PageTitle } from "@/components/PageTitle";
 
-/** Stable identity while the file list loads, so the details hook doesn't restart. */
-const NO_FILES: OrganizeFile[] = [];
-
 /** Filter fields that need ffprobe details, which stream in after the list. */
 const ENRICHED = new Set(["duration", "resolution", "orientation", "codec", "bitrate"]);
 
 export function Organize() {
   const qc = useQueryClient();
-  const routerNavigate = useNavigate();
-  // The open folder lives in the URL (`?path=`, none = the root), so Back/Forward walk
-  // the folders visited. Derived here every render; a value outside the root (e.g. one
-  // left from a previous root) or malformed opens the root flagged `badPath`.
-  const [searchParams] = useSearchParams();
-  const pathParam = searchParams.get("path");
-
   const {
     rootQ,
     root,
@@ -104,10 +94,18 @@ export function Organize() {
     setPicking,
     markGone,
   } = useOrganizeRoot({ onReset: () => selectNone() });
-  const open = root ? resolveOpenFolder(pathParam, root) : null;
-  const currentPath = open?.path ?? root;
-  const badPath = open ? !open.valid : false;
-  const atRoot = currentPath === root;
+  const {
+    currentPath,
+    badPath,
+    atRoot,
+    folderQ,
+    filesQ,
+    hasFiles,
+    fileList,
+    detailsProgress,
+    linkTo,
+    replaceFolder,
+  } = useOrganizeBrowse(root, { scanDone, unavailable });
   const { selected, setSelected, toggle, selectAll, selectNone, setOrder, marqueeProps } =
     useSelection<string>();
   // A new folder (link, breadcrumb, Back/Forward, a delete moving up) starts with
@@ -141,35 +139,6 @@ export function Organize() {
   }, [viewSig, scroller]);
   const { leavingFiles, leavingFolders, leaveFiles, leaveFolders, refreshListings } =
     useOrganizeExit();
-
-  /** Link target that opens `path` (a pushed history entry). */
-  const linkTo = (path: string) => ({ search: root ? folderSearch(path, root) : "" });
-
-  /**
-   * Programmatic moves (the open folder was deleted, the root changed) replace the
-   * current entry: pushing would leave a dead folder for Back to return to.
-   */
-  const replaceFolder = (path: string) => {
-    void routerNavigate(linkTo(path), { replace: true });
-  };
-
-  const folderQ = useQuery({
-    queryKey: qk.organizeFolder(currentPath ?? ""),
-    queryFn: () => api.getOrganizeFolder(currentPath ?? ""),
-    enabled: !!currentPath && scanDone && !unavailable,
-    retry: false,
-  });
-
-  // Direct files only exist to list when the open folder has some.
-  const hasFiles = (folderQ.data?.direct.files ?? 0) > 0;
-  const filesQ = useQuery({
-    queryKey: qk.organizeFiles(currentPath ?? ""),
-    queryFn: () => api.getOrganizeFiles(currentPath ?? ""),
-    enabled: !!currentPath && hasFiles && !unavailable,
-    retry: false,
-  });
-  const fileList = filesQ.data ?? NO_FILES;
-  const detailsProgress = useOrganizeDetails(currentPath ?? "", fileList);
 
   // Filter pass: rows carry their streamed details so enriched fields can test them.
   const { details } = detailsProgress;
