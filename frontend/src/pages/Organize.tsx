@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CornerLeftUp,
   FolderTree,
@@ -20,7 +20,6 @@ import { folderAfterDelete } from "@/lib/organizeNav";
 import { invertSelection, removeDeleted } from "@/lib/organizeSelect";
 import { DELETE_CHUNK } from "@/lib/organizeDelete";
 import { toastFailures } from "@/lib/organizeToast";
-import { baseName } from "@/lib/path";
 import { REDACTED_FOLDER } from "@/lib/organizeRedact";
 import { organizeFields } from "@/lib/organizeSearch";
 import { clauseSignature } from "@/lib/organizeScroll";
@@ -57,17 +56,13 @@ import { useGridSize } from "@/hooks/useGridSize";
 import { useScrollParent } from "@/hooks/useScrollParent";
 import { useOrganizeDelete } from "@/hooks/useOrganizeDelete";
 import { useOrganizeBrowse } from "@/hooks/useOrganizeBrowse";
+import { useOrganizeMove } from "@/hooks/useOrganizeMove";
 import { EXIT_MS, useOrganizeExit } from "@/hooks/useOrganizeExit";
 import { useOrganizeRoot } from "@/hooks/useOrganizeRoot";
 import { useOrganizeFilters } from "@/hooks/useOrganizeFilters";
 import { useOrganizeSelection } from "@/hooks/useOrganizeSelection";
 import { useSort } from "@/hooks/useSort";
-import type {
-  FolderNodeInfo,
-  OrganizeDeleteResult,
-  OrganizeMoveResult,
-  OrganizeRenameResult,
-} from "@/types/organize";
+import type { FolderNodeInfo, OrganizeDeleteResult, OrganizeRenameResult } from "@/types/organize";
 import { PageTitle } from "@/components/PageTitle";
 
 export function Organize() {
@@ -190,75 +185,34 @@ export function Organize() {
     },
   });
 
-  // Move to subfolder: the dialog asks for a name, then this runs the call. It throws
-  // (so the dialog stays open on the message) except for a vanished root.
-  const [movingOpen, setMovingOpen] = useState(false);
-  // Shared by every file action below: a vanished root (409) closes the dialogs and shows
+  // A file leaves the open folder (moved, renamed): drop it from the selection and
+  // refetch, with the exit animation when it is leaving rather than changing name.
+  const onFilesGone = (paths: string[], animate: boolean) => {
+    setSelected((prev) => removeDeleted(prev, paths));
+    if (animate) {
+      leaveFiles(paths);
+      refreshListings(EXIT_MS);
+    } else {
+      refreshListings();
+    }
+  };
+  // Shared by every file action: a vanished root (409) closes the dialogs and shows
   // the unavailable state; any other failure throws so the dialog stays open on the message.
   const dialogsOff = () => {
-    setMovingOpen(false);
-    setMovingToFolderOpen(false);
+    move.closeAll();
     setRenamingFiles(false);
     setRenamingFolder(null);
     markGone();
   };
-  const runMove = async (call: () => Promise<OrganizeMoveResult>, destination: string) => {
-    if (!currentPath) return;
-    let result: OrganizeMoveResult | undefined;
-    let failure = "";
-    try {
-      result = await call();
-    } catch (e) {
-      if (isConflict(e)) return dialogsOff();
-      failure = errorDetail(e, "Could not move the files");
-    }
-    if (!result) throw new Error(failure);
-    // Failed paths are not in `moved`, so they stay selected for a retry.
-    if (result.moved.length > 0) {
-      setSelected((prev) => removeDeleted(prev, result.moved));
-      leaveFiles(result.moved);
-      refreshListings(EXIT_MS);
-      toast.success(
-        `Moved ${describeSelection(result.moved.length, "file")} to ${redact ? REDACTED_FOLDER : destination}`,
-      );
-    }
-    toastFailures(result.failed, "moved", redact);
-  };
-  const moveToSubfolder = (name: string) =>
-    runMove(
-      () =>
-        api.organizeMoveToSubfolder(
-          currentPath ?? "",
-          actionFiles.map((f) => f.path),
-          name,
-        ),
-      name,
-    );
-
-  // Move to folder: the dialog browses the scanned tree (its own folder listing, shared
-  // with the page's cache) and hands back the chosen destination.
-  const [movingToFolderOpen, setMovingToFolderOpen] = useState(false);
-  const [browsePath, setBrowsePath] = useState("");
-  const browseQ = useQuery({
-    queryKey: qk.organizeFolder(browsePath),
-    queryFn: () => api.getOrganizeFolder(browsePath),
-    enabled: movingToFolderOpen && !!browsePath && !unavailable,
-    retry: false,
+  const move = useOrganizeMove({
+    currentPath,
+    actionFiles,
+    selectedPaths,
+    unavailable,
+    redact,
+    onFilesGone,
+    onGone: () => dialogsOff(),
   });
-  const openMoveToFolder = () => {
-    setBrowsePath(currentPath ?? "");
-    setMovingToFolderOpen(true);
-  };
-  const moveToFolder = (destination: string) =>
-    runMove(
-      () =>
-        api.organizeMoveToFolder(
-          currentPath ?? "",
-          actionFiles.map((f) => f.path),
-          destination,
-        ),
-      baseName(destination),
-    );
 
   // Rename: the selected files (find/replace, or a typed name for one) or one subfolder.
   const [renamingFiles, setRenamingFiles] = useState(false);
@@ -558,11 +512,11 @@ export function Organize() {
         bytes={sumSizeOf(actionFiles, selectedPaths, (f) => f.path)}
         onClear={selectNone}
       >
-        <Button variant="outline" size="sm" disabled={deleting} onClick={openMoveToFolder}>
+        <Button variant="outline" size="sm" disabled={deleting} onClick={move.openFolderDialog}>
           <FolderOutput className="mr-2 h-3.5 w-3.5" />
           Move to folder
         </Button>
-        <Button variant="outline" size="sm" disabled={deleting} onClick={() => setMovingOpen(true)}>
+        <Button variant="outline" size="sm" disabled={deleting} onClick={move.openSubfolderDialog}>
           <FolderInput className="mr-2 h-3.5 w-3.5" />
           Move to subfolder
         </Button>
@@ -605,34 +559,8 @@ export function Organize() {
           )}
         </Button>
       </SelectionBar>
-      <MoveToSubfolderDialog
-        open={movingOpen}
-        onOpenChange={setMovingOpen}
-        summary={describeSelection(
-          actionFiles.length,
-          "file",
-          sumSizeOf(actionFiles, selectedPaths, (f) => f.path),
-        )}
-        onSubmit={moveToSubfolder}
-      />
-      <MoveToFolderDialog
-        open={movingToFolderOpen}
-        onOpenChange={setMovingToFolderOpen}
-        summary={describeSelection(
-          actionFiles.length,
-          "file",
-          sumSizeOf(actionFiles, selectedPaths, (f) => f.path),
-        )}
-        currentPath={currentPath ?? ""}
-        folder={browseQ.data}
-        loading={browseQ.isFetching && !browseQ.data}
-        loadError={
-          browseQ.isError ? errorDetail(browseQ.error, "Could not open the folder") : undefined
-        }
-        onBrowse={setBrowsePath}
-        onSubmit={moveToFolder}
-        redact={redact}
-      />
+      <MoveToSubfolderDialog {...move.subfolderDialogProps} />
+      <MoveToFolderDialog {...move.folderDialogProps} />
       <RenameDialog
         open={renamingFiles || renamingFolder !== null}
         onOpenChange={(v) => {
