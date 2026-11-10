@@ -21,6 +21,10 @@ export const isConflict = (e: unknown) => httpStatus(e) === 409;
 
 export const isMissing = (e: unknown) => httpStatus(e) === 404;
 
+/** The 409 Organize's folder route answers while the scan is still mapping the tree: wait, not an error. */
+export const isScanningConflict = (e: unknown) =>
+  httpStatus(e) === 409 && errorDetail(e, "") === "scanning";
+
 /**
  * The server's `{"detail": "..."}` message from an error thrown by `req()` (whose
  * message is `"<status>: <body>"`), else `fallback`.

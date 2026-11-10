@@ -1,9 +1,14 @@
 import { useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qk } from "@/lib/api";
+import { isScanningConflict } from "@/lib/api/client";
 import { folderSearch, resolveOpenFolder } from "@/lib/organizeNav";
 import { useOrganizeDetails } from "@/hooks/useOrganizeDetails";
 import type { OrganizeFile } from "@/types/organize";
+
+/** How long, and how often, a folder request waits out a scan that is still running. */
+const SCAN_RETRY_MS = 750;
+const SCAN_RETRIES = 80;
 
 /** Stable identity while the file list loads, so the details hook doesn't restart. */
 const NO_FILES: OrganizeFile[] = [];
@@ -18,6 +23,7 @@ export function useOrganizeBrowse(
   root: string | null,
   gate: { scanDone: boolean; unavailable: boolean },
 ) {
+  const qc = useQueryClient();
   const routerNavigate = useNavigate();
   const [searchParams] = useSearchParams();
   const pathParam = searchParams.get("path");
@@ -39,9 +45,20 @@ export function useOrganizeBrowse(
 
   const folderQ = useQuery({
     queryKey: qk.organizeFolder(currentPath ?? ""),
-    queryFn: () => api.getOrganizeFolder(currentPath ?? ""),
+    queryFn: async () => {
+      try {
+        return await api.getOrganizeFolder(currentPath ?? "");
+      } catch (e) {
+        // The page can hold a stale "scan done" (a rescan just began): refresh the scan
+        // state so it shows the scanning panel, and let the retry below wait it out.
+        if (isScanningConflict(e)) void qc.invalidateQueries({ queryKey: qk.organizeScan() });
+        throw e;
+      }
+    },
     enabled: !!currentPath && gate.scanDone && !gate.unavailable,
-    retry: false,
+    // "scanning" is a wait, not a failure: retry for up to a minute, any other error shows.
+    retry: (count, e) => isScanningConflict(e) && count < SCAN_RETRIES,
+    retryDelay: SCAN_RETRY_MS,
   });
 
   // Direct files only exist to list when the open folder has some.

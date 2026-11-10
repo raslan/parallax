@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { httpStatus, req, setUnauthorizedHandler } from "./client";
+import { httpStatus, isScanningConflict, req, setUnauthorizedHandler } from "./client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -79,5 +79,16 @@ describe("401 handling", () => {
   it("still throws the 401 to the caller", async () => {
     setUnauthorizedHandler(() => {});
     expect(httpStatus(await thrownBy(401, '{"detail":"Not authenticated"}'))).toBe(401);
+  });
+});
+
+describe("isScanningConflict", () => {
+  it("is true only for the 409 Organize answers while it is still mapping the folder", () => {
+    expect(isScanningConflict(new Error('409: {"detail":"scanning"}'))).toBe(true);
+    expect(isScanningConflict(new Error('409: {"detail":"Folder is no longer available"}'))).toBe(
+      false,
+    );
+    expect(isScanningConflict(new Error('404: {"detail":"scanning"}'))).toBe(false);
+    expect(isScanningConflict(new Error("network down"))).toBe(false);
   });
 });

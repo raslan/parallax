@@ -516,3 +516,24 @@ describe("Organize tag panel switch left on", () => {
     expect([...new Set(asked)].sort()).toEqual(["/r/a/x.mp3", "/r/a/y.mp3"]);
   });
 });
+
+describe("Organize while a scan is running", () => {
+  it("a 409 'scanning' from the folder request is not an error: it retries and shows the folder", async () => {
+    vi.mocked(api.getOrganizeFolder)
+      .mockRejectedValueOnce(new Error('409: {"detail":"scanning"}'))
+      .mockImplementation(async (p: string) => folder(p));
+    renderAt(["/organize"]);
+    await current("r");
+    expect(screen.queryByText(/409/)).toBeNull();
+    expect(api.getOrganizeFolder).toHaveBeenCalledTimes(2);
+  }, 10_000);
+
+  it("shows no error while the folder keeps answering 'scanning'", async () => {
+    vi.mocked(api.getOrganizeFolder).mockRejectedValue(new Error('409: {"detail":"scanning"}'));
+    renderAt(["/organize"]);
+    await screen.findByText("Files");
+    await new Promise((r) => setTimeout(r, 1800));
+    expect(screen.queryByText(/409|scanning/i)).toBeNull();
+    expect(screen.queryByText("This folder is gone")).toBeNull();
+  }, 10_000);
+});
