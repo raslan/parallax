@@ -19,8 +19,9 @@ import { describeSelection, formatSize, sumSizeOf } from "@/lib/format";
 import { folderAfterDelete } from "@/lib/organizeNav";
 import { invertSelection, removeDeleted } from "@/lib/organizeSelect";
 import { DELETE_CHUNK } from "@/lib/organizeDelete";
+import { toastFailures } from "@/lib/organizeToast";
 import { baseName } from "@/lib/path";
-import { REDACTED_FILE, REDACTED_FOLDER } from "@/lib/organizeRedact";
+import { REDACTED_FOLDER } from "@/lib/organizeRedact";
 import { organizeFields } from "@/lib/organizeSearch";
 import { clauseSignature } from "@/lib/organizeScroll";
 import {
@@ -201,18 +202,6 @@ export function Organize() {
     setRenamingFolder(null);
     markGone();
   };
-  /** Toast for the per-file refusals of a bulk call; they stay selected for a retry. */
-  const toastFailures = (failed: { path: string; error: string }[], verb: string) => {
-    if (failed.length === 0) return;
-    const shown = failed
-      .slice(0, 3)
-      .map((f) => `${redact ? REDACTED_FILE : baseName(f.path)}: ${f.error}`)
-      .join("\n");
-    const more = failed.length - 3;
-    toast.error(`${describeSelection(failed.length, "file")} could not be ${verb}`, {
-      description: `${shown}${more > 0 ? `\nand ${more} more` : ""}\nThey are still selected.`,
-    });
-  };
   const runMove = async (call: () => Promise<OrganizeMoveResult>, destination: string) => {
     if (!currentPath) return;
     let result: OrganizeMoveResult | undefined;
@@ -233,7 +222,7 @@ export function Organize() {
         `Moved ${describeSelection(result.moved.length, "file")} to ${redact ? REDACTED_FOLDER : destination}`,
       );
     }
-    toastFailures(result.failed, "moved");
+    toastFailures(result.failed, "moved", redact);
   };
   const moveToSubfolder = (name: string) =>
     runMove(
@@ -308,7 +297,7 @@ export function Organize() {
       refreshListings();
       toast.success(`Renamed ${describeSelection(result.renamed.length, "file")}`);
     }
-    toastFailures(result.failed, "renamed");
+    toastFailures(result.failed, "renamed", redact);
   };
   const renameFolder = async (items: RenameItem[]) => {
     const [item] = items;
