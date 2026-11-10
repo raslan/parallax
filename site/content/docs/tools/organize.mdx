@@ -1,9 +1,9 @@
 ---
 title: Organize
-description: Walk through any folder, see what is in it, and tidy it up by hand.
+description: Work on any folder by hand. Browse it, find files, read the tags inside them, rename or move them and delete what you do not need.
 ---
 
-Organize is for the messy folders that are not part of a library: a downloads folder, a drive of old backups, a camera dump. Point it at a folder and it shows you what is inside, so you can search, move, rename and delete things.
+Organize is for the messy folders that are not part of a library: a downloads folder, a drive of old backups, a camera dump. Point it at a folder and it shows you what is inside, so you can search, read the tags inside the files, move, rename and delete things.
 
 It does not add anything to your libraries. Nothing is saved to the database and the folder is not watched. It reads the folder when you ask, and works on the files when you tell it to.
 
@@ -31,6 +31,21 @@ Under the filter is a row of common names. Parallax looks at the words and phras
 
 To pick files, tick them, drag a box around them, or use **Select all that are**, which can pick everything shown, or just the videos, images, audio or other files.
 
+## Looking at the tags inside files
+
+Many files carry their own information inside them: a title, a description, an artist, a date. Downloaded videos often have the title, the description and the channel name. Music has the song, the artist and the album. Photos have the camera, the date taken and sometimes the place. Apps like Plex, Jellyfin and PhotoPrism read these, and sometimes show them instead of the file name. Organize lets you see them, so you know what those apps will see. For now this is read-only: nothing in a file is changed.
+
+**Columns.** Switch to the list view and a **Columns** menu appears next to the view buttons. Tick the tags you want as columns: title, description, artist, album, genre, date, comment or synopsis. Parallax remembers your choice in this browser. A long value is cut to one line, so a description full of hashtags does not make the row taller. Rest the pointer on a value to read all of it, and click a column heading to sort by it. A dash means the file has no value for that tag.
+
+**Filters.** The filter has a **Tag** option for each of title, description, artist, album, genre, comment and date, and a **Missing tag** option that finds files without one. Tags are read in the background, like the other details, so matches can grow while they arrive. Tags are only read when a column, a filter or the panel needs them.
+
+**The Tags panel.** Select one or more files and press **Tags** in the bar at the bottom. A panel opens on the right and follows your selection:
+
+- With one file it shows the whole title and description, how many characters and hashtags the description has, and every tag exactly as stored. A long description is shortened until you press **Show all**. It also lists the streams in the file, such as the video and audio formats.
+- With several files it shows each field once. If all the files agree you see the value. If they differ it says **Mixed** and how many different values there are.
+
+The panel stays open while you keep working, closes with the **Esc** key or its close button, and is remembered between visits. Pictures show their photo information (camera, date taken, and so on) and music shows its song information. When a picture stores the same tag in more than one place, the columns and filters use the first one they find, and the panel lists every place.
+
 ## Doing something with them
 
 A bar at the bottom shows what you have selected, with these buttons:
@@ -38,6 +53,7 @@ A bar at the bottom shows what you have selected, with these buttons:
 - **Move to subfolder** asks for a name and puts the files in a folder with that name inside the one you are viewing. The folder is made if it does not exist, or reused if it does. If a file with the same name is already there, the new one gets a number like `(1)` rather than replacing it.
 - **Move to folder** moves the files into any other folder under the one you chose, which you pick from a small browser.
 - **Rename** changes the name of the selected files. For one file you type the new name. For several you can find and replace text in their names, with an optional pattern match for more complex changes, and a live preview of every result before you confirm. A name that is already taken is skipped, and nothing is ever overwritten.
+- **Tags** opens the panel with the tags inside the selected files (see above).
 - **Delete** removes the files for good.
 
 To rename a folder, use the pencil on its card.
@@ -56,4 +72,4 @@ Files you delete count towards your totals on the Home page.
 
 ## Hiding names
 
-**Redact names** is a tick box in the bar at the top of the page, next to **Rescan**. When it is on, it replaces every folder and file name with a placeholder and hides the thumbnails. It is useful when you want to share a screenshot without showing what is on your disk.
+**Redact names** is a tick box in the bar at the top of the page, next to **Rescan**. When it is on, it replaces every folder and file name with a placeholder, hides the thumbnails and hides the tag values. It is useful when you want to share a screenshot without showing what is on your disk.
