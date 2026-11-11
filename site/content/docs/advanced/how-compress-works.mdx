@@ -13,6 +13,8 @@ The result is written to a temporary file next to the original, with `.compressi
 
 If **Keep originals** is on, the original is moved into the `_originals` folder first. If it is off, the original is replaced and cannot be recovered.
 
+Just before the swap, the temporary file is given the original's modification and access times, permissions and extended attributes, and its owner when Parallax is allowed to set it. Each step is best effort: one the filesystem refuses (for example extended attributes on a network share) is skipped and never fails the job. Things the filesystem assigns itself, such as the creation time and the inode number, cannot be copied. Toolbox, audio Compress and Toolbox, image upscale in Replace or Overwrite mode, subtitle sync and tag editing do the same.
+
 ## Choosing the encoder
 
 For each codec Parallax asks ffmpeg what is available and takes the first match from a fixed order of preference.
