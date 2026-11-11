@@ -58,11 +58,11 @@ You change tags in the same panel. Every change takes two steps: you **stage** i
 
 The button next to a field opens two tools. **Find and replace** works on the text in that field (with an optional pattern match) and tells you how many of the files would change. **Add text** puts text at the start or the end of each file's own value, for example a tag like `#live` on every description. **Add field…** lists the other fields your files can hold, and **Other tag…** adds a tag with any name your files allow. A tag a file already has shows in the list of tags, where you can edit or clear it. On a photo, the **×** next to **Location** removes where it was taken. A location can be removed but not typed in.
 
-**Review and apply.** When something is staged, **Review changes** appears at the bottom of the panel and a **Review N staged** button appears at the top of the page, so you can find your changes from any folder. They stay while you move between folders and after a rescan. They are dropped if you rename, move or delete the file, or choose a different folder to organize.
+**Review and apply.** When something is staged, **Review changes** appears at the bottom of the panel, and the **Tags** button says how many of the selected files have a change waiting. Staged changes belong to the folder you are in and are never saved. If you open another folder, rescan, choose a different folder to organize, or rename, move or delete a file, the changes for it are dropped.
 
 <Shot id="tools/organize/tag-review" />
 
-The review lists every change as before and after, file by file, and says how each file will be written. It reads every file again when it opens. A file that changed since you staged it, or that can no longer be read, is marked and left out until you stage it again. A file that already has the value you typed is skipped. Every file has a **Discard this file's edits** button, which is how you start over with a file that was marked. Press **Apply** to write the files. If the connection drops while it is writing, Parallax cannot tell which files were written, so open the review again: it reads them first.
+The review lists every change as before and after, file by file, and says how each file will be written. A file that already has the value you typed is skipped. **Discard all edits** throws away everything you staged. Press **Apply** to write the files. If the connection drops while it is writing, Parallax cannot tell which files were written, so check their tags before trying again.
 
 **There is no undo.** Applying changes the tags in the files for good, and Parallax does not keep a backup of the old ones.
 
