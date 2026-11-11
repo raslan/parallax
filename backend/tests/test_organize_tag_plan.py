@@ -96,15 +96,42 @@ def test_plan_image_exiftool_cannot_write_is_read_only_with_its_reason(tmp_path,
     assert out.reason and "png" in out.reason.lower()
 
 
-@needs_ffmpeg
-@pytest.mark.parametrize("name", ["a.avi", "a.ts", "a.flv", "a.wmv", "a.mpg", "a.ogv"])
-def test_plan_avi_ts_flv_wmv_mpg_are_rewrite_with_note(tmp_path, name):
+@pytest.mark.parametrize(
+    ("name", "fields", "raw_ok"),
+    [
+        ("a.avi", ["title", "comment", "artist", "genre", "date", "track"], False),
+        ("a.flv", list(MEDIA_FIELDS), True),
+        (
+            "a.wmv",
+            [f for f in MEDIA_FIELDS if f != "description"],
+            True,
+        ),
+        ("a.wma", [f for f in MEDIA_FIELDS if f != "description"], True),
+        ("a.wav", ["title", "comment", "artist", "album", "genre", "date", "track"], False),
+        ("a.aiff", ["title", "comment"], False),
+        ("a.aif", ["title", "comment"], False),
+    ],
+)
+def test_plan_ffmpeg_containers_offer_only_the_fields_they_can_hold(tmp_path, name, fields, raw_ok):
+    """Measured: each container keeps a different subset of the tags ffmpeg is given."""
     p = tmp_path / name
     p.write_bytes(b"\0" * 64)  # the plan only looks at the name and the size
     out = plan.plan_one(str(p))
     assert out.writable and out.how == "rewrite"
     assert out.note and "may not survive" in out.note
     assert out.bytes_needed == 64
+    assert out.fields == fields
+    assert out.can_add_raw is raw_ok
+
+
+@pytest.mark.parametrize("name", ["a.ts", "a.m2ts", "a.mts", "a.mpg", "a.mpeg", "a.ogv"])
+def test_plan_containers_that_hold_no_tags_are_read_only(tmp_path, name):
+    """No tags at all (mpeg), or a clear that cannot be made to stick (ogv keeps comments
+    per stream); either way a read-only reason beats a half-working edit."""
+    p = tmp_path / name
+    p.write_bytes(b"\0" * 64)
+    out = plan.plan_one(str(p))
+    assert not out.writable and "this format" in out.reason
 
 
 def test_plan_unknown_video_container_is_read_only(tmp_path):
@@ -116,13 +143,22 @@ def test_plan_unknown_video_container_is_read_only(tmp_path):
     assert out.fields == []
 
 
-def test_plan_can_add_raw_true_for_every_writable_file(tmp_path):
-    a = tmp_path / "a.avi"
-    a.write_bytes(b"\0")
-    b = tmp_path / "a.rmvb"
-    b.write_bytes(b"\0")
-    assert plan.plan_one(str(a)).can_add_raw is True
-    assert plan.plan_one(str(b)).can_add_raw is False
+def test_plan_can_add_raw_follows_what_the_format_can_hold(tmp_path):
+    flv = tmp_path / "a.flv"
+    flv.write_bytes(b"\0")
+    avi = tmp_path / "a.avi"
+    avi.write_bytes(b"\0")
+    rmvb = tmp_path / "a.rmvb"
+    rmvb.write_bytes(b"\0")
+    assert plan.plan_one(str(flv)).can_add_raw is True
+    assert plan.plan_one(str(avi)).can_add_raw is False  # AVI only has fixed INFO fields
+    assert plan.plan_one(str(rmvb)).can_add_raw is False
+
+
+@pytest.mark.parametrize("name", ["a.avi", "a.wav", "a.aiff"])
+def test_validate_raw_name_refused_where_the_format_has_only_fixed_fields(name):
+    msg = plan.validate_raw_name(name, "MOOD")
+    assert msg and "fixed" in msg
 
 
 def test_plan_other_kind_not_writable(tmp_path):
@@ -220,7 +256,7 @@ def test_validate_raw_name_refuses(name, bad):
         ("a.mkv", "MY TAG"),
         ("a.m4a", "iTunNORM"),
         ("a.flac", "REPLAYGAIN_TRACK_GAIN"),
-        ("a.avi", "mood"),
+        ("a.flv", "mood"),
         ("a.jpg", "XMP-dc:Source"),
         ("a.jpg", "IFD0:Make"),
         ("a.jpg", "GPS:GPSLatitude"),

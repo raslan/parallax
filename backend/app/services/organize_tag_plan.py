@@ -60,14 +60,36 @@ _FAMILY_BY_EXT: dict[str, Family] = {
     ".mp3": "id3",
     **dict.fromkeys((".flac", ".ogg", ".oga", ".opus"), "vorbis"),
     **dict.fromkeys((".mp4", ".m4v", ".m4a", ".m4b", ".mov", ".3gp"), "mp4"),
-    **dict.fromkeys(
-        (".avi", ".ts", ".m2ts", ".mts", ".flv", ".wmv", ".asf", ".mpg", ".mpeg", ".ogv")
-        + (".wav", ".aif", ".aiff", ".wma"),
-        "ffmpeg",
-    ),
+    **dict.fromkeys((".avi", ".flv", ".wmv", ".wma", ".wav", ".aif", ".aiff"), "ffmpeg"),
 }
 
 FFMPEG_NOTE = "Other tags in this format may not survive the rewrite."
+
+# What an ffmpeg stream-copy rewrite keeps, per container, measured with the same reader
+# the page uses (mpeg-ps and mpeg-ts keep nothing, so those stay read-only). wmv/wma
+# fold a description into the comment, so only Comment is offered there.
+_ALL = MEDIA_FIELDS
+_NO_DESC = tuple(f for f in MEDIA_FIELDS if f != "description")
+FFMPEG_FIELDS: dict[str, tuple[str, ...]] = {
+    ".avi": ("title", "comment", "artist", "genre", "date", "track"),
+    ".flv": _ALL,
+    ".wmv": _NO_DESC,
+    ".wma": _NO_DESC,
+    ".wav": ("title", "comment", "artist", "album", "genre", "date", "track"),
+    ".aif": ("title", "comment"),
+    ".aiff": ("title", "comment"),
+}
+# Containers whose tags are open-ended (any name); the rest only have fixed fields.
+FFMPEG_RAW_EXTS = frozenset({".flv", ".wmv", ".wma"})
+FFMPEG_FORMATS: dict[str, str] = {
+    ".avi": "avi",
+    ".flv": "flv",
+    ".wmv": "asf",
+    ".wma": "asf",
+    ".wav": "wav",
+    ".aif": "aiff",
+    ".aiff": "aiff",
+}
 
 # Canonical field -> the container's own tag. Each row is confirmed by a round trip through
 # ffprobe in the writer tests; a wrong row fails there, not here.
@@ -208,6 +230,8 @@ def validate_raw_name(path: str, name: str) -> str | None:
     if any(ord(c) < 32 or ord(c) == 127 for c in name):
         return "A tag name can't contain line breaks or control characters."
     family = family_of(path)
+    if family == "ffmpeg" and os.path.splitext(path)[1].lower() not in FFMPEG_RAW_EXTS:
+        return "This format has fixed fields only: other tag names can't be added."
     if family == "image":
         if not IMAGE_RAW_NAME.match(name):
             return "Use a name like XMP-dc:Source or IFD0:Make (EXIF, IPTC, XMP and GPS tags only)."
@@ -373,19 +397,23 @@ def plan_one(path: str) -> WritePlan:
         return _refused(
             "This file has other hard links; rewriting it would break them, so it is not edited."
         )
+    ext = os.path.splitext(path)[1].lower()
     base = IMAGE_FIELDS if family == "image" else MEDIA_FIELDS
     if family == "vorbis":
         # ffprobe reads a Vorbis DESCRIPTION as the comment, so the two are one slot.
         base = tuple(f for f in base if f != "description")
-    fields = [*base, *(RAW_PREFIX + n for n in raw_names(path, family))]
+    elif family == "ffmpeg":
+        base = FFMPEG_FIELDS[ext]
+    raw_ok = family != "ffmpeg" or ext in FFMPEG_RAW_EXTS
+    raw = [RAW_PREFIX + n for n in raw_names(path, family)] if raw_ok else []
     return WritePlan(
         writable=True,
         how="in_place" if in_place else "rewrite",
         reason=None,
-        fields=fields,
+        fields=[*base, *raw],
         bytes_needed=0 if in_place else st.st_size,
         note=FFMPEG_NOTE if family == "ffmpeg" else None,
-        can_add_raw=True,
+        can_add_raw=raw_ok,
     )
 
 

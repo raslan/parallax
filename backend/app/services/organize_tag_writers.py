@@ -7,6 +7,7 @@ is named and raise ``WriteError`` with a user-facing message. Tag text never goe
 Callers must have sandboxed paths already. Blocking: call via a threadpool.
 """
 
+import contextlib
 import copy
 import json
 import logging
@@ -19,6 +20,8 @@ from dataclasses import dataclass
 
 from app.services import organize_tags
 from app.services.organize_tag_plan import (
+    FFMPEG_FIELDS,
+    FFMPEG_FORMATS,
     ID3_EXTRA,
     ID3_FRAMES,
     MKV_NAMES,
@@ -486,6 +489,39 @@ def _image_args(changes: dict[str, str | None]) -> list[str]:
     if uses_iptc:
         args += ["-IPTC:CodedCharacterSet=UTF8"]
     return args
+
+
+def edit_with_ffmpeg(src: str, dest: str, changes: dict[str, str | None]) -> None:
+    """Write ``dest`` as a stream copy of ``src`` with ``changes`` applied (an empty value
+    removes a tag). Only for the few containers nothing else writes; it keeps just what
+    ffmpeg models, which ``apply_one`` re-reads and checks. ``dest`` is a hidden temp."""
+    ext = os.path.splitext(src)[1].lower()
+    fields = FFMPEG_FIELDS.get(ext)
+    if fields is None:
+        raise WriteError("This format can't be edited here.")
+    _check_raw_names(src, changes)
+    meta: list[str] = []
+    for key, value in changes.items():
+        if key.startswith(RAW_PREFIX):
+            name = key[len(RAW_PREFIX) :]
+        elif key in fields:
+            name = key
+        else:
+            raise WriteError(f"{label_of(key)} can't be stored in this format.")
+        meta += ["-metadata", f"{name}={'' if value is None else value}"]
+    cmd = [
+        "ffmpeg", "-v", "error", "-nostdin", "-y",
+        "-i", os.path.abspath(src),
+        "-map", "0", "-c", "copy", "-map_metadata", "0", "-map_chapters", "0",
+        *meta,
+        "-f", FFMPEG_FORMATS[ext], os.path.abspath(dest),
+    ]  # fmt: skip
+    try:
+        _run_tool(cmd)
+    except WriteError:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(dest)
+        raise
 
 
 def write_image(path: str, changes: dict[str, str | None]) -> None:
