@@ -216,19 +216,32 @@ def validate_raw_name(path: str, name: str) -> str | None:
     return None
 
 
+MKV_UID_TARGETS = ("TrackUID", "EditionUID", "ChapterUID", "AttachmentUID")
+
+
+def is_global_tag(tag: ET.Element) -> bool:
+    """A Matroska ``<Tag>`` that applies to the whole file (no track, chapter, edition or
+    attachment target): the only ones Organize ever edits."""
+    return not any(tag.find(f"Targets/{uid}") is not None for uid in MKV_UID_TARGETS)
+
+
+def mkv_tags_root(path: str) -> ET.Element | None:
+    """The file's tags as ``mkvextract`` prints them, parsed from bytes (the output starts
+    with a byte-order mark), or None when the file has none. Raises OSError,
+    SubprocessError or ParseError; callers decide what a failure means."""
+    done = subprocess.run(
+        ["mkvextract", "tags", path], capture_output=True, timeout=30, check=False
+    )
+    return ET.fromstring(done.stdout) if done.stdout.strip() else None
+
+
 def _mkv_global_names(path: str) -> list[str]:
-    try:
-        done = subprocess.run(
-            ["mkvextract", "tags", path], capture_output=True, text=True, timeout=30, check=False
-        )
-        root = ET.fromstring(done.stdout) if done.stdout.strip() else None
-    except (OSError, subprocess.SubprocessError, ET.ParseError):
-        return []
+    root = mkv_tags_root(path)
     if root is None:
         return []
     names: list[str] = []
     for tag in root.findall("Tag"):
-        if tag.find("Targets/TrackUID") is not None:
+        if not is_global_tag(tag):
             continue  # per-track tags are never touched
         for simple in tag.findall("Simple"):
             name = (simple.findtext("Name") or "").strip()

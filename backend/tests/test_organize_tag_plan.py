@@ -152,6 +152,24 @@ def test_plan_includes_existing_raw_tags_as_fields(tmp_path):
     assert "raw:title" not in out.fields  # canonical names are never raw fields
 
 
+@needs_ffmpeg
+@needs_mkvtoolnix
+def test_plan_mkv_lists_global_raw_tags_but_not_per_track_ones(tmp_path):
+    p = tmp_path / "a.mkv"
+    subprocess.run(
+        [
+            "ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=d=1:s=64x64:r=10",
+            "-c:v", "mpeg4", "-metadata", "MOOD=calm", "-metadata", "title=T",
+            "-metadata:s:v:0", "TRACKONLY=x", str(p),
+        ],
+        check=True,
+    )  # fmt: skip
+    out = plan.plan_one(str(p))
+    assert "raw:MOOD" in out.fields
+    assert "raw:TRACKONLY" not in out.fields
+    assert "raw:title" not in out.fields
+
+
 def test_plan_hidden_symlink_missing_are_not_writable(tmp_path):
     hidden = tmp_path / ".a.mp3"
     hidden.write_bytes(b"x")
