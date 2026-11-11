@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 
 class DuplicateCriteriaRequest(BaseModel):
@@ -503,6 +503,64 @@ class OrganizeTagInfo(BaseModel):
 
 class OrganizeTagsResult(BaseModel):
     tags: dict[str, OrganizeTagInfo | None]
+
+
+# A canonical field, ``gps`` (images, clear only), or ``raw:<tag name>`` for any other tag.
+_TAG_FIELD = (
+    r"^(?:title|description|synopsis|comment|artist|album|album_artist|genre|date|track"
+    r"|copyright|keywords|gps|raw:.{1,100})$"
+)
+# 30,000 characters keeps one value inside the operating system's per-argument limit.
+_TAG_VALUE_MAX = 30_000
+
+
+class OrganizeTagsPlanBody(BaseModel):
+    paths: list[str]
+
+
+class OrganizeTagPlan(BaseModel):
+    # Whether the file's tags can be written, and how: in place, or by rewriting a copy.
+    writable: bool
+    how: Literal["in_place", "rewrite"] | None
+    # Why not, when it cannot be written.
+    reason: str | None
+    # Canonical fields (and ``raw:<name>`` tags the file already has) that can be edited.
+    fields: list[str]
+    # Free space a rewrite needs next to the file (0 in place).
+    bytes_needed: int
+    # A caution to show beside how it is written, e.g. that some tags may not survive.
+    note: str | None
+    # Whether any other tag name can be added to this file.
+    can_add_raw: bool
+
+
+class OrganizeTagsPlanResult(BaseModel):
+    plans: dict[str, OrganizeTagPlan]
+    # Free bytes on the folder of each file that exists.
+    free_bytes: dict[str, int]
+
+
+class OrganizeTagEdit(BaseModel):
+    path: str
+    # Field -> new value; null clears it.
+    set: dict[
+        Annotated[str, StringConstraints(pattern=_TAG_FIELD)],
+        Annotated[str, StringConstraints(max_length=_TAG_VALUE_MAX)] | None,
+    ]
+
+
+class OrganizeTagsApplyBody(BaseModel):
+    items: list[OrganizeTagEdit] = Field(max_length=20)
+
+
+class OrganizeTagResult(BaseModel):
+    status: Literal["written", "failed"]
+    # What went wrong, in plain words; empty when written.
+    message: str
+
+
+class OrganizeTagsApplyResult(BaseModel):
+    results: dict[str, OrganizeTagResult]
 
 
 class OrganizeDetailsResult(BaseModel):

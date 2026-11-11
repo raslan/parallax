@@ -2376,6 +2376,86 @@
         }
       }
     },
+    "/api/organize/tags/plan": {
+      "post": {
+        "tags": ["organize"],
+        "summary": "Plan Tags",
+        "description": "For each file: can its tags be written, how (in place or by rewriting a copy), why\nnot, and how much free space a rewrite needs. The review step shows exactly this.",
+        "operationId": "plan_tags_api_organize_tags_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizeTagsPlanBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeTagsPlanResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/organize/tags/apply": {
+      "post": {
+        "tags": ["organize"],
+        "summary": "Apply Tags",
+        "description": "Write tag edits into files, one result per file. A file that cannot be written fails\non its own; the rest still apply. Every edit was reviewed first in the page, and there is\nno undo: the original file is replaced once the result has been re-read and checked.",
+        "operationId": "apply_tags_api_organize_tags_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizeTagsApplyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeTagsApplyResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/organize/thumbnail": {
       "get": {
         "tags": ["organize"],
@@ -9194,6 +9274,34 @@
         "required": ["name", "path", "direct", "total"],
         "title": "OrganizeSubfolder"
       },
+      "OrganizeTagEdit": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "set": {
+            "patternProperties": {
+              "^(?:title|description|synopsis|comment|artist|album|album_artist|genre|date|track|copyright|keywords|gps|raw:.{1,100})$": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 30000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "title": "Set"
+          }
+        },
+        "type": "object",
+        "required": ["path", "set"],
+        "title": "OrganizeTagEdit"
+      },
       "OrganizeTagInfo": {
         "properties": {
           "fields": {
@@ -9226,6 +9334,111 @@
         "required": ["fields", "raw", "streams", "truncated"],
         "title": "OrganizeTagInfo"
       },
+      "OrganizeTagPlan": {
+        "properties": {
+          "writable": {
+            "type": "boolean",
+            "title": "Writable"
+          },
+          "how": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["in_place", "rewrite"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "How"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fields"
+          },
+          "bytes_needed": {
+            "type": "integer",
+            "title": "Bytes Needed"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "can_add_raw": {
+            "type": "boolean",
+            "title": "Can Add Raw"
+          }
+        },
+        "type": "object",
+        "required": ["writable", "how", "reason", "fields", "bytes_needed", "note", "can_add_raw"],
+        "title": "OrganizeTagPlan"
+      },
+      "OrganizeTagResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["written", "failed"],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": ["status", "message"],
+        "title": "OrganizeTagResult"
+      },
+      "OrganizeTagsApplyBody": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizeTagEdit"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["items"],
+        "title": "OrganizeTagsApplyBody"
+      },
+      "OrganizeTagsApplyResult": {
+        "properties": {
+          "results": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/OrganizeTagResult"
+            },
+            "type": "object",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": ["results"],
+        "title": "OrganizeTagsApplyResult"
+      },
       "OrganizeTagsBody": {
         "properties": {
           "paths": {
@@ -9244,6 +9457,41 @@
         "type": "object",
         "required": ["paths"],
         "title": "OrganizeTagsBody"
+      },
+      "OrganizeTagsPlanBody": {
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paths"
+          }
+        },
+        "type": "object",
+        "required": ["paths"],
+        "title": "OrganizeTagsPlanBody"
+      },
+      "OrganizeTagsPlanResult": {
+        "properties": {
+          "plans": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/OrganizeTagPlan"
+            },
+            "type": "object",
+            "title": "Plans"
+          },
+          "free_bytes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Free Bytes"
+          }
+        },
+        "type": "object",
+        "required": ["plans", "free_bytes"],
+        "title": "OrganizeTagsPlanResult"
       },
       "OrganizeTagsResult": {
         "properties": {

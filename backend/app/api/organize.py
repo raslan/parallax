@@ -1,5 +1,7 @@
 import contextlib
+import dataclasses
 import os
+import shutil
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
@@ -26,10 +28,24 @@ from app.schemas import (
     OrganizeRootBody,
     OrganizeScanState,
     OrganizeStreamBody,
+    OrganizeTagPlan,
+    OrganizeTagResult,
+    OrganizeTagsApplyBody,
+    OrganizeTagsApplyResult,
     OrganizeTagsBody,
+    OrganizeTagsPlanBody,
+    OrganizeTagsPlanResult,
     OrganizeTagsResult,
 )
-from app.services import organize_files, organize_scan, organize_tags, stream_cache
+from app.services import (
+    organize_files,
+    organize_scan,
+    organize_tag_plan,
+    organize_tag_sync,
+    organize_tag_write,
+    organize_tags,
+    stream_cache,
+)
 from app.services.organize_sandbox import (
     DeleteFailed,
     FolderNotEmpty,
@@ -166,6 +182,51 @@ def read_tags(body: OrganizeTagsBody, db: Session = Depends(get_db)):
         with contextlib.suppress(PathNotFound):  # a file that vanished just comes back null
             resolve_inside(root, p)
     return OrganizeTagsResult(tags=organize_tags.get_tags(paths, body.full))
+
+
+@router.post("/tags/plan", response_model=OrganizeTagsPlanResult)
+def plan_tags(body: OrganizeTagsPlanBody, db: Session = Depends(get_db)):
+    """For each file: can its tags be written, how (in place or by rewriting a copy), why
+    not, and how much free space a rewrite needs. The review step shows exactly this."""
+    if len(body.paths) > _MAX_DETAILS:
+        raise HTTPException(400, f"At most {_MAX_DETAILS} paths per request")
+    root = get_root(db)
+    paths = list(dict.fromkeys(body.paths))
+    for p in paths:
+        with contextlib.suppress(PathNotFound):  # a vanished file is reported as not writable
+            resolve_inside(root, p)
+    plans = {p: OrganizeTagPlan(**dataclasses.asdict(organize_tag_plan.plan_one(p))) for p in paths}
+    free: dict[str, int] = {}
+    for folder in {os.path.dirname(p) for p in paths}:
+        with contextlib.suppress(OSError):  # a folder that vanished has no free space to report
+            free[folder] = shutil.disk_usage(folder).free
+    return OrganizeTagsPlanResult(plans=plans, free_bytes=free)
+
+
+@router.post("/tags/apply", response_model=OrganizeTagsApplyResult)
+def apply_tags(body: OrganizeTagsApplyBody, db: Session = Depends(get_db)):
+    """Write tag edits into files, one result per file. A file that cannot be written fails
+    on its own; the rest still apply. Every edit was reviewed first in the page, and there is
+    no undo: the original file is replaced once the result has been re-read and checked."""
+    root = get_root(db)
+    paths = [item.path for item in body.items]
+    if len(set(paths)) != len(paths):
+        raise HTTPException(400, "Each file can be named once per request")
+    missing: set[str] = set()
+    for p in paths:
+        try:
+            resolve_inside(root, p)  # 403/400 reject the whole request before anything is written
+        except PathNotFound:
+            missing.add(p)
+    results: dict[str, OrganizeTagResult] = {}
+    for item in body.items:
+        if item.path in missing:
+            results[item.path] = OrganizeTagResult(status="failed", message="File not found")
+            continue
+        done = organize_tag_write.apply_one(item.path, item.set)
+        results[item.path] = OrganizeTagResult(status=done.status, message=done.message)
+    organize_tag_sync.refresh_libraries([p for p, r in results.items() if r.status == "written"])
+    return OrganizeTagsApplyResult(results=results)
 
 
 def _servable(db: Session, path: str) -> str:
