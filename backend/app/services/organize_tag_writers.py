@@ -11,11 +11,13 @@ import copy
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
+from app.services import organize_tags
 from app.services.organize_tag_plan import (
     ID3_EXTRA,
     ID3_FRAMES,
@@ -395,3 +397,100 @@ def edit_with_mutagen(path: str, changes: dict[str, str | None]) -> None:
         raise WriteError(
             "The tags could not be written: the file's tag data could not be saved."
         ) from e
+
+
+# --- Images: exiftool, EXIF + XMP + IPTC written together --------------------------------
+
+# The tags each canonical field is written to are exactly the ones the reader reads, so a
+# write is always visible to it (and a clear can't be hidden behind a stale copy).
+_IMAGE_TARGETS: dict[str, tuple[str, ...]] = organize_tags._IMAGE_ALIASES
+# IPTC holds only short values (bytes); exiftool would silently cut a longer one, so an
+# over-long value clears that IPTC copy instead and the XMP/EXIF copies carry it.
+_IPTC_LIMITS = {
+    "IPTC:ObjectName": 64,
+    "IPTC:Caption-Abstract": 2000,
+    "IPTC:By-line": 32,
+    "IPTC:CopyrightNotice": 128,
+    "IPTC:Keywords": 64,  # per keyword
+}
+_DATE = re.compile(r"^(\d{4})[-:/.](\d{2})[-:/.](\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$")
+
+
+def _exif_date(value: str) -> str:
+    match = _DATE.match(value.strip())
+    if not match:
+        raise WriteError("Date must look like 2020-05-01 or 2020-05-01 10:30:00.")
+    y, mo, d, h, mi, s = match.groups()
+    return f"{y}:{mo}:{d} {h or '00'}:{mi or '00'}:{s or '00'}"
+
+
+def _run_exiftool(args: list[str]) -> None:
+    """Run exiftool with ``args``; an ``Error:`` line or a file it could not update is a
+    failure (warnings are not: formats without IPTC or EXIF simply skip those copies)."""
+    try:
+        done = subprocess.run(
+            ["exiftool", *args],
+            capture_output=True,
+            text=True,
+            timeout=_TOOL_TIMEOUT_S,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.warning("exiftool could not run: %s", type(e).__name__)
+        raise WriteError("The tags could not be written: a required tool could not run.") from e
+    failed = "weren't updated due to errors" in done.stdout or any(
+        line.startswith("Error:") for line in done.stderr.splitlines()
+    )
+    if failed:
+        logger.warning("exiftool reported an error writing a file")
+        raise WriteError("The tags could not be written: the file's format refused the change.")
+
+
+def _image_args(changes: dict[str, str | None]) -> list[str]:
+    args: list[str] = []
+    uses_iptc = False
+
+    def put(tag: str, value: str | None) -> None:
+        nonlocal uses_iptc
+        if tag.startswith("IPTC:") and value is not None:
+            limit = _IPTC_LIMITS.get(tag)
+            if limit is not None and len(value.encode("utf-8")) > limit:
+                value = None  # too long for IPTC: clear its copy rather than keep a stale one
+            else:
+                uses_iptc = True
+        args.append(f"-{tag}={'' if value is None else value}")
+
+    for key, value in changes.items():
+        if key == "gps":
+            if value is not None:
+                raise WriteError("GPS can only be cleared.")
+            args += ["-gps:all=", "-XMP-exif:GPS*="]
+        elif key.startswith(RAW_PREFIX):
+            put(key[len(RAW_PREFIX) :], value)
+        elif key == "keywords":
+            items = [] if value is None else [k.strip() for k in value.split(",") if k.strip()]
+            for tag in _IMAGE_TARGETS[key]:
+                put(tag, None)  # the list is rebuilt from scratch
+                for item in items:
+                    limit = _IPTC_LIMITS.get(tag)
+                    if limit is not None and len(item.encode("utf-8")) > limit:
+                        continue
+                    args.append(f"-{tag}+={item}")
+                    uses_iptc = uses_iptc or tag.startswith("IPTC:")
+        elif key in _IMAGE_TARGETS:
+            text = _exif_date(value) if key == "date" and value is not None else value
+            for tag in _IMAGE_TARGETS[key]:
+                put(tag, text)
+        else:
+            raise _unsupported(key)
+    if uses_iptc:
+        args += ["-IPTC:CodedCharacterSet=UTF8"]
+    return args
+
+
+def write_image(path: str, changes: dict[str, str | None]) -> None:
+    """Edit an image's tags in place with exiftool (it rewrites the small file through its
+    own temp and leaves no ``_original``). ``apply_one`` calls this on a hidden temp copy."""
+    _check_raw_names(path, changes)
+    args = _image_args(changes)  # validates everything before exiftool runs
+    _run_exiftool(["-overwrite_original", "-P", "-charset", "iptc=utf8", *args, "--", path])
