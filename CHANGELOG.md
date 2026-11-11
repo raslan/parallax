@@ -3,6 +3,35 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [4.1.0](https://github.com/raslan/parallax/compare/v4.0.2...v4.1.0) (2026-11-10)
+
+
+### Features
+
+* add query builder filters to merge tab on splice ([8207b4b](https://github.com/raslan/parallax/commit/8207b4b0fffe5f547b1725f9a57ee6bfd780203a))
+* **auth:** add reset-password command ([1539544](https://github.com/raslan/parallax/commit/1539544ed0e227945c0a38d30e69994969f8d534))
+* **auth:** add user and session models with scrypt service ([f2d9e29](https://github.com/raslan/parallax/commit/f2d9e296d2233fe9e46629c4df5325fec3ed5470))
+* **auth:** add user menu and account settings card ([0fc86ef](https://github.com/raslan/parallax/commit/0fc86ef592c276ec80e3d086ec4cd95c06b242b6))
+* **auth:** gate the app behind a themed login and setup page ([7c3f962](https://github.com/raslan/parallax/commit/7c3f9622ded4deaec076c85db834febbdcd00621))
+* **auth:** link to the account card, current password first ([39ed7c8](https://github.com/raslan/parallax/commit/39ed7c86b30f3bf7ea81a2221f1bd06d91c57b88))
+* **auth:** protect every endpoint behind a session cookie ([f3a5101](https://github.com/raslan/parallax/commit/f3a5101ad0f585c7982945e00c0c599643340853))
+* **duplicates:** pick the keeper by quality and keep hand-made ticks ([4967e62](https://github.com/raslan/parallax/commit/4967e62a042f8ca79daf4e3d7e28e63da82fc7bb))
+* **duplicates:** replace audio fingerprint with shared audio matching ([323dd0e](https://github.com/raslan/parallax/commit/323dd0ef0aacad4720f0f75fc848ad383193e5f2))
+
+
+### Bug Fixes
+
+* **auth:** end a live stream when its session is revoked ([58d35cd](https://github.com/raslan/parallax/commit/58d35cdb98aad5434b217343356518562c495e51))
+* **auth:** explain the Host header requirement behind a reverse proxy ([89a5e1d](https://github.com/raslan/parallax/commit/89a5e1dc7f9b869f4650b45b0bbe29765cc4251e))
+* **auth:** judge cross-site posts by Sec-Fetch-Site, not Host ([3666212](https://github.com/raslan/parallax/commit/36662121aafd8f2b1c80bdcee0143ca431f128ee))
+* **auth:** loosen the login throttle and move the error below the button ([9e94e37](https://github.com/raslan/parallax/commit/9e94e377d23a9eed42b5267696a2bbbabd90f9df))
+* **auth:** refuse non-JSON cross-page posts, tidy review findings ([6baaa92](https://github.com/raslan/parallax/commit/6baaa92c0014b1dab0d2c2439ab8a126ca054e60))
+* **auth:** slide the cookie and throttle password checks ([2eb5be5](https://github.com/raslan/parallax/commit/2eb5be53a07fed1b5775c59da3c7dc3b528605d3))
+* **libraries:** no overlaps, no backup overwrites, per-kind job cancel ([7ee24ce](https://github.com/raslan/parallax/commit/7ee24cee7c42f372378940f2bea443f37105a3cb))
+* **originals:** reject .. paths and match restore rows exactly ([8cf46cd](https://github.com/raslan/parallax/commit/8cf46cddd353a27b0c0d4e3a10c15ad92e5e3a03))
+* **scanner:** fail a scan of a missing folder, fix image reset and fps ([e26adf6](https://github.com/raslan/parallax/commit/e26adf682f698718f7cfa1338af3be70a607a6e0))
+* **watcher:** skip libraries with a missing folder, isolate bad files ([da9d238](https://github.com/raslan/parallax/commit/da9d23823693056eec31c0bc4d2236cf9f236fb6))
+
 ## [4.0.2](https://github.com/raslan/parallax/compare/v4.0.1...v4.0.2) (2026-11-06)
 
 
