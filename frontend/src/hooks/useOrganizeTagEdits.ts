@@ -183,7 +183,7 @@ export function useOrganizeTagEdits({
       let planMap: Record<string, TagPlan>;
       try {
         planMap = (
-          await qc.fetchQuery({
+          await qc.query({
             queryKey: qk.organizeTagPlan(selectedPaths),
             queryFn: () => loadPlans(selectedPaths),
             staleTime: PLAN_STALE_MS,
