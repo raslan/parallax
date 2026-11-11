@@ -21,7 +21,7 @@ from PIL import Image
 from app.database import SessionLocal
 from app.models.image import ImageFile
 from app.models.job import Job, JobStatus
-from app.services import fs_watcher, upscale_plan, upscale_runtime
+from app.services import file_props, fs_watcher, upscale_plan, upscale_runtime
 from app.services.common import (
     apply_lock,
     arm_cancel,
@@ -158,6 +158,7 @@ def _replace_original(src: _Source, tmp: str, keep_original: bool) -> str:
             row = db.get(ImageFile, src.id)
             if row is None and keep_original:
                 raise RuntimeError("the original is no longer in the library")
+            file_props.copy_props(src.path, tmp)  # dates, permissions, xattrs of the original
             quarantined_to = move_to_quarantine(row) if keep_original else None
             try:
                 shutil.move(tmp, src.path)

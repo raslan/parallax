@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 from app.database import SessionLocal
 from app.models.job import Job, JobStatus
+from app.services import file_props
 from app.services.common import (
     arm_cancel,
     clear_cancel,
@@ -514,6 +515,7 @@ def _toolbox_fix_one(
             if gpu is not None and pool:
                 pool.release(gpu)
 
+        file_props.copy_props(src, tmp)  # keep dates, mode, xattrs: not a "new" file to other apps
         if keep_original:
             originals_dir = os.path.join(os.path.dirname(src), "_originals")
             os.makedirs(originals_dir, exist_ok=True)

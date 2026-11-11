@@ -9,6 +9,7 @@ import sys
 import urllib.request
 
 from app.database import DATA_DIR
+from app.services import file_props
 from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ def sync_alass(video_path: str, sub_path: str) -> bool:
     tmp_out = _sync_tmp_path(sub_path)
     try:
         _run_synced([bin_path, video_path, sub_path, tmp_out], "alass", tmp_out)
+        file_props.copy_props(sub_path, tmp_out)
         os.replace(tmp_out, sub_path)
         return True
     finally:
@@ -87,6 +89,7 @@ def sync_ffsubsync(video_path: str, sub_path: str) -> bool:
             "ffsubsync",
             tmp_out,
         )
+        file_props.copy_props(sub_path, tmp_out)
         os.replace(tmp_out, sub_path)
         return True
     finally:

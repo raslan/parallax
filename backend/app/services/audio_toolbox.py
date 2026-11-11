@@ -21,7 +21,7 @@ from app.database import SessionLocal
 from app.models.audio_file import AudioFile
 from app.models.job import Job, JobStatus
 from app.models.settings import get_setting
-from app.services import audio_scanner
+from app.services import audio_scanner, file_props
 from app.services.audio_compressor import _has_encoder
 from app.services.common import (
     arm_cancel,
@@ -289,6 +289,7 @@ def _toolbox_fix_one(
             return False, stderr_text or f"ffmpeg exit {proc.returncode}"
         _safe_remove(err_path)
 
+        file_props.copy_props(src, tmp)  # keep dates, mode, xattrs: not a "new" file to other apps
         if keep_original:
             originals_dir = os.path.join(os.path.dirname(src), "_originals")
             os.makedirs(originals_dir, exist_ok=True)

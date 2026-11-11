@@ -14,15 +14,14 @@ import contextlib
 import logging
 import os
 import shutil
-import stat
 import subprocess
 import threading
 import time
 from dataclasses import dataclass
 from typing import Literal
 
+from app.services import file_props, organize_tags
 from app.services import organize_tag_writers as writers
-from app.services import organize_tags
 from app.services.organize_tag_plan import (
     RAW_PREFIX,
     WritePlan,
@@ -285,10 +284,7 @@ def _apply_rewrite(
         now = os.stat(path)
         if (now.st_ino, now.st_size, now.st_mtime_ns) != (st.st_ino, st.st_size, st.st_mtime_ns):
             return _failed("The file changed while it was being edited, so nothing was written.")
-        os.utime(tmp, ns=(st.st_atime_ns, st.st_mtime_ns))
-        os.chmod(tmp, stat.S_IMODE(st.st_mode))
-        with contextlib.suppress(OSError):  # ownership is best effort (not root, other owner)
-            os.chown(tmp, st.st_uid, st.st_gid)
+        file_props.copy_props(path, tmp)  # times, mode, owner, extended attributes: best effort
         os.replace(tmp, path)
         return ApplyResult("written")
     finally:
