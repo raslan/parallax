@@ -94,17 +94,18 @@ ID3_FRAMES: dict[str, str] = {
     "description": "TXXX:DESCRIPTION",
     "synopsis": "TXXX:SYNOPSIS",
 }
-VORBIS_NAMES: dict[str, str] = {
-    "title": "TITLE",
-    "artist": "ARTIST",
-    "album": "ALBUM",
-    "album_artist": "ALBUMARTIST",
-    "genre": "GENRE",
-    "date": "DATE",
-    "track": "TRACKNUMBER",
-    "comment": "COMMENT",
-    "description": "DESCRIPTION",
-    "synopsis": "SYNOPSIS",
+VORBIS_NAMES: dict[str, tuple[str, ...]] = {
+    "title": ("TITLE",),
+    "artist": ("ARTIST",),
+    "album": ("ALBUM",),
+    "album_artist": ("ALBUMARTIST",),
+    "genre": ("GENRE",),
+    "date": ("DATE",),
+    "track": ("TRACKNUMBER",),
+    # ffprobe reads DESCRIPTION as "comment", so one slot is written to both names and there
+    # is no separate description field for Vorbis files.
+    "comment": ("COMMENT", "DESCRIPTION"),
+    "synopsis": ("SYNOPSIS",),
 }
 MP4_ATOMS: dict[str, str] = {
     "title": "\xa9nam",
@@ -151,6 +152,11 @@ IMAGE_RAW_NAME = re.compile(r"^(?:IFD0|ExifIFD|GPS|IPTC|XMP[A-Za-z0-9-]*):[A-Za-
 _IMAGE_CANONICAL_SOURCES = frozenset(
     name for aliases in organize_tags._IMAGE_ALIASES.values() for name in aliases
 )
+
+
+def aliases_of(field: str) -> frozenset[str]:
+    """Every lower-case name a tool may store the canonical ``field`` under."""
+    return frozenset(alias for alias, owner in CANONICAL_ALIASES.items() if owner == field)
 
 
 def label_of(field: str) -> str:
@@ -207,6 +213,8 @@ def validate_raw_name(path: str, name: str) -> str | None:
             return "Use a name like XMP-dc:Source or IFD0:Make (EXIF, IPTC, XMP and GPS tags only)."
         return None
     field = CANONICAL_ALIASES.get(name.lower())
+    if field == "description" and family == "vorbis":
+        field = "comment"  # one slot in Vorbis files
     if field is not None:
         return f"{label_of(field)} is a standard field: use the {label_of(field)} field instead."
     if family == "vorbis" and ("=" in name or any(not 0x20 <= ord(c) <= 0x7D for c in name)):
@@ -366,6 +374,9 @@ def plan_one(path: str) -> WritePlan:
             "This file has other hard links; rewriting it would break them, so it is not edited."
         )
     base = IMAGE_FIELDS if family == "image" else MEDIA_FIELDS
+    if family == "vorbis":
+        # ffprobe reads a Vorbis DESCRIPTION as the comment, so the two are one slot.
+        base = tuple(f for f in base if f != "description")
     fields = [*base, *(RAW_PREFIX + n for n in raw_names(path, family))]
     return WritePlan(
         writable=True,

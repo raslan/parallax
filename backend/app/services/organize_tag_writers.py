@@ -17,11 +17,20 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
 from app.services.organize_tag_plan import (
+    ID3_EXTRA,
+    ID3_FRAMES,
     MKV_NAMES,
+    MP4_ATOMS,
+    MP4_EXTRA,
+    MP4_FREEFORM_MEAN,
     RAW_PREFIX,
+    VORBIS_NAMES,
+    aliases_of,
+    family_of,
     is_global_tag,
     label_of,
     mkv_tags_root,
+    validate_raw_name,
 )
 
 logger = logging.getLogger(__name__)
@@ -235,3 +244,154 @@ def write_mkv(path: str, changes: dict[str, str | None]) -> MkvSnapshot:
         ) from error
     _preserve_times(path, before)
     return snapshot
+
+
+# --- Audio and the mp4 family: mutagen, editing only the named frames/atoms -------------
+
+
+def _check_raw_names(path: str, changes: dict[str, str | None]) -> None:
+    for key in changes:
+        if key.startswith(RAW_PREFIX):
+            message = validate_raw_name(path, key[len(RAW_PREFIX) :])
+            if message:
+                raise WriteError(message)
+
+
+def _unsupported(key: str) -> WriteError:
+    return WriteError(f"{label_of(key)} can't be stored in this file.")
+
+
+def _id3_target(key: str) -> tuple[str, str | None]:
+    """``(frame id, TXXX description)`` for a change key."""
+    if key.startswith(RAW_PREFIX):
+        name = key[len(RAW_PREFIX) :]
+        extra = ID3_EXTRA.get(name.casefold())
+        return (extra, None) if extra else ("TXXX", name)
+    spec = ID3_FRAMES.get(key)
+    if spec is None:
+        raise _unsupported(key)
+    frame, _, desc = spec.partition(":")
+    return frame, desc or None
+
+
+def _edit_id3(path: str, changes: dict[str, str | None]) -> None:
+    from mutagen import id3
+
+    try:
+        tags = id3.ID3(path)
+    except id3.ID3NoHeaderError:
+        tags = id3.ID3()
+    # Keep the tag's own version: saving a 2.3 tag as 2.4 would rewrite frames nobody touched.
+    version = tags.version[1] if tags.version[1] in (3, 4) else 4
+    for key, value in changes.items():
+        frame, desc = _id3_target(key)
+        # A tool may have stored the field as a custom frame (ffmpeg writes a comment as
+        # TXXX:comment): those spellings are the same tag to the reader, so they go too.
+        stale = set(aliases_of(key))
+        if frame == "TXXX" and desc:
+            stale.add(desc.casefold())
+        for existing in [f for f in tags.getall("TXXX") if f.desc.casefold() in stale]:
+            tags.delall(f"TXXX:{existing.desc}")
+        if frame == "TXXX":
+            if value is not None:
+                tags.add(id3.TXXX(encoding=3, desc=desc, text=[value]))
+        elif frame == "COMM":
+            for existing in [f for f in tags.getall("COMM") if f.desc == ""]:
+                tags.delall(f"COMM:{existing.desc}:{existing.lang}")
+            if value is not None:
+                tags.add(id3.COMM(encoding=3, lang="eng", desc="", text=[value]))
+        else:
+            tags.delall(frame)
+            if value is not None:
+                tags.add(getattr(id3, frame)(encoding=3, text=[value]))
+    tags.save(path, v2_version=version)
+
+
+def _vorbis_names(key: str) -> tuple[str, ...]:
+    if key.startswith(RAW_PREFIX):
+        return (key[len(RAW_PREFIX) :],)
+    if key == "description":
+        raise WriteError(
+            "Vorbis files keep one slot for the comment and the description: use Comment."
+        )
+    names = VORBIS_NAMES.get(key)
+    if names is None:
+        raise _unsupported(key)
+    return names
+
+
+def _edit_vorbis(path: str, changes: dict[str, str | None]) -> None:
+    import mutagen
+
+    audio = mutagen.File(path)
+    if audio is None or not hasattr(audio, "add_tags"):
+        raise WriteError("This file's tags could not be opened.")
+    if audio.tags is None:
+        audio.add_tags()
+    for key, value in changes.items():
+        for name in _vorbis_names(key):
+            if name in audio.tags:  # keys match case-insensitively, every value of it goes
+                del audio.tags[name]
+            if value is not None:
+                audio.tags[name] = [value]
+    audio.save()
+
+
+def _mp4_track(value: str) -> list[tuple[int, int]]:
+    head, _, tail = value.strip().partition("/")
+    if not head.strip().isdigit() or (tail and not tail.strip().isdigit()):
+        raise WriteError("Track must be a number like 3 or 3/12.")
+    return [(int(head), int(tail) if tail else 0)]
+
+
+def _mp4_atom(key: str) -> tuple[str, bool]:
+    """``(atom, is_freeform)`` for a change key."""
+    if key.startswith(RAW_PREFIX):
+        name = key[len(RAW_PREFIX) :]
+        extra = MP4_EXTRA.get(name.casefold())
+        return (extra, False) if extra else (f"----:{MP4_FREEFORM_MEAN}:{name}", True)
+    atom = MP4_ATOMS.get(key)
+    if atom is None:
+        raise _unsupported(key)
+    return atom, False
+
+
+def _edit_mp4(path: str, changes: dict[str, str | None]) -> None:
+    from mutagen.mp4 import MP4, MP4FreeForm
+
+    audio = MP4(path)
+    if audio.tags is None:
+        audio.add_tags()
+    for key, value in changes.items():
+        atom, freeform = _mp4_atom(key)
+        if value is None:
+            audio.tags.pop(atom, None)
+        elif freeform:
+            audio.tags[atom] = [MP4FreeForm(value.encode("utf-8"))]
+        elif atom == "trkn":
+            audio.tags[atom] = _mp4_track(value)
+        else:
+            audio.tags[atom] = [value]
+    audio.save()
+
+
+_MUTAGEN_EDITORS = {"id3": _edit_id3, "vorbis": _edit_vorbis, "mp4": _edit_mp4}
+
+
+def edit_with_mutagen(path: str, changes: dict[str, str | None]) -> None:
+    """Edit ``path`` in place with mutagen, changing only the frames/atoms/comments named.
+    ``apply_one`` calls this on a hidden temp copy, never on the user's file."""
+    family = family_of(path)
+    editor = _MUTAGEN_EDITORS.get(family or "")
+    if editor is None:
+        raise WriteError("This format can't be edited here.")
+    _check_raw_names(path, changes)
+    try:
+        editor(path, changes)
+    except WriteError:
+        raise
+    except Exception as e:  # mutagen raises MutagenError, ValueError, OSError, struct errors
+        logger.warning("mutagen could not edit a file: %s", type(e).__name__)
+        raise WriteError(
+            "The tags could not be written: the file's tag data could not be saved."
+        ) from e

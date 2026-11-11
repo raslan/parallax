@@ -69,7 +69,12 @@ def test_plan_mp4_m4a_mp3_flac_opus_are_rewrite(tmp_path, name):
     assert out.writable and out.how == "rewrite"
     assert out.bytes_needed == os.path.getsize(p)
     assert out.note is None
-    assert out.fields[: len(MEDIA_FIELDS)] == MEDIA_FIELDS
+    expected = MEDIA_FIELDS
+    if name.rsplit(".", 1)[1] in ("flac", "ogg", "opus"):
+        # Vorbis comments have one slot for comment and description: only Comment is offered.
+        expected = [f for f in MEDIA_FIELDS if f != "description"]
+    assert out.fields[: len(expected)] == expected
+    assert ("description" in out.fields) == (expected is MEDIA_FIELDS)
 
 
 @needs_exiftool
