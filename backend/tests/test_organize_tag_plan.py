@@ -211,6 +211,22 @@ def test_plan_mkv_lists_global_raw_tags_but_not_per_track_ones(tmp_path):
     assert "raw:title" not in out.fields
 
 
+@needs_exiftool
+def test_plan_image_raw_fields_leave_out_location_and_canonical_sources(tmp_path):
+    p = _image(tmp_path / "a.jpg")
+    subprocess.run(
+        [
+            "exiftool", "-q", "-overwrite_original", "-GPSLatitude=1", "-GPSLatitudeRef=N",
+            "-IFD0:Make=Cam", "-XMP-dc:Title=T", "-XMP-photoshop:Credit=C", str(p),
+        ],
+        check=True,
+    )  # fmt: skip
+    fields = plan.plan_one(str(p)).fields
+    assert "raw:IFD0:Make" in fields and "raw:XMP-photoshop:Credit" in fields
+    assert not [f for f in fields if f.startswith("raw:GPS:") or "GPS" in f.upper() and f != "gps"]
+    assert "raw:XMP-dc:Title" not in fields
+
+
 def test_plan_hidden_symlink_missing_are_not_writable(tmp_path):
     hidden = tmp_path / ".a.mp3"
     hidden.write_bytes(b"x")
@@ -242,6 +258,21 @@ def test_plan_hidden_symlink_missing_are_not_writable(tmp_path):
         ("a.jpg", "Foo"),
         ("a.jpg", "XMP-dc:Source\n-File:FileName"),
         ("a.jpg", "XMP-dc:So=urce"),
+        # exiftool's "all" pseudo-tag writes or wipes a whole group (Make, Orientation, ...).
+        ("a.jpg", "IFD0:all"),
+        ("a.jpg", "XMP-dc:ALL"),
+        ("a.jpg", "GPS:All"),
+        ("a.jpg", "IPTC:all"),
+        # the tags the canonical fields are written to: use the field, never a split copy
+        ("a.jpg", "XMP-dc:Title"),
+        ("a.jpg", "IPTC:ObjectName"),
+        ("a.jpg", "IFD0:ImageDescription"),
+        ("a.jpg", "XMP-dc:Subject"),
+        ("a.jpg", "IPTC:Keywords"),
+        ("a.jpg", "ExifIFD:DateTimeOriginal"),
+        # a location can be removed, never typed in
+        ("a.jpg", "GPS:GPSLatitude"),
+        ("a.jpg", "XMP-exif:GPSLongitude"),
     ],
 )
 def test_validate_raw_name_refuses(name, bad):
@@ -259,7 +290,6 @@ def test_validate_raw_name_refuses(name, bad):
         ("a.flv", "mood"),
         ("a.jpg", "XMP-dc:Source"),
         ("a.jpg", "IFD0:Make"),
-        ("a.jpg", "GPS:GPSLatitude"),
         ("a.jpg", "IPTC:Source"),
     ],
 )

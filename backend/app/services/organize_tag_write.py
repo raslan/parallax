@@ -17,6 +17,7 @@ import shutil
 import stat
 import subprocess
 import threading
+import time
 from dataclasses import dataclass
 from typing import Literal
 
@@ -186,9 +187,10 @@ def _verify(
             return (
                 f"The file did not read back as expected: {label_of(key.removeprefix(RAW_PREFIX))}."
             )
-    for field, old in before["fields"].items():
+    for field in sorted(set(before["fields"]) | set(after["fields"])):
         if field in staged_fields:
             continue
+        old = before["fields"].get(field, "")  # a field that newly appeared differs from ""
         if _normal(field, after["fields"].get(field, "")) != _normal(field, old):
             return f"The file did not read back as expected: {label_of(field)} changed."
     return None
@@ -221,6 +223,23 @@ def _apply_in_place(
     return _failed(f"{message} The previous tags were restored.")
 
 
+_TEMP_PREFIX = ".parallax-tags-"
+# A rewrite that was killed leaves a full-size hidden temp nothing else would ever remove. One
+# this old cannot belong to an edit still running (it is touched as it is written).
+_STALE_TEMP_AGE_S = 6 * 3600
+
+
+def _sweep_stale_temps(folder: str) -> None:
+    cutoff = time.time() - _STALE_TEMP_AGE_S
+    with contextlib.suppress(OSError):
+        for entry in os.scandir(folder):
+            if not entry.name.startswith(_TEMP_PREFIX) or not entry.is_file(follow_symlinks=False):
+                continue
+            with contextlib.suppress(OSError):
+                if entry.stat(follow_symlinks=False).st_mtime < cutoff:
+                    os.unlink(entry.path)
+
+
 def _apply_rewrite(
     path: str,
     family: str,
@@ -233,6 +252,7 @@ def _apply_rewrite(
     if shutil.disk_usage(folder).free < st.st_size + _FREE_SPACE_MARGIN:
         return _failed(_free_space_message(st.st_size))
     ext = os.path.splitext(name)[1]
+    _sweep_stale_temps(folder)
     tmp = os.path.join(folder, f".parallax-tags-{os.getpid()}-{threading.get_ident()}{ext}")
     try:
         if family == "ffmpeg":
@@ -248,6 +268,11 @@ def _apply_rewrite(
         )
         if message:
             return _failed(message)
+        # Another job (Compress, Toolbox) may have replaced the file while the copy was being
+        # edited: its output must not be replaced by an edited copy of the old bytes.
+        now = os.stat(path)
+        if (now.st_ino, now.st_size, now.st_mtime_ns) != (st.st_ino, st.st_size, st.st_mtime_ns):
+            return _failed("The file changed while it was being edited, so nothing was written.")
         os.utime(tmp, ns=(st.st_atime_ns, st.st_mtime_ns))
         os.chmod(tmp, stat.S_IMODE(st.st_mode))
         with contextlib.suppress(OSError):  # ownership is best effort (not root, other owner)

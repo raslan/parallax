@@ -217,6 +217,26 @@ def test_mkv_bad_xml_never_runs_tool(tmp_path, monkeypatch):
     assert open(p, "rb").read() == original
 
 
+def test_mkv_xml_temp_file_is_removed_even_when_writing_it_fails(tmp_path, monkeypatch):
+    import tempfile
+
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(scratch))
+    real = tempfile.NamedTemporaryFile
+
+    def failing(*a, **k):
+        f = real(*a, **k)
+        f.write = lambda *_a, **_k: (_ for _ in ()).throw(OSError("disk full"))
+        return f
+
+    monkeypatch.setattr(tempfile, "NamedTemporaryFile", failing)
+    p = _mkv(tmp_path / "a.mkv", "artist=A")
+    with pytest.raises((OSError, writers.WriteError)):
+        writers.write_mkv(p, {"artist": "B"})
+    assert list(scratch.iterdir()) == []
+
+
 def test_mkv_restore_puts_back_tags_and_title(tmp_path):
     p = _mkv(tmp_path / "a.mkv", "title=Seg", "artist=A", "comment=c")
     before_tracks, md5 = _track_tags(p), _stream_md5(p)

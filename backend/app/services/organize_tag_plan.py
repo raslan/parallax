@@ -174,6 +174,13 @@ IMAGE_RAW_NAME = re.compile(r"^(?:IFD0|ExifIFD|GPS|IPTC|XMP[A-Za-z0-9-]*):[A-Za-
 _IMAGE_CANONICAL_SOURCES = frozenset(
     name for aliases in organize_tags._IMAGE_ALIASES.values() for name in aliases
 )
+# Lower-case source tag -> the canonical field written to it (editing the tag alone would
+# split the copies the field keeps in step).
+_IMAGE_SOURCE_FIELD = {
+    name.casefold(): field
+    for field, aliases in organize_tags._IMAGE_ALIASES.items()
+    for name in aliases
+}
 
 
 def aliases_of(field: str) -> frozenset[str]:
@@ -235,6 +242,14 @@ def validate_raw_name(path: str, name: str) -> str | None:
     if family == "image":
         if not IMAGE_RAW_NAME.match(name):
             return "Use a name like XMP-dc:Source or IFD0:Make (EXIF, IPTC, XMP and GPS tags only)."
+        group, _, tag = name.partition(":")
+        if tag.casefold() == "all":
+            return "A tag name can't be a whole group."  # exiftool would write or wipe the group
+        field = _IMAGE_SOURCE_FIELD.get(name.casefold())
+        if field is not None:
+            return f"Use the {label_of(field)} field: it writes every place that tag is kept."
+        if group.upper() == "GPS" or tag.upper().startswith("GPS"):
+            return "A location can only be removed, with Clear next to Location."
         return None
     field = CANONICAL_ALIASES.get(name.lower())
     if field == "description" and family == "vorbis":
@@ -351,8 +366,13 @@ def _ffmpeg_names(path: str) -> list[str]:
 
 
 def _image_names(path: str) -> list[str]:
+    # The same rule as validate_raw_name: nothing the canonical fields own, no location.
     return [
-        k for k in _read_raw(path) if k not in _IMAGE_CANONICAL_SOURCES and IMAGE_RAW_NAME.match(k)
+        k
+        for k in _read_raw(path)
+        if k not in _IMAGE_CANONICAL_SOURCES
+        and IMAGE_RAW_NAME.match(k)
+        and validate_raw_name(path, k) is None
     ]
 
 

@@ -291,6 +291,63 @@ def test_apply_stale_temp_from_a_previous_run_does_not_break_it(tmp_path):
 
 
 @needs_ffmpeg
+def test_apply_sweeps_old_stale_temps_but_leaves_young_ones(tmp_path):
+    """A killed server leaves a full-size hidden temp; an hours-old one is removed, but a
+    young one may belong to another edit still running in the folder."""
+    import time
+
+    p = _audio(tmp_path / "a.mp3", "title=Old")
+    old = tmp_path / ".parallax-tags-1-1.mp3"
+    old.write_bytes(b"x" * 10)
+    gone = time.time() - 7 * 3600
+    os.utime(old, (gone, gone))
+    young = tmp_path / ".parallax-tags-2-2.mp3"
+    young.write_bytes(b"y" * 10)
+    unrelated = tmp_path / ".hidden-other.mp3"
+    unrelated.write_bytes(b"z")
+    os.utime(unrelated, (gone, gone))
+    assert apply.apply_one(p, {"title": "New"}).status == "written"
+    assert not old.exists()
+    assert young.exists() and unrelated.exists()
+
+
+@needs_ffmpeg
+def test_apply_fails_when_the_file_was_replaced_while_it_was_being_edited(tmp_path, monkeypatch):
+    """A Compress/Toolbox job swapping the file mid-edit must not be overwritten by an edited
+    copy of the old bytes."""
+    p = _audio(tmp_path / "a.mp3", "title=Old")
+    real = writers.edit_with_mutagen
+
+    def swap_then_edit(path, changes):
+        real(path, changes)
+        newer = tmp_path / "other.mp3"
+        _audio(newer, "title=Replacement", args=["-b:a", "64k"])
+        os.replace(newer, p)  # another job's output lands on the original
+
+    monkeypatch.setattr(writers, "edit_with_mutagen", swap_then_edit)
+    out = apply.apply_one(p, {"title": "New"})
+    assert out.status == "failed" and "changed while" in out.message
+    assert _fields(p)["title"] == "Replacement"
+    assert _hidden_leftovers(tmp_path) == []
+
+
+@needs_ffmpeg
+def test_apply_collateral_new_field_appearing_fails(tmp_path, monkeypatch):
+    p = _audio(tmp_path / "a.mp3", "title=Old")
+    original = open(p, "rb").read()
+    real = writers.edit_with_mutagen
+
+    def adds_an_artist(path, changes):
+        real(path, changes)
+        real(path, {"artist": "Appeared"})
+
+    monkeypatch.setattr(writers, "edit_with_mutagen", adds_an_artist)
+    out = apply.apply_one(p, {"title": "New"})
+    assert out.status == "failed" and "Artist" in out.message
+    assert open(p, "rb").read() == original
+
+
+@needs_ffmpeg
 def test_apply_collateral_change_to_another_field_fails(tmp_path, monkeypatch):
     p = _audio(tmp_path / "a.mp3", "title=Old", "artist=Keep")
     original = open(p, "rb").read()

@@ -193,12 +193,13 @@ def _write_global_tags(path: str, xml: str | None) -> None:
     if not has_tags:
         _run_tool(["mkvpropedit", path, "--tags", "global:"], ok_codes=(0, 1))
         return
-    with tempfile.NamedTemporaryFile("w", suffix=".xml", encoding="utf-8", delete=False) as f:
-        f.write(xml)
+    f = tempfile.NamedTemporaryFile("w", suffix=".xml", encoding="utf-8", delete=False)
     try:
+        with f:
+            f.write(xml)
         _run_tool(["mkvpropedit", path, "--tags", f"global:{f.name}"], ok_codes=(0, 1))
     finally:
-        os.unlink(f.name)
+        os.unlink(f.name)  # also when writing the XML itself failed (disk full)
 
 
 def _write_title(path: str, title: str | None) -> None:
