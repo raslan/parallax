@@ -67,6 +67,9 @@ export function TagFieldEditor({
 
   const shown = mv.kind === "same" && !isCut(mv.value) ? mv.value : "";
   const text = draft ?? shown;
+  // A single-line input would strip line breaks from a value that has them (lyrics, a long
+  // note) and stage the flattened text just because the field was touched.
+  const multi = multiline || text.includes("\n");
   const run = (op: Parameters<TagEdits["stage"]>[1]) =>
     void edits.stage(field, op).then(toastStageResult);
 
@@ -191,7 +194,7 @@ export function TagFieldEditor({
         </p>
       )}
 
-      {multiline ? (
+      {multi ? (
         <textarea
           id={id}
           className={fieldClass}
@@ -217,7 +220,7 @@ export function TagFieldEditor({
       )}
 
       {disabledWhy && <p className="text-xs text-muted-foreground">{disabledWhy}</p>}
-      {multiline && mv.kind === "same" && !isCut(mv.value) && text !== "" && (
+      {multi && mv.kind === "same" && !isCut(mv.value) && text !== "" && (
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="tabular-nums">
             {chars.toLocaleString()} characters · {hashtags.toLocaleString()}{" "}

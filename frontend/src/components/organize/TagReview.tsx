@@ -128,12 +128,13 @@ export function TagReview({ edits, redact }: { edits: TagEdits; redact: boolean 
               {r.reason && <p className="text-xs text-destructive">{r.reason}</p>}
               {r.stale === "changed" && (
                 <p className="text-xs text-destructive">
-                  This file changed since you staged it. It is left out: stage it again.
+                  This file changed since you staged it. It is left out: discard its edits and stage
+                  them again.
                 </p>
               )}
               {r.stale === "gone" && (
                 <p className="text-xs text-destructive">
-                  This file can no longer be read. It is left out.
+                  This file can no longer be read. It is left out; you can discard its edits.
                 </p>
               )}
               {r.blocked.length > 0 && (
@@ -169,8 +170,20 @@ export function TagReview({ edits, redact }: { edits: TagEdits; redact: boolean 
               </dl>
 
               {result?.status === "failed" && (
-                <p className="text-xs text-destructive">{result.message}</p>
+                <p role="alert" className="text-xs text-destructive">
+                  {result.message}
+                </p>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-muted-foreground"
+                disabled={applying}
+                aria-label={`Discard edits for this file${redact ? "" : `: ${baseName(r.path)}`}`}
+                onClick={() => edits.drop([r.path])}
+              >
+                Discard this file's edits
+              </Button>
             </li>
           );
         })}
@@ -178,7 +191,7 @@ export function TagReview({ edits, redact }: { edits: TagEdits; redact: boolean 
 
       {review.neededBytes > 0 && (
         <p className="text-xs text-muted-foreground">
-          The rewrites need about {formatSize(review.neededBytes)} of free space
+          The biggest rewrite needs about {formatSize(review.neededBytes)} of free space
           {review.freeBytes !== null ? ` (${formatSize(review.freeBytes)} free)` : ""}.
         </p>
       )}

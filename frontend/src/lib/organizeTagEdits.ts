@@ -86,6 +86,42 @@ export function standardFieldFor(name: string): string | null {
 
 const GPS_RAW = /^(GPS:|XMP-exif:GPS)/;
 const GPS_PRESENT = "Has a location";
+/** The server refuses a longer value (one argument of a tool's command line). */
+const MAX_VALUE_CHARS = 30_000;
+/** Files per apply request, and the rewrite bytes after which a request is closed. */
+const APPLY_CHUNK_FILES = 10;
+const APPLY_CHUNK_BYTES = 1024 ** 3;
+
+/**
+ * Splits what to send into requests: at most ten files, and a request is closed once its
+ * rewrites add up to about a gibibyte, so one request never holds minutes of copying (a
+ * proxy timeout would report a failure for files that were in fact written). A file over
+ * the limit still goes, alone.
+ */
+export function chunkApplyItems(
+  items: TagApplyItem[],
+  bytesOf: (path: string) => number,
+): TagApplyItem[][] {
+  const chunks: TagApplyItem[][] = [];
+  let current: TagApplyItem[] = [];
+  let bytes = 0;
+  for (const item of items) {
+    const size = bytesOf(item.path);
+    if (
+      current.length > 0 &&
+      (current.length >= APPLY_CHUNK_FILES || bytes + size > APPLY_CHUNK_BYTES)
+    ) {
+      chunks.push(current);
+      current = [];
+      bytes = 0;
+    }
+    current.push(item);
+    bytes += size;
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
 /** A batch read cuts a long value to 500 characters and appends this. */
 const CAP_LENGTH = 501;
 
@@ -176,6 +212,13 @@ export function stageOp(
     }
     const value = nextValue(op, base);
     if (value === undefined) continue;
+    if (value !== null && value.length > MAX_VALUE_CHARS) {
+      return {
+        staged,
+        skipped: [],
+        error: `Too long: a tag can hold at most ${MAX_VALUE_CHARS.toLocaleString("en-US")} characters.`,
+      };
+    }
     const entry = (out[f.path] ??= {});
     if (value === null ? onFile === undefined : same(value, onFile)) delete entry[field];
     else entry[field] = value;

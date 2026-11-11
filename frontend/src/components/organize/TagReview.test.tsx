@@ -104,7 +104,7 @@ describe("TagReview", () => {
         redact={false}
       />,
     );
-    expect(screen.getByText(/rewrites need about 5\.0 MB/i)).toBeTruthy();
+    expect(screen.getByText(/biggest rewrite needs about 5\.0 MB/i)).toBeTruthy();
     expect(screen.queryByText(/not enough/i)).toBeNull();
     rerender(
       <TagReview
@@ -208,6 +208,35 @@ describe("TagReview", () => {
     expect(screen.getByText("Not enough free space in the folder.")).toBeTruthy();
   });
 
+  it("each file has its own Discard, which is how a stale or gone file is started over", () => {
+    const rows = [
+      row({ path: "/r/a.mp3", stale: "changed" }),
+      row({ path: "/r/gone.mp3", stale: "gone" }),
+      row({ path: "/r/b.mp3" }),
+    ];
+    const edits = makeEdits({ stagedCount: 3, review: reviewOf(rows) });
+    render(<TagReview edits={edits} redact={false} />);
+    const buttons = screen.getAllByRole("button", { name: /Discard edits for this file/ });
+    expect(buttons).toHaveLength(3);
+    fireEvent.click(buttons[1]!);
+    expect(edits.drop).toHaveBeenCalledWith(["/r/gone.mp3"]);
+    expect(screen.getAllByText(/discard its edits/i)).toHaveLength(2);
+  });
+
+  it("a failure message is announced to assistive tech", () => {
+    render(
+      <TagReview
+        edits={makeEdits({
+          stagedCount: 1,
+          review: reviewOf([row()]),
+          results: { "/r/a.mp3": { status: "failed", message: "Disk is full." } },
+        })}
+        redact={false}
+      />,
+    );
+    expect(screen.getByRole("alert").textContent).toBe("Disk is full.");
+  });
+
   it("re-reading shows a status and no rows are claimed yet", () => {
     render(
       <TagReview
@@ -226,7 +255,7 @@ describe("TagReview", () => {
     render(<TagReview edits={edits} redact={false} />);
     fireEvent.click(screen.getByRole("button", { name: /back/i }));
     expect(edits.closeReview).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /discard/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard all edits" }));
     expect(edits.clearAll).toHaveBeenCalled();
   });
 

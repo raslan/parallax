@@ -11,10 +11,16 @@ import type { ScanState } from "@/types/organize";
  * (any 409, or a call the page saw answered 409 via `markGone`).
  *
  * `onReset` is what the page does when the tree it was showing is replaced (a forced
- * rescan, a new root): it clears the selection. It only runs inside callbacks, so the
+ * rescan, a new root): it clears the selection, and staged edits too when the root itself
+ * changed (a rescan keeps them: the review flags any file that went away). It only runs inside callbacks, so the
  * page may pass a function declared further down.
  */
-export function useOrganizeRoot({ onReset }: { onReset: () => void }) {
+export function useOrganizeRoot({
+  onReset,
+}: {
+  /** `rootChanged` is false for a rescan and for re-picking the same folder. */
+  onReset: (info: { rootChanged: boolean }) => void;
+}) {
   const qc = useQueryClient();
   const routerNavigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -44,7 +50,7 @@ export function useOrganizeRoot({ onReset }: { onReset: () => void }) {
       // Cached listings describe the previous scan.
       qc.removeQueries({ queryKey: qk.organizeFolder() });
       qc.removeQueries({ queryKey: qk.organizeFiles() });
-      onReset();
+      onReset({ rootChanged: false });
     },
     onSuccess: (state: ScanState) => {
       qc.setQueryData(qk.organizeScan(), state);
@@ -58,7 +64,7 @@ export function useOrganizeRoot({ onReset }: { onReset: () => void }) {
       const changed = res.root !== root;
       // Back at the (new) root; replace so Back never reopens a folder of the old tree.
       if (pathParam !== null) void routerNavigate({ search: "" }, { replace: true });
-      onReset();
+      onReset({ rootChanged: changed });
       setGoneRoot(null);
       qc.setQueryData(qk.organizeRoot(), res);
       // Re-picking the same folder is a rescan (the PUT also dropped the server cache).

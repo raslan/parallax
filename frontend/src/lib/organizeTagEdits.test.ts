@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildReview,
+  chunkApplyItems,
   currentValue,
   effectiveValue,
   stageOp,
@@ -339,6 +340,51 @@ describe("standardFieldFor", () => {
   it("is null for any other name, including image-style group names", () => {
     expect(standardFieldFor("MOOD")).toBeNull();
     expect(standardFieldFor("XMP-dc:Title")).toBeNull();
+  });
+});
+
+describe("chunkApplyItems", () => {
+  const items = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ path: `/f${i}`, set: { title: "x" } }));
+
+  it("makes chunks of at most ten files", () => {
+    const chunks = chunkApplyItems(items(25), () => 1);
+    expect(chunks.map((c) => c.length)).toEqual([10, 10, 5]);
+  });
+
+  it("closes a chunk once its rewrites add up to about a gibibyte, so a request stays short", () => {
+    const GB = 1024 ** 3;
+    const chunks = chunkApplyItems(items(5), () => 0.4 * GB);
+    expect(chunks.map((c) => c.length)).toEqual([2, 2, 1]);
+  });
+
+  it("a single file bigger than the limit still goes, alone", () => {
+    const chunks = chunkApplyItems(items(3), (p) => (p === "/f1" ? 9 * 1024 ** 3 : 1));
+    expect(chunks.map((c) => c.map((i) => i.path))).toEqual([["/f0"], ["/f1"], ["/f2"]]);
+  });
+
+  it("keeps every item once and in order", () => {
+    const all = items(23);
+    expect(chunkApplyItems(all, () => 100).flat()).toEqual(all);
+    expect(chunkApplyItems([], () => 1)).toEqual([]);
+  });
+});
+
+describe("stageOp length cap", () => {
+  const files = [file("/a", info({ title: "One" }))];
+
+  it("refuses a value over 30,000 characters and stages nothing", () => {
+    const out = stageOp({}, files, "title", { op: "set", value: "x".repeat(30_001) });
+    expect(out.error).toMatch(/30,000/);
+    expect(out.staged).toEqual({});
+  });
+
+  it("accepts exactly 30,000, and refuses an append that would go over", () => {
+    expect(stageOp({}, files, "title", { op: "set", value: "x".repeat(30_000) }).error).toBeNull();
+    const long = [file("/a", info({ title: "y".repeat(29_999) }))];
+    const out = stageOp({}, long, "title", { op: "append", text: "zz" });
+    expect(out.error).toMatch(/30,000/);
+    expect(out.staged).toEqual({});
   });
 });
 

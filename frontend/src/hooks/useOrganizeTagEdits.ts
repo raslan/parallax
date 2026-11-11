@@ -5,6 +5,7 @@ import { api, qk } from "@/lib/api";
 import { errorDetail, isConflict } from "@/lib/api/client";
 import {
   buildReview,
+  chunkApplyItems,
   stageOp,
   toApplyItems,
   unstageField,
@@ -16,8 +17,6 @@ import type { OrganizeFile, OrganizeTagInfo, TagPlan } from "@/types/organize";
 
 /** Paths per plan request (the server allows 50). */
 const PLAN_CHUNK = 50;
-/** Files per apply request: rewrites are heavy, so the progress stays honest and a stop loses little. */
-const APPLY_CHUNK = 10;
 /** Full-tag reads in flight at once (one file per request). */
 const READ_CONCURRENCY = 4;
 const PLAN_STALE_MS = 60_000;
@@ -90,9 +89,11 @@ export function useOrganizeTagEdits({
   const rowsRef = useRef<ReturnType<typeof buildReview>>([]);
   const applyingRef = useRef(false);
   const callbacks = useRef({ onWritten, onGone });
+  const reviewPlansRef = useRef(reviewPlans);
   useEffect(() => {
     filesRef.current = files;
     stagedRef.current = staged;
+    reviewPlansRef.current = reviewPlans;
     callbacks.current = { onWritten, onGone };
   });
   const fullCache = useRef(new Map<string, OrganizeTagInfo | null>());
@@ -142,7 +143,10 @@ export function useOrganizeTagEdits({
     setSnapshots((prev) => {
       const out: Snapshots = {};
       for (const p of Object.keys(next)) {
-        const snap = fresh?.[p] !== undefined ? fresh[p] : prev[p];
+        // A file's snapshot is taken once, when its first edit is staged, and never replaced
+        // while it stays staged: refreshing it on a later staging would hide that the file
+        // changed behind the user's back. To start over, discard the file's edits.
+        const snap = prev[p] !== undefined ? prev[p] : fresh?.[p];
         out[p] = snap ?? null;
       }
       return out;
@@ -152,6 +156,9 @@ export function useOrganizeTagEdits({
   const stage = useCallback(
     async (field: string, op: FieldOp) => {
       if (redact) return { skipped: [] as string[], error: null as string | null };
+      if (applyingRef.current) {
+        return { skipped: [], error: "Tags are being written. Stage again when it finishes." };
+      }
       const selected = filesRef.current;
       const selectedPaths = selected.map((f) => f.path);
       let infos: Record<string, OrganizeTagInfo | null> = {};
@@ -160,11 +167,22 @@ export function useOrganizeTagEdits({
       } finally {
         setReading(null);
       }
-      const { plans: planMap } = await qc.fetchQuery({
-        queryKey: qk.organizeTagPlan(selectedPaths),
-        queryFn: () => loadPlans(selectedPaths),
-        staleTime: PLAN_STALE_MS,
-      });
+      let planMap: Record<string, TagPlan>;
+      try {
+        planMap = (
+          await qc.fetchQuery({
+            queryKey: qk.organizeTagPlan(selectedPaths),
+            queryFn: () => loadPlans(selectedPaths),
+            staleTime: PLAN_STALE_MS,
+          })
+        ).plans;
+      } catch (e) {
+        if (isConflict(e)) callbacks.current.onGone();
+        return {
+          skipped: [],
+          error: errorDetail(e, "Could not check what these files can hold."),
+        };
+      }
       const out = stageOp(
         stagedRef.current,
         selected.map((f) => ({ path: f.path, info: infos[f.path] })),
@@ -237,6 +255,11 @@ export function useOrganizeTagEdits({
       setCurrent(infos);
       setReviewPlans(loaded.plans);
       setReviewFree(loaded.free);
+    } catch (e) {
+      // Without a fresh read there is nothing safe to review or apply.
+      setReviewOpen(false);
+      if (isConflict(e)) callbacks.current.onGone();
+      else toast.error(errorDetail(e, "Could not read the files for the review."));
     } finally {
       setReviewLoading(false);
     }
@@ -254,7 +277,9 @@ export function useOrganizeTagEdits({
 
   const review = useMemo(() => {
     const sendable = toApplyItems(rows).map((i) => i.path);
-    const needed = sendable.reduce((sum, p) => sum + (reviewPlans[p]?.bytes_needed ?? 0), 0);
+    // Rewrites run one after another, each on its own copy, so the folder needs room for the
+    // biggest one, not for all of them at once.
+    const needed = Math.max(0, ...sendable.map((p) => reviewPlans[p]?.bytes_needed ?? 0));
     const frees = sendable
       .filter((p) => (reviewPlans[p]?.bytes_needed ?? 0) > 0)
       .map((p) => reviewFree[parentPath(p)])
@@ -281,8 +306,11 @@ export function useOrganizeTagEdits({
     setProgress({ done: 0, total: items.length });
     const out: Results = {};
     let gone = false;
-    for (let i = 0; i < items.length && !gone; i += APPLY_CHUNK) {
-      const chunk = items.slice(i, i + APPLY_CHUNK);
+    const plansNow = reviewPlansRef.current;
+    const chunks = chunkApplyItems(items, (p) => plansNow[p]?.bytes_needed ?? 0);
+    let sent = 0;
+    for (const chunk of chunks) {
+      if (gone) break;
       try {
         const res = await api.applyOrganizeTags(chunk);
         for (const item of chunk) {
@@ -296,14 +324,17 @@ export function useOrganizeTagEdits({
           gone = true;
           callbacks.current.onGone();
         } else {
-          const message = errorDetail(
-            e,
-            "The request failed. Nothing was written for these files.",
-          );
+          // A timeout or a dropped connection says nothing about the server: it may well have
+          // written some of these. Say so, and read them again.
+          const message =
+            "The request failed, so Parallax can't tell whether these files were written. " +
+            "Open the review again: it reads them first.";
           for (const item of chunk) out[item.path] = { status: "failed", message };
+          callbacks.current.onWritten(chunk.map((item) => item.path));
         }
       }
-      setProgress({ done: Math.min(i + APPLY_CHUNK, items.length), total: items.length });
+      sent += chunk.length;
+      setProgress({ done: sent, total: items.length });
     }
     const written = Object.keys(out).filter((p) => out[p]!.status === "written");
     const failed = Object.keys(out).length - written.length;

@@ -566,9 +566,18 @@ describe("Organize tag editing", () => {
     expect(await screen.findByRole("button", { name: "Review 1 staged" })).toBeTruthy();
   });
 
-  it("a rescan, like a new root, clears every staged edit", async () => {
+  it("a rescan keeps the staged edits (Review flags any file that went away)", async () => {
     await openAndStage();
     fireEvent.click(screen.getByRole("button", { name: /Rescan/ }));
+    await waitFor(() => expect(api.startOrganizeScan).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(screen.queryByText(/selected/)).toBeNull()); // the selection goes
+    expect(screen.getByRole("button", { name: "Review 2 staged" })).toBeTruthy();
+  });
+
+  it("choosing a different folder to organize clears every staged edit", async () => {
+    await openAndStage();
+    fireEvent.click(screen.getByRole("button", { name: /Change folder/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "pick /new" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: /staged/ })).toBeNull());
   });
 

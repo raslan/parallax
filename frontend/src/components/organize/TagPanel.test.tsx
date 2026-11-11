@@ -131,6 +131,30 @@ describe("TagPanel, one file", () => {
     expect(edits.unstage).toHaveBeenCalledWith("title");
   });
 
+  it("a tag whose value has line breaks is edited in a text area that keeps them", () => {
+    const lyrics = "first line\nsecond line";
+    const edits = makeEdits({
+      plans: { [f.path]: aPlan({ fields: ["title", "raw:LYRICS"] }) },
+    });
+    render(
+      <TagPanel
+        {...panel({
+          files: [f],
+          infos: { [f.path]: info({ title: "T" }, { title: "T", LYRICS: lyrics }) },
+          edits,
+        })}
+      />,
+    );
+    const field = screen.getByLabelText("LYRICS") as HTMLTextAreaElement;
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field.value).toBe(lyrics);
+    // Focusing and leaving it unchanged stages nothing: the lines are not flattened.
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: lyrics } });
+    fireEvent.blur(field);
+    expect(edits.stage).not.toHaveBeenCalled();
+  });
+
   it("a staged clear reads as an empty, edited field", () => {
     const edits = makeEdits({
       stagedCount: 1,

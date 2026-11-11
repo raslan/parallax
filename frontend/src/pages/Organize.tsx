@@ -58,10 +58,11 @@ export function Organize() {
     setPicking,
     markGone,
   } = useOrganizeRoot({
-    // A rescan or a new root: the selection and every staged tag edit are for a tree that may be gone.
-    onReset: () => {
+    // A rescan or a new root clears the selection. Staged tag edits go only with the root
+    // itself: after a rescan the review flags any file that went away.
+    onReset: ({ rootChanged }) => {
       selectNone();
-      edits.clearAll();
+      if (rootChanged) edits.clearAll();
     },
   });
   const {
