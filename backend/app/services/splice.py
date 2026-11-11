@@ -250,9 +250,10 @@ def _no_inherited_metadata() -> list[str]:
 
     ffmpeg's default differs by mode (a stream-copy concat drops the tags, a re-encode with
     several inputs copies the first file's), so both say it outright. Per-stream data such as an
-    audio track's language stays with its stream.
+    audio track's language stays with its stream. Global only (`:g`): a bare `-map_metadata -1`
+    also switches off the chapter titles of the generated chapters.
     """
-    return ["-map_metadata", "-1"]
+    return ["-map_metadata:g", "-1"]
 
 
 def build_copy_cmd(list_path: str, output_path: str, chapters_path: str | None) -> list[str]:

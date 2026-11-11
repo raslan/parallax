@@ -29,6 +29,16 @@ def _format_tags(path):
     return {k[4:].lower(): v for k, v in (ln.split("=", 1) for ln in out.splitlines() if "=" in ln)}
 
 
+def _chapter_titles(path):
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "chapter_tags=title", "-of", "csv=p=0", path],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return [ln for ln in out.splitlines() if ln]
+
+
 def _settings(name="joined", verdict="copy", reencode=None, chapters=True):
     return {
         "output_name": name,
@@ -87,6 +97,19 @@ def test_merged_file_carries_no_tags_from_its_sources(tmp_path, monkeypatch, ver
     out = _run(tmp_path, ["a.mp4", "b.mp4"], s)
     tags = _format_tags(out)
     assert "title" not in tags and "artist" not in tags
+
+
+@pytest.mark.parametrize("verdict", ["copy", "reencode"])
+def test_generated_chapters_keep_their_titles(tmp_path, monkeypatch, verdict):
+    import app.services.splice as sp
+
+    monkeypatch.setattr(sp, "_resolve_encoder", sp.software_encoder)
+    _clip(tmp_path / "a.mp4")
+    _clip(tmp_path / "b.mp4")
+    reencode = {"codec": "h264", "crf": 28, "speed": "fast", "reference_file_id": None}
+    s = _settings(verdict=verdict, reencode=reencode if verdict == "reencode" else None)
+    out = _run(tmp_path, ["a.mp4", "b.mp4"], s)
+    assert len(_chapter_titles(out)) == 2
 
 
 def test_output_may_reuse_first_source_name(tmp_path):

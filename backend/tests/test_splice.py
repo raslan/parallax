@@ -141,7 +141,7 @@ def test_merged_file_carries_no_tags_or_chapters_from_its_sources():
     copy = build_copy_cmd("/t/list.txt", "/t/out.mp4", None)
     reencode = build_reencode_cmd([ref, ref], ref, "/t/o.mkv", "h264", 23, "fast", None, None)
     for cmd in (copy, reencode):
-        assert cmd[cmd.index("-map_metadata") + 1] == "-1"
+        assert cmd[cmd.index("-map_metadata:g") + 1] == "-1"
         assert cmd[cmd.index("-map_chapters") + 1] == "-1"
 
 
@@ -149,7 +149,7 @@ def test_reencode_cmd_with_chapters_uses_only_the_generated_ones():
     ref = _facts()
     cmd = build_reencode_cmd([ref, ref], ref, "/t/o.mkv", "h264", 23, "fast", "/t/meta.txt", None)
     assert cmd[cmd.index("-map_chapters") + 1] == "2"
-    assert cmd[cmd.index("-map_metadata") + 1] == "-1"
+    assert cmd[cmd.index("-map_metadata:g") + 1] == "-1"
 
 
 def test_copy_cmd_with_chapters_adds_second_input_and_maps_chapters():
