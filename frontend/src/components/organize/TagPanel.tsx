@@ -140,14 +140,7 @@ export function TagPanel({
     />
   );
 
-  const title =
-    files.length === 0
-      ? "Review staged edits"
-      : single
-        ? redact
-          ? REDACTED_FILE
-          : single.name
-        : `${files.length} files`;
+  const title = single ? (redact ? REDACTED_FILE : single.name) : `${files.length} files`;
   const description = reviewing
     ? "Check every change before it is written."
     : redact

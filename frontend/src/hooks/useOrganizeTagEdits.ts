@@ -47,10 +47,9 @@ function omit<T>(record: Record<string, T>, paths: string[]): Record<string, T> 
 
 /**
  * Staging, review and apply for Organize's tag editing. Edits are staged per file for the
- * files passed in (the selection), kept in page state while the selection or the open
- * folder changes, and written only by `apply`, after the review step. Each staged file keeps
- * a full-tags snapshot (what the user saw); opening the review re-reads every staged file,
- * and one whose staged fields moved since is flagged and left out of apply.
+ * files passed in (the selection) and written only by `apply`, after the review step. They
+ * live for the open folder only: changing `folderPath` discards them. Each staged file keeps
+ * the full tags it had when staged, which the review shows as the "before".
  *
  * Staging needs each file's full, uncapped tags (an operation on a value the list cut to
  * 500 characters would corrupt it), read one file per request, four at a time. With
@@ -60,11 +59,14 @@ function omit<T>(record: Record<string, T>, paths: string[]): Record<string, T> 
  * paths that were written, so their cached tags can be read again.
  */
 export function useOrganizeTagEdits({
+  folderPath,
   files,
   redact,
   onWritten,
   onGone,
 }: {
+  /** The open folder; staged edits are dropped when it changes. */
+  folderPath: string;
   files: OrganizeFile[];
   redact: boolean;
   onWritten: (paths: string[]) => void;
@@ -77,11 +79,25 @@ export function useOrganizeTagEdits({
   const [reading, setReading] = useState<{ done: number; total: number } | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
-  const [current, setCurrent] = useState<Record<string, OrganizeTagInfo | null | undefined>>({});
   const [reviewPlans, setReviewPlans] = useState<Record<string, TagPlan>>(NO_PLANS);
   const [reviewFree, setReviewFree] = useState<Record<string, number>>({});
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  // Edits belong to the open folder: opening another one starts from nothing (state is reset
+  // while rendering, so no render ever shows the old folder's edits).
+  const [seenFolder, setSeenFolder] = useState(folderPath);
+  if (seenFolder !== folderPath) {
+    setSeenFolder(folderPath);
+    setStaged({});
+    setSnapshots({});
+    setResults({});
+    setReviewOpen(false);
+  }
+  const fullCache = useRef(new Map<string, OrganizeTagInfo | null>());
+  useEffect(() => {
+    fullCache.current.clear();
+  }, [folderPath]);
 
   // The async functions below read the latest of these after an await.
   const filesRef = useRef(files);
@@ -96,7 +112,6 @@ export function useOrganizeTagEdits({
     reviewPlansRef.current = reviewPlans;
     callbacks.current = { onWritten, onGone };
   });
-  const fullCache = useRef(new Map<string, OrganizeTagInfo | null>());
 
   const paths = useMemo(() => files.map((f) => f.path), [files]);
   const plansQ = useQuery({
@@ -222,19 +237,6 @@ export function useOrganizeTagEdits({
     [commitStaged],
   );
 
-  /** A folder was renamed or deleted: every staged file under it is gone from its old path. */
-  const dropFolder = useCallback(
-    (folder: string) => {
-      const prefix = folder.endsWith("/") ? folder : `${folder}/`;
-      const under = Object.keys(stagedRef.current).filter((p) => p.startsWith(prefix));
-      if (under.length === 0) return;
-      commitStaged(omit(stagedRef.current, under));
-      setResults((prev) => omit(prev, under));
-      for (const p of under) fullCache.current.delete(p);
-    },
-    [commitStaged],
-  );
-
   const clearAll = useCallback(() => {
     commitStaged({});
     setResults({});
@@ -248,28 +250,26 @@ export function useOrganizeTagEdits({
     setReviewLoading(true);
     const stagedPaths = Object.keys(stagedRef.current);
     try {
-      const [infos, loaded] = await Promise.all([
-        readFull(stagedPaths, true),
-        loadPlans(stagedPaths),
-      ]);
-      setCurrent(infos);
+      // Only what each file can take and how it is written; the "before" values are the
+      // ones the user saw when staging.
+      const loaded = await loadPlans(stagedPaths);
       setReviewPlans(loaded.plans);
       setReviewFree(loaded.free);
     } catch (e) {
-      // Without a fresh read there is nothing safe to review or apply.
+      // Without the plans there is nothing safe to review or apply.
       setReviewOpen(false);
       if (isConflict(e)) callbacks.current.onGone();
-      else toast.error(errorDetail(e, "Could not read the files for the review."));
+      else toast.error(errorDetail(e, "Could not check the files for the review."));
     } finally {
       setReviewLoading(false);
     }
-  }, [redact, readFull]);
+  }, [redact]);
 
   const closeReview = useCallback(() => setReviewOpen(false), []);
 
   const rows = useMemo(
-    () => (reviewOpen ? buildReview(staged, snapshots, current, reviewPlans) : []),
-    [reviewOpen, staged, snapshots, current, reviewPlans],
+    () => (reviewOpen ? buildReview(staged, snapshots, reviewPlans) : []),
+    [reviewOpen, staged, snapshots, reviewPlans],
   );
   useEffect(() => {
     rowsRef.current = rows;
@@ -328,7 +328,7 @@ export function useOrganizeTagEdits({
           // written some of these. Say so, and read them again.
           const message =
             "The request failed, so Parallax can't tell whether these files were written. " +
-            "Open the review again: it reads them first.";
+            "Check their tags before trying again.";
           for (const item of chunk) out[item.path] = { status: "failed", message };
           callbacks.current.onWritten(chunk.map((item) => item.path));
         }
@@ -375,7 +375,6 @@ export function useOrganizeTagEdits({
     /** Per file, what the last apply said (failed ones also stay staged). */
     results,
     drop,
-    dropFolder,
     clearAll,
   };
 }

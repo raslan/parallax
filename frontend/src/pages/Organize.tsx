@@ -58,11 +58,10 @@ export function Organize() {
     setPicking,
     markGone,
   } = useOrganizeRoot({
-    // A rescan or a new root clears the selection. Staged tag edits go only with the root
-    // itself: after a rescan the review flags any file that went away.
-    onReset: ({ rootChanged }) => {
+    // A rescan or a new root starts over: the selection and any staged tag edits go.
+    onReset: () => {
       selectNone();
-      if (rootChanged) edits.clearAll();
+      edits.clearAll();
     },
   });
   const {
@@ -124,6 +123,7 @@ export function Organize() {
   });
   const exit = useOrganizeExit();
   const edits = useOrganizeTagEdits({
+    folderPath: currentPath ?? "",
     files: actionFiles,
     redact,
     // Written files changed on disk, so their cached tags and the listing (size) are read again.
@@ -148,7 +148,6 @@ export function Organize() {
     rescan: () => startScan.mutate(true),
     markGone,
     onPathsGone: edits.drop,
-    onFolderGone: edits.dropFolder,
   });
 
   const picker = (
@@ -197,11 +196,6 @@ export function Organize() {
         onRescan={() => startScan.mutate(true)}
         redact={redact}
         onRedact={setRedact}
-        stagedEdits={edits.stagedCount}
-        onReviewEdits={() => {
-          setPanelOn(true);
-          void edits.openReview();
-        }}
       />
 
       {unavailable ? (
@@ -353,8 +347,7 @@ export function Organize() {
       <MoveToFolderDialog {...move.folderDialogProps} />
       <RenameDialog {...rename.dialogProps} />
       <TagPanel
-        // The review can be open with nothing selected (the "Review N staged" chip).
-        open={panelOn && (actionFiles.length > 0 || edits.review.open)}
+        open={panelOn && actionFiles.length > 0}
         onOpenChange={(next) => {
           setPanelOn(next);
           if (!next) edits.closeReview();

@@ -91,11 +91,10 @@ export function TagReview({ edits, redact }: { edits: TagEdits; redact: boolean 
       <ul className="space-y-3">
         {review.rows.map((r) => {
           const result = results[r.path];
-          const skipped = r.stale !== null || r.reason !== null;
           return (
             <li
               key={r.path}
-              className={`space-y-2 rounded-md border border-border p-3 ${skipped ? "opacity-70" : ""}`}
+              className={`space-y-2 rounded-md border border-border p-3 ${r.reason !== null ? "opacity-70" : ""}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -126,17 +125,6 @@ export function TagReview({ edits, redact }: { edits: TagEdits; redact: boolean 
 
               {r.note && <p className="text-xs text-amber-400">{r.note}</p>}
               {r.reason && <p className="text-xs text-destructive">{r.reason}</p>}
-              {r.stale === "changed" && (
-                <p className="text-xs text-destructive">
-                  This file changed since you staged it. It is left out: discard its edits and stage
-                  them again.
-                </p>
-              )}
-              {r.stale === "gone" && (
-                <p className="text-xs text-destructive">
-                  This file can no longer be read. It is left out; you can discard its edits.
-                </p>
-              )}
               {r.blocked.length > 0 && (
                 <p className="text-xs text-muted-foreground">
                   This format can't hold: {r.blocked.map(fieldLabel).join(", ")}. Not written.
@@ -174,16 +162,6 @@ export function TagReview({ edits, redact }: { edits: TagEdits; redact: boolean 
                   {result.message}
                 </p>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs text-muted-foreground"
-                disabled={applying}
-                aria-label={`Discard edits for this file${redact ? "" : `: ${baseName(r.path)}`}`}
-                onClick={() => edits.drop([r.path])}
-              >
-                Discard this file's edits
-              </Button>
             </li>
           );
         })}

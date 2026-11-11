@@ -91,14 +91,15 @@ const setup = (
   opts: { redact?: boolean; onWritten?: (p: string[]) => void; onGone?: () => void } = {},
 ) =>
   renderHook(
-    ({ f }) =>
+    ({ f, folder = "/r" }: { f: OrganizeFile[]; folder?: string }) =>
       useOrganizeTagEdits({
+        folderPath: folder,
         files: f,
         redact: opts.redact ?? false,
         onWritten: opts.onWritten ?? (() => {}),
         onGone: opts.onGone ?? (() => {}),
       }),
-    { wrapper: wrapperFor(), initialProps: { f: files } },
+    { wrapper: wrapperFor(), initialProps: { f: files } as { f: OrganizeFile[]; folder?: string } },
   );
 
 describe("useOrganizeTagEdits: staging", () => {
@@ -181,21 +182,6 @@ describe("useOrganizeTagEdits: staging", () => {
     expect(planOrganizeTags.mock.calls.map(([p]) => p.length)).toEqual([50, 50, 20]);
   });
 
-  it("staged edits survive a change of selection", async () => {
-    disk["/r/a.mp3"] = full({ title: "A" });
-    disk["/other/c.mp3"] = full({ title: "C" });
-    const { result, rerender } = setup([file("a.mp3")]);
-    await act(async () => {
-      await result.current.stage("artist", { op: "set", value: "X" });
-    });
-    rerender({ f: [file("c.mp3", "/other")] });
-    expect(result.current.staged["/r/a.mp3"]).toEqual({ artist: "X" });
-    await act(async () => {
-      await result.current.stage("artist", { op: "set", value: "Y" });
-    });
-    expect(Object.keys(result.current.staged).sort()).toEqual(["/other/c.mp3", "/r/a.mp3"]);
-  });
-
   it("the skipped files and a regex error come back from stage", async () => {
     const cut = full({ description: "x".repeat(500) + "…" }, { truncated: true });
     disk["/r/a.mp3"] = cut;
@@ -252,52 +238,55 @@ describe("useOrganizeTagEdits: staging", () => {
   });
 });
 
+describe("useOrganizeTagEdits: one folder, nothing kept", () => {
+  it("leaving the open folder discards every staged edit and closes the review", async () => {
+    disk["/r/a.mp3"] = full({ title: "A" });
+    const { result, rerender } = setup([file("a.mp3")]);
+    await act(async () => {
+      await result.current.stage("artist", { op: "set", value: "X" });
+    });
+    await act(async () => {
+      await result.current.openReview();
+    });
+    expect(result.current.stagedCount).toBe(1);
+    rerender({ f: [], folder: "/elsewhere" });
+    expect(result.current.stagedCount).toBe(0);
+    expect(result.current.snapshots).toEqual({});
+    expect(result.current.review.open).toBe(false);
+  });
+
+  it("staying in the folder keeps edits across a change of selection", async () => {
+    disk["/r/a.mp3"] = full({ title: "A" });
+    const { result, rerender } = setup([file("a.mp3")]);
+    await act(async () => {
+      await result.current.stage("artist", { op: "set", value: "X" });
+    });
+    rerender({ f: [file("b.mp3")], folder: "/r" });
+    expect(result.current.staged["/r/a.mp3"]).toEqual({ artist: "X" });
+  });
+
+  it("opening the review checks what each file can take but does not read the tags again", async () => {
+    disk["/r/a.mp3"] = full({ title: "A" });
+    const { result } = setup([file("a.mp3")]);
+    await act(async () => {
+      await result.current.stage("title", { op: "set", value: "New" });
+    });
+    disk["/r/a.mp3"] = full({ title: "Changed elsewhere" });
+    getOrganizeTags.mockClear();
+    planOrganizeTags.mockClear();
+    await act(async () => {
+      await result.current.openReview();
+    });
+    expect(getOrganizeTags).not.toHaveBeenCalled();
+    expect(planOrganizeTags).toHaveBeenCalledWith(["/r/a.mp3"]);
+    // The review shows what the user saw when staging.
+    expect(result.current.review.rows[0]!.changes).toEqual([
+      { field: "title", before: "A", after: "New" },
+    ]);
+  });
+});
+
 describe("useOrganizeTagEdits: review fixes", () => {
-  it("staging another field never refreshes a file's snapshot, so a stale file stays flagged", async () => {
-    disk["/r/a.mp3"] = full({ title: "A" });
-    const { result } = setup([file("a.mp3")]);
-    await act(async () => {
-      await result.current.stage("title", { op: "set", value: "New" });
-    });
-    disk["/r/a.mp3"] = full({ title: "Edited elsewhere" }); // changed behind our back
-    await act(async () => {
-      await result.current.openReview(); // flags it, and re-reads the file into the cache
-    });
-    expect(result.current.review.rows[0]!.stale).toBe("changed");
-    act(() => result.current.closeReview());
-    await act(async () => {
-      await result.current.stage("artist", { op: "set", value: "X" }); // any later staging
-    });
-    expect(result.current.snapshots["/r/a.mp3"]?.fields.title).toBe("A");
-    await act(async () => {
-      await result.current.openReview();
-    });
-    expect(result.current.review.rows[0]!.stale).toBe("changed");
-    await act(async () => {
-      await result.current.apply();
-    });
-    expect(applyOrganizeTags).not.toHaveBeenCalled();
-    expect(disk["/r/a.mp3"]!.fields.title).toBe("Edited elsewhere");
-  });
-
-  it("discarding a stale file and staging it again takes a fresh snapshot", async () => {
-    disk["/r/a.mp3"] = full({ title: "A" });
-    const { result } = setup([file("a.mp3")]);
-    await act(async () => {
-      await result.current.stage("title", { op: "set", value: "New" });
-    });
-    disk["/r/a.mp3"] = full({ title: "Edited elsewhere" });
-    act(() => result.current.drop(["/r/a.mp3"]));
-    await act(async () => {
-      await result.current.stage("title", { op: "set", value: "New" });
-    });
-    expect(result.current.snapshots["/r/a.mp3"]?.fields.title).toBe("Edited elsewhere");
-    await act(async () => {
-      await result.current.openReview();
-    });
-    expect(result.current.review.rows[0]!.stale).toBeNull();
-  });
-
   it("a failing plan request comes back as an error instead of an unhandled rejection", async () => {
     disk["/r/a.mp3"] = full({ title: "A" });
     planOrganizeTags.mockRejectedValue(new Error("500: boom"));
@@ -425,83 +414,7 @@ describe("useOrganizeTagEdits: review fixes", () => {
   });
 });
 
-describe("useOrganizeTagEdits: folders", () => {
-  it("dropFolder removes every staged file under a folder and nothing else", async () => {
-    for (const p of ["/r/a/x.mp3", "/r/a/sub/y.mp3", "/r/ab/z.mp3", "/r/a.mp3"]) {
-      disk[p] = full({ title: p });
-    }
-    const files = [
-      file("x.mp3", "/r/a"),
-      file("y.mp3", "/r/a/sub"),
-      file("z.mp3", "/r/ab"),
-      file("a.mp3", "/r"),
-    ];
-    const { result } = setup(files);
-    await act(async () => {
-      await result.current.stage("artist", { op: "set", value: "X" });
-    });
-    expect(result.current.stagedCount).toBe(4);
-    act(() => result.current.dropFolder("/r/a"));
-    // "/r/ab" only shares a prefix with "/r/a"; "/r/a.mp3" is a file next to it.
-    expect(Object.keys(result.current.staged).sort()).toEqual(["/r/a.mp3", "/r/ab/z.mp3"]);
-    expect(Object.keys(result.current.snapshots).sort()).toEqual(["/r/a.mp3", "/r/ab/z.mp3"]);
-  });
-});
-
 describe("useOrganizeTagEdits: review and apply", () => {
-  it("opening the review re-reads full tags of every staged file, including other folders", async () => {
-    disk["/r/a.mp3"] = full({ title: "A" });
-    disk["/other/c.mp3"] = full({ title: "C" });
-    const { result, rerender } = setup([file("a.mp3")]);
-    await act(async () => {
-      await result.current.stage("artist", { op: "set", value: "X" });
-    });
-    rerender({ f: [file("c.mp3", "/other")] });
-    await act(async () => {
-      await result.current.stage("artist", { op: "set", value: "Y" });
-    });
-    getOrganizeTags.mockClear();
-    planOrganizeTags.mockClear();
-    await act(async () => {
-      await result.current.openReview();
-    });
-    expect(getOrganizeTags.mock.calls.map(([p]) => p[0]).sort()).toEqual([
-      "/other/c.mp3",
-      "/r/a.mp3",
-    ]);
-    expect(planOrganizeTags.mock.calls.flatMap(([p]) => p).sort()).toEqual([
-      "/other/c.mp3",
-      "/r/a.mp3",
-    ]);
-    expect(result.current.review.open).toBe(true);
-    expect(result.current.review.loading).toBe(false);
-    expect(result.current.review.rows.map((r) => r.path)).toEqual(["/other/c.mp3", "/r/a.mp3"]);
-  });
-
-  it("a file that changed since it was staged is flagged and left out of apply", async () => {
-    disk["/r/a.mp3"] = full({ title: "A" });
-    disk["/r/b.mp3"] = full({ title: "B" });
-    const { result } = setup([file("a.mp3"), file("b.mp3")]);
-    await act(async () => {
-      await result.current.stage("title", { op: "set", value: "New" });
-    });
-    disk["/r/a.mp3"] = full({ title: "Edited elsewhere" }); // changed behind our back
-    await act(async () => {
-      await result.current.openReview();
-    });
-    const rows = result.current.review.rows;
-    expect(rows.find((r) => r.path === "/r/a.mp3")!.stale).toBe("changed");
-    expect(rows.find((r) => r.path === "/r/b.mp3")!.stale).toBeNull();
-    await act(async () => {
-      await result.current.apply();
-    });
-    expect(applyOrganizeTags).toHaveBeenCalledTimes(1);
-    expect(applyOrganizeTags.mock.calls[0]![0]).toEqual([
-      { path: "/r/b.mp3", set: { title: "New" } },
-    ]);
-    expect(disk["/r/a.mp3"]!.fields.title).toBe("Edited elsewhere");
-  });
-
   it("unchanged files are counted as skipped and need space is summed over rewrites", async () => {
     disk["/r/a.mp3"] = full({ title: "A" });
     disk["/r/b.mp3"] = full({ title: "B" });
@@ -612,6 +525,7 @@ describe("useOrganizeTagEdits: review and apply", () => {
     const { result, rerender } = renderHook(
       ({ redact }) =>
         useOrganizeTagEdits({
+          folderPath: "/r",
           files: [file("a.mp3")],
           redact,
           onWritten: () => {},

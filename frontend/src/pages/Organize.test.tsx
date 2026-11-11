@@ -523,21 +523,31 @@ describe("Organize tag editing", () => {
     await waitFor(() => expect((title as HTMLInputElement).disabled).toBe(false));
     fireEvent.change(title, { target: { value: "Same title" } });
     fireEvent.blur(title);
-    return screen.findByRole("button", { name: "Review 2 staged" });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Tags/ }).textContent).toContain("2 edited"),
+    );
   }
 
-  it("a staged edit shows a Review chip that outlives the selection and opens the review", async () => {
-    const chip = await openAndStage();
-    expect(screen.getByRole("button", { name: /Tags/ }).textContent).toContain("2 edited");
-    fireEvent.click(screen.getAllByRole("button", { name: "Clear" })[0]!);
-    await waitFor(() => expect(screen.queryByText(/selected/)).toBeNull());
-    expect(screen.getByRole("button", { name: "Review 2 staged" })).toBe(chip);
-    fireEvent.click(chip);
-    expect(await screen.findByText("Review staged edits")).toBeTruthy();
-    expect(await screen.findByRole("button", { name: /Back to editing/ })).toBeTruthy();
-    // Back closes the panel again: nothing is selected.
-    fireEvent.click(screen.getByRole("button", { name: /Back to editing/ }));
-    await waitFor(() => expect(screen.queryByText("Review staged edits")).toBeNull());
+  /** The Tags button in the dock says how many selected files have a staged edit. */
+  const edited = (n: number) =>
+    waitFor(() =>
+      expect(screen.getByRole("button", { name: /Tags/ }).textContent).toContain(`${n} edited`),
+    );
+  const notEdited = () =>
+    waitFor(() =>
+      expect(screen.getByRole("button", { name: /Tags/ }).textContent).not.toContain("edited"),
+    );
+  /** Select x.mp3 and y.mp3 again (after the selection was cleared). */
+  async function selectBoth() {
+    fireEvent.click(await screen.findByText("x.mp3"));
+    fireEvent.click(await screen.findByText("y.mp3"));
+    await screen.findByText(/2 selected/);
+  }
+
+  it("a staged edit shows on the Tags button, and there is no separate staged-edits button", async () => {
+    await openAndStage();
+    await edited(2);
+    expect(screen.queryByRole("button", { name: /staged/ })).toBeNull();
   });
 
   it("renaming a file drops its staged edit", async () => {
@@ -551,7 +561,7 @@ describe("Organize tag editing", () => {
     fireEvent.change(screen.getByLabelText("Find"), { target: { value: "x" } });
     fireEvent.change(screen.getByLabelText("Replace with"), { target: { value: "z" } });
     fireEvent.click(screen.getAllByRole("button", { name: /^Rename/ }).at(-1)!);
-    expect(await screen.findByRole("button", { name: "Review 1 staged" })).toBeTruthy();
+    await edited(1);
   });
 
   it("deleting a file drops its staged edit", async () => {
@@ -563,39 +573,26 @@ describe("Organize tag editing", () => {
     await openAndStage();
     fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
     fireEvent.click(await screen.findByRole("button", { name: /^Delete 2 files/ }));
-    expect(await screen.findByRole("button", { name: "Review 1 staged" })).toBeTruthy();
+    await edited(1);
   });
 
-  it("a rescan keeps the staged edits (Review flags any file that went away)", async () => {
+  it("a rescan starts over: the edits are gone", async () => {
     await openAndStage();
     fireEvent.click(screen.getByRole("button", { name: /Rescan/ }));
     await waitFor(() => expect(api.startOrganizeScan).toHaveBeenCalledWith(true));
-    await waitFor(() => expect(screen.queryByText(/selected/)).toBeNull()); // the selection goes
-    expect(screen.getByRole("button", { name: "Review 2 staged" })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText(/selected/)).toBeNull());
+    await selectBoth();
+    await notEdited();
   });
 
-  it("choosing a different folder to organize clears every staged edit", async () => {
-    await openAndStage();
-    fireEvent.click(screen.getByRole("button", { name: /Change folder/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "pick /new" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: /staged/ })).toBeNull());
-  });
-
-  it("staged edits survive opening another folder", async () => {
+  it("leaving the folder discards the edits for good, even coming back to it", async () => {
     await openAndStage();
     fireEvent.click(await screen.findByText("b"));
     await current("b");
-    expect(screen.getByRole("button", { name: "Review 2 staged" })).toBeTruthy();
-  });
-
-  it("with names redacted the chip cannot open the review", async () => {
-    await openAndStage();
-    fireEvent.click(screen.getByLabelText("Redact names"));
-    await waitFor(() =>
-      expect(
-        (screen.getByRole("button", { name: "Review 2 staged" }) as HTMLButtonElement).disabled,
-      ).toBe(true),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "browser back" }));
+    await current("a");
+    await selectBoth();
+    await notEdited();
   });
 });
 

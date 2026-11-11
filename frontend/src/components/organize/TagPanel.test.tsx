@@ -218,23 +218,6 @@ describe("TagPanel, one file", () => {
     expect(screen.queryByLabelText("Title")).toBeNull();
   });
 
-  it("opens straight on the review with nothing selected when edits are staged", () => {
-    const edits = makeEdits({
-      stagedCount: 3,
-      review: {
-        open: true,
-        loading: false,
-        rows: [],
-        skippedCount: 0,
-        neededBytes: 0,
-        freeBytes: null,
-      },
-    });
-    render(<TagPanel {...panel({ files: [], edits })} />);
-    expect(screen.getByText("Review staged edits")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /back to editing/i })).toBeTruthy();
-  });
-
   it("puts no tag text in the page when redacting, and cannot be edited", () => {
     const edits = makeEdits({ plans: { [f.path]: aPlan() } });
     render(<TagPanel {...one()} edits={edits} redact />);

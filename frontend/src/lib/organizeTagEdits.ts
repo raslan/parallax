@@ -51,8 +51,6 @@ export interface ReviewRow {
   /** Why the file cannot be written at all. */
   reason: string | null;
   note: string | null;
-  /** "changed": a staged field no longer matches what was staged on. "gone": unreadable now. Either is left out of Apply. */
-  stale: "changed" | "gone" | null;
 }
 
 /** A field as the user reads it: "Album artist", the tag's own name for a `raw:` one. */
@@ -249,32 +247,21 @@ export function effectiveValue(
 }
 
 /**
- * The review step's rows: for every staged file, each change as before → after, how it
- * will be written, and whether the file moved since it was staged. `snapshots` are the
- * tags each file had when staged (what the user saw), `current` are re-read when Review
- * opens (`undefined` while loading, `null` when unreadable). Files whose staged values
- * equal what they have are left out (the caller counts them as skipped).
+ * The review step's rows: for every staged file, each change as before → after and how it
+ * will be written. `snapshots` are the tags each file had when staged (what the user saw).
+ * Files whose staged values equal what they have are left out (the caller counts them as
+ * skipped).
  */
 export function buildReview(
   staged: Staged,
   snapshots: Record<string, OrganizeTagInfo | null>,
-  current: Record<string, OrganizeTagInfo | null | undefined>,
   plans: Record<string, TagPlan>,
 ): ReviewRow[] {
   const rows: ReviewRow[] = [];
   for (const path of Object.keys(staged).sort()) {
     const edits = staged[path]!;
     const snap = snapshots[path];
-    const now = current[path];
     const plan = plans[path];
-    let stale: ReviewRow["stale"] = null;
-    if (now === null) stale = "gone";
-    else if (now !== undefined) {
-      const moved = Object.keys(edits).some(
-        (field) => !same(currentValue(now, field), currentValue(snap, field)),
-      );
-      if (moved) stale = "changed";
-    }
     const changes: ReviewChange[] = [];
     const blocked: string[] = [];
     for (const [field, after] of Object.entries(edits)) {
@@ -294,16 +281,15 @@ export function buildReview(
       how: plan?.how ?? null,
       reason: plan && !plan.writable ? plan.reason : null,
       note: plan?.note ?? null,
-      stale,
     });
   }
   return rows;
 }
 
-/** What to send: files that can be written and have not moved, with only their changed, allowed fields. */
+/** What to send: files that can be written, with only their changed, allowed fields. */
 export function toApplyItems(rows: ReviewRow[]): TagApplyItem[] {
   return rows
-    .filter((r) => r.stale === null && r.how !== null && r.reason === null && r.changes.length > 0)
+    .filter((r) => r.how !== null && r.reason === null && r.changes.length > 0)
     .map((r) => ({
       path: r.path,
       set: Object.fromEntries(r.changes.map((c) => [c.field, c.after])),

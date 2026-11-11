@@ -15,7 +15,6 @@ const row = (over: Partial<Row> = {}): Row => ({
   how: "rewrite",
   reason: null,
   note: null,
-  stale: null,
   ...over,
 });
 const reviewOf = (rows: Row[], over: Partial<TagEdits["review"]> = {}) => ({
@@ -118,20 +117,6 @@ describe("TagReview", () => {
     expect(screen.getByText(/not enough free space/i)).toBeTruthy();
   });
 
-  it("flags a stale file and leaves it out of the apply count", () => {
-    const rows = [
-      row({ path: "/r/a.mp3", stale: "changed" }),
-      row({ path: "/r/b.mp3" }),
-      row({ path: "/r/c.mp3", stale: "gone" }),
-    ];
-    render(
-      <TagReview edits={makeEdits({ stagedCount: 3, review: reviewOf(rows) })} redact={false} />,
-    );
-    expect(screen.getByText(/changed since you staged it/i)).toBeTruthy();
-    expect(screen.getByText(/no longer be read/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Apply 1 change" })).toBeTruthy();
-  });
-
   it("shows why a file cannot be written and what its format cannot hold", () => {
     const rows = [
       row({ path: "/r/a.rmvb", how: null, reason: "Parallax can't edit tags in this format." }),
@@ -206,21 +191,6 @@ describe("TagReview", () => {
       />,
     );
     expect(screen.getByText("Not enough free space in the folder.")).toBeTruthy();
-  });
-
-  it("each file has its own Discard, which is how a stale or gone file is started over", () => {
-    const rows = [
-      row({ path: "/r/a.mp3", stale: "changed" }),
-      row({ path: "/r/gone.mp3", stale: "gone" }),
-      row({ path: "/r/b.mp3" }),
-    ];
-    const edits = makeEdits({ stagedCount: 3, review: reviewOf(rows) });
-    render(<TagReview edits={edits} redact={false} />);
-    const buttons = screen.getAllByRole("button", { name: /Discard edits for this file/ });
-    expect(buttons).toHaveLength(3);
-    fireEvent.click(buttons[1]!);
-    expect(edits.drop).toHaveBeenCalledWith(["/r/gone.mp3"]);
-    expect(screen.getAllByText(/discard its edits/i)).toHaveLength(2);
   });
 
   it("a failure message is announced to assistive tech", () => {

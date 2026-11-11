@@ -240,7 +240,7 @@ describe("buildReview", () => {
 
   it("lists before and after per file with how and the plan's note", () => {
     const staged = { "/a": { title: "New", artist: null }, "/b": { title: "Two2" } };
-    const rows = buildReview(staged, snap, snap, {
+    const rows = buildReview(staged, snap, {
       ...plans,
       "/a": plan({ note: "Other tags may not survive." }),
     });
@@ -248,7 +248,6 @@ describe("buildReview", () => {
     expect(rows[0]).toMatchObject({
       how: "rewrite",
       note: "Other tags may not survive.",
-      stale: null,
       changes: [
         { field: "title", before: "One", after: "New" },
         { field: "artist", before: "A", after: null },
@@ -258,61 +257,38 @@ describe("buildReview", () => {
   });
 
   it("leaves out files whose staged values equal what they have", () => {
-    const rows = buildReview({ "/a": { title: "One" } }, snap, snap, plans);
+    const rows = buildReview({ "/a": { title: "One" } }, snap, plans);
     expect(rows).toEqual([]);
   });
 
   it("marks files that cannot be written with their reason", () => {
     const bad = plan({ writable: false, how: null, reason: "Read only" });
-    const rows = buildReview({ "/a": { title: "N" } }, snap, snap, { "/a": bad });
+    const rows = buildReview({ "/a": { title: "N" } }, snap, { "/a": bad });
     expect(rows[0]).toMatchObject({ how: null, reason: "Read only" });
   });
 
   it("reports fields a file cannot take instead of dropping them silently", () => {
     const only = plan({ fields: ["title"] });
-    const rows = buildReview({ "/a": { title: "N", synopsis: "S" } }, snap, snap, { "/a": only });
+    const rows = buildReview({ "/a": { title: "N", synopsis: "S" } }, snap, { "/a": only });
     expect(rows[0]!.changes.map((c) => c.field)).toEqual(["title"]);
     expect(rows[0]!.blocked).toEqual(["synopsis"]);
   });
 
-  it("flags a file stale 'changed' when a staged field moved since it was staged", () => {
-    const now = { ...snap, "/a": info({ title: "Edited elsewhere", artist: "A" }) };
-    const rows = buildReview({ "/a": { title: "New" }, "/b": { title: "X" } }, snap, now, plans);
-    expect(rows.find((r) => r.path === "/a")!.stale).toBe("changed");
-    expect(rows.find((r) => r.path === "/b")!.stale).toBeNull();
-  });
-
-  it("a change to a field that was not staged does not make the file stale", () => {
-    const now = { ...snap, "/a": info({ title: "One", artist: "Other" }) };
-    const rows = buildReview({ "/a": { title: "New" } }, snap, now, plans);
-    expect(rows[0]!.stale).toBeNull();
-  });
-
-  it("flags a file stale 'gone' when it can no longer be read", () => {
-    const rows = buildReview({ "/a": { title: "New" } }, snap, { "/a": null }, plans);
-    expect(rows[0]!.stale).toBe("gone");
-  });
-
-  it("while a file's current tags are still loading it is not flagged", () => {
-    const rows = buildReview({ "/a": { title: "New" } }, snap, { "/a": undefined }, plans);
-    expect(rows[0]!.stale).toBeNull();
-  });
-
   it("a staged raw tag the file lacked shows before as undefined", () => {
-    const rows = buildReview({ "/a": { "raw:MOOD": "calm" } }, snap, snap, plans);
+    const rows = buildReview({ "/a": { "raw:MOOD": "calm" } }, snap, plans);
     expect(rows[0]!.changes).toEqual([{ field: "raw:MOOD", before: undefined, after: "calm" }]);
   });
 
   it("a staged gps clear shows as removing the location", () => {
     const s = { "/a": info({}, { raw: { "GPS:GPSLatitude": "1" } }) };
-    const rows = buildReview({ "/a": { gps: null } }, s, s, { "/a": plan({ fields: ["gps"] }) });
+    const rows = buildReview({ "/a": { gps: null } }, s, { "/a": plan({ fields: ["gps"] }) });
     expect(rows[0]!.changes).toEqual([{ field: "gps", before: expect.any(String), after: null }]);
   });
 });
 
 describe("toApplyItems", () => {
   const snap = { "/a": info({ title: "One" }), "/b": info({ title: "Two" }), "/c": info({}) };
-  it("keeps writable, current files and only their changed, allowed fields; stale rows are left out", () => {
+  it("keeps writable files and only their changed, allowed fields", () => {
     const staged = {
       "/a": { title: "New", synopsis: "S" },
       "/b": { title: "X" },
@@ -323,9 +299,11 @@ describe("toApplyItems", () => {
       "/b": plan(),
       "/c": plan({ writable: false, how: null, reason: "No" }),
     };
-    const now = { ...snap, "/b": info({ title: "Moved" }) };
-    const rows = buildReview(staged, snap, now, plans);
-    expect(toApplyItems(rows)).toEqual([{ path: "/a", set: { title: "New" } }]);
+    const rows = buildReview(staged, snap, plans);
+    expect(toApplyItems(rows)).toEqual([
+      { path: "/a", set: { title: "New" } },
+      { path: "/b", set: { title: "X" } },
+    ]);
   });
 });
 
