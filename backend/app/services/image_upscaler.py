@@ -230,6 +230,7 @@ def _upscale_one(
             final = _replace_original(src, tmp, keep_original)
         else:
             final = upscale_plan.output_path(src.path, scale, prescale=prescale)
+            file_props.copy_props(src.path, tmp)  # the copy sorts next to its original
             shutil.move(tmp, final)
         result["output"] = final
     except Exception as exc:

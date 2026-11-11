@@ -168,6 +168,20 @@ def test_job_writes_output_next_to_source(env):
     assert str(out) in env.applied[0][2]
 
 
+def test_keep_both_copy_takes_the_originals_dates_and_mode(env):
+    fid, src = env.add_image("p.jpg", (40, 30))
+    old_ns = 1_500_000_000_123_456_789
+    os.chmod(src, 0o640)
+    os.utime(src, ns=(old_ns, old_ns))
+    job_id = env.new_job()
+
+    up.run_image_upscale_job(job_id, [fid], "fast", 2, False)
+
+    out = os.stat(env.dir / "p_2x.jpg")
+    assert out.st_mtime_ns == old_ns
+    assert stat.S_IMODE(out.st_mode) == 0o640
+
+
 def test_job_collision_suffix(env):
     fid, _ = env.add_image("p.png", (20, 20), fmt="PNG")
     (env.dir / "p_2x.png").write_bytes(b"existing")
