@@ -4,16 +4,11 @@
  * refuses anything this lets through (it never overwrites).
  */
 
+import { compileFindReplace, type FindRule } from "@/lib/findReplace";
+
 export interface RenameItem {
   path: string;
   name: string;
-}
-
-export interface RenameRule {
-  find: string;
-  replace: string;
-  /** `find` is a regular expression (`$1` etc. work in `replace`). */
-  regex: boolean;
 }
 
 type RenameStatus = "ok" | "unchanged" | "invalid" | "taken";
@@ -90,23 +85,14 @@ export function planSingleRename(
  */
 export function planBulkRename(
   items: readonly RenameItem[],
-  rule: RenameRule,
+  rule: FindRule,
   taken: ReadonlySet<string>,
 ): RenamePlan {
-  if (!rule.find) return { rows: classify(items, [], taken), regexError: null };
-  let re: RegExp;
-  try {
-    re = new RegExp(rule.regex ? rule.find : rule.find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
-  } catch (e) {
-    return {
-      rows: classify(items, [], taken),
-      regexError: e instanceof Error ? e.message : "Invalid regular expression",
-    };
-  }
+  const compiled = compileFindReplace(rule);
+  if (compiled.error) return { rows: classify(items, [], taken), regexError: compiled.error };
   const newNames = items.map((it) => {
     const [stem, ext] = splitExtension(it.name);
-    const next = rule.regex ? stem.replace(re, rule.replace) : stem.replace(re, () => rule.replace);
-    return next + ext;
+    return compiled.apply(stem) + ext;
   });
   return { rows: classify(items, newNames, taken), regexError: null };
 }
