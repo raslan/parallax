@@ -123,11 +123,11 @@ export function useOrganizeTagEdits({
   });
   const plans = plansQ.data?.plans ?? NO_PLANS;
 
-  /** Full tags of `wanted`, one file per request with a few in flight; cached unless `fresh`. */
+  /** Full tags of `wanted`, one file per request with a few in flight; cached per folder. */
   const readFull = useCallback(
-    async (wanted: string[], fresh = false, onProgress?: (done: number, total: number) => void) => {
+    async (wanted: string[], onProgress?: (done: number, total: number) => void) => {
       const out: Record<string, OrganizeTagInfo | null> = {};
-      const todo = wanted.filter((p) => fresh || !fullCache.current.has(p));
+      const todo = wanted.filter((p) => !fullCache.current.has(p));
       for (const p of wanted) if (!todo.includes(p)) out[p] = fullCache.current.get(p) ?? null;
       let next = 0;
       let done = 0;
@@ -158,9 +158,7 @@ export function useOrganizeTagEdits({
     setSnapshots((prev) => {
       const out: Snapshots = {};
       for (const p of Object.keys(next)) {
-        // A file's snapshot is taken once, when its first edit is staged, and never replaced
-        // while it stays staged: refreshing it on a later staging would hide that the file
-        // changed behind the user's back. To start over, discard the file's edits.
+        // A file's snapshot (the review's "before") is taken when its first edit is staged.
         const snap = prev[p] !== undefined ? prev[p] : fresh?.[p];
         out[p] = snap ?? null;
       }
@@ -178,7 +176,7 @@ export function useOrganizeTagEdits({
       const selectedPaths = selected.map((f) => f.path);
       let infos: Record<string, OrganizeTagInfo | null> = {};
       try {
-        infos = await readFull(selectedPaths, false, (done, total) => setReading({ done, total }));
+        infos = await readFull(selectedPaths, (done, total) => setReading({ done, total }));
       } finally {
         setReading(null);
       }
