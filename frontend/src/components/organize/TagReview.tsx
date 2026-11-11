@@ -189,20 +189,19 @@ export function TagReview({ edits, redact }: { edits: TagEdits; redact: boolean 
         })}
       </ul>
 
-      {review.neededBytes > 0 && (
-        <p className="text-xs text-muted-foreground">
-          The biggest rewrite needs about {formatSize(review.neededBytes)} of free space
-          {review.freeBytes !== null ? ` (${formatSize(review.freeBytes)} free)` : ""}.
-        </p>
-      )}
-      {tooTight && (
-        <p className="flex items-center gap-1.5 text-xs text-destructive">
-          <TriangleAlert className="h-3.5 w-3.5" />
-          Not enough free space for the rewrites.
-        </p>
-      )}
-
       <div className="sticky bottom-0 space-y-2 bg-background pb-2 pt-2">
+        {review.neededBytes > 0 && (
+          <p className="text-xs text-muted-foreground">
+            The biggest rewrite needs about {formatSize(review.neededBytes)} of free space
+            {review.freeBytes !== null ? ` (${formatSize(review.freeBytes)} free)` : ""}.
+          </p>
+        )}
+        {tooTight && (
+          <p className="flex items-center gap-1.5 text-xs text-destructive">
+            <TriangleAlert className="h-3.5 w-3.5" />
+            Not enough free space for the rewrites.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           Applying changes the files for good. There is no undo.
         </p>
