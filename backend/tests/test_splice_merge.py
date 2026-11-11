@@ -7,14 +7,26 @@ from app.services.gpu_pool import GPUDevice
 from app.services.splice import SpliceCancelled, perform_merge, probe_facts
 
 
-def _clip(path, size="320x240", audio=True):
+def _clip(path, size="320x240", audio=True, tags=()):
     args = ["ffmpeg", "-y", "-f", "lavfi", "-i", f"testsrc=duration=1:size={size}:rate=25"]
     if audio:
         args += ["-f", "lavfi", "-i", "sine=duration=1:frequency=440:sample_rate=48000"]
     args += ["-c:v", "libx264", "-pix_fmt", "yuv420p"]
     if audio:
         args += ["-c:a", "aac", "-shortest"]
+    for tag in tags:
+        args += ["-metadata", tag]
     subprocess.run([*args, str(path)], check=True, capture_output=True)
+
+
+def _format_tags(path):
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format_tags", "-of", "default=nw=1", path],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return {k[4:].lower(): v for k, v in (ln.split("=", 1) for ln in out.splitlines() if "=" in ln)}
 
 
 def _settings(name="joined", verdict="copy", reencode=None, chapters=True):
@@ -61,6 +73,20 @@ def test_reencode_merge_mixed_resolution_and_missing_audio(tmp_path, monkeypatch
     f = probe_facts(out)
     assert (f.width, f.height) == (320, 240)
     assert f.has_audio and 1.8 < f.duration < 2.4
+
+
+@pytest.mark.parametrize("verdict", ["copy", "reencode"])
+def test_merged_file_carries_no_tags_from_its_sources(tmp_path, monkeypatch, verdict):
+    import app.services.splice as sp
+
+    monkeypatch.setattr(sp, "_resolve_encoder", sp.software_encoder)
+    for name, label in (("a.mp4", "A"), ("b.mp4", "B")):
+        _clip(tmp_path / name, tags=(f"title=Title {label}", f"artist=Artist {label}"))
+    reencode = {"codec": "h264", "crf": 28, "speed": "fast", "reference_file_id": None}
+    s = _settings(verdict=verdict, reencode=reencode if verdict == "reencode" else None)
+    out = _run(tmp_path, ["a.mp4", "b.mp4"], s)
+    tags = _format_tags(out)
+    assert "title" not in tags and "artist" not in tags
 
 
 def test_output_may_reuse_first_source_name(tmp_path):

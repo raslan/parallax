@@ -245,13 +245,23 @@ def pick_output_ext(verdict: str, first_ext: str, codec: str | None) -> str:
     return ".mkv"
 
 
+def _no_inherited_metadata() -> list[str]:
+    """A merge is a new file: it takes no title, artist or comment from any source.
+
+    ffmpeg's default differs by mode (a stream-copy concat drops the tags, a re-encode with
+    several inputs copies the first file's), so both say it outright. Per-stream data such as an
+    audio track's language stays with its stream.
+    """
+    return ["-map_metadata", "-1"]
+
+
 def build_copy_cmd(list_path: str, output_path: str, chapters_path: str | None) -> list[str]:
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path]
     if chapters_path:
         cmd += ["-i", chapters_path]
     cmd += ["-map", "0:v:0", "-map", "0:a:0?"]
-    if chapters_path:
-        cmd += ["-map_chapters", "1"]
+    cmd += _no_inherited_metadata()
+    cmd += ["-map_chapters", "1" if chapters_path else "-1"]
     cmd += ["-c", "copy", "-progress", "pipe:1", "-nostats", output_path]
     return cmd
 
@@ -326,8 +336,8 @@ def build_reencode_cmd(
     cmd += ["-filter_complex", ";".join(chains), "-map", "[v]"]
     if any_audio:
         cmd += ["-map", "[a]"]
-    if chapters_path:
-        cmd += ["-map_chapters", str(n)]
+    cmd += _no_inherited_metadata()
+    cmd += ["-map_chapters", str(n) if chapters_path else "-1"]
     cmd += _encoder_args(enc, codec, crf, speed, gpu)
     if codec == "hevc" and output_path.lower().endswith((".mp4", ".m4v", ".mov")):
         cmd += ["-tag:v", "hvc1"]
