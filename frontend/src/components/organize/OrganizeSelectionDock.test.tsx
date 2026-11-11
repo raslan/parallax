@@ -38,6 +38,13 @@ describe("OrganizeSelectionDock", () => {
     expect(onTags).toHaveBeenCalledTimes(1);
   });
 
+  it("tells how many of the selected files have staged tag edits on the Tags button", () => {
+    const { rerender } = render(<OrganizeSelectionDock {...base} />);
+    expect(screen.getByRole("button", { name: /Tags/ }).textContent).not.toMatch(/edited/);
+    rerender(<OrganizeSelectionDock {...base} editedCount={2} />);
+    expect(screen.getByRole("button", { name: /Tags/ }).textContent).toContain("2 edited");
+  });
+
   it("shows how far a big delete has got once it goes past one 500-file chunk", () => {
     render(<OrganizeSelectionDock {...base} deleting progress={{ sent: 600, total: 1200 }} />);
     expect(screen.getByText(/Deleting/).textContent).toBe("Deleting 600 / 1,200…");

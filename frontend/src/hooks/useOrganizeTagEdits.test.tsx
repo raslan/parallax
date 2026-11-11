@@ -252,6 +252,29 @@ describe("useOrganizeTagEdits: staging", () => {
   });
 });
 
+describe("useOrganizeTagEdits: folders", () => {
+  it("dropFolder removes every staged file under a folder and nothing else", async () => {
+    for (const p of ["/r/a/x.mp3", "/r/a/sub/y.mp3", "/r/ab/z.mp3", "/r/a.mp3"]) {
+      disk[p] = full({ title: p });
+    }
+    const files = [
+      file("x.mp3", "/r/a"),
+      file("y.mp3", "/r/a/sub"),
+      file("z.mp3", "/r/ab"),
+      file("a.mp3", "/r"),
+    ];
+    const { result } = setup(files);
+    await act(async () => {
+      await result.current.stage("artist", { op: "set", value: "X" });
+    });
+    expect(result.current.stagedCount).toBe(4);
+    act(() => result.current.dropFolder("/r/a"));
+    // "/r/ab" only shares a prefix with "/r/a"; "/r/a.mp3" is a file next to it.
+    expect(Object.keys(result.current.staged).sort()).toEqual(["/r/a.mp3", "/r/ab/z.mp3"]);
+    expect(Object.keys(result.current.snapshots).sort()).toEqual(["/r/a.mp3", "/r/ab/z.mp3"]);
+  });
+});
+
 describe("useOrganizeTagEdits: review and apply", () => {
   it("opening the review re-reads full tags of every staged file, including other folders", async () => {
     disk["/r/a.mp3"] = full({ title: "A" });

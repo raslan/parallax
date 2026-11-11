@@ -31,6 +31,10 @@ export function useOrganizeActions(a: {
   /** A forced rescan: the backend may have removed part of the tree. */
   rescan: () => void;
   markGone: () => void;
+  /** Files were moved, renamed or deleted: their staged tag edits are void. */
+  onPathsGone: (paths: string[]) => void;
+  /** A folder was renamed or deleted: so are the staged edits of the files under it. */
+  onFolderGone: (folder: string) => void;
 }) {
   const qc = useQueryClient();
   const { currentPath, redact, setSelected } = a;
@@ -40,6 +44,7 @@ export function useOrganizeActions(a: {
   // refetch, with the exit animation when it is leaving rather than changing name.
   const onFilesGone = (paths: string[], animate: boolean) => {
     setSelected((prev) => removeDeleted(prev, paths));
+    a.onPathsGone(paths);
     if (animate) {
       leaveFiles(paths);
       refreshListings(EXIT_MS);
@@ -64,6 +69,7 @@ export function useOrganizeActions(a: {
       if (result.deleted.length === 0) return;
       // Failed paths are not in `deleted`, so they stay selected for a retry.
       setSelected((prev) => removeDeleted(prev, result.deleted));
+      a.onPathsGone(result.deleted);
       leaveFiles(result.deleted);
       refreshListings(EXIT_MS);
     },
@@ -71,12 +77,14 @@ export function useOrganizeActions(a: {
     // Same delay as a result, so a partial run's exit animation still plays.
     onFilesError: () => refreshListings(EXIT_MS),
     onEmptyFolderDeleted: (path) => {
+      a.onFolderGone(path);
       const up = currentPath ? folderAfterDelete(path, currentPath) : null;
       if (up !== null) a.replaceFolder(up);
       leaveFolders([path], true);
       refreshListings(EXIT_MS);
     },
     onFolderDeleted: (path) => {
+      a.onFolderGone(path);
       // Parent of the deleted folder, even when it is an ancestor of the open one.
       const up = currentPath ? folderAfterDelete(path, currentPath) : null;
       if (up !== null) {
@@ -114,6 +122,7 @@ export function useOrganizeActions(a: {
     redact,
     onFilesGone,
     onFolderRenamed: (oldPath) => {
+      a.onFolderGone(oldPath);
       // The old path is dead: drop its cached listings, then reload the open folder.
       qc.removeQueries({ queryKey: qk.organizeFolder(oldPath) });
       qc.removeQueries({ queryKey: qk.organizeFiles(oldPath) });

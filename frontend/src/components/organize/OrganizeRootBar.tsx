@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SectionHeader } from "@/components/SectionHeader";
 import { Tip } from "@/components/Tip";
+import { StagedEditsChip } from "@/components/organize/StagedEditsChip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { REDACTED_FOLDER } from "@/lib/organizeRedact";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,12 @@ export function OrganizeRootBar({
   onRescan,
   redact,
   onRedact,
+  stagedEdits = 0,
+  onReviewEdits,
 }: {
+  /** How many files have a staged tag edit (any folder); the chip shows while it is not 0. */
+  stagedEdits?: number;
+  onReviewEdits?: () => void;
   root: string;
   /** Demo mode: the path and every name are hidden. */
   redact: boolean;
@@ -84,6 +90,11 @@ export function OrganizeRootBar({
         </div>
 
         <div className="flex items-center gap-2">
+          <StagedEditsChip
+            count={stagedEdits}
+            onReview={() => onReviewEdits?.()}
+            disabled={redact}
+          />
           <Tip label="Hide every folder and file name and thumbnail, handy for demos">
             <label className="flex cursor-pointer items-center gap-2 pr-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
               <Checkbox checked={redact} onCheckedChange={(v) => onRedact(v === true)} />

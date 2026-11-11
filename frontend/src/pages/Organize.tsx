@@ -57,7 +57,13 @@ export function Organize() {
     picking,
     setPicking,
     markGone,
-  } = useOrganizeRoot({ onReset: () => selectNone() });
+  } = useOrganizeRoot({
+    // A rescan or a new root: the selection and every staged tag edit are for a tree that may be gone.
+    onReset: () => {
+      selectNone();
+      edits.clearAll();
+    },
+  });
   const {
     currentPath,
     badPath,
@@ -140,6 +146,8 @@ export function Organize() {
     replaceFolder,
     rescan: () => startScan.mutate(true),
     markGone,
+    onPathsGone: edits.drop,
+    onFolderGone: edits.dropFolder,
   });
 
   const picker = (
@@ -188,6 +196,11 @@ export function Organize() {
         onRescan={() => startScan.mutate(true)}
         redact={redact}
         onRedact={setRedact}
+        stagedEdits={edits.stagedCount}
+        onReviewEdits={() => {
+          setPanelOn(true);
+          void edits.openReview();
+        }}
       />
 
       {unavailable ? (
@@ -332,14 +345,19 @@ export function Organize() {
         onMoveToSubfolder={move.openSubfolderDialog}
         onRename={rename.openFiles}
         onTags={() => setPanelOn(!panelOn)}
+        editedCount={actionFiles.filter((f) => f.path in edits.staged).length}
         onDelete={() => void deleteFiles(actionFiles)}
       />
       <MoveToSubfolderDialog {...move.subfolderDialogProps} />
       <MoveToFolderDialog {...move.folderDialogProps} />
       <RenameDialog {...rename.dialogProps} />
       <TagPanel
-        open={panelOn && actionFiles.length > 0}
-        onOpenChange={setPanelOn}
+        // The review can be open with nothing selected (the "Review N staged" chip).
+        open={panelOn && (actionFiles.length > 0 || edits.review.open)}
+        onOpenChange={(next) => {
+          setPanelOn(next);
+          if (!next) edits.closeReview();
+        }}
         files={actionFiles}
         infos={panel.infos}
         loading={panel.loading}

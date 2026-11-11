@@ -28,6 +28,7 @@ export function makeEdits(over: Partial<TagEdits> = {}): TagEdits {
     progress: null,
     results: {},
     drop: vi.fn(),
+    dropFolder: vi.fn(),
     clearAll: vi.fn(),
     ...over,
   };

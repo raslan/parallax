@@ -15,7 +15,10 @@ export function OrganizeSelectionDock({
   onRename,
   onTags,
   onDelete,
+  editedCount = 0,
 }: {
+  /** How many of the selected files have a staged tag edit. */
+  editedCount?: number;
   count: number;
   bytes: number;
   deleting: boolean;
@@ -46,6 +49,9 @@ export function OrganizeSelectionDock({
       <Button variant="outline" size="sm" onClick={onTags}>
         <Tags className="mr-2 h-3.5 w-3.5" />
         Tags
+        {editedCount > 0 && (
+          <span className="ml-1.5 text-xs font-normal text-amber-400">· {editedCount} edited</span>
+        )}
       </Button>
       <Button variant="destructive" size="sm" disabled={deleting} onClick={onDelete}>
         {deleting ? (

@@ -20,7 +20,10 @@ vi.mock("@/lib/api", async (importOriginal) => {
       organizeDeleteFolder: vi.fn(),
       organizeMoveToSubfolder: vi.fn(),
       organizeRename: vi.fn(),
+      organizeDelete: vi.fn(),
       getOrganizeTags: vi.fn(),
+      planOrganizeTags: vi.fn(),
+      applyOrganizeTags: vi.fn(),
     },
   };
 });
@@ -137,6 +140,24 @@ beforeEach(() => {
   });
   vi.mocked(api.getOrganizeFiles).mockResolvedValue([]);
   vi.mocked(api.organizeDeleteFolder).mockResolvedValue(undefined);
+  // Whether and how each file's tags can be written: every file can, by rewriting a copy.
+  vi.mocked(api.planOrganizeTags).mockImplementation(async (paths: string[]) => ({
+    plans: Object.fromEntries(
+      paths.map((p) => [
+        p,
+        {
+          writable: true,
+          how: "rewrite" as const,
+          reason: null,
+          fields: ["title", "description", "artist"],
+          bytes_needed: 10,
+          note: null,
+          can_add_raw: true,
+        },
+      ]),
+    ),
+    free_bytes: { "/r/a": 1_000_000_000 },
+  }));
 });
 afterEach(cleanup);
 
@@ -465,6 +486,107 @@ describe("Organize tag panel", () => {
     // Both the filter card and the action dock have a Clear; either empties the selection.
     fireEvent.click(screen.getAllByRole("button", { name: "Clear" })[0]!);
     await waitFor(() => expect(screen.queryByText("Embedded tags.")).toBeNull());
+  });
+});
+
+describe("Organize tag editing", () => {
+  const FILES = [
+    { name: "x.mp3", path: "/r/a/x.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+    { name: "y.mp3", path: "/r/a/y.mp3", kind: "audio" as const, size: 10, mtime: 0 },
+  ];
+
+  /** Two files selected, the panel open, and the same Title typed in for both. */
+  async function openAndStage() {
+    const withFiles = {
+      ...folder("/r/a"),
+      direct: { ...ZERO, files: 2, audio: 2, bytes: 20 },
+    };
+    vi.mocked(api.getOrganizeFolder).mockImplementation(async (p: string) =>
+      p === "/r/a" ? withFiles : folder(p),
+    );
+    vi.mocked(api.getOrganizeFiles).mockResolvedValue(FILES);
+    vi.mocked(api.getOrganizeDetails).mockResolvedValue({ details: {} });
+    vi.mocked(api.getOrganizeTags).mockImplementation(async (paths: string[]) => ({
+      tags: Object.fromEntries(
+        paths.map((p) => [
+          p,
+          { fields: { title: `Old ${p}` }, raw: {}, streams: [], truncated: false },
+        ]),
+      ),
+    }));
+    renderAt(["/organize?path=/r/a"]);
+    fireEvent.click(await screen.findByText("x.mp3"));
+    fireEvent.click(await screen.findByText("y.mp3"));
+    await screen.findByText(/2 selected/);
+    fireEvent.click(screen.getByRole("button", { name: /Tags/ }));
+    const title = await screen.findByLabelText("Title");
+    await waitFor(() => expect((title as HTMLInputElement).disabled).toBe(false));
+    fireEvent.change(title, { target: { value: "Same title" } });
+    fireEvent.blur(title);
+    return screen.findByRole("button", { name: "Review 2 staged" });
+  }
+
+  it("a staged edit shows a Review chip that outlives the selection and opens the review", async () => {
+    const chip = await openAndStage();
+    expect(screen.getByRole("button", { name: /Tags/ }).textContent).toContain("2 edited");
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear" })[0]!);
+    await waitFor(() => expect(screen.queryByText(/selected/)).toBeNull());
+    expect(screen.getByRole("button", { name: "Review 2 staged" })).toBe(chip);
+    fireEvent.click(chip);
+    expect(await screen.findByText("Review staged edits")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Back to editing/ })).toBeTruthy();
+    // Back closes the panel again: nothing is selected.
+    fireEvent.click(screen.getByRole("button", { name: /Back to editing/ }));
+    await waitFor(() => expect(screen.queryByText("Review staged edits")).toBeNull());
+  });
+
+  it("renaming a file drops its staged edit", async () => {
+    vi.mocked(api.organizeRename).mockResolvedValue({
+      renamed: [{ path: "/r/a/x.mp3", new_path: "/r/a/z.mp3" }],
+      failed: [],
+    });
+    await openAndStage();
+    fireEvent.click(screen.getByRole("button", { name: /^Rename$/ }));
+    await screen.findByText("Rename 2 files");
+    fireEvent.change(screen.getByLabelText("Find"), { target: { value: "x" } });
+    fireEvent.change(screen.getByLabelText("Replace with"), { target: { value: "z" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /^Rename/ }).at(-1)!);
+    expect(await screen.findByRole("button", { name: "Review 1 staged" })).toBeTruthy();
+  });
+
+  it("deleting a file drops its staged edit", async () => {
+    vi.mocked(api.organizeDelete).mockResolvedValue({
+      deleted: ["/r/a/x.mp3"],
+      failed: [],
+      empty_folders: [],
+    });
+    await openAndStage();
+    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete 2 files/ }));
+    expect(await screen.findByRole("button", { name: "Review 1 staged" })).toBeTruthy();
+  });
+
+  it("a rescan, like a new root, clears every staged edit", async () => {
+    await openAndStage();
+    fireEvent.click(screen.getByRole("button", { name: /Rescan/ }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /staged/ })).toBeNull());
+  });
+
+  it("staged edits survive opening another folder", async () => {
+    await openAndStage();
+    fireEvent.click(await screen.findByText("b"));
+    await current("b");
+    expect(screen.getByRole("button", { name: "Review 2 staged" })).toBeTruthy();
+  });
+
+  it("with names redacted the chip cannot open the review", async () => {
+    await openAndStage();
+    fireEvent.click(screen.getByLabelText("Redact names"));
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "Review 2 staged" }) as HTMLButtonElement).disabled,
+      ).toBe(true),
+    );
   });
 });
 

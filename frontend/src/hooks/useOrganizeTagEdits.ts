@@ -204,6 +204,19 @@ export function useOrganizeTagEdits({
     [commitStaged],
   );
 
+  /** A folder was renamed or deleted: every staged file under it is gone from its old path. */
+  const dropFolder = useCallback(
+    (folder: string) => {
+      const prefix = folder.endsWith("/") ? folder : `${folder}/`;
+      const under = Object.keys(stagedRef.current).filter((p) => p.startsWith(prefix));
+      if (under.length === 0) return;
+      commitStaged(omit(stagedRef.current, under));
+      setResults((prev) => omit(prev, under));
+      for (const p of under) fullCache.current.delete(p);
+    },
+    [commitStaged],
+  );
+
   const clearAll = useCallback(() => {
     commitStaged({});
     setResults({});
@@ -331,6 +344,7 @@ export function useOrganizeTagEdits({
     /** Per file, what the last apply said (failed ones also stay staged). */
     results,
     drop,
+    dropFolder,
     clearAll,
   };
 }
