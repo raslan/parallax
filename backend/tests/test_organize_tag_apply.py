@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 
 import mutagen
 import pytest
@@ -440,6 +441,43 @@ def test_apply_same_file_twice_at_once_is_serialised(tmp_path):
         t.join()
     assert [r.status for r in results] == ["written", "written"]
     assert _fields(p) == {"title": "T", "artist": "A", "album": "B"}
+
+
+@needs_ffmpeg
+def test_apply_leaves_no_lock_behind_once_a_file_is_done(tmp_path):
+    """The per-path lock exists only while an edit of that path runs or waits."""
+    p = _audio(tmp_path / "a.mp3", "title=T")
+    assert apply.apply_one(p, {"artist": "A"}).status == "written"
+    assert apply.apply_one(str(tmp_path / "gone.mp3"), {"artist": "A"}).status == "failed"
+    assert apply._locks == {}
+
+
+@needs_ffmpeg
+def test_apply_keeps_the_lock_while_another_request_waits_for_it(tmp_path, monkeypatch):
+    p = _audio(tmp_path / "a.mp3", "title=T")
+    inside, release = threading.Event(), threading.Event()
+    real = writers.edit_with_mutagen
+
+    def slow(path, changes):
+        inside.set()
+        release.wait(5)
+        return real(path, changes)
+
+    monkeypatch.setattr(writers, "edit_with_mutagen", slow)
+    results = []
+    first = threading.Thread(target=lambda: results.append(apply.apply_one(p, {"artist": "A"})))
+    second = threading.Thread(target=lambda: results.append(apply.apply_one(p, {"album": "B"})))
+    first.start()
+    assert inside.wait(5)
+    second.start()
+    time.sleep(0.2)  # the second request is now waiting on the first one's lock
+    assert len(apply._locks) == 1
+    release.set()
+    first.join()
+    second.join()
+    assert [r.status for r in results] == ["written", "written"]
+    assert _fields(p) == {"title": "T", "artist": "A", "album": "B"}
+    assert apply._locks == {}
 
 
 @needs_ffmpeg

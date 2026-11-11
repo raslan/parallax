@@ -50,15 +50,27 @@ def _failed(message: str) -> ApplyResult:
     return ApplyResult("failed", message)
 
 
-# One edit per file at a time: two requests naming the same path queue instead of racing.
-_locks: dict[str, threading.Lock] = {}
+# One edit per file at a time: two requests naming the same path (two tabs, a script) queue
+# instead of racing, where the second replace would throw away the first one's edit. An entry
+# is [lock, number of requests holding or waiting on it] and is removed with the last of them.
+_locks: dict[str, list] = {}
 _locks_guard = threading.Lock()
 
 
-def _lock_for(path: str) -> threading.Lock:
+@contextlib.contextmanager
+def _path_lock(path: str):
     key = os.path.realpath(path)
     with _locks_guard:
-        return _locks.setdefault(key, threading.Lock())
+        entry = _locks.setdefault(key, [threading.Lock(), 0])
+        entry[1] += 1
+    try:
+        with entry[0]:
+            yield
+    finally:
+        with _locks_guard:
+            entry[1] -= 1
+            if entry[1] == 0:
+                del _locks[key]
 
 
 def _clean(changes: dict[str, str | None]) -> dict[str, str | None]:
@@ -311,7 +323,7 @@ def apply_one(path: str, changes: dict[str, str | None]) -> ApplyResult:
     otherwise."""
     try:
         cleaned = _clean(changes)
-        with _lock_for(path):
+        with _path_lock(path):
             return _apply_locked(path, cleaned)
     except writers.WriteError as e:
         return _failed(str(e))
