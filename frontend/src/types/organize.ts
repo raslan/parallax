@@ -65,6 +65,41 @@ export interface OrganizeTagInfo {
   truncated: boolean;
 }
 
+/** How a file's tags get written: in place (mkv/webm), or by rewriting a copy. */
+export type TagWriteHow = "in_place" | "rewrite";
+
+/** Whether and how one file's tags can be written (`POST /organize/tags/plan`). */
+export interface TagPlan {
+  writable: boolean;
+  how: TagWriteHow | null;
+  /** Why it cannot be written, when it cannot. */
+  reason: string | null;
+  /** Fields that can be edited: canonical names, `raw:<name>` for tags the file has. */
+  fields: string[];
+  /** Free space a rewrite needs next to the file (0 in place). */
+  bytes_needed: number;
+  /** A caution to show beside how it is written. */
+  note: string | null;
+  /** Any other tag name can be added. */
+  can_add_raw: boolean;
+}
+
+export interface TagPlansResult {
+  plans: Record<string, TagPlan>;
+  /** Free bytes on the folder of each file. */
+  free_bytes: Record<string, number>;
+}
+
+/** One file's edits for `POST /organize/tags/apply`; `null` clears a field. */
+export interface TagApplyItem {
+  path: string;
+  set: Record<string, string | null>;
+}
+
+export interface TagApplyResult {
+  results: Record<string, { status: "written" | "failed"; message: string }>;
+}
+
 export interface ScanState {
   status: "idle" | "running" | "done" | "error";
   folders_scanned: number;

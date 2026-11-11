@@ -1,0 +1,234 @@
+/**
+ * Planning for Organize's tag editing: staging edits for the selected files, what the
+ * review step shows (before → after per file), and what actually gets sent. Pure.
+ *
+ * Every staged value is concrete per file: an operation (prepend, append, find/replace)
+ * is resolved against each file's own value when it is staged, so the review shows exact
+ * results. The server stays the authority and re-validates everything.
+ */
+
+import { applyFindReplace, type FindRule } from "@/lib/findReplace";
+import type { OrganizeTagInfo, TagApplyItem, TagPlan, TagWriteHow } from "@/types/organize";
+
+const RAW_PREFIX = "raw:";
+
+/** Path → field → the value to write (`null` clears). Fields are canonical names or `raw:<name>`. */
+export type Staged = Record<string, Record<string, string | null>>;
+
+export type FieldOp =
+  | { op: "set"; value: string }
+  | { op: "clear" }
+  | { op: "prepend"; text: string }
+  | { op: "append"; text: string }
+  | { op: "replace"; rule: FindRule };
+
+export interface StageFile {
+  path: string;
+  /** The file's full tags; `null` when it has none to read, `undefined` while loading. */
+  info: OrganizeTagInfo | null | undefined;
+}
+
+export interface StageResult {
+  staged: Staged;
+  /** Files nothing was staged for because they could not take it (not loaded, a value too long to edit safely, a field their format lacks). */
+  skipped: string[];
+  /** A regular expression that does not compile; nothing is staged then. */
+  error: string | null;
+}
+
+interface ReviewChange {
+  field: string;
+  before: string | undefined;
+  after: string | null;
+}
+
+export interface ReviewRow {
+  path: string;
+  changes: ReviewChange[];
+  /** Staged fields this file's format cannot hold; they are not sent. */
+  blocked: string[];
+  how: TagWriteHow | null;
+  /** Why the file cannot be written at all. */
+  reason: string | null;
+  note: string | null;
+  /** "changed": a staged field no longer matches what was staged on. "gone": unreadable now. Either is left out of Apply. */
+  stale: "changed" | "gone" | null;
+}
+
+const GPS_RAW = /^(GPS:|XMP-exif:GPS)/;
+const GPS_PRESENT = "Has a location";
+/** A batch read cuts a long value to 500 characters and appends this. */
+const CAP_LENGTH = 501;
+
+/** One field's value as the file has it now; `undefined` when absent. */
+export function currentValue(
+  info: OrganizeTagInfo | null | undefined,
+  field: string,
+): string | undefined {
+  if (!info) return undefined;
+  if (field === "gps")
+    return Object.keys(info.raw).some((k) => GPS_RAW.test(k)) ? GPS_PRESENT : undefined;
+  if (field.startsWith(RAW_PREFIX)) {
+    const name = field.slice(RAW_PREFIX.length);
+    if (name in info.raw) return info.raw[name];
+    const folded = name.toLowerCase();
+    const hit = Object.keys(info.raw).find((k) => k.toLowerCase() === folded);
+    return hit === undefined ? undefined : info.raw[hit];
+  }
+  return info.fields[field];
+}
+
+const same = (a: string | null | undefined, b: string | null | undefined) =>
+  (a ?? "").trim() === (b ?? "").trim();
+
+const isCut = (value: string | undefined, info: OrganizeTagInfo | null) =>
+  !!info?.truncated && value !== undefined && value.length === CAP_LENGTH && value.endsWith("…");
+
+/** Whether this file's plan lets `field` be written (an unknown plan lets everything through). */
+function offers(plan: TagPlan | undefined, field: string): boolean {
+  if (!plan) return true;
+  if (!plan.writable) return false;
+  return plan.fields.includes(field) || (field.startsWith(RAW_PREFIX) && plan.can_add_raw);
+}
+
+function nextValue(op: FieldOp, current: string | undefined): string | null | undefined {
+  switch (op.op) {
+    case "set":
+      return op.value.trim() === "" ? null : op.value;
+    case "clear":
+      return null;
+    case "prepend":
+      return op.text === "" ? undefined : op.text + (current ?? "");
+    case "append":
+      return op.text === "" ? undefined : (current ?? "") + op.text;
+    case "replace":
+      return current === undefined ? undefined : applyFindReplace(current, op.rule).text;
+  }
+}
+
+const readsOldValue = (op: FieldOp) =>
+  op.op === "prepend" || op.op === "append" || op.op === "replace";
+
+function copyStaged(staged: Staged): Staged {
+  const out: Staged = {};
+  for (const path of Object.keys(staged)) out[path] = { ...staged[path] };
+  return out;
+}
+
+/** Stage `op` on `field` for each file. Never mutates `staged`. */
+export function stageOp(
+  staged: Staged,
+  files: StageFile[],
+  field: string,
+  op: FieldOp,
+  plans?: Record<string, TagPlan>,
+): StageResult {
+  if (op.op === "replace") {
+    const error = applyFindReplace("", op.rule).error;
+    if (error) return { staged, skipped: [], error };
+  }
+  const out = copyStaged(staged);
+  const skipped: string[] = [];
+  for (const f of files) {
+    if (f.info === undefined || !offers(plans?.[f.path], field)) {
+      skipped.push(f.path);
+      continue;
+    }
+    if (field === "gps" && op.op !== "clear") continue; // a location can only be removed
+    const current = currentValue(f.info, field);
+    if (readsOldValue(op) && isCut(current, f.info)) {
+      skipped.push(f.path);
+      continue;
+    }
+    const value = nextValue(op, current);
+    if (value === undefined) continue;
+    const entry = (out[f.path] ??= {});
+    if (value === null ? current === undefined : same(value, current)) delete entry[field];
+    else entry[field] = value;
+  }
+  for (const path of Object.keys(out)) if (Object.keys(out[path]!).length === 0) delete out[path];
+  return { staged: out, skipped, error: null };
+}
+
+/** Forget the staged value of `field` for the given files. Never mutates `staged`. */
+export function unstageField(staged: Staged, paths: string[], field: string): Staged {
+  const out = copyStaged(staged);
+  for (const path of paths) {
+    if (!out[path]) continue;
+    delete out[path][field];
+    if (Object.keys(out[path]).length === 0) delete out[path];
+  }
+  return out;
+}
+
+/** What a field reads as with this file's staged edit applied (a staged clear reads as empty). */
+export function effectiveValue(
+  info: OrganizeTagInfo | null | undefined,
+  stagedForFile: Record<string, string | null> | undefined,
+  field: string,
+): string | undefined {
+  if (stagedForFile && field in stagedForFile) return stagedForFile[field] ?? undefined;
+  return currentValue(info, field);
+}
+
+/**
+ * The review step's rows: for every staged file, each change as before → after, how it
+ * will be written, and whether the file moved since it was staged. `snapshots` are the
+ * tags each file had when staged (what the user saw), `current` are re-read when Review
+ * opens (`undefined` while loading, `null` when unreadable). Files whose staged values
+ * equal what they have are left out (the caller counts them as skipped).
+ */
+export function buildReview(
+  staged: Staged,
+  snapshots: Record<string, OrganizeTagInfo | null>,
+  current: Record<string, OrganizeTagInfo | null | undefined>,
+  plans: Record<string, TagPlan>,
+): ReviewRow[] {
+  const rows: ReviewRow[] = [];
+  for (const path of Object.keys(staged).sort()) {
+    const edits = staged[path]!;
+    const snap = snapshots[path];
+    const now = current[path];
+    const plan = plans[path];
+    let stale: ReviewRow["stale"] = null;
+    if (now === null) stale = "gone";
+    else if (now !== undefined) {
+      const moved = Object.keys(edits).some(
+        (field) => !same(currentValue(now, field), currentValue(snap, field)),
+      );
+      if (moved) stale = "changed";
+    }
+    const changes: ReviewChange[] = [];
+    const blocked: string[] = [];
+    for (const [field, after] of Object.entries(edits)) {
+      const before = currentValue(snap, field);
+      if (plan?.writable && !offers(plan, field)) {
+        blocked.push(field);
+        continue;
+      }
+      if (after === null ? before === undefined : same(after, before)) continue;
+      changes.push({ field, before, after });
+    }
+    if (changes.length === 0 && blocked.length === 0) continue;
+    rows.push({
+      path,
+      changes,
+      blocked,
+      how: plan?.how ?? null,
+      reason: plan && !plan.writable ? plan.reason : null,
+      note: plan?.note ?? null,
+      stale,
+    });
+  }
+  return rows;
+}
+
+/** What to send: files that can be written and have not moved, with only their changed, allowed fields. */
+export function toApplyItems(rows: ReviewRow[]): TagApplyItem[] {
+  return rows
+    .filter((r) => r.stale === null && r.how !== null && r.reason === null && r.changes.length > 0)
+    .map((r) => ({
+      path: r.path,
+      set: Object.fromEntries(r.changes.map((c) => [c.field, c.after])),
+    }));
+}

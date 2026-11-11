@@ -8,6 +8,9 @@ import type {
   OrganizeFolder,
   OrganizeTagInfo,
   ScanState,
+  TagApplyItem,
+  TagApplyResult,
+  TagPlansResult,
 } from "@/types/organize";
 import type { StreamPrepareStatus } from "@/types/stream";
 
@@ -35,6 +38,18 @@ export const organizeApi = {
     req<{ tags: Record<string, OrganizeTagInfo | null> }>("/organize/tags", {
       method: "POST",
       body: JSON.stringify({ paths, full }),
+    }),
+  /** Whether and how each file's tags can be written, and the space a rewrite needs. */
+  planOrganizeTags: (paths: string[]) =>
+    req<TagPlansResult>("/organize/tags/plan", {
+      method: "POST",
+      body: JSON.stringify({ paths }),
+    }),
+  /** Writes the reviewed tag edits (at most 20 files); one result per file. No undo. */
+  applyOrganizeTags: (items: TagApplyItem[]) =>
+    req<TagApplyResult>("/organize/tags/apply", {
+      method: "POST",
+      body: JSON.stringify({ items }),
     }),
   organizeDelete: (paths: string[]) =>
     req<OrganizeDeleteResult>("/organize/delete", {
