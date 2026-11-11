@@ -59,6 +59,30 @@ docker build -t parallax .
 
 Use `parallax` in place of the `ghcr.io/...` image in the compose file above. When you iterate locally, always run `docker compose up --build`: a plain restart will not pick up your changes.
 
+## Local development
+
+To run the code and its tests outside Docker, you need these installed on your machine. How you install them depends on your system.
+
+**Programs** (the backend runs them, and its tests run them for real):
+
+- **Python 3.12** and **Node.js 20**, matching the Docker image.
+- **ffmpeg** with its companion **ffprobe**, built with chromaprint (the Docker image uses jellyfin-ffmpeg).
+- **ExifTool**, which reads and writes the tags inside images.
+- **MKVToolNix** (its `mkvpropedit` tool), which edits tags in mkv and webm files.
+
+**Python packages** are listed in `backend/requirements.txt` (the app) and `backend/requirements-dev.txt` (pytest and ruff). They include `mutagen` for music tags and `ncnn` for upscaling. A virtual environment keeps them out of your system Python:
+
+```bash
+cd backend
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/python -m pytest tests -q
+```
+
+**Frontend**: `npm install` in `frontend/`, then `npm run dev` for the dev server (it proxies `/api` to a backend on port 7899), `npm test` for the tests, and `npm run lint` for lint.
+
+A test that needs one of the programs above fails or is skipped when it is missing, so install all of them for a clean run.
+
 ## Built with
 
 Python and FastAPI on the back, React and Tailwind on the front, ffmpeg underneath, all in one Docker image. Credits for every project and licence Parallax builds on are in the app under Settings, then Credits.
