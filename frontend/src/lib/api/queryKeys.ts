@@ -75,6 +75,11 @@ export const qk = {
     path === undefined ? (["organize", "files"] as const) : (["organize", "files", path] as const),
   /** One file's full (uncapped) tags, read when the info panel shows it. */
   organizeTags: (path: string) => ["organize", "tags", path] as const,
+  /** Whether and how each of these files' tags can be written (no argument = every plan). */
+  organizeTagPlan: (paths?: string[]) =>
+    paths === undefined
+      ? (["organize", "tag-plan"] as const)
+      : (["organize", "tag-plan", paths] as const),
 
   galleryOptions: () => ["galleries", "options"] as const,
   galleryDlInfo: () => ["gallery-dl", "info"] as const,

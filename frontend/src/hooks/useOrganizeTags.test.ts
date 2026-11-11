@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrganizeFile, OrganizeTagInfo } from "@/types/organize";
 
@@ -107,6 +107,37 @@ describe("useOrganizeTags", () => {
     });
     await waitFor(() => expect(result.current.done).toBe(true));
     rerender({ f: mkFiles(5) }); // new array identity, same path + size + mtime
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getOrganizeTags).toHaveBeenCalledTimes(1);
+  });
+
+  it("forget drops only the named files and reads them again, even at the same size and mtime", async () => {
+    // An edit that restores the modification time and keeps the size would otherwise be
+    // invisible to the path + size + mtime cache.
+    let title = "before";
+    getOrganizeTags.mockImplementation(async (paths: string[]) => ({
+      tags: Object.fromEntries(paths.map((p) => [p, info(`${title}:${p}`)])),
+    }));
+    const files = mkFiles(3);
+    const { result } = renderHook(() => useOrganizeTags("/r", files, true));
+    await waitFor(() => expect(result.current.done).toBe(true));
+    expect(getOrganizeTags).toHaveBeenCalledTimes(1);
+    title = "after!";
+    act(() => result.current.forget(["/r/f1"]));
+    await waitFor(() => expect(result.current.tags["/r/f1"]?.fields.title).toBe("after!:/r/f1"));
+    expect(getOrganizeTags).toHaveBeenCalledTimes(2);
+    expect(getOrganizeTags.mock.calls[1]![0]).toEqual(["/r/f1"]);
+    expect(result.current.tags["/r/f0"]?.fields.title).toBe("before:/r/f0");
+  });
+
+  it("forget with nothing to forget makes no request", async () => {
+    getOrganizeTags.mockImplementation(async (paths: string[]) => ({
+      tags: Object.fromEntries(paths.map((p) => [p, info("t")])),
+    }));
+    const files = mkFiles(2);
+    const { result } = renderHook(() => useOrganizeTags("/r", files, true));
+    await waitFor(() => expect(result.current.done).toBe(true));
+    act(() => result.current.forget(["/elsewhere/x"]));
     await new Promise((r) => setTimeout(r, 20));
     expect(getOrganizeTags).toHaveBeenCalledTimes(1);
   });

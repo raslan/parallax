@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,5 +90,23 @@ describe("useOrganizeTagPanel", () => {
     expect(result.current.infos["/r/b.mp3"]?.fields.title).toBe("read");
     // The list already had a.mp3, so only b.mp3 was read.
     expect(getOrganizeTags.mock.calls.flatMap(([p]) => p)).toEqual(["/r/b.mp3"]);
+  });
+
+  it("forget re-reads a single file's full tags and a selected file the list did not have", async () => {
+    // After a write the cached full read is stale even if the file's size did not change.
+    const only = [file("a.mp3")];
+    let title = "T1";
+    getOrganizeTags.mockImplementation(async () => ({
+      tags: { "/r/a.mp3": { ...capped(title), raw: { title }, streams: ["audio mp3"] } },
+    }));
+    const listTags = { "/r/a.mp3": capped("T1") };
+    const { result } = renderHook(
+      () => useOrganizeTagPanel({ folderPath: "/r", files: only, tags: listTags, enabled: true }),
+      { wrapper: wrapperFor() },
+    );
+    await waitFor(() => expect(result.current.infos["/r/a.mp3"]?.fields.title).toBe("T1"));
+    title = "T2";
+    act(() => result.current.forget(["/r/a.mp3"]));
+    await waitFor(() => expect(result.current.infos["/r/a.mp3"]?.fields.title).toBe("T2"));
   });
 });

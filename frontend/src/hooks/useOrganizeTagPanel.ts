@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qk } from "@/lib/api";
 import { useOrganizeTags } from "@/hooks/useOrganizeTags";
 import type { OrganizeFile, OrganizeTagInfo } from "@/types/organize";
@@ -23,6 +23,7 @@ export function useOrganizeTagPanel({
   tags: Record<string, OrganizeTagInfo | null>;
   enabled: boolean;
 }) {
+  const qc = useQueryClient();
   const single = files.length === 1 ? files[0]! : null;
   const full = useQuery({
     queryKey: qk.organizeTags(single?.path ?? ""),
@@ -40,5 +41,15 @@ export function useOrganizeTagPanel({
   // One file waits for its full read: the batch value carries no raw tags or streams.
   if (single) infos[single.path] = full.data;
   const loading = files.some((f) => infos[f.path] === undefined);
-  return { infos, loading };
+
+  /** After a write: read these files' tags again, whatever their size and mtime say. */
+  const ownForget = own.forget;
+  const forget = useCallback(
+    (paths: string[]) => {
+      ownForget(paths);
+      for (const p of paths) void qc.invalidateQueries({ queryKey: qk.organizeTags(p) });
+    },
+    [ownForget, qc],
+  );
+  return { infos, loading, forget };
 }

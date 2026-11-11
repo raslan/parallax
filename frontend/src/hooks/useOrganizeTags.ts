@@ -10,11 +10,11 @@ const fetchTags = async (paths: string[]) => (await api.getOrganizeTags(paths)).
  * none of those make no request. See `useStreamedByFile` for batching and caching.
  */
 export function useOrganizeTags(folderPath: string, files: OrganizeFile[], enabled: boolean) {
-  const { byPath, loaded, total, done } = useStreamedByFile<OrganizeTagInfo>({
+  const { byPath, loaded, total, done, forget } = useStreamedByFile<OrganizeTagInfo>({
     resetKey: folderPath,
     files,
     enabled,
     fetchBatch: fetchTags,
   });
-  return { tags: byPath, loaded, total, done };
+  return { tags: byPath, loaded, total, done, forget };
 }

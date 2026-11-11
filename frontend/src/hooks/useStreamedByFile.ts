@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OrganizeFile } from "@/types/organize";
 
 const BATCH_SIZE = 25;
@@ -31,11 +31,32 @@ export function useStreamedByFile<T>({
   fetchBatch: (paths: string[]) => Promise<Record<string, T | null>>;
 }) {
   const [cache, setCache] = useState<Record<string, T | null>>({});
+  // Bumped by `forget` so the fetch effect runs again for the files it dropped.
+  const [refresh, setRefresh] = useState(0);
   // Read by the fetch effect without re-running it on every merged batch.
   const cacheRef = useRef(cache);
   useEffect(() => {
     cacheRef.current = cache;
   }, [cache]);
+
+  /**
+   * Drops the named files' results and reads them again. For files rewritten in place
+   * (a tag edit restores the modification time and can keep the size), which the
+   * path + size + mtime key would otherwise report as unchanged.
+   */
+  const forget = useCallback((paths: string[]) => {
+    const gone = new Set(paths);
+    let dropped = false;
+    setCache((prev) => {
+      const next: Record<string, T | null> = {};
+      for (const k in prev) {
+        if (gone.has(k.slice(0, k.indexOf("\u0000")))) dropped = true;
+        else next[k] = prev[k] ?? null;
+      }
+      return dropped ? next : prev;
+    });
+    setRefresh((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled || files.length === 0) return;
@@ -70,7 +91,7 @@ export function useStreamedByFile<T>({
     return () => {
       cancelled = true;
     };
-  }, [resetKey, files, enabled, fetchBatch]);
+  }, [resetKey, files, enabled, fetchBatch, refresh]);
 
   const { byPath, loaded } = useMemo(() => {
     const out: Record<string, T | null> = {};
@@ -86,5 +107,5 @@ export function useStreamedByFile<T>({
   }, [files, cache]);
 
   const total = files.length;
-  return { byPath, loaded, total, done: total === 0 || loaded >= total };
+  return { byPath, loaded, total, done: total === 0 || loaded >= total, forget };
 }
