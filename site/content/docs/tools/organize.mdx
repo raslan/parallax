@@ -1,9 +1,9 @@
 ---
 title: Organize
-description: Work on any folder by hand. Browse it, find files, read the tags inside them, rename or move them and delete what you do not need.
+description: Work on any folder by hand. Browse it, find files, read and change the tags inside them, rename or move them and delete what you do not need.
 ---
 
-Organize is for the messy folders that are not part of a library: a downloads folder, a drive of old backups, a camera dump. Point it at a folder and it shows you what is inside, so you can search, read the tags inside the files, move, rename and delete things.
+Organize is for the messy folders that are not part of a library: a downloads folder, a drive of old backups, a camera dump. Point it at a folder and it shows you what is inside, so you can search, read and change the tags inside the files, move, rename and delete things.
 
 It does not add anything to your libraries. Nothing is saved to the database and the folder is not watched. It reads the folder when you ask, and works on the files when you tell it to.
 
@@ -33,7 +33,7 @@ To pick files, tick them, drag a box around them, or use **Select all that are**
 
 ## Looking at the tags inside files
 
-Many files carry their own information inside them: a title, a description, an artist, a date. Downloaded videos often have the title, the description and the channel name. Music has the song, the artist and the album. Photos have the camera, the date taken and sometimes the place. Apps like Plex, Jellyfin and PhotoPrism read these, and sometimes show them instead of the file name. Organize lets you see them, so you know what those apps will see. For now this is read-only: nothing in a file is changed.
+Many files carry their own information inside them: a title, a description, an artist, a date. Downloaded videos often have the title, the description and the channel name. Music has the song, the artist and the album. Photos have the camera, the date taken and sometimes the place. Apps like Plex, Jellyfin and PhotoPrism read these, and sometimes show them instead of the file name. Organize lets you see them, so you know what those apps will see, and [change them](#changing-the-tags-inside-files) when they are wrong.
 
 <Shot id="tools/organize/tags" />
 
@@ -48,6 +48,36 @@ Many files carry their own information inside them: a title, a description, an a
 
 The panel stays open while you keep working, closes with the **Esc** key or its close button, and is remembered between visits. Pictures show their photo information (camera, date taken, and so on) and music shows its song information. When a picture stores the same tag in more than one place, the columns and filters use the first one they find, and the panel lists every place.
 
+## Changing the tags inside files
+
+You change tags in the same panel. Every change takes two steps: you **stage** it, then you **review and apply** it. Nothing is written until you press **Apply**, not even for a single file.
+
+<Shot id="tools/organize/tag-edit" />
+
+**Stage a change.** Select one or more files and open the **Tags** panel. Type in a field and click away (or press **Enter**) to stage the new value for every selected file. If the files disagree the field says **Mixed**, and typing sets the same value for all of them. The **×** next to a field clears it, and the arrow undoes a change you staged. A field marked **Edited** has a change waiting.
+
+The button next to a field opens two tools. **Find and replace** works on the text in that field (with an optional pattern match) and tells you how many of the files would change. **Add text** puts text at the start or the end of each file's own value, for example a tag like `#live` on every description. **Add field…** lists the other fields your files can hold, and **Other tag…** adds a tag with any name your files allow. A tag a file already has shows in the list of tags, where you can edit or clear it. On a photo, the **×** next to **Location** removes where it was taken. A location can be removed but not typed in.
+
+**Review and apply.** When something is staged, **Review changes** appears at the bottom of the panel and a **Review N staged** button appears at the top of the page, so you can find your changes from any folder. They stay while you move between folders. They are dropped if you rename, move or delete the file, or choose a different folder to organize.
+
+<Shot id="tools/organize/tag-review" />
+
+The review lists every change as before and after, file by file, and says how each file will be written. It reads every file again when it opens. A file that changed since you staged it, or that can no longer be read, is marked and left out until you stage it again. A file that already has the value you typed is skipped. Press **Apply** to write the files.
+
+**There is no undo.** Applying changes the tags in the files for good, and Parallax does not keep a backup of the old ones.
+
+**What stays untouched.** Parallax changes only the tags you changed. The picture or video, the cover art, lyrics, ratings, your other tags and the file's date stay exactly as they were. After writing, it reads the file again to check that the change really took. If it did not, your original file is left alone and the review says what went wrong.
+
+**How each kind of file is written.** The review shows which of these applies to each file:
+
+- **MKV and WebM** files are changed in place and quickly. If the check fails, the old tags are put back.
+- **Music** (MP3, FLAC, Ogg, Opus, M4A) and **MP4-style videos** (MP4, M4V, MOV, 3GP) are written to a copy that then replaces the file, so you need free space about the size of the file. The review shows how much. FLAC, Ogg and Opus keep one text for both the comment and the description, so only **Comment** is shown for them.
+- **Pictures** (JPEG, PNG, WebP, GIF) are rewritten the same way. Parallax writes a change to every place that apps look for it, so the title or description agrees everywhere.
+- **A few older formats** (AVI, FLV, WMV, WMA, WAV, AIFF) can only keep some tags. They are rewritten, and the review warns that other tags may not survive. Some of them do not allow custom tag names.
+- **Anything else**, such as MPEG-TS, MPEG, Ogg video and other picture types, is shown as read-only with the reason.
+
+A file that other names are linked to (a hard link) is not rewritten, because that would break the link. While **Redact names** is on, editing is turned off.
+
 ## Doing something with them
 
 A bar at the bottom shows what you have selected, with these buttons:
@@ -55,7 +85,7 @@ A bar at the bottom shows what you have selected, with these buttons:
 - **Move to subfolder** asks for a name and puts the files in a folder with that name inside the one you are viewing. The folder is made if it does not exist, or reused if it does. If a file with the same name is already there, the new one gets a number like `(1)` rather than replacing it.
 - **Move to folder** moves the files into any other folder under the one you chose, which you pick from a small browser.
 - **Rename** changes the name of the selected files. For one file you type the new name. For several you can find and replace text in their names, with an optional pattern match for more complex changes, and a live preview of every result before you confirm. A name that is already taken is skipped, and nothing is ever overwritten.
-- **Tags** opens the panel with the tags inside the selected files (see above).
+- **Tags** opens the panel with the tags inside the selected files, where you can also change them (see above). It shows how many of the selected files have a change waiting.
 - **Delete** removes the files for good.
 
 To rename a folder, use the pencil on its card.
@@ -74,4 +104,12 @@ Files you delete count towards your totals on the Home page.
 
 ## Hiding names
 
-**Redact names** is a tick box in the bar at the top of the page, next to **Rescan**. When it is on, it replaces every folder and file name with a placeholder, hides the thumbnails and hides the tag values. It is useful when you want to share a screenshot without showing what is on your disk.
+**Redact names** is a tick box in the bar at the top of the page, next to **Rescan**. When it is on, it replaces every folder and file name with a placeholder, hides the thumbnails and hides the tag values, and tag editing is turned off. It is useful when you want to share a screenshot without showing what is on your disk.
+
+## Advanced
+
+- Tags are read with `ffprobe` for video and audio and with `exiftool` for pictures. They are written with `mkvpropedit` (MKV and WebM, global tags only, so the tags of single tracks are never touched), `mutagen` (music and MP4-style videos, on a hidden copy next to the file, so scans and the watcher ignore it), `exiftool` (pictures) and, for the few older formats, a stream copy by `ffmpeg`.
+- A rewrite checks the copy before it replaces your file: the same number of streams, the same duration (within a few hundredths of a second), every changed field reading back as typed and no other field changed. Then it puts the original modification time and permissions back.
+- A picture field is written to EXIF, XMP and IPTC together. IPTC holds only short values (a title up to 64 bytes, a description up to 2,000), so a longer value clears the IPTC copy instead of cutting it. Dates are stored as `YYYY:MM:DD HH:MM:SS`.
+- Custom tag names for pictures look like `XMP-dc:Source` or `IFD0:Make`. Names that belong to the file itself (such as `File:` or `System:`) are refused.
+- A value can be up to 30,000 characters, and text with control characters (other than new lines and tabs) is refused.

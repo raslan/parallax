@@ -95,7 +95,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         href: "/docs/tools/organize",
         title: "Organize",
         summary:
-          "Look inside any folder, read the tags inside the files, then move, rename or delete them in a few clicks.",
+          "Look inside any folder, read and fix the tags inside the files, then move, rename or delete them in a few clicks.",
       },
       {
         href: "/docs/features/toolbox",

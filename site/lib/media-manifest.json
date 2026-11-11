@@ -2683,7 +2683,29 @@
     "src": "tools/organize/tags.webp",
     "width": 1200,
     "height": 900,
-    "bytes": 144876,
+    "bytes": 113626,
+    "quality": 90
+  },
+  "tools/organize/tag-edit": {
+    "id": "tools/organize/tag-edit",
+    "kind": "still",
+    "alt": "Organize with three voice memos selected and the tags panel open, showing a new title and description typed in and marked as edited.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "src": "tools/organize/tag-edit.webp",
+    "width": 1200,
+    "height": 900,
+    "bytes": 120226,
+    "quality": 90
+  },
+  "tools/organize/tag-review": {
+    "id": "tools/organize/tag-review",
+    "kind": "still",
+    "alt": "The review step of the tags panel, listing each voice memo with its old and new title and description, how it will be written and an Apply button.",
+    "route": "/organize?path=%2Fmedia%2Forganize-sandbox%2FInbox",
+    "src": "tools/organize/tag-review.webp",
+    "width": 1200,
+    "height": 900,
+    "bytes": 147608,
     "quality": 90
   }
 }
