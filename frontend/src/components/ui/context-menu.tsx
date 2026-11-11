@@ -11,7 +11,7 @@ const ContextMenuContent = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Content> &
-  React.RefAttributes<React.ElementRef<typeof ContextMenuPrimitive.Content>>) => (
+  React.RefAttributes<React.ComponentRef<typeof ContextMenuPrimitive.Content>>) => (
   <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.Content
       ref={ref}
@@ -30,7 +30,7 @@ const ContextMenuItem = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Item> &
-  React.RefAttributes<React.ElementRef<typeof ContextMenuPrimitive.Item>>) => (
+  React.RefAttributes<React.ComponentRef<typeof ContextMenuPrimitive.Item>>) => (
   <ContextMenuPrimitive.Item
     ref={ref}
     className={cn(
@@ -47,7 +47,7 @@ const ContextMenuSeparator = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Separator> &
-  React.RefAttributes<React.ElementRef<typeof ContextMenuPrimitive.Separator>>) => (
+  React.RefAttributes<React.ComponentRef<typeof ContextMenuPrimitive.Separator>>) => (
   <ContextMenuPrimitive.Separator
     ref={ref}
     className={cn("-mx-1 my-1 h-px bg-border", className)}

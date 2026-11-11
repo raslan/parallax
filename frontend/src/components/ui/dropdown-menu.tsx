@@ -12,7 +12,7 @@ const DropdownMenuContent = ({
   sideOffset = 4,
   ...props
 }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> &
-  React.RefAttributes<React.ElementRef<typeof DropdownMenuPrimitive.Content>>) => (
+  React.RefAttributes<React.ComponentRef<typeof DropdownMenuPrimitive.Content>>) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       ref={ref}
@@ -32,7 +32,7 @@ const DropdownMenuItem = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> &
-  React.RefAttributes<React.ElementRef<typeof DropdownMenuPrimitive.Item>>) => (
+  React.RefAttributes<React.ComponentRef<typeof DropdownMenuPrimitive.Item>>) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
@@ -49,7 +49,7 @@ const DropdownMenuSeparator = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator> &
-  React.RefAttributes<React.ElementRef<typeof DropdownMenuPrimitive.Separator>>) => (
+  React.RefAttributes<React.ComponentRef<typeof DropdownMenuPrimitive.Separator>>) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
     className={cn("-mx-1 my-1 h-px bg-muted", className)}

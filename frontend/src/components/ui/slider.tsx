@@ -7,7 +7,7 @@ const Slider = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> &
-  React.RefAttributes<React.ElementRef<typeof SliderPrimitive.Root>>) => (
+  React.RefAttributes<React.ComponentRef<typeof SliderPrimitive.Root>>) => (
   <SliderPrimitive.Root
     ref={ref}
     className={cn("relative flex w-full touch-none select-none items-center", className)}

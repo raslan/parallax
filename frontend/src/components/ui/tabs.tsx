@@ -9,7 +9,7 @@ const TabsList = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> &
-  React.RefAttributes<React.ElementRef<typeof TabsPrimitive.List>>) => (
+  React.RefAttributes<React.ComponentRef<typeof TabsPrimitive.List>>) => (
   <TabsPrimitive.List
     ref={ref}
     className={cn(
@@ -26,7 +26,7 @@ const TabsTrigger = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> &
-  React.RefAttributes<React.ElementRef<typeof TabsPrimitive.Trigger>>) => (
+  React.RefAttributes<React.ComponentRef<typeof TabsPrimitive.Trigger>>) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
@@ -43,7 +43,7 @@ const TabsContent = ({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content> &
-  React.RefAttributes<React.ElementRef<typeof TabsPrimitive.Content>>) => (
+  React.RefAttributes<React.ComponentRef<typeof TabsPrimitive.Content>>) => (
   <TabsPrimitive.Content
     ref={ref}
     className={cn("mt-2 focus-visible:outline-hidden", className)}

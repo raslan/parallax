@@ -12,7 +12,7 @@ const TooltipContent = ({
   sideOffset = 4,
   ...props
 }: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> &
-  React.RefAttributes<React.ElementRef<typeof TooltipPrimitive.Content>>) => (
+  React.RefAttributes<React.ComponentRef<typeof TooltipPrimitive.Content>>) => (
   <TooltipPrimitive.Portal>
     <TooltipPrimitive.Content
       ref={ref}
