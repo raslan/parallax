@@ -22,6 +22,9 @@ const APPLY_CHUNK = 10;
 const READ_CONCURRENCY = 4;
 const PLAN_STALE_MS = 60_000;
 
+/** What the hook returns: the staged edits and the actions on them, handed to the panel. */
+export type TagEdits = ReturnType<typeof useOrganizeTagEdits>;
+
 type Snapshots = Record<string, OrganizeTagInfo | null>;
 type Results = Record<string, { status: "written" | "failed"; message: string }>;
 

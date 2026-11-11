@@ -4,6 +4,8 @@ import {
   currentValue,
   effectiveValue,
   stageOp,
+  standardFieldFor,
+  fieldLabel,
   toApplyItems,
   unstageField,
   type StageFile,
@@ -74,6 +76,37 @@ describe("stageOp", () => {
     expect(pre).toEqual({ "/a": { title: "> One" }, "/b": { title: "> Two" } });
     const app = stageOp({}, files, "title", { op: "append", text: " <" }).staged;
     expect(app).toEqual({ "/a": { title: "One <" }, "/b": { title: "Two <" } });
+  });
+
+  it("operations chain on a value that is already staged", () => {
+    const first = stageOp({}, files, "title", { op: "append", text: "!" }).staged;
+    const second = stageOp(first, files, "title", { op: "prepend", text: ">" }).staged;
+    expect(second["/a"]).toEqual({ title: ">One!" });
+    const third = stageOp(second, files, "title", {
+      op: "replace",
+      rule: { find: "!", replace: "?", regex: false },
+    }).staged;
+    expect(third["/a"]).toEqual({ title: ">One?" });
+  });
+
+  it("an operation after a staged clear starts from an empty value", () => {
+    const cleared = stageOp({}, files, "title", { op: "clear" }).staged;
+    const then = stageOp(cleared, files, "title", { op: "append", text: "New" }).staged;
+    expect(then["/a"]).toEqual({ title: "New" });
+    const noop = stageOp(cleared, files, "title", {
+      op: "replace",
+      rule: { find: "One", replace: "x", regex: false },
+    }).staged;
+    expect(noop["/a"]).toEqual({ title: null }); // nothing left to replace in
+  });
+
+  it("an operation that brings a staged value back to the file's own drops the entry", () => {
+    const first = stageOp({}, files, "title", { op: "append", text: "!" }).staged;
+    const back = stageOp(first, files, "title", {
+      op: "replace",
+      rule: { find: "!", replace: "", regex: false },
+    }).staged;
+    expect(back["/a"]).toBeUndefined();
   });
 
   it("prepend to an absent field just sets it", () => {
@@ -292,5 +325,28 @@ describe("toApplyItems", () => {
     const now = { ...snap, "/b": info({ title: "Moved" }) };
     const rows = buildReview(staged, snap, now, plans);
     expect(toApplyItems(rows)).toEqual([{ path: "/a", set: { title: "New" } }]);
+  });
+});
+
+describe("standardFieldFor", () => {
+  it("names the standard field a tag name belongs to, whatever its case or spelling", () => {
+    expect(standardFieldFor("TITLE")).toBe("title");
+    expect(standardFieldFor("Desc")).toBe("description");
+    expect(standardFieldFor("albumartist")).toBe("album_artist");
+    expect(standardFieldFor("Track")).toBe("track");
+  });
+
+  it("is null for any other name, including image-style group names", () => {
+    expect(standardFieldFor("MOOD")).toBeNull();
+    expect(standardFieldFor("XMP-dc:Title")).toBeNull();
+  });
+});
+
+describe("fieldLabel", () => {
+  it("reads like a label, with a raw tag by its own name", () => {
+    expect(fieldLabel("album_artist")).toBe("Album artist");
+    expect(fieldLabel("title")).toBe("Title");
+    expect(fieldLabel("raw:MOOD")).toBe("MOOD");
+    expect(fieldLabel("gps")).toBe("Location");
   });
 });

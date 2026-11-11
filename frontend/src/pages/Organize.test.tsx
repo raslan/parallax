@@ -461,10 +461,10 @@ describe("Organize tag panel", () => {
   it("hides the panel when nothing is selected", async () => {
     await openAndSelect();
     fireEvent.click(screen.getByRole("button", { name: /Tags/ }));
-    await screen.findByText("Embedded tags, read-only.");
+    await screen.findByText("Embedded tags.");
     // Both the filter card and the action dock have a Clear; either empties the selection.
     fireEvent.click(screen.getAllByRole("button", { name: "Clear" })[0]!);
-    await waitFor(() => expect(screen.queryByText("Embedded tags, read-only.")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Embedded tags.")).toBeNull());
   });
 });
 

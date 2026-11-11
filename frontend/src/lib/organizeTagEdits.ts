@@ -55,6 +55,35 @@ export interface ReviewRow {
   stale: "changed" | "gone" | null;
 }
 
+/** A field as the user reads it: "Album artist", the tag's own name for a `raw:` one. */
+export function fieldLabel(field: string): string {
+  if (field.startsWith(RAW_PREFIX)) return field.slice(RAW_PREFIX.length);
+  if (field === "gps") return "Location";
+  const text = field.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Names a tool may store a standard field under (what the server refuses as a custom tag). */
+const STANDARD_NAMES: Record<string, string> = {
+  title: "title",
+  description: "description",
+  desc: "description",
+  synopsis: "synopsis",
+  comment: "comment",
+  artist: "artist",
+  album: "album",
+  album_artist: "album_artist",
+  albumartist: "album_artist",
+  genre: "genre",
+  date: "date",
+  track: "track",
+};
+
+/** The standard field a tag name belongs to ("Desc" → description), or null for a custom name. */
+export function standardFieldFor(name: string): string | null {
+  return STANDARD_NAMES[name.trim().toLowerCase()] ?? null;
+}
+
 const GPS_RAW = /^(GPS:|XMP-exif:GPS)/;
 const GPS_PRESENT = "Has a location";
 /** A batch read cuts a long value to 500 characters and appends this. */
@@ -85,7 +114,7 @@ const isCut = (value: string | undefined, info: OrganizeTagInfo | null) =>
   !!info?.truncated && value !== undefined && value.length === CAP_LENGTH && value.endsWith("…");
 
 /** Whether this file's plan lets `field` be written (an unknown plan lets everything through). */
-function offers(plan: TagPlan | undefined, field: string): boolean {
+export function planOffers(plan: TagPlan | undefined, field: string): boolean {
   if (!plan) return true;
   if (!plan.writable) return false;
   return plan.fields.includes(field) || (field.startsWith(RAW_PREFIX) && plan.can_add_raw);
@@ -130,20 +159,25 @@ export function stageOp(
   const out = copyStaged(staged);
   const skipped: string[] = [];
   for (const f of files) {
-    if (f.info === undefined || !offers(plans?.[f.path], field)) {
+    if (f.info === undefined || !planOffers(plans?.[f.path], field)) {
       skipped.push(f.path);
       continue;
     }
     if (field === "gps" && op.op !== "clear") continue; // a location can only be removed
-    const current = currentValue(f.info, field);
-    if (readsOldValue(op) && isCut(current, f.info)) {
+    const onFile = currentValue(f.info, field);
+    const already = out[f.path];
+    const hasStaged = already !== undefined && field in already;
+    // An operation works on what the field will read after the edits already staged
+    // (append, then prepend), while "unchanged" is always measured against the file.
+    const base = hasStaged ? (already[field] ?? undefined) : onFile;
+    if (readsOldValue(op) && !hasStaged && isCut(onFile, f.info)) {
       skipped.push(f.path);
       continue;
     }
-    const value = nextValue(op, current);
+    const value = nextValue(op, base);
     if (value === undefined) continue;
     const entry = (out[f.path] ??= {});
-    if (value === null ? current === undefined : same(value, current)) delete entry[field];
+    if (value === null ? onFile === undefined : same(value, onFile)) delete entry[field];
     else entry[field] = value;
   }
   for (const path of Object.keys(out)) if (Object.keys(out[path]!).length === 0) delete out[path];
@@ -202,7 +236,7 @@ export function buildReview(
     const blocked: string[] = [];
     for (const [field, after] of Object.entries(edits)) {
       const before = currentValue(snap, field);
-      if (plan?.writable && !offers(plan, field)) {
+      if (plan?.writable && !planOffers(plan, field)) {
         blocked.push(field);
         continue;
       }

@@ -39,6 +39,7 @@ import { useOrganizeSelection } from "@/hooks/useOrganizeSelection";
 import { useScrollParent } from "@/hooks/useScrollParent";
 import { useScrollTopOnChange } from "@/hooks/useScrollTopOnChange";
 import { useSort } from "@/hooks/useSort";
+import { useOrganizeTagEdits } from "@/hooks/useOrganizeTagEdits";
 import { useOrganizeTagPanel } from "@/hooks/useOrganizeTagPanel";
 import { useTagColumns } from "@/hooks/useTagColumns";
 import { useTagPanelOpen } from "@/hooks/useTagPanelOpen";
@@ -115,6 +116,17 @@ export function Organize() {
     enabled: panelOn,
   });
   const exit = useOrganizeExit();
+  const edits = useOrganizeTagEdits({
+    files: actionFiles,
+    redact,
+    // Written files changed on disk, so their cached tags and the listing (size) are read again.
+    onWritten: (paths) => {
+      filters.tagsProgress.forget(paths);
+      panel.forget(paths);
+      exit.refreshListings();
+    },
+    onGone: markGone,
+  });
   const { move, rename, deleteFiles, deleteFolder, deleting, progress } = useOrganizeActions({
     currentPath,
     redact,
@@ -332,6 +344,7 @@ export function Organize() {
         infos={panel.infos}
         loading={panel.loading}
         redact={redact}
+        edits={edits}
       />
       {picker}
     </div>
