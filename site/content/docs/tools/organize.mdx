@@ -58,11 +58,11 @@ You change tags in the same panel. Every change takes two steps: you **stage** i
 
 The button next to a field opens two tools. **Find and replace** works on the text in that field (with an optional pattern match) and tells you how many of the files would change. **Add text** puts text at the start or the end of each file's own value, for example a tag like `#live` on every description. **Add field…** lists the other fields your files can hold, and **Other tag…** adds a tag with any name your files allow. A tag a file already has shows in the list of tags, where you can edit or clear it. On a photo, the **×** next to **Location** removes where it was taken. A location can be removed but not typed in.
 
-**Review and apply.** When something is staged, **Review changes** appears at the bottom of the panel and a **Review N staged** button appears at the top of the page, so you can find your changes from any folder. They stay while you move between folders. They are dropped if you rename, move or delete the file, or choose a different folder to organize.
+**Review and apply.** When something is staged, **Review changes** appears at the bottom of the panel and a **Review N staged** button appears at the top of the page, so you can find your changes from any folder. They stay while you move between folders and after a rescan. They are dropped if you rename, move or delete the file, or choose a different folder to organize.
 
 <Shot id="tools/organize/tag-review" />
 
-The review lists every change as before and after, file by file, and says how each file will be written. It reads every file again when it opens. A file that changed since you staged it, or that can no longer be read, is marked and left out until you stage it again. A file that already has the value you typed is skipped. Press **Apply** to write the files.
+The review lists every change as before and after, file by file, and says how each file will be written. It reads every file again when it opens. A file that changed since you staged it, or that can no longer be read, is marked and left out until you stage it again. A file that already has the value you typed is skipped. Every file has a **Discard this file's edits** button, which is how you start over with a file that was marked. Press **Apply** to write the files. If the connection drops while it is writing, Parallax cannot tell which files were written, so open the review again: it reads them first.
 
 **There is no undo.** Applying changes the tags in the files for good, and Parallax does not keep a backup of the old ones.
 
@@ -109,7 +109,7 @@ Files you delete count towards your totals on the Home page.
 ## Advanced
 
 - Tags are read with `ffprobe` for video and audio and with `exiftool` for pictures. They are written with `mkvpropedit` (MKV and WebM, global tags only, so the tags of single tracks are never touched), `mutagen` (music and MP4-style videos, on a hidden copy next to the file, so scans and the watcher ignore it), `exiftool` (pictures) and, for the few older formats, a stream copy by `ffmpeg`.
-- A rewrite checks the copy before it replaces your file: the same number of streams, the same duration (within a few hundredths of a second), every changed field reading back as typed and no other field changed. Then it puts the original modification time and permissions back.
+- A rewrite checks the copy before it replaces your file: the same number of streams, the same duration (within a tenth of a second, or half a percent of a long file), every changed field reading back as typed and no other field changed. It also checks that the original was not replaced by another job in the meantime. Then it puts the original modification time and permissions back. A rewrite that is cut short, for example by a restart, can leave a hidden file starting with `.parallax-tags-` next to the original. The next rewrite in that folder removes ones older than six hours.
 - A picture field is written to EXIF, XMP and IPTC together. IPTC holds only short values (a title up to 64 bytes, a description up to 2,000), so a longer value clears the IPTC copy instead of cutting it. Dates are stored as `YYYY:MM:DD HH:MM:SS`.
 - Custom tag names for pictures look like `XMP-dc:Source` or `IFD0:Make`. Names that belong to the file itself (such as `File:` or `System:`) are refused.
-- A value can be up to 30,000 characters, and text with control characters (other than new lines and tabs) is refused.
+- A value can be up to 30,000 characters, and text with control characters (other than line breaks and tabs) is refused. Rewrites run one after another, so the space shown is for the biggest single file.
