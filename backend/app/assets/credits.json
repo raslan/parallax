@@ -217,6 +217,18 @@
       "show": { "app": true, "site": true }
     },
     {
+      "id": "nvidia-cuda",
+      "group": "translation",
+      "name": "NVIDIA CUDA libraries",
+      "description": "cuBLAS and cuDNN, the NVIDIA math libraries that let translation and speech-to-text run on an NVIDIA graphics card. Optional: Parallax downloads them from NVIDIA's package index when you install the NVIDIA acceleration package, and does not redistribute them.",
+      "author": "NVIDIA",
+      "licence": "NVIDIA software licence agreements (CUDA EULA, cuDNN SLA)",
+      "licence_url": "https://docs.nvidia.com/cuda/eula/index.html",
+      "url": "https://developer.nvidia.com/cuda-toolkit",
+      "how": "downloaded",
+      "show": { "app": true, "site": true }
+    },
+    {
       "id": "sentencepiece",
       "group": "translation",
       "name": "SentencePiece",

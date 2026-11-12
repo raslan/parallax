@@ -5154,6 +5154,74 @@
         }
       }
     },
+    "/api/hardware": {
+      "get": {
+        "tags": ["hardware"],
+        "summary": "Detected GPUs and the NVIDIA package",
+        "operationId": "get_hardware_api_hardware_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardwareInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hardware/nvidia/install": {
+      "post": {
+        "tags": ["hardware"],
+        "summary": "Install or update the NVIDIA package",
+        "operationId": "install_nvidia_api_hardware_nvidia_install_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hardware/nvidia": {
+      "delete": {
+        "tags": ["hardware"],
+        "summary": "Remove the NVIDIA package",
+        "operationId": "remove_nvidia_api_hardware_nvidia_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/hardware/nvidia/check": {
+      "post": {
+        "tags": ["hardware"],
+        "summary": "Test that the GPU works",
+        "description": "A tiny CUDA test in a fresh process. Says what to fix if the GPU cannot be used.",
+        "operationId": "check_nvidia_api_hardware_nvidia_check_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/compress/codecs": {
       "get": {
         "tags": ["compress"],
@@ -7586,6 +7654,25 @@
         "required": ["ids"],
         "title": "BulkQuarantineRequest"
       },
+      "CheckResult": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "devices": {
+            "type": "integer",
+            "title": "Devices"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": ["ok", "devices", "message"],
+        "title": "CheckResult"
+      },
       "ClearDownloadsRequest": {
         "properties": {
           "statuses": {
@@ -7691,6 +7778,21 @@
         "type": "object",
         "required": ["file_ids"],
         "title": "DeleteDuplicatesRequest"
+      },
+      "DetectedGpu": {
+        "properties": {
+          "vendor": {
+            "type": "string",
+            "title": "Vendor"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": ["vendor", "label"],
+        "title": "DetectedGpu"
       },
       "DownloadOneRequest": {
         "properties": {
@@ -8462,6 +8564,23 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HardwareInfo": {
+        "properties": {
+          "gpus": {
+            "items": {
+              "$ref": "#/components/schemas/DetectedGpu"
+            },
+            "type": "array",
+            "title": "Gpus"
+          },
+          "nvidia": {
+            "$ref": "#/components/schemas/NvidiaPackage"
+          }
+        },
+        "type": "object",
+        "required": ["gpus", "nvidia"],
+        "title": "HardwareInfo"
+      },
       "ImageDetectionRead": {
         "properties": {
           "id": {
@@ -9026,6 +9145,69 @@
         "type": "object",
         "required": ["path", "content"],
         "title": "NfoOp"
+      },
+      "NvidiaPackage": {
+        "properties": {
+          "installed": {
+            "type": "boolean",
+            "title": "Installed"
+          },
+          "installed_bytes": {
+            "type": "integer",
+            "title": "Installed Bytes"
+          },
+          "expected_bytes": {
+            "type": "integer",
+            "title": "Expected Bytes"
+          },
+          "versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Versions"
+          },
+          "installing_job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installing Job Id"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "gpu_count": {
+            "type": "integer",
+            "title": "Gpu Count"
+          },
+          "nvidia_gpus": {
+            "type": "integer",
+            "title": "Nvidia Gpus"
+          },
+          "gpus_in_use": {
+            "type": "integer",
+            "title": "Gpus In Use"
+          }
+        },
+        "type": "object",
+        "required": [
+          "installed",
+          "installed_bytes",
+          "expected_bytes",
+          "versions",
+          "installing_job_id",
+          "enabled",
+          "gpu_count",
+          "nvidia_gpus",
+          "gpus_in_use"
+        ],
+        "title": "NvidiaPackage"
       },
       "OrganizeCounts": {
         "properties": {
@@ -10350,6 +10532,14 @@
             "type": "boolean",
             "title": "Subtitle Translate Drop Hi"
           },
+          "gpu_accel_enabled": {
+            "type": "boolean",
+            "title": "Gpu Accel Enabled"
+          },
+          "gpu_accel_count": {
+            "type": "integer",
+            "title": "Gpu Accel Count"
+          },
           "download_dir": {
             "type": "string",
             "title": "Download Dir"
@@ -10402,6 +10592,8 @@
           "subtitle_sync_engine",
           "subtitle_auto_sync",
           "subtitle_translate_drop_hi",
+          "gpu_accel_enabled",
+          "gpu_accel_count",
           "download_dir",
           "max_concurrent_downloads",
           "ytdlp_channel",
@@ -10547,6 +10739,30 @@
               }
             ],
             "title": "Subtitle Translate Drop Hi"
+          },
+          "gpu_accel_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Accel Enabled"
+          },
+          "gpu_accel_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 64.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Accel Count"
           },
           "download_dir": {
             "anyOf": [
@@ -11363,6 +11579,10 @@
     {
       "name": "subtitles",
       "description": "Scan for missing subtitles, download, sync, translate and delete them."
+    },
+    {
+      "name": "hardware",
+      "description": "Detected graphics cards and the optional NVIDIA acceleration package."
     },
     {
       "name": "subtitle-packs",
