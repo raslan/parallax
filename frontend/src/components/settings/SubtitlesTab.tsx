@@ -1,7 +1,7 @@
 import { Controller } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { qk, subtitlePacksApi } from "@/lib/api";
+import { qk, speechModelsApi, subtitlePacksApi } from "@/lib/api";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,6 +29,11 @@ export function SubtitlesTab() {
     queryFn: () => subtitlePacksApi.list(),
   });
   const reloadPacks = () => qc.invalidateQueries({ queryKey: qk.subtitlePacks() });
+  const { data: speech = [], isLoading: speechLoading } = useQuery({
+    queryKey: qk.speechModels(),
+    queryFn: () => speechModelsApi.list(),
+  });
+  const reloadSpeech = () => qc.invalidateQueries({ queryKey: qk.speechModels() });
 
   return (
     <div className="space-y-6">
@@ -171,7 +176,45 @@ export function SubtitlesTab() {
           ) : (
             <div className="space-y-2">
               {packs.map((p) => (
-                <LanguagePackCard key={p.lang} pack={p} onChange={reloadPacks} />
+                <LanguagePackCard
+                  key={p.lang}
+                  pack={p}
+                  onChange={reloadPacks}
+                  actions={subtitlePacksApi}
+                  blurb={`Translates English subtitles into ${p.name}, on this computer.`}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <div>
+            <p className="text-sm font-medium">Speech-to-text models</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              For a video that has no subtitle yet: Parallax listens to the English speech and
+              writes a rough subtitle, on this computer, as a stopgap until a real one appears.
+              Small is the one to start with; medium is slower and gets names right more often.
+            </p>
+          </div>
+          {speechLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {speech.map((m) => (
+                <LanguagePackCard
+                  key={m.lang}
+                  pack={m}
+                  onChange={reloadSpeech}
+                  actions={speechModelsApi}
+                  noun="speech model"
+                  blurb="Turns English speech into a subtitle."
+                />
               ))}
             </div>
           )}

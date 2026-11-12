@@ -20,3 +20,7 @@ ncnn==1.0.20261020
 mutagen==1.48.1
 ctranslate2==4.9.0
 sentencepiece==0.2.3
+faster-whisper==1.2.1
+av==19.0.2
+tokenizers==0.23.3
+huggingface-hub==2.4.0

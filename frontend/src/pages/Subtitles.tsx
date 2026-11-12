@@ -13,10 +13,11 @@ import {
   X,
   RefreshCw,
   Languages,
+  Mic,
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
-import { subtitlesApi, subtitlePacksApi, api, qk } from "@/lib/api";
+import { subtitlesApi, subtitlePacksApi, speechModelsApi, api, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import type { SubtitleFile } from "@/types/subtitle";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -119,10 +120,13 @@ function FileRow({
   syncDisabled,
   translating,
   translateLangs,
+  canGenerate,
+  generating,
   onSearch,
   onPlay,
   onSync,
   onTranslate,
+  onGenerate,
   onDeleteLang,
 }: {
   file: SubtitleFile;
@@ -130,10 +134,13 @@ function FileRow({
   syncDisabled: boolean;
   translating: boolean;
   translateLangs: string[];
+  canGenerate: boolean;
+  generating: boolean;
   onSearch: () => void;
   onPlay: () => void;
   onSync: () => void;
   onTranslate: () => void;
+  onGenerate: () => void;
   onDeleteLang: (code: string, machine: boolean) => void;
 }) {
   const label = episodeLabel(file);
@@ -162,6 +169,16 @@ function FileRow({
       >
         <Search className="h-3.5 w-3.5" />
       </button>
+      {canGenerate && (
+        <button
+          onClick={onGenerate}
+          disabled={generating}
+          title="Generate an English subtitle from the audio (offline, a rough stopgap)"
+          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
+        >
+          <Mic className={cn("h-3.5 w-3.5", generating && "animate-pulse")} />
+        </button>
+      )}
       {translateLangs.length > 0 && (
         <button
           onClick={onTranslate}
@@ -202,10 +219,13 @@ function DirGroup({
   syncDisabled,
   translatingPaths,
   translateLangsFor,
+  generatingPaths,
+  canGenerateFor,
   onSearch,
   onPlay,
   onSync,
   onTranslate,
+  onGenerate,
   onDeleteLang,
 }: {
   dir: string;
@@ -214,10 +234,13 @@ function DirGroup({
   syncDisabled: boolean;
   translatingPaths: Set<string>;
   translateLangsFor: (f: SubtitleFile) => string[];
+  generatingPaths: Set<string>;
+  canGenerateFor: (f: SubtitleFile) => boolean;
   onSearch: (f: SubtitleFile) => void;
   onPlay: (f: SubtitleFile) => void;
   onSync: (f: SubtitleFile) => void;
   onTranslate: (f: SubtitleFile) => void;
+  onGenerate: (f: SubtitleFile) => void;
   onDeleteLang: (f: SubtitleFile, code: string, machine: boolean) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -260,10 +283,13 @@ function DirGroup({
               syncDisabled={syncDisabled}
               translating={translatingPaths.has(f.path)}
               translateLangs={translateLangsFor(f)}
+              canGenerate={canGenerateFor(f)}
+              generating={generatingPaths.has(f.path)}
               onSearch={() => onSearch(f)}
               onPlay={() => onPlay(f)}
               onSync={() => onSync(f)}
               onTranslate={() => onTranslate(f)}
+              onGenerate={() => onGenerate(f)}
               onDeleteLang={(code, machine) => onDeleteLang(f, code, machine)}
             />
           ))}
@@ -288,6 +314,7 @@ export function Subtitles() {
   const [downloading, setDownloading] = useState(false);
   const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
   const [translatingPaths, setTranslatingPaths] = useState<Set<string>>(new Set());
+  const [generatingPaths, setGeneratingPaths] = useState<Set<string>>(new Set());
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -421,6 +448,55 @@ export function Subtitles() {
     Object.entries(f.languages)
       .filter(([code, present]) => !present && installedPacks.has(code))
       .map(([code]) => code);
+
+  // Speech-to-text models that are installed (Settings → Subtitles): small is preferred.
+  const { data: speechModels } = useQuery({
+    queryKey: qk.speechModels(),
+    queryFn: () => speechModelsApi.list(),
+  });
+  const speechModel = ["small", "medium"].find((m) =>
+    (speechModels ?? []).some((x) => x.lang === `whisper-${m}` && x.installed),
+  );
+  // A video with no real English subtitle and none generated yet, among the wanted languages.
+  const canGenerateFor = (f: SubtitleFile) =>
+    speechModel != null && f.languages.en === false && !f.machine_languages?.en;
+
+  const handleGenerate = async (file: SubtitleFile) => {
+    if (!speechModel) return;
+    setScanError("");
+    setGeneratingPaths((prev) => new Set(prev).add(file.path));
+    try {
+      // Also translate into the other wanted languages whose pack is installed.
+      const { job_id } = await subtitlesApi.generate(
+        [file.path],
+        speechModel,
+        translateLangsFor(file).filter((l) => l !== "en"),
+      );
+      while (mountedRef.current) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (!mountedRef.current) return;
+        // One failed poll (a network blip) must not look like a failed job: the job goes on.
+        const job = await api.getJob(job_id).catch(() => null);
+        if (!job) continue;
+        if (job.status === "failed") throw new Error(job.error ?? "Generating failed");
+        if (job.status === "completed" || job.status === "cancelled") break;
+      }
+      const target = path.trim();
+      if (target && mountedRef.current)
+        subtitlesApi
+          .scan(target)
+          .then(setFiles)
+          .catch(() => {});
+    } catch (e: unknown) {
+      setScanError(e instanceof Error ? e.message : "Generating failed");
+    } finally {
+      setGeneratingPaths((prev) => {
+        const next = new Set(prev);
+        next.delete(file.path);
+        return next;
+      });
+    }
+  };
 
   const handleTranslate = async (file: SubtitleFile) => {
     setScanError("");
@@ -736,10 +812,13 @@ export function Subtitles() {
                   syncDisabled={syncingAll}
                   translatingPaths={translatingPaths}
                   translateLangsFor={translateLangsFor}
+                  generatingPaths={generatingPaths}
+                  canGenerateFor={canGenerateFor}
                   onSearch={setSearchFile}
                   onPlay={setPlayingFile}
                   onSync={handleSyncFile}
                   onTranslate={handleTranslate}
+                  onGenerate={handleGenerate}
                   onDeleteLang={handleDeleteLang}
                 />
               ))}
