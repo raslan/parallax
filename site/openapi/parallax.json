@@ -10175,6 +10175,10 @@
             "type": "boolean",
             "title": "Subtitle Auto Sync"
           },
+          "subtitle_translate_drop_hi": {
+            "type": "boolean",
+            "title": "Subtitle Translate Drop Hi"
+          },
           "download_dir": {
             "type": "string",
             "title": "Download Dir"
@@ -10226,6 +10230,7 @@
           "subtitle_languages",
           "subtitle_sync_engine",
           "subtitle_auto_sync",
+          "subtitle_translate_drop_hi",
           "download_dir",
           "max_concurrent_downloads",
           "ytdlp_channel",
@@ -10360,6 +10365,17 @@
               }
             ],
             "title": "Subtitle Auto Sync"
+          },
+          "subtitle_translate_drop_hi": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle Translate Drop Hi"
           },
           "download_dir": {
             "anyOf": [
