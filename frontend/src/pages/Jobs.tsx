@@ -57,6 +57,7 @@ const FILE_VERB: Record<string, string> = {
   splice_merge: "Transcoding",
   audio_toolbox: "Transcoding",
   image_upscale: "Upscaling",
+  subtitle_translate: "Translating",
 };
 
 function JobProgress({ value }: { value: number }) {

@@ -16,6 +16,9 @@ vi.mock("@/components/settings/TranscodingTab", () => ({
   TranscodingTab: () => <div>transcoder</div>,
 }));
 vi.mock("@/components/settings/CredentialsTab", () => ({ CredentialsTab: () => <div>keys</div> }));
+vi.mock("@/components/settings/SubtitlesTab", () => ({
+  SubtitlesTab: () => <div>subtitles tab</div>,
+}));
 vi.mock("@/components/settings/ModelsTab", () => ({ ModelsTab: () => <div>ai models</div> }));
 vi.mock("@/components/settings/DownloadsTab", () => ({ DownloadsTab: () => <div>downloads</div> }));
 vi.mock("@/components/settings/CreditsTab", () => ({ CreditsTab: () => <div>credits</div> }));
@@ -60,6 +63,13 @@ describe("Settings and the #account link", () => {
   it("still opens the tab named in the address", () => {
     at("/settings?tab=ai");
     expect(screen.getByText("ai models")).toBeTruthy();
+  });
+
+  it("has a Subtitles tab right after Transcoder", () => {
+    at("/settings?tab=subtitles");
+    expect(screen.getByText("subtitles tab")).toBeTruthy();
+    const labels = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(labels.indexOf("Subtitles")).toBe(labels.indexOf("Transcoder") + 1);
   });
 
   it("moves keyboard focus to the Account card, not just the scroll", async () => {

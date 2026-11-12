@@ -20,11 +20,15 @@ export type GeneralSettingsForm = z.infer<typeof generalSettingsSchema>;
 
 export const credentialsSchema = z.object({
   tmdbKey: z.string(),
+});
+export type CredentialsForm = z.infer<typeof credentialsSchema>;
+
+export const subtitlesSchema = z.object({
   subtitleLangs: z.array(z.string()).min(1, "Pick at least one language"),
   subtitleSyncEngine: z.enum(["alass", "ffsubsync"]),
   subtitleAutoSync: z.boolean(),
 });
-export type CredentialsForm = z.infer<typeof credentialsSchema>;
+export type SubtitlesForm = z.infer<typeof subtitlesSchema>;
 
 export const aiModelsSchema = z.object({
   scanBatchSize: z.number().int().min(1).max(32),
@@ -49,6 +53,8 @@ export const seedGeneral = (s: Settings): GeneralSettingsForm => ({
 });
 export const seedCredentials = (s: Settings): CredentialsForm => ({
   tmdbKey: s.tmdb_api_key,
+});
+export const seedSubtitles = (s: Settings): SubtitlesForm => ({
   subtitleLangs: (s.subtitle_languages || "en")
     .split(",")
     .map((c) => c.trim())

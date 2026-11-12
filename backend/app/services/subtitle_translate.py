@@ -95,6 +95,11 @@ def translate_one(
     return final
 
 
+def _failure_summary(failed: int, total: int, results: list[dict]) -> str:
+    first = next((r["error"] for r in results if r.get("error")), "")
+    return f"{failed} of {total} file(s) failed" + (f": {first}" if first else "")
+
+
 def run_translate_job(job_id: int, items: list[dict]) -> None:
     """items: [{"video_path": str, "lang": str}, ...] — one file after another (the model uses
     every core, so files do not run side by side)."""
@@ -175,12 +180,12 @@ def run_translate_job(job_id: int, items: list[dict]) -> None:
             log(db, job_id, f"Translate cancelled — {completed} done, {failed} failed")
         elif failed and not completed:
             job.status = JobStatus.FAILED
-            job.error = f"{failed} of {total} file(s) failed"
+            job.error = _failure_summary(failed, total, results)
         else:
             job.status = JobStatus.COMPLETED
             job.progress = 100.0
             if failed:
-                job.error = f"{failed} of {total} file(s) failed"
+                job.error = _failure_summary(failed, total, results)
         db.commit()
     except Exception as e:
         logger.exception("translate job %s crashed", job_id)
