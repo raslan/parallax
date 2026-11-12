@@ -149,6 +149,55 @@ class SyncFileRequest(BaseModel):
     language: str | None = None
 
 
+class TranslateRequest(BaseModel):
+    file_paths: list[str]
+    language: str
+
+
+@router.post("/translate", summary="Translate English subtitles offline")
+async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_db)):
+    """Queue a job that translates each video's English subtitle into `language` with an
+    installed language pack. The result is a machine-made `<name>.<lang>.mt.srt` next to the
+    video; the real subtitle for that language is never replaced."""
+    from app.services import machine_subs, subtitle_translate, translate_packs
+
+    if not body.file_paths:
+        raise HTTPException(422, "No files selected")
+    pack = translate_packs.get_pack(body.language)
+    if pack is None:
+        raise HTTPException(422, f"No language pack for '{body.language}'")
+    if not translate_packs.is_installed(pack):
+        raise HTTPException(
+            409, f"Install the {pack['name']} language pack first (Settings → Subtitles)"
+        )
+    items = []
+    for path in dict.fromkeys(body.file_paths):
+        if not os.path.isfile(path):
+            raise HTTPException(400, f"File not found: {os.path.basename(path)}")
+        if subtitle_translate.find_source_subtitle(path) is None:
+            raise HTTPException(
+                422, f"{os.path.basename(path)} has no English subtitle to translate"
+            )
+        stem, _ = os.path.splitext(path)
+        if os.path.exists(f"{stem}.{body.language}.srt"):
+            raise HTTPException(
+                422, f"{os.path.basename(path)} already has a {pack['name']} subtitle"
+            )
+        items.append({"video_path": path, "lang": body.language})
+
+    job = Job(
+        type=JobType.SUBTITLE_TRANSLATE,
+        status=JobStatus.PENDING,
+        total_files=len(items),
+        settings=json.dumps({"items": items, "marker": machine_subs.MARKER}),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    await enqueue(job.id, subtitle_translate.run_translate_job, job.id, items)
+    return {"job_id": job.id}
+
+
 @router.post("/sync-file")
 async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):

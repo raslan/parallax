@@ -5,6 +5,7 @@
     { "id": "media-tools", "title": "Media tools" },
     { "id": "detection", "title": "Content detection" },
     { "id": "upscaling", "title": "Image upscaling" },
+    { "id": "translation", "title": "Offline translation" },
     { "id": "identify", "title": "Metadata and naming" },
     { "id": "libraries", "title": "Libraries" },
     { "id": "fonts", "title": "Fonts" },
@@ -152,6 +153,43 @@
       "how": "installed",
       "copyright": "Copyright (C) 2017 Tencent. All rights reserved.",
       "text": "Tencent is pleased to support the open source community by making ncnn available.\nCopyright (C) 2017 Tencent.  All rights reserved.\n\nncnn is licensed under the BSD 3-Clause License (https://github.com/Tencent/ncnn/blob/master/LICENSE.txt).\n\nTerms of the BSD 3-Clause License:\n--------------------------------------------------------------------\n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\nRedistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\nRedistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\nNeither the name of [copyright holder] nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "opus-mt",
+      "group": "translation",
+      "name": "OPUS-MT",
+      "description": "The translation models behind offline subtitle translation. Each language pack is an OPUS-MT model from the University of Helsinki, converted for CTranslate2 and downloaded straight from its uploader when you install it. Parallax does not redistribute them.",
+      "author": "Jörg Tiedemann, Santhosh Thottingal and the Helsinki-NLP / OPUS-MT project",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "https://github.com/Helsinki-NLP/Opus-MT",
+      "how": "downloaded",
+      "note": "The Arabic pack is Helsinki-NLP/opus-mt-tc-big-en-ar, converted to CTranslate2 by the ooeoeo project. The conversion is changed from the original in format only.",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "ctranslate2",
+      "group": "translation",
+      "name": "CTranslate2",
+      "description": "The fast inference engine that runs the translation models on your processor.",
+      "author": "OpenNMT / SYSTRAN",
+      "licence": "MIT",
+      "licence_url": "https://github.com/OpenNMT/CTranslate2/blob/master/LICENSE",
+      "url": "https://github.com/OpenNMT/CTranslate2",
+      "how": "installed",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "sentencepiece",
+      "group": "translation",
+      "name": "SentencePiece",
+      "description": "Splits text into the pieces the translation models read and write.",
+      "author": "Google",
+      "licence": "Apache-2.0",
+      "licence_url": "https://github.com/google/sentencepiece/blob/master/LICENSE",
+      "url": "https://github.com/google/sentencepiece",
+      "how": "installed",
       "show": { "app": true, "site": true }
     },
     {

@@ -26,6 +26,8 @@ class JobType:
     AUDIO_DUPLICATES = "audio_duplicates"
     SPLICE_MERGE = "splice_merge"
     IMAGE_UPSCALE = "image_upscale"
+    PACK_DOWNLOAD = "pack_download"
+    SUBTITLE_TRANSLATE = "subtitle_translate"
 
 
 # Which library kind a job type belongs to. Video, image and audio library ids all count from 1

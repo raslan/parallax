@@ -38,6 +38,7 @@ from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
 from app.api.stats import router as stats_router
 from app.api.stream import router as stream_router
+from app.api.subtitle_packs import router as subtitle_packs_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
 from app.auth import AuthMiddleware, auth_enabled, install_openapi_security
@@ -402,7 +403,11 @@ _OPENAPI_TAGS = [
     },
     {
         "name": "subtitles",
-        "description": "Scan for missing subtitles, download, sync and delete them.",
+        "description": "Scan for missing subtitles, download, sync, translate and delete them.",
+    },
+    {
+        "name": "subtitle-packs",
+        "description": "Offline translation language packs: list, install, remove.",
     },
     {
         "name": "organize",
@@ -454,6 +459,7 @@ app.include_router(image_libraries_router, prefix="/api")
 app.include_router(images_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
+app.include_router(subtitle_packs_router, prefix="/api")
 app.include_router(compress_router, prefix="/api", tags=["compress"])
 app.include_router(audio_compress_router, prefix="/api", tags=["audio-compress"])
 app.include_router(image_upscale_router, prefix="/api")

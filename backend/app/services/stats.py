@@ -46,7 +46,13 @@ REMOVAL_KIND = "delete"
 
 # Housekeeping the user didn't ask for, or work that grows files (upscale): the dashboard's
 # "space saved" would go negative, so a stat for it would only be noise.
-_SKIPPED_TYPES = {JobType.THUMBNAIL_WARM, JobType.MODEL_DOWNLOAD, JobType.IMAGE_UPSCALE}
+_SKIPPED_TYPES = {
+    JobType.THUMBNAIL_WARM,
+    JobType.MODEL_DOWNLOAD,
+    JobType.IMAGE_UPSCALE,
+    JobType.PACK_DOWNLOAD,
+    JobType.SUBTITLE_TRANSLATE,
+}
 _TERMINAL = {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}
 
 _noted: dict[int, dict[str, float]] = defaultdict(lambda: {"in": 0, "out": 0, "seconds": 0.0})
