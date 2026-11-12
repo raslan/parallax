@@ -15,6 +15,8 @@ export interface Settings {
   subtitle_sync_engine: string;
   subtitle_auto_sync: boolean;
   subtitle_translate_drop_hi: boolean;
+  gpu_accel_enabled: boolean;
+  gpu_accel_count: number;
   download_dir: string;
   max_concurrent_downloads: number;
   ytdlp_channel: string;
@@ -36,6 +38,8 @@ export interface UpdateSettingsBody {
   subtitle_sync_engine?: string;
   subtitle_auto_sync?: boolean;
   subtitle_translate_drop_hi?: boolean;
+  gpu_accel_enabled?: boolean;
+  gpu_accel_count?: number;
   download_dir?: string;
   max_concurrent_downloads?: number;
   ytdlp_channel?: string;

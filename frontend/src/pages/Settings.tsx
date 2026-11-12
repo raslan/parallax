@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
-import { Palette, KeyRound, Cpu, Clapperboard, Download, Heart, Captions } from "lucide-react";
+import { Palette, KeyRound, Cpu, Clapperboard, Download, Heart, Captions, Zap } from "lucide-react";
 import { GeneralTab } from "@/components/settings/GeneralTab";
 import { TranscodingTab } from "@/components/settings/TranscodingTab";
 import { SubtitlesTab } from "@/components/settings/SubtitlesTab";
 import { CredentialsTab } from "@/components/settings/CredentialsTab";
+import { HardwareTab } from "@/components/settings/HardwareTab";
 import { ModelsTab } from "@/components/settings/ModelsTab";
 import { DownloadsTab } from "@/components/settings/DownloadsTab";
 import { CreditsTab } from "@/components/settings/CreditsTab";
@@ -16,6 +17,7 @@ const TABS = [
   { id: "subtitles", label: "Subtitles", icon: Captions },
   { id: "credentials", label: "Keys & Accounts", icon: KeyRound },
   { id: "ai", label: "AI Models", icon: Cpu },
+  { id: "hardware", label: "Hardware", icon: Zap },
   { id: "downloads", label: "Downloads", icon: Download },
   { id: "credits", label: "Credits", icon: Heart },
 ] as const;
@@ -92,6 +94,7 @@ export function Settings() {
       {activeTab === "subtitles" && <SubtitlesTab />}
       {activeTab === "credentials" && <CredentialsTab />}
       {activeTab === "ai" && <ModelsTab />}
+      {activeTab === "hardware" && <HardwareTab />}
       {activeTab === "downloads" && <DownloadsTab />}
       {activeTab === "credits" && <CreditsTab />}
     </div>
