@@ -107,3 +107,54 @@ def test_check_says_it_is_not_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(ga, "NVIDIA_DIR", str(tmp_path / "none"))
     r = ga.check()
     assert r["ok"] is False and "not installed" in r["message"]
+
+
+def test_a_swap_that_fails_puts_the_old_install_back(tmp_path, monkeypatch):
+    import sys
+
+    target = tmp_path / "nvidia"
+    (target / "nvidia" / "cublas" / "lib").mkdir(parents=True)
+    (target / "nvidia" / "cublas" / "lib" / "old.so").write_text("old")
+    monkeypatch.setattr(ga, "NVIDIA_DIR", str(target))
+    script = (
+        "import os,sys;t=sys.argv[sys.argv.index('--target')+1];"
+        "d=os.path.join(t,'nvidia','cublas','lib');os.makedirs(d);"
+        "open(os.path.join(d,'new.so'),'w').write('x')"
+    )
+    real = os.replace
+
+    def flaky(src, dst):
+        if str(src).endswith(".installing"):
+            raise OSError(28, "No space left on device")
+        return real(src, dst)
+
+    monkeypatch.setattr(os, "replace", flaky)
+    with pytest.raises(ga.NvidiaInstallError, match="in place"):
+        ga.install(
+            lambda p: None,
+            lambda: False,
+            pip_cmd=[sys.executable, "-c", script, "--target", str(target) + ".installing"],
+        )
+    assert (target / "nvidia" / "cublas" / "lib" / "old.so").exists()
+    assert ga.installed() and not os.path.exists(str(target) + ".old")
+
+
+def test_the_check_environment_has_no_empty_library_path_entry(monkeypatch, tmp_path):
+    lib = tmp_path / "nvidia" / "cudnn" / "lib"
+    lib.mkdir(parents=True)
+    monkeypatch.setattr(ga, "NVIDIA_DIR", str(tmp_path))
+    monkeypatch.delenv("LD_LIBRARY_PATH", raising=False)
+    seen = {}
+
+    def fake_run(cmd, env, **kw):
+        seen["path"] = env["LD_LIBRARY_PATH"]
+
+        class R:
+            returncode, stdout, stderr = 0, '{"devices": 1, "types": ["float16"]}', ""
+
+        return R()
+
+    monkeypatch.setattr(ga.subprocess, "run", fake_run)
+    monkeypatch.setattr(ga, "nvidia_devices", lambda: cards(1))
+    assert ga.check()["ok"] is True
+    assert seen["path"] == str(lib)  # no trailing ":" (an empty entry means the current folder)

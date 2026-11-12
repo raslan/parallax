@@ -154,6 +154,20 @@ class SyncFileRequest(BaseModel):
     language: str | None = None
 
 
+def _refuse_while_nvidia_installs(db: Session) -> None:
+    """Jobs started while the NVIDIA package is swapped in or out would load half-written
+    libraries, so they wait."""
+    if (
+        db.query(Job)
+        .filter(
+            Job.type == JobType.NVIDIA_PACKAGE,
+            Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        )
+        .first()
+    ):
+        raise HTTPException(409, "The NVIDIA package is being installed; try again when it is done")
+
+
 class TranslateRequest(BaseModel):
     file_paths: list[str]
     language: str
@@ -168,6 +182,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
+    _refuse_while_nvidia_installs(db)
     pack = translate_packs.get_pack(body.language)
     if pack is None or pack.get("kind") == "speech":
         raise HTTPException(422, f"No language pack for '{body.language}'")
@@ -217,6 +232,7 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
+    _refuse_while_nvidia_installs(db)
     model = translate_packs.get_pack(f"whisper-{body.model}")
     if model is None or model.get("kind") != "speech":
         raise HTTPException(422, f"Unknown speech model '{body.model}'")

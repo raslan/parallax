@@ -184,3 +184,27 @@ def test_a_running_file_on_each_of_two_cards_both_stop_on_cancel():
     out, _, _ = run([{}, {}, {}], work, cards(2), cancelled=lambda: flag["cancel"])
     assert [o.status for o in out[:2]] == ["cancelled", "cancelled"]
     assert out[2].status == "skipped"
+
+
+def test_a_crashed_cuda_worker_degrades_the_card_and_the_file_uses_another():
+    from concurrent.futures import BrokenExecutor
+
+    tried = []
+
+    def work(i, item, ctx):
+        tried.append((ctx.device, ctx.device_index))
+        if ctx.device == "cuda" and ctx.device_index == 0:
+            raise BrokenExecutor("A process in the process pool was terminated abruptly")
+        return {}
+
+    out, _, _ = run([{}, {}], work, cards(2))
+    assert all(o.status == "done" for o in out)
+    assert tried.count(("cuda", 0)) == 1  # the dead card is not tried again
+
+
+def test_a_failed_file_keeps_what_it_had_produced():
+    def work(i, item, ctx):
+        raise ir.ItemFailed("translation failed", {"output": "movie.en.mt.srt"})
+
+    out, _, _ = run([{}], work)
+    assert out[0].status == "failed" and out[0].result == {"output": "movie.en.mt.srt"}

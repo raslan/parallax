@@ -84,3 +84,20 @@ def test_remove_and_check_when_nothing_is_installed(client, monkeypatch, tmp_pat
     assert client.delete("/api/hardware/nvidia").status_code == 404
     body = client.post("/api/hardware/nvidia/check").json()
     assert body["ok"] is False and "not installed" in body["message"]
+
+
+def test_translate_and_generate_wait_while_the_package_installs(
+    client, enqueued, _clean_jobs, tmp_path
+):
+    db = _clean_jobs()
+    db.add(Job(type=JobType.NVIDIA_PACKAGE, status=JobStatus.RUNNING))
+    db.commit()
+    db.close()
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    for url, body in (
+        ("/api/subtitles/translate", {"file_paths": [str(v)], "language": "ar"}),
+        ("/api/subtitles/generate", {"file_paths": [str(v)]}),
+    ):
+        r = client.post(url, json=body)
+        assert r.status_code == 409 and "NVIDIA package" in r.json()["detail"]

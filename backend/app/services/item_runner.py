@@ -20,7 +20,7 @@ thread through a queue, which calls the callbacks.
 import logging
 import queue
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import BrokenExecutor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 
 from app.services import gpu_accel
@@ -35,7 +35,12 @@ class ItemCancelled(Exception):
 
 class ItemFailed(Exception):
     """An expected, user-facing failure of one file (the message is shown on the job). Never
-    retried on another device: the file itself is the problem."""
+    retried on another device: the file itself is the problem. `result` keeps whatever the file
+    had produced before it failed (a generated subtitle whose translation then failed)."""
+
+    def __init__(self, message: str, result: dict | None = None):
+        super().__init__(message)
+        self.result = result or {}
 
 
 @dataclass
@@ -93,7 +98,8 @@ def run_items(
                     raise
                 except Exception as e:
                     text = str(e)
-                    if gpu_accel.is_device_init_error(text):
+                    # A native CUDA crash kills the worker process: that is a broken card, too.
+                    if gpu_accel.is_device_init_error(text) or isinstance(e, BrokenExecutor):
                         events.put(
                             ("log", f"{held.label}: GPU could not start ({text[:160]})", "error")
                         )
@@ -129,7 +135,7 @@ def run_items(
         except ItemCancelled:
             return Outcome("cancelled")
         except ItemFailed as e:
-            return Outcome("failed", error=str(e))
+            return Outcome("failed", result=e.result, error=str(e))
         except Exception as e:  # a crash in a model must cost one file, not the batch
             logger.exception("item %s failed", idx)
             events.put(("log", f"{type(e).__name__}: {e}", "error"))

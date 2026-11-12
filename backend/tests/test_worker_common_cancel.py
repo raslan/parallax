@@ -99,3 +99,19 @@ def test_worker_death_is_retried_once_then_raised():
         assert pool.submit_cancellable(_sleep, 0, is_cancelled=lambda: False) == "done"
     finally:
         pool.release()
+
+
+def test_a_future_cancelled_by_another_threads_release_counts_as_a_cancel():
+    from concurrent.futures import Future
+
+    class Fake:
+        def submit(self, fn, *a):
+            f = Future()
+            f.cancel()
+            f.set_running_or_notify_cancel()  # what a real shutdown does for queued work
+            return f
+
+    pool = WorkerPool(idle_timeout=60)
+    pool._get_executor = lambda: Fake()  # type: ignore[method-assign]
+    with pytest.raises(WorkerCancelled):
+        pool.submit_cancellable(_sleep, 0, is_cancelled=lambda: False)

@@ -193,8 +193,20 @@ def install(
             raise NvidiaInstallError(f"The download did not finish: {tail[:300]}")
         if not glob.glob(os.path.join(staging, "nvidia", "*", "lib")):
             raise NvidiaInstallError("The download finished but contains no libraries.")
-        shutil.rmtree(NVIDIA_DIR, ignore_errors=True)
-        os.replace(staging, NVIDIA_DIR)
+        # Swap with the old install set aside first, so a half-removed tree can never be left
+        # in place, and the old one comes back if the swap fails.
+        aside = NVIDIA_DIR + ".old"
+        shutil.rmtree(aside, ignore_errors=True)
+        had_old = os.path.isdir(NVIDIA_DIR)
+        if had_old:
+            os.replace(NVIDIA_DIR, aside)
+        try:
+            os.replace(staging, NVIDIA_DIR)
+        except OSError as e:
+            if had_old:
+                os.replace(aside, NVIDIA_DIR)
+            raise NvidiaInstallError(f"Could not put the new files in place: {e.strerror}") from e
+        shutil.rmtree(aside, ignore_errors=True)
         apply_env()
         progress(100.0)
     finally:
@@ -220,7 +232,8 @@ def check() -> dict:
     if not installed():
         return {"ok": False, "devices": 0, "message": "The NVIDIA package is not installed."}
     env = dict(os.environ)
-    env["LD_LIBRARY_PATH"] = ":".join([*lib_dirs(), env.get("LD_LIBRARY_PATH", "")])
+    old = [p for p in env.get("LD_LIBRARY_PATH", "").split(":") if p]  # an empty entry means "."
+    env["LD_LIBRARY_PATH"] = ":".join([*lib_dirs(), *old])
     try:
         out = subprocess.run(
             [sys.executable, "-c", _CHECK_SCRIPT],

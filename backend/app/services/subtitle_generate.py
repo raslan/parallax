@@ -150,7 +150,7 @@ def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) ->
             except (speech.SpeechCancelled, translator.TranslationCancelled):
                 raise item_runner.ItemCancelled() from None
             except (speech.SpeechError, subtitle_translate.TranslateError) as e:
-                raise item_runner.ItemFailed(str(e)) from None
+                raise item_runner.ItemFailed(str(e), result) from None
             return result
 
         fractions = [0.0] * total
