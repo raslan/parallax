@@ -201,6 +201,68 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
     return {"job_id": job.id}
 
 
+class GenerateRequest(BaseModel):
+    file_paths: list[str]
+    model: str = "small"
+    translate_to: list[str] = []
+
+
+@router.post("/generate", summary="Generate an English subtitle from the audio")
+async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db)):
+    """Queue a job that transcribes each video's English speech with an installed Whisper model.
+    The result is a machine-made `<name>.en.mt.srt` next to the video, a stopgap until a real
+    subtitle exists. `translate_to` also translates each result into those installed languages."""
+    from app.services import subtitle_generate, translate_packs
+    from app.services.subtitle_service import _missing_lang_codes
+
+    if not body.file_paths:
+        raise HTTPException(422, "No files selected")
+    model = translate_packs.get_pack(f"whisper-{body.model}")
+    if model is None or model.get("kind") != "speech":
+        raise HTTPException(422, f"Unknown speech model '{body.model}'")
+    if not translate_packs.is_installed(model):
+        raise HTTPException(409, f"Install the {model['name']} model first (Settings → Subtitles)")
+    for lang in body.translate_to:
+        pack = translate_packs.get_pack(lang)
+        if pack is None or pack.get("kind") == "speech":
+            raise HTTPException(422, f"No language pack for '{lang}'")
+        if not translate_packs.is_installed(pack):
+            raise HTTPException(
+                409, f"Install the {pack['name']} language pack first (Settings → Subtitles)"
+            )
+    paths = list(dict.fromkeys(body.file_paths))
+    for path in paths:
+        if not os.path.isfile(path):
+            raise HTTPException(400, f"File not found: {os.path.basename(path)}")
+    already = await run_in_threadpool(
+        lambda: next(
+            (
+                os.path.basename(p)
+                for p in paths
+                if subtitle_generate.LANGUAGE
+                not in _missing_lang_codes(p, [subtitle_generate.LANGUAGE])
+            ),
+            None,
+        )
+    )
+    if already:
+        raise HTTPException(422, f"{already} already has an English subtitle")
+    items = [{"video_path": p, "model": model["lang"]} for p in paths]
+    job = Job(
+        type=JobType.SUBTITLE_GENERATE,
+        status=JobStatus.PENDING,
+        total_files=len(items),
+        settings=json.dumps({"items": items, "translate_to": body.translate_to}),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    await enqueue(
+        job.id, subtitle_generate.run_generate_job, job.id, items, list(body.translate_to)
+    )
+    return {"job_id": job.id}
+
+
 @router.post("/sync-file")
 async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):

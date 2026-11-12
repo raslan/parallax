@@ -32,21 +32,38 @@ class PackCancelled(Exception):
     pass
 
 
+_SPEECH_REGISTRY = (
+    Path(__file__).resolve().parents[1] / "assets" / "translate" / "speech_models.json"
+)
+
+
 @lru_cache(maxsize=1)
 def _load() -> list[dict]:
     return json.loads(_REGISTRY.read_text(encoding="utf-8"))["packs"]
 
 
+@lru_cache(maxsize=1)
+def _load_speech() -> list[dict]:
+    return json.loads(_SPEECH_REGISTRY.read_text(encoding="utf-8"))["models"]
+
+
 def list_packs() -> list[dict]:
+    """The translation language packs."""
     return list(_load())
 
 
+def list_speech_models() -> list[dict]:
+    """The speech-to-text models (Whisper), downloaded and verified exactly like a pack."""
+    return list(_load_speech())
+
+
 def get_pack(lang: str) -> dict | None:
-    return next((p for p in _load() if p["lang"] == lang), None)
+    """A translation pack by language code, or a speech model by id (`whisper-small`)."""
+    return next((p for p in (*_load(), *_load_speech()) if p["lang"] == lang), None)
 
 
 def pack_dir(pack: dict) -> str:
-    return os.path.join(PACKS_DIR, pack["lang"])
+    return os.path.join(PACKS_DIR, pack.get("dir", pack["lang"]))
 
 
 def total_bytes(pack: dict) -> int:
@@ -128,6 +145,7 @@ def install_pack(
         if is_cancelled():
             raise PackCancelled()
         shutil.rmtree(final, ignore_errors=True)
+        os.makedirs(os.path.dirname(final), exist_ok=True)
         os.replace(staging, final)
         progress(100.0)
     finally:
@@ -154,14 +172,11 @@ def run_pack_install_job(job_id: int, lang: str) -> None:
             return
         job.status = JobStatus.RUNNING
         job.started_at = now()
-        job.current_file = f"{pack['name']} language pack"
+        noun = "speech model" if pack.get("kind") == "speech" else "language pack"
+        job.current_file = f"{pack['name']} {noun}"
         db.commit()
         arm_cancel(job_id)
-        log(
-            db,
-            job_id,
-            f"Downloading the {pack['name']} language pack ({total_bytes(pack) >> 20} MB)",
-        )
+        log(db, job_id, f"Downloading the {pack['name']} {noun} ({total_bytes(pack) >> 20} MB)")
 
         last = {"pct": 0.0}
 

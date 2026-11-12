@@ -48,21 +48,23 @@ def _info(pack: dict, installing: dict[str, int]) -> PackInfo:
     )
 
 
-@router.get("", response_model=list[PackInfo], summary="List language packs")
-def list_packs(db: Session = Depends(get_db)):
-    installing = _active_installs(db)
-    return [_info(p, installing) for p in translate_packs.list_packs()]
+speech_router = APIRouter(prefix="/speech-models", tags=["subtitle-packs"])
 
 
-@router.post("/{lang}/install", status_code=202, summary="Install a language pack")
-async def install_pack(lang: str, db: Session = Depends(get_db)):
+def _find(lang: str, speech: bool) -> dict:
     pack = translate_packs.get_pack(lang)
-    if pack is None:
-        raise HTTPException(404, "Unknown language pack")
+    if pack is None or (pack.get("kind") == "speech") != speech:
+        raise HTTPException(404, "Unknown speech model" if speech else "Unknown language pack")
+    return pack
+
+
+async def _install(lang: str, speech: bool, db: Session) -> dict:
+    pack = _find(lang, speech)
+    what = "speech model" if speech else "language pack"
     if translate_packs.is_installed(pack):
-        raise HTTPException(409, "Language pack already installed")
+        raise HTTPException(409, f"This {what} is already installed")
     if lang in _active_installs(db):
-        raise HTTPException(409, "This language pack is already being installed")
+        raise HTTPException(409, f"This {what} is already being installed")
     job = Job(type=JobType.PACK_DOWNLOAD, status=JobStatus.PENDING, settings=lang)
     db.add(job)
     db.commit()
@@ -71,19 +73,45 @@ async def install_pack(lang: str, db: Session = Depends(get_db)):
     return {"job_id": job.id}
 
 
+def _remove(lang: str, speech: bool, db: Session) -> None:
+    pack = _find(lang, speech)
+    what = "speech model" if speech else "language pack"
+    if lang in _active_installs(db):
+        raise HTTPException(409, f"This {what} is being installed; cancel that first")
+    job_type = JobType.SUBTITLE_GENERATE if speech else JobType.SUBTITLE_TRANSLATE
+    if db.query(Job).filter(Job.type == job_type, Job.status.in_(_ACTIVE)).first():
+        raise HTTPException(409, f"A job is using it; remove the {what} when it has finished")
+    if not translate_packs.remove_pack(pack):
+        raise HTTPException(404, f"This {what} is not installed")
+
+
+@router.get("", response_model=list[PackInfo], summary="List language packs")
+def list_packs(db: Session = Depends(get_db)):
+    installing = _active_installs(db)
+    return [_info(p, installing) for p in translate_packs.list_packs()]
+
+
+@router.post("/{lang}/install", status_code=202, summary="Install a language pack")
+async def install_pack(lang: str, db: Session = Depends(get_db)):
+    return await _install(lang, False, db)
+
+
 @router.delete("/{lang}", status_code=204, summary="Remove a language pack")
 def remove_pack(lang: str, db: Session = Depends(get_db)):
-    pack = translate_packs.get_pack(lang)
-    if pack is None:
-        raise HTTPException(404, "Unknown language pack")
-    if lang in _active_installs(db):
-        raise HTTPException(409, "This language pack is being installed; cancel that first")
-    busy = (
-        db.query(Job)
-        .filter(Job.type == JobType.SUBTITLE_TRANSLATE, Job.status.in_(_ACTIVE))
-        .first()
-    )
-    if busy:
-        raise HTTPException(409, "A translation is running; remove the pack when it has finished")
-    if not translate_packs.remove_pack(pack):
-        raise HTTPException(404, "Language pack is not installed")
+    _remove(lang, False, db)
+
+
+@speech_router.get("", response_model=list[PackInfo], summary="List speech-to-text models")
+def list_speech_models(db: Session = Depends(get_db)):
+    installing = _active_installs(db)
+    return [_info(p, installing) for p in translate_packs.list_speech_models()]
+
+
+@speech_router.post("/{model_id}/install", status_code=202, summary="Install a speech model")
+async def install_speech_model(model_id: str, db: Session = Depends(get_db)):
+    return await _install(model_id, True, db)
+
+
+@speech_router.delete("/{model_id}", status_code=204, summary="Remove a speech model")
+def remove_speech_model(model_id: str, db: Session = Depends(get_db)):
+    _remove(model_id, True, db)

@@ -55,6 +55,7 @@ def translate_one(
     device: str = "cpu",
     device_index: int = 0,
     drop_hi: bool = False,
+    source: str | None = None,
 ) -> str:
     """Write `<stem>.<lang>.mt.srt` next to the video and return its path. The file appears only
     when complete: output goes to a hidden temp name and is renamed on success, so a cancel or a
@@ -65,7 +66,9 @@ def translate_one(
         raise TranslateError(f"No language pack for '{lang}'.")
     if not translate_packs.is_installed(pack):
         raise TranslateError(f"The {pack['name']} language pack is not installed.")
-    source = find_source_subtitle(video_path)
+    # `source` lets a caller translate a file it just made (a machine-made English subtitle from
+    # speech-to-text), which find_source_subtitle would never accept.
+    source = source or find_source_subtitle(video_path)
     if source is None:
         raise TranslateError("No English subtitle (.srt) found to translate.")
     try:

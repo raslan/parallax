@@ -107,3 +107,47 @@ def test_translate_validates_files_and_queues(client, packs_dir, tmp_path, enque
     assert r.status_code == 200
     assert enqueued[-1][1] == "run_translate_job"
     assert enqueued[-1][2][1] == [{"video_path": str(v), "lang": "ar", "drop_hi": False}]
+
+
+def test_speech_models_list_and_do_not_mix_with_language_packs(client, packs_dir):
+    rows = client.get("/api/speech-models").json()
+    assert [r["lang"] for r in rows] == ["whisper-small", "whisper-medium"]
+    assert rows[0]["size_bytes"] > 400_000_000 and rows[1]["size_bytes"] > 1_400_000_000
+    assert all(r["licence"] == "MIT" for r in rows)
+    assert "whisper-small" not in [r["lang"] for r in client.get("/api/subtitle-packs").json()]
+    assert client.post("/api/subtitle-packs/whisper-small/install").status_code == 404
+    assert client.post("/api/speech-models/ar/install").status_code == 404
+
+
+def test_speech_model_install_job_and_conflict(client, packs_dir, enqueued):
+    r = client.post("/api/speech-models/whisper-small/install")
+    assert r.status_code == 202
+    assert enqueued[0][1] == "run_pack_install_job"
+    assert enqueued[0][2] == (r.json()["job_id"], "whisper-small")
+    assert client.post("/api/speech-models/whisper-small/install").status_code == 409
+    assert client.delete("/api/speech-models/whisper-small").status_code == 409
+
+
+def test_generate_needs_the_model_and_an_audio_file(
+    client, packs_dir, tmp_path, enqueued, monkeypatch
+):
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    body = {"file_paths": [str(v)]}
+    assert client.post("/api/subtitles/generate", json=body).status_code == 409
+    assert client.post("/api/subtitles/generate", json={**body, "model": "huge"}).status_code == 422
+    monkeypatch.setattr(tp, "is_installed", lambda pack: True)
+    assert (
+        client.post("/api/subtitles/generate", json={**body, "file_paths": []}).status_code == 422
+    )
+    (tmp_path / "M.en.srt").write_text(SRT)  # a real English subtitle exists: nothing to do
+    assert client.post("/api/subtitles/generate", json=body).status_code == 422
+    (tmp_path / "M.en.srt").unlink()
+    (tmp_path / "M.en.mt.srt").write_text(SRT)  # a machine-made one does not count
+    r = client.post("/api/subtitles/generate", json={**body, "translate_to": ["ar"]})
+    assert r.status_code == 200
+    assert enqueued[-1][1] == "run_generate_job"
+    assert enqueued[-1][2][1] == [{"video_path": str(v), "model": "whisper-small"}]
+    assert enqueued[-1][2][2] == ["ar"]
+    bad = client.post("/api/subtitles/generate", json={**body, "translate_to": ["whisper-small"]})
+    assert bad.status_code == 422

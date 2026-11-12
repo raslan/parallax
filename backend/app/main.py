@@ -39,6 +39,7 @@ from app.api.splice import router as splice_router
 from app.api.stats import router as stats_router
 from app.api.stream import router as stream_router
 from app.api.subtitle_packs import router as subtitle_packs_router
+from app.api.subtitle_packs import speech_router as speech_models_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
 from app.auth import AuthMiddleware, auth_enabled, install_openapi_security
@@ -407,7 +408,7 @@ _OPENAPI_TAGS = [
     },
     {
         "name": "subtitle-packs",
-        "description": "Offline translation language packs: list, install, remove.",
+        "description": "Offline translation packs and speech models: list, install, remove.",
     },
     {
         "name": "organize",
@@ -460,6 +461,7 @@ app.include_router(images_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
 app.include_router(subtitle_packs_router, prefix="/api")
+app.include_router(speech_models_router, prefix="/api")
 app.include_router(compress_router, prefix="/api", tags=["compress"])
 app.include_router(audio_compress_router, prefix="/api", tags=["audio-compress"])
 app.include_router(image_upscale_router, prefix="/api")
