@@ -3,6 +3,8 @@ import os
 import re
 from datetime import UTC, datetime
 
+from app.services import machine_subs
+
 logger = logging.getLogger(__name__)
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".m4v", ".wmv", ".flv", ".ts", ".m2ts"}
@@ -79,16 +81,40 @@ def find_all_subtitle_tracks(video_path: str) -> list[dict]:
             exact = base + ext
             if os.path.exists(exact) and exact not in seen:
                 seen.add(exact)
-                tracks.append({"path": exact, "lang": "und", "label": "Subtitles"})
+                tracks.append(
+                    {
+                        "path": exact,
+                        "lang": "und",
+                        "label": "Subtitles",
+                        "hearing_impaired": False,
+                        "machine_made": False,
+                    }
+                )
 
             for m in sorted(_glob.glob(f"{_glob.escape(base)}.*{ext}")):
                 if m in seen:
                     continue
                 seen.add(m)
                 # Extract the part between basename and extension (e.g. "en" from "movie.en.srt")
-                suffix = m[len(base) + 1 : -len(ext)]
-                lang, label = _parse_lang(suffix)
-                tracks.append({"path": m, "lang": lang, "label": label})
+                tag = machine_subs.parse_tag(m[len(base) + 1 : -len(ext)])
+                lang, label = _parse_lang(tag.lang)
+                notes = [
+                    n
+                    for n, on in (
+                        ("hearing impaired", tag.hearing_impaired),
+                        ("machine-made", tag.machine_made),
+                    )
+                    if on
+                ]
+                tracks.append(
+                    {
+                        "path": m,
+                        "lang": lang,
+                        "label": f"{label} ({', '.join(notes)})" if notes else label,
+                        "hearing_impaired": tag.hearing_impaired,
+                        "machine_made": tag.machine_made,
+                    }
+                )
 
     return tracks
 
@@ -116,33 +142,60 @@ def find_and_serve_vtt(video_path: str) -> str | None:
     return subtitle_to_vtt(sub) if sub else None
 
 
-def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
-    """Return lang_codes that don't have a tagged subtitle file yet."""
+def _tagged_files(video_path: str) -> list[tuple[str, machine_subs.SubTag]]:
+    """Every subtitle file of this video that carries a language tag, with its parsed tag:
+    `<stem>.<lang>[.hi][.mt].<ext>` in the video's folder or any folder below it."""
     stem = os.path.splitext(os.path.basename(video_path))[0]
-    dirs = _subtitle_search_dirs(video_path)
-    missing = []
-    for lang in lang_codes:
-        found = any(
-            os.path.exists(os.path.join(d, f"{stem}.{lang}{ext}"))
-            for d in dirs
-            for ext in SUBTITLE_EXTENSIONS
-        )
-        if not found:
-            missing.append(lang)
-    return missing
-
-
-def delete_subtitle(video_path: str, language: str) -> bool:
-    """Delete the subtitle file tagged with `language` for this video. Returns
-    whether a file was found and removed."""
-    stem = os.path.splitext(os.path.basename(video_path))[0]
+    prefix = stem + "."
+    found = []
     for d in _subtitle_search_dirs(video_path):
-        for ext in SUBTITLE_EXTENSIONS:
-            path = os.path.join(d, f"{stem}.{language}{ext}")
-            if os.path.exists(path):
-                os.remove(path)
-                return True
-    return False
+        try:
+            names = os.listdir(d)
+        except OSError:
+            continue
+        for name in names:
+            base, ext = os.path.splitext(name)
+            if ext.lower() in SUBTITLE_EXTENSIONS and base.startswith(prefix):
+                found.append((os.path.join(d, name), machine_subs.parse_tag(base[len(prefix) :])))
+    return found
+
+
+def _languages(video_path: str, machine_made: bool) -> set[str]:
+    return {t.lang for _, t in _tagged_files(video_path) if t.machine_made == machine_made}
+
+
+def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
+    """Return lang_codes that don't have a *real* tagged subtitle file yet. A machine-made one
+    (`.mt`) never counts, so the real subtitle is still fetched; a hearing-impaired one (`.hi`)
+    is a real subtitle and does."""
+    have = _languages(video_path, machine_made=False)
+    return [lang for lang in lang_codes if lang.lower() not in have]
+
+
+def delete_subtitle(video_path: str, language: str, machine: bool = False) -> bool:
+    """Delete the subtitle file(s) tagged with `language` for this video: the real one (the
+    plain `<stem>.<lang>.<ext>` first), or with `machine` the machine-made ones. Returns
+    whether a file was found and removed."""
+    lang = language.lower()
+    candidates = [
+        path
+        for path, t in _tagged_files(video_path)
+        if t.lang == lang and t.machine_made == machine
+    ]
+    if not candidates:
+        return False
+    if machine:
+        for path in candidates:
+            os.remove(path)
+    else:
+        # the plain file (`movie.en.srt`) before an `.hi` variant, shortest name first
+        os.remove(min(candidates, key=len))
+    return True
+
+
+def remove_machine_made(video_path: str, language: str) -> bool:
+    """A real subtitle for `language` just arrived: the machine-made one is no longer needed."""
+    return delete_subtitle(video_path, language, machine=True)
 
 
 def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
@@ -162,6 +215,8 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
             info = _guessit(fname)
             missing = set(_missing_lang_codes(full_path, lang_codes))
             languages = {lang: lang not in missing for lang in lang_codes}
+            machine = _languages(full_path, machine_made=True)
+            machine_languages = {lang: lang.lower() in machine for lang in lang_codes}
 
             results.append(
                 {
@@ -171,6 +226,7 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
                     "has_subtitle": len(missing) == 0,
                     "has_any_subtitle": len(find_all_subtitle_tracks(full_path)) > 0,
                     "languages": languages,
+                    "machine_languages": machine_languages,
                     "title": str(info.get("title", "")),
                     "season": info.get("season"),
                     "episode": info.get("episode"),
@@ -321,6 +377,7 @@ def download_one(file_path: str, provider: str, subtitle_id: str, language: str)
     out_path = f"{base}.{language}.srt"
     with open(out_path, "wb") as fh:
         fh.write(content)
+    remove_machine_made(file_path, language)  # the real one replaces the machine-made one
     return True
 
 
@@ -434,6 +491,8 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                 seen_langs.add(lang)
                                 downloaded = True
                                 _log(db, job_id, f"Downloaded via subf2m [{lang}]: {fname}")
+                                if remove_machine_made(video_path, lang):
+                                    _log(db, job_id, f"  replaced the machine-made [{lang}] file")
                                 _maybe_sync(video_path, out_path, lang)
                     except Exception as sf_err:
                         _log(
@@ -467,6 +526,10 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                     seen_langs.add(lang)
                                     downloaded = True
                                     _log(db, job_id, f"Downloaded via ytssubs [{lang}]: {fname}")
+                                    if remove_machine_made(video_path, lang):
+                                        _log(
+                                            db, job_id, f"  replaced the machine-made [{lang}] file"
+                                        )
                                     _maybe_sync(video_path, out_path, lang)
                         except Exception as yts_err:
                             _log(

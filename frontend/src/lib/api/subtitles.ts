@@ -38,9 +38,9 @@ export const subtitlesApi = {
   vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
   tracksUrl: (path: string) => `${BASE}/subtitles/tracks?path=${encodeURIComponent(path)}`,
 
-  deleteSubtitle: (file_path: string, language: string) =>
+  deleteSubtitle: (file_path: string, language: string, machine = false) =>
     req<{ ok: boolean }>(
-      `/subtitles/file?file_path=${encodeURIComponent(file_path)}&language=${encodeURIComponent(language)}`,
+      `/subtitles/file?file_path=${encodeURIComponent(file_path)}&language=${encodeURIComponent(language)}${machine ? "&machine=true" : ""}`,
       { method: "DELETE" },
     ),
 

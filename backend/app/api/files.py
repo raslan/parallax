@@ -192,6 +192,8 @@ def get_subtitle_tracks(file_id: int, db: Session = Depends(get_db)):
         {
             "label": t["label"],
             "lang": t["lang"],
+            "hearing_impaired": t["hearing_impaired"],
+            "machine_made": t["machine_made"],
             "url": f"/api/subtitles/vtt?path={quote(t['path'])}",
         }
         for t in tracks
