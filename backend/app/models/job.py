@@ -29,6 +29,7 @@ class JobType:
     PACK_DOWNLOAD = "pack_download"
     SUBTITLE_TRANSLATE = "subtitle_translate"
     SUBTITLE_GENERATE = "subtitle_generate"
+    NVIDIA_PACKAGE = "nvidia_package"
 
 
 # Which library kind a job type belongs to. Video, image and audio library ids all count from 1

@@ -9,7 +9,7 @@ import multiprocessing
 import threading
 import time
 from collections.abc import Callable
-from concurrent.futures import BrokenExecutor, ProcessPoolExecutor, wait
+from concurrent.futures import BrokenExecutor, CancelledError, ProcessPoolExecutor, wait
 from typing import Any, TypeVar
 
 T = TypeVar("T")
@@ -93,6 +93,9 @@ class WorkerPool:
                             self.release()
                             raise WorkerCancelled()
                 result = future.result()  # re-raises the worker's own exception, whatever it is
+            except CancelledError:
+                # another thread released this shared worker (its own cancel): treat it as ours
+                raise WorkerCancelled() from None
             except BrokenExecutor:
                 self._discard_executor()
                 if attempt:

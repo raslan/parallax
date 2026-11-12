@@ -7,13 +7,14 @@ Parallax runs fine on a plain processor, but compressing video is much faster on
 
 ## What uses the graphics card
 
-| Feature                     | Uses a graphics card?                                     |
-| --------------------------- | --------------------------------------------------------- |
-| Video Compress and Toolbox  | Yes, for the encoding. Decoding is hardware assisted too. |
-| Splice (re-encode mode)     | Yes                                                       |
-| Image Upscale               | Yes, through Vulkan, if a discrete GPU is available       |
-| Audio Compress and Toolbox  | No, always the processor                                  |
-| Content detection on images | No, always the processor                                  |
+| Feature                                 | Uses a graphics card?                                                                                                            |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Video Compress and Toolbox              | Yes, for the encoding. Decoding is hardware assisted too.                                                                        |
+| Splice (re-encode mode)                 | Yes                                                                                                                              |
+| Image Upscale                           | Yes, through Vulkan, if a discrete GPU is available                                                                              |
+| Audio Compress and Toolbox              | No, always the processor                                                                                                         |
+| Content detection on images             | No, always the processor                                                                                                         |
+| Subtitle translation and speech-to-text | Optional, NVIDIA only: see [Translation and speech-to-text on an NVIDIA card](#translation-and-speech-to-text-on-an-nvidia-card) |
 
 ## NVIDIA
 
@@ -100,6 +101,24 @@ volumes:
 ```
 
 Compress and Toolbox then write their work in progress there and move the finished file back, which turns lots of slow overlapping reads and writes into one clean read and one clean write. There is no setting. If the folder is mounted it is used, and if not, nothing changes.
+
+## Translation and speech-to-text on an NVIDIA card
+
+[Translating a subtitle](/docs/tools/subtitles#translating-a-subtitle) and [generating one from the audio](/docs/tools/subtitles#generating-a-subtitle-from-the-audio) run on the processor and need nothing extra. With an NVIDIA card they are many times faster. Measured on a small card (an RTX 3050), translating 1,500 subtitle lines took about 9 seconds instead of about 3.5 minutes on the processor, and Whisper small wrote a subtitle for 77 seconds of speech in about 2 seconds instead of 6 (Whisper medium: about 3.5 seconds).
+
+This needs a download of about 2 GB, the NVIDIA CUDA libraries, which Parallax does not ship in the image. <Shot id="app/settings/hardware" />
+
+Open **Settings → Hardware** and:
+
+1. Click **Install** next to **NVIDIA acceleration package**. It downloads once and can be updated with **Update** or taken away with the bin button.
+2. Click **Check**. It runs a tiny test on the card. If it says CUDA sees no card although you have one, add the `compute` capability to the NVIDIA device in your compose file (next to `gpu` and `video`) and start the container again.
+3. Leave **Use GPU for translation and speech-to-text** on.
+
+With more than one NVIDIA card, **GPUs to use** says how many cards the jobs may use. Each file runs on one card and is never split across cards, so a queue of files keeps every card you allow busy at once. Lower the slider to keep a card free for something else.
+
+If a card fails to start, that card is skipped for the rest of the job and the file is tried once on another card. If no card is left, or the file fails for another reason such as running out of card memory, that file runs on the processor and the job log says so. Cancelling a job stops it within a few seconds and frees the card.
+
+This only affects translation and speech-to-text. Video encoding is set on the Transcoder tab and the content-detection model always uses the processor. Only NVIDIA cards are supported. It has been tried on one RTX 3050. It has not yet been tried on the newest RTX 50 series cards or with two cards at once; those results will be added here once they have been tested on real hardware.
 
 ## Other settings
 

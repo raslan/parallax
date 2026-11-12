@@ -371,7 +371,7 @@
     "src": "app/settings/ai-models.webp",
     "width": 1184,
     "height": 640,
-    "bytes": 60740,
+    "bytes": 61964,
     "quality": 90
   },
   "app/filters/builder": {
@@ -2706,6 +2706,28 @@
     "width": 1200,
     "height": 900,
     "bytes": 148402,
+    "quality": 90
+  },
+  "app/settings/subtitles": {
+    "id": "app/settings/subtitles",
+    "kind": "still",
+    "alt": "Settings, Subtitles tab: default languages, sync engine, the language packs with an Install button, and the speech-to-text models.",
+    "route": "/settings?tab=subtitles",
+    "src": "app/settings/subtitles.webp",
+    "width": 1184,
+    "height": 820,
+    "bytes": 116974,
+    "quality": 90
+  },
+  "app/settings/hardware": {
+    "id": "app/settings/hardware",
+    "kind": "still",
+    "alt": "Settings, Hardware tab: the detected graphics card, the NVIDIA acceleration package with its Check, Update and remove buttons, and the Use GPU switch.",
+    "route": "/settings?tab=hardware",
+    "src": "app/settings/hardware.webp",
+    "width": 1184,
+    "height": 640,
+    "bytes": 90346,
     "quality": 90
   }
 }

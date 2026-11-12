@@ -3,7 +3,7 @@ title: Settings
 description: Every setting in Parallax, tab by tab.
 ---
 
-Open Settings from the cog in the top bar. It has seven tabs. Each tab has its own **Save changes** button, so changes you make on one tab are not saved until you press it on that tab. (The theme is the exception. It applies as soon as you click it.)
+Open Settings from the cog in the top bar. It has eight tabs. Each tab has its own **Save changes** button, so changes you make on one tab are not saved until you press it on that tab. (The theme is the exception. It applies as soon as you click it.)
 
 <Shot id="app/settings/ai-models" />
 
@@ -41,6 +41,15 @@ The text on this tab also tells you which graphics cards Parallax found. See [Ha
 - **Scan batch size** is how many images are checked in one go by Content Review. Higher is faster and uses more memory.
 - **Scan prefetch** is how many batches are loaded ahead of time while the current one is being checked. Higher keeps things moving and uses more memory.
 - **Content Detection (NudeNet)** lists the available models. The standard one (**320n**) is built in. The larger one (**640m**) can be downloaded here with **Download**, and **Use** chooses which one is active. See [Content detection](/docs/advanced/content-detection).
+
+## Hardware
+
+- **Detected graphics cards** lists what Parallax found.
+- **NVIDIA acceleration package** is a download of about 2 GB that lets translation and speech-to-text use an NVIDIA card. **Install**, **Update**, **Check** (a tiny test) and the bin button to remove it.
+- **Use GPU for translation and speech-to-text** turns it on or off. It is on once the package is installed.
+- **GPUs to use** is how many cards the jobs may use. It shows when you have more than one NVIDIA card. Each file runs on one card.
+
+Video encoding with a graphics card is set on the Transcoder tab, and is not changed here. See [Hardware acceleration](/docs/advanced/hardware-acceleration#translation-and-speech-to-text-on-an-nvidia-card).
 
 ## Downloads
 

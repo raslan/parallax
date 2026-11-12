@@ -19,6 +19,9 @@ vi.mock("@/components/settings/CredentialsTab", () => ({ CredentialsTab: () => <
 vi.mock("@/components/settings/SubtitlesTab", () => ({
   SubtitlesTab: () => <div>subtitles tab</div>,
 }));
+vi.mock("@/components/settings/HardwareTab", () => ({
+  HardwareTab: () => <div>hardware tab</div>,
+}));
 vi.mock("@/components/settings/ModelsTab", () => ({ ModelsTab: () => <div>ai models</div> }));
 vi.mock("@/components/settings/DownloadsTab", () => ({ DownloadsTab: () => <div>downloads</div> }));
 vi.mock("@/components/settings/CreditsTab", () => ({ CreditsTab: () => <div>credits</div> }));
@@ -70,6 +73,13 @@ describe("Settings and the #account link", () => {
     expect(screen.getByText("subtitles tab")).toBeTruthy();
     const labels = screen.getAllByRole("button").map((b) => b.textContent);
     expect(labels.indexOf("Subtitles")).toBe(labels.indexOf("Transcoder") + 1);
+  });
+
+  it("has a Hardware tab right after AI Models", () => {
+    at("/settings?tab=hardware");
+    expect(screen.getByText("hardware tab")).toBeTruthy();
+    const labels = screen.getAllByRole("button").map((b) => b.textContent);
+    expect(labels.indexOf("Hardware")).toBe(labels.indexOf("AI Models") + 1);
   });
 
   it("moves keyboard focus to the Account card, not just the scroll", async () => {

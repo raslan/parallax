@@ -32,6 +32,7 @@ export { qk } from "./queryKeys";
 export { imageApi } from "./images";
 export { modelsApi } from "./models";
 export { subtitlesApi } from "./subtitles";
+export { hardwareApi } from "./hardware";
 export { subtitlePacksApi, speechModelsApi } from "./subtitlePacks";
 export { streamApi } from "./stream";
 export { compressApi } from "./compress";

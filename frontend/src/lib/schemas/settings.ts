@@ -31,6 +31,13 @@ export const subtitlesSchema = z.object({
 });
 export type SubtitlesForm = z.infer<typeof subtitlesSchema>;
 
+export const hardwareSchema = z.object({
+  gpuEnabled: z.boolean(),
+  /** 0 = every detected card. */
+  gpuCount: z.number().int().min(0).max(64),
+});
+export type HardwareForm = z.infer<typeof hardwareSchema>;
+
 export const aiModelsSchema = z.object({
   scanBatchSize: z.number().int().min(1).max(32),
   scanPrefetch: z.number().int().min(1).max(20),
@@ -63,6 +70,10 @@ export const seedSubtitles = (s: Settings): SubtitlesForm => ({
   subtitleSyncEngine: s.subtitle_sync_engine === "ffsubsync" ? "ffsubsync" : "alass",
   subtitleAutoSync: s.subtitle_auto_sync ?? true,
   translateDropHi: s.subtitle_translate_drop_hi ?? false,
+});
+export const seedHardware = (s: Settings): HardwareForm => ({
+  gpuEnabled: s.gpu_accel_enabled ?? true,
+  gpuCount: s.gpu_accel_count ?? 0,
 });
 export const seedAiModels = (s: Settings): AiModelsForm => ({
   scanBatchSize: s.scan_batch_size ?? 4,

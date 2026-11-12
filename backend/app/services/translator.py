@@ -5,6 +5,7 @@ or when a job ends. Work goes in batches of `BATCH` lines; the cancel flag is ch
 batches, and a worker that has not finished within a few seconds of a cancel is terminated.
 """
 
+import threading
 from collections.abc import Callable
 
 from app.services import _translate_impl
@@ -12,7 +13,14 @@ from app.services import translate_packs as packs
 from app.services.worker_common import WorkerCancelled, WorkerPool
 
 BATCH = 32
-_pool = WorkerPool(idle_timeout=120.0)
+_pools: dict[tuple[str, int], WorkerPool] = {}
+_pools_lock = threading.Lock()
+
+
+def _pool_for(device: str, device_index: int) -> WorkerPool:
+    """One worker per (device, card): a file runs on one card and cards never share a worker."""
+    with _pools_lock:
+        return _pools.setdefault((device, device_index), WorkerPool(idle_timeout=120.0))
 
 
 class TranslationCancelled(Exception):
@@ -20,7 +28,10 @@ class TranslationCancelled(Exception):
 
 
 def release_sessions() -> None:
-    _pool.release()
+    with _pools_lock:
+        pools = list(_pools.values())
+    for p in pools:
+        p.release()
 
 
 def translate_texts(
@@ -42,7 +53,7 @@ def translate_texts(
             raise TranslationCancelled()
         ids = todo[k : k + BATCH]
         try:
-            result = _pool.submit_cancellable(
+            result = _pool_for(device, device_index).submit_cancellable(
                 _translate_impl.translate_batch,
                 packs.pack_dir(pack),
                 pack["target_token"],

@@ -38,6 +38,22 @@ export default [
     crop: { rect: { x: 240, y: 80, width: 1184, height: 640 } },
   },
   {
+    id: "app/settings/subtitles",
+    kind: "still",
+    route: "/settings?tab=subtitles",
+    alt: "Settings, Subtitles tab: default languages, sync engine, the language packs with an Install button, and the speech-to-text models.",
+    waitFor: [/Language packs/],
+    crop: { rect: { x: 240, y: 80, width: 1184, height: 900 } },
+  },
+  {
+    id: "app/settings/hardware",
+    kind: "still",
+    route: "/settings?tab=hardware",
+    alt: "Settings, Hardware tab: the detected graphics card, the NVIDIA acceleration package with its Check, Update and remove buttons, and the Use GPU switch.",
+    waitFor: [/NVIDIA acceleration package/],
+    crop: { rect: { x: 240, y: 80, width: 1184, height: 640 } },
+  },
+  {
     id: "app/filters/builder",
     kind: "still",
     route: "/cleanup",
