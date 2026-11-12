@@ -14,6 +14,7 @@ export interface Settings {
   subtitle_languages: string;
   subtitle_sync_engine: string;
   subtitle_auto_sync: boolean;
+  subtitle_translate_drop_hi: boolean;
   download_dir: string;
   max_concurrent_downloads: number;
   ytdlp_channel: string;
@@ -34,6 +35,7 @@ export interface UpdateSettingsBody {
   subtitle_languages?: string;
   subtitle_sync_engine?: string;
   subtitle_auto_sync?: boolean;
+  subtitle_translate_drop_hi?: boolean;
   download_dir?: string;
   max_concurrent_downloads?: number;
   ytdlp_channel?: string;

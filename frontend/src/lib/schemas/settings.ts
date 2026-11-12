@@ -27,6 +27,7 @@ export const subtitlesSchema = z.object({
   subtitleLangs: z.array(z.string()).min(1, "Pick at least one language"),
   subtitleSyncEngine: z.enum(["alass", "ffsubsync"]),
   subtitleAutoSync: z.boolean(),
+  translateDropHi: z.boolean(),
 });
 export type SubtitlesForm = z.infer<typeof subtitlesSchema>;
 
@@ -61,6 +62,7 @@ export const seedSubtitles = (s: Settings): SubtitlesForm => ({
     .filter(Boolean),
   subtitleSyncEngine: s.subtitle_sync_engine === "ffsubsync" ? "ffsubsync" : "alass",
   subtitleAutoSync: s.subtitle_auto_sync ?? true,
+  translateDropHi: s.subtitle_translate_drop_hi ?? false,
 });
 export const seedAiModels = (s: Settings): AiModelsForm => ({
   scanBatchSize: s.scan_batch_size ?? 4,

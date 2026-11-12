@@ -106,4 +106,4 @@ def test_translate_validates_files_and_queues(client, packs_dir, tmp_path, enque
     r = client.post("/api/subtitles/translate", json=body)
     assert r.status_code == 200
     assert enqueued[-1][1] == "run_translate_job"
-    assert enqueued[-1][2][1] == [{"video_path": str(v), "lang": "ar"}]
+    assert enqueued[-1][2][1] == [{"video_path": str(v), "lang": "ar", "drop_hi": False}]
