@@ -187,7 +187,7 @@ const operations = Object.entries(spec.paths).flatMap(([p, item]) =>
 const apiDir = path.join(repo, "backend/app/api");
 let decorators = 0;
 for (const file of walk(apiDir, (f) => f.endsWith(".py"))) {
-  decorators += (read(file).match(/^@router\.(get|post|put|patch|delete|api_route)\(/gm) ?? [])
+  decorators += (read(file).match(/^@\w*router\.(get|post|put|patch|delete|api_route)\(/gm) ?? [])
     .length;
 }
 if (decorators !== operations.length) {

@@ -4731,6 +4731,44 @@
         }
       }
     },
+    "/api/subtitles/generate": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Generate an English subtitle from the audio",
+        "description": "Queue a job that transcribes each video's English speech with an installed Whisper model.\nThe result is a machine-made `<name>.en.mt.srt` next to the video, a stopgap until a real\nsubtitle exists. `translate_to` also translates each result into those installed languages.",
+        "operationId": "generate_subtitles_api_subtitles_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subtitles/sync-file": {
       "post": {
         "tags": ["subtitles"],
@@ -5002,6 +5040,100 @@
             "schema": {
               "type": "string",
               "title": "Lang"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/speech-models": {
+      "get": {
+        "tags": ["subtitle-packs"],
+        "summary": "List speech-to-text models",
+        "operationId": "list_speech_models_api_speech_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PackInfo"
+                  },
+                  "type": "array",
+                  "title": "Response List Speech Models Api Speech Models Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/speech-models/{model_id}/install": {
+      "post": {
+        "tags": ["subtitle-packs"],
+        "summary": "Install a speech model",
+        "operationId": "install_speech_model_api_speech_models__model_id__install_post",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/speech-models/{model_id}": {
+      "delete": {
+        "tags": ["subtitle-packs"],
+        "summary": "Remove a speech model",
+        "operationId": "remove_speech_model_api_speech_models__model_id__delete",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
             }
           }
         ],
@@ -8290,6 +8422,33 @@
         "type": "object",
         "title": "GalleryOptions"
       },
+      "GenerateRequest": {
+        "properties": {
+          "file_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "File Paths"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "small"
+          },
+          "translate_to": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Translate To",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": ["file_paths"],
+        "title": "GenerateRequest"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -11207,7 +11366,7 @@
     },
     {
       "name": "subtitle-packs",
-      "description": "Offline translation language packs: list, install, remove."
+      "description": "Offline translation packs and speech models: list, install, remove."
     },
     {
       "name": "organize",
