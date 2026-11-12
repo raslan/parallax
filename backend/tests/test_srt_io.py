@@ -23,6 +23,12 @@ def test_parse_ignores_garbage_and_renumbers_on_write():
     assert out.startswith("1\n00:00:01,000 --> 00:00:02,000\nA\n")
 
 
+def test_cues_without_blank_lines_between_them_are_still_separate():
+    text = "1\n00:00:01,000 --> 00:00:02,000\nA\n2\n00:00:03,000 --> 00:00:04,000\nB\nB2\n"
+    cues = parse_srt(text)
+    assert [(c.start, c.text) for c in cues] == [(1.0, "A"), (3.0, "B\nB2")]
+
+
 def test_roundtrip_keeps_times_and_text():
     cues = parse_srt(SAMPLE)
     again = parse_srt(write_srt(cues))

@@ -264,6 +264,13 @@ export function Subtitles() {
   const [downloading, setDownloading] = useState(false);
   const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
   const [translatingPaths, setTranslatingPaths] = useState<Set<string>>(new Set());
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const [syncingAll, setSyncingAll] = useState(false);
   const syncAllTargetRef = useRef("");
   const downloadTargetRef = useRef("");
@@ -382,18 +389,24 @@ export function Subtitles() {
   const handleTranslate = async (file: SubtitleFile) => {
     setScanError("");
     setTranslatingPaths((prev) => new Set(prev).add(file.path));
+    const problems: string[] = [];
     try {
       for (const lang of translateLangsFor(file)) {
-        const { job_id } = await subtitlesApi.translate([file.path], lang);
-        for (;;) {
-          await new Promise((r) => setTimeout(r, 2000));
-          const job = await api.getJob(job_id);
-          if (job.status === "failed") throw new Error(job.error ?? "Translation failed");
-          if (job.status === "completed" || job.status === "cancelled") break;
+        try {
+          const { job_id } = await subtitlesApi.translate([file.path], lang);
+          // Stops when the page is left: the job itself keeps going on the server.
+          while (mountedRef.current) {
+            await new Promise((r) => setTimeout(r, 2000));
+            if (!mountedRef.current) return;
+            const job = await api.getJob(job_id);
+            if (job.status === "failed") throw new Error(job.error ?? "Translation failed");
+            if (job.status === "completed" || job.status === "cancelled") break;
+          }
+        } catch (e: unknown) {
+          problems.push(e instanceof Error ? e.message : "Translation failed");
         }
       }
-    } catch (e: unknown) {
-      setScanError(e instanceof Error ? e.message : "Translation failed");
+      if (problems.length) setScanError(problems.join(" · "));
     } finally {
       setTranslatingPaths((prev) => {
         const next = new Set(prev);

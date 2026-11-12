@@ -6,7 +6,8 @@ from dataclasses import dataclass
 _CUE = re.compile(
     r"(?:^|\n)\s*\d+[ \t]*\n"
     r"(\d\d):(\d\d):(\d\d)[,.](\d{1,3}) --> (\d\d):(\d\d):(\d\d)[,.](\d{1,3})[^\n]*\n"
-    r"(.*?)(?=\n\s*\n|\Z)",
+    # a cue ends at a blank line, or (malformed files) where the next cue's header begins
+    r"(.*?)(?=\n\s*\n|\n\d+[ \t]*\n\d\d:\d\d:\d\d[,.]\d{1,3} -->|\Z)",
     re.S,
 )
 

@@ -2,6 +2,7 @@ import json
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -170,20 +171,17 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
         raise HTTPException(
             409, f"Install the {pack['name']} language pack first (Settings → Subtitles)"
         )
-    items = []
-    for path in dict.fromkeys(body.file_paths):
+    paths = list(dict.fromkeys(body.file_paths))
+    for path in paths:
         if not os.path.isfile(path):
             raise HTTPException(400, f"File not found: {os.path.basename(path)}")
-        if subtitle_translate.find_source_subtitle(path) is None:
-            raise HTTPException(
-                422, f"{os.path.basename(path)} has no English subtitle to translate"
-            )
-        stem, _ = os.path.splitext(path)
-        if os.path.exists(f"{stem}.{body.language}.srt"):
-            raise HTTPException(
-                422, f"{os.path.basename(path)} already has a {pack['name']} subtitle"
-            )
-        items.append({"video_path": path, "lang": body.language})
+    # The folder walks can be slow on a network mount: keep them off the event loop.
+    problem = await run_in_threadpool(
+        subtitle_translate.first_problem, paths, body.language, pack["name"]
+    )
+    if problem:
+        raise HTTPException(422, problem)
+    items = [{"video_path": p, "lang": body.language} for p in paths]
 
     job = Job(
         type=JobType.SUBTITLE_TRANSLATE,

@@ -33,6 +33,20 @@ def find_source_subtitle(video_path: str) -> str | None:
     return None
 
 
+def first_problem(video_paths: list[str], lang: str, pack_name: str) -> str | None:
+    """Why the first of these videos cannot be translated into `lang`, or None when all can.
+    Same folder search as the Subtitles scan, so a real subtitle in `Subs/` counts too."""
+    from app.services.subtitle_service import _missing_lang_codes
+
+    for path in video_paths:
+        name = os.path.basename(path)
+        if find_source_subtitle(path) is None:
+            return f"{name} has no English subtitle to translate"
+        if lang not in _missing_lang_codes(path, [lang]):
+            return f"{name} already has a {pack_name} subtitle"
+    return None
+
+
 def _suffix(video_path: str, sub_path: str) -> str:
     stem = os.path.splitext(os.path.basename(video_path))[0]
     name = os.path.basename(sub_path)
