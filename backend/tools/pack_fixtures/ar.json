@@ -1,0 +1,21 @@
+{
+  "language": "ar",
+  "target_token": ">>ara<<",
+  "script_regex": "[\\u0600-\\u06FF]",
+  "min_script_ratio": 0.7,
+  "min_chrf": 35.0,
+  "pairs": [
+    ["Where are you going?", "إلى أين أنت ذاهب؟"],
+    ["I don't know what to do.", "لا أعرف ماذا أفعل."],
+    ["We have to get out of here now.", "علينا أن نخرج من هنا الآن."],
+    ["Thank you for everything you did for us.", "شكراً لك على كل ما فعلته من أجلنا."],
+    ["He is my brother, and I trust him.", "إنه أخي وأنا أثق به."],
+    ["What time does the train leave tomorrow morning?", "في أي ساعة يغادر القطار صباح الغد؟"],
+    ["Don't worry, everything will be fine.", "لا تقلق، كل شيء سيكون على ما يرام."],
+    ["She has been working at the hospital for ten years.", "إنها تعمل في المستشفى منذ عشر سنوات."]
+  ],
+  "unicode_probes": [
+    "Café owner Zoë said “we’re closed” – see you tomorrow.",
+    "Señor Müller’s naïve résumé arrived late."
+  ]
+}
