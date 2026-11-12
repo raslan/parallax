@@ -60,10 +60,12 @@ def translate_one(
     on_progress: Callable[[float], None] | None = None,
     device: str = "cpu",
     device_index: int = 0,
+    drop_hi: bool = False,
 ) -> str:
     """Write `<stem>.<lang>.mt.srt` next to the video and return its path. The file appears only
     when complete: output goes to a hidden temp name and is renamed on success, so a cancel or a
-    failure leaves nothing behind."""
+    failure leaves nothing behind. Sound notes and speaker labels are translated and kept unless
+    `drop_hi` is set."""
     pack = translate_packs.get_pack(lang)
     if pack is None:
         raise TranslateError(f"No language pack for '{lang}'.")
@@ -80,7 +82,7 @@ def translate_one(
     if not cues:
         raise TranslateError(f"{os.path.basename(source)} has no subtitle lines.")
 
-    prepared = [translate_text.prepare(c.text) for c in cues]
+    prepared = [translate_text.prepare(c.text, drop_hi) for c in cues]
     translated = translator.translate_texts(
         pack,
         [p.core for p in prepared],
@@ -91,8 +93,10 @@ def translate_one(
     )
     rtl = bool(pack.get("rtl"))
     out_cues = [
-        srt_io.Cue(c.start, c.end, translate_text.restore(p, t, rtl))
+        srt_io.Cue(c.start, c.end, text)
         for c, p, t in zip(cues, prepared, translated, strict=True)
+        # a cue that was only a dropped note has nothing left to show
+        if (text := translate_text.restore(p, t, rtl)) or not drop_hi
     ]
 
     final = machine_subs.machine_sub_path(video_path, lang)
@@ -159,7 +163,9 @@ def run_translate_job(job_id: int, items: list[dict]) -> None:
                         db.commit()
 
                 try:
-                    out = translate_one(video, lang, cancel, on_progress)
+                    out = translate_one(
+                        video, lang, cancel, on_progress, drop_hi=bool(item.get("drop_hi"))
+                    )
                     completed += 1
                     results.append({"video_path": video, "lang": lang, "output": out})
                     log(

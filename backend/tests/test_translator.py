@@ -80,3 +80,23 @@ def test_real_arabic_model_translates_without_unknown_markers():
     )
     assert all("⁇" not in t for t in out)
     assert all(any("؀" <= c <= "ۿ" for c in t) for t in out)
+
+
+@pytest.mark.skipif(
+    not os.path.exists("/packs/ar/model.bin"), reason="Arabic pack not available offline"
+)
+def test_real_model_with_cleanup_never_writes_an_unknown_marker():
+    from app.services import _translate_impl as impl
+    from app.services import translate_text as tt
+
+    raw = [
+        "♪♪ Shoot to thrill ♪♪",
+        "He lives on Königstrasse.",
+        "^.^.^ subtitles by ^.^.^",
+        "4 X 400 today.",
+    ]
+    prep = [tt.prepare(r) for r in raw]
+    out = impl.translate_batch("/packs/ar", ">>ara<<", [p.core for p in prep])
+    final = [tt.restore(p, t, rtl=True) for p, t in zip(prep, out, strict=True)]
+    assert all("⁇" not in t for t in final)
+    assert final[0].startswith("‫♪♪ ") and final[0].endswith(" ♪♪")

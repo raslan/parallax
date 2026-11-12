@@ -20,6 +20,7 @@ export function SubtitlesTab() {
     subtitle_languages: v.subtitleLangs.join(","),
     subtitle_sync_engine: v.subtitleSyncEngine,
     subtitle_auto_sync: v.subtitleAutoSync,
+    subtitle_translate_drop_hi: v.translateDropHi,
   }));
 
   const qc = useQueryClient();
@@ -119,6 +120,29 @@ export function SubtitlesTab() {
                   <p className="text-xs text-muted-foreground/70">
                     Runs automatically after a subtitle finishes downloading (bulk or single
                     search).
+                  </p>
+                </div>
+              </label>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <label className="flex items-start gap-3 cursor-pointer select-none group">
+                <Checkbox
+                  checked={form.watch("translateDropHi")}
+                  onCheckedChange={(c) =>
+                    form.setValue("translateDropHi", c === true, { shouldDirty: true })
+                  }
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm text-foreground">
+                    Leave out sound notes and speaker names when translating
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    Subtitles for the hard of hearing include lines like [DISTANT EXPLOSION] and
+                    names like FURY:. They are translated and kept unless you tick this.
                   </p>
                 </div>
               </label>

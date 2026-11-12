@@ -210,3 +210,29 @@ def test_worker_crash_costs_one_file_not_the_job(env, monkeypatch):
     st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
     assert _state(fs_db, jid)[0] == JobStatus.FAILED
     assert not (video.parent / "Movie (2020).ar.mt.srt").exists()
+
+
+NOTES_SRT = (
+    "1\n00:00:01,000 --> 00:00:02,000\n[DISTANT EXPLOSION]\n\n"
+    "2\n00:00:03,000 --> 00:00:04,000\nFURY: Get down!\n\n"
+    "3\n00:00:05,000 --> 00:00:06,000\n♪ la la ♪\n\n"
+)
+
+
+def test_sound_notes_and_speaker_labels_are_kept_by_default(env):
+    video, _ = env
+    (video.parent / "Movie (2020).en.srt").write_text(NOTES_SRT, encoding="utf-8")
+    out = st.translate_one(str(video), "ar", lambda: False)
+    text = open(out, encoding="utf-8").read()
+    assert "AR:[DISTANT EXPLOSION]" in text and "AR:FURY: Get down!" in text
+    assert "♪ AR:la la ♪" in text  # markers kept aside, only the words translated
+
+
+def test_drop_hi_removes_notes_labels_and_cues_that_were_only_notes(env):
+    video, _ = env
+    (video.parent / "Movie (2020).en.srt").write_text(NOTES_SRT, encoding="utf-8")
+    out = st.translate_one(str(video), "ar", lambda: False, drop_hi=True)
+    text = open(out, encoding="utf-8").read()
+    assert "DISTANT" not in text and "FURY" not in text
+    assert "AR:Get down!" in text
+    assert text.count("-->") == 2  # the note-only cue is gone

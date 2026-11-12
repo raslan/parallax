@@ -39,8 +39,18 @@ def translate_batch(
 ) -> list[str]:
     """Translate one batch of English lines. The target-language token goes in as a single
     token (as text, sentencepiece would split it and the output would start with garbage)."""
+    from app.services.translate_text import fold_unknown
+
     translator, sp_src, sp_tgt = _load(pack_dir, device, device_index)
-    batch = [[target_token] + sp_src.encode(t, out_type=str) + ["</s>"] for t in texts]
+    unk = sp_src.unk_id()
+
+    def is_unknown(s: str) -> bool:
+        return unk in sp_src.encode(s, out_type=int)
+
+    batch = [
+        [target_token] + sp_src.encode(fold_unknown(t, is_unknown), out_type=str) + ["</s>"]
+        for t in texts
+    ]
     results = translator.translate_batch(
         batch, beam_size=beam_size, max_batch_size=32, max_decoding_length=300
     )

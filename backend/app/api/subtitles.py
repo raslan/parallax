@@ -181,7 +181,8 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
     )
     if problem:
         raise HTTPException(422, problem)
-    items = [{"video_path": p, "lang": body.language} for p in paths]
+    drop_hi = get_setting(db, "subtitle_translate_drop_hi", "false") == "true"
+    items = [{"video_path": p, "lang": body.language, "drop_hi": drop_hi} for p in paths]
 
     job = Job(
         type=JobType.SUBTITLE_TRANSLATE,
