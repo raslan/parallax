@@ -70,11 +70,12 @@ A translation by a machine is good enough to follow the story but it is not perf
 A brand-new release often has no subtitle anywhere yet. Parallax can listen to the English speech and write a rough subtitle, on your own computer, to use until a real one appears. Nothing is sent anywhere.
 
 1. Open **Settings → Subtitles** and, under **Speech-to-text models**, click **Install** next to **Whisper small** (about 460 MB, a one-time download). **Whisper medium** is bigger and slower but gets names right more often.
-2. On the Subtitles page, hover over a video that has no English subtitle. A **microphone** icon appears on its row. Click it.
+2. Make sure English is one of your **Default subtitle languages** in the same tab.
+3. On the Subtitles page, hover over a video that has no English subtitle. A **microphone** icon appears on its row. Click it.
 
 The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page and can be cancelled. A cancelled or failed run leaves nothing behind. On a normal processor, Whisper small works through an hour of audio in about six minutes.
 
-The result is saved as a machine-made subtitle, `movie.en.mt.srt`, so it is marked like a [translation](#translating-a-subtitle): the page shows the amber **machine-made** badge, and the real English subtitle is still downloaded when you ask for it and replaces this one. If you also have a language pack installed for one of your other languages, the new subtitle is translated into it straight away.
+The result is saved as a machine-made subtitle, `movie.en.mt.srt`, so it is marked like a [translation](#translating-a-subtitle): the page shows the amber **machine-made** badge, and the real English subtitle is still downloaded when you ask for it and replaces this one. If you also have a language pack installed for another of your **Default subtitle languages**, the new subtitle is translated into it straight away.
 
 Expect mistakes. Whisper small hears words well but often writes names wrongly (for example "I would start" for "Howard Stark"). It only understands English speech for now.
 

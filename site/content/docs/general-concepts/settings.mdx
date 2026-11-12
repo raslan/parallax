@@ -29,7 +29,6 @@ The text on this tab also tells you which graphics cards Parallax found. See [Ha
 - **Auto-sync downloaded subtitles** runs the sync automatically after each subtitle is downloaded.
 - **Leave out sound notes and speaker names when translating** is off by default. Subtitles for the hard of hearing carry lines like `[DISTANT EXPLOSION]` and names like `FURY:`. Parallax translates them and keeps them. Tick this box to drop them from translated subtitles.
 - **Language packs** lists the languages Parallax can translate into without leaving your computer. Arabic, German, Spanish, French, Italian, Portuguese, Russian and Chinese are listed. **Install** downloads one (about 140 to 460 MB, Arabic is the largest) and checks it, and the bin button removes it again. Each row names the model it comes from and its licence. See [Translating a subtitle](/docs/tools/subtitles#translating-a-subtitle).
-
 - **Speech-to-text models** lists the two models that can write a subtitle from a video's audio: **Whisper small** (about 460 MB, the one to start with) and **Whisper medium** (about 1.5 GB, slower, and better with names). **Install** downloads and checks one, and the bin button removes it. See [Generating a subtitle from the audio](/docs/tools/subtitles#generating-a-subtitle-from-the-audio).
 
 ## Keys & Accounts
@@ -47,7 +46,7 @@ The text on this tab also tells you which graphics cards Parallax found. See [Ha
 - **Detected graphics cards** lists what Parallax found.
 - **NVIDIA acceleration package** is a download of about 2 GB that lets translation and speech-to-text use an NVIDIA card. **Install**, **Update**, **Check** (a tiny test) and the bin button to remove it.
 - **Use GPU for translation and speech-to-text** turns it on or off. It is on once the package is installed.
-- **GPUs to use** is how many cards the jobs may use. It shows when you have more than one NVIDIA card. Each file runs on one card.
+- **GPUs to use** is how many cards the jobs may use. With more than one NVIDIA card it is a slider, and with one card it just says so. Each file runs on one card.
 
 Video encoding with a graphics card is set on the Transcoder tab, and is not changed here. See [Hardware acceleration](/docs/advanced/hardware-acceleration#translation-and-speech-to-text-on-an-nvidia-card).
 
