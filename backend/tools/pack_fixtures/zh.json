@@ -1,0 +1,21 @@
+{
+  "language": "zh",
+  "target_token": ">>cmn_Hans<<",
+  "script_regex": "[\\u4E00-\\u9FFF]",
+  "min_script_ratio": 0.8,
+  "min_chrf": 25.0,
+  "pairs": [
+    ["Where are you going?", "你要去哪里？"],
+    ["I don't know what to do.", "我不知道该怎么办。"],
+    ["We have to get out of here now.", "我们现在必须离开这里。"],
+    ["Thank you for everything you did for us.", "谢谢你为我们所做的一切。"],
+    ["He is my brother, and I trust him.", "他是我的哥哥，我信任他。"],
+    ["What time does the train leave tomorrow morning?", "明天早上火车几点出发？"],
+    ["Don't worry, everything will be fine.", "别担心，一切都会好的。"],
+    ["She has been working at the hospital for ten years.", "她在医院工作了十年。"]
+  ],
+  "unicode_probes": [
+    "Café owner Zoë said “we’re closed” – see you tomorrow.",
+    "Señor Müller’s naïve résumé arrived late."
+  ]
+}

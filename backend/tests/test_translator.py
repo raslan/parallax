@@ -100,3 +100,35 @@ def test_real_model_with_cleanup_never_writes_an_unknown_marker():
     final = [tt.restore(p, t, rtl=True) for p, t in zip(prep, out, strict=True)]
     assert all("⁇" not in t for t in final)
     assert final[0].startswith("‫♪♪ ") and final[0].endswith(" ♪♪")
+
+
+def test_a_pack_without_a_language_token_sends_none():
+    """The single-target models (en-de, en-fr ...) take no >>xx<< token."""
+    from app.services import _translate_impl as impl
+
+    class FakeSp:
+        def unk_id(self):
+            return 0
+
+        def encode(self, text, out_type=str):
+            return [1] if out_type is int else text.split()
+
+        def decode(self, tokens):
+            return " ".join(tokens)
+
+    class Result:
+        hypotheses = [["hallo"]]
+
+    class FakeTranslator:
+        def translate_batch(self, batch, **kw):
+            FakeTranslator.seen = batch
+            return [Result() for _ in batch]
+
+    impl._models[("/x", "cpu", 0)] = (FakeTranslator(), FakeSp(), FakeSp())
+    try:
+        impl.translate_batch("/x", None, ["hello there"])
+        assert FakeTranslator.seen == [["hello", "there", "</s>"]]
+        impl.translate_batch("/x", ">>por<<", ["hello"])
+        assert FakeTranslator.seen == [[">>por<<", "hello", "</s>"]]
+    finally:
+        impl._models.pop(("/x", "cpu", 0), None)

@@ -72,8 +72,8 @@ def translate_one(
     if source is None:
         raise TranslateError("No English subtitle (.srt) found to translate.")
     try:
-        with open(source, encoding="utf-8-sig", errors="replace") as f:
-            cues = srt_io.parse_srt(f.read())
+        with open(source, "rb") as f:
+            cues = srt_io.parse_srt(srt_io.decode_srt(f.read()))
     except OSError as e:
         raise TranslateError(f"Could not read {os.path.basename(source)}: {e.strerror}") from e
     if not cues:

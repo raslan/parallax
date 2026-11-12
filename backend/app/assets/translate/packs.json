@@ -42,6 +42,302 @@
           "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
         }
       ]
+    },
+    {
+      "lang": "de",
+      "name": "German",
+      "source_lang": "en",
+      "rtl": false,
+      "model": "OPUS-MT en-de (CTranslate2 float16)",
+      "upstream": "Helsinki-NLP/opus-mt-en-de",
+      "upstream_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-de",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "credit_id": "opus-mt",
+      "source_page": "https://huggingface.co/ooeoeo/opus-mt-en-de-ct2-float16",
+      "revision": "652dfce3373fa1d4b110c221cd59fc0e9825090c",
+      "base_url": "https://huggingface.co/ooeoeo/opus-mt-en-de-ct2-float16/resolve/652dfce3373fa1d4b110c221cd59fc0e9825090c",
+      "files": [
+        {
+          "name": "model.bin",
+          "size": 148423215,
+          "sha256": "ef19d4ddfd1d82f75b7469b33f754464c83f04ffb1691e33454561d7b816e8d3"
+        },
+        {
+          "name": "source.spm",
+          "size": 768489,
+          "sha256": "678f2a1177d8389f67b66299762dcc4fc567e89b07e212ba91b0c56daecf47ce"
+        },
+        {
+          "name": "target.spm",
+          "size": 796845,
+          "sha256": "bbd1f495eea99c8e21ae086d9146e0fa7b096c3dfdd9ba07ab8b631889df5c9b"
+        },
+        {
+          "name": "shared_vocabulary.json",
+          "size": 993828,
+          "sha256": "fa4c8d666c582ad39892a2ae5d4ded1b0ddde4b49dc784a7fcbd73940f9fa13e"
+        },
+        {
+          "name": "config.json",
+          "size": 223,
+          "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
+        }
+      ]
+    },
+    {
+      "lang": "es",
+      "name": "Spanish",
+      "source_lang": "en",
+      "rtl": false,
+      "model": "OPUS-MT en-es (CTranslate2 float16)",
+      "upstream": "Helsinki-NLP/opus-mt-en-es",
+      "upstream_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-es",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "credit_id": "opus-mt",
+      "source_page": "https://huggingface.co/ooeoeo/opus-mt-en-es-ct2-float16",
+      "revision": "bb2dbacb9b21abe9e9e3dd431cff1297366fa6d0",
+      "base_url": "https://huggingface.co/ooeoeo/opus-mt-en-es-ct2-float16/resolve/bb2dbacb9b21abe9e9e3dd431cff1297366fa6d0",
+      "files": [
+        {
+          "name": "model.bin",
+          "size": 155502615,
+          "sha256": "5468badac0c33b3e35e433afd30b2584f28060d35ee1ac1fbebda4d87ce66d9d"
+        },
+        {
+          "name": "source.spm",
+          "size": 801636,
+          "sha256": "4dd547c24816a335e7b0b2e63376a8f1b3cbfc671eda5ab808dd44fdadaa8791"
+        },
+        {
+          "name": "target.spm",
+          "size": 825924,
+          "sha256": "e236ee6d866b635c0142114f8647f39831f9d92534aa2aad75c942f6a78ad0e3"
+        },
+        {
+          "name": "shared_vocabulary.json",
+          "size": 1276136,
+          "sha256": "040e48c9d00734f48506e052695837720bd1f6aa01c70636cde83038362baf19"
+        },
+        {
+          "name": "config.json",
+          "size": 223,
+          "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
+        }
+      ]
+    },
+    {
+      "lang": "fr",
+      "name": "French",
+      "source_lang": "en",
+      "rtl": false,
+      "model": "OPUS-MT en-fr (CTranslate2 float16)",
+      "upstream": "Helsinki-NLP/opus-mt-en-fr",
+      "upstream_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-fr",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "credit_id": "opus-mt",
+      "source_page": "https://huggingface.co/ooeoeo/opus-mt-en-fr-ct2-float16",
+      "revision": "862d85c691dfc11e6cc0423464d97cfb2037d92e",
+      "base_url": "https://huggingface.co/ooeoeo/opus-mt-en-fr-ct2-float16/resolve/862d85c691dfc11e6cc0423464d97cfb2037d92e",
+      "files": [
+        {
+          "name": "model.bin",
+          "size": 149872953,
+          "sha256": "9e0307ebada265fdd1e65fb2361524c83d6f2d6a64dcf664052dacff0a7264ce"
+        },
+        {
+          "name": "source.spm",
+          "size": 778395,
+          "sha256": "173e9f493a668fe396d599e28d414a201193094e6ffd7a4678e5aab0f6d3d838"
+        },
+        {
+          "name": "target.spm",
+          "size": 802397,
+          "sha256": "78d0e717c77053f1c4b856d8661d9cb87c64f083a35418c087b9146300e4f585"
+        },
+        {
+          "name": "shared_vocabulary.json",
+          "size": 1052697,
+          "sha256": "a157eb51a42817dd1ae4bc46cecf66e591ab32641df936da292bd09f2728631b"
+        },
+        {
+          "name": "config.json",
+          "size": 223,
+          "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
+        }
+      ]
+    },
+    {
+      "lang": "it",
+      "name": "Italian",
+      "source_lang": "en",
+      "rtl": false,
+      "model": "OPUS-MT en-it (CTranslate2 float16)",
+      "upstream": "Helsinki-NLP/opus-mt-en-it",
+      "upstream_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-it",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "credit_id": "opus-mt",
+      "source_page": "https://huggingface.co/ooeoeo/opus-mt-en-it-ct2-float16",
+      "revision": "b3560fb2a6c18f8d55aa86fbdec728f8dafafedd",
+      "base_url": "https://huggingface.co/ooeoeo/opus-mt-en-it-ct2-float16/resolve/b3560fb2a6c18f8d55aa86fbdec728f8dafafedd",
+      "files": [
+        {
+          "name": "model.bin",
+          "size": 170927499,
+          "sha256": "db94e7952aca1cb746cefea26ab1cb329e5e0c64cafe56f1708ab23266bc0f4d"
+        },
+        {
+          "name": "source.spm",
+          "size": 789468,
+          "sha256": "2efff2c37e51842c2817a6770280979b5dd803cebbe2928e576d42a888f89537"
+        },
+        {
+          "name": "target.spm",
+          "size": 813725,
+          "sha256": "ef5b179cd5933782af78595099807b5c0156bd67665e4c3af425c7aec6d02d34"
+        },
+        {
+          "name": "shared_vocabulary.json",
+          "size": 1962501,
+          "sha256": "7b6e620b328335c4ed0e1d923fa2374f4caf004425008502aab3bf336deecc47"
+        },
+        {
+          "name": "config.json",
+          "size": 223,
+          "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
+        }
+      ]
+    },
+    {
+      "lang": "pt",
+      "name": "Portuguese",
+      "source_lang": "en",
+      "target_token": ">>por<<",
+      "rtl": false,
+      "model": "OPUS-MT tc-big en-pt (CTranslate2 int8), leans European Portuguese",
+      "upstream": "Helsinki-NLP/opus-mt-tc-big-en-pt",
+      "upstream_url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "credit_id": "opus-mt",
+      "source_page": "https://huggingface.co/gabrielsmash/opus-mt-tc-big-en-pt-ct2-int8",
+      "revision": "a5c120fb8f4be9de1305ada4196e99a914aa6b5e",
+      "base_url": "https://huggingface.co/gabrielsmash/opus-mt-tc-big-en-pt-ct2-int8/resolve/a5c120fb8f4be9de1305ada4196e99a914aa6b5e",
+      "files": [
+        {
+          "name": "model.bin",
+          "size": 235625373,
+          "sha256": "5c2b607d9f0c00e935a00a497aa4c523225288697fbca57ddb7f9ee96fe80006"
+        },
+        {
+          "name": "source.spm",
+          "size": 802741,
+          "sha256": "7a7fcf812cf03a5785daa35d4932bbbe69e7e605c0fe56fce5a3f731d6c355aa"
+        },
+        {
+          "name": "target.spm",
+          "size": 824855,
+          "sha256": "b3cf20ccd4e48a89882cfdba157c05fa1cd71a6b69517dfc80e3a34d387ea91f"
+        },
+        {
+          "name": "shared_vocabulary.json",
+          "size": 1008431,
+          "sha256": "9dcef92228c074bd608459f25472da586e2d15ca1ff1af0956d17573d35b9d1b"
+        },
+        {
+          "name": "config.json",
+          "size": 223,
+          "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
+        }
+      ]
+    },
+    {
+      "lang": "ru",
+      "name": "Russian",
+      "source_lang": "en",
+      "rtl": false,
+      "model": "OPUS-MT en-ru (CTranslate2 float16)",
+      "upstream": "Helsinki-NLP/opus-mt-en-ru",
+      "upstream_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-ru",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "credit_id": "opus-mt",
+      "source_page": "https://huggingface.co/ooeoeo/opus-mt-en-ru-ct2-float16",
+      "revision": "4b044627da66689ee0e3d28f092c5a56f46af902",
+      "base_url": "https://huggingface.co/ooeoeo/opus-mt-en-ru-ct2-float16/resolve/4b044627da66689ee0e3d28f092c5a56f46af902",
+      "files": [
+        {
+          "name": "model.bin",
+          "size": 152955057,
+          "sha256": "8a395f62f51d01f9fb78f6bd317267111e114462caf4144c255ca9624a4d135b"
+        },
+        {
+          "name": "source.spm",
+          "size": 802781,
+          "sha256": "16bebef1389a0b8ab452772c4e35b9e605e5713f8ac7baa71ca701394eaa086d"
+        },
+        {
+          "name": "target.spm",
+          "size": 1080169,
+          "sha256": "745998e51ba5b058e38b7ac7765c25c43ed5c1c39cc92b27163b9b2e323c9d7c"
+        },
+        {
+          "name": "shared_vocabulary.json",
+          "size": 2300269,
+          "sha256": "bf1812383ed402163a2ed1b553e175e7db96a54ed68b6c15566018fdf945ed99"
+        },
+        {
+          "name": "config.json",
+          "size": 223,
+          "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
+        }
+      ]
+    },
+    {
+      "lang": "zh",
+      "name": "Chinese (Simplified)",
+      "source_lang": "en",
+      "target_token": ">>cmn_Hans<<",
+      "rtl": false,
+      "model": "OPUS-MT en-zh (CTranslate2 float16)",
+      "upstream": "Helsinki-NLP/opus-mt-en-zh",
+      "upstream_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-zh",
+      "licence": "CC BY 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "credit_id": "opus-mt",
+      "source_page": "https://huggingface.co/ooeoeo/opus-mt-en-zh-ct2-float16",
+      "revision": "5213be57ce67e590d556f3f317331582454d59e5",
+      "base_url": "https://huggingface.co/ooeoeo/opus-mt-en-zh-ct2-float16/resolve/5213be57ce67e590d556f3f317331582454d59e5",
+      "files": [
+        {
+          "name": "model.bin",
+          "size": 155502615,
+          "sha256": "f24c2bb82368f7de0196882de1d8b644d2aa54ae2439c3142f263de8a64ea2a9"
+        },
+        {
+          "name": "source.spm",
+          "size": 806435,
+          "sha256": "5775ddc9e3ff2fae91554da56468ad35ff56edaba870fea74447bc7234bfdaa8"
+        },
+        {
+          "name": "target.spm",
+          "size": 804600,
+          "sha256": "81dc94efa84e4025ef38d25d5d07429fe41e3eb29d44003f1db6fe98487b0052"
+        },
+        {
+          "name": "shared_vocabulary.json",
+          "size": 1303887,
+          "sha256": "37314a6abb25ed8f8497498aeeb31fcea98de892bf00ff7c2e8c966b26fe0b82"
+        },
+        {
+          "name": "config.json",
+          "size": 223,
+          "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af"
+        }
+      ]
     }
   ]
 }

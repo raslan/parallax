@@ -123,8 +123,10 @@ def subtitle_to_vtt(sub_path: str) -> str:
     """Read a subtitle file and return its content as WebVTT."""
     import re
 
-    with open(sub_path, encoding="utf-8-sig", errors="replace") as f:
-        content = f.read()
+    from app.services.srt_io import decode_srt
+
+    with open(sub_path, "rb") as f:
+        content = decode_srt(f.read())
     ext = os.path.splitext(sub_path)[1].lower()
     if ext == ".vtt":
         return content

@@ -104,3 +104,33 @@ def test_installed_size_counts_the_files_on_disk(root):
     assert tp.installed_bytes(pack) == 0
     tp.install_pack(pack, _fetcher(files), progress=lambda _p: None, is_cancelled=lambda: False)
     assert tp.installed_bytes(pack) == 13
+
+
+def test_every_registered_pack_is_pinned_and_was_validated():
+    import json
+    from pathlib import Path
+
+    fixtures = Path(__file__).resolve().parents[1] / "tools" / "pack_fixtures"
+    seen = set()
+    for pack in tp.list_packs():
+        lang = pack["lang"]
+        assert lang not in seen
+        seen.add(lang)
+        # a pack only enters the registry after tools/validate_pack.py passed it (needs a fixture)
+        assert (fixtures / f"{lang}.json").exists(), lang
+        fx = json.loads((fixtures / f"{lang}.json").read_text(encoding="utf-8"))
+        assert fx.get("target_token") == pack.get("target_token"), lang
+        names = {f["name"] for f in pack["files"]}
+        assert {"model.bin", "source.spm", "target.spm", "config.json"} <= names, lang
+        assert all(len(f["sha256"]) == 64 and f["size"] > 0 for f in pack["files"]), lang
+        assert pack["revision"] in pack["base_url"] and pack["base_url"].startswith("https://")
+        assert pack["licence"] and pack["licence_url"] and pack["credit_id"] == "opus-mt"
+    assert {"ar", "de", "es", "fr", "it", "pt", "ru", "zh"} <= seen
+
+
+def test_multi_target_models_name_their_language_and_single_target_ones_do_not():
+    assert tp.get_pack("pt")["target_token"] == ">>por<<"
+    assert tp.get_pack("zh")["target_token"] == ">>cmn_Hans<<"
+    for lang in ("de", "es", "fr", "it", "ru"):
+        assert "target_token" not in tp.get_pack(lang)
+    assert tp.get_pack("ar")["rtl"] is True and tp.get_pack("de")["rtl"] is False

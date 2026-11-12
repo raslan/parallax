@@ -23,10 +23,23 @@ def _seconds(h: str, m: str, s: str, ms: str) -> float:
     return int(h) * 3600 + int(m) * 60 + int(s) + int(ms.ljust(3, "0")) / 1000
 
 
+def decode_srt(data: bytes) -> str:
+    """Subtitle files come in UTF-8 (with or without a BOM) or an older single-byte code page
+    (Latin-1 / Windows-1252, common for European subtitles). UTF-8 is tried first, then
+    Windows-1252, so an accented letter is not turned into a replacement character."""
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8-sig", errors="replace")  # cp1252 leaves a few bytes undefined
+
+
 def parse_srt(text: str) -> list[Cue]:
     """Cues in file order. Index numbers are ignored (renumbered on write); anything that
     is not a cue block is skipped."""
-    text = text.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n")
+    # a stray blank line before the byte-order mark (seen in the wild) must not hide cue 1
+    text = text.lstrip("\ufeff \t\r\n").replace("\r\n", "\n").replace("\r", "\n")
     cues = []
     for m in _CUE.finditer(text.rstrip() + "\n"):
         cues.append(

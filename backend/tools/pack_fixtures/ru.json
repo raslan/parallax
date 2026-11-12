@@ -1,0 +1,21 @@
+{
+  "language": "ru",
+  "target_token": null,
+  "script_regex": "[\\u0400-\\u04FF]",
+  "min_script_ratio": 0.9,
+  "min_chrf": 35.0,
+  "pairs": [
+    ["Where are you going?", "Куда ты идёшь?"],
+    ["I don't know what to do.", "Я не знаю, что делать."],
+    ["We have to get out of here now.", "Нам нужно уйти отсюда сейчас."],
+    ["Thank you for everything you did for us.", "Спасибо за всё, что ты для нас сделал."],
+    ["He is my brother, and I trust him.", "Он мой брат, и я ему доверяю."],
+    ["What time does the train leave tomorrow morning?", "Во сколько завтра утром отправляется поезд?"],
+    ["Don't worry, everything will be fine.", "Не волнуйся, всё будет хорошо."],
+    ["She has been working at the hospital for ten years.", "Она работает в больнице уже десять лет."]
+  ],
+  "unicode_probes": [
+    "Café owner Zoë said “we’re closed” – see you tomorrow.",
+    "Señor Müller’s naïve résumé arrived late."
+  ]
+}
