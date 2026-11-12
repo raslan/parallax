@@ -104,7 +104,7 @@ Compress and Toolbox then write their work in progress there and move the finish
 
 ## Translation and speech-to-text on an NVIDIA card
 
-[Translating a subtitle](/docs/tools/subtitles#translating-a-subtitle) and [generating one from the audio](/docs/tools/subtitles#generating-a-subtitle-from-the-audio) run on the processor and need nothing extra. With an NVIDIA card they are many times faster: on a small card (an RTX 3050) translating a whole film took about 5 seconds instead of two minutes.
+[Translating a subtitle](/docs/tools/subtitles#translating-a-subtitle) and [generating one from the audio](/docs/tools/subtitles#generating-a-subtitle-from-the-audio) run on the processor and need nothing extra. With an NVIDIA card they are many times faster. Measured on a small card (an RTX 3050), translating 1,500 subtitle lines took about 9 seconds instead of about 3.5 minutes on the processor, and Whisper small wrote a subtitle for 77 seconds of speech in about 2 seconds instead of 6 (Whisper medium: about 3.5 seconds).
 
 This needs a download of about 2 GB, the NVIDIA CUDA libraries, which Parallax does not ship in the image. Open **Settings → Hardware** and:
 
@@ -116,7 +116,7 @@ With more than one NVIDIA card, **GPUs to use** says how many cards the jobs may
 
 If a card fails to start, that card is skipped for the rest of the job and the file is tried once on another card. If no card is left, or the file fails for another reason such as running out of card memory, that file runs on the processor and the job log says so. Cancelling a job stops it within a few seconds and frees the card.
 
-This only affects translation and speech-to-text. Video encoding is set on the Transcoder tab and the content-detection model always uses the processor. Only NVIDIA cards are supported. It has not yet been tried on the newest RTX 50 series cards or with two cards at once; those results will be added here once they have been tested on real hardware.
+This only affects translation and speech-to-text. Video encoding is set on the Transcoder tab and the content-detection model always uses the processor. Only NVIDIA cards are supported. It has been tried on one RTX 3050. It has not yet been tried on the newest RTX 50 series cards or with two cards at once; those results will be added here once they have been tested on real hardware.
 
 ## Other settings
 
