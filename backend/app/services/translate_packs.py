@@ -144,8 +144,8 @@ def run_pack_install_job(job_id: int, lang: str) -> None:
     db = SessionLocal()
     try:
         job = db.get(Job, job_id)
-        if job is None:
-            return
+        if job is None or job.status == JobStatus.CANCELLED:
+            return  # cancelled while queued: never start
         if pack is None:
             job.status = JobStatus.FAILED
             job.error = f"Unknown language pack: {lang}"

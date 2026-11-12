@@ -131,6 +131,21 @@ def test_job_cancelled_while_queued_never_translates(env, monkeypatch):
     assert not (video.parent / "Movie (2020).ar.mt.srt").exists()
 
 
+def test_job_marked_cancelled_while_waiting_for_a_slot_never_runs(env, monkeypatch):
+    video, fs_db = env
+    jid = _job(fs_db)
+    db = fs_db()
+    db.get(
+        Job, jid
+    ).status = JobStatus.CANCELLED  # what POST /jobs/{id}/cancel does to a queued job
+    db.commit()
+    db.close()
+    monkeypatch.setattr(tr, "translate_texts", lambda *a, **k: pytest.fail("must not run"))
+    st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
+    assert _state(fs_db, jid)[0] == JobStatus.CANCELLED
+    assert not (video.parent / "Movie (2020).ar.mt.srt").exists()
+
+
 def test_job_cancel_running_reports_done_before_cancel(env, monkeypatch):
     video, fs_db = env
     tmp_path = video.parent

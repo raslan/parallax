@@ -110,7 +110,9 @@ def run_translate_job(job_id: int, items: list[dict]) -> None:
     db = SessionLocal()
     try:
         job = db.get(Job, job_id)
-        if job is None:
+        if job is None or job.status == JobStatus.CANCELLED:
+            # Cancelled while it waited for a queue slot (the cancel route marks it, but a
+            # job already handed to the dispatcher is still called): never start it.
             return
         job.status = JobStatus.RUNNING
         job.started_at = now()
