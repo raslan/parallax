@@ -10,3 +10,13 @@ export const subtitlePacksApi = {
   remove: (lang: string) =>
     req<void>(`/subtitle-packs/${encodeURIComponent(lang)}`, { method: "DELETE" }),
 };
+
+export const speechModelsApi = {
+  list: () => req<SubtitlePack[]>("/speech-models"),
+  install: (id: string) =>
+    req<{ job_id: number }>(`/speech-models/${encodeURIComponent(id)}/install`, {
+      method: "POST",
+    }),
+  remove: (id: string) =>
+    req<void>(`/speech-models/${encodeURIComponent(id)}`, { method: "DELETE" }),
+};

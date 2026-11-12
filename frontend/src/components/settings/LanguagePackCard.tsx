@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Download, Loader2, Trash2 } from "lucide-react";
-import { subtitlePacksApi } from "@/lib/api";
 import type { SubtitlePack } from "@/types/subtitlePack";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -8,8 +7,28 @@ import { formatSize } from "@/lib/format";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { errorDetail } from "@/lib/api/client";
 
-/** One row of Settings → Subtitles → Language packs: size, status, Install / Remove, credit. */
-export function LanguagePackCard({ pack, onChange }: { pack: SubtitlePack; onChange: () => void }) {
+export interface PackActions {
+  install: (id: string) => Promise<{ job_id: number }>;
+  remove: (id: string) => Promise<void>;
+}
+
+/**
+ * One row of Settings → Subtitles → Language packs or Speech-to-text models: size, status,
+ * Install / Remove, credit. `noun` is what it is called in the aria labels, `blurb` what it does.
+ */
+export function LanguagePackCard({
+  pack,
+  onChange,
+  actions,
+  noun = "language pack",
+  blurb,
+}: {
+  pack: SubtitlePack;
+  onChange: () => void;
+  actions: PackActions;
+  noun?: string;
+  blurb: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +55,7 @@ export function LanguagePackCard({ pack, onChange }: { pack: SubtitlePack; onCha
     setBusy(true);
     setError(null);
     try {
-      const res = await subtitlePacksApi.install(pack.lang);
+      const res = await actions.install(pack.lang);
       poll.start(res.job_id);
     } catch (e) {
       setError(errorDetail(e, "Could not start the install"));
@@ -48,7 +67,7 @@ export function LanguagePackCard({ pack, onChange }: { pack: SubtitlePack; onCha
     setBusy(true);
     setError(null);
     try {
-      await subtitlePacksApi.remove(pack.lang);
+      await actions.remove(pack.lang);
       onChange();
     } catch (e) {
       setError(errorDetail(e, "Could not remove the pack"));
@@ -75,7 +94,7 @@ export function LanguagePackCard({ pack, onChange }: { pack: SubtitlePack; onCha
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Translates English subtitles into {pack.name}, on this computer. {pack.model}. From{" "}
+            {blurb} {pack.model}. From{" "}
             <a
               href={pack.upstream_url}
               target="_blank"
@@ -100,7 +119,7 @@ export function LanguagePackCard({ pack, onChange }: { pack: SubtitlePack; onCha
               <div className="flex justify-end text-2xs text-muted-foreground">
                 {Math.round(poll.progress)}%
               </div>
-              <ProgressBar value={poll.progress} label={`${pack.name} pack download progress`} />
+              <ProgressBar value={poll.progress} label={`${pack.name} download progress`} />
             </div>
           )}
           {error && (
@@ -131,7 +150,7 @@ export function LanguagePackCard({ pack, onChange }: { pack: SubtitlePack; onCha
               className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
               onClick={remove}
               disabled={busy}
-              aria-label={`Remove the ${pack.name} language pack`}
+              aria-label={`Remove the ${pack.name} ${noun}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

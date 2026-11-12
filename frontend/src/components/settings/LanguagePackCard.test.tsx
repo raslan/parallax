@@ -8,10 +8,6 @@ import { LanguagePackCard } from "./LanguagePackCard";
 const install = vi.fn();
 const remove = vi.fn();
 vi.mock("@/lib/api", () => ({
-  subtitlePacksApi: {
-    install: (...a: unknown[]) => install(...a),
-    remove: (...a: unknown[]) => remove(...a),
-  },
   api: { getJob: vi.fn(async () => ({ id: 9, status: "running", progress: 10 })) },
   qk: { job: (id: number) => ["job", id] },
 }));
@@ -33,7 +29,12 @@ const pack: SubtitlePack = {
 const show = (p: SubtitlePack, onChange = vi.fn()) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <LanguagePackCard pack={p} onChange={onChange} />
+      <LanguagePackCard
+        pack={p}
+        onChange={onChange}
+        actions={{ install: (id) => install(id), remove: (id) => remove(id) }}
+        blurb="Translates English subtitles."
+      />
     </QueryClientProvider>,
   );
 

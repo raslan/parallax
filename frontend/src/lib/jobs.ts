@@ -13,6 +13,7 @@ const TYPE_LABEL: Record<string, string> = {
   model_download: "Model download",
   pack_download: "Language pack",
   subtitle_translate: "Subtitle translation",
+  subtitle_generate: "Speech-to-text",
   compress: "Compress",
   audio_scan: "Audio scan",
   audio_compress: "Audio compress",
