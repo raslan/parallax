@@ -1,0 +1,21 @@
+{
+  "language": "pt",
+  "target_token": ">>por<<",
+  "script_regex": "[A-Za-zÀ-ÖØ-öø-ÿ]",
+  "min_script_ratio": 0.9,
+  "min_chrf": 35.0,
+  "pairs": [
+    ["Where are you going?", "Para onde você vai?"],
+    ["I don't know what to do.", "Não sei o que fazer."],
+    ["We have to get out of here now.", "Temos que sair daqui agora."],
+    ["Thank you for everything you did for us.", "Obrigado por tudo o que você fez por nós."],
+    ["He is my brother, and I trust him.", "Ele é meu irmão e eu confio nele."],
+    ["What time does the train leave tomorrow morning?", "A que horas o trem sai amanhã de manhã?"],
+    ["Don't worry, everything will be fine.", "Não se preocupe, vai ficar tudo bem."],
+    ["She has been working at the hospital for ten years.", "Ela trabalha no hospital há dez anos."]
+  ],
+  "unicode_probes": [
+    "Café owner Zoë said “we’re closed” – see you tomorrow.",
+    "Señor Müller’s naïve résumé arrived late."
+  ]
+}

@@ -172,7 +172,7 @@
       "id": "ooeoeo-opus-ct2",
       "group": "translation",
       "name": "ooeoeo's CTranslate2 conversions",
-      "description": "The Arabic language pack is the ooeoeo project's CTranslate2 conversion of Helsinki-NLP's opus-mt-tc-big-en-ar, downloaded straight from their Hugging Face page when you install it. Thank you for publishing it.",
+      "description": "The Arabic, German, Spanish, French, Italian, Russian and Chinese language packs are the ooeoeo project's CTranslate2 conversions of Helsinki-NLP's OPUS-MT models, downloaded straight from their Hugging Face pages when you install them. Thank you for publishing them.",
       "author": "The ooeoeo project",
       "licence": "Apache-2.0 as labelled by the uploader (the original model is CC BY 4.0)",
       "licence_url": "https://huggingface.co/ooeoeo/opus-mt-tc-big-en-ar-ct2-float16",
@@ -190,6 +190,18 @@
       "licence_url": "https://github.com/snakers4/silero-vad/blob/master/LICENSE",
       "url": "https://github.com/snakers4/silero-vad",
       "how": "installed",
+      "show": { "app": true, "site": true }
+    },
+    {
+      "id": "gabrielsmash-opus-pt",
+      "group": "translation",
+      "name": "gabrielsmash's Portuguese conversion",
+      "description": "The Portuguese language pack is gabrielsmash's CTranslate2 conversion of Helsinki-NLP's opus-mt-tc-big-en-pt, downloaded straight from their Hugging Face page when you install it.",
+      "author": "gabrielsmash",
+      "licence": "CC BY 4.0 as labelled by the uploader",
+      "licence_url": "https://huggingface.co/gabrielsmash/opus-mt-tc-big-en-pt-ct2-int8",
+      "url": "https://huggingface.co/gabrielsmash/opus-mt-tc-big-en-pt-ct2-int8",
+      "how": "downloaded",
       "show": { "app": true, "site": true }
     },
     {

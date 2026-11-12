@@ -31,7 +31,7 @@ def _load(pack_dir: str, device: str, device_index: int) -> tuple:
 
 def translate_batch(
     pack_dir: str,
-    target_token: str,
+    target_token: str | None,
     texts: list[str],
     beam_size: int = 4,
     device: str = "cpu",
@@ -48,7 +48,10 @@ def translate_batch(
         return unk in sp_src.encode(s, out_type=int)
 
     batch = [
-        [target_token] + sp_src.encode(fold_unknown(t, is_unknown), out_type=str) + ["</s>"]
+        # a model with one target language (en-de, en-fr, ...) takes no language token
+        ([target_token] if target_token else [])
+        + sp_src.encode(fold_unknown(t, is_unknown), out_type=str)
+        + ["</s>"]
         for t in texts
     ]
     results = translator.translate_batch(

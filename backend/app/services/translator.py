@@ -56,7 +56,7 @@ def translate_texts(
             result = _pool_for(device, device_index).submit_cancellable(
                 _translate_impl.translate_batch,
                 packs.pack_dir(pack),
-                pack["target_token"],
+                pack.get("target_token"),
                 [texts[i] for i in ids],
                 4,
                 device,

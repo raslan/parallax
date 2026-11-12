@@ -42,3 +42,16 @@ def test_timestamp_rounds_to_milliseconds():
 
 def test_cue_is_a_value():
     assert Cue(1.0, 2.0, "x") == Cue(1.0, 2.0, "x")
+
+
+def test_a_blank_line_before_the_byte_order_mark_does_not_hide_the_first_cue():
+    text = "\n\ufeff1\n00:00:01,000 --> 00:00:02,000\nA\n\n2\n00:00:03,000 --> 00:00:04,000\nB\n"
+    assert [c.text for c in parse_srt(text)] == ["A", "B"]
+
+
+def test_decode_reads_utf8_then_falls_back_to_windows_1252():
+    from app.services.srt_io import decode_srt
+
+    assert decode_srt("café".encode("utf-8-sig")) == "café"
+    assert decode_srt("café “x”".encode("cp1252")) == "café “x”"  # not UTF-8: old code page
+    assert decode_srt(b"caf\x81") == "caf\ufffd"  # an undefined byte never raises
