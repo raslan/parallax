@@ -22,6 +22,7 @@ from app.api.credits import router as credits_router
 from app.api.downloads import router as downloads_router
 from app.api.files import router as files_router
 from app.api.galleries import router as galleries_router
+from app.api.hardware import router as hardware_router
 from app.api.health import router as health_router
 from app.api.identify import router as identify_router
 from app.api.image_libraries import router as image_libraries_router
@@ -46,6 +47,7 @@ from app.auth import AuthMiddleware, auth_enabled, install_openapi_security
 from app.config import GALLERY_DL_DIR
 from app.database import SessionLocal, init_db
 from app.queue import start_worker
+from app.services import gpu_accel
 from app.services.auth import AuthError
 from app.services.encoder import detect_encoder
 from app.services.organize_sandbox import SandboxError
@@ -271,6 +273,7 @@ def safe_static_file(static_dir: str, full_path: str) -> str | None:
 async def lifespan(app: FastAPI):
     init_db()
     _boot_auth()
+    gpu_accel.apply_env()  # before any worker is spawned
     os.makedirs(GALLERY_DL_DIR, exist_ok=True)
     _cleanup_legacy_dirs()
     _migrate_siglip_to_clip()
@@ -407,6 +410,10 @@ _OPENAPI_TAGS = [
         "description": "Scan for missing subtitles, download, sync, translate and delete them.",
     },
     {
+        "name": "hardware",
+        "description": "Detected graphics cards and the optional NVIDIA acceleration package.",
+    },
+    {
         "name": "subtitle-packs",
         "description": "Offline translation packs and speech models: list, install, remove.",
     },
@@ -462,6 +469,7 @@ app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
 app.include_router(subtitle_packs_router, prefix="/api")
 app.include_router(speech_models_router, prefix="/api")
+app.include_router(hardware_router, prefix="/api")
 app.include_router(compress_router, prefix="/api", tags=["compress"])
 app.include_router(audio_compress_router, prefix="/api", tags=["audio-compress"])
 app.include_router(image_upscale_router, prefix="/api")

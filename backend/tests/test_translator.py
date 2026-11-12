@@ -23,7 +23,7 @@ class FakePool:
 @pytest.fixture
 def pool(monkeypatch, tmp_path):
     p = FakePool()
-    monkeypatch.setattr(tr, "_pool", p)
+    monkeypatch.setattr(tr, "_pool_for", lambda device, index: p)
     monkeypatch.setattr(tp, "PACKS_DIR", str(tmp_path))
     return p
 
@@ -63,7 +63,7 @@ def test_a_terminated_worker_becomes_a_cancel(monkeypatch, tmp_path):
         def submit_cancellable(self, *a, **k):
             raise WorkerCancelled()
 
-    monkeypatch.setattr(tr, "_pool", Dying())
+    monkeypatch.setattr(tr, "_pool_for", lambda device, index: Dying())
     monkeypatch.setattr(tp, "PACKS_DIR", str(tmp_path))
     with pytest.raises(tr.TranslationCancelled):
         tr.translate_texts(PACK, ["a"], lambda: False)

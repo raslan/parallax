@@ -236,3 +236,59 @@ def test_drop_hi_removes_notes_labels_and_cues_that_were_only_notes(env):
     assert "DISTANT" not in text and "FURY" not in text
     assert "AR:Get down!" in text
     assert text.count("-->") == 2  # the note-only cue is gone
+
+
+def _cards(n):
+    from app.services.gpu_pool import GPUDevice
+
+    return [GPUDevice("nvidia", str(i), f"GPU {i}", "nvenc") for i in range(n)]
+
+
+def test_two_files_run_on_two_cards_at_once_in_one_job(env, monkeypatch):
+    video, fs_db = env
+    second = video.parent / "Other.mkv"
+    second.write_bytes(b"v")
+    (video.parent / "Other.en.srt").write_text(SRT, encoding="utf-8")
+    monkeypatch.setattr(st, "_gpu_devices", lambda db: _cards(2))
+    import threading
+
+    both = threading.Barrier(2, timeout=5)
+    used = []
+
+    def fake(pack, texts, is_cancelled, on_progress=None, device="cpu", device_index=0, **kw):
+        used.append((device, device_index))
+        both.wait()  # only passes when the two files run side by side
+        return [f"AR:{t}" if t else "" for t in texts]
+
+    monkeypatch.setattr(tr, "translate_texts", fake)
+    jid = _job(fs_db)
+    st.run_translate_job(
+        jid,
+        [{"video_path": str(video), "lang": "ar"}, {"video_path": str(second), "lang": "ar"}],
+    )
+    assert _state(fs_db, jid)[0] == JobStatus.COMPLETED
+    assert sorted(used) == [("cuda", 0), ("cuda", 1)]
+
+
+def test_a_cuda_error_on_the_card_falls_back_and_the_file_still_finishes(env, monkeypatch):
+    video, fs_db = env
+    monkeypatch.setattr(st, "_gpu_devices", lambda db: _cards(1))
+    devices = []
+
+    def fake(pack, texts, is_cancelled, on_progress=None, device="cpu", device_index=0, **kw):
+        devices.append(device)
+        if device == "cuda":
+            raise RuntimeError("Library libcublas.so.12 is not found or cannot be loaded")
+        return [f"AR:{t}" if t else "" for t in texts]
+
+    monkeypatch.setattr(tr, "translate_texts", fake)
+    jid = _job(fs_db)
+    st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
+    assert _state(fs_db, jid)[0] == JobStatus.COMPLETED and devices == ["cuda", "cpu"]
+    assert (video.parent / "Movie (2020).ar.mt.srt").exists()
+    db = fs_db()
+    from app.models.job import JobLog
+
+    msgs = [r.message for r in db.query(JobLog).filter(JobLog.job_id == jid)]
+    db.close()
+    assert any("GPU could not start" in m for m in msgs) and any("on the CPU" in m for m in msgs)

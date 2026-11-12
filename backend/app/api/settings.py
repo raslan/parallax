@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import DATA_DIR, get_db
 from app.models.settings import get_setting, set_setting
 from app.queue import update_max_concurrent
+from app.services import gpu_accel
 from app.services.downloader import set_max_concurrent as set_max_concurrent_downloads
 from app.services.gpu_pool import detect_gpus
 from app.services.image_analyzer import release_sessions
@@ -86,6 +87,8 @@ class SettingsRead(BaseModel):
     subtitle_sync_engine: str
     subtitle_auto_sync: bool
     subtitle_translate_drop_hi: bool
+    gpu_accel_enabled: bool
+    gpu_accel_count: int
     download_dir: str
     max_concurrent_downloads: int
     ytdlp_channel: str
@@ -107,6 +110,8 @@ class SettingsUpdate(BaseModel):
     subtitle_sync_engine: str | None = Field(default=None, pattern="^(alass|ffsubsync)$")
     subtitle_auto_sync: bool | None = None
     subtitle_translate_drop_hi: bool | None = None
+    gpu_accel_enabled: bool | None = None
+    gpu_accel_count: int | None = Field(default=None, ge=0, le=64)
     download_dir: str | None = Field(default=None, max_length=512)
     max_concurrent_downloads: int | None = Field(default=None, ge=1, le=5)
     ytdlp_channel: str | None = Field(default=None, pattern="^(stable|nightly)$")
@@ -136,6 +141,8 @@ def _read_settings(db: Session) -> SettingsRead:
             db, _SUBTITLE_TRANSLATE_DROP_HI_KEY, _SUBTITLE_TRANSLATE_DROP_HI_DEFAULT
         )
         == "true",
+        gpu_accel_enabled=gpu_accel.read_settings(db)[0],
+        gpu_accel_count=gpu_accel.read_settings(db)[1],
         download_dir=get_setting(db, _DOWNLOAD_DIR_KEY, _DOWNLOAD_DIR_DEFAULT),
         max_concurrent_downloads=int(get_setting(db, _MAX_DOWNLOADS_KEY, _MAX_DOWNLOADS_DEFAULT)),
         ytdlp_channel=get_setting(db, _YTDLP_CHANNEL_KEY, _YTDLP_CHANNEL_DEFAULT),
@@ -200,6 +207,11 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
             _SUBTITLE_TRANSLATE_DROP_HI_KEY,
             "true" if body.subtitle_translate_drop_hi else "false",
         )
+
+    if body.gpu_accel_enabled is not None:
+        set_setting(db, gpu_accel.SETTING_ENABLED, "true" if body.gpu_accel_enabled else "false")
+    if body.gpu_accel_count is not None:
+        set_setting(db, gpu_accel.SETTING_COUNT, str(body.gpu_accel_count))
 
     if body.download_dir is not None:
         set_setting(db, _DOWNLOAD_DIR_KEY, body.download_dir)

@@ -115,11 +115,49 @@ def _failure_summary(failed: int, total: int, results: list[dict]) -> str:
     return f"{failed} of {total} file(s) failed" + (f": {first}" if first else "")
 
 
+def _gpu_devices(db) -> list:
+    """The cards this job may use (none unless the NVIDIA package is installed and switched on)."""
+    from app.services import gpu_accel
+
+    enabled, count = gpu_accel.read_settings(db)
+    return gpu_accel.job_devices(enabled, count)
+
+
+def finish_job(db, job, outcomes: list, results: list[dict], noun: str, extra: dict) -> None:
+    """Write a finished (or cancelled) item job's result, in Compress's wording: a cancel
+    reads 'N/M done before cancel', a batch where every file failed is FAILED."""
+    from app.models.job import JobStatus
+    from app.services.common import log, now
+
+    total = len(outcomes)
+    completed = sum(o.status == "done" for o in outcomes)
+    failed = sum(o.status == "failed" for o in outcomes)
+    cancelled = any(o.status in ("cancelled", "skipped") for o in outcomes)
+    job.settings = json.dumps({**extra, "results": results})
+    job.current_file = None
+    job.finished_at = now()
+    job.processed_files = completed + failed
+    if cancelled:
+        job.status = JobStatus.CANCELLED
+        job.current_file = f"{completed}/{total} done before cancel"
+        log(db, job.id, f"{noun} cancelled — {completed} done, {failed} failed")
+    elif failed and not completed:
+        job.status = JobStatus.FAILED
+        job.error = _failure_summary(failed, total, results)
+    else:
+        job.status = JobStatus.COMPLETED
+        job.progress = 100.0
+        if failed:
+            job.error = _failure_summary(failed, total, results)
+    db.commit()
+
+
 def run_translate_job(job_id: int, items: list[dict]) -> None:
-    """items: [{"video_path": str, "lang": str}, ...] — one file after another (the model uses
-    every core, so files do not run side by side)."""
+    """items: [{"video_path": str, "lang": str}, ...]. On the processor the files run one after
+    another (the model uses every core); with the NVIDIA package each runs on its own card."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
+    from app.services import item_runner
     from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 
     db = SessionLocal()
@@ -134,78 +172,80 @@ def run_translate_job(job_id: int, items: list[dict]) -> None:
         job.total_files = len(items)
         db.commit()
         arm_cancel(job_id)
-
-        results: list[dict] = []
-        completed = failed = 0
-        cancelled = False
         total = len(items)
+        devices = _gpu_devices(db)
+        if devices:
+            log(db, job_id, f"Using {len(devices)} GPU(s): " + ", ".join(d.label for d in devices))
 
         def cancel() -> bool:
             return should_cancel(job_id)
 
+        def work(idx: int, item: dict, ctx) -> dict:
+            try:
+                out = translate_one(
+                    item["video_path"],
+                    item["lang"],
+                    cancel,
+                    ctx.progress,
+                    device=ctx.device,
+                    device_index=ctx.device_index,
+                    drop_hi=bool(item.get("drop_hi")),
+                )
+            except translator.TranslationCancelled:
+                raise item_runner.ItemCancelled() from None
+            except TranslateError as e:
+                raise item_runner.ItemFailed(str(e)) from None
+            ctx.log(f"Translated {os.path.basename(item['video_path'])} → {os.path.basename(out)}")
+            return {"output": out}
+
+        fractions = [0.0] * total
+        running: list[int] = []
+
+        def on_progress(idx: int, frac: float) -> None:
+            fractions[idx] = frac
+            job.progress = sum(fractions) / total
+            db.commit()
+
+        def show_current() -> None:
+            job.current_file = (
+                os.path.basename(items[running[0]]["video_path"]) if running else None
+            )
+            db.commit()
+
+        def on_start(idx: int) -> None:
+            running.append(idx)
+            show_current()
+
+        def on_end(idx: int) -> None:
+            if idx in running:
+                running.remove(idx)
+            fractions[idx] = 100.0
+            show_current()
+
         try:
-            for idx, item in enumerate(items):
-                if cancel():
-                    cancelled = True
-                    break
-                video, lang = item["video_path"], item["lang"]
-                job.current_file = os.path.basename(video)
-                db.commit()
-                last = {"pct": -1.0}
-
-                def on_progress(frac: float, idx: int = idx, last: dict = last) -> None:
-                    if frac - last["pct"] >= 2.0:
-                        last["pct"] = frac
-                        job.progress = (idx + frac / 100) / total * 100
-                        db.commit()
-
-                try:
-                    out = translate_one(
-                        video, lang, cancel, on_progress, drop_hi=bool(item.get("drop_hi"))
-                    )
-                    completed += 1
-                    results.append({"video_path": video, "lang": lang, "output": out})
-                    log(
-                        db,
-                        job_id,
-                        f"Translated {os.path.basename(video)} → {os.path.basename(out)}",
-                    )
-                except translator.TranslationCancelled:
-                    cancelled = True
-                    break
-                except TranslateError as e:
-                    failed += 1
-                    results.append({"video_path": video, "lang": lang, "error": str(e)})
-                    log(db, job_id, f"{os.path.basename(video)}: {e}", "error")
-                except Exception as e:  # a crash in the model must cost one file, not the batch
-                    logger.exception("translate %s failed", video)
-                    failed += 1
-                    results.append(
-                        {"video_path": video, "lang": lang, "error": "Translation failed."}
-                    )
-                    log(db, job_id, f"{os.path.basename(video)}: {type(e).__name__}: {e}", "error")
-                job.processed_files = completed + failed
-                job.progress = (idx + 1) / total * 100
-                db.commit()
+            outcomes = item_runner.run_items(
+                items,
+                work,
+                devices,
+                cancel,
+                on_progress,
+                lambda msg, level: log(db, job_id, msg, level),
+                on_start=on_start,
+                on_end=on_end,
+                generic_error="Translation failed.",
+            )
         finally:
             translator.release_sessions()
 
-        job.settings = json.dumps({"items": items, "results": results})
-        job.current_file = None
-        job.finished_at = now()
-        if cancelled:
-            job.status = JobStatus.CANCELLED
-            job.current_file = f"{completed}/{total} done before cancel"
-            log(db, job_id, f"Translate cancelled — {completed} done, {failed} failed")
-        elif failed and not completed:
-            job.status = JobStatus.FAILED
-            job.error = _failure_summary(failed, total, results)
-        else:
-            job.status = JobStatus.COMPLETED
-            job.progress = 100.0
-            if failed:
-                job.error = _failure_summary(failed, total, results)
-        db.commit()
+        results = []
+        for item, o in zip(items, outcomes, strict=True):
+            row = {"video_path": item["video_path"], "lang": item["lang"], **o.result}
+            if o.error:
+                row["error"] = o.error
+                log(db, job_id, f"{os.path.basename(item['video_path'])}: {o.error}", "error")
+            if o.status in ("done", "failed"):
+                results.append(row)
+        finish_job(db, job, outcomes, results, "Translate", {"items": items})
     except Exception as e:
         logger.exception("translate job %s crashed", job_id)
         db.rollback()

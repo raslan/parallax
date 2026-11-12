@@ -7,7 +7,6 @@ is the queue job: progress, cancel with "N/M done before cancel", and an optiona
 translates the result into other installed languages.
 """
 
-import json
 import logging
 import os
 import shutil
@@ -18,7 +17,14 @@ from collections.abc import Callable
 
 from app.config import SCRATCH_DIR
 from app.database import DATA_DIR
-from app.services import machine_subs, speech, srt_io, subtitle_translate, translate_packs
+from app.services import (
+    machine_subs,
+    speech,
+    srt_io,
+    subtitle_translate,
+    translate_packs,
+    translator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +88,13 @@ def generate_one(
 
 
 def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) -> None:
-    """items: [{"video_path": str, "model": "whisper-small"}, ...], one after another.
-    `translate_to`: languages to translate each generated subtitle into afterwards."""
+    """items: [{"video_path": str, "model": "whisper-small"}, ...]. `translate_to`: languages to
+    translate each generated subtitle into afterwards. On the processor the files run one after
+    another; with the NVIDIA package each runs on its own card, generation and translation of
+    one file staying on that file's card."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
+    from app.services import item_runner
     from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 
     db = SessionLocal()
@@ -98,93 +107,103 @@ def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) ->
         job.total_files = len(items)
         db.commit()
         arm_cancel(job_id)
-
-        results: list[dict] = []
-        completed = failed = 0
-        cancelled = False
         total = len(items)
         steps = 1 + len(translate_to)  # generation, then one translation per language
+        devices = subtitle_translate._gpu_devices(db)
+        if devices:
+            log(db, job_id, f"Using {len(devices)} GPU(s): " + ", ".join(d.label for d in devices))
 
         def cancel() -> bool:
             return should_cancel(job_id)
 
+        def work(idx: int, item: dict, ctx) -> dict:
+            video = item["video_path"]
+            name = os.path.basename(video)
+            result: dict = {}
+            try:
+                model = translate_packs.get_pack(item["model"])
+                if model is None:
+                    raise subtitle_translate.TranslateError("Unknown speech model.")
+                out = generate_one(
+                    video,
+                    model,
+                    LANGUAGE,
+                    cancel,
+                    lambda f: ctx.progress(f / steps),
+                    device=ctx.device,
+                    device_index=ctx.device_index,
+                )
+                result["output"] = out
+                ctx.log(f"Generated {name} → {os.path.basename(out)}")
+                for step, lang in enumerate(translate_to, 1):
+                    translated = subtitle_translate.translate_one(
+                        video,
+                        lang,
+                        cancel,
+                        lambda f, step=step: ctx.progress((step * 100 + f) / steps),
+                        device=ctx.device,
+                        device_index=ctx.device_index,
+                        source=out,
+                    )
+                    result.setdefault("translations", []).append(translated)
+                    ctx.log(f"Translated into {lang}: {os.path.basename(translated)}")
+            except (speech.SpeechCancelled, translator.TranslationCancelled):
+                raise item_runner.ItemCancelled() from None
+            except (speech.SpeechError, subtitle_translate.TranslateError) as e:
+                raise item_runner.ItemFailed(str(e)) from None
+            return result
+
+        fractions = [0.0] * total
+        running: list[int] = []
+
+        def on_progress(idx: int, frac: float) -> None:
+            fractions[idx] = frac
+            job.progress = sum(fractions) / total
+            db.commit()
+
+        def show_current() -> None:
+            job.current_file = (
+                os.path.basename(items[running[0]]["video_path"]) if running else None
+            )
+            db.commit()
+
+        def on_start(idx: int) -> None:
+            running.append(idx)
+            show_current()
+
+        def on_end(idx: int) -> None:
+            if idx in running:
+                running.remove(idx)
+            fractions[idx] = 100.0
+            show_current()
+
         try:
-            for idx, item in enumerate(items):
-                if cancel():
-                    cancelled = True
-                    break
-                video = item["video_path"]
-                name = os.path.basename(video)
-                job.current_file = name
-                db.commit()
-                last = {"pct": -1.0}
-
-                def on_progress(
-                    frac: float, step: int = 0, idx: int = idx, last: dict = last
-                ) -> None:
-                    if frac - last["pct"] >= 2.0 or frac >= 100.0:
-                        last["pct"] = frac
-                        job.progress = (idx + (step + frac / 100) / steps) / total * 100
-                        db.commit()
-
-                result: dict = {"video_path": video}
-                try:
-                    model = translate_packs.get_pack(item["model"])
-                    if model is None:
-                        raise subtitle_translate.TranslateError("Unknown speech model.")
-                    out = generate_one(video, model, LANGUAGE, cancel, on_progress)
-                    result["output"] = out
-                    log(db, job_id, f"Generated {name} → {os.path.basename(out)}")
-                    for step, lang in enumerate(translate_to, 1):
-                        last["pct"] = -1.0
-                        translated = subtitle_translate.translate_one(
-                            video,
-                            lang,
-                            cancel,
-                            lambda f, step=step: on_progress(f, step),
-                            source=out,
-                        )
-                        result.setdefault("translations", []).append(translated)
-                        log(db, job_id, f"Translated into {lang}: {os.path.basename(translated)}")
-                    completed += 1
-                except (speech.SpeechCancelled, subtitle_translate.translator.TranslationCancelled):
-                    cancelled = True
-                    break
-                except (speech.SpeechError, subtitle_translate.TranslateError) as e:
-                    failed += 1
-                    result["error"] = str(e)
-                    log(db, job_id, f"{name}: {e}", "error")
-                except Exception as e:  # a crash in the model costs one file, not the batch
-                    logger.exception("generate %s failed", video)
-                    failed += 1
-                    result["error"] = "Speech-to-text failed."
-                    log(db, job_id, f"{name}: {type(e).__name__}: {e}", "error")
-                results.append(result)
-                job.processed_files = completed + failed
-                job.progress = (idx + 1) / total * 100
-                db.commit()
+            outcomes = item_runner.run_items(
+                items,
+                work,
+                devices,
+                cancel,
+                on_progress,
+                lambda msg, level: log(db, job_id, msg, level),
+                on_start=on_start,
+                on_end=on_end,
+                generic_error="Speech-to-text failed.",
+            )
         finally:
             speech.release_sessions()
-            subtitle_translate.translator.release_sessions()
+            translator.release_sessions()
 
-        job.settings = json.dumps(
-            {"items": items, "translate_to": translate_to, "results": results}
+        results = []
+        for item, o in zip(items, outcomes, strict=True):
+            row = {"video_path": item["video_path"], **o.result}
+            if o.error:
+                row["error"] = o.error
+                log(db, job_id, f"{os.path.basename(item['video_path'])}: {o.error}", "error")
+            if o.status in ("done", "failed"):
+                results.append(row)
+        subtitle_translate.finish_job(
+            db, job, outcomes, results, "Generate", {"items": items, "translate_to": translate_to}
         )
-        job.current_file = None
-        job.finished_at = now()
-        if cancelled:
-            job.status = JobStatus.CANCELLED
-            job.current_file = f"{completed}/{total} done before cancel"
-            log(db, job_id, f"Generate cancelled — {completed} done, {failed} failed")
-        elif failed and not completed:
-            job.status = JobStatus.FAILED
-            job.error = subtitle_translate._failure_summary(failed, total, results)
-        else:
-            job.status = JobStatus.COMPLETED
-            job.progress = 100.0
-            if failed:
-                job.error = subtitle_translate._failure_summary(failed, total, results)
-        db.commit()
     except Exception as e:
         logger.exception("generate job %s crashed", job_id)
         db.rollback()
