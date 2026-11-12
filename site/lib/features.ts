@@ -138,7 +138,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         href: "/docs/tools/subtitles",
         title: "Subtitles",
         summary:
-          "Find the videos that have none, download them in bulk, and fix the ones that are out of time.",
+          "Find the videos that have none, download them in bulk, translate an English one into your language offline, and fix the ones that are out of time.",
         landing: "find subtitles",
       },
     ],

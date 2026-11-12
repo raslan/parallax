@@ -11,6 +11,8 @@ const TYPE_LABEL: Record<string, string> = {
   subtitle_download: "Subtitle download",
   subtitle_sync: "Subtitle sync",
   model_download: "Model download",
+  pack_download: "Language pack",
+  subtitle_translate: "Subtitle translation",
   compress: "Compress",
   audio_scan: "Audio scan",
   audio_compress: "Audio compress",

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
-import { Palette, KeyRound, Cpu, Clapperboard, Download, Heart } from "lucide-react";
+import { Palette, KeyRound, Cpu, Clapperboard, Download, Heart, Captions } from "lucide-react";
 import { GeneralTab } from "@/components/settings/GeneralTab";
 import { TranscodingTab } from "@/components/settings/TranscodingTab";
+import { SubtitlesTab } from "@/components/settings/SubtitlesTab";
 import { CredentialsTab } from "@/components/settings/CredentialsTab";
 import { ModelsTab } from "@/components/settings/ModelsTab";
 import { DownloadsTab } from "@/components/settings/DownloadsTab";
@@ -12,6 +13,7 @@ import { PageTitle } from "@/components/PageTitle";
 const TABS = [
   { id: "general", label: "General", icon: Palette },
   { id: "transcoder", label: "Transcoder", icon: Clapperboard },
+  { id: "subtitles", label: "Subtitles", icon: Captions },
   { id: "credentials", label: "Keys & Accounts", icon: KeyRound },
   { id: "ai", label: "AI Models", icon: Cpu },
   { id: "downloads", label: "Downloads", icon: Download },
@@ -87,6 +89,7 @@ export function Settings() {
 
       {activeTab === "general" && <GeneralTab />}
       {activeTab === "transcoder" && <TranscodingTab />}
+      {activeTab === "subtitles" && <SubtitlesTab />}
       {activeTab === "credentials" && <CredentialsTab />}
       {activeTab === "ai" && <ModelsTab />}
       {activeTab === "downloads" && <DownloadsTab />}

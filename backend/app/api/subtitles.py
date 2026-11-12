@@ -2,6 +2,7 @@ import json
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -147,6 +148,52 @@ def delete_subtitle_file(file_path: str = Query(...), language: str = Query(...)
 class SyncFileRequest(BaseModel):
     file_path: str
     language: str | None = None
+
+
+class TranslateRequest(BaseModel):
+    file_paths: list[str]
+    language: str
+
+
+@router.post("/translate", summary="Translate English subtitles offline")
+async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_db)):
+    """Queue a job that translates each video's English subtitle into `language` with an
+    installed language pack. The result is a machine-made `<name>.<lang>.mt.srt` next to the
+    video; the real subtitle for that language is never replaced."""
+    from app.services import machine_subs, subtitle_translate, translate_packs
+
+    if not body.file_paths:
+        raise HTTPException(422, "No files selected")
+    pack = translate_packs.get_pack(body.language)
+    if pack is None:
+        raise HTTPException(422, f"No language pack for '{body.language}'")
+    if not translate_packs.is_installed(pack):
+        raise HTTPException(
+            409, f"Install the {pack['name']} language pack first (Settings → Subtitles)"
+        )
+    paths = list(dict.fromkeys(body.file_paths))
+    for path in paths:
+        if not os.path.isfile(path):
+            raise HTTPException(400, f"File not found: {os.path.basename(path)}")
+    # The folder walks can be slow on a network mount: keep them off the event loop.
+    problem = await run_in_threadpool(
+        subtitle_translate.first_problem, paths, body.language, pack["name"]
+    )
+    if problem:
+        raise HTTPException(422, problem)
+    items = [{"video_path": p, "lang": body.language} for p in paths]
+
+    job = Job(
+        type=JobType.SUBTITLE_TRANSLATE,
+        status=JobStatus.PENDING,
+        total_files=len(items),
+        settings=json.dumps({"items": items, "marker": machine_subs.MARKER}),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    await enqueue(job.id, subtitle_translate.run_translate_job, job.id, items)
+    return {"job_id": job.id}
 
 
 @router.post("/sync-file")

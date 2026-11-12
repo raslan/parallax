@@ -50,6 +50,12 @@ export const subtitlesApi = {
       body: JSON.stringify({ file_path, language }),
     }),
 
+  translate: (file_paths: string[], language: string) =>
+    req<{ job_id: number }>("/subtitles/translate", {
+      method: "POST",
+      body: JSON.stringify({ file_paths, language }),
+    }),
+
   syncBulk: (path: string) =>
     req<{ job_id: number }>("/subtitles/sync-bulk", {
       method: "POST",

@@ -12,10 +12,11 @@ import {
   Play,
   X,
   RefreshCw,
+  Languages,
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
-import { subtitlesApi, api, qk } from "@/lib/api";
+import { subtitlesApi, subtitlePacksApi, api, qk } from "@/lib/api";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import type { SubtitleFile } from "@/types/subtitle";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -96,17 +97,23 @@ function FileRow({
   file,
   syncing,
   syncDisabled,
+  translating,
+  translateLangs,
   onSearch,
   onPlay,
   onSync,
+  onTranslate,
   onDeleteLang,
 }: {
   file: SubtitleFile;
   syncing: boolean;
   syncDisabled: boolean;
+  translating: boolean;
+  translateLangs: string[];
   onSearch: () => void;
   onPlay: () => void;
   onSync: () => void;
+  onTranslate: () => void;
   onDeleteLang: (code: string) => void;
 }) {
   const label = episodeLabel(file);
@@ -131,6 +138,16 @@ function FileRow({
       >
         <Search className="h-3.5 w-3.5" />
       </button>
+      {translateLangs.length > 0 && (
+        <button
+          onClick={onTranslate}
+          disabled={translating}
+          title={`Translate the English subtitle into ${translateLangs.join(", ")} (offline)`}
+          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
+        >
+          <Languages className={cn("h-3.5 w-3.5", translating && "animate-pulse")} />
+        </button>
+      )}
       {hasAny && (
         <button
           onClick={onSync}
@@ -159,18 +176,24 @@ function DirGroup({
   files,
   syncingPaths,
   syncDisabled,
+  translatingPaths,
+  translateLangsFor,
   onSearch,
   onPlay,
   onSync,
+  onTranslate,
   onDeleteLang,
 }: {
   dir: string;
   files: SubtitleFile[];
   syncingPaths: Set<string>;
   syncDisabled: boolean;
+  translatingPaths: Set<string>;
+  translateLangsFor: (f: SubtitleFile) => string[];
   onSearch: (f: SubtitleFile) => void;
   onPlay: (f: SubtitleFile) => void;
   onSync: (f: SubtitleFile) => void;
+  onTranslate: (f: SubtitleFile) => void;
   onDeleteLang: (f: SubtitleFile, code: string) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -211,9 +234,12 @@ function DirGroup({
               file={f}
               syncing={syncingPaths.has(f.path)}
               syncDisabled={syncDisabled}
+              translating={translatingPaths.has(f.path)}
+              translateLangs={translateLangsFor(f)}
               onSearch={() => onSearch(f)}
               onPlay={() => onPlay(f)}
               onSync={() => onSync(f)}
+              onTranslate={() => onTranslate(f)}
               onDeleteLang={(code) => onDeleteLang(f, code)}
             />
           ))}
@@ -237,6 +263,14 @@ export function Subtitles() {
   const [playingFile, setPlayingFile] = useState<SubtitleFile | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
+  const [translatingPaths, setTranslatingPaths] = useState<Set<string>>(new Set());
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const [syncingAll, setSyncingAll] = useState(false);
   const syncAllTargetRef = useRef("");
   const downloadTargetRef = useRef("");
@@ -334,6 +368,47 @@ export function Subtitles() {
       setScanError(e instanceof Error ? e.message : "Sync failed");
     } finally {
       setSyncingPaths((prev) => {
+        const next = new Set(prev);
+        next.delete(file.path);
+        return next;
+      });
+    }
+  };
+
+  // Languages whose offline translation pack is installed (Settings → Subtitles).
+  const { data: packs } = useQuery({
+    queryKey: qk.subtitlePacks(),
+    queryFn: () => subtitlePacksApi.list(),
+  });
+  const installedPacks = new Set((packs ?? []).filter((p) => p.installed).map((p) => p.lang));
+  const translateLangsFor = (f: SubtitleFile) =>
+    Object.entries(f.languages)
+      .filter(([code, present]) => !present && installedPacks.has(code))
+      .map(([code]) => code);
+
+  const handleTranslate = async (file: SubtitleFile) => {
+    setScanError("");
+    setTranslatingPaths((prev) => new Set(prev).add(file.path));
+    const problems: string[] = [];
+    try {
+      for (const lang of translateLangsFor(file)) {
+        try {
+          const { job_id } = await subtitlesApi.translate([file.path], lang);
+          // Stops when the page is left: the job itself keeps going on the server.
+          while (mountedRef.current) {
+            await new Promise((r) => setTimeout(r, 2000));
+            if (!mountedRef.current) return;
+            const job = await api.getJob(job_id);
+            if (job.status === "failed") throw new Error(job.error ?? "Translation failed");
+            if (job.status === "completed" || job.status === "cancelled") break;
+          }
+        } catch (e: unknown) {
+          problems.push(e instanceof Error ? e.message : "Translation failed");
+        }
+      }
+      if (problems.length) setScanError(problems.join(" · "));
+    } finally {
+      setTranslatingPaths((prev) => {
         const next = new Set(prev);
         next.delete(file.path);
         return next;
@@ -616,9 +691,12 @@ export function Subtitles() {
                   files={dirFiles}
                   syncingPaths={syncingPaths}
                   syncDisabled={syncingAll}
+                  translatingPaths={translatingPaths}
+                  translateLangsFor={translateLangsFor}
                   onSearch={setSearchFile}
                   onPlay={setPlayingFile}
                   onSync={handleSyncFile}
+                  onTranslate={handleTranslate}
                   onDeleteLang={handleDeleteLang}
                 />
               ))}

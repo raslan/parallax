@@ -91,6 +91,8 @@ export const qk = {
 
   settings: () => ["settings"] as const,
 
+  subtitlePacks: () => ["subtitle-packs"] as const,
+
   models: () => ["models"] as const,
   modelActiveDownload: () => ["models", "active-download"] as const,
 
