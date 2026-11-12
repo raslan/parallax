@@ -5,6 +5,8 @@ export interface SubtitleFile {
   has_subtitle: boolean;
   has_any_subtitle: boolean;
   languages: Record<string, boolean>;
+  /** Wanted languages for which only a machine-made (offline translation / speech-to-text) file exists. */
+  machine_languages: Record<string, boolean>;
   title: string;
   season: number | null;
   episode: number | null;
@@ -24,5 +26,7 @@ export interface SubtitleCandidate {
 export interface SubtitleTrack {
   label: string;
   lang: string;
+  hearing_impaired?: boolean;
+  machine_made?: boolean;
   url: string;
 }

@@ -53,7 +53,9 @@ Sometimes a video has an English subtitle but not one in the language you want. 
 
 The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. A cancelled or failed translation leaves nothing behind. A feature film takes a couple of minutes on a normal processor.
 
-The result is saved next to the video as a machine-made subtitle, for example `movie.ar.mt.srt`. The `mt` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. Only English subtitles in `.srt` format can be translated, and a real subtitle in that language is never replaced.
+The result is saved next to the video as a machine-made subtitle, for example `movie.ar.mt.srt`. The `mt` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. On the page, the language shows an amber **machine-made** badge instead of a green one, with an **×** to delete it, and in the player's captions menu it reads, for example, "Arabic (machine-made)". When a real subtitle for that language is downloaded, it replaces the machine-made file. Only English subtitles in `.srt` format can be translated, and a real subtitle in that language is never replaced.
+
+Subtitle names can carry two tags after the language, in any order: `hi` for subtitles for the hard of hearing (`movie.ar.hi.srt`) and `mt` for machine-made. A hearing-impaired subtitle is a real subtitle, so it counts as present, and the player labels it "(hearing impaired)".
 
 Sound notes such as `[DISTANT EXPLOSION]`, speaker names, and song lines marked with `♪` are kept: the notes and names are translated, and the `♪` marks are put back around the translated words. You can leave the notes and names out with **Leave out sound notes and speaker names when translating** under **Settings → Subtitles**.
 

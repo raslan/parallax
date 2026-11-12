@@ -51,10 +51,12 @@ function episodeLabel(f: SubtitleFile): string {
 
 function LangBadges({
   languages,
+  machineLanguages,
   onDelete,
 }: {
   languages: Record<string, boolean>;
-  onDelete: (code: string) => void;
+  machineLanguages: Record<string, boolean>;
+  onDelete: (code: string, machine: boolean) => void;
 }) {
   const codes = Object.keys(languages);
   if (codes.length === 0) return null;
@@ -71,10 +73,28 @@ function LangBadges({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete(code);
+                onDelete(code, false);
               }}
               title={`Delete ${code} subtitle`}
               className="opacity-0 group-hover/badge:opacity-100 touch:opacity-100 transition-opacity rounded hover:bg-green-500/20"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ) : machineLanguages[code] ? (
+          <span
+            key={code}
+            title={`${code}: only a machine-made subtitle (translated or generated here). A real one can still be downloaded, and replaces it.`}
+            className="group/badge flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-3xs font-mono font-medium uppercase leading-none bg-amber-500/15 text-amber-500"
+          >
+            {code} · machine-made
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(code, true);
+              }}
+              title={`Delete the machine-made ${code} subtitle`}
+              className="opacity-0 group-hover/badge:opacity-100 touch:opacity-100 transition-opacity rounded hover:bg-amber-500/20"
             >
               <X className="h-2.5 w-2.5" />
             </button>
@@ -114,7 +134,7 @@ function FileRow({
   onPlay: () => void;
   onSync: () => void;
   onTranslate: () => void;
-  onDeleteLang: (code: string) => void;
+  onDeleteLang: (code: string, machine: boolean) => void;
 }) {
   const label = episodeLabel(file);
   const hasAny = Object.values(file.languages).some(Boolean);
@@ -130,7 +150,11 @@ function FileRow({
       {label && (
         <span className="text-xs text-muted-foreground/60 shrink-0 font-mono">{label}</span>
       )}
-      <LangBadges languages={file.languages} onDelete={onDeleteLang} />
+      <LangBadges
+        languages={file.languages}
+        machineLanguages={file.machine_languages ?? {}}
+        onDelete={onDeleteLang}
+      />
       <button
         onClick={onSearch}
         title="Search subtitles"
@@ -194,7 +218,7 @@ function DirGroup({
   onPlay: (f: SubtitleFile) => void;
   onSync: (f: SubtitleFile) => void;
   onTranslate: (f: SubtitleFile) => void;
-  onDeleteLang: (f: SubtitleFile, code: string) => void;
+  onDeleteLang: (f: SubtitleFile, code: string, machine: boolean) => void;
 }) {
   const [open, setOpen] = useState(true);
   const withSub = files.filter((f) => f.has_subtitle).length;
@@ -240,7 +264,7 @@ function DirGroup({
               onPlay={() => onPlay(f)}
               onSync={() => onSync(f)}
               onTranslate={() => onTranslate(f)}
-              onDeleteLang={(code) => onDeleteLang(f, code)}
+              onDeleteLang={(code, machine) => onDeleteLang(f, code, machine)}
             />
           ))}
         </div>
@@ -330,9 +354,21 @@ export function Subtitles() {
     );
   };
 
-  const handleDeleteLang = async (file: SubtitleFile, code: string) => {
+  const handleDeleteLang = async (file: SubtitleFile, code: string, machine: boolean) => {
     try {
-      await subtitlesApi.deleteSubtitle(file.path, code);
+      await subtitlesApi.deleteSubtitle(file.path, code, machine);
+      if (machine) {
+        setFiles((prev) =>
+          prev
+            ? prev.map((f) =>
+                f.path === file.path
+                  ? { ...f, machine_languages: { ...f.machine_languages, [code]: false } }
+                  : f,
+              )
+            : prev,
+        );
+        return;
+      }
       setFiles((prev) =>
         prev
           ? prev.map((f) =>
@@ -407,6 +443,13 @@ export function Subtitles() {
         }
       }
       if (problems.length) setScanError(problems.join(" · "));
+      // show the new machine-made badge
+      const target = path.trim();
+      if (target && mountedRef.current)
+        subtitlesApi
+          .scan(target)
+          .then(setFiles)
+          .catch(() => {});
     } finally {
       setTranslatingPaths((prev) => {
         const next = new Set(prev);

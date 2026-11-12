@@ -4657,6 +4657,18 @@
               "type": "string",
               "title": "Language"
             }
+          },
+          {
+            "name": "machine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Delete the machine-made subtitle instead",
+              "default": false,
+              "title": "Machine"
+            },
+            "description": "Delete the machine-made subtitle instead"
           }
         ],
         "responses": {

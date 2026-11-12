@@ -135,12 +135,16 @@ async def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
 
 
 @router.delete("/file")
-def delete_subtitle_file(file_path: str = Query(...), language: str = Query(...)):
+def delete_subtitle_file(
+    file_path: str = Query(...),
+    language: str = Query(...),
+    machine: bool = Query(False, description="Delete the machine-made subtitle instead"),
+):
     if not os.path.isfile(file_path):
         raise HTTPException(400, "Video file not found")
     from app.services.subtitle_service import delete_subtitle
 
-    if not delete_subtitle(file_path, language):
+    if not delete_subtitle(file_path, language, machine=machine):
         raise HTTPException(404, "Subtitle not found")
     return {"ok": True}
 
@@ -266,6 +270,8 @@ def tracks_by_path(path: str = Query(..., description="Absolute path to video fi
         {
             "label": t["label"],
             "lang": t["lang"],
+            "hearing_impaired": t["hearing_impaired"],
+            "machine_made": t["machine_made"],
             "url": f"/api/subtitles/vtt?path={quote(t['path'])}",
         }
         for t in tracks

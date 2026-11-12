@@ -28,7 +28,7 @@ def find_source_subtitle(video_path: str) -> str | None:
 
     for t in find_all_subtitle_tracks(video_path):
         if t["lang"] == SOURCE_LANG and t["path"].lower().endswith(".srt"):
-            if not machine_subs.parse_tagged_suffix(_suffix(video_path, t["path"]))[1]:
+            if not t["machine_made"]:
                 return t["path"]
     return None
 
@@ -45,12 +45,6 @@ def first_problem(video_paths: list[str], lang: str, pack_name: str) -> str | No
         if lang not in _missing_lang_codes(path, [lang]):
             return f"{name} already has a {pack_name} subtitle"
     return None
-
-
-def _suffix(video_path: str, sub_path: str) -> str:
-    stem = os.path.splitext(os.path.basename(video_path))[0]
-    name = os.path.basename(sub_path)
-    return name[len(stem) + 1 : name.rfind(".")] if name.startswith(stem + ".") else ""
 
 
 def translate_one(
