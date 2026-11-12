@@ -106,7 +106,9 @@ Compress and Toolbox then write their work in progress there and move the finish
 
 [Translating a subtitle](/docs/tools/subtitles#translating-a-subtitle) and [generating one from the audio](/docs/tools/subtitles#generating-a-subtitle-from-the-audio) run on the processor and need nothing extra. With an NVIDIA card they are many times faster. Measured on a small card (an RTX 3050), translating 1,500 subtitle lines took about 9 seconds instead of about 3.5 minutes on the processor, and Whisper small wrote a subtitle for 77 seconds of speech in about 2 seconds instead of 6 (Whisper medium: about 3.5 seconds).
 
-This needs a download of about 2 GB, the NVIDIA CUDA libraries, which Parallax does not ship in the image. Open **Settings → Hardware** and:
+This needs a download of about 2 GB, the NVIDIA CUDA libraries, which Parallax does not ship in the image. <Shot id="app/settings/hardware" />
+
+Open **Settings → Hardware** and:
 
 1. Click **Install** next to **NVIDIA acceleration package**. It downloads once and can be updated with **Update** or taken away with the bin button.
 2. Click **Check**. It runs a tiny test on the card. If it says CUDA sees no card although you have one, add the `compute` capability to the NVIDIA device in your compose file (next to `gpu` and `video`) and start the container again.
