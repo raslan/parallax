@@ -10,6 +10,7 @@ seconds.
 
 import os
 import subprocess
+import tempfile
 import time
 from collections.abc import Callable
 
@@ -39,19 +40,23 @@ def extract_audio(video_path: str, out_path: str, is_cancelled: Callable[[], boo
         "ffmpeg", "-nostdin", "-v", "error", "-i", video_path,
         "-map", "0:a:0", "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "f32le", "-y", out_path,
     ]  # fmt: skip
-    proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    try:
-        while proc.poll() is None:
-            if is_cancelled():
+    # stderr goes to a file, not a pipe: a pipe nobody reads while we poll fills up at ~64 KB
+    # (a corrupt file can write that much) and blocks ffmpeg for good.
+    with tempfile.TemporaryFile("w+") as errfile:
+        proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stderr=errfile, text=True)
+        try:
+            while proc.poll() is None:
+                if is_cancelled():
+                    proc.kill()
+                    proc.wait()
+                    raise SpeechCancelled()
+                time.sleep(0.25)
+        finally:
+            if proc.poll() is None:
                 proc.kill()
                 proc.wait()
-                raise SpeechCancelled()
-            time.sleep(0.25)
-        err = proc.stderr.read() if proc.stderr else ""
-    finally:
-        if proc.poll() is None:
-            proc.kill()
-            proc.wait()
+        errfile.seek(0)
+        err = errfile.read(4000)
     if proc.returncode != 0 or not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
         raise SpeechError(
             "The video has no audio to transcribe."

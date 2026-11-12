@@ -151,3 +151,23 @@ def test_generate_needs_the_model_and_an_audio_file(
     assert enqueued[-1][2][2] == ["ar"]
     bad = client.post("/api/subtitles/generate", json={**body, "translate_to": ["whisper-small"]})
     assert bad.status_code == 422
+
+
+def test_translate_refuses_a_speech_model_as_a_language(client, packs_dir, tmp_path, monkeypatch):
+    monkeypatch.setattr(tp, "is_installed", lambda pack: True)
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    (tmp_path / "M.en.srt").write_text(SRT)
+    body = {"file_paths": [str(v)], "language": "whisper-small"}
+    assert client.post("/api/subtitles/translate", json=body).status_code == 422
+
+
+def test_a_language_pack_is_kept_while_a_generate_job_may_translate_with_it(
+    client, packs_dir, monkeypatch, _clean_jobs
+):
+    monkeypatch.setattr(tp, "remove_pack", lambda pack: True)
+    db = _clean_jobs()
+    db.add(Job(type=JobType.SUBTITLE_GENERATE, status=JobStatus.RUNNING))
+    db.commit()
+    db.close()
+    assert client.delete("/api/subtitle-packs/ar").status_code == 409

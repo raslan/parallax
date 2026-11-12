@@ -78,8 +78,13 @@ def _remove(lang: str, speech: bool, db: Session) -> None:
     what = "speech model" if speech else "language pack"
     if lang in _active_installs(db):
         raise HTTPException(409, f"This {what} is being installed; cancel that first")
-    job_type = JobType.SUBTITLE_GENERATE if speech else JobType.SUBTITLE_TRANSLATE
-    if db.query(Job).filter(Job.type == job_type, Job.status.in_(_ACTIVE)).first():
+    # A generate job can also translate (its `translate_to`), so it uses language packs too.
+    job_types = (
+        [JobType.SUBTITLE_GENERATE]
+        if speech
+        else [JobType.SUBTITLE_TRANSLATE, JobType.SUBTITLE_GENERATE]
+    )
+    if db.query(Job).filter(Job.type.in_(job_types), Job.status.in_(_ACTIVE)).first():
         raise HTTPException(409, f"A job is using it; remove the {what} when it has finished")
     if not translate_packs.remove_pack(pack):
         raise HTTPException(404, f"This {what} is not installed")

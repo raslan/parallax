@@ -169,7 +169,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
     pack = translate_packs.get_pack(body.language)
-    if pack is None:
+    if pack is None or pack.get("kind") == "speech":
         raise HTTPException(422, f"No language pack for '{body.language}'")
     if not translate_packs.is_installed(pack):
         raise HTTPException(

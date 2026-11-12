@@ -475,7 +475,9 @@ export function Subtitles() {
       while (mountedRef.current) {
         await new Promise((r) => setTimeout(r, 2000));
         if (!mountedRef.current) return;
-        const job = await api.getJob(job_id);
+        // One failed poll (a network blip) must not look like a failed job: the job goes on.
+        const job = await api.getJob(job_id).catch(() => null);
+        if (!job) continue;
         if (job.status === "failed") throw new Error(job.error ?? "Generating failed");
         if (job.status === "completed" || job.status === "cancelled") break;
       }
