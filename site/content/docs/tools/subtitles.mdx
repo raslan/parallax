@@ -39,9 +39,23 @@ Sometimes a subtitle is fine but appears too early or too late, or slowly drifts
 
 - The **sync** icon on a row fixes one video.
 - **Sync** at the top fixes every video in the folder that has a subtitle, including ones you got somewhere else.
-- Subtitles can also be synced automatically as soon as they are downloaded. You can turn that on or off with **Auto-sync downloaded subtitles** under **Settings → Keys & Accounts**.
+- Subtitles can also be synced automatically as soon as they are downloaded. You can turn that on or off with **Auto-sync downloaded subtitles** under **Settings → Subtitles**.
 
 Two tools can do the syncing, and you pick between them with **Subtitle sync engine** in the same place. **alass** is the default and also copes with extra or missing sections, like a break for adverts. **ffsubsync** is simpler and only fixes a constant offset or a small drift.
+
+## Translating a subtitle
+
+Sometimes a video has an English subtitle but not one in the language you want. Parallax can translate it for you, on your own computer. Nothing is sent anywhere, and you do not need an account or a key.
+
+1. Open **Settings → Subtitles** and, under **Language packs**, click **Install** next to the language you want. Arabic is available first. It is a one-time download of about 460 MB.
+2. Make sure that language is one of your **Default subtitle languages** in the same tab.
+3. On the Subtitles page, hover over a video that has an English subtitle and is missing that language. A **translate** icon appears on its row. Click it.
+
+The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. A cancelled or failed translation leaves nothing behind. A feature film takes a couple of minutes on a normal processor.
+
+The result is saved next to the video as a machine-made subtitle, for example `movie.ar.mt.srt`. The `mt` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. Only English subtitles in `.srt` format can be translated, and a real subtitle in that language is never replaced.
+
+A translation by a machine is good enough to follow the story but it is not perfect. Names and jokes are where it slips most.
 
 ## Watching with subtitles
 

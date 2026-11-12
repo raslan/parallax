@@ -3,7 +3,7 @@
   "info": {
     "title": "Parallax API",
     "description": "The HTTP API behind the Parallax web app. Everything the app does in the browser goes through these routes, all under `/api`.",
-    "version": "4.0.2"
+    "version": "4.1.0"
   },
   "paths": {
     "/api/health": {
@@ -4681,6 +4681,44 @@
         }
       }
     },
+    "/api/subtitles/translate": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Translate English subtitles offline",
+        "description": "Queue a job that translates each video's English subtitle into `language` with an\ninstalled language pack. The result is a machine-made `<name>.<lang>.mt.srt` next to the\nvideo; the real subtitle for that language is never replaced.",
+        "operationId": "translate_subtitles_api_subtitles_translate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subtitles/sync-file": {
       "post": {
         "tags": ["subtitles"],
@@ -4864,6 +4902,100 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitle-packs": {
+      "get": {
+        "tags": ["subtitle-packs"],
+        "summary": "List language packs",
+        "operationId": "list_packs_api_subtitle_packs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PackInfo"
+                  },
+                  "type": "array",
+                  "title": "Response List Packs Api Subtitle Packs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitle-packs/{lang}/install": {
+      "post": {
+        "tags": ["subtitle-packs"],
+        "summary": "Install a language pack",
+        "operationId": "install_pack_api_subtitle_packs__lang__install_post",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Lang"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitle-packs/{lang}": {
+      "delete": {
+        "tags": ["subtitle-packs"],
+        "summary": "Remove a language pack",
+        "operationId": "remove_pack_api_subtitle_packs__lang__delete",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Lang"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -9625,6 +9757,76 @@
         ],
         "title": "OriginalsSummary"
       },
+      "PackInfo": {
+        "properties": {
+          "lang": {
+            "type": "string",
+            "title": "Lang"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "source_lang": {
+            "type": "string",
+            "title": "Source Lang"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "installed": {
+            "type": "boolean",
+            "title": "Installed"
+          },
+          "installed_bytes": {
+            "type": "integer",
+            "title": "Installed Bytes"
+          },
+          "licence": {
+            "type": "string",
+            "title": "Licence"
+          },
+          "licence_url": {
+            "type": "string",
+            "title": "Licence Url"
+          },
+          "upstream_url": {
+            "type": "string",
+            "title": "Upstream Url"
+          },
+          "installing_job_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installing Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lang",
+          "name",
+          "source_lang",
+          "model",
+          "size_bytes",
+          "installed",
+          "installed_bytes",
+          "licence",
+          "licence_url",
+          "upstream_url",
+          "installing_job_id"
+        ],
+        "title": "PackInfo"
+      },
       "PrepareRequest": {
         "properties": {
           "path": {
@@ -10550,6 +10752,24 @@
         "required": ["file_ids"],
         "title": "ToolboxStartRequest"
       },
+      "TranslateRequest": {
+        "properties": {
+          "file_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "File Paths"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": ["file_paths", "language"],
+        "title": "TranslateRequest"
+      },
       "UpscaleSkipped": {
         "properties": {
           "id": {
@@ -10955,7 +11175,11 @@
     },
     {
       "name": "subtitles",
-      "description": "Scan for missing subtitles, download, sync and delete them."
+      "description": "Scan for missing subtitles, download, sync, translate and delete them."
+    },
+    {
+      "name": "subtitle-packs",
+      "description": "Offline translation language packs: list, install, remove."
     },
     {
       "name": "organize",
