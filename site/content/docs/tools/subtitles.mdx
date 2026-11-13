@@ -53,7 +53,7 @@ Sometimes a video has an English subtitle but not one in the language you want. 
 
 The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. A cancelled or failed translation leaves nothing behind. A feature film takes a couple of minutes on a normal processor.
 
-The result is saved next to the video as a machine-made subtitle, for example `movie.ar.mt.srt`. The `mt` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. On the page, the language shows an amber **machine-made** badge instead of a green one, with an **×** to delete it, and in the player's captions menu it reads, for example, "Arabic (machine-made)". When a real subtitle for that language is downloaded, it replaces the machine-made file. Only English subtitles in `.srt` format can be translated, and a real subtitle in that language is never replaced.
+The result is saved next to the video as a machine-made subtitle, for example `movie.ar.mt.srt`. The `mt` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. On the page, the language shows an amber **machine-made** badge instead of a green one, with an **×** to delete it, and in the player's captions menu it reads, for example, "Arabic (machine-made)". When a real subtitle for that language is downloaded, it replaces the machine-made file. Only English subtitles in `.srt` format can be translated. A machine-made English subtitle, for example one you generated from the audio, works as the source too. If the video has both a real and a machine-made English file, the real one is used. A real subtitle in the target language is never replaced.
 
 Subtitle names can carry two tags after the language, in any order: `hi` for subtitles for the hard of hearing (`movie.ar.hi.srt`) and `mt` for machine-made. A hearing-impaired subtitle is a real subtitle, so it counts as present, and the player labels it "(hearing impaired)".
 
@@ -71,7 +71,7 @@ A brand-new release often has no subtitle anywhere yet. Parallax can listen to t
 
 1. Open **Settings → Subtitles** and, under **Speech-to-text models**, click **Install** next to **Whisper small** (about 460 MB, a one-time download). **Whisper medium** is bigger and slower but gets names right more often.
 2. Make sure English is one of your **Default subtitle languages** in the same tab.
-3. On the Subtitles page, hover over a video that has no English subtitle. A **microphone** icon appears on its row. Click it.
+3. On the Subtitles page, hover over a video that has no real English subtitle. A **microphone** icon appears on its row. Click it. If the video already has a machine-made English file, the icon stays, so you can generate it again.
 
 The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page and can be cancelled. A cancelled or failed run leaves nothing behind. On a normal processor, Whisper small works through an hour of audio in about six minutes.
 
@@ -81,4 +81,4 @@ Expect mistakes. Whisper small hears words well but often writes names wrongly (
 
 ## Watching with subtitles
 
-Click the **play** icon on a row to preview the video with its subtitles. Anywhere you play a video in Parallax, a captions button appears when it has subtitle files, and you can choose which language to show.
+Click the **play** icon on a row to preview the video with its subtitles. It is there whenever the video has any subtitle file, machine-made ones included. Anywhere you play a video in Parallax, a captions button appears when it has subtitle files, and you can choose which language to show.
