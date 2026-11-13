@@ -197,6 +197,8 @@ export function SubtitlesTab() {
               For a video that has no subtitle yet: Parallax listens to the English speech and
               writes a rough subtitle, on this computer, as a stopgap until a real one appears.
               Small is the one to start with; medium is slower and gets names right more often.
+              Install the ones you want, then click <strong>Use</strong> on the one to generate
+              with. It applies everywhere.
             </p>
           </div>
           {speechLoading ? (

@@ -462,14 +462,12 @@ export function Subtitles() {
       .filter(([code, present]) => !present && installedPacks.has(code))
       .map(([code]) => code);
 
-  // Speech-to-text models that are installed (Settings → Subtitles): small is preferred.
+  // The speech-to-text model chosen in Settings → Subtitles (Use), once it is installed.
   const { data: speechModels } = useQuery({
     queryKey: qk.speechModels(),
     queryFn: () => speechModelsApi.list(),
   });
-  const speechModel = ["small", "medium"].find((m) =>
-    (speechModels ?? []).some((x) => x.lang === `whisper-${m}` && x.installed),
-  );
+  const speechModel = (speechModels ?? []).find((m) => m.active && m.installed)?.lang;
   // A video with no real English subtitle among the wanted languages. A machine-made one does
   // not hide this: the user may want to generate it again.
   const canGenerateFor = (f: SubtitleFile) => speechModel != null && f.languages.en === false;
@@ -480,7 +478,7 @@ export function Subtitles() {
     setGeneratingPaths((prev) => new Set(prev).add(file.path));
     try {
       // Only transcribes. Translating the result is a separate action the user starts.
-      const { job_id } = await subtitlesApi.generate([file.path], speechModel);
+      const { job_id } = await subtitlesApi.generate([file.path]);
       while (mountedRef.current) {
         await new Promise((r) => setTimeout(r, 2000));
         if (!mountedRef.current) return;

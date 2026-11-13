@@ -59,7 +59,8 @@ export const subtitlesApi = {
       body: JSON.stringify({ file_paths, language, source }),
     }),
 
-  generate: (file_paths: string[], model = "small") =>
+  /** Uses the speech model chosen in Settings → Subtitles unless `model` (small | medium) is given. */
+  generate: (file_paths: string[], model?: string) =>
     req<{ job_id: number }>("/subtitles/generate", {
       method: "POST",
       body: JSON.stringify({ file_paths, model }),

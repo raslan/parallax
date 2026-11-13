@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import DATA_DIR, get_db
 from app.models.settings import get_setting, set_setting
 from app.queue import update_max_concurrent
-from app.services import gpu_accel
+from app.services import gpu_accel, translate_packs
 from app.services.downloader import set_max_concurrent as set_max_concurrent_downloads
 from app.services.gpu_pool import detect_gpus
 from app.services.image_analyzer import release_sessions
@@ -81,6 +81,7 @@ class SettingsRead(BaseModel):
     max_concurrent_audio_transcodes: int
     tmdb_api_key: str
     nudenet_model: str
+    speech_model: str
     scan_batch_size: int
     scan_prefetch: int
     subtitle_languages: str
@@ -104,6 +105,9 @@ class SettingsUpdate(BaseModel):
     max_concurrent_audio_transcodes: int | None = Field(default=None, ge=1, le=32)
     tmdb_api_key: str | None = Field(default=None, max_length=128)
     nudenet_model: str | None = None
+    speech_model: str | None = Field(
+        default=None, description="Speech-to-text model Generate uses, e.g. whisper-small"
+    )
     scan_batch_size: int | None = Field(default=None, ge=1, le=32)
     scan_prefetch: int | None = Field(default=None, ge=1, le=20)
     subtitle_languages: str | None = Field(default=None, max_length=64)
@@ -129,6 +133,9 @@ def _read_settings(db: Session) -> SettingsRead:
         ),
         tmdb_api_key=get_setting(db, _TMDB_KEY, ""),
         nudenet_model=get_setting(db, _NUDENET_MODEL_KEY, _NUDENET_MODEL_DEFAULT),
+        speech_model=get_setting(
+            db, translate_packs.SPEECH_MODEL_KEY, translate_packs.DEFAULT_SPEECH_MODEL
+        ),
         scan_batch_size=int(get_setting(db, _BATCH_SIZE_KEY, _BATCH_SIZE_DEFAULT)),
         scan_prefetch=int(get_setting(db, _PREFETCH_KEY, _PREFETCH_DEFAULT)),
         subtitle_languages=get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT),
@@ -169,6 +176,14 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
             raise HTTPException(422, f"NudeNet model '{body.nudenet_model}' is not downloaded yet")
         set_setting(db, _NUDENET_MODEL_KEY, body.nudenet_model)
         model_changed = True
+
+    if body.speech_model is not None:
+        pack = translate_packs.get_pack(body.speech_model)
+        if pack is None or pack.get("kind") != "speech":
+            raise HTTPException(400, f"Unknown speech model: {body.speech_model}")
+        if not translate_packs.is_installed(pack):
+            raise HTTPException(422, f"{pack['name']} is not installed yet")
+        set_setting(db, translate_packs.SPEECH_MODEL_KEY, body.speech_model)
 
     if body.max_concurrent_transcodes is not None:
         set_setting(db, _CONCURRENT_KEY, str(body.max_concurrent_transcodes))

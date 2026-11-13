@@ -52,6 +52,10 @@ def list_packs() -> list[dict]:
     return list(_load())
 
 
+SPEECH_MODEL_KEY = "speech_model"  # the `settings` row holding the model Generate uses
+DEFAULT_SPEECH_MODEL = "whisper-small"
+
+
 def list_speech_models() -> list[dict]:
     """The speech-to-text models (Whisper), downloaded and verified exactly like a pack."""
     return list(_load_speech())
