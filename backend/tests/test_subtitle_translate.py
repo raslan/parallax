@@ -80,11 +80,19 @@ def test_refuses_without_a_pack_or_an_english_subtitle(env, monkeypatch):
         st.translate_one(str(video), "ar", lambda: False)
 
 
-def test_a_machine_made_english_file_is_not_a_source(env):
+def test_a_machine_made_english_file_is_a_valid_source(env):
     video, _ = env
     os.rename(video.parent / "Movie (2020).en.srt", video.parent / "Movie (2020).en.mt.srt")
-    with pytest.raises(st.TranslateError, match="No English subtitle"):
-        st.translate_one(str(video), "ar", lambda: False)
+    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.mt.srt")
+    assert st.first_problem([str(video)], "ar", "Arabic") is None
+    out = st.translate_one(str(video), "ar", lambda: False)
+    assert out.endswith("Movie (2020).ar.mt.srt")
+
+
+def test_a_real_english_file_is_preferred_over_a_machine_made_one(env):
+    video, _ = env
+    (video.parent / "Movie (2020).en.mt.srt").write_text(SRT, encoding="utf-8")
+    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.srt")
 
 
 def test_cancel_mid_translation_leaves_no_file(env, monkeypatch):

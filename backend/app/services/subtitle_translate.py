@@ -23,14 +23,17 @@ class TranslateError(Exception):
 
 
 def find_source_subtitle(video_path: str) -> str | None:
-    """The real English .srt next to (or under) the video; machine-made ones never count."""
+    """The English .srt next to (or under) the video. A real one is preferred; a machine-made one
+    (a Whisper transcript, an earlier translation) is a valid source too, the user chose it."""
     from app.services.subtitle_service import find_all_subtitle_tracks
 
+    machine = None
     for t in find_all_subtitle_tracks(video_path):
         if t["lang"] == SOURCE_LANG and t["path"].lower().endswith(".srt"):
             if not t["machine_made"]:
                 return t["path"]
-    return None
+            machine = machine or t["path"]
+    return machine
 
 
 def first_problem(video_paths: list[str], lang: str, pack_name: str) -> str | None:

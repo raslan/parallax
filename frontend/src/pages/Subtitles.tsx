@@ -22,6 +22,7 @@ import { useJobPoll } from "@/hooks/useJobPoll";
 import type { SubtitleFile } from "@/types/subtitle";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
+import { hasAnySubtitle } from "@/lib/subtitleFiles";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,7 +145,7 @@ function FileRow({
   onDeleteLang: (code: string, machine: boolean) => void;
 }) {
   const label = episodeLabel(file);
-  const hasAny = Object.values(file.languages).some(Boolean);
+  const hasAny = hasAnySubtitle(file);
   return (
     <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
       <Film className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
@@ -457,9 +458,9 @@ export function Subtitles() {
   const speechModel = ["small", "medium"].find((m) =>
     (speechModels ?? []).some((x) => x.lang === `whisper-${m}` && x.installed),
   );
-  // A video with no real English subtitle and none generated yet, among the wanted languages.
-  const canGenerateFor = (f: SubtitleFile) =>
-    speechModel != null && f.languages.en === false && !f.machine_languages?.en;
+  // A video with no real English subtitle among the wanted languages. A machine-made one does
+  // not hide this: the user may want to generate it again.
+  const canGenerateFor = (f: SubtitleFile) => speechModel != null && f.languages.en === false;
 
   const handleGenerate = async (file: SubtitleFile) => {
     if (!speechModel) return;
