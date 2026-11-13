@@ -23,6 +23,14 @@ export interface SubtitleCandidate {
   hearing_impaired: boolean;
 }
 
+/** An English subtitle file the user can pick to translate. */
+export interface TranslateSource {
+  path: string;
+  filename: string;
+  machine_made: boolean;
+  hearing_impaired: boolean;
+}
+
 export interface SubtitleTrack {
   label: string;
   lang: string;

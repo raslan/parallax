@@ -22,28 +22,47 @@ class TranslateError(Exception):
     """An expected, user-facing failure for one file (message is shown on the job)."""
 
 
-def find_source_subtitle(video_path: str) -> str | None:
-    """The English .srt next to (or under) the video. A real one is preferred; a machine-made one
-    (a Whisper transcript, an earlier translation) is a valid source too, the user chose it."""
+def list_sources(video_path: str) -> list[dict]:
+    """Every English .srt next to (or under) the video that can be translated: real, hearing
+    impaired and machine-made ones alike, real first. The user picks which one to translate.
+    The models translate from English only, so other languages are not offered."""
     from app.services.subtitle_service import find_all_subtitle_tracks
 
-    machine = None
-    for t in find_all_subtitle_tracks(video_path):
-        if t["lang"] == SOURCE_LANG and t["path"].lower().endswith(".srt"):
-            if not t["machine_made"]:
-                return t["path"]
-            machine = machine or t["path"]
-    return machine
+    found = [
+        {
+            "path": t["path"],
+            "filename": os.path.basename(t["path"]),
+            "machine_made": bool(t["machine_made"]),
+            "hearing_impaired": bool(t["hearing_impaired"]),
+        }
+        for t in find_all_subtitle_tracks(video_path)
+        if t["lang"] == SOURCE_LANG and t["path"].lower().endswith(".srt")
+    ]
+    return sorted(found, key=lambda s: s["machine_made"])  # stable: real files first
 
 
-def first_problem(video_paths: list[str], lang: str, pack_name: str) -> str | None:
+def find_source_subtitle(video_path: str) -> str | None:
+    """The English .srt used when the caller did not pick one: a real one is preferred, else a
+    machine-made one."""
+    sources = list_sources(video_path)
+    return sources[0]["path"] if sources else None
+
+
+def first_problem(
+    video_paths: list[str], lang: str, pack_name: str, source: str | None = None
+) -> str | None:
     """Why the first of these videos cannot be translated into `lang`, or None when all can.
-    Same folder search as the Subtitles scan, so a real subtitle in `Subs/` counts too."""
+    Same folder search as the Subtitles scan, so a real subtitle in `Subs/` counts too. A chosen
+    `source` must be one of the video's own English subtitle files (a path from the client is
+    never read otherwise)."""
     from app.services.subtitle_service import _missing_lang_codes
 
     for path in video_paths:
         name = os.path.basename(path)
-        if find_source_subtitle(path) is None:
+        if source is not None:
+            if source not in {s["path"] for s in list_sources(path)}:
+                return f"{os.path.basename(source)} is not an English subtitle of {name}"
+        elif find_source_subtitle(path) is None:
             return f"{name} has no English subtitle to translate"
         if lang not in _missing_lang_codes(path, [lang]):
             return f"{name} already has a {pack_name} subtitle"
@@ -69,8 +88,7 @@ def translate_one(
         raise TranslateError(f"No language pack for '{lang}'.")
     if not translate_packs.is_installed(pack):
         raise TranslateError(f"The {pack['name']} language pack is not installed.")
-    # `source` lets a caller translate a file it just made (a machine-made English subtitle from
-    # speech-to-text), which find_source_subtitle would never accept.
+    # `source` is the subtitle file the user picked; without one, a real English file is used.
     source = source or find_source_subtitle(video_path)
     if source is None:
         raise TranslateError("No English subtitle (.srt) found to translate.")
@@ -156,8 +174,9 @@ def finish_job(db, job, outcomes: list, results: list[dict], noun: str, extra: d
 
 
 def run_translate_job(job_id: int, items: list[dict]) -> None:
-    """items: [{"video_path": str, "lang": str}, ...]. On the processor the files run one after
-    another (the model uses every core); with the NVIDIA package each runs on its own card."""
+    """items: [{"video_path", "lang", "drop_hi", "source"}, ...] (`source` = the chosen English
+    subtitle file, or None). On the processor the files run one after another (the model uses
+    every core); with the NVIDIA package each runs on its own card."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
     from app.services import item_runner
@@ -193,6 +212,7 @@ def run_translate_job(job_id: int, items: list[dict]) -> None:
                     device=ctx.device,
                     device_index=ctx.device_index,
                     drop_hi=bool(item.get("drop_hi")),
+                    source=item.get("source"),
                 )
             except translator.TranslationCancelled:
                 raise item_runner.ItemCancelled() from None

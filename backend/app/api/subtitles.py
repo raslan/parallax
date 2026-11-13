@@ -171,17 +171,33 @@ def _refuse_while_nvidia_installs(db: Session) -> None:
 class TranslateRequest(BaseModel):
     file_paths: list[str]
     language: str
+    source: str | None = None
+
+
+@router.get("/translate-sources", summary="List the English subtitles that can be translated")
+async def translate_sources(path: str = Query(..., description="Absolute path to the video")):
+    """Every English `.srt` next to the video (real, hearing impaired or machine-made), real
+    ones first. Pick one as `source` of `POST /subtitles/translate`."""
+    from app.services import subtitle_translate
+
+    if not os.path.isfile(path):
+        raise HTTPException(404, "File not found")
+    return await run_in_threadpool(subtitle_translate.list_sources, path)
 
 
 @router.post("/translate", summary="Translate English subtitles offline")
 async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_db)):
-    """Queue a job that translates each video's English subtitle into `language` with an
-    installed language pack. The result is a machine-made `<name>.<lang>.mt.srt` next to the
-    video; the real subtitle for that language is never replaced."""
+    """Queue a job that translates a video's English subtitle into `language` with an installed
+    language pack. `source` is the subtitle file to translate, one of the video's English files
+    from `GET /subtitles/translate-sources` (one video only); without it a real English file is
+    used. The result is a machine-made `<name>.<lang>.mt.srt` next to the video; the real
+    subtitle for that language is never replaced."""
     from app.services import machine_subs, subtitle_translate, translate_packs
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
+    if body.source is not None and len(set(body.file_paths)) != 1:
+        raise HTTPException(422, "A source subtitle can only be chosen for one video")
     _refuse_while_nvidia_installs(db)
     pack = translate_packs.get_pack(body.language)
     if pack is None or pack.get("kind") == "speech":
@@ -196,12 +212,15 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
             raise HTTPException(400, f"File not found: {os.path.basename(path)}")
     # The folder walks can be slow on a network mount: keep them off the event loop.
     problem = await run_in_threadpool(
-        subtitle_translate.first_problem, paths, body.language, pack["name"]
+        subtitle_translate.first_problem, paths, body.language, pack["name"], body.source
     )
     if problem:
         raise HTTPException(422, problem)
     drop_hi = get_setting(db, "subtitle_translate_drop_hi", "false") == "true"
-    items = [{"video_path": p, "lang": body.language, "drop_hi": drop_hi} for p in paths]
+    items = [
+        {"video_path": p, "lang": body.language, "drop_hi": drop_hi, "source": body.source}
+        for p in paths
+    ]
 
     job = Job(
         type=JobType.SUBTITLE_TRANSLATE,
@@ -219,14 +238,13 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
 class GenerateRequest(BaseModel):
     file_paths: list[str]
     model: str = "small"
-    translate_to: list[str] = []
 
 
 @router.post("/generate", summary="Generate an English subtitle from the audio")
 async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db)):
     """Queue a job that transcribes each video's English speech with an installed Whisper model.
     The result is a machine-made `<name>.en.mt.srt` next to the video, a stopgap until a real
-    subtitle exists. `translate_to` also translates each result into those installed languages."""
+    subtitle exists. Translating it is a separate request (`POST /subtitles/translate`)."""
     from app.services import subtitle_generate, translate_packs
     from app.services.subtitle_service import _missing_lang_codes
 
@@ -238,14 +256,6 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
         raise HTTPException(422, f"Unknown speech model '{body.model}'")
     if not translate_packs.is_installed(model):
         raise HTTPException(409, f"Install the {model['name']} model first (Settings → Subtitles)")
-    for lang in body.translate_to:
-        pack = translate_packs.get_pack(lang)
-        if pack is None or pack.get("kind") == "speech":
-            raise HTTPException(422, f"No language pack for '{lang}'")
-        if not translate_packs.is_installed(pack):
-            raise HTTPException(
-                409, f"Install the {pack['name']} language pack first (Settings → Subtitles)"
-            )
     paths = list(dict.fromkeys(body.file_paths))
     for path in paths:
         if not os.path.isfile(path):
@@ -268,14 +278,12 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
         type=JobType.SUBTITLE_GENERATE,
         status=JobStatus.PENDING,
         total_files=len(items),
-        settings=json.dumps({"items": items, "translate_to": body.translate_to}),
+        settings=json.dumps({"items": items}),
     )
     db.add(job)
     db.commit()
     db.refresh(job)
-    await enqueue(
-        job.id, subtitle_generate.run_generate_job, job.id, items, list(body.translate_to)
-    )
+    await enqueue(job.id, subtitle_generate.run_generate_job, job.id, items)
     return {"job_id": job.id}
 
 

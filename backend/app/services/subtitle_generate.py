@@ -23,7 +23,6 @@ from app.services import (
     srt_io,
     subtitle_translate,
     translate_packs,
-    translator,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,11 +86,10 @@ def generate_one(
     return final
 
 
-def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) -> None:
-    """items: [{"video_path": str, "model": "whisper-small"}, ...]. `translate_to`: languages to
-    translate each generated subtitle into afterwards. On the processor the files run one after
-    another; with the NVIDIA package each runs on its own card, generation and translation of
-    one file staying on that file's card."""
+def run_generate_job(job_id: int, items: list[dict]) -> None:
+    """items: [{"video_path": str, "model": "whisper-small"}, ...]. Only transcribes: translating
+    the result is a separate, deliberate action. On the processor the files run one after
+    another; with the NVIDIA package each runs on its own card."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
     from app.services import item_runner
@@ -108,7 +106,6 @@ def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) ->
         db.commit()
         arm_cancel(job_id)
         total = len(items)
-        steps = 1 + len(translate_to)  # generation, then one translation per language
         devices = subtitle_translate._gpu_devices(db)
         if devices:
             log(db, job_id, f"Using {len(devices)} GPU(s): " + ", ".join(d.label for d in devices))
@@ -129,25 +126,13 @@ def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) ->
                     model,
                     LANGUAGE,
                     cancel,
-                    lambda f: ctx.progress(f / steps),
+                    ctx.progress,
                     device=ctx.device,
                     device_index=ctx.device_index,
                 )
                 result["output"] = out
                 ctx.log(f"Generated {name} → {os.path.basename(out)}")
-                for step, lang in enumerate(translate_to, 1):
-                    translated = subtitle_translate.translate_one(
-                        video,
-                        lang,
-                        cancel,
-                        lambda f, step=step: ctx.progress((step * 100 + f) / steps),
-                        device=ctx.device,
-                        device_index=ctx.device_index,
-                        source=out,
-                    )
-                    result.setdefault("translations", []).append(translated)
-                    ctx.log(f"Translated into {lang}: {os.path.basename(translated)}")
-            except (speech.SpeechCancelled, translator.TranslationCancelled):
+            except speech.SpeechCancelled:
                 raise item_runner.ItemCancelled() from None
             except (speech.SpeechError, subtitle_translate.TranslateError) as e:
                 raise item_runner.ItemFailed(str(e), result) from None
@@ -191,7 +176,6 @@ def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) ->
             )
         finally:
             speech.release_sessions()
-            translator.release_sessions()
 
         results = []
         for item, o in zip(items, outcomes, strict=True):
@@ -201,9 +185,7 @@ def run_generate_job(job_id: int, items: list[dict], translate_to: list[str]) ->
                 log(db, job_id, f"{os.path.basename(item['video_path'])}: {o.error}", "error")
             if o.status in ("done", "failed"):
                 results.append(row)
-        subtitle_translate.finish_job(
-            db, job, outcomes, results, "Generate", {"items": items, "translate_to": translate_to}
-        )
+        subtitle_translate.finish_job(db, job, outcomes, results, "Generate", {"items": items})
     except Exception as e:
         logger.exception("generate job %s crashed", job_id)
         db.rollback()
