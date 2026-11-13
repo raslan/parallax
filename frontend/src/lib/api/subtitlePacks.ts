@@ -1,4 +1,5 @@
 import { req } from "./client";
+import { settingsApi } from "./settings";
 import type { SubtitlePack } from "@/types/subtitlePack";
 
 export const subtitlePacksApi = {
@@ -19,4 +20,6 @@ export const speechModelsApi = {
     }),
   remove: (id: string) =>
     req<void>(`/speech-models/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** Choose the model Generate uses, globally (the same way NudeNet's model is chosen). */
+  activate: (id: string) => settingsApi.updateSettings({ speech_model: id }),
 };

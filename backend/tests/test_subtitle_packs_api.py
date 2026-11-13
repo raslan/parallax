@@ -227,3 +227,41 @@ def test_translate_refuses_a_source_that_is_not_an_english_subtitle_of_the_video
         client.post("/api/subtitles/translate", json={**two, "source": str(v)}).status_code == 422
     )
     assert not enqueued
+
+
+def _speech_ids(client):
+    return {m["lang"]: m for m in client.get("/api/speech-models").json()}
+
+
+def test_the_speech_model_is_a_global_setting_chosen_like_nudenet(
+    client, packs_dir, monkeypatch, enqueued, tmp_path
+):
+    rows = _speech_ids(client)
+    assert rows["whisper-small"]["active"] is True  # the default
+    assert rows["whisper-medium"]["active"] is False
+    # a model that is not installed cannot be chosen; an unknown one is refused
+    r = client.patch("/api/settings", json={"speech_model": "whisper-medium"})
+    assert r.status_code == 422 and "not installed" in r.json()["detail"]
+    assert client.patch("/api/settings", json={"speech_model": "nope"}).status_code == 400
+    assert client.patch("/api/settings", json={"speech_model": "ar"}).status_code == 400
+    monkeypatch.setattr(tp, "is_installed", lambda pack: True)
+    r = client.patch("/api/settings", json={"speech_model": "whisper-medium"})
+    assert r.status_code == 200 and r.json()["speech_model"] == "whisper-medium"
+    rows = _speech_ids(client)
+    assert rows["whisper-medium"]["active"] and not rows["whisper-small"]["active"]
+    # Generate uses the chosen model when the request names none
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    assert client.post("/api/subtitles/generate", json={"file_paths": [str(v)]}).status_code == 200
+    assert enqueued[-1][2][1] == [{"video_path": str(v), "model": "whisper-medium"}]
+    # a model named in the request still wins, for API callers
+    client.post("/api/subtitles/generate", json={"file_paths": [str(v)], "model": "small"})
+    assert enqueued[-1][2][1][0]["model"] == "whisper-small"
+    client.patch("/api/settings", json={"speech_model": "whisper-small"})  # leave the default
+
+
+def test_generate_says_when_the_chosen_model_is_not_installed(client, packs_dir, tmp_path):
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    r = client.post("/api/subtitles/generate", json={"file_paths": [str(v)]})
+    assert r.status_code == 409 and "choose another" in r.json()["detail"]

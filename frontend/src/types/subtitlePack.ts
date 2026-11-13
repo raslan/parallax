@@ -10,4 +10,6 @@ export interface SubtitlePack {
   licence_url: string;
   upstream_url: string;
   installing_job_id: number | null;
+  /** Speech models only: the one Generate uses. */
+  active?: boolean;
 }

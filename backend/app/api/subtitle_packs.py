@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.job import Job, JobStatus, JobType
+from app.models.settings import get_setting
 from app.queue import enqueue
 from app.services import translate_packs
 
@@ -24,6 +25,7 @@ class PackInfo(BaseModel):
     licence_url: str
     upstream_url: str
     installing_job_id: int | None
+    active: bool = False  # speech models only: the one Generate uses (Settings → Subtitles)
 
 
 def _active_installs(db: Session) -> dict[str, int]:
@@ -32,8 +34,9 @@ def _active_installs(db: Session) -> dict[str, int]:
     return {j.settings: j.id for j in rows if j.settings}
 
 
-def _info(pack: dict, installing: dict[str, int]) -> PackInfo:
+def _info(pack: dict, installing: dict[str, int], active: str | None = None) -> PackInfo:
     return PackInfo(
+        active=pack["lang"] == active,
         lang=pack["lang"],
         name=pack["name"],
         source_lang=pack["source_lang"],
@@ -104,7 +107,8 @@ def remove_pack(lang: str, db: Session = Depends(get_db)):
 @speech_router.get("", response_model=list[PackInfo], summary="List speech-to-text models")
 def list_speech_models(db: Session = Depends(get_db)):
     installing = _active_installs(db)
-    return [_info(p, installing) for p in translate_packs.list_speech_models()]
+    active = get_setting(db, translate_packs.SPEECH_MODEL_KEY, translate_packs.DEFAULT_SPEECH_MODEL)
+    return [_info(p, installing, active) for p in translate_packs.list_speech_models()]
 
 
 @speech_router.post("/{model_id}/install", status_code=202, summary="Install a speech model")

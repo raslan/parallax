@@ -4776,7 +4776,7 @@
       "post": {
         "tags": ["subtitles"],
         "summary": "Generate an English subtitle from the audio",
-        "description": "Queue a job that transcribes each video's English speech with an installed Whisper model.\nThe result is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real\nsubtitle exists. Translating it is a separate request (`POST /subtitles/translate`).",
+        "description": "Queue a job that transcribes each video's English speech with an installed Whisper model:\n`model` (`small` or `medium`) when given, else the one chosen in Settings \u2192 Subtitles. The\nresult is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real\nsubtitle exists. Translating it is a separate request (`POST /subtitles/translate`).",
         "operationId": "generate_subtitles_api_subtitles_generate_post",
         "requestBody": {
           "content": {
@@ -8575,9 +8575,15 @@
             "title": "File Paths"
           },
           "model": {
-            "type": "string",
-            "title": "Model",
-            "default": "small"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
           }
         },
         "type": "object",
@@ -10195,6 +10201,11 @@
               }
             ],
             "title": "Installing Job Id"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": false
           }
         },
         "type": "object",
@@ -10541,6 +10552,10 @@
             "type": "string",
             "title": "Nudenet Model"
           },
+          "speech_model": {
+            "type": "string",
+            "title": "Speech Model"
+          },
           "scan_batch_size": {
             "type": "integer",
             "title": "Scan Batch Size"
@@ -10619,6 +10634,7 @@
           "max_concurrent_audio_transcodes",
           "tmdb_api_key",
           "nudenet_model",
+          "speech_model",
           "scan_batch_size",
           "scan_prefetch",
           "subtitle_languages",
@@ -10700,6 +10716,18 @@
               }
             ],
             "title": "Nudenet Model"
+          },
+          "speech_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speech Model",
+            "description": "Speech-to-text model Generate uses, e.g. whisper-small"
           },
           "scan_batch_size": {
             "anyOf": [

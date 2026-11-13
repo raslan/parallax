@@ -10,6 +10,8 @@ import { errorDetail } from "@/lib/api/client";
 export interface PackActions {
   install: (id: string) => Promise<{ job_id: number }>;
   remove: (id: string) => Promise<void>;
+  /** Only for things the user picks one of globally (speech models): makes this one the one in use. */
+  activate?: (id: string) => Promise<unknown>;
 }
 
 /**
@@ -71,6 +73,20 @@ export function LanguagePackCard({
       onChange();
     } catch (e) {
       setError(errorDetail(e, "Could not remove the pack"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const use = async () => {
+    if (!actions.activate) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await actions.activate(pack.lang);
+      onChange();
+    } catch (e) {
+      setError(errorDetail(e, "Could not switch to this model"));
     } finally {
       setBusy(false);
     }
@@ -143,6 +159,21 @@ export function LanguagePackCard({
             </Button>
           )}
           {installing && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+          {pack.installed && actions.activate && !pack.active && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={use}
+              disabled={busy}
+              aria-label={`Use the ${pack.name} ${noun}`}
+            >
+              Use
+            </Button>
+          )}
+          {pack.installed && actions.activate && pack.active && (
+            <span className="text-3xs text-muted-foreground">In use</span>
+          )}
           {pack.installed && (
             <Button
               size="sm"

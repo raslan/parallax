@@ -237,13 +237,14 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
 
 class GenerateRequest(BaseModel):
     file_paths: list[str]
-    model: str = "small"
+    model: str | None = None
 
 
 @router.post("/generate", summary="Generate an English subtitle from the audio")
 async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db)):
-    """Queue a job that transcribes each video's English speech with an installed Whisper model.
-    The result is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real
+    """Queue a job that transcribes each video's English speech with an installed Whisper model:
+    `model` (`small` or `medium`) when given, else the one chosen in Settings → Subtitles. The
+    result is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real
     subtitle exists. Translating it is a separate request (`POST /subtitles/translate`)."""
     from app.services import subtitle_generate, translate_packs
     from app.services.subtitle_service import _missing_lang_codes
@@ -251,11 +252,19 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
     _refuse_while_nvidia_installs(db)
-    model = translate_packs.get_pack(f"whisper-{body.model}")
+    model_id = (
+        f"whisper-{body.model}"
+        if body.model
+        else get_setting(db, translate_packs.SPEECH_MODEL_KEY, translate_packs.DEFAULT_SPEECH_MODEL)
+    )
+    model = translate_packs.get_pack(model_id)
     if model is None or model.get("kind") != "speech":
-        raise HTTPException(422, f"Unknown speech model '{body.model}'")
+        raise HTTPException(422, f"Unknown speech model '{body.model or model_id}'")
     if not translate_packs.is_installed(model):
-        raise HTTPException(409, f"Install the {model['name']} model first (Settings → Subtitles)")
+        raise HTTPException(
+            409,
+            f"Install the {model['name']} model first, or choose another (Settings → Subtitles)",
+        )
     paths = list(dict.fromkeys(body.file_paths))
     for path in paths:
         if not os.path.isfile(path):

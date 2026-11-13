@@ -26,13 +26,18 @@ const pack: SubtitlePack = {
   installing_job_id: null,
 };
 
-const show = (p: SubtitlePack, onChange = vi.fn()) =>
+const activate = vi.fn();
+const show = (p: SubtitlePack, onChange = vi.fn(), withActivate = false) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <LanguagePackCard
         pack={p}
         onChange={onChange}
-        actions={{ install: (id) => install(id), remove: (id) => remove(id) }}
+        actions={{
+          install: (id) => install(id),
+          remove: (id) => remove(id),
+          ...(withActivate ? { activate: (id: string) => activate(id) } : {}),
+        }}
         blurb="Translates English subtitles."
       />
     </QueryClientProvider>,
@@ -42,9 +47,31 @@ afterEach(() => {
   cleanup();
   install.mockReset();
   remove.mockReset();
+  activate.mockReset();
 });
 
 describe("LanguagePackCard", () => {
+  it("lets the user choose an installed model to use globally, like NudeNet's", async () => {
+    activate.mockResolvedValue({});
+    const onChange = vi.fn();
+    show({ ...pack, installed: true, installed_bytes: 1, active: false }, onChange, true);
+    fireEvent.click(screen.getByRole("button", { name: /use the arabic language pack/i }));
+    await waitFor(() => expect(activate).toHaveBeenCalledWith("ar"));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+  });
+
+  it("marks the model in use instead of offering Use", () => {
+    show({ ...pack, installed: true, installed_bytes: 1, active: true }, vi.fn(), true);
+    expect(screen.getByText("In use")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^use the/i })).toBeNull();
+  });
+
+  it("has no Use button for things that are not chosen globally (language packs)", () => {
+    show({ ...pack, installed: true, installed_bytes: 1 });
+    expect(screen.queryByRole("button", { name: /^use the/i })).toBeNull();
+    expect(screen.queryByText("In use")).toBeNull();
+  });
+
   it("offers Install for a pack that is not installed, with its licence credit", async () => {
     install.mockResolvedValue({ job_id: 9 });
     show(pack);
