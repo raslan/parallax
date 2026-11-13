@@ -49,11 +49,12 @@ Sometimes a video has an English subtitle but not one in the language you want. 
 
 1. Open **Settings → Subtitles** and, under **Language packs**, click **Install** next to the language you want. Arabic, German, Spanish, French, Italian, Portuguese, Russian and Chinese are available. Each is a one-time download of about 140 to 460 MB (Arabic is the largest).
 2. Make sure that language is one of your **Default subtitle languages** in the same tab.
-3. On the Subtitles page, hover over a video that has an English subtitle and is missing that language. A **translate** icon appears on its row. Click it.
+3. On the Subtitles page, hover over a video that is missing that language. A **translate** icon appears on its row. Click it.
+4. A window lists every English subtitle file next to the video, real, hearing-impaired and machine-made ones alike. Pick the file you want to translate, pick the language, and click **Translate**. Nothing is translated until you do.
 
 The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. A cancelled or failed translation leaves nothing behind. A feature film takes a couple of minutes on a normal processor.
 
-The result is saved next to the video as a machine-made subtitle, for example `movie.ar.mt.srt`. The `mt` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. On the page, the language shows an amber **machine-made** badge instead of a green one, with an **×** to delete it, and in the player's captions menu it reads, for example, "Arabic (machine-made)". When a real subtitle for that language is downloaded, it replaces the machine-made file. Only English subtitles in `.srt` format can be translated. A machine-made English subtitle, for example one you generated from the audio, works as the source too. If the video has both a real and a machine-made English file, the real one is used. A real subtitle in the target language is never replaced.
+The result is saved next to the video as a machine-made subtitle, for example `movie.ar.mt.srt`. The `mt` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. On the page, the language shows an amber **machine-made** badge instead of a green one, with an **×** to delete it, and in the player's captions menu it reads, for example, "Arabic (machine-made)". When a real subtitle for that language is downloaded, it replaces the machine-made file. Only English subtitles in `.srt` format can be translated, because the language packs translate from English. Any English file next to the video can be the source, including a machine-made one such as a subtitle you generated from the audio. You pick which one in the window. A real subtitle in the target language is never replaced.
 
 Subtitle names can carry two tags after the language, in any order: `hi` for subtitles for the hard of hearing (`movie.ar.hi.srt`) and `mt` for machine-made. A hearing-impaired subtitle is a real subtitle, so it counts as present, and the player labels it "(hearing impaired)".
 
@@ -75,7 +76,7 @@ A brand-new release often has no subtitle anywhere yet. Parallax can listen to t
 
 The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page and can be cancelled. A cancelled or failed run leaves nothing behind. On a normal processor, Whisper small works through an hour of audio in about six minutes.
 
-The result is saved as a machine-made subtitle, `movie.en.mt.srt`, so it is marked like a [translation](#translating-a-subtitle): the page shows the amber **machine-made** badge, and the real English subtitle is still downloaded when you ask for it and replaces this one. If you also have a language pack installed for another of your **Default subtitle languages**, the new subtitle is translated into it straight away.
+The result is saved as a machine-made subtitle, `movie.en.mt.srt`, so it is marked like a [translation](#translating-a-subtitle): the page shows the amber **machine-made** badge, and the real English subtitle is still downloaded when you ask for it and replaces this one. Generating only writes the English file. To translate it, use the **translate** icon and pick it as the source.
 
 Expect mistakes. Whisper small hears words well but often writes names wrongly (for example "I would start" for "Howard Stark"). It only understands English speech for now.
 

@@ -22,6 +22,7 @@ import { useJobPoll } from "@/hooks/useJobPoll";
 import type { SubtitleFile } from "@/types/subtitle";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
+import { TranslateDialog } from "@/components/TranslateDialog";
 import { hasAnySubtitle } from "@/lib/subtitleFiles";
 import { COMMON_LANGS } from "@/lib/subtitle-langs";
 import { Button } from "@/components/ui/button";
@@ -315,6 +316,9 @@ export function Subtitles() {
   const [downloading, setDownloading] = useState(false);
   const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
   const [translatingPaths, setTranslatingPaths] = useState<Set<string>>(new Set());
+  const [translateFile, setTranslateFile] = useState<SubtitleFile | null>(null);
+  const [translateBusy, setTranslateBusy] = useState(false);
+  const [translateError, setTranslateError] = useState("");
   const [generatingPaths, setGeneratingPaths] = useState<Set<string>>(new Set());
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -445,6 +449,14 @@ export function Subtitles() {
     queryFn: () => subtitlePacksApi.list(),
   });
   const installedPacks = new Set((packs ?? []).filter((p) => p.installed).map((p) => p.lang));
+  const packNames = new Map((packs ?? []).map((p) => [p.lang, p.name]));
+  // The English files the open translate dialog can pick from.
+  const { data: translateSources } = useQuery({
+    queryKey: qk.translateSources(translateFile?.path ?? ""),
+    queryFn: () => subtitlesApi.translateSources(translateFile?.path ?? ""),
+    enabled: translateFile != null,
+    staleTime: 0,
+  });
   const translateLangsFor = (f: SubtitleFile) =>
     Object.entries(f.languages)
       .filter(([code, present]) => !present && installedPacks.has(code))
@@ -467,12 +479,8 @@ export function Subtitles() {
     setScanError("");
     setGeneratingPaths((prev) => new Set(prev).add(file.path));
     try {
-      // Also translate into the other wanted languages whose pack is installed.
-      const { job_id } = await subtitlesApi.generate(
-        [file.path],
-        speechModel,
-        translateLangsFor(file).filter((l) => l !== "en"),
-      );
+      // Only transcribes. Translating the result is a separate action the user starts.
+      const { job_id } = await subtitlesApi.generate([file.path], speechModel);
       while (mountedRef.current) {
         await new Promise((r) => setTimeout(r, 2000));
         if (!mountedRef.current) return;
@@ -499,27 +507,32 @@ export function Subtitles() {
     }
   };
 
-  const handleTranslate = async (file: SubtitleFile) => {
+  // Translate the subtitle file the user picked into the language they picked. The request is
+  // checked by the server first, so a refusal is shown in the dialog and nothing is queued.
+  const handleTranslate = async (file: SubtitleFile, source: string, lang: string) => {
+    setTranslateError("");
+    setTranslateBusy(true);
+    let jobId: number;
+    try {
+      jobId = (await subtitlesApi.translate([file.path], lang, source)).job_id;
+    } catch (e: unknown) {
+      setTranslateError(e instanceof Error ? e.message : "Translation failed");
+      setTranslateBusy(false);
+      return;
+    }
+    setTranslateBusy(false);
+    setTranslateFile(null);
     setScanError("");
     setTranslatingPaths((prev) => new Set(prev).add(file.path));
-    const problems: string[] = [];
     try {
-      for (const lang of translateLangsFor(file)) {
-        try {
-          const { job_id } = await subtitlesApi.translate([file.path], lang);
-          // Stops when the page is left: the job itself keeps going on the server.
-          while (mountedRef.current) {
-            await new Promise((r) => setTimeout(r, 2000));
-            if (!mountedRef.current) return;
-            const job = await api.getJob(job_id);
-            if (job.status === "failed") throw new Error(job.error ?? "Translation failed");
-            if (job.status === "completed" || job.status === "cancelled") break;
-          }
-        } catch (e: unknown) {
-          problems.push(e instanceof Error ? e.message : "Translation failed");
-        }
+      // Stops when the page is left: the job itself keeps going on the server.
+      while (mountedRef.current) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (!mountedRef.current) return;
+        const job = await api.getJob(jobId);
+        if (job.status === "failed") throw new Error(job.error ?? "Translation failed");
+        if (job.status === "completed" || job.status === "cancelled") break;
       }
-      if (problems.length) setScanError(problems.join(" · "));
       // show the new machine-made badge
       const target = path.trim();
       if (target && mountedRef.current)
@@ -527,6 +540,8 @@ export function Subtitles() {
           .scan(target)
           .then(setFiles)
           .catch(() => {});
+    } catch (e: unknown) {
+      setScanError(e instanceof Error ? e.message : "Translation failed");
     } finally {
       setTranslatingPaths((prev) => {
         const next = new Set(prev);
@@ -643,6 +658,21 @@ export function Subtitles() {
           languages={selectedLangs}
           onClose={() => setSearchFile(null)}
           onDownloaded={handleSearchDownloaded}
+        />
+      )}
+      {translateFile && (
+        <TranslateDialog
+          key={translateFile.path}
+          videoName={translateFile.filename}
+          sources={translateSources}
+          languages={translateLangsFor(translateFile).map((code) => ({
+            code,
+            name: packNames.get(code) ?? code,
+          }))}
+          error={translateError}
+          busy={translateBusy}
+          onTranslate={(source, lang) => handleTranslate(translateFile, source, lang)}
+          onClose={() => setTranslateFile(null)}
         />
       )}
       {playingFile && (
@@ -818,7 +848,10 @@ export function Subtitles() {
                   onSearch={setSearchFile}
                   onPlay={setPlayingFile}
                   onSync={handleSyncFile}
-                  onTranslate={handleTranslate}
+                  onTranslate={(f) => {
+                    setTranslateError("");
+                    setTranslateFile(f);
+                  }}
                   onGenerate={handleGenerate}
                   onDeleteLang={handleDeleteLang}
                 />

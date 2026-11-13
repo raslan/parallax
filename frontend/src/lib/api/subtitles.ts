@@ -1,5 +1,5 @@
 import { BASE, req } from "./client";
-import type { SubtitleFile, SubtitleCandidate } from "@/types/subtitle";
+import type { SubtitleFile, SubtitleCandidate, TranslateSource } from "@/types/subtitle";
 
 export const subtitlesApi = {
   scan: (path: string) =>
@@ -50,16 +50,19 @@ export const subtitlesApi = {
       body: JSON.stringify({ file_path, language }),
     }),
 
-  translate: (file_paths: string[], language: string) =>
+  translateSources: (path: string) =>
+    req<TranslateSource[]>(`/subtitles/translate-sources?path=${encodeURIComponent(path)}`),
+
+  translate: (file_paths: string[], language: string, source?: string) =>
     req<{ job_id: number }>("/subtitles/translate", {
       method: "POST",
-      body: JSON.stringify({ file_paths, language }),
+      body: JSON.stringify({ file_paths, language, source }),
     }),
 
-  generate: (file_paths: string[], model = "small", translate_to: string[] = []) =>
+  generate: (file_paths: string[], model = "small") =>
     req<{ job_id: number }>("/subtitles/generate", {
       method: "POST",
-      body: JSON.stringify({ file_paths, model, translate_to }),
+      body: JSON.stringify({ file_paths, model }),
     }),
 
   syncBulk: (path: string) =>

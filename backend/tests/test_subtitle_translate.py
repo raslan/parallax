@@ -89,6 +89,18 @@ def test_a_machine_made_english_file_is_a_valid_source(env):
     assert out.endswith("Movie (2020).ar.mt.srt")
 
 
+def test_the_picked_source_is_the_one_translated(env):
+    video, _ = env
+    other = video.parent / "Movie (2020).en.mt.srt"
+    other.write_text(SRT.replace("Hello", "Howdy"), encoding="utf-8")
+    out = st.translate_one(str(video), "ar", lambda: False, source=str(other))
+    assert "Howdy" in open(out, encoding="utf-8").read()
+    assert [s["filename"] for s in st.list_sources(str(video))] == [
+        "Movie (2020).en.srt",
+        "Movie (2020).en.mt.srt",
+    ]
+
+
 def test_a_real_english_file_is_preferred_over_a_machine_made_one(env):
     video, _ = env
     (video.parent / "Movie (2020).en.mt.srt").write_text(SRT, encoding="utf-8")

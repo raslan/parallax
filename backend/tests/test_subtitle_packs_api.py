@@ -14,7 +14,9 @@ def _clean_jobs(engine):
     def wipe():
         s = sessionmaker(bind=engine)()
         s.query(Job).filter(
-            Job.type.in_([JobType.PACK_DOWNLOAD, JobType.SUBTITLE_TRANSLATE])
+            Job.type.in_(
+                [JobType.PACK_DOWNLOAD, JobType.SUBTITLE_TRANSLATE, JobType.SUBTITLE_GENERATE]
+            )
         ).delete()
         s.commit()
         s.close()
@@ -106,7 +108,9 @@ def test_translate_validates_files_and_queues(client, packs_dir, tmp_path, enque
     r = client.post("/api/subtitles/translate", json=body)
     assert r.status_code == 200
     assert enqueued[-1][1] == "run_translate_job"
-    assert enqueued[-1][2][1] == [{"video_path": str(v), "lang": "ar", "drop_hi": False}]
+    assert enqueued[-1][2][1] == [
+        {"video_path": str(v), "lang": "ar", "drop_hi": False, "source": None}
+    ]
 
 
 def test_speech_models_list_and_do_not_mix_with_language_packs(client, packs_dir):
@@ -143,14 +147,12 @@ def test_generate_needs_the_model_and_an_audio_file(
     (tmp_path / "M.en.srt").write_text(SRT)  # a real English subtitle exists: nothing to do
     assert client.post("/api/subtitles/generate", json=body).status_code == 422
     (tmp_path / "M.en.srt").unlink()
-    (tmp_path / "M.en.mt.srt").write_text(SRT)  # a machine-made one does not count
-    r = client.post("/api/subtitles/generate", json={**body, "translate_to": ["ar"]})
+    (tmp_path / "M.en.mt.srt").write_text(SRT)  # a machine-made one does not block a new run
+    r = client.post("/api/subtitles/generate", json=body)
     assert r.status_code == 200
     assert enqueued[-1][1] == "run_generate_job"
     assert enqueued[-1][2][1] == [{"video_path": str(v), "model": "whisper-small"}]
-    assert enqueued[-1][2][2] == ["ar"]
-    bad = client.post("/api/subtitles/generate", json={**body, "translate_to": ["whisper-small"]})
-    assert bad.status_code == 422
+    assert len(enqueued[-1][2]) == 2  # no hidden translation step
 
 
 def test_translate_refuses_a_speech_model_as_a_language(client, packs_dir, tmp_path, monkeypatch):
@@ -162,12 +164,63 @@ def test_translate_refuses_a_speech_model_as_a_language(client, packs_dir, tmp_p
     assert client.post("/api/subtitles/translate", json=body).status_code == 422
 
 
-def test_a_language_pack_is_kept_while_a_generate_job_may_translate_with_it(
+def test_a_language_pack_can_go_while_a_generate_job_runs(
     client, packs_dir, monkeypatch, _clean_jobs
 ):
+    # generating only transcribes now, so it never uses a language pack
     monkeypatch.setattr(tp, "remove_pack", lambda pack: True)
     db = _clean_jobs()
     db.add(Job(type=JobType.SUBTITLE_GENERATE, status=JobStatus.RUNNING))
     db.commit()
     db.close()
-    assert client.delete("/api/subtitle-packs/ar").status_code == 409
+    assert client.delete("/api/subtitle-packs/ar").status_code == 204
+
+
+def _translate_setup(tmp_path, monkeypatch):
+    monkeypatch.setattr(tp, "is_installed", lambda pack: True)
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    (tmp_path / "M.en.srt").write_text(SRT)
+    (tmp_path / "M.en.mt.srt").write_text(SRT)
+    (tmp_path / "M.fr.srt").write_text(SRT)
+    return v
+
+
+def test_translate_sources_lists_every_english_srt_real_first(
+    client, packs_dir, tmp_path, monkeypatch
+):
+    v = _translate_setup(tmp_path, monkeypatch)
+    rows = client.get("/api/subtitles/translate-sources", params={"path": str(v)}).json()
+    assert [r["filename"] for r in rows] == ["M.en.srt", "M.en.mt.srt"]  # French is not offered
+    assert [r["machine_made"] for r in rows] == [False, True]
+    assert (
+        client.get("/api/subtitles/translate-sources", params={"path": "/nope"}).status_code == 404
+    )
+
+
+def test_translate_uses_the_source_the_user_picked(
+    client, packs_dir, tmp_path, enqueued, monkeypatch
+):
+    v = _translate_setup(tmp_path, monkeypatch)
+    picked = str(tmp_path / "M.en.mt.srt")
+    body = {"file_paths": [str(v)], "language": "ar", "source": picked}
+    r = client.post("/api/subtitles/translate", json=body)
+    assert r.status_code == 200
+    assert enqueued[-1][2][1][0]["source"] == picked
+
+
+def test_translate_refuses_a_source_that_is_not_an_english_subtitle_of_the_video(
+    client, packs_dir, tmp_path, enqueued, monkeypatch
+):
+    v = _translate_setup(tmp_path, monkeypatch)
+    other = tmp_path / "secret.txt"
+    other.write_text("x")
+    for bad in (str(other), str(tmp_path / "M.fr.srt")):
+        body = {"file_paths": [str(v)], "language": "ar", "source": bad}
+        r = client.post("/api/subtitles/translate", json=body)
+        assert r.status_code == 422 and "not an English subtitle" in r.json()["detail"]
+    two = {"file_paths": [str(v), str(tmp_path / "M.en.srt")], "language": "ar"}
+    assert (
+        client.post("/api/subtitles/translate", json={**two, "source": str(v)}).status_code == 422
+    )
+    assert not enqueued

@@ -92,7 +92,7 @@ def test_cancel_leaves_no_file_and_no_temp_audio(env, monkeypatch):
 def test_job_completes_and_records_results(env):
     video, fs_db = env
     jid = _job(fs_db)
-    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}], [])
+    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}])
     status, _c, error, settings = _state(fs_db, jid)
     assert status == JobStatus.COMPLETED and error is None
     assert json.loads(settings)["results"][0]["output"].endswith(".en.mt.srt")
@@ -103,7 +103,7 @@ def test_job_cancelled_while_queued_or_waiting_never_runs(env, monkeypatch):
     monkeypatch.setattr(speech, "extract_audio", lambda *a, **k: pytest.fail("must not run"))
     jid = _job(fs_db)
     request_cancel(jid)
-    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}], [])
+    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}])
     status, current, _e, _s = _state(fs_db, jid)
     assert status == JobStatus.CANCELLED and current == "0/1 done before cancel"
     jid2 = _job(fs_db)
@@ -111,7 +111,7 @@ def test_job_cancelled_while_queued_or_waiting_never_runs(env, monkeypatch):
     db.get(Job, jid2).status = JobStatus.CANCELLED
     db.commit()
     db.close()
-    sg.run_generate_job(jid2, [{"video_path": str(video), "model": "whisper-small"}], [])
+    sg.run_generate_job(jid2, [{"video_path": str(video), "model": "whisper-small"}])
     assert _state(fs_db, jid2)[0] == JobStatus.CANCELLED
     assert os.listdir(video.parent) == ["Movie (2020).mkv"]
 
@@ -137,7 +137,6 @@ def test_job_cancel_mid_run_reports_done_before_cancel(env, monkeypatch, tmp_pat
             {"video_path": str(video), "model": "whisper-small"},
             {"video_path": str(second), "model": "whisper-small"},
         ],
-        [],
     )
     status, current, _e, _s = _state(fs_db, jid)
     assert status == JobStatus.CANCELLED and current == "1/2 done before cancel"
@@ -154,22 +153,18 @@ def test_a_video_without_audio_fails_alone(env, monkeypatch):
 
     monkeypatch.setattr(speech, "extract_audio", no_audio)
     jid = _job(fs_db)
-    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}], [])
+    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}])
     status, _c, error, _s = _state(fs_db, jid)
     assert status == JobStatus.FAILED and "no audio" in error
     assert os.listdir(video.parent) == ["Movie (2020).mkv"]
 
 
-def test_then_translate_chains_from_the_generated_file(env, monkeypatch):
+def test_generating_never_translates_on_its_own(env, monkeypatch):
     video, fs_db = env
-    seen = {}
-
-    def fake_translate(video_path, lang, is_cancelled, on_progress=None, **kw):
-        seen.update(video=video_path, lang=lang, source=kw.get("source"))
-        return "out"
-
-    monkeypatch.setattr(st, "translate_one", fake_translate)
+    monkeypatch.setattr(
+        st, "translate_one", lambda *a, **k: pytest.fail("translation is a separate action")
+    )
     jid = _job(fs_db)
-    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}], ["ar"])
-    assert seen["lang"] == "ar" and seen["source"].endswith("Movie (2020).en.mt.srt")
+    sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}])
     assert _state(fs_db, jid)[0] == JobStatus.COMPLETED
+    assert sorted(os.listdir(video.parent)) == ["Movie (2020).en.mt.srt", "Movie (2020).mkv"]
