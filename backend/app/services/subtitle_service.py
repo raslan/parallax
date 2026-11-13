@@ -146,7 +146,7 @@ def find_and_serve_vtt(video_path: str) -> str | None:
 
 def _tagged_files(video_path: str) -> list[tuple[str, machine_subs.SubTag]]:
     """Every subtitle file of this video that carries a language tag, with its parsed tag:
-    `<stem>.<lang>[.hi][.mt].<ext>` in the video's folder or any folder below it."""
+    `<stem>.<lang>[.hi][.machine].<ext>` in the video's folder or any folder below it."""
     stem = os.path.splitext(os.path.basename(video_path))[0]
     prefix = stem + "."
     found = []
@@ -168,7 +168,7 @@ def _languages(video_path: str, machine_made: bool) -> set[str]:
 
 def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
     """Return lang_codes that don't have a *real* tagged subtitle file yet. A machine-made one
-    (`.mt`) never counts, so the real subtitle is still fetched; a hearing-impaired one (`.hi`)
+    (`.machine`) never counts, so the real subtitle is still fetched; a hearing-impaired one (`.hi`)
     is a real subtitle and does."""
     have = _languages(video_path, machine_made=False)
     return [lang for lang in lang_codes if lang.lower() not in have]

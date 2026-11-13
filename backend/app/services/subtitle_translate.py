@@ -79,10 +79,10 @@ def translate_one(
     drop_hi: bool = False,
     source: str | None = None,
 ) -> str:
-    """Write `<stem>.<lang>.mt.srt` next to the video and return its path. The file appears only
-    when complete: output goes to a hidden temp name and is renamed on success, so a cancel or a
-    failure leaves nothing behind. Sound notes and speaker labels are translated and kept unless
-    `drop_hi` is set."""
+    """Write `<stem>.<lang>.machine.srt` next to the video and return its path. The file appears
+    only when complete: output goes to a hidden temp name and is renamed on success, so a cancel
+    or a failure leaves nothing behind. Sound notes and speaker labels are translated and kept
+    unless `drop_hi` is set."""
     pack = translate_packs.get_pack(lang)
     if pack is None:
         raise TranslateError(f"No language pack for '{lang}'.")

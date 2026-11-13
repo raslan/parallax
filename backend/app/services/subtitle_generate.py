@@ -1,7 +1,7 @@
 """Generate an English subtitle from a video's audio with Whisper, offline (RAS-125).
 
 A stopgap for a release that has no subtitle yet. The result is a machine-made
-`<name>.en.mt.srt` (see `machine_subs`), so the scan still wants a real subtitle and replaces
+`<name>.en.machine.srt` (see `machine_subs`), so the scan still wants a real subtitle and replaces
 this one when it appears. `generate_one` does one file (no DB, cancel-aware); `run_generate_job`
 is the queue job: progress, cancel with "N/M done before cancel", and an optional chain that
 translates the result into other installed languages.
@@ -48,7 +48,7 @@ def generate_one(
     device: str = "cpu",
     device_index: int = 0,
 ) -> str:
-    """Write `<stem>.en.mt.srt` next to the video and return its path. The audio goes to a
+    """Write `<stem>.en.machine.srt` next to the video and return its path. The audio goes to a
     temporary folder and the subtitle to a hidden temp name renamed on success, so a cancel or a
     failure leaves nothing behind."""
     if not translate_packs.is_installed(model):

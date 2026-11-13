@@ -4738,7 +4738,7 @@
       "post": {
         "tags": ["subtitles"],
         "summary": "Translate English subtitles offline",
-        "description": "Queue a job that translates a video's English subtitle into `language` with an installed\nlanguage pack. `source` is the subtitle file to translate, one of the video's English files\nfrom `GET /subtitles/translate-sources` (one video only); without it a real English file is\nused. The result is a machine-made `<name>.<lang>.mt.srt` next to the video; the real\nsubtitle for that language is never replaced.",
+        "description": "Queue a job that translates a video's English subtitle into `language` with an installed\nlanguage pack. `source` is the subtitle file to translate, one of the video's English files\nfrom `GET /subtitles/translate-sources` (one video only); without it a real English file is\nused. The result is a machine-made `<name>.<lang>.machine.srt` next to the video; the real\nsubtitle for that language is never replaced.",
         "operationId": "translate_subtitles_api_subtitles_translate_post",
         "requestBody": {
           "content": {
@@ -4776,7 +4776,7 @@
       "post": {
         "tags": ["subtitles"],
         "summary": "Generate an English subtitle from the audio",
-        "description": "Queue a job that transcribes each video's English speech with an installed Whisper model.\nThe result is a machine-made `<name>.en.mt.srt` next to the video, a stopgap until a real\nsubtitle exists. Translating it is a separate request (`POST /subtitles/translate`).",
+        "description": "Queue a job that transcribes each video's English speech with an installed Whisper model.\nThe result is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real\nsubtitle exists. Translating it is a separate request (`POST /subtitles/translate`).",
         "operationId": "generate_subtitles_api_subtitles_generate_post",
         "requestBody": {
           "content": {

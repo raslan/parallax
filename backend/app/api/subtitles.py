@@ -190,7 +190,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
     """Queue a job that translates a video's English subtitle into `language` with an installed
     language pack. `source` is the subtitle file to translate, one of the video's English files
     from `GET /subtitles/translate-sources` (one video only); without it a real English file is
-    used. The result is a machine-made `<name>.<lang>.mt.srt` next to the video; the real
+    used. The result is a machine-made `<name>.<lang>.machine.srt` next to the video; the real
     subtitle for that language is never replaced."""
     from app.services import machine_subs, subtitle_translate, translate_packs
 
@@ -243,7 +243,7 @@ class GenerateRequest(BaseModel):
 @router.post("/generate", summary="Generate an English subtitle from the audio")
 async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db)):
     """Queue a job that transcribes each video's English speech with an installed Whisper model.
-    The result is a machine-made `<name>.en.mt.srt` next to the video, a stopgap until a real
+    The result is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real
     subtitle exists. Translating it is a separate request (`POST /subtitles/translate`)."""
     from app.services import subtitle_generate, translate_packs
     from app.services.subtitle_service import _missing_lang_codes

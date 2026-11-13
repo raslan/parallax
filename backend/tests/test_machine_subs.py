@@ -9,11 +9,21 @@ from app.services import subtitle_service as ss
 def test_parse_tag_reads_language_hearing_impaired_and_machine_made():
     assert ms.parse_tag("en") == ms.SubTag("en", False, False)
     assert ms.parse_tag("ar.hi") == ms.SubTag("ar", True, False)
+    assert ms.parse_tag("ar.machine") == ms.SubTag("ar", False, True)
+    assert ms.parse_tag("en.hi.machine") == ms.SubTag("en", True, True)
+    assert ms.parse_tag("en.machine.hi") == ms.SubTag("en", True, True)  # order does not matter
+    assert ms.parse_tag("AR.MACHINE") == ms.SubTag("ar", False, True)
+    assert ms.parse_tag("") == ms.SubTag("und", False, False)
+
+
+def test_the_marker_is_not_a_language_code_and_the_old_one_is_still_read():
+    assert ms.MARKER == "machine" and len(ms.MARKER) > 3  # no ISO 639 code is that long
+    assert ms.tag_text("ar", False, True) == "ar.machine"
+    # files written before the rename carry `mt`: still machine-made, never written again
     assert ms.parse_tag("ar.mt") == ms.SubTag("ar", False, True)
     assert ms.parse_tag("en.hi.mt") == ms.SubTag("en", True, True)
-    assert ms.parse_tag("en.mt.hi") == ms.SubTag("en", True, True)  # order does not matter
-    assert ms.parse_tag("AR.MT") == ms.SubTag("ar", False, True)
-    assert ms.parse_tag("") == ms.SubTag("und", False, False)
+    # a real Maltese subtitle is a language, not a flag
+    assert ms.parse_tag("mt") == ms.SubTag("mt", False, False)
 
 
 def test_name_round_trips():
