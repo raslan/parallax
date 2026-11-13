@@ -7,7 +7,12 @@ afterEach(cleanup);
 
 const SOURCES = [
   { path: "/m/M.en.srt", filename: "M.en.srt", machine_made: false, hearing_impaired: false },
-  { path: "/m/M.en.mt.srt", filename: "M.en.mt.srt", machine_made: true, hearing_impaired: false },
+  {
+    path: "/m/M.en.machine.srt",
+    filename: "M.en.machine.srt",
+    machine_made: true,
+    hearing_impaired: false,
+  },
 ];
 const LANGS = [
   { code: "ar", name: "Arabic" },
@@ -34,17 +39,17 @@ describe("TranslateDialog", () => {
   it("lists every English file, machine-made ones included and marked", () => {
     setup();
     expect(screen.getByRole("button", { name: /M\.en\.srt/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /M\.en\.mt\.srt/ }).textContent).toContain(
+    expect(screen.getByRole("button", { name: /M\.en\.machine\.srt/ }).textContent).toContain(
       "machine-made",
     );
   });
 
   it("translates the file and language the user picked", () => {
     const onTranslate = setup();
-    fireEvent.click(screen.getByRole("button", { name: /M\.en\.mt\.srt/ }));
+    fireEvent.click(screen.getByRole("button", { name: /M\.en\.machine\.srt/ }));
     fireEvent.click(screen.getByRole("button", { name: "German" }));
     fireEvent.click(screen.getByRole("button", { name: "Translate" }));
-    expect(onTranslate).toHaveBeenCalledWith("/m/M.en.mt.srt", "de");
+    expect(onTranslate).toHaveBeenCalledWith("/m/M.en.machine.srt", "de");
   });
 
   it("starts on the first file and language, which is only where the choice starts", () => {

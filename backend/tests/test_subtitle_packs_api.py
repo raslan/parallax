@@ -147,7 +147,7 @@ def test_generate_needs_the_model_and_an_audio_file(
     (tmp_path / "M.en.srt").write_text(SRT)  # a real English subtitle exists: nothing to do
     assert client.post("/api/subtitles/generate", json=body).status_code == 422
     (tmp_path / "M.en.srt").unlink()
-    (tmp_path / "M.en.mt.srt").write_text(SRT)  # a machine-made one does not block a new run
+    (tmp_path / "M.en.machine.srt").write_text(SRT)  # a machine-made one does not block a new run
     r = client.post("/api/subtitles/generate", json=body)
     assert r.status_code == 200
     assert enqueued[-1][1] == "run_generate_job"
@@ -181,7 +181,7 @@ def _translate_setup(tmp_path, monkeypatch):
     v = tmp_path / "M.mkv"
     v.write_bytes(b"v")
     (tmp_path / "M.en.srt").write_text(SRT)
-    (tmp_path / "M.en.mt.srt").write_text(SRT)
+    (tmp_path / "M.en.machine.srt").write_text(SRT)
     (tmp_path / "M.fr.srt").write_text(SRT)
     return v
 
@@ -191,7 +191,10 @@ def test_translate_sources_lists_every_english_srt_real_first(
 ):
     v = _translate_setup(tmp_path, monkeypatch)
     rows = client.get("/api/subtitles/translate-sources", params={"path": str(v)}).json()
-    assert [r["filename"] for r in rows] == ["M.en.srt", "M.en.mt.srt"]  # French is not offered
+    assert [r["filename"] for r in rows] == [
+        "M.en.srt",
+        "M.en.machine.srt",
+    ]  # French is not offered
     assert [r["machine_made"] for r in rows] == [False, True]
     assert (
         client.get("/api/subtitles/translate-sources", params={"path": "/nope"}).status_code == 404
@@ -202,7 +205,7 @@ def test_translate_uses_the_source_the_user_picked(
     client, packs_dir, tmp_path, enqueued, monkeypatch
 ):
     v = _translate_setup(tmp_path, monkeypatch)
-    picked = str(tmp_path / "M.en.mt.srt")
+    picked = str(tmp_path / "M.en.machine.srt")
     body = {"file_paths": [str(v)], "language": "ar", "source": picked}
     r = client.post("/api/subtitles/translate", json=body)
     assert r.status_code == 200

@@ -204,7 +204,7 @@ def test_a_crashed_cuda_worker_degrades_the_card_and_the_file_uses_another():
 
 def test_a_failed_file_keeps_what_it_had_produced():
     def work(i, item, ctx):
-        raise ir.ItemFailed("translation failed", {"output": "movie.en.mt.srt"})
+        raise ir.ItemFailed("translation failed", {"output": "movie.en.machine.srt"})
 
     out, _, _ = run([{}], work)
-    assert out[0].status == "failed" and out[0].result == {"output": "movie.en.mt.srt"}
+    assert out[0].status == "failed" and out[0].result == {"output": "movie.en.machine.srt"}
