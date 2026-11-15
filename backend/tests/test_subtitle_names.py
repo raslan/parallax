@@ -69,6 +69,19 @@ def test_variant_path_keep_dedupes(tmp_path):
     assert sn.variant_path(video, "en", "generated", keep=False).endswith("Movie.en.generated.srt")
 
 
+def test_variant_path_probes_the_final_extension(tmp_path):
+    video = str(tmp_path / "Movie.mkv")
+    (tmp_path / "Movie.en.subf2m.ass").write_text("x")
+    # a free `.srt` name must not hide a taken `.ass` one
+    assert sn.variant_path(video, "en", "subf2m", keep=True, ext=".ass").endswith(
+        "Movie.en.subf2m-2.ass"
+    )
+    assert sn.variant_path(video, "en", "subf2m", keep=True).endswith("Movie.en.subf2m.srt")
+    assert sn.variant_path(video, "en", "subf2m", keep=False, ext=".ass").endswith(
+        "Movie.en.subf2m.ass"
+    )
+
+
 def test_original_path():
     assert sn.original_path("Movie.en.srt") == "Movie.en.original.srt"
     assert sn.original_path("Movie.en.subf2m.srt") == "Movie.en.subf2m.original.srt"

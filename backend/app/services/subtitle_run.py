@@ -17,9 +17,9 @@ import time
 from collections.abc import Callable
 
 from app.services import subtitle_files, subtitle_names, subtitle_service
-from app.services.common import arm_cancel, clear_cancel, fail_job, now, should_cancel
-from app.services.srt_io import parse_srt
-from app.services.subtitle_preview import _decode
+from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
+from app.services.srt_io import decode_srt, parse_srt
+from app.services.subtitle_preview import _LEGACY_ENCODINGS
 from app.services.subtitle_providers import (
     MAX_SUBTITLE_BYTES,
     Identity,
@@ -32,6 +32,7 @@ from app.services.subtitle_sync import sync_subtitle
 logger = logging.getLogger(__name__)
 
 CACHE_TTL_SECONDS = 600
+CACHE_MAX_ENTRIES = 512
 
 _CACHE: dict[tuple, tuple[float, list[dict]]] = {}
 _CACHE_LOCK = threading.Lock()
@@ -43,6 +44,17 @@ _CACHE_LOCK = threading.Lock()
 def _cache_key(provider: str, q: SearchQuery) -> tuple:
     ident = q.identity.imdb_id or (q.identity.title.strip().lower(), q.identity.year)
     return (provider, ident, tuple(q.languages), q.season, q.episode)
+
+
+def _cache_put(key: tuple, found: list[dict], at: float) -> None:
+    """Store a result; expired entries go first, then the oldest beyond `CACHE_MAX_ENTRIES`."""
+    with _CACHE_LOCK:
+        for k in [k for k, (t, _) in _CACHE.items() if at - t >= CACHE_TTL_SECONDS]:
+            del _CACHE[k]
+        _CACHE.pop(key, None)  # re-inserted last, so dict order stays oldest first
+        _CACHE[key] = (at, [dict(c) for c in found])
+        while len(_CACHE) > CACHE_MAX_ENTRIES:
+            del _CACHE[next(iter(_CACHE))]
 
 
 def _not_applicable(media_types: frozenset[str]) -> str:
@@ -84,8 +96,7 @@ def search_candidates(
             continue
         finally:
             p.close()
-        with _CACHE_LOCK:
-            _CACHE[key] = (clock(), [dict(c) for c in found])
+        _cache_put(key, found, clock())
         candidates.extend(found)
     candidates.sort(key=lambda c: c.get("score", 0), reverse=True)
     return {"candidates": candidates, "errors": errors}
@@ -121,26 +132,66 @@ def _write_atomic(path: str, data: bytes) -> None:
 
 def save_subtitle(
     video_path: str, language: str, provider: str, data: bytes, ext: str, keep_existing: bool
-) -> str:
-    """Put a downloaded subtitle beside the video and return its path. Without `keep_existing`
-    it becomes the plain `<stem>.<lang><ext>` (overwriting one) and the generated / translated
-    files of that language go; with it, a plain file that exists is left alone and the new one
-    is labelled with its source (`subf2m`, `subf2m-2`, ...)."""
+) -> tuple[str, str | None]:
+    """Put a downloaded subtitle beside the video; returns its path and, if removing the
+    machine-made files afterwards failed, why (the new file is saved either way). Without
+    `keep_existing` it becomes the plain `<stem>.<lang><ext>` (overwriting one) and the
+    generated / translated files of that language go; with it, a plain file that exists is left
+    alone and the new one is labelled with its source (`subf2m`, `subf2m-2`, ...)."""
+    cleanup_error = None
     with subtitle_files._WRITE_LOCK:  # no rename or make-main interleaves with the choice
         plain = subtitle_names.subtitle_path(video_path, language, ext=ext)
         target = plain
         if keep_existing and os.path.exists(plain):
-            target = subtitle_names.variant_path(video_path, language, provider, keep=True)
-            if ext != ".srt":
-                target = os.path.splitext(target)[0] + ext
+            target = subtitle_names.variant_path(video_path, language, provider, keep=True, ext=ext)
         _write_atomic(target, data)
         if not keep_existing:
-            subtitle_service.remove_machine_made(video_path, language)
-    return target
+            try:
+                subtitle_service.remove_machine_made(video_path, language)
+            except OSError as exc:
+                cleanup_error = (
+                    f"Saved, but the generated or translated file could not be removed: "
+                    f"{exc.strerror or exc}"
+                )
+    return target, cleanup_error
+
+
+def _payload(data: bytes, language: str) -> tuple[bytes, str]:
+    """The bytes to write and the extension, or ProviderError if this is no subtitle file.
+
+    The decode is only trusted where it is certain: a UTF-16 file (BOM) and a file in the
+    language's usual legacy code page are written as UTF-8; valid UTF-8 and anything else
+    (cp1250, GBK, Shift-JIS...) are written exactly as downloaded, for the player to detect."""
+    out = data
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        try:
+            text = data.decode("utf-16")
+        except UnicodeDecodeError:
+            raise ProviderError("The download is not a readable subtitle file.") from None
+        out = text.encode("utf-8")  # many TVs cannot read a UTF-16 .srt
+    else:
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            legacy = _LEGACY_ENCODINGS.get(language.lower().split("-")[0])
+            text = None
+            if legacy:
+                try:
+                    text = data.decode(legacy)
+                    out = text.encode("utf-8")
+                except UnicodeDecodeError:
+                    pass
+            if text is None:
+                text = decode_srt(data)  # only to check it is a subtitle; bytes stay as they are
+    if parse_srt(text):
+        return out, ".srt"
+    if "[script info]" in text[:2000].lower():
+        return out, ".ass"
+    raise ProviderError("The download is not a readable subtitle file.")
 
 
 def _download(provider: str, subtitle_id: str, language: str) -> tuple[bytes, str]:
-    """The subtitle as UTF-8 bytes and its extension; ProviderError with the reason otherwise."""
+    """The subtitle's bytes and its extension; ProviderError with the reason otherwise."""
     try:
         p = get_provider(provider)
     except ValueError as exc:
@@ -155,12 +206,7 @@ def _download(provider: str, subtitle_id: str, language: str) -> tuple[bytes, st
         raise ProviderError("The source returned no subtitle for that choice.")
     if len(data) > MAX_SUBTITLE_BYTES:
         raise ProviderError("The download is too large to be a subtitle file.")
-    text = _decode(data, language)
-    if parse_srt(text):
-        return text.encode("utf-8"), ".srt"
-    if "[script info]" in text[:2000].lower():
-        return text.encode("utf-8"), ".ass"
-    raise ProviderError("The download is not a readable subtitle file.")
+    return _payload(data, language)
 
 
 def _run_item(item: dict, keep_existing: bool, sync_after: bool, engine: str) -> dict:
@@ -170,12 +216,16 @@ def _run_item(item: dict, keep_existing: bool, sync_after: bool, engine: str) ->
         if not os.path.isfile(video):
             raise ProviderError("That video no longer exists.")
         data, ext = _download(item["provider"], item["subtitle_id"], item["language"])
-        path = save_subtitle(video, item["language"], item["provider"], data, ext, keep_existing)
+        path, cleanup_error = save_subtitle(
+            video, item["language"], item["provider"], data, ext, keep_existing
+        )
     except ProviderError as exc:
         return {**result, "status": "failed", "error": str(exc)}
     except OSError as exc:
         return {**result, "status": "failed", "error": f"Could not save: {exc.strerror or exc}"}
     result.update(status="saved", path=path)
+    if cleanup_error:
+        result["cleanup_error"] = cleanup_error
     if sync_after or item.get("sync"):
         try:
             sync_subtitle(video, path, engine)
@@ -202,6 +252,16 @@ def _update_job(job_id: int, **fields) -> None:
         for k, v in fields.items():
             setattr(job, k, v)
         db.commit()
+    finally:
+        db.close()
+
+
+def _log_job(job_id: int, message: str, level: str = "info") -> None:
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        log(db, job_id, message, level)
     finally:
         db.close()
 
@@ -321,6 +381,7 @@ def run_folder_download(job_id: int, path: str, lang_codes: list[str]) -> None:
             if os.path.splitext(f)[1].lower() in subtitle_service.VIDEO_EXTENSIONS
         ]
         items: list[dict] = []
+        errors: list[str] = []
         for video in videos:
             if should_cancel(job_id):
                 _update_job(
@@ -354,8 +415,14 @@ def run_folder_download(job_id: int, path: str, lang_codes: list[str]) -> None:
                 episode=(info["episode"] or 1) if kind == "tv" else None,
                 video_path=video,
             )
+            found = search_candidates(q, providers)
+            for e in found["errors"]:
+                reason = f"{e['provider']}: {e['message']}"
+                if reason not in errors:  # one line per distinct failure, not one per video
+                    errors.append(reason)
+                    _log_job(job_id, f"Search failed, {reason}", "error")
             seen: set[str] = set()
-            for c in search_candidates(q, providers)["candidates"]:
+            for c in found["candidates"]:
                 lang = c.get("language")
                 if lang in missing and lang not in seen:
                     seen.add(lang)
@@ -369,6 +436,15 @@ def run_folder_download(job_id: int, path: str, lang_codes: list[str]) -> None:
                         }
                     )
 
+        if not items and errors:
+            _update_job(
+                job_id,
+                status=JobStatus.FAILED,
+                finished_at=now(),
+                current_file=None,
+                error=errors[0][:512],
+            )
+            return
         if not items:
             _update_job(
                 job_id,

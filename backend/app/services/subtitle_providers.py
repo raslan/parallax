@@ -127,6 +127,11 @@ def get_provider(name: str) -> Provider:
     return cls()
 
 
+def known_providers() -> frozenset[str]:
+    _load()
+    return frozenset(PROVIDERS)
+
+
 def available_for(media_type: str) -> list[str]:
     _load()
     return sorted(n for n, cls in PROVIDERS.items() if media_type in cls.media_types)

@@ -94,12 +94,18 @@ def subtitle_path(
 
 
 def variant_path(
-    video_path: str, lang: str, word: str, *, keep: bool, hearing_impaired: bool = False
+    video_path: str,
+    lang: str,
+    word: str,
+    *,
+    keep: bool,
+    hearing_impaired: bool = False,
+    ext: str = ".srt",
 ) -> str:
-    """Where a `generated` / `translated` file goes. Without `keep` it is the plain name (an
-    earlier one is overwritten); with `keep` the first of `word`, `word-2`, `word-3`... that
-    does not exist yet."""
-    first = subtitle_path(video_path, lang, hearing_impaired=hearing_impaired, token=word)
+    """Where a `generated` / `translated` (or source-labelled) file goes. Without `keep` it is
+    the plain name (an earlier one is overwritten); with `keep` the first of `word`, `word-2`,
+    `word-3`... that does not exist yet with extension `ext`."""
+    first = subtitle_path(video_path, lang, hearing_impaired=hearing_impaired, token=word, ext=ext)
     if not keep:
         return first
     n = 1
@@ -107,7 +113,7 @@ def variant_path(
     while os.path.exists(path):
         n += 1
         path = subtitle_path(
-            video_path, lang, hearing_impaired=hearing_impaired, token=f"{word}-{n}"
+            video_path, lang, hearing_impaired=hearing_impaired, token=f"{word}-{n}", ext=ext
         )
     return path
 

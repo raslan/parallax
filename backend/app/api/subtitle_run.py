@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -16,7 +16,7 @@ from app.models.job import Job, JobStatus, JobType
 from app.queue import enqueue
 from app.services import scanner, subtitle_preview, subtitle_run
 from app.services.subtitle_files import SubtitleFileError, SubtitleNotFound, _require_video
-from app.services.subtitle_providers import Identity, ProviderError, SearchQuery
+from app.services.subtitle_providers import Identity, ProviderError, SearchQuery, known_providers
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
 
@@ -48,6 +48,13 @@ class RunItem(BaseModel):
     provider: str = Field(pattern=_PROVIDER_PATTERN)
     subtitle_id: str = Field(min_length=1, max_length=2000)
     sync: bool = False
+
+    @field_validator("provider")
+    @classmethod
+    def _known_provider(cls, v: str) -> str:
+        if v not in known_providers():
+            raise ValueError("Unknown source")
+        return v
 
 
 class RunRequest(BaseModel):

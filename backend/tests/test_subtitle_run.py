@@ -298,6 +298,9 @@ def test_run_requires_items_and_existing_videos(client, tmp_path, monkeypatch):
     bad_lang = item(video, lang="../../x")
     r = client.post("/api/subtitles/run", json={"path": str(tmp_path), "items": [bad_lang]})
     assert r.status_code == 422
+    unknown = item(video, provider="nosuchsite")
+    r = client.post("/api/subtitles/run", json={"path": str(tmp_path), "items": [unknown]})
+    assert r.status_code == 422
     assert queued == []
     r = client.post(
         "/api/subtitles/run",
@@ -379,3 +382,111 @@ def test_old_folder_download_runs_through_the_new_run(env, monkeypatch):
     assert status == JobStatus.COMPLETED
     assert [r["status"] for r in settings["results"]] == ["saved"]
     assert synced == []
+
+
+ASS = b"[Script Info]\nTitle: x\n\n[Events]\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Hi\n"
+
+
+def test_keep_existing_two_ass_downloads_both_survive(env, monkeypatch):
+    video, fs_db, _ = env
+    (video.parent / "Movie.en.ass").write_bytes(b"[Script Info]\nold\n")
+    use(monkeypatch, FakeProvider("subf2m", files={"a": ASS + b"; one", "b": ASS + b"; two"}))
+    sr.run_subtitle_job(_job(fs_db), [item(video, "a")], True, False, None)
+    sr.run_subtitle_job(_job(fs_db), [item(video, "b")], True, False, None)
+    assert (video.parent / "Movie.en.subf2m.ass").read_bytes() == ASS + b"; one"
+    assert (video.parent / "Movie.en.subf2m-2.ass").read_bytes() == ASS + b"; two"
+    assert (video.parent / "Movie.en.ass").read_bytes() == b"[Script Info]\nold\n"
+
+
+def _srt_text(line):
+    return f"1\n00:00:01,000 --> 00:00:02,000\n{line}\n\n2\n00:00:03,000 --> 00:00:04,000\nOK\n\n"
+
+
+def _run_one(env, monkeypatch, data, lang="en"):
+    video, fs_db, _ = env
+    use(monkeypatch, FakeProvider("subf2m", files={"a": data}))
+    jid = _job(fs_db)
+    sr.run_subtitle_job(jid, [item(video, lang=lang)], False, False, None)
+    status, _c, err, settings = _state(fs_db, jid)
+    assert status == JobStatus.COMPLETED, err
+    return (video.parent / f"Movie.{lang}.srt").read_bytes()
+
+
+def test_cp1250_polish_saved_byte_for_byte(env, monkeypatch):
+    data = _srt_text("Zażółć gęślą jaźń").encode("cp1250")
+    with pytest.raises(UnicodeDecodeError):
+        data.decode("utf-8")
+    assert _run_one(env, monkeypatch, data, lang="pl") == data
+
+
+def test_utf16_bom_saved_as_readable_utf8(env, monkeypatch):
+    text = _srt_text("Grüße")
+    data = "﻿".encode("utf-16-le") + text.encode("utf-16-le")
+    assert _run_one(env, monkeypatch, data) == text.encode("utf-8")
+
+
+def test_cp1256_arabic_reencoded_to_utf8(env, monkeypatch):
+    text = _srt_text("مرحبا بالعالم")
+    assert _run_one(env, monkeypatch, text.encode("cp1256"), lang="ar") == text.encode("utf-8")
+
+
+def test_plain_utf8_saved_intact(env, monkeypatch):
+    data = _srt_text("Café — naïve").encode("utf-8")
+    assert _run_one(env, monkeypatch, data) == data
+
+
+def test_cleanup_failure_after_save_keeps_item_saved(env, monkeypatch):
+    video, fs_db, _ = env
+    (video.parent / "Movie.en.generated.srt").write_bytes(srt("Gen"))
+
+    def boom(*a):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(sr.subtitle_service, "remove_machine_made", boom)
+    use(monkeypatch, FakeProvider("subf2m", files={"a": srt("New")}))
+    jid = _job(fs_db)
+    sr.run_subtitle_job(jid, [item(video)], False, False, None)
+    status, _c, _e, settings = _state(fs_db, jid)
+    assert status == JobStatus.COMPLETED
+    (result,) = settings["results"]
+    assert result["status"] == "saved"
+    assert "Permission denied" in result["cleanup_error"]
+    assert (video.parent / "Movie.en.srt").read_bytes() == srt("New")
+
+
+def test_search_cache_is_capped_and_drops_expired(monkeypatch):
+    sub = FakeProvider("subf2m", results=[])
+    use(monkeypatch, sub)
+    t = [0.0]
+
+    def q(title):
+        return SearchQuery(Identity(title, None, "movie"), ("en",), None, None, None)
+
+    for n in range(sr.CACHE_MAX_ENTRIES + 1):
+        t[0] += 0.001
+        sr.search_candidates(q(f"T{n}"), ["subf2m"], clock=lambda: t[0])
+    assert sr.CACHE_MAX_ENTRIES == 512
+    assert len(sr._CACHE) == 512
+    searches = sub.searches
+    sr.search_candidates(q("T0"), ["subf2m"], clock=lambda: t[0])  # the oldest was dropped
+    assert sub.searches == searches + 1
+    t[0] += sr.CACHE_TTL_SECONDS + 1
+    sr.search_candidates(q("fresh"), ["subf2m"], clock=lambda: t[0])
+    assert len(sr._CACHE) == 1
+
+
+def test_old_folder_download_reports_provider_errors(env, monkeypatch):
+    from app.models.job import JobLog
+
+    video, fs_db, _ = env
+    (video.parent / "Other.mkv").write_bytes(b"v")
+    use(monkeypatch, FakeProvider("subf2m", error=ProviderError("Subf2m did not answer in time")))
+    jid = _job(fs_db)
+    sr.run_folder_download(jid, str(video.parent), ["en"])
+    status, _c, err, _s = _state(fs_db, jid)
+    assert status == JobStatus.FAILED
+    assert "Subf2m did not answer in time" in err
+    db = fs_db()
+    logs = [row.message for row in db.query(JobLog).filter(JobLog.job_id == jid)]
+    db.close()
+    assert sum("Subf2m did not answer in time" in m for m in logs) == 1
