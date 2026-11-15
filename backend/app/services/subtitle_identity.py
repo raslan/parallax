@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 _IMDB_ID_RE = re.compile(r"^tt\d{6,}$")
 _IMDB_IN_PATH_RE = re.compile(r"/(?:title|movie-imdb)/(tt\d{6,})(?:/|$)")
 _SEASON_DIR_RE = re.compile(r"^Season \d{2}$")
+_SUBF2M_PATH_RE = re.compile(r"^/subtitles/[\w.-]+$")
 _GARBAGE = "Not an IMDB id or a supported link"
+# TMDB is asked at most this many times per request (each call can take up to 10 s).
+MAX_TMDB_LOOKUPS = 25
 
 
 def parse_pasted(text: str) -> dict:
@@ -27,15 +30,19 @@ def parse_pasted(text: str) -> dict:
         return {"imdb_id": s}
     if "://" not in s:
         raise ValueError(_GARBAGE)
-    url = urlparse(s)
-    host = (url.hostname or "").lower().removeprefix("www.")
+    try:
+        url = urlparse(s)
+        host_name = url.hostname
+    except ValueError:
+        raise ValueError(_GARBAGE) from None
+    host = (host_name or "").lower().removeprefix("www.")
     if host in ("imdb.com", "m.imdb.com", "yts-subs.com"):
         m = _IMDB_IN_PATH_RE.search(url.path)
         if m:
             return {"imdb_id": m.group(1)}
     elif host == "subf2m.co":
         path = url.path.rstrip("/")
-        if path.startswith("/subtitles/") and len(path) > len("/subtitles/"):
+        if _SUBF2M_PATH_RE.match(path) and path != "/subtitles/..":
             return {"subf2m_path": path}
     raise ValueError(_GARBAGE)
 
@@ -109,13 +116,24 @@ def _layout_clean(kind: str, title: str, year: int | None, files: list[str]) -> 
     return True
 
 
-def _needs_choice(title: str, kind: str, key: str) -> bool:
-    try:
-        results = tmdb.search(title, kind, key)
-    except Exception as exc:  # TMDB down or key rejected: just don't ask
-        logger.debug("TMDB lookup for %r failed: %s", title, exc)
-        return False
-    return len({r.get("year") for r in results if r.get("year")}) >= 2
+class _TmdbBudget:
+    """At most MAX_TMDB_LOOKUPS calls per request, and none after the first failure."""
+
+    def __init__(self, key: str) -> None:
+        self.key = key
+        self.left = MAX_TMDB_LOOKUPS if key else 0
+
+    def needs_choice(self, title: str, kind: str) -> bool:
+        if self.left <= 0:
+            return False
+        self.left -= 1
+        try:
+            results = tmdb.search(title, kind, self.key)
+        except Exception as exc:  # TMDB down or key rejected: stop asking this request
+            logger.debug("TMDB lookup for %r failed: %s", title, exc)
+            self.left = 0
+            return False
+        return len({r.get("year") for r in results if r.get("year")}) >= 2
 
 
 def suggest_groups(root: str, video_paths: list[str]) -> list[dict]:
@@ -133,7 +151,7 @@ def suggest_groups(root: str, video_paths: list[str]) -> list[dict]:
         )
         g["files"].append(path)
 
-    key = _tmdb_key()
+    budget = _TmdbBudget(_tmdb_key())
     out = []
     for (kind, _t, year), g in groups.items():
         files = sorted(g["files"])
@@ -145,7 +163,7 @@ def suggest_groups(root: str, video_paths: list[str]) -> list[dict]:
                 "type": kind,
                 "files": files,
                 "layout_clean": _layout_clean(kind, g["title"], year, files),
-                "needs_choice": bool(key) and year is None and _needs_choice(g["title"], kind, key),
+                "needs_choice": year is None and budget.needs_choice(g["title"], kind),
             }
         )
     out.sort(key=lambda g: g["title"].casefold())

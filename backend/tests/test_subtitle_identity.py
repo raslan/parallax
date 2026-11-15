@@ -154,6 +154,68 @@ def test_tmdb_search_sends_year(monkeypatch, kind, param):
     assert "year" not in seen and "first_air_date_year" not in seen
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "http://[",
+        "https://subf2m.co/subtitles/..",
+        "https://subf2m.co/subtitles/a/b",
+        "https://subf2m.co/subtitles/a b",
+    ],
+)
+def test_parse_pasted_rejects_malformed_links(text):
+    with pytest.raises(ValueError, match="Not an IMDB id or a supported link"):
+        si.parse_pasted(text)
+
+
+def test_tmdb_lookups_stop_after_first_failure(tmp_path, monkeypatch):
+    files = [_touch(tmp_path / f"Film Number {n}.mkv") for n in ("Alpha", "Bravo", "Charlie")]
+    monkeypatch.setattr(si, "_tmdb_key", lambda: "k")
+    calls = []
+
+    def boom(*a, **k):
+        calls.append(a)
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(tmdb, "search", boom)
+    groups = si.suggest_groups(str(tmp_path), files)
+    assert len(groups) == 3
+    assert len(calls) == 1
+    assert all(g["needs_choice"] is False for g in groups)
+
+
+def test_tmdb_lookups_are_capped(tmp_path, monkeypatch):
+    names = [f"Zz{chr(97 + i // 26)}{chr(97 + i % 26)}Word" for i in range(40)]
+    files = [_touch(tmp_path / f"{n}.mkv") for n in names]
+    monkeypatch.setattr(si, "_tmdb_key", lambda: "k")
+    calls = []
+
+    def ok(*a, **k):
+        calls.append(a)
+        return [{"year": 2000}, {"year": 2001}]
+
+    monkeypatch.setattr(tmdb, "search", ok)
+    groups = si.suggest_groups(str(tmp_path), files)
+    assert len(groups) == 40
+    assert len(calls) == si.MAX_TMDB_LOOKUPS
+    assert sum(g["needs_choice"] for g in groups) == si.MAX_TMDB_LOOKUPS
+
+
+def test_suggest_groups_dotted_title_is_one_tv_group(tmp_path):
+    f = _touch(tmp_path / "Mr. Robot.S01E01.mkv")
+    g = si.suggest_groups(str(tmp_path), [f])
+    assert len(g) == 1 and g[0]["type"] == "tv"
+    assert g[0]["title"].startswith("Mr")
+
+
+def test_suggest_groups_non_ascii_names(tmp_path):
+    a = _touch(tmp_path / "Amélie (2001).mkv")
+    b = _touch(tmp_path / "千と千尋の神隠し (2001).mkv")
+    groups = si.suggest_groups(str(tmp_path), [a, b])
+    assert len(groups) == 2
+    assert {len(g["files"]) for g in groups} == {1}
+
+
 def test_groups_route_requires_directory(client, tmp_path):
     r = client.post("/api/subtitles/groups", json={"path": str(tmp_path / "nope")})
     assert r.status_code == 400
