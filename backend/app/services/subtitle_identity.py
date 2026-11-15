@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 _IMDB_ID_RE = re.compile(r"^tt\d{6,}$")
 _IMDB_IN_PATH_RE = re.compile(r"/(?:title|movie-imdb)/(tt\d{6,})(?:/|$)")
 _SEASON_DIR_RE = re.compile(r"^Season \d{2}$")
-_SUBF2M_PATH_RE = re.compile(r"^/subtitles/[\w.-]+$")
+_SUBF2M_PATH_RE = re.compile(r"^(/subtitles/[\w.-]+)(?:/[\w-]+)?$")
 _GARBAGE = "Not an IMDB id or a supported link"
 # TMDB is asked at most this many times per request (each call can take up to 10 s).
 MAX_TMDB_LOOKUPS = 25
@@ -42,8 +42,11 @@ def parse_pasted(text: str) -> dict:
             return {"imdb_id": m.group(1)}
     elif host == "subf2m.co":
         path = url.path.rstrip("/")
-        if _SUBF2M_PATH_RE.match(path) and path != "/subtitles/..":
-            return {"subf2m_path": path}
+        m = _SUBF2M_PATH_RE.match(path)
+        if m and not m.group(1).removeprefix("/subtitles/").strip("."):
+            pass  # a slug made only of dots is a path trick, not a page
+        elif m:
+            return {"subf2m_path": m.group(1)}
     raise ValueError(_GARBAGE)
 
 

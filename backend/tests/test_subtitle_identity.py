@@ -159,13 +159,28 @@ def test_tmdb_search_sends_year(monkeypatch, kind, param):
     [
         "http://[",
         "https://subf2m.co/subtitles/..",
-        "https://subf2m.co/subtitles/a/b",
+        "https://subf2m.co/subtitles/a/b/c",
+        "https://subf2m.co/subtitles/../english",
+        "https://subf2m.co/other/a",
         "https://subf2m.co/subtitles/a b",
     ],
 )
 def test_parse_pasted_rejects_malformed_links(text):
     with pytest.raises(ValueError, match="Not an IMDB id or a supported link"):
         si.parse_pasted(text)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://subf2m.co/subtitles/obsession-2025/english",
+        "https://subf2m.co/subtitles/obsession-2025/english/",
+        "https://subf2m.co/subtitles/obsession-2025/english?x=1#top",
+        "https://subf2m.co/subtitles/obsession-2025",
+    ],
+)
+def test_parse_pasted_subf2m_language_page_is_normalised(url):
+    assert si.parse_pasted(url) == {"subf2m_path": "/subtitles/obsession-2025"}
 
 
 def test_tmdb_lookups_stop_after_first_failure(tmp_path, monkeypatch):
