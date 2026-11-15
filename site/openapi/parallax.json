@@ -5267,6 +5267,81 @@
         }
       }
     },
+    "/api/subtitles/unmatched/rename": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Rename a subtitle found beside no video",
+        "description": "`root` is the folder the page scanned; the file must be in a fresh listing of its\nunmatched subtitles. Same folder, extension kept, nothing overwritten.",
+        "operationId": "unmatched_rename_api_subtitles_unmatched_rename_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnmatchedRenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/unmatched/delete": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Delete subtitles found beside no video",
+        "operationId": "unmatched_delete_api_subtitles_unmatched_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnmatchedDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subtitles/files": {
       "post": {
         "tags": ["subtitles"],
@@ -5595,6 +5670,44 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ExistingPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/unmatched/preview": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Describe a subtitle found beside no video, as a temporary preview",
+        "description": "For a stray subtitle of the folder `root` (checked against a fresh listing on the\nserver). `video_path`, when it is an existing video, only supplies the length hint.",
+        "operationId": "preview_unmatched_api_subtitles_unmatched_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnmatchedPreviewRequest"
               }
             }
           },
@@ -12013,6 +12126,17 @@
               }
             ],
             "title": "Engine"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           }
         },
         "type": "object",
@@ -12215,6 +12339,70 @@
         "type": "object",
         "required": ["file_paths", "language"],
         "title": "TranslateRequest"
+      },
+      "UnmatchedDeleteRequest": {
+        "properties": {
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "subtitle_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Subtitle Paths"
+          }
+        },
+        "type": "object",
+        "required": ["root", "subtitle_paths"],
+        "title": "UnmatchedDeleteRequest"
+      },
+      "UnmatchedPreviewRequest": {
+        "properties": {
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          },
+          "video_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Path"
+          }
+        },
+        "type": "object",
+        "required": ["root", "subtitle_path"],
+        "title": "UnmatchedPreviewRequest"
+      },
+      "UnmatchedRenameRequest": {
+        "properties": {
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          },
+          "new_name": {
+            "type": "string",
+            "title": "New Name"
+          }
+        },
+        "type": "object",
+        "required": ["root", "subtitle_path", "new_name"],
+        "title": "UnmatchedRenameRequest"
       },
       "UnmatchedRequest": {
         "properties": {
