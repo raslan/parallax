@@ -21,10 +21,12 @@ from bs4 import BeautifulSoup
 from guessit import guessit
 
 from app.services.subtitle_providers import (
+    MAX_SUBTITLE_BYTES,
     PROVIDERS,
     Politeness,
     ProviderError,
     SearchQuery,
+    own_url,
 )
 
 logger = logging.getLogger(__name__)
@@ -375,7 +377,7 @@ class Subf2mProvider:
 
     def download(self, subtitle_id: str) -> bytes | None:
         """Fetch subtitle page, find download link, return SRT/ASS bytes or None."""
-        page_link = subtitle_id
+        page_link = own_url(subtitle_id, _BASE_URL)
         text = self._get_text(page_link)
         soup = BeautifulSoup(text, "html.parser")
         btn = soup.select_one("a[id='downloadButton']")
@@ -404,6 +406,10 @@ PROVIDERS["subf2m"] = Subf2mProvider
 _SUBTITLE_EXTS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 
 
+def _too_large() -> ProviderError:
+    return ProviderError("The subtitle in the download is too large to be a subtitle file.")
+
+
 def _extract_from_archive(data: bytes) -> bytes | None:
     # Try zip first
     if data[:2] == b"PK":
@@ -417,7 +423,14 @@ def _extract_from_archive(data: bytes) -> bytes | None:
                     best = next(
                         (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
                     )
-                    return zf.read(best)
+                    if zf.getinfo(best).file_size > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    # declared sizes can lie: never read more than the cap + 1
+                    with zf.open(best) as member:
+                        body = member.read(MAX_SUBTITLE_BYTES + 1)
+                    if len(body) > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    return body
         except zipfile.BadZipFile:
             pass
 
@@ -432,7 +445,15 @@ def _extract_from_archive(data: bytes) -> bytes | None:
                     best = next(
                         (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
                     )
-                    return rf.read(best)
+                    if rf.getinfo(best).file_size > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    with rf.open(best) as member:
+                        body = member.read(MAX_SUBTITLE_BYTES + 1)
+                    if len(body) > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    return body
+        except ProviderError:
+            raise
         except Exception:
             pass
 

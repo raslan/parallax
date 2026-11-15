@@ -13,10 +13,33 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Literal, Protocol
+from urllib.parse import urlparse
 
 
 class ProviderError(Exception):
     """A source failed in a way worth telling the user (message is user-facing)."""
+
+
+# The most a downloaded subtitle may be, in bytes. One constant for the archive reader and the
+# preview, so a zip bomb is stopped before it is held in memory.
+MAX_SUBTITLE_BYTES = 5 * 1024 * 1024
+
+
+def own_url(subtitle_id: str, base: str) -> str:
+    """A client-supplied id as a full URL on `base`'s own site, else ProviderError.
+
+    Accepts a site-relative path (`/subtitles/x`) or a full URL whose scheme and host are
+    exactly the base's (compared after parsing, so `base.evil.com` and `base@evil.com` fail).
+    """
+    refusal = ProviderError("Not a subtitle from this source")
+    if not isinstance(subtitle_id, str) or any(c in subtitle_id for c in "\\\0\r\n\t "):
+        raise refusal
+    if subtitle_id.startswith("/") and not subtitle_id.startswith("//"):
+        return base + subtitle_id
+    parsed, own = urlparse(subtitle_id), urlparse(base)
+    if parsed.scheme == own.scheme and parsed.netloc == own.netloc and parsed.path.startswith("/"):
+        return subtitle_id
+    raise refusal
 
 
 @dataclass(frozen=True)

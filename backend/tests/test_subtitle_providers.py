@@ -1,13 +1,19 @@
 """Provider interface, politeness, and parsers against saved site pages."""
 
+import io as _io
 import threading
 import time
+import zipfile as _zipfile
 from pathlib import Path
 
 import pytest
+import pytest as _pytest
 
+from app.services import subf2m_provider as _sf
 from app.services import subtitle_providers as sp
+from app.services import ytssubs_provider as _yts
 from app.services.subf2m_provider import Subf2mProvider
+from app.services.subtitle_providers import ProviderError as _PE
 from app.services.ytssubs_provider import YtsSubsProvider
 
 FIXTURES = Path(__file__).parent / "fixtures" / "subtitles"
@@ -232,3 +238,83 @@ def test_search_file_route_surfaces_provider_error(client, tmp_path, monkeypatch
     r = client.post("/api/subtitles/search-file", json={"file_path": _video(tmp_path)})
     assert r.status_code == 502
     assert "ul.sublist" in r.json()["detail"]
+
+
+# --- download ids are confined to the provider's own site (no outbound request otherwise) ---
+
+_FOREIGN = [
+    "https://evil.example/x",
+    "https://subf2m.co.evil.com/x",
+    "https://subf2m.co@evil.com/x",
+    "http://subf2m.co/x",
+    "file:///etc/passwd",
+    "//evil.example/x",
+    "@evil.com/x",
+    "subtitles/relative-without-slash",
+    "",
+]
+
+
+@_pytest.mark.parametrize("bad", _FOREIGN)
+def test_subf2m_download_refuses_foreign_ids(monkeypatch, bad):
+    p = _sf.Subf2mProvider()
+    calls = []
+    monkeypatch.setattr(p, "_get_text", lambda *a, **k: calls.append(a) or "")
+    monkeypatch.setattr(p._session, "get", lambda *a, **k: calls.append(a))
+    with _pytest.raises(_PE, match="Not a subtitle from this source"):
+        p.download(bad)
+    assert calls == []
+
+
+@_pytest.mark.parametrize("ok", ["/subtitles/a/b/c", "https://subf2m.co/subtitles/a/b/c"])
+def test_subf2m_download_accepts_own_ids(monkeypatch, ok):
+    p = _sf.Subf2mProvider()
+    seen = []
+    monkeypatch.setattr(p, "_get_text", lambda url, *a, **k: seen.append(url) or "")
+    assert p.download(ok) is None
+    assert seen == ["https://subf2m.co/subtitles/a/b/c"]
+
+
+@_pytest.mark.parametrize(
+    "bad",
+    [
+        "@evil.com/x",
+        "https://evil.example/x",
+        "//evil.example/x",
+        "file:///etc/passwd",
+        ".evil.com/x",
+        "movie/x",
+        "",
+    ],
+)
+def test_yts_download_refuses_foreign_ids(monkeypatch, bad):
+    p = _yts.YtsSubsProvider()
+    calls = []
+    monkeypatch.setattr(p, "_get_text", lambda *a, **k: calls.append(a) or "")
+    with _pytest.raises(_PE, match="Not a subtitle from this source"):
+        p.download(bad)
+    assert calls == []
+
+
+def test_yts_download_accepts_own_id(monkeypatch):
+    p = _yts.YtsSubsProvider()
+    seen = []
+    monkeypatch.setattr(p, "_get_text", lambda url, *a, **k: seen.append(url) or "")
+    assert p.download("/subtitles/foo-en-1") is None
+    assert seen == ["https://yts-subs.com/subtitles/foo-en-1"]
+
+
+def test_archive_member_over_cap_is_refused_honest_bomb():
+    buf = _io.BytesIO()
+    with _zipfile.ZipFile(buf, "w", _zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("a.srt", b"\0" * (8 * 1024 * 1024))
+    assert len(buf.getvalue()) < 100_000
+    with _pytest.raises(_PE, match="too large"):
+        _sf._extract_from_archive(buf.getvalue())
+
+
+def test_archive_small_member_still_extracted():
+    buf = _io.BytesIO()
+    with _zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("a.srt", b"1\n00:00:01,000 --> 00:00:02,000\nHi\n")
+    assert b"Hi" in _sf._extract_from_archive(buf.getvalue())

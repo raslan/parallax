@@ -22,6 +22,7 @@ from app.services.subtitle_providers import (
     Politeness,
     ProviderError,
     SearchQuery,
+    own_url,
 )
 
 logger = logging.getLogger(__name__)
@@ -161,7 +162,7 @@ class YtsSubsProvider:
 
     def download(self, subtitle_id: str) -> bytes | None:
         """Fetch the subtitle detail page, decode the base64 link, return SRT bytes or None."""
-        text = self._get_text(f"{_BASE_URL}{subtitle_id}")
+        text = self._get_text(own_url(subtitle_id, _BASE_URL))
         if not text:
             return None
 

@@ -144,3 +144,31 @@ def test_preview_post_route(client, tmp_path, preview_dir, monkeypatch):
     )
     use(monkeypatch, None)
     assert client.post("/api/subtitles/preview", json=body).status_code == 502
+
+
+def test_preview_route_foreign_id_makes_no_request(client, tmp_path, preview_dir, monkeypatch):
+    from app.services import subf2m_provider as sf
+
+    calls = []
+    monkeypatch.setattr(sf.Subf2mProvider, "_get_text", lambda self, *a, **k: calls.append(a))
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    monkeypatch.setattr("app.api.subtitle_run.probe_duration", lambda p: 100.0)
+    r = client.post(
+        "/api/subtitles/preview",
+        json={
+            "video_path": str(v),
+            "provider": "subf2m",
+            "subtitle_id": "https://subf2m.co@evil.com/x",
+            "language": "en",
+        },
+    )
+    assert r.status_code == 502 and "Not a subtitle from this source" in r.json()["detail"]
+    assert calls == []
+
+
+def test_preview_route_vtt_has_nosniff(client, preview_dir, monkeypatch):
+    use(monkeypatch, make_srt().encode())
+    out = sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=None)
+    r = client.get(f"/api/subtitles/preview/{out['preview_id']}.vtt")
+    assert r.headers["x-content-type-options"] == "nosniff"

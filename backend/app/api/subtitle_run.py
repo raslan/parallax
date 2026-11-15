@@ -51,7 +51,11 @@ def get_preview(preview_id: str):
     path = subtitle_preview.preview_path(preview_id)
     if path is None:
         raise HTTPException(status_code=404, detail="Preview not found")
-    return FileResponse(path, media_type="text/vtt", headers={"Cache-Control": "no-store"})
+    return FileResponse(
+        path,
+        media_type="text/vtt",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.post("/release-tokens", summary="Compare a release name with a video's file name")

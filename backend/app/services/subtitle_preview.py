@@ -13,12 +13,12 @@ import time
 from app.config import DATA_DIR
 from app.services.srt_io import Cue, decode_srt, format_timestamp, parse_srt
 from app.services.subtitle_lengths import length_verdict
-from app.services.subtitle_providers import ProviderError, get_provider
+from app.services.subtitle_providers import MAX_SUBTITLE_BYTES, ProviderError, get_provider
 from app.services.subtitle_service import SUBTITLE_EXTENSIONS, VIDEO_EXTENSIONS
 
 PREVIEW_DIR = os.path.join(DATA_DIR, "subtitle-previews")
 PREVIEW_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,32}$")
-MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
+MAX_DOWNLOAD_BYTES = MAX_SUBTITLE_BYTES
 MAX_AGE_SECONDS = 3600
 MAX_LINES = 200
 LINE_CHARS = 120
@@ -125,14 +125,15 @@ def create_preview(
         f.write(_vtt(cues))
     os.replace(tmp, path)
 
-    last = max(c.start for c in cues)
+    first = min(c.start for c in cues)
+    last = max(c.end for c in cues)
     return {
         "preview_id": preview_id,
         "cues": len(cues),
-        "first": cues[0].start,
-        "last": cues[-1].end if cues[-1].end >= last else last,
+        "first": first,
+        "last": last,
         "video_duration": video_duration,
-        "length": length_verdict(cues[-1].end, video_duration),
+        "length": length_verdict(last, video_duration),
         "lines": _sample(cues),
     }
 
