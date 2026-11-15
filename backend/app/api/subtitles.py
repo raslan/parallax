@@ -108,7 +108,7 @@ async def download_subtitles(body: DownloadRequest, db: Session = Depends(get_db
 
     lang_codes = body.languages or _get_lang_codes(db)
 
-    from app.services.subtitle_service import run_download_job
+    from app.services.subtitle_run import run_folder_download  # compat until the new page
 
     job = Job(
         type=JobType.SUBTITLE_DOWNLOAD,
@@ -119,7 +119,7 @@ async def download_subtitles(body: DownloadRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(job)
 
-    await enqueue(job.id, run_download_job, job.id, body.path, lang_codes)
+    await enqueue(job.id, run_folder_download, job.id, body.path, lang_codes)
 
     return {"job_id": job.id}
 
