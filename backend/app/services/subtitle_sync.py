@@ -227,3 +227,125 @@ def run_sync_job(job_id: int, targets: list[tuple[str, str]], engine: str) -> No
             logger.exception("Could not mark subtitle sync job %d failed", job_id)
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------- many videos, one job
+
+
+def _update_job(job_id: int, **fields) -> None:
+    """One short-lived session per write: none is held across a sync."""
+    from app.database import SessionLocal
+    from app.models.job import Job
+
+    db = SessionLocal()
+    try:
+        job = db.get(Job, job_id)
+        if job is None:
+            return
+        for k, v in fields.items():
+            setattr(job, k, v)
+        db.commit()
+    finally:
+        db.close()
+
+
+def _sync_video(video_path: str, engine: str) -> dict:
+    """Every subtitle of one video (real, generated and translated; never a `.original`
+    backup), the same set the folder sync covers. A failing subtitle costs only itself."""
+    from app.services.subtitle_service import find_all_subtitle_tracks
+
+    synced = 0
+    errors: list[str] = []
+    for track in find_all_subtitle_tracks(video_path):
+        try:
+            if sync_subtitle(video_path, track["path"], engine):
+                synced += 1
+            else:
+                errors.append(f"{os.path.basename(track['path'])}: the sync engine gave up")
+        except Exception as exc:
+            errors.append(str(exc) or type(exc).__name__)
+    result: dict = {"video_path": video_path, "synced": synced, "failed": len(errors)}
+    if errors:
+        result["error"] = errors[0]
+    result["status"] = "failed" if errors and not synced else "synced"
+    return result
+
+
+def run_sync_files_job(job_id: int, video_paths: list[str], engine: str) -> None:
+    """Sync the subtitles of the chosen videos, one video after another. Per-video results go
+    into `job.settings["results"]`; a cancel stops between videos; a video that fails costs
+    only itself, and every video failing fails the job with the first reason."""
+    import json
+
+    from app.database import SessionLocal
+    from app.models.job import Job, JobStatus
+
+    try:
+        db = SessionLocal()
+        try:
+            job = db.get(Job, job_id)
+            if job is None or job.status == JobStatus.CANCELLED:
+                return  # cancelled while it waited for a queue slot
+            job.status = JobStatus.RUNNING
+            job.started_at = now()
+            job.total_files = len(video_paths)
+            db.commit()
+            try:
+                stored = json.loads(job.settings or "{}")
+            except ValueError:
+                stored = {}
+        finally:
+            db.close()
+        arm_cancel(job_id)
+
+        total = len(video_paths)
+        results: list[dict] = []
+        cancelled = False
+        for i, video_path in enumerate(video_paths):
+            if should_cancel(job_id):
+                cancelled = True
+                break
+            _update_job(
+                job_id,
+                current_file=os.path.basename(video_path),
+                processed_files=i,
+                progress=i / total * 99,
+            )
+            results.append(_sync_video(video_path, engine))
+            _update_job(
+                job_id,
+                processed_files=i + 1,
+                settings=json.dumps({**stored, "results": results}),
+            )
+
+        synced = sum(r["status"] == "synced" for r in results)
+        failed = sum(r["status"] == "failed" for r in results)
+        done = len(results)
+        fields: dict = {"finished_at": now(), "processed_files": done}
+        if cancelled:
+            results += [{"video_path": p, "status": "skipped"} for p in video_paths[done:]]
+            fields.update(
+                status=JobStatus.CANCELLED, current_file=f"{done} of {total} done before cancel"
+            )
+        elif failed and not synced:
+            first = next(r["error"] for r in results if r.get("error"))
+            fields.update(status=JobStatus.FAILED, error=first[:512], current_file=None)
+        else:
+            fields.update(
+                status=JobStatus.COMPLETED,
+                progress=100.0,
+                current_file=f"{synced} synced, {failed} failed" if failed else f"{synced} synced",
+            )
+        fields["settings"] = json.dumps({**stored, "results": results})
+        _update_job(job_id, **fields)
+    except Exception as exc:
+        logger.exception("Subtitle sync job %d failed", job_id)
+        db = SessionLocal()
+        try:
+            fail_job(db, db.get(Job, job_id), exc)
+        except Exception:
+            logger.exception("Could not mark subtitle sync job %d failed", job_id)
+        finally:
+            db.close()
+    finally:
+        clear_cancel(job_id)

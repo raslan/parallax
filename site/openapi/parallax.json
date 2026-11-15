@@ -5032,6 +5032,44 @@
         }
       }
     },
+    "/api/subtitles/sync-files": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Sync the subtitles of several videos in one job",
+        "description": "Every subtitle of each video (not `.original` backups) is re-timed to its audio, one\nvideo after another, in one job. `path` is the folder the work was started from, so the\nSubtitles page can show the job for it. The engine defaults to the Settings engine.",
+        "operationId": "sync_files_api_subtitles_sync_files_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncFilesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subtitles/tracks": {
       "get": {
         "tags": ["subtitles"],
@@ -11915,6 +11953,44 @@
         "type": "object",
         "required": ["file_path"],
         "title": "SyncFileRequest"
+      },
+      "SyncFilesRequest": {
+        "properties": {
+          "video_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Video Paths"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["alass", "ffsubsync"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          }
+        },
+        "type": "object",
+        "required": ["video_paths"],
+        "title": "SyncFilesRequest"
       },
       "TidyRequest": {
         "properties": {

@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -414,6 +414,49 @@ async def sync_bulk(body: SyncBulkRequest, db: Session = Depends(get_db)):
     from app.services.subtitle_sync import run_sync_job
 
     await enqueue(job.id, run_sync_job, job.id, targets, engine)
+    return {"job_id": job.id}
+
+
+SYNC_FILES_MAX = 500
+
+
+class SyncFilesRequest(BaseModel):
+    video_paths: list[str] = Field(min_length=1)
+    path: str | None = None
+    engine: Literal["alass", "ffsubsync"] | None = None
+
+
+@router.post("/sync-files", summary="Sync the subtitles of several videos in one job")
+async def sync_files(body: SyncFilesRequest, db: Session = Depends(get_db)):
+    """Every subtitle of each video (not `.original` backups) is re-timed to its audio, one
+    video after another, in one job. `path` is the folder the work was started from, so the
+    Subtitles page can show the job for it. The engine defaults to the Settings engine."""
+    from app.services.subtitle_service import VIDEO_EXTENSIONS, find_all_subtitle_tracks
+
+    paths = list(dict.fromkeys(body.video_paths))
+    if len(paths) > SYNC_FILES_MAX:
+        raise HTTPException(400, f"At most {SYNC_FILES_MAX} videos per sync")
+    if body.path is not None and not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
+    for p in paths:
+        if not os.path.isfile(p) or os.path.splitext(p)[1].lower() not in VIDEO_EXTENSIONS:
+            raise HTTPException(400, f"Not a video file: {os.path.basename(p)}")
+    if not any(find_all_subtitle_tracks(p) for p in paths):
+        raise HTTPException(422, "No subtitle files found to sync")
+
+    engine = body.engine or get_setting(db, "subtitle_sync_engine", "alass")
+    job = Job(
+        type=JobType.SUBTITLE_SYNC,
+        status=JobStatus.PENDING,
+        settings=json.dumps({"path": body.path, "video_paths": paths, "engine": engine}),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.services.subtitle_sync import run_sync_files_job
+
+    await enqueue(job.id, run_sync_files_job, job.id, paths, engine)
     return {"job_id": job.id}
 
 
