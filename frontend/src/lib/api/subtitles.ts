@@ -151,6 +151,13 @@ export const subtitlesApi = {
     language: string;
   }) => req<PreviewInfo>("/subtitles/preview", { method: "POST", body: JSON.stringify(body) }),
 
+  /** Describe one of the video's own subtitle files (a `.original` backup too), as a temporary preview. */
+  existingPreview: (video_path: string, subtitle_path: string) =>
+    req<PreviewInfo>("/subtitles/existing-preview", {
+      method: "POST",
+      body: JSON.stringify({ video_path, subtitle_path }),
+    }),
+
   previewVttUrl: (preview_id: string) =>
     `${BASE}/subtitles/preview/${encodeURIComponent(preview_id)}.vtt`,
 

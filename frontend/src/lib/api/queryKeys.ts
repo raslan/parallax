@@ -121,6 +121,9 @@ export const qk = {
   /** A candidate's temporary preview, for one video. */
   subtitlePreview: (video: string, provider: string, subtitleId: string, language: string) =>
     ["subtitles", "preview", video, provider, subtitleId, language] as const,
+  /** The temporary preview of a subtitle file the video already has. */
+  subtitleExistingPreview: (video: string, subtitle: string) =>
+    ["subtitles", "existing-preview", video, subtitle] as const,
   subtitleReleaseTokens: (release: string, videoName: string) =>
     ["subtitles", "release-tokens", release, videoName] as const,
   subtitleUnmatched: (path: string) => ["subtitles", "unmatched", path] as const,

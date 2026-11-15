@@ -18,7 +18,8 @@ import type {
   SubtitleFileInfo,
 } from "@/types/subtitle";
 import { ComparePlayer } from "./ComparePlayer";
-import { currentLineIndex, LineList } from "./LineList";
+import { currentLineIndex } from "@/lib/subtitleLines";
+import { LineList } from "./LineList";
 
 export type CompareVerdict =
   "use" | "use_and_sync" | "skip" | "keep" | "sync" | "find_another" | "delete";
@@ -89,7 +90,7 @@ export function CompareSheet({
   const [seek, setSeek] = useState<{ time: number; nonce: number }>();
   const candidate = mode === "candidate" ? candidates[index] : undefined;
 
-  const previewQ = useQuery({
+  const candidateQ = useQuery({
     queryKey: qk.subtitlePreview(
       video.path,
       candidate?.provider ?? "",
@@ -114,26 +115,31 @@ export function CompareSheet({
       staleTime: Infinity,
     })),
   });
-  // Existing mode plays the video with the subtitles it already has.
-  const tracksQ = useQuery({
-    queryKey: qk.subtitleTracks(video.path),
-    queryFn: () => subtitlesApi.tracks(video.path),
-    enabled: mode === "existing",
+  // An existing subtitle is read through the same temporary preview as a candidate, so the
+  // video plays that one file (not every track it has) and its lines are listed.
+  const existingQ = useQuery({
+    queryKey: qk.subtitleExistingPreview(video.path, existing?.path ?? ""),
+    queryFn: () => subtitlesApi.existingPreview(video.path, existing?.path ?? ""),
+    enabled: mode === "existing" && !!existing,
+    staleTime: Infinity,
+    retry: false,
   });
+  const previewQ = mode === "existing" ? existingQ : candidateQ;
 
   const preview = previewQ.data;
+  const trackLanguage = mode === "existing" ? existing?.language : candidate?.language;
   const extraTracks = useMemo(
     () =>
       preview
         ? [
             {
-              label: candidate ? languageName(candidate.language) : "Candidate",
-              lang: candidate?.language ?? "und",
+              label: trackLanguage ? languageName(trackLanguage) : "Subtitle",
+              lang: trackLanguage ?? "und",
               url: subtitlesApi.previewVttUrl(preview.preview_id),
             },
           ]
         : undefined,
-    [preview, candidate],
+    [preview, trackLanguage],
   );
 
   const onTime = useCallback(
@@ -171,8 +177,7 @@ export function CompareSheet({
 
         <ComparePlayer
           path={video.path}
-          tracks={mode === "existing" ? tracksQ.data : undefined}
-          extraTracks={mode === "candidate" ? extraTracks : undefined}
+          extraTracks={extraTracks}
           seekRequest={seek}
           onTime={onTime}
         />
@@ -211,6 +216,18 @@ export function CompareSheet({
               })}
             </div>
 
+            {candidates.length === 0 && (
+              <p className="text-xs text-muted-foreground">No other subtitles found</p>
+            )}
+          </>
+        )}
+        {mode === "existing" && existing && (
+          <p className="text-xs text-muted-foreground" title={existing.path}>
+            {existing.name}
+          </p>
+        )}
+        {(mode === "existing" ? !!existing : !!candidate) && (
+          <>
             {previewQ.isPending && (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -233,15 +250,7 @@ export function CompareSheet({
                 <LineList lines={preview.lines} current={current} onSeek={onSeek} />
               </>
             )}
-            {candidates.length === 0 && (
-              <p className="text-xs text-muted-foreground">No other subtitles found</p>
-            )}
           </>
-        )}
-        {mode === "existing" && existing && (
-          <p className="text-xs text-muted-foreground" title={existing.path}>
-            {existing.name}
-          </p>
         )}
 
         {/* Pinned to the bottom of the scrolling sheet so a verdict is always in reach. */}

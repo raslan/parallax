@@ -53,6 +53,7 @@ vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 // jsdom has no element scrolling; opening a title scrolls the page to the top.
 Element.prototype.scrollTo = vi.fn() as unknown as Element["scrollTo"];
 
+import { ConfirmProvider } from "@/components/ConfirmProvider";
 import { api, subtitlesApi } from "@/lib/api";
 import { Subtitles } from "./Subtitles";
 
@@ -107,19 +108,21 @@ function renderAt(search: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[`/subtitles${search}`]}>
-        <Routes>
-          <Route
-            path="/subtitles"
-            element={
-              <>
-                <Subtitles />
-                <Where />
-              </>
-            }
-          />
-        </Routes>
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter initialEntries={[`/subtitles${search}`]}>
+          <Routes>
+            <Route
+              path="/subtitles"
+              element={
+                <>
+                  <Subtitles />
+                  <Where />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }
@@ -157,6 +160,19 @@ describe("Subtitles Home", () => {
     expect(await screen.findByText("film.mkv")).toBeTruthy();
     // Nothing to go back to: the lone title is the folder.
     expect(screen.queryByRole("button", { name: /All titles/ })).toBeNull();
+  });
+
+  it("opens the Manage panel from a file's Manage entry and lists its subtitle files", async () => {
+    vi.mocked(subtitlesApi.scan).mockResolvedValue([video("/m/Film/film.mkv", ["en"])]);
+    vi.mocked(subtitlesApi.groups).mockResolvedValue([
+      group("movie:film:", "Film", ["/m/Film/film.mkv"], { type: "movie" }),
+    ]);
+    vi.spyOn(subtitlesApi, "files").mockResolvedValue([sub("/m/Film/film.mkv", "en")]);
+    renderAt("?path=/m");
+    fireEvent.click(await screen.findByRole("button", { name: /Manage subtitles for film.mkv/ }));
+    expect(await screen.findByText("Manage subtitles")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Make main|Play and check/ })).toBeTruthy();
+    expect(subtitlesApi.files).toHaveBeenCalledWith("/m/Film/film.mkv");
   });
 
   it("finds subtitles through Titles, Plan and Run, and goes back to the folder", async () => {

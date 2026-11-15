@@ -62,13 +62,14 @@ describe("RunView", () => {
     expect(p.onCompare).toHaveBeenCalledWith(p.entries[1]?.item);
   });
 
-  it("disables Pick another only for the item whose search is running", () => {
+  it("disables every Pick another while a search runs, busy only on its own", () => {
     const entries = [entry(1, "failed", "x"), entry(2, "failed", "y")];
     renderRun(entries, "completed", false, entries[0]?.item);
     const [first, second] = screen.getAllByRole("button", { name: /Pick another/ });
     expect((first as HTMLButtonElement).disabled).toBe(true);
     expect(first?.getAttribute("aria-busy")).toBe("true");
-    expect((second as HTMLButtonElement).disabled).toBe(false);
+    expect((second as HTMLButtonElement).disabled).toBe(true);
+    expect(second?.getAttribute("aria-busy")).toBeNull();
   });
 
   it("disables Retry while a retry is being submitted", () => {

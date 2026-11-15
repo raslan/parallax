@@ -7,6 +7,7 @@ import type { Candidate, PreviewInfo, SubtitleFileInfo } from "@/types/subtitle"
 const { api, apiProxy, touched } = vi.hoisted(() => {
   const api = {
     preview: vi.fn(),
+    existingPreview: vi.fn(),
     previewVttUrl: vi.fn((id: string) => `/api/subtitles/preview/${id}.vtt`),
     releaseTokens: vi.fn(),
     tracks: vi.fn(),
@@ -140,6 +141,18 @@ describe("CompareSheet", () => {
     expect(api.preview).not.toHaveBeenCalled();
   });
 
+  it("lists the lines of an existing subtitle and plays that file", async () => {
+    api.existingPreview.mockResolvedValue(preview("ex"));
+    renderSheet({ mode: "existing", candidates: undefined, existing });
+    await screen.findByText("Hello there");
+    expect(api.existingPreview).toHaveBeenCalledWith(video.path, existing.path);
+    await waitFor(() => expect(player.props?.extraTracks).toBeTruthy());
+    expect((player.props?.extraTracks as { url: string }[])[0]?.url).toBe(
+      "/api/subtitles/preview/pv-ex.vtt",
+    );
+    expect(api.preview).not.toHaveBeenCalled();
+  });
+
   it("sends the shown candidate with each candidate verdict", async () => {
     const { onVerdict } = renderSheet();
     await screen.findByText("Hello there");
@@ -164,7 +177,14 @@ describe("CompareSheet", () => {
     const tracks = player.props?.extraTracks as { url: string }[];
     expect(tracks[0]?.url).toBe("/api/subtitles/preview/pv-1.vtt");
     // Only reads may be reached for: preview, its vtt url, release tokens and the stream.
-    const READ_ONLY = ["preview", "previewVttUrl", "releaseTokens", "tracks", "streamUrl"];
+    const READ_ONLY = [
+      "preview",
+      "existingPreview",
+      "previewVttUrl",
+      "releaseTokens",
+      "tracks",
+      "streamUrl",
+    ];
     expect([...touched].filter((k) => !READ_ONLY.includes(k))).toEqual([]);
     expect(touched.has("preview")).toBe(true);
     expect(api.preview).toHaveBeenCalledTimes(1);

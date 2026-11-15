@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Languages, Loader2, Mic, RefreshCw, Search } from "lucide-react";
+import { Languages, Loader2, Mic, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectionBar } from "@/components/SelectionBar";
 
@@ -21,6 +21,7 @@ export function SubtitleDock({
   onTranslate,
   onGenerate,
   onSync,
+  onManage,
   onClear,
 }: {
   /** Selected titles or files. */
@@ -33,6 +34,8 @@ export function SubtitleDock({
   onTranslate: () => void;
   onGenerate: () => void;
   onSync: () => void;
+  /** Opens the Manage panel; enabled for exactly one selected video. */
+  onManage?: () => void;
   onClear: () => void;
 }) {
   const reasons = [blocked.translate, blocked.generate].filter((r): r is string => r !== null);
@@ -58,6 +61,18 @@ export function SubtitleDock({
         <Mic className="mr-1.5 h-3.5 w-3.5" />
         Generate…
       </Button>
+      {onManage && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onManage}
+          disabled={files !== 1}
+          title={files === 1 ? undefined : "Select one video to manage its subtitle files"}
+        >
+          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+          Manage
+        </Button>
+      )}
       <Button size="sm" variant="outline" onClick={onSync} disabled={syncing}>
         {syncing ? (
           <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ArrowLeft, Clapperboard } from "lucide-react";
+import { ArrowLeft, Clapperboard, SlidersHorizontal } from "lucide-react";
 import { api } from "@/lib/api";
+import { Tip } from "@/components/Tip";
 import { FileGridCard, FileListRow } from "@/components/FileSelectGrid";
 import { ToolbarSearch, type ViewMode } from "@/components/DataToolbar";
 import { EmptyState } from "@/components/EmptyState";
@@ -82,6 +83,7 @@ export function TitleFiles({
   selected,
   onToggleSelect,
   onPlay,
+  onManage,
   viewMode,
   cardSize,
   scrollElement,
@@ -103,6 +105,8 @@ export function TitleFiles({
   selected: ReadonlySet<string>;
   onToggleSelect: (path: string) => void;
   onPlay: (file: ScanFile) => void;
+  /** Opens the Manage panel for this video's subtitle files. */
+  onManage: (file: ScanFile) => void;
   viewMode: ViewMode;
   cardSize: number;
   scrollElement: HTMLElement | null;
@@ -116,7 +120,22 @@ export function TitleFiles({
     t.group.year ? `${t.group.title} (${t.group.year})` : t.group.title;
   const card = (f: ScanFile) => ({ id: 0, path: f.path, filename: f.filename, size: 0 });
   const badges = (f: ScanFile) => (
-    <SubtitleBadges file={f} wanted={wanted} length={lengths[f.path]} />
+    <span className="flex min-w-0 items-center gap-1">
+      <SubtitleBadges file={f} wanted={wanted} length={lengths[f.path]} />
+      <Tip label="Manage subtitles">
+        <button
+          type="button"
+          aria-label={`Manage subtitles for ${f.filename}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onManage(f);
+          }}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+        </button>
+      </Tip>
+    </span>
   );
 
   // A lone title is the whole folder: no rail, and nothing to go back to.

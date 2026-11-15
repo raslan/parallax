@@ -23,6 +23,8 @@ import { BrowseControls } from "@/components/organize/BrowseControls";
 import { ActivityBar } from "@/components/subtitles/ActivityBar";
 import { CompareSheet } from "@/components/subtitles/CompareSheet";
 import { FolderStrip } from "@/components/subtitles/FolderStrip";
+import { ManagePanel } from "@/components/subtitles/ManagePanel";
+import { SubtitleRenameDialog } from "@/components/subtitles/SubtitleRenameDialog";
 import { SubtitleDock } from "@/components/subtitles/SubtitleDock";
 import { SummaryStrip } from "@/components/subtitles/SummaryStrip";
 import { TitleCard } from "@/components/subtitles/TitleCard";
@@ -38,8 +40,11 @@ import { useSubtitleActions } from "@/hooks/useSubtitleActions";
 import { useSubtitleActivity } from "@/hooks/useSubtitleActivity";
 import { useSubtitleCompare } from "@/hooks/useSubtitleCompare";
 import { useSubtitleFolder } from "@/hooks/useSubtitleFolder";
+import { useSubtitleManage } from "@/hooks/useSubtitleManage";
+import { useSubtitlePanelOpen } from "@/hooks/useSubtitlePanelOpen";
 import { useSubtitleWorkflow } from "@/hooks/useSubtitleWorkflow";
-import type { ScanFile, SubtitleProvider } from "@/types/subtitle";
+import type { SyncEngine } from "@/lib/subtitleRunDock";
+import type { ScanFile, SubtitleFileInfo, SubtitleProvider } from "@/types/subtitle";
 
 const parseLanguages = (raw: string | undefined) =>
   (raw || "en")
@@ -90,11 +95,52 @@ export function Subtitles() {
 
   // Find subtitles (Titles → Plan → Run) and Generated and translated, over the Home view.
   const w = useSubtitleWorkflow({ folder, titles, wanted, sources });
+  const syncEngine: SyncEngine =
+    settingsQ.data?.subtitle_sync_engine === "ffsubsync" ? "ffsubsync" : "alass";
   const compare = useSubtitleCompare({
     files,
     chooseCandidate: w.plan.chooseCandidate,
     setVerdict: w.plan.setVerdict,
     retry: w.retry,
+    // Sync, Find another and Delete on an existing subtitle are the Manage panel's actions.
+    onExisting: (v, video, file) =>
+      manage.act(
+        video,
+        v === "sync"
+          ? { type: "sync", path: file.path, engine: syncEngine }
+          : v === "delete"
+            ? { type: "delete", paths: [file.path] }
+            : { type: "find" },
+      ),
+  });
+
+  // Manage: the panel follows a single selected video while it is switched on, or the video
+  // whose Manage entry was used.
+  const [panelOn, setPanelOn] = useSubtitlePanelOpen();
+  const [managePath, setManagePath] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<{
+    video: { path: string; name: string };
+    file: SubtitleFileInfo;
+  } | null>(null);
+  const manage = useSubtitleManage({
+    folder,
+    ui: {
+      compare: (videoPath, file) => {
+        const v = files.find((x) => x.path === videoPath);
+        if (v) compare.openExisting({ path: v.path, name: v.filename }, file);
+      },
+      rename: (videoPath, file) => {
+        const v = files.find((x) => x.path === videoPath);
+        if (v) setRenaming({ video: { path: v.path, name: v.filename }, file });
+      },
+      find: (videoPath) => {
+        setManagePath(null);
+        setPanelOn(false);
+        w.startFind(files.filter((x) => x.path === videoPath));
+      },
+      translate: (videoPath) => w.openMachine(files.filter((x) => x.path === videoPath)),
+      generate: (videoPath) => w.openMachine(files.filter((x) => x.path === videoPath)),
+    },
   });
   const titleOf = useMemo(() => {
     const byVideo = new Map<string, { key: string; name: string }>();
@@ -129,6 +175,7 @@ export function Subtitles() {
     setShown(`${folder}|${openKey}`);
     titleSel.selectNone();
     fileSel.selectNone();
+    setManagePath(null);
     setShow("all");
     setSearch("");
   }
@@ -151,6 +198,39 @@ export function Subtitles() {
   }, [open, show, flags, search, sort.sortKey, sort.sortDir]);
   const visiblePaths = useMemo(() => visibleFiles.map((x) => x.path), [visibleFiles]);
   useSelectionOrder(fileSel.setOrder, visiblePaths);
+
+  const selectedPaths = [...fileSel.selected];
+  const managedPath =
+    managePath ?? (panelOn && selectedPaths.length === 1 ? (selectedPaths[0] ?? null) : null);
+  const managed = managedPath ? (files.find((x) => x.path === managedPath) ?? null) : null;
+  // The scan already carries each video's files, so the panel opens with them and then reads
+  // the video's own list, which a rename or delete refreshes at once.
+  const managedFilesQ = useQuery({
+    queryKey: qk.subtitleFiles(managed?.path ?? ""),
+    queryFn: () => subtitlesApi.files(managed?.path ?? ""),
+    enabled: managed !== null,
+    placeholderData: managed?.subtitles,
+  });
+  const openManage = (path: string) => {
+    setManagePath(path);
+    setPanelOn(true);
+  };
+  const closeManage = () => {
+    setManagePath(null);
+    setPanelOn(false);
+  };
+  // Every name in a folder (videos and subtitles), so a rename to a taken one is refused here.
+  const takenIn = (dir: string) => {
+    const names = new Set<string>();
+    const inDir = (p: string) => p.slice(0, p.lastIndexOf("/")) === dir;
+    for (const x of files) {
+      if (inDir(x.path)) names.add(x.filename);
+      for (const s of x.subtitles) if (inDir(s.path)) names.add(s.name);
+    }
+    for (const s of managedFilesQ.data ?? []) if (inDir(s.path)) names.add(s.name);
+    for (const u of f.unmatchedQ.data ?? []) if (inDir(u.path)) names.add(u.name);
+    return names;
+  };
 
   // What the dock acts on: the selected files of the open title, else the selected titles.
   const actionFiles = open
@@ -260,6 +340,7 @@ export function Subtitles() {
               selected={fileSel.selected}
               onToggleSelect={fileSel.toggle}
               onPlay={setPlaying}
+              onManage={(x) => openManage(x.path)}
               viewMode={viewMode}
               cardSize={cardSize}
               scrollElement={scroller}
@@ -363,6 +444,7 @@ export function Subtitles() {
             onTranslate={() => w.openMachine(actionFiles)}
             onGenerate={() => w.openMachine(actionFiles)}
             onSync={() => actions.sync(actionFiles)}
+            onManage={() => actionFiles[0] && openManage(actionFiles[0].path)}
             onClear={() => {
               titleSel.selectNone();
               fileSel.selectNone();
@@ -372,14 +454,44 @@ export function Subtitles() {
       )}
       {compare.sheet && (
         <CompareSheet
-          key={compare.sheet.video.path}
+          key={`${compare.sheet.video.path}|${compare.sheet.existing?.path ?? ""}`}
           video={compare.sheet.video}
-          mode="candidate"
+          mode={compare.sheet.mode}
           candidates={compare.sheet.candidates}
+          existing={compare.sheet.existing}
           onVerdict={compare.verdict}
           onClose={compare.close}
         />
       )}
+      {managed && !compare.sheet && !w.wf && (
+        <ManagePanel
+          key={managed.path}
+          video={{ path: managed.path, name: managed.filename }}
+          files={managedFilesQ.data ?? managed.subtitles}
+          unmatched={f.unmatchedQ.data ?? []}
+          speechModelReady={
+            modelsQ.isSuccess ? modelsQ.data.some((m) => m.active && m.installed) : null
+          }
+          installedPacks={
+            packsQ.isSuccess ? packsQ.data.filter((p) => p.installed).map((p) => p.lang) : null
+          }
+          defaultEngine={syncEngine}
+          onAct={(a) => void manage.act({ path: managed.path, name: managed.filename }, a)}
+          onClose={closeManage}
+        />
+      )}
+      <SubtitleRenameDialog
+        open={renaming !== null}
+        file={renaming?.file ?? null}
+        videoName={renaming?.video.name ?? ""}
+        taken={takenIn(
+          renaming ? renaming.file.path.slice(0, renaming.file.path.lastIndexOf("/")) : "",
+        )}
+        onSubmit={(name) =>
+          renaming ? manage.rename(renaming.video, renaming.file.path, name) : Promise.resolve()
+        }
+        onOpenChange={(o) => !o && setRenaming(null)}
+      />{" "}
       {playing && (
         <VideoPlayerModal
           file={{ id: 0, filename: playing.filename, path: playing.path }}

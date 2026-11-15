@@ -11,9 +11,11 @@ import type {
   PlanVerdict,
   RunItem,
   ScanFile,
+  SubtitleFileInfo,
 } from "@/types/subtitle";
 
 type Open =
+  | { kind: "existing"; video: { path: string; name: string }; file: SubtitleFileInfo }
   | { kind: "row"; row: PlanRowState }
   | { kind: "item"; item: RunItem; video: ScanFile; candidates: Candidate[] };
 
@@ -29,7 +31,14 @@ export function useSubtitleCompare({
   chooseCandidate,
   setVerdict,
   retry,
+  onExisting,
 }: {
+  /** What an existing subtitle's Sync, Find another and Delete do; resolves true when carried out. */
+  onExisting: (
+    verdict: "sync" | "find_another" | "delete",
+    video: { path: string; name: string },
+    file: SubtitleFileInfo,
+  ) => Promise<boolean>;
   files: ScanFile[];
   chooseCandidate: (
     key: string,
@@ -69,7 +78,20 @@ export function useSubtitleCompare({
 
   const close = () => setOpen(null);
 
-  const verdict = (v: CompareVerdict, candidate?: Candidate, length?: LengthResult) => {
+  const verdict = (
+    v: CompareVerdict,
+    candidate?: Candidate,
+    length?: LengthResult,
+  ): void | Promise<void> => {
+    if (open?.kind === "existing") {
+      // Keep only closes. Sync and Find another act and close; Delete asks first, and a
+      // "no" leaves the sheet open.
+      if (v !== "sync" && v !== "find_another" && v !== "delete") return close();
+      const { video, file } = open;
+      return onExisting(v, video, file).then((done) => {
+        if (v !== "delete" || done) close();
+      });
+    }
     if (!open || !candidate) return;
     if (open.kind === "row") {
       // Not this one only marks the row; it never reorders it or touches its length.
@@ -94,18 +116,32 @@ export function useSubtitleCompare({
   const sheet =
     open?.kind === "row"
       ? {
+          mode: "candidate" as const,
           video: { path: open.row.video, name: open.row.filename },
           candidates: open.row.candidates,
+          existing: undefined,
         }
       : open?.kind === "item"
         ? {
+            mode: "candidate" as const,
             video: { path: open.video.path, name: open.video.filename },
             candidates: open.candidates,
+            existing: undefined,
           }
-        : null;
+        : open?.kind === "existing"
+          ? {
+              mode: "existing" as const,
+              video: open.video,
+              candidates: [] as Candidate[],
+              existing: open.file,
+            }
+          : null;
 
   return {
     sheet,
+    /** Compare a subtitle file the video already has (Keep, Sync, Find another, Delete). */
+    openExisting: (video: { path: string; name: string }, file: SubtitleFileInfo) =>
+      setOpen({ kind: "existing", video, file }),
     openRow: (row: PlanRowState) => setOpen({ kind: "row", row }),
     openItem: (item: RunItem) => {
       const same =

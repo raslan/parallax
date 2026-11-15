@@ -59,12 +59,63 @@ function setup() {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
+  const onExisting = vi.fn<(...a: unknown[]) => Promise<boolean>>(async () => true);
   const hook = renderHook(
-    () => useSubtitleCompare({ files: [video], chooseCandidate, setVerdict, retry }),
+    () => useSubtitleCompare({ files: [video], chooseCandidate, setVerdict, retry, onExisting }),
     { wrapper },
   );
-  return { ...hook, chooseCandidate, setVerdict, retry };
+  return { ...hook, chooseCandidate, setVerdict, retry, onExisting };
 }
+
+const existingFile = {
+  path: "/tv/Show/S01E01.en.srt",
+  name: "S01E01.en.srt",
+  language: "en",
+  label: null,
+  kind: "real",
+  size: 1,
+  directory: "",
+} as const;
+const vid = { path: video.path, name: video.filename };
+
+describe("useSubtitleCompare existing mode", () => {
+  it("opens for a subtitle the video has", () => {
+    const { result } = setup();
+    act(() => result.current.openExisting(vid, existingFile));
+    expect(result.current.sheet).toMatchObject({ mode: "existing", existing: existingFile });
+  });
+
+  it("Keep closes without acting", async () => {
+    const { result, onExisting } = setup();
+    act(() => result.current.openExisting(vid, existingFile));
+    await act(async () => result.current.verdict("keep"));
+    expect(onExisting).not.toHaveBeenCalled();
+    expect(result.current.sheet).toBeNull();
+  });
+
+  it("Sync and Find another act on that file and close", async () => {
+    const { result, onExisting } = setup();
+    act(() => result.current.openExisting(vid, existingFile));
+    await act(async () => result.current.verdict("sync"));
+    expect(onExisting).toHaveBeenLastCalledWith("sync", vid, existingFile);
+    expect(result.current.sheet).toBeNull();
+    act(() => result.current.openExisting(vid, existingFile));
+    await act(async () => result.current.verdict("find_another"));
+    expect(onExisting).toHaveBeenLastCalledWith("find_another", vid, existingFile);
+    expect(result.current.sheet).toBeNull();
+  });
+
+  it("Delete closes only when the delete was carried out", async () => {
+    const { result, onExisting } = setup();
+    onExisting.mockResolvedValueOnce(false);
+    act(() => result.current.openExisting(vid, existingFile));
+    await act(async () => result.current.verdict("delete"));
+    expect(onExisting).toHaveBeenLastCalledWith("delete", vid, existingFile);
+    expect(result.current.sheet).not.toBeNull();
+    await act(async () => result.current.verdict("delete"));
+    expect(result.current.sheet).toBeNull();
+  });
+});
 
 describe("useSubtitleCompare", () => {
   it("names the failure when the search for another subtitle fails", async () => {

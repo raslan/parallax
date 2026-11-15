@@ -173,7 +173,7 @@ export function RunView({
                     size="sm"
                     variant="ghost"
                     className="h-7"
-                    disabled={active || searching}
+                    disabled={active || comparing !== null}
                     aria-busy={searching || undefined}
                     aria-label={`Pick another for ${label}`}
                     onClick={() => onCompare(e.item)}

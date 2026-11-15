@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { currentLineIndex, LineList } from "./LineList";
+import { currentLineIndex } from "@/lib/subtitleLines";
+import { LineList } from "./LineList";
 
 const scrollIntoView = vi.fn();
 beforeEach(() => {
