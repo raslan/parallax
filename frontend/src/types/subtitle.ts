@@ -123,6 +123,8 @@ export interface TitleChoice {
   files: number;
   identity: Identity;
   skipped: boolean;
+  /** True once the user picked an identity for this title by hand in this run. */
+  confirmed?: boolean;
 }
 
 /** Which files a plan searches: only languages with no real subtitle yet, or every selected one. */

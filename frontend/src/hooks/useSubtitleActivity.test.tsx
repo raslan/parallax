@@ -67,4 +67,18 @@ describe("useSubtitleActivity", () => {
     await waitFor(() => expect(result.current.activeFor("/tv")[0]?.progress).toBe(55));
     expect(result.current.activeFor("/tv")[0]?.current_file).toBe("e05.mkv");
   });
+
+  it("drops a job that finished even when the jobs feed never reported it", async () => {
+    // The feed backs off to one tick per 10 s while idle, so a job that starts and ends in
+    // under a second can go by unseen; the list must not wait for it.
+    active.mockResolvedValueOnce([{ path: "/tv", jobs: [job(1)] }]).mockResolvedValue([]);
+    getJobs.mockResolvedValue([]);
+    const { result } = renderHook(() => useSubtitleActivity(), { wrapper });
+    await waitFor(() => expect(result.current.activeFor("/tv")).toHaveLength(1));
+    await waitFor(() => expect(result.current.activeFor("/tv")).toHaveLength(0), {
+      timeout: 4000,
+    });
+    // ...and the header's job count (the tab title) is refreshed with it.
+    await waitFor(() => expect(getJobs.mock.calls.length).toBeGreaterThan(1));
+  });
 });

@@ -98,6 +98,8 @@ export function WorkflowView({
           onRetrySearch={w.plan.retry}
           onToggleUse={w.plan.toggleUse}
           onApproveAllClean={w.plan.approveAllClean}
+          unconfirmed={w.unconfirmed}
+          onPickTitle={w.toTitles}
           onFindAnother={w.plan.findAnother}
           onCompare={onCompareRow}
           settingsEngine={settingsEngine}

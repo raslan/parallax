@@ -68,7 +68,7 @@ export function LineList({
   };
   return (
     <ul
-      className="max-h-48 divide-y divide-border/50 overflow-y-auto rounded-md border md:max-h-72"
+      className="max-h-48 shrink-0 divide-y divide-border/50 overflow-y-auto rounded-md border md:max-h-72"
       onWheel={noteUserScroll}
       onTouchMove={noteUserScroll}
     >

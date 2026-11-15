@@ -120,7 +120,11 @@ export function useSubtitleWorkflow({
   const editChoices = (fn: (c: Choice) => Choice) =>
     setWf((w) => (w && w.stage === "titles" ? { ...w, choices: w.choices.map(fn) } : w));
   const setIdentity = (key: string, identity: Identity) =>
-    editChoices((c) => (c.key === key ? { ...c, identity } : c));
+    editChoices((c) => (c.key === key ? { ...c, identity, confirmed: true } : c));
+  /** Titles the file names could not settle ("Pick which one") that the user has not picked yet. */
+  const unconfirmed = new Set(
+    (choices ?? []).filter((c) => c.group.needs_choice && !c.confirmed).map((c) => c.key),
+  );
   const toggleSkip = (key: string) =>
     editChoices((c) => (c.key === key ? { ...c, skipped: !c.skipped } : c));
   const setScope = (s: PlanScope) =>
@@ -230,6 +234,7 @@ export function useSubtitleWorkflow({
     close: () => setWf(null),
     // titles and plan
     choices: choices ?? [],
+    unconfirmed,
     scope,
     startFind,
     setIdentity,

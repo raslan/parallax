@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Download,
@@ -32,6 +33,7 @@ import { cn } from "@/lib/utils";
 import type { PlanRowState, RunItem } from "@/types/subtitle";
 
 const ENGINES: SyncEngine[] = ["alass", "ffsubsync"];
+const NONE: ReadonlySet<string> = new Set();
 
 /** What a title (or the whole plan) has: ready to download, to check, nothing found. */
 function counts(rows: PlanRowState[]) {
@@ -135,6 +137,8 @@ export function PlanView({
   onRetrySearch,
   onToggleUse,
   onApproveAllClean,
+  unconfirmed = NONE,
+  onPickTitle,
   onFindAnother,
   onCompare,
   settingsEngine,
@@ -157,8 +161,13 @@ export function PlanView({
   onSkipChecks: () => void;
   onRetrySearch: () => void;
   onToggleUse: (key: string) => void;
-  onApproveAllClean: () => void;
+  /** `exclude`: the keys of titles whose identity is not confirmed, to leave out. */
+  onApproveAllClean: (exclude: ReadonlySet<string>) => void;
   onFindAnother: (key: string) => void;
+  /** Titles the user has not confirmed the identity of ("Pick which one"): a suggestion, never a block. */
+  unconfirmed?: ReadonlySet<string>;
+  /** Back to the Titles step to pick which show or film a title is. */
+  onPickTitle?: () => void;
   /** Opens the Compare sheet for a row (Task 14). */
   onCompare: (row: PlanRowState) => void;
   settingsEngine: string;
@@ -190,7 +199,11 @@ export function PlanView({
   const seasons = useMemo(() => seasonsOf(activeRows, wanted), [activeRows, wanted]);
 
   const all = counts(rows);
-  const clean = rows.filter((r) => isClean(r, checksSkipped) && !r.verdict).length;
+  // A title whose identity the user has not confirmed is never "clean": a wrong guess would
+  // download the wrong show's subtitles. Its rows can still be approved one by one.
+  const clean = rows.filter(
+    (r) => isClean(r, checksSkipped) && !r.verdict && !unconfirmed.has(r.title),
+  ).length;
   const items = runItems(rows);
   const searching = progress.done < progress.total;
   const checking = !checksSkipped && checks.done < checks.total;
@@ -198,7 +211,12 @@ export function PlanView({
   return (
     <div className="space-y-4 pb-24">
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" variant="outline" onClick={onApproveAllClean} disabled={clean === 0}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onApproveAllClean(unconfirmed)}
+          disabled={clean === 0}
+        >
           Approve all clean rows ({clean})
         </Button>
         <span className="text-xs text-muted-foreground">Leaves anything flagged for you.</span>
@@ -281,7 +299,9 @@ export function PlanView({
         {titles.length > 1 && (
           <nav aria-label="Titles" className="hidden w-52 shrink-0 space-y-0.5 md:block">
             {titles.map((t) => {
-              const s = railStatus(counts(byTitle.get(t.key) ?? []));
+              const s = unconfirmed.has(t.key)
+                ? { text: "identity not confirmed", tone: "bg-amber-500" }
+                : railStatus(counts(byTitle.get(t.key) ?? []));
               return (
                 <button
                   key={t.key}
@@ -327,6 +347,24 @@ export function PlanView({
               <p className="text-xs text-muted-foreground tabular-nums">
                 {countLine(counts(activeRows))}
               </p>
+            </div>
+          )}
+
+          {active && unconfirmed.has(active.key) && (
+            <div
+              role="note"
+              className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 flex-1">
+                Identity not confirmed. Pick which show or film this is before trusting these
+                matches.
+              </span>
+              {onPickTitle && (
+                <Button size="sm" variant="outline" className="h-7" onClick={onPickTitle}>
+                  Pick which one…
+                </Button>
+              )}
             </div>
           )}
 

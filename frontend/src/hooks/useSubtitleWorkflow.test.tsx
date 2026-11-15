@@ -54,14 +54,14 @@ const titles = [
   },
 ] as unknown as TitleWithFiles[];
 
-function setup() {
+function setup(withTitles: TitleWithFiles[] = titles) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
   return renderHook(
     (p: { wanted: string[]; sources: SubtitleProvider[] }) =>
-      useSubtitleWorkflow({ folder: "/films", titles, ...p }),
+      useSubtitleWorkflow({ folder: "/films", titles: withTitles, ...p }),
     { wrapper, initialProps: { wanted: ["en"], sources: ["subf2m"] as SubtitleProvider[] } },
   );
 }
@@ -81,6 +81,19 @@ describe("useSubtitleWorkflow", () => {
     expect(result.current.plan.rows.map((r) => r.language)).toEqual(["en"]);
     expect(result.current.planWanted).toEqual(["en"]);
     expect(result.current.plan.rows[0]?.verdict).toBe("use");
+  });
+
+  it("flags a 'Pick which one' title as unconfirmed until the user picks an identity", () => {
+    const pick = [
+      { ...titles[0], group: { ...titles[0]?.group, needs_choice: true } },
+    ] as unknown as TitleWithFiles[];
+    const { result } = setup(pick);
+    act(() => result.current.startFind([file]));
+    expect([...result.current.unconfirmed]).toEqual(["movie:movie:2020"]);
+    act(() =>
+      result.current.setIdentity("movie:movie:2020", { title: "Movie", year: 2020, type: "movie" }),
+    );
+    expect(result.current.unconfirmed.size).toBe(0);
   });
 
   it("uses the changed Wanted on the next Find", async () => {

@@ -193,7 +193,11 @@ export function CompareSheet({
 
         {mode === "candidate" && (
           <>
-            <div role="radiogroup" aria-label="Candidates" className="space-y-1">
+            <div
+              role="radiogroup"
+              aria-label="Candidates"
+              className="max-h-48 shrink-0 space-y-1 overflow-y-auto"
+            >
               {candidates.map((c, i) => {
                 const tokens = tokenQs[i]?.data;
                 return (
@@ -208,7 +212,9 @@ export function CompareSheet({
                       i === index ? "border-primary bg-primary/10" : "hover:bg-muted/50",
                     )}
                   >
-                    <span className="break-all">{c.release}</span>
+                    <span className="truncate" title={c.release}>
+                      {c.release}
+                    </span>
                     <span className="flex flex-wrap items-center gap-1 text-muted-foreground">
                       <span>{sourceName(c.provider)}</span>
                       {c.hearing_impaired && <span>hearing impaired</span>}

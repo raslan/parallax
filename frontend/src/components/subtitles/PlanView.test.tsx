@@ -77,6 +77,32 @@ describe("PlanView", () => {
     expect(p.onApproveAllClean).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps rows of an unconfirmed title out of Approve all and says why", () => {
+    const onPickTitle = vi.fn();
+    const p = renderPlan([row(1), row(2, { title: "tv:other", key: "9|en" })], {
+      titles: [
+        { key: "tv:show", name: "Show" },
+        { key: "tv:other", name: "Other" },
+      ],
+      unconfirmed: new Set(["tv:other"]),
+      onPickTitle,
+    });
+    // Only the confirmed title's row counts.
+    fireEvent.click(screen.getByRole("button", { name: /Approve all clean rows \(1\)/ }));
+    expect(p.onApproveAllClean).toHaveBeenCalledWith(new Set(["tv:other"]));
+    // The rail marks the title; opening it shows the note with a way back to Titles.
+    expect(screen.getByText("identity not confirmed")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Other/ }));
+    expect(screen.getByText(/Identity not confirmed/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Pick which one/ }));
+    expect(onPickTitle).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no identity note once every title is confirmed", () => {
+    renderPlan([row(1)], { unconfirmed: new Set() });
+    expect(screen.queryByText(/Identity not confirmed/)).toBeNull();
+  });
+
   it("does not count a row still waiting for its length check as clean", () => {
     renderPlan([row(1), row(2, { lengthResult: undefined })]);
     expect(screen.getByRole("button", { name: /Approve all clean rows \(1\)/ })).toBeTruthy();

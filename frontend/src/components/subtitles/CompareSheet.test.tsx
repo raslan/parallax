@@ -289,6 +289,26 @@ describe("CompareSheet", () => {
     expect(screen.getByRole("list").className).toContain("overflow-y-auto");
   });
 
+  it("never lets a long candidate list squeeze the line list to nothing", async () => {
+    // Class-level check: the sheet is a flex column that scrolls, so the list must not shrink.
+    renderSheet();
+    await screen.findByText("Hello there");
+    expect(screen.getByRole("list").className).toContain("shrink-0");
+    const candidates = screen.getByRole("radiogroup", { name: "Candidates" });
+    expect(candidates.className).toContain("shrink-0");
+    expect(candidates.className).toContain("max-h-48");
+    expect(candidates.className).toContain("overflow-y-auto");
+  });
+
+  it("clamps a long release name to one line and keeps the full text in a tooltip", async () => {
+    const long = "Movie.2020.BluRay-AAA Movie.2020.WEB-BBB some spam text that goes on and on";
+    renderSheet({ candidates: [{ ...cand("1"), release: long }] });
+    await screen.findByText("Hello there");
+    const name = screen.getByText(long);
+    expect(name.className).toContain("truncate");
+    expect(name.getAttribute("title")).toBe(long);
+  });
+
   it("says so, with no verdict buttons, when there is nothing to compare", () => {
     renderSheet({ candidates: [] });
     expect(screen.getByText("No other subtitles found")).toBeTruthy();

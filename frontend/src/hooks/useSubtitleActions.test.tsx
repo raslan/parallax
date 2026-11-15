@@ -17,6 +17,8 @@ vi.mock("@/lib/api", async (orig) => ({
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }));
 
+import { toast } from "sonner";
+import { api } from "@/lib/api";
 import { useSubtitleActions } from "./useSubtitleActions";
 
 afterEach(() => {
@@ -58,5 +60,13 @@ describe("useSubtitleActions", () => {
     act(() => result.current.sync([video("/tv/c.mkv", false)]));
     await waitFor(() => expect(result.current.syncing).toBe(false));
     expect(syncFiles).not.toHaveBeenCalled();
+  });
+
+  it("treats a cancel on an already finished job as done, with a neutral note", async () => {
+    vi.mocked(api.cancelJob).mockRejectedValueOnce(new Error("400: Job is not active"));
+    const { result } = renderHook(() => useSubtitleActions("/tv"), { wrapper });
+    act(() => result.current.cancel(4));
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith("That job had already finished."));
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

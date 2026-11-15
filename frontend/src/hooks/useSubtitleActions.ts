@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, qk, subtitlesApi } from "@/lib/api";
+import { getErrorMessage, httpStatus } from "@/lib/api/client";
 import { hasSubtitle } from "@/lib/subtitleCoverage";
 import type { ScanFile } from "@/types/subtitle";
 
@@ -47,6 +48,14 @@ export function useSubtitleActions(folder: string | null) {
   const cancel = useMutation({
     mutationFn: (id: number) => api.cancelJob(id),
     onSuccess: refreshActivity,
+    // The server answers 400 for a job that is no longer active: it finished while the
+    // button was on screen. That is the outcome the user wanted, so say so quietly.
+    meta: { skipErrorToast: true },
+    onError: (e) => {
+      refreshActivity();
+      if (httpStatus(e) === 400) toast.info("That job had already finished.");
+      else toast.error(getErrorMessage(e, "Could not cancel the job"));
+    },
   });
 
   return {

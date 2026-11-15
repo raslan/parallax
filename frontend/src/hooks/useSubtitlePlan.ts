@@ -370,16 +370,22 @@ export function useSubtitlePlan({
     },
     [rows, patch],
   );
-  const approveAllClean = useCallback(() => {
-    setOverlay((o) => {
-      const next = { ...o };
-      for (const r of rows) {
-        if (isClean(r, checksSkipped) && !r.verdict)
-          next[r.key] = { ...next[r.key], verdict: "use" };
-      }
-      return next;
-    });
-  }, [rows, checksSkipped]);
+  // `exclude`: title keys whose identity the user has not confirmed. Their rows are never
+  // "clean"; they can still be approved one by one.
+  const approveAllClean = useCallback(
+    (exclude?: ReadonlySet<string>) => {
+      setOverlay((o) => {
+        const next = { ...o };
+        for (const r of rows) {
+          if (exclude?.has(r.title)) continue;
+          if (isClean(r, checksSkipped) && !r.verdict)
+            next[r.key] = { ...next[r.key], verdict: "use" };
+        }
+        return next;
+      });
+    },
+    [rows, checksSkipped],
+  );
 
   return {
     rows,

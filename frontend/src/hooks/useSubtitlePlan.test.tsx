@@ -183,6 +183,27 @@ describe("useSubtitlePlan", () => {
     expect(result.current.rows[0]?.verdict).toBe("use");
   });
 
+  it("leaves the rows of an excluded (unconfirmed) title for the user to approve one by one", async () => {
+    preview.mockResolvedValue({
+      preview_id: "p",
+      cues: 10,
+      first: 1,
+      last: 2900,
+      video_duration: 3000,
+      length: "ok",
+      lines: [],
+    });
+    const { result } = setup([file(1)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await act(async () => searches[0]?.d.resolve({ candidates: [cand("a")], errors: [] }));
+    await waitFor(() => expect(result.current.rows[0]?.lengthResult).toBeDefined());
+    const title = result.current.rows[0]?.title ?? "";
+    act(() => result.current.approveAllClean(new Set([title])));
+    expect(result.current.rows[0]?.verdict).toBeUndefined();
+    act(() => result.current.toggleUse(result.current.rows[0]?.key ?? ""));
+    expect(result.current.rows[0]?.verdict).toBe("use");
+  });
+
   it("drops a verdict when the row is flagged afterwards", async () => {
     let finish: (p: PreviewInfo) => void = () => undefined;
     preview.mockImplementation(
