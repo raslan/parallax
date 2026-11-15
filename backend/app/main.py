@@ -43,6 +43,7 @@ from app.api.subtitle_files import router as subtitle_files_router
 from app.api.subtitle_files import subtitle_file_error_handler
 from app.api.subtitle_packs import router as subtitle_packs_router
 from app.api.subtitle_packs import speech_router as speech_models_router
+from app.api.subtitle_run import router as subtitle_run_router
 from app.api.subtitles import router as subtitles_router
 from app.api.toolbox import router as toolbox_router
 from app.auth import AuthMiddleware, auth_enabled, install_openapi_security
@@ -286,6 +287,9 @@ async def lifespan(app: FastAPI):
     _reap_orphaned_jobs()
     _reap_orphaned_downloads()
     _reap_orphaned_galleries()
+    from app.services.subtitle_preview import sweep_previews
+
+    sweep_previews()  # temporary candidate previews never outlive an hour
     detect_encoder()
     # Load saved concurrency setting before starting the worker
     from app.database import SessionLocal
@@ -472,6 +476,7 @@ app.include_router(images_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
 app.include_router(subtitle_files_router, prefix="/api")
+app.include_router(subtitle_run_router, prefix="/api")
 app.include_router(subtitle_packs_router, prefix="/api")
 app.include_router(speech_models_router, prefix="/api")
 app.include_router(hardware_router, prefix="/api")
