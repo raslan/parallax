@@ -9369,6 +9369,18 @@
               }
             ],
             "title": "Tmdb Id"
+          },
+          "subf2m_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subf2M Path"
           }
         },
         "type": "object",
