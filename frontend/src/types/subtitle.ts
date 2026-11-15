@@ -153,7 +153,7 @@ export interface PlanRowState {
   candidates: Candidate[];
   verdict?: PlanVerdict;
   lengthResult?: LengthResult;
-  /** A machine-made file of this language the download would replace (Keep existing off). */
+  /** A generated or translated file of this language the download would replace (Keep existing off). */
   machineKind: "generated" | "translated" | null;
   /** The video already has a real subtitle in this language (a download would replace it with Keep existing off). */
   hasReal: boolean;

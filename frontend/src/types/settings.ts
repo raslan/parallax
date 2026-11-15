@@ -14,7 +14,6 @@ export interface Settings {
   scan_prefetch: number;
   subtitle_languages: string;
   subtitle_sync_engine: string;
-  subtitle_auto_sync: boolean;
   subtitle_translate_drop_hi: boolean;
   gpu_accel_enabled: boolean;
   gpu_accel_count: number;
@@ -38,7 +37,6 @@ export interface UpdateSettingsBody {
   scan_prefetch?: number;
   subtitle_languages?: string;
   subtitle_sync_engine?: string;
-  subtitle_auto_sync?: boolean;
   subtitle_translate_drop_hi?: boolean;
   gpu_accel_enabled?: boolean;
   gpu_accel_count?: number;
