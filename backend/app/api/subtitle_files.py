@@ -1,10 +1,11 @@
 """Manage the subtitle files beside a video: list, rename, make main, delete, tidy up."""
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.services import subtitle_files as svc
+from app.services import subtitle_lengths
 from app.services.subtitle_files import SubtitleFileError, SubtitleNotFound
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
@@ -43,6 +44,19 @@ class DeleteRequest(BaseModel):
 class TidyRequest(BaseModel):
     video_paths: list[str] = Field(max_length=5000)
     what: str
+
+
+class CheckLengthsRequest(BaseModel):
+    video_paths: list[str]
+
+
+@router.post(
+    "/check-lengths", summary="Compare each video's subtitle files with the video's runtime"
+)
+def check_lengths(body: CheckLengthsRequest):
+    if len(body.video_paths) > subtitle_lengths.MAX_PATHS:
+        raise HTTPException(400, f"At most {subtitle_lengths.MAX_PATHS} videos per request.")
+    return subtitle_lengths.check_lengths(body.video_paths)
 
 
 @router.post("/unmatched", summary="List subtitle files in a folder that match no video")
