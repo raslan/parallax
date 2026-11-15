@@ -56,7 +56,7 @@ def _state(fs_db, jid):
 def test_translate_one_writes_marked_file_with_timings_and_rtl(env):
     video, _ = env
     out = st.translate_one(str(video), "ar", lambda: False)
-    assert out.endswith("Movie (2020).ar.machine.srt")
+    assert out.endswith("Movie (2020).ar.translated.srt")
     text = open(out, encoding="utf-8").read()
     assert "00:00:01,000 --> 00:00:02,000\n‫AR:Hello there." in text
     assert "00:00:03,000 --> 00:00:04,000" in text
@@ -82,28 +82,28 @@ def test_refuses_without_a_pack_or_an_english_subtitle(env, monkeypatch):
 
 def test_a_machine_made_english_file_is_a_valid_source(env):
     video, _ = env
-    os.rename(video.parent / "Movie (2020).en.srt", video.parent / "Movie (2020).en.machine.srt")
-    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.machine.srt")
+    os.rename(video.parent / "Movie (2020).en.srt", video.parent / "Movie (2020).en.generated.srt")
+    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.generated.srt")
     assert st.first_problem([str(video)], "ar", "Arabic") is None
     out = st.translate_one(str(video), "ar", lambda: False)
-    assert out.endswith("Movie (2020).ar.machine.srt")
+    assert out.endswith("Movie (2020).ar.translated.srt")
 
 
 def test_the_picked_source_is_the_one_translated(env):
     video, _ = env
-    other = video.parent / "Movie (2020).en.machine.srt"
+    other = video.parent / "Movie (2020).en.generated.srt"
     other.write_text(SRT.replace("Hello", "Howdy"), encoding="utf-8")
     out = st.translate_one(str(video), "ar", lambda: False, source=str(other))
     assert "Howdy" in open(out, encoding="utf-8").read()
     assert [s["filename"] for s in st.list_sources(str(video))] == [
         "Movie (2020).en.srt",
-        "Movie (2020).en.machine.srt",
+        "Movie (2020).en.generated.srt",
     ]
 
 
 def test_a_real_english_file_is_preferred_over_a_machine_made_one(env):
     video, _ = env
-    (video.parent / "Movie (2020).en.machine.srt").write_text(SRT, encoding="utf-8")
+    (video.parent / "Movie (2020).en.generated.srt").write_text(SRT, encoding="utf-8")
     assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.srt")
 
 
@@ -137,7 +137,7 @@ def test_job_completes_and_records_results(env):
     st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
     status, _cur, error, settings = _state(fs_db, jid)
     assert status == JobStatus.COMPLETED and error is None
-    assert json.loads(settings)["results"][0]["output"].endswith(".ar.machine.srt")
+    assert json.loads(settings)["results"][0]["output"].endswith(".ar.translated.srt")
 
 
 def test_job_cancelled_while_queued_never_translates(env, monkeypatch):
@@ -148,7 +148,7 @@ def test_job_cancelled_while_queued_never_translates(env, monkeypatch):
     st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
     status, current, _e, _s = _state(fs_db, jid)
     assert status == JobStatus.CANCELLED and current == "0/1 done before cancel"
-    assert not (video.parent / "Movie (2020).ar.machine.srt").exists()
+    assert not (video.parent / "Movie (2020).ar.translated.srt").exists()
 
 
 def test_job_marked_cancelled_while_waiting_for_a_slot_never_runs(env, monkeypatch):
@@ -163,7 +163,7 @@ def test_job_marked_cancelled_while_waiting_for_a_slot_never_runs(env, monkeypat
     monkeypatch.setattr(tr, "translate_texts", lambda *a, **k: pytest.fail("must not run"))
     st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
     assert _state(fs_db, jid)[0] == JobStatus.CANCELLED
-    assert not (video.parent / "Movie (2020).ar.machine.srt").exists()
+    assert not (video.parent / "Movie (2020).ar.translated.srt").exists()
 
 
 def test_job_cancel_running_reports_done_before_cancel(env, monkeypatch):
@@ -189,8 +189,8 @@ def test_job_cancel_running_reports_done_before_cancel(env, monkeypatch):
     )
     status, current, _e, _s = _state(fs_db, jid)
     assert status == JobStatus.CANCELLED and current == "1/2 done before cancel"
-    assert (tmp_path / "Movie (2020).ar.machine.srt").exists()
-    assert not (tmp_path / "Other.ar.machine.srt").exists()
+    assert (tmp_path / "Movie (2020).ar.translated.srt").exists()
+    assert not (tmp_path / "Other.ar.translated.srt").exists()
     assert [p for p in os.listdir(tmp_path) if p.startswith(".")] == []
 
 
@@ -229,7 +229,7 @@ def test_worker_crash_costs_one_file_not_the_job(env, monkeypatch):
     jid = _job(fs_db)
     st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
     assert _state(fs_db, jid)[0] == JobStatus.FAILED
-    assert not (video.parent / "Movie (2020).ar.machine.srt").exists()
+    assert not (video.parent / "Movie (2020).ar.translated.srt").exists()
 
 
 NOTES_SRT = (
@@ -305,7 +305,7 @@ def test_a_cuda_error_on_the_card_falls_back_and_the_file_still_finishes(env, mo
     jid = _job(fs_db)
     st.run_translate_job(jid, [{"video_path": str(video), "lang": "ar"}])
     assert _state(fs_db, jid)[0] == JobStatus.COMPLETED and devices == ["cuda", "cpu"]
-    assert (video.parent / "Movie (2020).ar.machine.srt").exists()
+    assert (video.parent / "Movie (2020).ar.translated.srt").exists()
     db = fs_db()
     from app.models.job import JobLog
 

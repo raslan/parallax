@@ -190,9 +190,9 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
     """Queue a job that translates a video's English subtitle into `language` with an installed
     language pack. `source` is the subtitle file to translate, one of the video's English files
     from `GET /subtitles/translate-sources` (one video only); without it a real English file is
-    used. The result is a machine-made `<name>.<lang>.machine.srt` next to the video; the real
+    used. The result is a machine-made `<name>.<lang>.translated.srt` next to the video; the real
     subtitle for that language is never replaced."""
-    from app.services import machine_subs, subtitle_translate, translate_packs
+    from app.services import subtitle_translate, translate_packs
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
@@ -226,7 +226,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
         type=JobType.SUBTITLE_TRANSLATE,
         status=JobStatus.PENDING,
         total_files=len(items),
-        settings=json.dumps({"items": items, "marker": machine_subs.MARKER}),
+        settings=json.dumps({"items": items}),
     )
     db.add(job)
     db.commit()
@@ -244,7 +244,7 @@ class GenerateRequest(BaseModel):
 async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db)):
     """Queue a job that transcribes each video's English speech with an installed Whisper model:
     `model` (`small` or `medium`) when given, else the one chosen in Settings → Subtitles. The
-    result is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real
+    result is a machine-made `<name>.en.generated.srt` next to the video, a stopgap until a real
     subtitle exists. Translating it is a separate request (`POST /subtitles/translate`)."""
     from app.services import subtitle_generate, translate_packs
     from app.services.subtitle_service import _missing_lang_codes

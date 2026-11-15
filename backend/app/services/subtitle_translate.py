@@ -11,7 +11,7 @@ import os
 import threading
 from collections.abc import Callable
 
-from app.services import machine_subs, srt_io, translate_packs, translate_text, translator
+from app.services import srt_io, subtitle_names, translate_packs, translate_text, translator
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +78,10 @@ def translate_one(
     device_index: int = 0,
     drop_hi: bool = False,
     source: str | None = None,
+    keep_existing: bool = False,
 ) -> str:
-    """Write `<stem>.<lang>.machine.srt` next to the video and return its path. The file appears
+    """Write `<stem>.<lang>.translated.srt` next to the video (`translated-2`, ... with
+    `keep_existing`, otherwise an earlier one is overwritten) and return its path. The file appears
     only when complete: output goes to a hidden temp name and is renamed on success, so a cancel
     or a failure leaves nothing behind. Sound notes and speaker labels are translated and kept
     unless `drop_hi` is set."""
@@ -117,7 +119,9 @@ def translate_one(
         if (text := translate_text.restore(p, t, rtl)) or not drop_hi
     ]
 
-    final = machine_subs.machine_sub_path(video_path, lang)
+    final = subtitle_names.variant_path(
+        video_path, lang, subtitle_names.TRANSLATED, keep=keep_existing
+    )
     tmp = os.path.join(
         os.path.dirname(final), f".translating-{os.getpid()}-{threading.get_ident()}.srt"
     )
@@ -213,6 +217,7 @@ def run_translate_job(job_id: int, items: list[dict]) -> None:
                     device_index=ctx.device_index,
                     drop_hi=bool(item.get("drop_hi")),
                     source=item.get("source"),
+                    keep_existing=bool(item.get("keep_existing")),
                 )
             except translator.TranslationCancelled:
                 raise item_runner.ItemCancelled() from None

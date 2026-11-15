@@ -3,7 +3,7 @@ import os
 import re
 from datetime import UTC, datetime
 
-from app.services import machine_subs
+from app.services import subtitle_names
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,7 @@ def find_all_subtitle_tracks(video_path: str) -> list[dict]:
                         "label": "Subtitles",
                         "hearing_impaired": False,
                         "machine_made": False,
+                        "kind": "real",
                     }
                 )
 
@@ -96,15 +97,18 @@ def find_all_subtitle_tracks(video_path: str) -> list[dict]:
                     continue
                 seen.add(m)
                 # Extract the part between basename and extension (e.g. "en" from "movie.en.srt")
-                tag = machine_subs.parse_tag(m[len(base) + 1 : -len(ext)])
+                tag = subtitle_names.parse_tag(m[len(base) + 1 : -len(ext)])
+                if tag.original:  # a sync backup, never a track
+                    continue
                 lang, label = _parse_lang(tag.lang)
                 notes = [
                     n
-                    for n, on in (
-                        ("hearing impaired", tag.hearing_impaired),
-                        ("machine-made", tag.machine_made),
+                    for n in (
+                        "hearing impaired" if tag.hearing_impaired else None,
+                        tag.machine_kind,
+                        tag.label,
                     )
-                    if on
+                    if n
                 ]
                 tracks.append(
                     {
@@ -113,6 +117,7 @@ def find_all_subtitle_tracks(video_path: str) -> list[dict]:
                         "label": f"{label} ({', '.join(notes)})" if notes else label,
                         "hearing_impaired": tag.hearing_impaired,
                         "machine_made": tag.machine_made,
+                        "kind": tag.kind,
                     }
                 )
 
@@ -144,9 +149,10 @@ def find_and_serve_vtt(video_path: str) -> str | None:
     return subtitle_to_vtt(sub) if sub else None
 
 
-def _tagged_files(video_path: str) -> list[tuple[str, machine_subs.SubTag]]:
+def _tagged_files(video_path: str) -> list[tuple[str, subtitle_names.SubTag]]:
     """Every subtitle file of this video that carries a language tag, with its parsed tag:
-    `<stem>.<lang>[.hi][.machine].<ext>` in the video's folder or any folder below it."""
+    `<stem>.<lang>[.hi][.<token>].<ext>` in the video's folder or any folder below it. The stem
+    must match exactly (`stem + "."`), never as a prefix of another video's name."""
     stem = os.path.splitext(os.path.basename(video_path))[0]
     prefix = stem + "."
     found = []
@@ -158,18 +164,23 @@ def _tagged_files(video_path: str) -> list[tuple[str, machine_subs.SubTag]]:
         for name in names:
             base, ext = os.path.splitext(name)
             if ext.lower() in SUBTITLE_EXTENSIONS and base.startswith(prefix):
-                found.append((os.path.join(d, name), machine_subs.parse_tag(base[len(prefix) :])))
+                found.append((os.path.join(d, name), subtitle_names.parse_tag(base[len(prefix) :])))
     return found
 
 
 def _languages(video_path: str, machine_made: bool) -> set[str]:
-    return {t.lang for _, t in _tagged_files(video_path) if t.machine_made == machine_made}
+    """Languages with a real file (`machine_made=False`) or a generated/translated one."""
+    return {
+        t.lang
+        for _, t in _tagged_files(video_path)
+        if not t.original and (t.machine_made if machine_made else subtitle_names.is_real(t))
+    }
 
 
 def _missing_lang_codes(video_path: str, lang_codes: list[str]) -> list[str]:
     """Return lang_codes that don't have a *real* tagged subtitle file yet. A machine-made one
-    (`.machine`) never counts, so the real subtitle is still fetched; a hearing-impaired one (`.hi`)
-    is a real subtitle and does."""
+    (`.generated` / `.translated`) and a sync backup (`.original`) never count, so the real
+    subtitle is still fetched; a hearing-impaired or labelled one is a real subtitle and does."""
     have = _languages(video_path, machine_made=False)
     return [lang for lang in lang_codes if lang.lower() not in have]
 
@@ -182,7 +193,9 @@ def delete_subtitle(video_path: str, language: str, machine: bool = False) -> bo
     candidates = [
         path
         for path, t in _tagged_files(video_path)
-        if t.lang == lang and t.machine_made == machine
+        if t.lang == lang
+        and not t.original
+        and (t.machine_made if machine else subtitle_names.is_real(t))
     ]
     if not candidates:
         return False
@@ -196,7 +209,8 @@ def delete_subtitle(video_path: str, language: str, machine: bool = False) -> bo
 
 
 def remove_machine_made(video_path: str, language: str) -> bool:
-    """A real subtitle for `language` just arrived: the machine-made one is no longer needed."""
+    """A real subtitle for `language` just arrived: the generated and translated files of that
+    language are no longer needed."""
     return delete_subtitle(video_path, language, machine=True)
 
 

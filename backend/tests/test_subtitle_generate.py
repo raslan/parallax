@@ -62,7 +62,7 @@ def _state(fs_db, jid):
 def test_generate_writes_a_machine_made_english_subtitle(env):
     video, _ = env
     out = sg.generate_one(str(video), MODEL, "en", lambda: False)
-    assert out.endswith("Movie (2020).en.machine.srt")
+    assert out.endswith("Movie (2020).en.generated.srt")
     text = open(out, encoding="utf-8").read()
     assert "00:00:00,500 --> 00:00:02,000\nHello there." in text
     assert text.count("-->") == 2  # the empty segment is dropped
@@ -71,7 +71,7 @@ def test_generate_writes_a_machine_made_english_subtitle(env):
     from app.services.subtitle_service import _missing_lang_codes
 
     assert _missing_lang_codes(str(video), ["en"]) == ["en"]
-    assert sorted(os.listdir(video.parent)) == ["Movie (2020).en.machine.srt", "Movie (2020).mkv"]
+    assert sorted(os.listdir(video.parent)) == ["Movie (2020).en.generated.srt", "Movie (2020).mkv"]
     assert not [
         d for d in os.listdir(os.path.dirname(video.parent)) if d.startswith("parallax-stt")
     ]
@@ -95,7 +95,7 @@ def test_job_completes_and_records_results(env):
     sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}])
     status, _c, error, settings = _state(fs_db, jid)
     assert status == JobStatus.COMPLETED and error is None
-    assert json.loads(settings)["results"][0]["output"].endswith(".en.machine.srt")
+    assert json.loads(settings)["results"][0]["output"].endswith(".en.generated.srt")
 
 
 def test_job_cancelled_while_queued_or_waiting_never_runs(env, monkeypatch):
@@ -140,8 +140,8 @@ def test_job_cancel_mid_run_reports_done_before_cancel(env, monkeypatch, tmp_pat
     )
     status, current, _e, _s = _state(fs_db, jid)
     assert status == JobStatus.CANCELLED and current == "1/2 done before cancel"
-    assert (video.parent / "Movie (2020).en.machine.srt").exists()
-    assert not (video.parent / "Other.en.machine.srt").exists()
+    assert (video.parent / "Movie (2020).en.generated.srt").exists()
+    assert not (video.parent / "Other.en.generated.srt").exists()
     assert sorted(p for p in os.listdir(video.parent) if p.startswith(".")) == []
 
 
@@ -167,4 +167,4 @@ def test_generating_never_translates_on_its_own(env, monkeypatch):
     jid = _job(fs_db)
     sg.run_generate_job(jid, [{"video_path": str(video), "model": "whisper-small"}])
     assert _state(fs_db, jid)[0] == JobStatus.COMPLETED
-    assert sorted(os.listdir(video.parent)) == ["Movie (2020).en.machine.srt", "Movie (2020).mkv"]
+    assert sorted(os.listdir(video.parent)) == ["Movie (2020).en.generated.srt", "Movie (2020).mkv"]
