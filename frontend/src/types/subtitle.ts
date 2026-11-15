@@ -214,7 +214,6 @@ export interface LengthInfo {
 }
 
 /** One token of a release name compared with the video's file name; `match` is null when either side lacks it. */
-/** @public consumed by the Compare sheet (Task 14); drop the tag then */
 export interface ReleaseToken {
   value: string | null;
   match: boolean | null;

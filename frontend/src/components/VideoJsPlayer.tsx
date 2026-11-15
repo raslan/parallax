@@ -7,6 +7,7 @@ import type { SubtitleTrack } from "@/types/subtitle";
 import { MEDIA_THEME_STYLE, focusPlayer } from "./videoJsShared";
 import { VolumePersistence } from "./VolumePersistence";
 import { PlayerSeek, type SeekRequest } from "./PlayerSeek";
+import { PlayerTime } from "./PlayerTime";
 
 /** Index of the track to show on load: the browser's language if a track matches, else the first. */
 function defaultTrackIndex(tracks: SubtitleTrack[]): number {
@@ -21,6 +22,7 @@ export default function VideoJsPlayer({
   tracks,
   extraTracks,
   seekRequest,
+  onTime,
 }: {
   streamUrl: string;
   /** Live HLS playlist for files whose audio the browser can't decode; replaces `streamUrl`. */
@@ -31,6 +33,8 @@ export default function VideoJsPlayer({
   extraTracks?: SubtitleTrack[];
   /** Seek to `time` whenever `nonce` changes. */
   seekRequest?: SeekRequest;
+  /** Called with the current playback time (seconds) as it changes. */
+  onTime?: (seconds: number) => void;
 }) {
   const all = extraTracks?.length ? [...tracks, ...extraTracks] : tracks;
   const shown = extraTracks?.length ? tracks.length : defaultTrackIndex(tracks);
@@ -56,6 +60,7 @@ export default function VideoJsPlayer({
         >
           <VolumePersistence />
           <PlayerSeek request={seekRequest} />
+          {onTime && <PlayerTime onTime={onTime} />}
           {hlsUrl ? (
             <HlsVideo src={hlsUrl} autoPlay playsInline>
               {trackEls}

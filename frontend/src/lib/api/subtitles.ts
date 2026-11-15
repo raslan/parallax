@@ -12,6 +12,7 @@ import type {
   ScanFile,
   SubtitleFileInfo,
   SubtitleProvider,
+  SubtitleTrack,
   TidyMode,
   TitleGroup,
   TranslateSource,
@@ -54,6 +55,8 @@ export const subtitlesApi = {
 
   streamUrl: (path: string) => `${BASE}/subtitles/stream?path=${encodeURIComponent(path)}`,
   vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
+  tracks: (path: string) =>
+    req<SubtitleTrack[]>(`/subtitles/tracks?path=${encodeURIComponent(path)}`),
   tracksUrl: (path: string) => `${BASE}/subtitles/tracks?path=${encodeURIComponent(path)}`,
 
   deleteSubtitle: (file_path: string, language: string, machine = false) =>

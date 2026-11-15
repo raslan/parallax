@@ -21,6 +21,7 @@ import { WorkingState } from "@/components/WorkingState";
 import { Button } from "@/components/ui/button";
 import { BrowseControls } from "@/components/organize/BrowseControls";
 import { ActivityBar } from "@/components/subtitles/ActivityBar";
+import { CompareSheet } from "@/components/subtitles/CompareSheet";
 import { FolderStrip } from "@/components/subtitles/FolderStrip";
 import { SubtitleDock } from "@/components/subtitles/SubtitleDock";
 import { SummaryStrip } from "@/components/subtitles/SummaryStrip";
@@ -35,6 +36,7 @@ import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
 import { useSort } from "@/hooks/useSort";
 import { useSubtitleActions } from "@/hooks/useSubtitleActions";
 import { useSubtitleActivity } from "@/hooks/useSubtitleActivity";
+import { useSubtitleCompare } from "@/hooks/useSubtitleCompare";
 import { useSubtitleFolder } from "@/hooks/useSubtitleFolder";
 import { useSubtitleWorkflow } from "@/hooks/useSubtitleWorkflow";
 import type { ScanFile, SubtitleProvider } from "@/types/subtitle";
@@ -88,6 +90,11 @@ export function Subtitles() {
 
   // Find subtitles (Titles → Plan → Run) and Generated and translated, over the Home view.
   const w = useSubtitleWorkflow({ folder, titles, wanted, sources });
+  const compare = useSubtitleCompare({
+    files,
+    chooseCandidate: w.plan.chooseCandidate,
+    retry: w.retry,
+  });
   const titleOf = useMemo(() => {
     const byVideo = new Map<string, { key: string; name: string }>();
     for (const t of titles) {
@@ -333,9 +340,8 @@ export function Subtitles() {
           queuePosition={runQueuePosition}
           cancelling={w.runJob.id != null && actions.cancelling.has(w.runJob.id)}
           onCancel={actions.cancel}
-          // TODO(Task 14): open the Compare sheet for this plan row / failed run item.
-          onCompareRow={() => undefined}
-          onCompareItem={() => undefined}
+          onCompareRow={compare.openRow}
+          onCompareItem={compare.openItem}
         />
       ) : (
         <>
@@ -361,6 +367,16 @@ export function Subtitles() {
             }}
           />
         </>
+      )}
+      {compare.sheet && (
+        <CompareSheet
+          key={compare.sheet.video.path}
+          video={compare.sheet.video}
+          mode="candidate"
+          candidates={compare.sheet.candidates}
+          onVerdict={compare.verdict}
+          onClose={compare.close}
+        />
       )}
       {playing && (
         <VideoPlayerModal

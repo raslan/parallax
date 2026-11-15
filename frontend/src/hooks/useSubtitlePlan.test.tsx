@@ -212,6 +212,31 @@ describe("useSubtitlePlan", () => {
     expect(result.current.rows[0]?.verdict).toBeUndefined();
   });
 
+  it("makes a candidate picked in Compare the row's candidate with that verdict", async () => {
+    preview.mockResolvedValue({
+      preview_id: "p",
+      cues: 10,
+      first: 1,
+      last: 600,
+      video_duration: 3000,
+      length: "short",
+      lines: [],
+    });
+    const { result } = setup([file(1)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await act(async () =>
+      searches[0]?.d.resolve({ candidates: [cand("a"), cand("b")], errors: [] }),
+    );
+    await waitFor(() => expect(result.current.rows[0]?.status).toBe("flagged"));
+    act(() => result.current.chooseCandidate(result.current.rows[0]?.key ?? "", cand("b"), "use"));
+    const row = result.current.rows[0];
+    expect(row?.candidate?.subtitle_id).toBe("b");
+    expect(row?.candidates.map((c) => c.subtitle_id)).toEqual(["b", "a"]);
+    expect(row?.verdict).toBe("use");
+    expect(row?.status).toBe("ready");
+    expect(row?.lengthResult).toEqual({ error: "Not checked" });
+  });
+
   it("retries only rows whose search failed", async () => {
     const { result } = setup([file(1), file(2)]);
     await waitFor(() => expect(search).toHaveBeenCalledTimes(2));

@@ -338,6 +338,28 @@ export function useSubtitlePlan({
     (key: string, verdict: PlanVerdict | undefined) => patch(key, { verdict }),
     [patch],
   );
+  /**
+   * A candidate picked in Compare becomes the row's candidate (listed first) with the verdict
+   * the user gave it. Its length was not checked by the plan, so the row says so.
+   */
+  const chooseCandidate = useCallback(
+    (key: string, candidate: Candidate, verdict: PlanVerdict) => {
+      const r = rows.find((x) => x.key === key);
+      if (!r) return;
+      const same = (c: Candidate) =>
+        c.provider === candidate.provider && c.subtitle_id === candidate.subtitle_id;
+      const top = r.candidate;
+      patch(key, {
+        found: {
+          candidates: [candidate, ...r.candidates.filter((c) => !same(c))],
+          errors: r.errors,
+        },
+        ...(top && same(top) ? {} : { length: { error: "Not checked" } }),
+        verdict,
+      });
+    },
+    [rows, patch],
+  );
   const toggleUse = useCallback(
     (key: string) => {
       const r = rows.find((x) => x.key === key);
@@ -372,6 +394,7 @@ export function useSubtitlePlan({
     findAnother,
     retry,
     setVerdict,
+    chooseCandidate,
     toggleUse,
     approveAllClean,
   };

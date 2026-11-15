@@ -118,6 +118,11 @@ export const qk = {
   subtitleGroups: (path: string) => ["subtitles", "groups", path] as const,
   subtitleFiles: (videoPath: string) => ["subtitles", "files", videoPath] as const,
   subtitleActive: () => ["subtitles", "active"] as const,
+  /** A candidate's temporary preview, for one video. */
+  subtitlePreview: (video: string, provider: string, subtitleId: string, language: string) =>
+    ["subtitles", "preview", video, provider, subtitleId, language] as const,
+  subtitleReleaseTokens: (release: string, videoName: string) =>
+    ["subtitles", "release-tokens", release, videoName] as const,
   subtitleUnmatched: (path: string) => ["subtitles", "unmatched", path] as const,
   /** Film cards from the YTS title search for one query. */
   subtitleYts: (query: string) => ["subtitles", "yts", query] as const,
