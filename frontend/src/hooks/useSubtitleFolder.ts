@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk, subtitlesApi } from "@/lib/api";
 import { folderSearch, normalizeFolderPath } from "@/lib/organizeNav";
-import { lengthKey } from "@/lib/subtitleCoverage";
+import { hasSubtitle, lengthKey } from "@/lib/subtitleCoverage";
 import { groupFiles } from "@/lib/subtitleGroups";
 import { useStreamedByFile } from "@/hooks/useStreamedByFile";
 import type { ActiveJob, LengthInfo, ScanFile, TitleGroup } from "@/types/subtitle";
@@ -59,16 +59,20 @@ export function useSubtitleFolder(activeFor: (folder: string | null) => ActiveJo
 
   const files = scanQ.data ?? NO_FILES;
   const titles = useMemo(() => groupFiles(files, groupsQ.data ?? NO_GROUPS), [files, groupsQ.data]);
-  const keyed = useMemo(() => files.map(lengthKey), [files]);
+  // Only a video with a subtitle has a length to check.
+  const keyed = useMemo(() => files.filter(hasSubtitle).map(lengthKey), [files]);
   const lengths = useStreamedByFile<LengthInfo>({
     resetKey: folder ?? "",
     files: keyed,
     enabled: scanQ.isSuccess,
     fetchBatch: subtitlesApi.checkLengths,
   });
+  const { forget } = lengths;
 
   const rescan = () => {
     if (folder === null) return;
+    // A Rescan reads the lengths again too, even of videos whose subtitles look unchanged.
+    forget(files.map((f) => f.path));
     for (const queryKey of [
       qk.subtitleScan(folder),
       qk.subtitleGroups(folder),
@@ -79,16 +83,19 @@ export function useSubtitleFolder(activeFor: (folder: string | null) => ActiveJo
 
   // A job that was running for this folder and is gone has finished: read the disk again.
   const ids = folderJobs.map((j) => j.id).join(",");
-  const lastIds = useRef(ids);
+  const last = useRef({ folder, ids });
   useEffect(() => {
-    const before = lastIds.current.split(",").filter(Boolean);
-    lastIds.current = ids;
+    const prev = last.current;
+    last.current = { folder, ids };
+    // Another folder starts a fresh comparison; its jobs did not "finish" here.
+    if (folder === null || prev.folder !== folder) return;
     const now = new Set(ids.split(","));
-    if (folder !== null && before.some((id) => !now.has(id))) {
+    if (prev.ids.split(",").some((id) => id !== "" && !now.has(id))) {
+      forget(files.map((f) => f.path));
       for (const queryKey of [qk.subtitleScan(folder), qk.subtitleUnmatched(folder)])
         void qc.invalidateQueries({ queryKey });
     }
-  }, [ids, folder, qc]);
+  }, [ids, folder, qc, forget, files]);
 
   /** Opens a folder (a pushed history entry, so Back returns). */
   const openFolder = (path: string) => {

@@ -94,17 +94,24 @@ const TRANSLATE_BLOCKED = "Install a language pack in Settings → Subtitles";
 
 /**
  * Why Translate or Generate cannot work at all, else null. Only what is installed counts:
- * what a file already has never disables an action.
+ * what a file already has never disables an action. `null` means not known (the list is
+ * still loading or could not be read); unknown is never taken for "none installed", so it
+ * blocks nothing and the server answers if the action really cannot run.
  */
 export function blockedReasons({
   speechModelReady,
   packsInstalled,
 }: {
-  speechModelReady: boolean;
-  packsInstalled: number;
+  speechModelReady: boolean | null;
+  packsInstalled: number | null;
 }) {
   return {
-    translate: packsInstalled > 0 ? null : TRANSLATE_BLOCKED,
-    generate: speechModelReady ? null : GENERATE_BLOCKED,
+    translate: packsInstalled === 0 ? TRANSLATE_BLOCKED : null,
+    generate: speechModelReady === false ? GENERATE_BLOCKED : null,
   };
+}
+
+/** Whether a video has a subtitle to check or sync (a `.original` backup is not one). */
+export function hasSubtitle(file: ScanFile): boolean {
+  return file.subtitles.some((s) => s.kind !== "original");
 }

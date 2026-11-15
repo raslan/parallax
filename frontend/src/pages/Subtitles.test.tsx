@@ -152,6 +152,8 @@ describe("Subtitles Home", () => {
     ]);
     renderAt("?path=/m");
     expect(await screen.findByText("film.mkv")).toBeTruthy();
+    // Nothing to go back to: the lone title is the folder.
+    expect(screen.queryByRole("button", { name: /All titles/ })).toBeNull();
   });
 
   it("says so when the folder has no videos", async () => {

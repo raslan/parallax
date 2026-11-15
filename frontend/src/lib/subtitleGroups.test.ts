@@ -48,6 +48,20 @@ describe("groupFiles", () => {
   });
 });
 
+describe("groupFiles fallback", () => {
+  it("puts scanned files no group claims into a last Other files group", () => {
+    const files = [file("/a/1"), file("/loose/x"), file("/loose/y")];
+    const out = groupFiles(files, [group("a", ["/a/1"])]);
+    expect(out.map((g) => g.group.title)).toEqual(["a", "Other files"]);
+    expect(out[1]!.files.map((f) => f.path)).toEqual(["/loose/x", "/loose/y"]);
+    expect(out[1]!.group.files).toEqual(["/loose/x", "/loose/y"]);
+  });
+
+  it("adds no Other files group when every file is in a group", () => {
+    expect(groupFiles([file("/a/1")], [group("a", ["/a/1"])])).toHaveLength(1);
+  });
+});
+
 describe("titleStatus", () => {
   it("names the layout, the choice and the skip", () => {
     expect(titleStatus(group("a", [], { layout_clean: true }), false)).toBe("Layout looks right");

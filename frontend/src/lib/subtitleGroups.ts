@@ -27,6 +27,9 @@ export function sortTitleFiles(files: ScanFile[], key: TitleFileSort, dir: SortD
   return dir === "desc" ? out.reverse() : out;
 }
 
+/** The key of the fallback group; no server key looks like it (they start with the type). */
+const OTHER_FILES_KEY = "other-files";
+
 /** One title of the folder (a show or a film) with its scanned videos, in the group's order. */
 export interface TitleWithFiles {
   group: TitleGroup;
@@ -36,17 +39,37 @@ export interface TitleWithFiles {
 /**
  * Pairs the server's title groups with the scan's files. Groups keep the server's order
  * (by title) and each group its own file order; a path the scan no longer has (a file
- * deleted between the two reads) is dropped, and a group left empty with it.
+ * deleted between the two reads) is dropped, and a group left empty with it. A scanned
+ * file no group claims (the two reads list videos with slightly different extension sets,
+ * or a file appeared between them) goes into a last "Other files" group, so no video can
+ * vanish from the page.
  */
 export function groupFiles(files: ScanFile[], groups: TitleGroup[]): TitleWithFiles[] {
   const byPath = new Map(files.map((f) => [f.path, f]));
+  const claimed = new Set<string>();
   const out: TitleWithFiles[] = [];
   for (const group of groups) {
     const own = group.files.flatMap((p) => {
       const f = byPath.get(p);
       return f ? [f] : [];
     });
+    for (const f of own) claimed.add(f.path);
     if (own.length > 0) out.push({ group, files: own });
+  }
+  const rest = files.filter((f) => !claimed.has(f.path));
+  if (rest.length > 0) {
+    out.push({
+      group: {
+        key: OTHER_FILES_KEY,
+        title: "Other files",
+        year: null,
+        type: "movie",
+        files: rest.map((f) => f.path),
+        layout_clean: false,
+        needs_choice: false,
+      },
+      files: rest,
+    });
   }
   return out;
 }

@@ -206,6 +206,13 @@ export const subtitlesApi = {
       body: JSON.stringify({ video_path, subtitle_path }),
     }),
 
+  /** One job that syncs every subtitle of each video; `path` is the folder the work was started from. */
+  syncFiles: (video_paths: string[], opts?: { path?: string; engine?: "alass" | "ffsubsync" }) =>
+    req<{ job_id: number }>("/subtitles/sync-files", {
+      method: "POST",
+      body: JSON.stringify({ video_paths, ...opts }),
+    }),
+
   syncBulk: (path: string) =>
     req<{ job_id: number }>("/subtitles/sync-bulk", {
       method: "POST",

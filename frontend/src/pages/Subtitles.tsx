@@ -55,29 +55,33 @@ export function Subtitles() {
   const actions = useSubtitleActions(folder);
 
   // Wanted starts from Settings each visit; a change here lives until the page is left.
-  const { data: settings } = useQuery({
+  // Until Settings has answered the chips stay empty (no English flash); if it cannot be
+  // read, English is the starting point, as in Settings.
+  const settingsQ = useQuery({
     queryKey: qk.settings(),
     queryFn: () => api.getSettings(),
   });
   const [wantedEdit, setWantedEdit] = useState<string[] | null>(null);
-  const savedLanguages = settings?.subtitle_languages;
-  const wanted = useMemo(
-    () => wantedEdit ?? parseLanguages(savedLanguages),
-    [wantedEdit, savedLanguages],
+  const savedLanguages = settingsQ.data?.subtitle_languages;
+  const wantedKnown = useMemo(
+    () => wantedEdit ?? (settingsQ.isPending ? null : parseLanguages(savedLanguages)),
+    [wantedEdit, settingsQ.isPending, savedLanguages],
   );
+  const wanted = useMemo(() => wantedKnown ?? [], [wantedKnown]);
   const [sources, setSources] = useState<SubtitleProvider[]>(["subf2m", "yts"]);
 
-  const { data: packs } = useQuery({
+  // Not known (loading or failed) is not "none installed": it disables nothing.
+  const packsQ = useQuery({
     queryKey: qk.subtitlePacks(),
     queryFn: () => subtitlePacksApi.list(),
   });
-  const { data: models } = useQuery({
+  const modelsQ = useQuery({
     queryKey: qk.speechModels(),
     queryFn: () => speechModelsApi.list(),
   });
   const blocked = blockedReasons({
-    speechModelReady: (models ?? []).some((m) => m.active && m.installed),
-    packsInstalled: (packs ?? []).filter((p) => p.installed).length,
+    speechModelReady: modelsQ.isSuccess ? modelsQ.data.some((m) => m.active && m.installed) : null,
+    packsInstalled: packsQ.isSuccess ? packsQ.data.filter((p) => p.installed).length : null,
   });
 
   // A lone title opens straight into itself.
@@ -283,7 +287,7 @@ export function Subtitles() {
         scanning={f.scanQ.isFetching}
         onOpen={f.openFolder}
         onRescan={f.rescan}
-        wanted={wanted}
+        wanted={wantedKnown}
         onWantedChange={setWantedEdit}
         sources={sources}
         onSourcesChange={setSources}
@@ -300,7 +304,7 @@ export function Subtitles() {
         onFind={() => undefined}
         onTranslate={() => undefined}
         onGenerate={() => undefined}
-        onSync={() => actions.sync(actionFiles, actionFiles.length === files.length)}
+        onSync={() => actions.sync(actionFiles)}
         onClear={() => {
           titleSel.selectNone();
           fileSel.selectNone();

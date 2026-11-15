@@ -119,9 +119,16 @@ export function TitleFiles({
     <SubtitleBadges file={f} wanted={wanted} length={lengths[f.path]} />
   );
 
+  // A lone title is the whole folder: no rail, and nothing to go back to.
+  const lone = titles.length === 1;
+
   return (
     <div className="flex gap-6">
-      <nav aria-label="Titles" className="hidden w-52 shrink-0 space-y-0.5 md:block">
+      <nav
+        aria-label="Titles"
+        className={cn("hidden w-52 shrink-0 space-y-0.5", !lone && "md:block")}
+        hidden={lone}
+      >
         <button
           type="button"
           onClick={() => onOpenTitle(null)}
@@ -150,7 +157,7 @@ export function TitleFiles({
       </nav>
 
       <div className="min-w-0 flex-1 space-y-3">
-        <div className="flex items-center gap-2 md:hidden">
+        <div className={cn("flex items-center gap-2 md:hidden", lone && "hidden")} hidden={lone}>
           <button
             type="button"
             onClick={() => onOpenTitle(null)}

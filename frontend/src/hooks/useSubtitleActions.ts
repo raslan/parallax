@@ -1,19 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, qk, subtitlesApi } from "@/lib/api";
+import { hasSubtitle } from "@/lib/subtitleCoverage";
 import type { ScanFile } from "@/types/subtitle";
 
-/** A video with at least one subtitle a sync can work on (a `.original` backup is not one). */
-const canSync = (f: ScanFile) => f.subtitles.some((s) => s.kind !== "original");
+/** The server's cap on videos per sync job (`SYNC_FILES_MAX`). */
+const SYNC_CHUNK = 500;
 
 /**
  * The Subtitles page's write actions that need no further choices: Sync on the dock and
  * Cancel on the Activity section. Errors go through the shared mutation toast.
  *
- * Sync covers every subtitle of the chosen videos with the Settings engine. The whole
- * folder is one job (`sync-bulk`); a part of it is one job per video, since the sync
- * endpoint takes one video. A video with no subtitle file at all has nothing to sync and
- * is left out, and the toast says how many were.
+ * Sync covers every subtitle of the chosen videos with the Settings engine, as one job
+ * (`POST /subtitles/sync-files`, started from the open folder so the Activity section
+ * shows it; a selection over the server's 500-video cap goes in several jobs of 500). A
+ * video with no subtitle file at all has nothing to sync and is left out, and the toast
+ * says how many were.
  */
 export function useSubtitleActions(folder: string | null) {
   const qc = useQueryClient();
@@ -23,11 +25,13 @@ export function useSubtitleActions(folder: string | null) {
   };
 
   const sync = useMutation({
-    mutationFn: async ({ files, wholeFolder }: { files: ScanFile[]; wholeFolder: boolean }) => {
-      const targets = files.filter(canSync);
-      if (targets.length > 0) {
-        if (wholeFolder && folder !== null) await subtitlesApi.syncBulk(folder);
-        else for (const f of targets) await subtitlesApi.syncFile(f.path);
+    mutationFn: async (files: ScanFile[]) => {
+      const targets = files.filter(hasSubtitle).map((f) => f.path);
+      for (let i = 0; i < targets.length; i += SYNC_CHUNK) {
+        await subtitlesApi.syncFiles(
+          targets.slice(i, i + SYNC_CHUNK),
+          folder !== null ? { path: folder } : undefined,
+        );
       }
       return { queued: targets.length, left: files.length - targets.length };
     },
@@ -46,7 +50,7 @@ export function useSubtitleActions(folder: string | null) {
   });
 
   return {
-    sync: (files: ScanFile[], wholeFolder: boolean) => sync.mutate({ files, wholeFolder }),
+    sync: (files: ScanFile[]) => sync.mutate(files),
     syncing: sync.isPending,
     cancel: cancel.mutate,
     cancelling: new Set(cancel.isPending && cancel.variables != null ? [cancel.variables] : []),

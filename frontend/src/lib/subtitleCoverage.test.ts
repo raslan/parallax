@@ -1,6 +1,36 @@
 import { describe, expect, it } from "vitest";
 import type { LengthInfo, ScanFile, SubtitleFileInfo, SubtitleKind } from "@/types/subtitle";
-import { attention, coverage, lengthKey } from "./subtitleCoverage";
+import { attention, blockedReasons, coverage, lengthKey, hasSubtitle } from "./subtitleCoverage";
+
+describe("blockedReasons", () => {
+  it("gives a reason only when nothing is installed", () => {
+    expect(blockedReasons({ speechModelReady: false, packsInstalled: 0 })).toEqual({
+      translate: "Install a language pack in Settings → Subtitles",
+      generate: "Install or choose a speech model in Settings → Subtitles",
+    });
+    expect(blockedReasons({ speechModelReady: true, packsInstalled: 1 })).toEqual({
+      translate: null,
+      generate: null,
+    });
+  });
+
+  it("never blocks while the lists are loading or could not be read", () => {
+    // null = not known yet (loading) or the read failed: unknown is not "none installed".
+    expect(blockedReasons({ speechModelReady: null, packsInstalled: null })).toEqual({
+      translate: null,
+      generate: null,
+    });
+  });
+});
+
+describe("hasSubtitle", () => {
+  it("is true only for a video with a subtitle other than a .original backup", () => {
+    const p = "/m/a.mkv";
+    expect(hasSubtitle(file(p))).toBe(false);
+    expect(hasSubtitle(file(p, [sub(p, "en", "original")]))).toBe(false);
+    expect(hasSubtitle(file(p, [sub(p, "en", "generated")]))).toBe(true);
+  });
+});
 
 const sub = (
   video: string,

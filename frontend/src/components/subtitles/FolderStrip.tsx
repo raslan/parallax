@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DirPicker } from "@/components/DirPicker";
 import { Tip } from "@/components/Tip";
 import { COMMON_LANGS, languageName } from "@/lib/subtitle-langs";
@@ -45,7 +46,8 @@ export function FolderStrip({
   scanning: boolean;
   onOpen: (path: string) => void;
   onRescan: () => void;
-  wanted: string[];
+  /** Null until Settings has answered: nothing is shown rather than a guess. */
+  wanted: string[] | null;
   onWantedChange: (next: string[]) => void;
   sources: SubtitleProvider[];
   onSourcesChange: (next: SubtitleProvider[]) => void;
@@ -55,7 +57,7 @@ export function FolderStrip({
   const [draft, setDraft] = useState(folder ?? "");
   const [picking, setPicking] = useState(false);
   const [adding, setAdding] = useState(false);
-  const addable = COMMON_LANGS.filter((l) => !wanted.includes(l.code));
+  const addable = COMMON_LANGS.filter((l) => !wanted?.includes(l.code));
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-card p-3">
@@ -90,43 +92,49 @@ export function FolderStrip({
 
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">Wanted</span>
-        {wanted.map((code) => (
-          <span key={code} className={chip(true)}>
-            {languageName(code)}
-            {wanted.length > 1 && (
-              <button
-                type="button"
-                aria-label={`Stop showing ${languageName(code)}`}
-                onClick={() => onWantedChange(wanted.filter((c) => c !== code))}
-                className="rounded hover:bg-primary/20"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </span>
-        ))}
-        <Popover open={adding} onOpenChange={setAdding}>
-          <PopoverTrigger asChild>
-            <button type="button" aria-label="Add a wanted language" className={chip(false)}>
-              <Plus className="h-3 w-3" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="flex w-64 flex-wrap gap-1.5 p-2">
-            {addable.map((l) => (
-              <button
-                key={l.code}
-                type="button"
-                className={chip(false)}
-                onClick={() => {
-                  onWantedChange([...wanted, l.code]);
-                  setAdding(false);
-                }}
-              >
-                {l.label}
-              </button>
+        {wanted === null ? (
+          <Skeleton className="h-6 w-32" />
+        ) : (
+          <>
+            {wanted.map((code) => (
+              <span key={code} className={chip(true)}>
+                {languageName(code)}
+                {wanted.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label={`Stop showing ${languageName(code)}`}
+                    onClick={() => onWantedChange(wanted.filter((c) => c !== code))}
+                    className="rounded hover:bg-primary/20"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
             ))}
-          </PopoverContent>
-        </Popover>
+            <Popover open={adding} onOpenChange={setAdding}>
+              <PopoverTrigger asChild>
+                <button type="button" aria-label="Add a wanted language" className={chip(false)}>
+                  <Plus className="h-3 w-3" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="flex w-64 flex-wrap gap-1.5 p-2">
+                {addable.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    className={chip(false)}
+                    onClick={() => {
+                      onWantedChange([...wanted, l.code]);
+                      setAdding(false);
+                    }}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          </>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
