@@ -4634,176 +4634,6 @@
         }
       }
     },
-    "/api/subtitles/download": {
-      "post": {
-        "tags": ["subtitles"],
-        "summary": "Download Subtitles",
-        "operationId": "download_subtitles_api_subtitles_download_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/app__api__subtitles__DownloadRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/subtitles/search-file": {
-      "post": {
-        "tags": ["subtitles"],
-        "summary": "Search File",
-        "operationId": "search_file_api_subtitles_search_file_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SearchFileRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/subtitles/download-one": {
-      "post": {
-        "tags": ["subtitles"],
-        "summary": "Download One",
-        "operationId": "download_one_api_subtitles_download_one_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DownloadOneRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/subtitles/file": {
-      "delete": {
-        "tags": ["subtitles"],
-        "summary": "Delete Subtitle File",
-        "operationId": "delete_subtitle_file_api_subtitles_file_delete",
-        "parameters": [
-          {
-            "name": "file_path",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "File Path"
-            }
-          },
-          {
-            "name": "language",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Language"
-            }
-          },
-          {
-            "name": "machine",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Delete the machine-made subtitle instead",
-              "default": false,
-              "title": "Machine"
-            },
-            "description": "Delete the machine-made subtitle instead"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/subtitles/translate-sources": {
       "get": {
         "tags": ["subtitles"],
@@ -4968,43 +4798,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RestoreOriginalRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/subtitles/sync-bulk": {
-      "post": {
-        "tags": ["subtitles"],
-        "summary": "Sync Bulk",
-        "operationId": "sync_bulk_api_subtitles_sync_bulk_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SyncBulkRequest"
               }
             }
           },
@@ -6388,7 +6181,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__api__downloads__DownloadRequest"
+                "$ref": "#/components/schemas/DownloadRequest"
               }
             }
           },
@@ -8671,28 +8464,118 @@
         "required": ["vendor", "label"],
         "title": "DetectedGpu"
       },
-      "DownloadOneRequest": {
+      "DownloadRequest": {
         "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Urls"
           },
-          "provider": {
-            "type": "string",
-            "title": "Provider"
+          "output_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Dir"
           },
-          "subtitle_id": {
-            "type": "string",
-            "title": "Subtitle Id"
+          "audio_only": {
+            "type": "boolean",
+            "title": "Audio Only",
+            "default": false
           },
-          "language": {
+          "quality": {
             "type": "string",
-            "title": "Language"
+            "title": "Quality",
+            "default": "best"
+          },
+          "codec": {
+            "type": "string",
+            "title": "Codec",
+            "default": "auto"
+          },
+          "trim_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trim Start"
+          },
+          "trim_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trim End"
+          },
+          "download_subs": {
+            "type": "boolean",
+            "title": "Download Subs",
+            "default": false
+          },
+          "sub_langs": {
+            "type": "string",
+            "title": "Sub Langs",
+            "default": "en"
+          },
+          "extra_args": {
+            "type": "string",
+            "title": "Extra Args",
+            "default": ""
+          },
+          "impersonate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impersonate"
+          },
+          "concurrent_fragments": {
+            "type": "integer",
+            "title": "Concurrent Fragments",
+            "default": 4
+          },
+          "referer": {
+            "type": "string",
+            "title": "Referer",
+            "default": ""
+          },
+          "throttled_rate": {
+            "type": "string",
+            "title": "Throttled Rate",
+            "default": ""
+          },
+          "cookies": {
+            "type": "string",
+            "title": "Cookies",
+            "default": ""
+          },
+          "group_by_uploader": {
+            "type": "boolean",
+            "title": "Group By Uploader",
+            "default": false
           }
         },
         "type": "object",
-        "required": ["file_path", "provider", "subtitle_id", "language"],
-        "title": "DownloadOneRequest"
+        "required": ["urls"],
+        "title": "DownloadRequest"
       },
       "DuplicateCriteriaRequest": {
         "properties": {
@@ -11393,91 +11276,6 @@
         "required": ["path"],
         "title": "ScanRequest"
       },
-      "SearchFileRequest": {
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
-          },
-          "languages": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Languages"
-          },
-          "query": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Query"
-          },
-          "year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Year"
-          },
-          "media_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media Type"
-          },
-          "season": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Season"
-          },
-          "episode": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Episode"
-          },
-          "provider": {
-            "type": "string",
-            "title": "Provider",
-            "default": "subf2m"
-          }
-        },
-        "type": "object",
-        "required": ["file_path"],
-        "title": "SearchFileRequest"
-      },
       "SearchResult": {
         "properties": {
           "tmdb_id": {
@@ -12076,17 +11874,6 @@
         ],
         "title": "StatsSummary"
       },
-      "SyncBulkRequest": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path"
-          }
-        },
-        "type": "object",
-        "required": ["path"],
-        "title": "SyncBulkRequest"
-      },
       "SyncFileRequest": {
         "properties": {
           "file_path": {
@@ -12620,119 +12407,6 @@
         "required": ["query"],
         "title": "YtsTitleRequest"
       },
-      "app__api__downloads__DownloadRequest": {
-        "properties": {
-          "urls": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Urls"
-          },
-          "output_dir": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Dir"
-          },
-          "audio_only": {
-            "type": "boolean",
-            "title": "Audio Only",
-            "default": false
-          },
-          "quality": {
-            "type": "string",
-            "title": "Quality",
-            "default": "best"
-          },
-          "codec": {
-            "type": "string",
-            "title": "Codec",
-            "default": "auto"
-          },
-          "trim_start": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trim Start"
-          },
-          "trim_end": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trim End"
-          },
-          "download_subs": {
-            "type": "boolean",
-            "title": "Download Subs",
-            "default": false
-          },
-          "sub_langs": {
-            "type": "string",
-            "title": "Sub Langs",
-            "default": "en"
-          },
-          "extra_args": {
-            "type": "string",
-            "title": "Extra Args",
-            "default": ""
-          },
-          "impersonate": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Impersonate"
-          },
-          "concurrent_fragments": {
-            "type": "integer",
-            "title": "Concurrent Fragments",
-            "default": 4
-          },
-          "referer": {
-            "type": "string",
-            "title": "Referer",
-            "default": ""
-          },
-          "throttled_rate": {
-            "type": "string",
-            "title": "Throttled Rate",
-            "default": ""
-          },
-          "cookies": {
-            "type": "string",
-            "title": "Cookies",
-            "default": ""
-          },
-          "group_by_uploader": {
-            "type": "boolean",
-            "title": "Group By Uploader",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": ["urls"],
-        "title": "DownloadRequest"
-      },
       "app__api__identify__PreviewRequest": {
         "properties": {
           "folder_path": {
@@ -12908,31 +12582,6 @@
         "type": "object",
         "required": ["video_path", "identity", "languages", "providers"],
         "title": "SearchRequest"
-      },
-      "app__api__subtitles__DownloadRequest": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "languages": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Languages"
-          }
-        },
-        "type": "object",
-        "required": ["path"],
-        "title": "DownloadRequest"
       }
     },
     "securitySchemes": {
