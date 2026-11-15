@@ -270,6 +270,24 @@ def test_non_video_path_is_refused_and_nothing_walked(tmp_path, monkeypatch):
     assert os.path.exists(sub)
 
 
+def test_missing_video_is_404_and_nothing_walked(client, monkeypatch):
+    walks = []
+    real = os.walk
+    monkeypatch.setattr(os, "walk", lambda *a, **k: walks.append(a) or real(*a, **k))
+    with pytest.raises(sf.SubtitleNotFound):
+        sf.list_subtitle_files("/nonexistent/x.mkv")
+    r = client.post("/api/subtitles/files", json={"video_path": "/nonexistent/x.mkv"})
+    assert r.status_code == 404
+    assert walks == []
+
+
+def test_nul_byte_video_path_is_refused(client):
+    with pytest.raises(SubtitleFileError):
+        sf.list_subtitle_files("/tmp/a\0b.mkv")
+    r = client.post("/api/subtitles/files", json={"video_path": "/tmp/a\0b.mkv"})
+    assert r.status_code == 400
+
+
 def test_routes_refuse_non_video_path(client, tmp_path):
     sub = touch(tmp_path / "x.en.srt")
     txt = touch(tmp_path / "x.txt", "t")

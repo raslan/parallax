@@ -57,6 +57,8 @@ def list_subtitle_files(
     match), including `original` backups. `dirs_cache` (folder -> search dirs) lets a caller
     listing many videos walk each distinct folder once."""
     _require_video(video_path)
+    if not os.path.isfile(video_path):
+        raise SubtitleNotFound("That video file was not found.")
     video_dir = os.path.dirname(video_path)
     search_dirs = None
     if dirs_cache is not None:
