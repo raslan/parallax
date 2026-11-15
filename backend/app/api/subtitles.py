@@ -51,6 +51,46 @@ class DownloadOneRequest(BaseModel):
     language: str
 
 
+class YtsTitleRequest(BaseModel):
+    query: str
+
+
+class ParsePastedRequest(BaseModel):
+    text: str
+
+
+@router.post("/groups", summary="Suggest title groups for the videos in a folder")
+def suggest_title_groups(body: ScanRequest):
+    if not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
+    from app.services import renamer, subtitle_identity
+
+    return subtitle_identity.suggest_groups(body.path, renamer.list_video_files(body.path))
+
+
+@router.post("/identity/yts", summary="Search films by title on the YTS subtitle site")
+def identity_yts(body: YtsTitleRequest):
+    from app.services.ytssubs_provider import YtsSubsProvider
+
+    provider = YtsSubsProvider()
+    try:
+        return provider.search_titles(body.query.strip())
+    except ProviderError as exc:
+        raise HTTPException(502, str(exc))
+    finally:
+        provider.close()
+
+
+@router.post("/identity/parse", summary="Read a pasted IMDB id or subtitle-site link")
+def identity_parse(body: ParsePastedRequest):
+    from app.services import subtitle_identity
+
+    try:
+        return subtitle_identity.parse_pasted(body.text)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
 @router.post("/scan")
 def scan_path(body: ScanRequest, db: Session = Depends(get_db)):
     if not os.path.isdir(body.path):
