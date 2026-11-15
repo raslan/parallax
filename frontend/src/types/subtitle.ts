@@ -1,4 +1,4 @@
-export interface SubtitleFile {
+interface SubtitleFile {
   path: string;
   filename: string;
   relative_dir: string;
@@ -32,7 +32,6 @@ export interface Identity {
   tmdb_id?: number;
 }
 
-/** @public consumed by the new Subtitles page (Tasks 12-15); drop the tag then */
 export type SubtitleKind = "real" | "hearing_impaired" | "generated" | "translated" | "original";
 
 /** One subtitle file of a video, as it is on disk (`directory` is relative to the video's folder). */
@@ -44,6 +43,11 @@ export interface SubtitleFileInfo {
   kind: SubtitleKind;
   size: number;
   directory: string;
+}
+
+/** One video of a folder scan, with every subtitle file it has on disk. */
+export interface ScanFile extends SubtitleFile {
+  subtitles: SubtitleFileInfo[];
 }
 
 /** A subtitle file in the folder that no video claims. `language` is null when unreadable. */
@@ -112,16 +116,27 @@ export interface RunItem {
   sync: boolean;
 }
 
+/** A pending or running subtitle job; `queue_position` is set only while it waits for a slot. */
+export interface ActiveJob {
+  id: number;
+  type: string;
+  status: string;
+  progress: number;
+  current_file: string | null;
+  queue_position: number | null;
+}
+
 export interface ActiveWork {
   path: string;
-  jobs: {
-    id: number;
-    type: string;
-    status: string;
-    progress: number;
-    current_file: string | null;
-    queue_position: number | null;
-  }[];
+  jobs: ActiveJob[];
+}
+
+/** Per wanted language: how many of the files have a real, a generated and a translated subtitle. */
+export interface LanguageCoverage {
+  real: number;
+  generated: number;
+  translated: number;
+  total: number;
 }
 
 export interface LengthInfo {

@@ -111,10 +111,8 @@ export const qk = {
   splicePreflight: (ids: number[], referenceId: number | null, name: string, codec: string) =>
     ["splice", "preflight", ids.join(","), referenceId, name, codec] as const,
 
-  subtitleScan: (libraryId: number, params?: unknown) =>
-    params === undefined
-      ? (["subtitles", "scan", libraryId] as const)
-      : (["subtitles", "scan", libraryId, params] as const),
+  /** A folder's videos with the subtitle files each has on disk. */
+  subtitleScan: (path: string) => ["subtitles", "scan", path] as const,
   subtitleTracks: (path: string) => ["subtitles", "tracks", path] as const,
   translateSources: (path: string) => ["subtitles", "translate-sources", path] as const,
   subtitleGroups: (path: string) => ["subtitles", "groups", path] as const,

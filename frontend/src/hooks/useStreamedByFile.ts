@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { OrganizeFile } from "@/types/organize";
 
 const BATCH_SIZE = 25;
 const IN_FLIGHT = 2;
 
+/** What the cache needs to know about a file: any row with these fields works. */
+interface StreamedFile {
+  path: string;
+  size: number;
+  mtime: number;
+}
+
 /** A result is reused only while the file's path, size and mtime are unchanged. */
-const keyOf = (f: OrganizeFile) => `${f.path}\u0000${f.size}\u0000${f.mtime}`;
+const keyOf = (f: StreamedFile) => `${f.path}\u0000${f.size}\u0000${f.mtime}`;
 
 /**
  * Streams a per-file lookup (ffprobe details, embedded tags) for a folder's files in the
@@ -26,7 +32,7 @@ export function useStreamedByFile<T>({
   fetchBatch,
 }: {
   resetKey: string;
-  files: OrganizeFile[];
+  files: StreamedFile[];
   enabled: boolean;
   fetchBatch: (paths: string[]) => Promise<Record<string, T | null>>;
 }) {
@@ -64,7 +70,7 @@ export function useStreamedByFile<T>({
     const known = cacheRef.current;
     const live = new Set(files.map(keyOf));
     const todo = files.filter((f) => !(keyOf(f) in known));
-    const batches: OrganizeFile[][] = [];
+    const batches: StreamedFile[][] = [];
     for (let i = 0; i < todo.length; i += BATCH_SIZE) batches.push(todo.slice(i, i + BATCH_SIZE));
     let next = 0;
 

@@ -1,872 +1,317 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  Captions,
-  FolderOpen,
-  ScanLine,
-  Download,
-  Loader2,
-  ChevronRight,
-  Film,
-  Globe,
-  Search,
-  Play,
-  X,
-  RefreshCw,
-  Languages,
-  Mic,
-} from "lucide-react";
-import { EmptyState } from "@/components/EmptyState";
+import { useMemo, useState } from "react";
+import { Captions, FolderSearch } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { subtitlesApi, subtitlePacksApi, speechModelsApi, api, qk } from "@/lib/api";
-import { useJobPoll } from "@/hooks/useJobPoll";
-import type { SubtitleFile } from "@/types/subtitle";
-import { VideoPlayerModal } from "@/components/VideoPlayerModal";
-import { SubtitleSearchDialog } from "@/components/SubtitleSearchDialog";
-import { TranslateDialog } from "@/components/TranslateDialog";
-import { hasAnySubtitle } from "@/lib/subtitleFiles";
-import { COMMON_LANGS } from "@/lib/subtitle-langs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { DirPicker } from "@/components/DirPicker";
-import { cn } from "@/lib/utils";
+import { api, qk, speechModelsApi, subtitlePacksApi, subtitlesApi } from "@/lib/api";
+import { attention, blockedReasons, coverage } from "@/lib/subtitleCoverage";
+import {
+  seasonCount,
+  sortTitleFiles,
+  TITLE_FILE_SORTS,
+  type TitleFileSort,
+} from "@/lib/subtitleGroups";
+import { filterByFilename } from "@/components/FileSelectGrid";
+import type { ViewMode } from "@/components/DataToolbar";
+import { EmptyState } from "@/components/EmptyState";
 import { PageTitle } from "@/components/PageTitle";
+import { QueryError } from "@/components/QueryError";
+import { SectionHeader } from "@/components/SectionHeader";
+import { GridSkeleton } from "@/components/Skeletons";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { WorkingState } from "@/components/WorkingState";
+import { Button } from "@/components/ui/button";
+import { BrowseControls } from "@/components/organize/BrowseControls";
+import { ActivityBar } from "@/components/subtitles/ActivityBar";
+import { FolderStrip } from "@/components/subtitles/FolderStrip";
+import { SubtitleDock } from "@/components/subtitles/SubtitleDock";
+import { SummaryStrip } from "@/components/subtitles/SummaryStrip";
+import { TitleCard } from "@/components/subtitles/TitleCard";
+import { TitleFiles, type AttentionFilter } from "@/components/subtitles/TitleFiles";
+import { UnmatchedNotice } from "@/components/subtitles/UnmatchedNotice";
+import { useGridSize } from "@/hooks/useGridSize";
+import { useScrollParent } from "@/hooks/useScrollParent";
+import { useScrollTopOnChange } from "@/hooks/useScrollTopOnChange";
+import { useSelection, useSelectionOrder } from "@/hooks/useSelection";
+import { useSort } from "@/hooks/useSort";
+import { useSubtitleActions } from "@/hooks/useSubtitleActions";
+import { useSubtitleActivity } from "@/hooks/useSubtitleActivity";
+import { useSubtitleFolder } from "@/hooks/useSubtitleFolder";
+import type { ScanFile, SubtitleProvider } from "@/types/subtitle";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+const parseLanguages = (raw: string | undefined) =>
+  (raw || "en")
+    .split(",")
+    .map((c) => c.trim().toLowerCase())
+    .filter(Boolean);
 
-function groupByDir(files: SubtitleFile[]): Map<string, SubtitleFile[]> {
-  const map = new Map<string, SubtitleFile[]>();
-  for (const f of files) {
-    const key = f.relative_dir || "(root)";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(f);
-  }
-  return map;
-}
-
-function episodeLabel(f: SubtitleFile): string {
-  if (f.season != null && f.episode != null)
-    return `S${String(f.season).padStart(2, "0")}E${String(f.episode).padStart(2, "0")}`;
-  if (f.year) return String(f.year);
-  return "";
-}
-
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function LangBadges({
-  languages,
-  machineLanguages,
-  onDelete,
-}: {
-  languages: Record<string, boolean>;
-  machineLanguages: Record<string, boolean>;
-  onDelete: (code: string, machine: boolean) => void;
-}) {
-  const codes = Object.keys(languages);
-  if (codes.length === 0) return null;
-  return (
-    <div className="flex items-center gap-1 shrink-0">
-      {codes.map((code) =>
-        languages[code] ? (
-          <span
-            key={code}
-            title={`${code}: present — click × to remove`}
-            className="group/badge flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-3xs font-mono font-medium uppercase leading-none bg-green-500/15 text-green-500"
-          >
-            {code}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(code, false);
-              }}
-              title={`Delete ${code} subtitle`}
-              className="opacity-0 group-hover/badge:opacity-100 touch:opacity-100 transition-opacity rounded hover:bg-green-500/20"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ) : machineLanguages[code] ? (
-          <span
-            key={code}
-            title={`${code}: only a machine-made subtitle (translated or generated here). A real one can still be downloaded, and replaces it.`}
-            className="group/badge flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-3xs font-mono font-medium uppercase leading-none bg-amber-500/15 text-amber-500"
-          >
-            {code} · machine-made
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(code, true);
-              }}
-              title={`Delete the machine-made ${code} subtitle`}
-              className="opacity-0 group-hover/badge:opacity-100 touch:opacity-100 transition-opacity rounded hover:bg-amber-500/20"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ) : (
-          <span
-            key={code}
-            title={`${code}: missing`}
-            className="px-1.5 py-0.5 rounded text-3xs font-mono font-medium uppercase leading-none bg-muted/50 text-muted-foreground/40"
-          >
-            {code}
-          </span>
-        ),
-      )}
-    </div>
-  );
-}
-
-function FileRow({
-  file,
-  syncing,
-  syncDisabled,
-  translating,
-  translateLangs,
-  canGenerate,
-  generating,
-  onSearch,
-  onPlay,
-  onSync,
-  onTranslate,
-  onGenerate,
-  onDeleteLang,
-}: {
-  file: SubtitleFile;
-  syncing: boolean;
-  syncDisabled: boolean;
-  translating: boolean;
-  translateLangs: string[];
-  canGenerate: boolean;
-  generating: boolean;
-  onSearch: () => void;
-  onPlay: () => void;
-  onSync: () => void;
-  onTranslate: () => void;
-  onGenerate: () => void;
-  onDeleteLang: (code: string, machine: boolean) => void;
-}) {
-  const label = episodeLabel(file);
-  const hasAny = hasAnySubtitle(file);
-  return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors group">
-      <Film className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-      <span
-        className="flex-1 text-sm font-mono truncate text-muted-foreground"
-        title={file.filename}
-      >
-        {file.filename}
-      </span>
-      {label && (
-        <span className="text-xs text-muted-foreground/60 shrink-0 font-mono">{label}</span>
-      )}
-      <LangBadges
-        languages={file.languages}
-        machineLanguages={file.machine_languages ?? {}}
-        onDelete={onDeleteLang}
-      />
-      <button
-        onClick={onSearch}
-        title="Search subtitles"
-        className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
-      >
-        <Search className="h-3.5 w-3.5" />
-      </button>
-      {canGenerate && (
-        <button
-          onClick={onGenerate}
-          disabled={generating}
-          title="Generate an English subtitle from the audio (offline, a rough stopgap)"
-          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
-        >
-          <Mic className={cn("h-3.5 w-3.5", generating && "animate-pulse")} />
-        </button>
-      )}
-      {translateLangs.length > 0 && (
-        <button
-          onClick={onTranslate}
-          disabled={translating}
-          title={`Translate the English subtitle into ${translateLangs.join(", ")} (offline)`}
-          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
-        >
-          <Languages className={cn("h-3.5 w-3.5", translating && "animate-pulse")} />
-        </button>
-      )}
-      {hasAny && (
-        <button
-          onClick={onSync}
-          disabled={syncing || syncDisabled}
-          title="Sync subtitle timing to audio"
-          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50 disabled:opacity-100"
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
-        </button>
-      )}
-      {hasAny && (
-        <button
-          onClick={onPlay}
-          title="Preview with subtitle"
-          className="opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity p-0.5 rounded hover:text-foreground text-muted-foreground/50"
-        >
-          <Play className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function DirGroup({
-  dir,
-  files,
-  syncingPaths,
-  syncDisabled,
-  translatingPaths,
-  translateLangsFor,
-  generatingPaths,
-  canGenerateFor,
-  onSearch,
-  onPlay,
-  onSync,
-  onTranslate,
-  onGenerate,
-  onDeleteLang,
-}: {
-  dir: string;
-  files: SubtitleFile[];
-  syncingPaths: Set<string>;
-  syncDisabled: boolean;
-  translatingPaths: Set<string>;
-  translateLangsFor: (f: SubtitleFile) => string[];
-  generatingPaths: Set<string>;
-  canGenerateFor: (f: SubtitleFile) => boolean;
-  onSearch: (f: SubtitleFile) => void;
-  onPlay: (f: SubtitleFile) => void;
-  onSync: (f: SubtitleFile) => void;
-  onTranslate: (f: SubtitleFile) => void;
-  onGenerate: (f: SubtitleFile) => void;
-  onDeleteLang: (f: SubtitleFile, code: string, machine: boolean) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  const withSub = files.filter((f) => f.has_subtitle).length;
-
-  return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2.5 px-4 py-2.5 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
-      >
-        <ChevronRight
-          className={cn(
-            "h-3.5 w-3.5 text-muted-foreground transition-transform",
-            open && "rotate-90",
-          )}
-        />
-        <FolderOpen className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
-        <span className="flex-1 text-sm font-mono truncate">{dir}</span>
-        <span
-          className={cn(
-            "text-xs shrink-0 font-medium",
-            withSub === files.length
-              ? "text-green-500"
-              : withSub === 0
-                ? "text-muted-foreground/50"
-                : "text-amber-500",
-          )}
-        >
-          {withSub}/{files.length}
-        </span>
-      </button>
-      {open && (
-        <div>
-          {files.map((f) => (
-            <FileRow
-              key={f.path}
-              file={f}
-              syncing={syncingPaths.has(f.path)}
-              syncDisabled={syncDisabled}
-              translating={translatingPaths.has(f.path)}
-              translateLangs={translateLangsFor(f)}
-              canGenerate={canGenerateFor(f)}
-              generating={generatingPaths.has(f.path)}
-              onSearch={() => onSearch(f)}
-              onPlay={() => onPlay(f)}
-              onSync={() => onSync(f)}
-              onTranslate={() => onTranslate(f)}
-              onGenerate={() => onGenerate(f)}
-              onDeleteLang={(code, machine) => onDeleteLang(f, code, machine)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-
+/**
+ * Tools → Subtitles, the Home view: the folder (from the URL), what is on disk in it, a
+ * card per title, the subtitle work running on it, and a dock acting on the selected
+ * titles or files. Nothing about a folder is remembered: every count is read from disk.
+ */
 export function Subtitles() {
-  const [path, setPath] = useState("");
-  const [picking, setPicking] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [files, setFiles] = useState<SubtitleFile[] | null>(null);
-  const [scanError, setScanError] = useState("");
+  const activity = useSubtitleActivity();
+  const f = useSubtitleFolder(activity.activeFor);
+  const { folder, titles, files, lengths } = f;
+  const actions = useSubtitleActions(folder);
 
-  const [selectedLangs, setSelectedLangs] = useState<string[]>(["en"]);
-  const [searchFile, setSearchFile] = useState<SubtitleFile | null>(null);
-  const [playingFile, setPlayingFile] = useState<SubtitleFile | null>(null);
-  const [downloading, setDownloading] = useState(false);
-  const [syncingPaths, setSyncingPaths] = useState<Set<string>>(new Set());
-  const [translatingPaths, setTranslatingPaths] = useState<Set<string>>(new Set());
-  const [translateFile, setTranslateFile] = useState<SubtitleFile | null>(null);
-  const [translateBusy, setTranslateBusy] = useState(false);
-  const [translateError, setTranslateError] = useState("");
-  const [generatingPaths, setGeneratingPaths] = useState<Set<string>>(new Set());
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-  const [syncingAll, setSyncingAll] = useState(false);
-  const syncAllTargetRef = useRef("");
-  const downloadTargetRef = useRef("");
-
-  const downloadPoll = useJobPoll({
-    intervalMs: 2000,
-    onTerminal: () => {
-      setDownloading(false);
-      const target = downloadTargetRef.current;
-      if (target)
-        subtitlesApi
-          .scan(target)
-          .then(setFiles)
-          .catch(() => {});
-    },
-  });
-  const syncAllPoll = useJobPoll({
-    intervalMs: 2000,
-    onTerminal: () => {
-      setSyncingAll(false);
-      const target = syncAllTargetRef.current;
-      if (target)
-        subtitlesApi
-          .scan(target)
-          .then(setFiles)
-          .catch(() => {});
-    },
-  });
-  const jobProgress = downloadPoll.progress;
-  const jobStatus = downloadPoll.currentFile || downloadPoll.status || "";
-  const syncAllProgress = syncAllPoll.progress;
-  const syncAllStatus = syncAllPoll.currentFile || syncAllPoll.status || "";
-
-  // Load default languages from settings
+  // Wanted starts from Settings each visit; a change here lives until the page is left.
   const { data: settings } = useQuery({
     queryKey: qk.settings(),
     queryFn: () => api.getSettings(),
   });
-  useEffect(() => {
-    if (!settings) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedLangs(
-      (settings.subtitle_languages || "en")
-        .split(",")
-        .map((c) => c.trim())
-        .filter(Boolean),
-    );
-  }, [settings]);
+  const [wantedEdit, setWantedEdit] = useState<string[] | null>(null);
+  const savedLanguages = settings?.subtitle_languages;
+  const wanted = useMemo(
+    () => wantedEdit ?? parseLanguages(savedLanguages),
+    [wantedEdit, savedLanguages],
+  );
+  const [sources, setSources] = useState<SubtitleProvider[]>(["subf2m", "yts"]);
 
-  const toggleLang = (code: string) => {
-    setSelectedLangs((prev) =>
-      prev.includes(code)
-        ? prev.length > 1
-          ? prev.filter((c) => c !== code)
-          : prev // keep at least one
-        : [...prev, code],
-    );
-  };
-
-  const handleDeleteLang = async (file: SubtitleFile, code: string, machine: boolean) => {
-    try {
-      await subtitlesApi.deleteSubtitle(file.path, code, machine);
-      if (machine) {
-        setFiles((prev) =>
-          prev
-            ? prev.map((f) =>
-                f.path === file.path
-                  ? { ...f, machine_languages: { ...f.machine_languages, [code]: false } }
-                  : f,
-              )
-            : prev,
-        );
-        return;
-      }
-      setFiles((prev) =>
-        prev
-          ? prev.map((f) =>
-              f.path === file.path
-                ? {
-                    ...f,
-                    languages: { ...f.languages, [code]: false },
-                    has_subtitle: Object.entries(f.languages).some(
-                      ([c, present]) => c !== code && present,
-                    ),
-                  }
-                : f,
-            )
-          : prev,
-      );
-    } catch (e: unknown) {
-      setScanError(e instanceof Error ? e.message : "Delete failed");
-    }
-  };
-
-  const handleSyncFile = async (file: SubtitleFile) => {
-    setSyncingPaths((prev) => new Set(prev).add(file.path));
-    try {
-      const { job_id } = await subtitlesApi.syncFile(file.path);
-      for (;;) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const job = await api.getJob(job_id);
-        if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-          break;
-        }
-      }
-    } catch (e: unknown) {
-      setScanError(e instanceof Error ? e.message : "Sync failed");
-    } finally {
-      setSyncingPaths((prev) => {
-        const next = new Set(prev);
-        next.delete(file.path);
-        return next;
-      });
-    }
-  };
-
-  // Languages whose offline translation pack is installed (Settings → Subtitles).
   const { data: packs } = useQuery({
     queryKey: qk.subtitlePacks(),
     queryFn: () => subtitlePacksApi.list(),
   });
-  const installedPacks = new Set((packs ?? []).filter((p) => p.installed).map((p) => p.lang));
-  const packNames = new Map((packs ?? []).map((p) => [p.lang, p.name]));
-  // The English files the open translate dialog can pick from.
-  const { data: translateSources } = useQuery({
-    queryKey: qk.translateSources(translateFile?.path ?? ""),
-    queryFn: () => subtitlesApi.translateSources(translateFile?.path ?? ""),
-    enabled: translateFile != null,
-    staleTime: 0,
-  });
-  const translateLangsFor = (f: SubtitleFile) =>
-    Object.entries(f.languages)
-      .filter(([code, present]) => !present && installedPacks.has(code))
-      .map(([code]) => code);
-
-  // The speech-to-text model chosen in Settings → Subtitles (Use), once it is installed.
-  const { data: speechModels } = useQuery({
+  const { data: models } = useQuery({
     queryKey: qk.speechModels(),
     queryFn: () => speechModelsApi.list(),
   });
-  const speechModel = (speechModels ?? []).find((m) => m.active && m.installed)?.lang;
-  // A video with no real English subtitle among the wanted languages. A machine-made one does
-  // not hide this: the user may want to generate it again.
-  const canGenerateFor = (f: SubtitleFile) => speechModel != null && f.languages.en === false;
-
-  const handleGenerate = async (file: SubtitleFile) => {
-    if (!speechModel) return;
-    setScanError("");
-    setGeneratingPaths((prev) => new Set(prev).add(file.path));
-    try {
-      // Only transcribes. Translating the result is a separate action the user starts.
-      const { job_id } = await subtitlesApi.generate([file.path]);
-      while (mountedRef.current) {
-        await new Promise((r) => setTimeout(r, 2000));
-        if (!mountedRef.current) return;
-        // One failed poll (a network blip) must not look like a failed job: the job goes on.
-        const job = await api.getJob(job_id).catch(() => null);
-        if (!job) continue;
-        if (job.status === "failed") throw new Error(job.error ?? "Generating failed");
-        if (job.status === "completed" || job.status === "cancelled") break;
-      }
-      const target = path.trim();
-      if (target && mountedRef.current)
-        subtitlesApi
-          .scan(target)
-          .then(setFiles)
-          .catch(() => {});
-    } catch (e: unknown) {
-      setScanError(e instanceof Error ? e.message : "Generating failed");
-    } finally {
-      setGeneratingPaths((prev) => {
-        const next = new Set(prev);
-        next.delete(file.path);
-        return next;
-      });
-    }
-  };
-
-  // Translate the subtitle file the user picked into the language they picked. The request is
-  // checked by the server first, so a refusal is shown in the dialog and nothing is queued.
-  const handleTranslate = async (file: SubtitleFile, source: string, lang: string) => {
-    setTranslateError("");
-    setTranslateBusy(true);
-    let jobId: number;
-    try {
-      jobId = (await subtitlesApi.translate([file.path], lang, source)).job_id;
-    } catch (e: unknown) {
-      setTranslateError(e instanceof Error ? e.message : "Translation failed");
-      setTranslateBusy(false);
-      return;
-    }
-    setTranslateBusy(false);
-    setTranslateFile(null);
-    setScanError("");
-    setTranslatingPaths((prev) => new Set(prev).add(file.path));
-    try {
-      // Stops when the page is left: the job itself keeps going on the server.
-      while (mountedRef.current) {
-        await new Promise((r) => setTimeout(r, 2000));
-        if (!mountedRef.current) return;
-        const job = await api.getJob(jobId);
-        if (job.status === "failed") throw new Error(job.error ?? "Translation failed");
-        if (job.status === "completed" || job.status === "cancelled") break;
-      }
-      // show the new machine-made badge
-      const target = path.trim();
-      if (target && mountedRef.current)
-        subtitlesApi
-          .scan(target)
-          .then(setFiles)
-          .catch(() => {});
-    } catch (e: unknown) {
-      setScanError(e instanceof Error ? e.message : "Translation failed");
-    } finally {
-      setTranslatingPaths((prev) => {
-        const next = new Set(prev);
-        next.delete(file.path);
-        return next;
-      });
-    }
-  };
-
-  const handleSyncAll = async () => {
-    if (!path.trim()) return;
-    setSyncingAll(true);
-    syncAllTargetRef.current = path.trim();
-    try {
-      const { job_id } = await subtitlesApi.syncBulk(path.trim());
-      syncAllPoll.start(job_id);
-    } catch (e: unknown) {
-      setSyncingAll(false);
-      setScanError(e instanceof Error ? e.message : "Sync failed");
-    }
-  };
-
-  const handleScan = async (scanPath?: string) => {
-    const target = (scanPath ?? path).trim();
-    if (!target) return;
-    setScanning(true);
-    setScanError("");
-    setFiles(null);
-    try {
-      const result = await subtitlesApi.scan(target);
-      setFiles(result);
-    } catch (e: unknown) {
-      setScanError(e instanceof Error ? e.message : "Scan failed");
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const handleFolderSelect = (p: string) => {
-    setPath(p);
-    setPicking(false);
-    handleScan(p);
-  };
-
-  const handleDownload = async () => {
-    if (!path.trim()) return;
-    setDownloading(true);
-    downloadTargetRef.current = path.trim();
-
-    try {
-      const { job_id } = await subtitlesApi.download(path.trim(), selectedLangs);
-      downloadPoll.start(job_id);
-    } catch (e: unknown) {
-      setDownloading(false);
-      setScanError(e instanceof Error ? e.message : "Download failed");
-    }
-  };
-
-  // Resume an active bulk job on mount (e.g. after a refresh)
-  const { data: allJobs } = useQuery({
-    queryKey: qk.jobs(),
-    queryFn: () => api.getJobs(100),
-    refetchOnMount: "always",
+  const blocked = blockedReasons({
+    speechModelReady: (models ?? []).some((m) => m.active && m.installed),
+    packsInstalled: (packs ?? []).filter((p) => p.installed).length,
   });
-  useEffect(() => {
-    if (!allJobs) return;
-    const bulkTypes = new Set(["subtitle_download", "subtitle_sync"]);
-    const active = allJobs.find(
-      (j) => bulkTypes.has(j.type) && (j.status === "running" || j.status === "pending"),
-    );
-    if (!active) return;
 
-    let jobPath = "";
-    try {
-      jobPath = active.settings ? (JSON.parse(active.settings).path ?? "") : "";
-    } catch {
-      /* ignore malformed settings */
-    }
-    if (!jobPath) return;
+  // A lone title opens straight into itself.
+  const openKey = f.titleKey ?? (titles.length === 1 ? (titles[0]?.group.key ?? null) : null);
+  const open = useMemo(
+    () => titles.find((t) => t.group.key === openKey) ?? null,
+    [titles, openKey],
+  );
 
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setPath(jobPath);
-    handleScan(jobPath);
-    if (active.type === "subtitle_download") {
-      setDownloading(true);
-      downloadTargetRef.current = jobPath;
-      downloadPoll.resume(allJobs, (j) => j.id === active.id);
-    } else {
-      setSyncingAll(true);
-      syncAllTargetRef.current = jobPath;
-      syncAllPoll.resume(allJobs, (j) => j.id === active.id);
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allJobs]);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [cardSize, setCardSize] = useGridSize(240);
+  const [scroller, pageRef] = useScrollParent();
+  const sort = useSort<TitleFileSort>("episode");
+  const [search, setSearch] = useState("");
+  const [show, setShow] = useState<AttentionFilter>("all");
+  const [playing, setPlaying] = useState<ScanFile | null>(null);
 
-  const groups = files ? groupByDir(files) : null;
-  const totalFiles = files?.length ?? 0;
-  const withSub = files?.filter((f) => f.has_subtitle).length ?? 0;
-  const missing = totalFiles - withSub;
-  const withAnySub = files?.filter((f) => f.has_any_subtitle).length ?? 0;
+  const titleSel = useSelection<string>();
+  const fileSel = useSelection<string>();
+  // Another folder or title starts with nothing selected and the whole title shown.
+  const [shown, setShown] = useState(`${folder}|${openKey}`);
+  if (shown !== `${folder}|${openKey}`) {
+    setShown(`${folder}|${openKey}`);
+    titleSel.selectNone();
+    fileSel.selectNone();
+    setShow("all");
+    setSearch("");
+  }
+  useScrollTopOnChange(scroller, `${folder}|${openKey}`);
 
-  const handleSearchDownloaded = async () => {
-    if (!path.trim()) return;
-    const result = await subtitlesApi.scan(path.trim()).catch(() => null);
-    if (result) setFiles(result);
-  };
+  const folderCoverage = useMemo(() => coverage(files, wanted), [files, wanted]);
+  const titleCoverage = useMemo(
+    () => new Map(titles.map((t) => [t.group.key, coverage(t.files, wanted)])),
+    [titles, wanted],
+  );
+  const flags = useMemo(
+    () => attention(open?.files ?? [], wanted, lengths.byPath),
+    [open, wanted, lengths.byPath],
+  );
+  const visibleFiles = useMemo(() => {
+    if (!open) return [];
+    const all = open.files;
+    const filtered = show === "all" ? all : all.filter((x) => flags[show].has(x.path));
+    return sortTitleFiles(filterByFilename(filtered, search), sort.sortKey, sort.sortDir);
+  }, [open, show, flags, search, sort.sortKey, sort.sortDir]);
+  const visiblePaths = useMemo(() => visibleFiles.map((x) => x.path), [visibleFiles]);
+  useSelectionOrder(fileSel.setOrder, visiblePaths);
 
-  return (
-    <div className="p-4 md:p-8 space-y-6">
-      {searchFile && (
-        <SubtitleSearchDialog
-          file={searchFile}
-          languages={selectedLangs}
-          onClose={() => setSearchFile(null)}
-          onDownloaded={handleSearchDownloaded}
+  // What the dock acts on: the selected files of the open title, else the selected titles.
+  const actionFiles = open
+    ? visibleFiles.filter((x) => fileSel.selected.has(x.path))
+    : titles.filter((t) => titleSel.selected.has(t.group.key)).flatMap((t) => t.files);
+  const selectedCount = open
+    ? actionFiles.length
+    : titles.filter((t) => titleSel.selected.has(t.group.key)).length;
+  const scope = open ? [open] : titles;
+  const ytsReason =
+    scope.length > 0 && scope.every((t) => t.group.type === "tv")
+      ? "YTS has subtitles for films only"
+      : null;
+
+  const header = (
+    <div>
+      <PageTitle>Subtitles</PageTitle>
+      <p className="mt-1 text-sm text-muted-foreground">
+        See, find and manage subtitles for a folder of videos.
+      </p>
+    </div>
+  );
+
+  const body = () => {
+    if (f.badPath)
+      return (
+        <QueryError title="This is not a folder path" error="Type or pick an absolute folder." />
+      );
+    if (folder === null)
+      return (
+        <EmptyState
+          icon={FolderSearch}
+          title="Pick a folder of videos"
+          description="Type a folder above or use Browse. Parallax reads what subtitles each video already has; nothing changes until you say so."
         />
-      )}
-      {translateFile && (
-        <TranslateDialog
-          key={translateFile.path}
-          videoName={translateFile.filename}
-          sources={translateSources}
-          languages={translateLangsFor(translateFile).map((code) => ({
-            code,
-            name: packNames.get(code) ?? code,
-          }))}
-          error={translateError}
-          busy={translateBusy}
-          onTranslate={(source, lang) => handleTranslate(translateFile, source, lang)}
-          onClose={() => setTranslateFile(null)}
+      );
+    if (f.scanQ.isPending)
+      return (
+        <WorkingState
+          title="Reading the folder"
+          message={`Looking through ${folder}, its subfolders, and sibling Subs or Subtitles folders.`}
+          progress={null}
         />
-      )}
-      {playingFile && (
-        <VideoPlayerModal
-          file={{ id: 0, filename: playingFile.filename, path: playingFile.path }}
-          streamUrl={subtitlesApi.streamUrl(playingFile.path)}
-          subtitleTracksUrl={subtitlesApi.tracksUrl(playingFile.path)}
-          onClose={() => setPlayingFile(null)}
+      );
+    if (f.scanQ.isError)
+      return <QueryError error={f.scanQ.error} onRetry={() => void f.scanQ.refetch()} />;
+    if (files.length === 0)
+      return (
+        <EmptyState
+          icon={Captions}
+          title="No videos in this folder"
+          description="Parallax looks in this folder, its subfolders, and sibling Subs or Subtitles folders. Pick another folder if you expected videos here."
         />
-      )}
-      {/* Header */}
-      <div>
-        <PageTitle>Subtitles</PageTitle>
-        <p className="text-sm text-muted-foreground mt-1">
-          Download and match subtitle files for a folder of videos.
-        </p>
-      </div>
-
-      {/* Path input */}
-      <div className="flex gap-2 max-w-2xl">
-        {picking ? (
-          <div className="flex-1">
-            <DirPicker onSelect={handleFolderSelect} onClose={() => setPicking(false)} />
-          </div>
-        ) : (
-          <>
-            <Input
-              placeholder="/media/shows/Breaking Bad"
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-              className="font-mono text-sm"
-              onKeyDown={(e) => e.key === "Enter" && handleScan()}
-            />
-            <Button variant="outline" size="icon" onClick={() => setPicking(true)} title="Browse">
-              <FolderOpen className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleScan()}
-              disabled={scanning || !path.trim()}
-              title="Rescan"
-            >
-              {scanning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ScanLine className="h-4 w-4" />
-              )}
-            </Button>
-          </>
-        )}
-      </div>
-
-      {/* Language picker */}
-      <div className="space-y-2 max-w-2xl">
-        <div className="flex items-center gap-2">
-          <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Languages
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {COMMON_LANGS.map(({ code, label }) => {
-            const active = selectedLangs.includes(code);
-            return (
-              <button
-                key={code}
-                onClick={() => toggleLang(code)}
-                className={cn(
-                  "px-2.5 py-1 rounded-md text-xs font-medium transition-colors border",
-                  active
-                    ? "bg-primary/15 border-primary/40 text-primary"
-                    : "bg-transparent border-border text-muted-foreground hover:border-border/80 hover:text-foreground",
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-        {selectedLangs.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Downloading:{" "}
-            {selectedLangs
-              .map((c) => COMMON_LANGS.find((l) => l.code === c)?.label ?? c)
-              .join(", ")}
+      );
+    return (
+      <div className="animate-slide-up-fade space-y-4">
+        <SummaryStrip
+          titles={titles.length}
+          files={files.length}
+          wanted={wanted}
+          coverage={folderCoverage}
+        />
+        {!lengths.done && (
+          <p className="text-xs text-muted-foreground tabular-nums" role="status">
+            Checking lengths {lengths.loaded} of {lengths.total}
           </p>
         )}
-      </div>
-
-      {scanError && <p className="text-sm text-destructive">{scanError}</p>}
-
-      {/* Results */}
-      {files && (
-        <div className="space-y-4">
-          {/* Summary + action bar */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-muted-foreground">
-                <span className="font-mono font-medium text-foreground">{totalFiles}</span> files
-              </span>
-              <span className="text-green-500">
-                <span className="font-mono font-medium">{withSub}</span> have subtitles
-              </span>
-              {missing > 0 && (
-                <span className="text-muted-foreground">
-                  <span className="font-mono font-medium text-foreground">{missing}</span> missing
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              {downloading && jobProgress !== null && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="truncate max-w-xs" title={jobStatus}>
-                    {Math.round(jobProgress)}% · {jobStatus}
-                  </span>
-                </div>
-              )}
-              {syncingAll && syncAllProgress !== null && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="truncate max-w-xs" title={syncAllStatus}>
-                    {Math.round(syncAllProgress)}% · {syncAllStatus}
-                  </span>
-                </div>
-              )}
+        <UnmatchedNotice files={f.unmatchedQ.data ?? []} />
+        {f.groupsQ.isError ? (
+          <QueryError error={f.groupsQ.error} onRetry={() => void f.groupsQ.refetch()} />
+        ) : f.groupsQ.isPending ? (
+          <GridSkeleton count={4} minColumnWidth={260} />
+        ) : open ? (
+          <>
+            <BrowseControls
+              viewMode={viewMode}
+              onViewMode={setViewMode}
+              size={cardSize}
+              onSize={setCardSize}
+              fileSort={{
+                label: "Sort files",
+                options: TITLE_FILE_SORTS,
+                value: sort.sortKey,
+                dir: sort.sortDir,
+                onSort: sort.toggleSort,
+              }}
+            />
+            <TitleFiles
+              titles={titles}
+              openKey={open.group.key}
+              onOpenTitle={f.openTitle}
+              files={visibleFiles}
+              totalFiles={open.files.length}
+              wanted={wanted}
+              lengths={lengths.byPath}
+              search={search}
+              onSearch={setSearch}
+              show={show}
+              onShow={setShow}
+              counts={{
+                all: open.files.length,
+                missing: flags.missing.size,
+                machineOnly: flags.machineOnly.size,
+                looksShort: flags.looksShort.size,
+                hasBackup: flags.hasBackup.size,
+              }}
+              selected={fileSel.selected}
+              onToggleSelect={fileSel.toggle}
+              onPlay={setPlaying}
+              viewMode={viewMode}
+              cardSize={cardSize}
+              scrollElement={scroller}
+              marquee={fileSel.marqueeProps}
+            />
+          </>
+        ) : (
+          <section className="space-y-3">
+            <div className="flex items-center gap-3">
+              <SectionHeader>Titles · {titles.length}</SectionHeader>
               <Button
-                onClick={handleSyncAll}
-                disabled={syncingAll || syncingPaths.size > 0 || downloading || withAnySub === 0}
-                variant="outline"
-                title="Sync every existing subtitle in this library to its video's audio"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => titleSel.selectAll(titles.map((t) => t.group.key))}
               >
-                {syncingAll ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {withAnySub === 0
-                  ? "No subtitles to sync"
-                  : `Sync ${withAnySub} file${withAnySub === 1 ? "" : "s"}`}
-              </Button>
-              <Button
-                onClick={handleDownload}
-                disabled={downloading || missing === 0}
-                variant={missing === 0 ? "outline" : "default"}
-              >
-                {downloading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                {missing === 0 ? "All subtitles present" : `Download ${missing} missing`}
+                Select all
               </Button>
             </div>
-          </div>
-
-          {/* File tree */}
-          {groups && groups.size > 0 ? (
-            <div className="space-y-2">
-              {[...groups.entries()].map(([dir, dirFiles]) => (
-                <DirGroup
-                  key={dir}
-                  dir={dir}
-                  files={dirFiles}
-                  syncingPaths={syncingPaths}
-                  syncDisabled={syncingAll}
-                  translatingPaths={translatingPaths}
-                  translateLangsFor={translateLangsFor}
-                  generatingPaths={generatingPaths}
-                  canGenerateFor={canGenerateFor}
-                  onSearch={setSearchFile}
-                  onPlay={setPlayingFile}
-                  onSync={handleSyncFile}
-                  onTranslate={(f) => {
-                    setTranslateError("");
-                    setTranslateFile(f);
-                  }}
-                  onGenerate={handleGenerate}
-                  onDeleteLang={handleDeleteLang}
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+              {titles.map((t) => (
+                <TitleCard
+                  key={t.group.key}
+                  group={t.group}
+                  files={t.files.length}
+                  seasons={seasonCount(t.files)}
+                  wanted={wanted}
+                  coverage={titleCoverage.get(t.group.key) ?? {}}
+                  selected={titleSel.selected.has(t.group.key)}
+                  onToggleSelect={() => titleSel.toggle(t.group.key)}
+                  onOpen={() => f.openTitle(t.group.key)}
                 />
               ))}
             </div>
-          ) : (
-            <EmptyState icon={Captions} title="No video files found in this directory" size="sm" />
-          )}
-        </div>
-      )}
+          </section>
+        )}
+      </div>
+    );
+  };
 
-      {/* Empty state before any scan */}
-      {!files && !scanning && (
-        <EmptyState
-          icon={Captions}
-          title="Nothing scanned yet"
-          description="Enter a folder path and click Scan to see subtitle status."
+  return (
+    <div ref={pageRef} className="space-y-6 p-4 pb-32 md:p-8 md:pb-24">
+      {header}
+      <FolderStrip
+        key={folder ?? ""}
+        folder={folder}
+        scanning={f.scanQ.isFetching}
+        onOpen={f.openFolder}
+        onRescan={f.rescan}
+        wanted={wanted}
+        onWantedChange={setWantedEdit}
+        sources={sources}
+        onSourcesChange={setSources}
+        ytsReason={ytsReason}
+      />
+      <ActivityBar jobs={f.folderJobs} cancelling={actions.cancelling} onCancel={actions.cancel} />
+      {body()}
+      <SubtitleDock
+        count={selectedCount}
+        files={actionFiles.length}
+        blocked={blocked}
+        syncing={actions.syncing}
+        // Find subtitles, Translate and Generate open the plan's sections (next task).
+        onFind={() => undefined}
+        onTranslate={() => undefined}
+        onGenerate={() => undefined}
+        onSync={() => actions.sync(actionFiles, actionFiles.length === files.length)}
+        onClear={() => {
+          titleSel.selectNone();
+          fileSel.selectNone();
+        }}
+      />
+      {playing && (
+        <VideoPlayerModal
+          file={{ id: 0, filename: playing.filename, path: playing.path }}
+          streamUrl={subtitlesApi.streamUrl(playing.path)}
+          subtitleTracksUrl={subtitlesApi.tracksUrl(playing.path)}
+          onClose={() => setPlaying(null)}
         />
       )}
     </div>

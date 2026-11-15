@@ -9,7 +9,7 @@ import type {
   RunItem,
   SearchResult,
   SubtitleCandidate,
-  SubtitleFile,
+  ScanFile,
   SubtitleFileInfo,
   SubtitleProvider,
   TidyMode,
@@ -21,7 +21,7 @@ import type {
 
 export const subtitlesApi = {
   scan: (path: string) =>
-    req<SubtitleFile[]>("/subtitles/scan", { method: "POST", body: JSON.stringify({ path }) }),
+    req<ScanFile[]>("/subtitles/scan", { method: "POST", body: JSON.stringify({ path }) }),
 
   download: (path: string, languages?: string[]) =>
     req<{ job_id: number }>("/subtitles/download", {
