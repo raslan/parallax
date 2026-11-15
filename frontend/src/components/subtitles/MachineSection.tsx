@@ -12,10 +12,9 @@ import {
 } from "@/components/ui/select";
 import { RadioToggle } from "@/components/RadioToggle";
 import { SectionHeader } from "@/components/SectionHeader";
+import { SETTINGS_LINK } from "@/lib/subtitleCoverage";
 import type { ScanFile, TranslateSource } from "@/types/subtitle";
 import type { SubtitlePack } from "@/types/subtitlePack";
-
-const SETTINGS_LINK = "/settings?tab=subtitles";
 
 const videos = (n: number) => `${n} ${n === 1 ? "video" : "videos"}`;
 

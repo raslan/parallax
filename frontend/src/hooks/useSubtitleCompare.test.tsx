@@ -85,6 +85,17 @@ describe("useSubtitleCompare existing mode", () => {
     expect(result.current.sheet).toMatchObject({ mode: "existing", existing: existingFile });
   });
 
+  it("names what is open, so another file of the same video is a different sheet", () => {
+    const { result } = setup();
+    act(() => result.current.openExisting(vid, existingFile));
+    const first = result.current.sheet?.id;
+    act(() =>
+      result.current.openExisting(vid, { ...existingFile, path: "/tv/Show/S01E01.ar.srt" }),
+    );
+    expect(first).toBeTruthy();
+    expect(result.current.sheet?.id).not.toBe(first);
+  });
+
   it("tells the page when the file is a stray one, so Delete uses the folder-scoped call", async () => {
     const { result, onExisting } = setup();
     act(() => result.current.openExisting(vid, existingFile, true));

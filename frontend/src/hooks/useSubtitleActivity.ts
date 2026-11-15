@@ -30,7 +30,12 @@ export function useSubtitleActivity() {
     // While work is listed, ask again every couple of seconds: the jobs feed backs off to one
     // tick per 10 s when idle, so a job that starts and ends inside that gap is never reported
     // as ended and would otherwise sit here as a stale "0%" row until a reload.
-    refetchInterval: (q) => (q.state.data && q.state.data.length > 0 ? ACTIVE_POLL_MS : false),
+    // A failing request is not asked again every 2 s: the query's own retry and the next
+    // mount or window focus are enough.
+    refetchInterval: (q) =>
+      q.state.status !== "error" && q.state.data && q.state.data.length > 0
+        ? ACTIVE_POLL_MS
+        : false,
   });
   const { data: jobs } = useQuery<Job[]>({
     queryKey: qk.jobs(),

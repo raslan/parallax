@@ -74,6 +74,27 @@ describe("IdentityPicker", () => {
     });
   });
 
+  it("shows only https posters, without sending a referrer", async () => {
+    yts.mockResolvedValue([
+      { title: "Safe", year: 2025, imdb_id: "tt3", poster_url: "https://yts-subs.com/a.jpg" },
+      { title: "Plain", year: 2024, imdb_id: "tt2", poster_url: "http://yts-subs.com/b.jpg" },
+    ]);
+    const { container } = wrap(
+      <IdentityPicker
+        initial={{ title: "x", year: null, type: "movie" }}
+        onPick={vi.fn()}
+        hasTmdbKey={false}
+        type="movie"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Search YTS" }));
+    await screen.findByRole("button", { name: "Safe (2025)" });
+    const imgs = container.querySelectorAll("img");
+    expect(imgs).toHaveLength(1);
+    expect(imgs[0]!.getAttribute("src")).toBe("https://yts-subs.com/a.jpg");
+    expect(imgs[0]!.getAttribute("referrerpolicy")).toBe("no-referrer");
+  });
+
   it("uses a typed title and year from the Subf2m tab", () => {
     const onPick = vi.fn();
     wrap(

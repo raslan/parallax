@@ -81,4 +81,18 @@ describe("useSubtitleActivity", () => {
     // ...and the header's job count (the tab title) is refreshed with it.
     await waitFor(() => expect(getJobs.mock.calls.length).toBeGreaterThan(1));
   });
+
+  it("stops asking again every 2 s once the request is failing", async () => {
+    active
+      .mockResolvedValueOnce([{ path: "/tv", jobs: [job(1)] }])
+      .mockRejectedValue(new Error("502: bad gateway"));
+    getJobs.mockResolvedValue([]);
+    renderHook(() => useSubtitleActivity(), { wrapper });
+    await waitFor(() => expect(active.mock.calls.length).toBeGreaterThanOrEqual(2), {
+      timeout: 4000,
+    });
+    const calls = active.mock.calls.length;
+    await new Promise((r) => setTimeout(r, 4500));
+    expect(active.mock.calls.length).toBe(calls);
+  }, 12000);
 });

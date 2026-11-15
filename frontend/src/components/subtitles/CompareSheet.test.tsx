@@ -129,6 +129,31 @@ const verdicts = () =>
     .map((b) => b.textContent);
 
 describe("CompareSheet", () => {
+  it("starts afresh when re-opened for another row of the same video", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const sheet = (id: string, candidates: Candidate[]) => (
+      <QueryClientProvider client={qc}>
+        <CompareSheet
+          sheetId={id}
+          video={video}
+          mode="candidate"
+          candidates={candidates}
+          onVerdict={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(sheet("row:en", [cand("1"), cand("2"), cand("3"), cand("4")]));
+    await screen.findByText("Hello there");
+    fireEvent.click(screen.getAllByRole("radio")[3]!);
+    await screen.findByText("Hello there");
+    // the Arabic row of the same video: fewer candidates than the picked index
+    rerender(sheet("row:ar", [cand("9")]));
+    await screen.findByText("Hello there");
+    expect(screen.getByRole("group", { name: "Verdict" })).toBeTruthy();
+    expect(screen.getAllByRole("radio")[0]!.getAttribute("aria-checked")).toBe("true");
+  });
+
   it("offers exactly Use this, Matches needs sync and Not this one for a candidate", async () => {
     renderSheet();
     await screen.findByText("Hello there");

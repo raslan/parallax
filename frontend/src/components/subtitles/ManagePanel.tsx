@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatSize } from "@/lib/format";
 import { languageName } from "@/lib/subtitle-langs";
-import { blockedReasons } from "@/lib/subtitleCoverage";
+import { SETTINGS_LINK, blockedReasons } from "@/lib/subtitleCoverage";
 import {
   canMakeMain,
   mainPathOfOriginal,
@@ -29,7 +29,6 @@ import type { SyncEngine } from "@/lib/subtitleRunDock";
 import { cn } from "@/lib/utils";
 import type { SubtitleFileInfo, TidyMode } from "@/types/subtitle";
 
-const SETTINGS_LINK = "/settings?tab=subtitles";
 const ENGINES: SyncEngine[] = ["alass", "ffsubsync"];
 
 const TIDY: { what: TidyMode; label: string }[] = [
@@ -199,7 +198,10 @@ export function ManagePanel({
   onAct: (action: ManageAction) => void;
   onClose: () => void;
 }) {
-  const [engine, setEngine] = useState<SyncEngine>(defaultEngine);
+  // The user's own pick overrides the Settings engine; until they pick, the Settings value
+  // (which may arrive late) is what shows.
+  const [picked, setEngine] = useState<SyncEngine | null>(null);
+  const engine = picked ?? defaultEngine;
   const blocked = blockedReasons({
     speechModelReady,
     packsInstalled: installedPacks === null ? null : installedPacks.length,

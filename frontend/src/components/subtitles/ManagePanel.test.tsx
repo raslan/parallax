@@ -54,6 +54,32 @@ const btn = (scope: HTMLElement | Document, name: RegExp | string) =>
   within(scope as HTMLElement).queryByRole("button", { name }) as HTMLButtonElement | null;
 
 describe("ManagePanel", () => {
+  it("follows a Settings engine that arrives late until the user picks one", () => {
+    const f = file("Movie.en.srt", "real");
+    const view = (engine: "alass" | "ffsubsync") => (
+      <MemoryRouter>
+        <ManagePanel
+          video={video}
+          files={[f]}
+          unmatched={[]}
+          speechModelReady
+          installedPacks={["ar"]}
+          defaultEngine={engine}
+          onAct={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(view("alass"));
+    rerender(view("ffsubsync"));
+    expect(screen.getByRole("radio", { name: "ffsubsync" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "alass" }));
+    rerender(view("ffsubsync"));
+    expect(screen.getByRole("radio", { name: "alass" }).getAttribute("aria-checked")).toBe("true");
+  });
+
   it("shows only Restore and Delete on a .original row", () => {
     renderPanel([
       file("Movie.en.srt", "real"),

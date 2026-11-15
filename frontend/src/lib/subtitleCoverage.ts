@@ -92,6 +92,9 @@ export function lengthKey(file: ScanFile) {
 const GENERATE_BLOCKED = "Install or choose a speech model in Settings → Subtitles";
 const TRANSLATE_BLOCKED = "Install a language pack in Settings → Subtitles";
 
+/** Where a disabled action sends the user (Settings → Subtitles). */
+export const SETTINGS_LINK = "/settings?tab=subtitles";
+
 /**
  * Why Translate or Generate cannot work at all, else null. Only what is installed counts:
  * what a file already has never disables an action. `null` means not known (the list is

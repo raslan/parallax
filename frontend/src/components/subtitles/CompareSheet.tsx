@@ -67,15 +67,7 @@ function LengthNote({ info }: { info: PreviewInfo }) {
  * temporary copy) and reads release tokens; the caller acts on the verdict. A length result
  * suggests, it never disables a verdict.
  */
-export function CompareSheet({
-  video,
-  mode,
-  candidates = [],
-  existing,
-  unmatchedRoot,
-  onVerdict,
-  onClose,
-}: {
+type CompareSheetProps = {
   /** Set when `existing` is a subtitle found beside no video, in this folder. */
   unmatchedRoot?: string;
   video: { path: string; name: string };
@@ -85,7 +77,26 @@ export function CompareSheet({
   /** `length` is the shown candidate's length result, when its preview has loaded. */
   onVerdict: (v: CompareVerdict, candidate?: Candidate, length?: LengthResult) => void;
   onClose: () => void;
-}) {
+};
+
+/**
+ * Names what the sheet is open for (a plan row, a run item, an existing file). The sheet is
+ * non-modal, so it can be re-opened for another row of the same video while it is open; a new
+ * id starts it afresh (first candidate, no stale line or seek).
+ */
+export function CompareSheet({ sheetId, ...props }: CompareSheetProps & { sheetId?: string }) {
+  return <CompareSheetBody key={sheetId ?? ""} {...props} />;
+}
+
+function CompareSheetBody({
+  video,
+  mode,
+  candidates = [],
+  existing,
+  unmatchedRoot,
+  onVerdict,
+  onClose,
+}: CompareSheetProps) {
   const [index, setIndex] = useState(0);
   // Only the index of the line the player is on: it changes a few times a minute, the player's
   // time ~4 times a second.

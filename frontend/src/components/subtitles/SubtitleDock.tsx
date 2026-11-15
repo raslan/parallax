@@ -2,8 +2,7 @@ import { Link } from "react-router";
 import { Languages, Loader2, Mic, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectionBar } from "@/components/SelectionBar";
-
-const SETTINGS_LINK = "/settings?tab=subtitles";
+import { SETTINGS_LINK } from "@/lib/subtitleCoverage";
 
 /** An action's label: shown from `sm` up, icon only below it (the button keeps its name). */
 const Label = ({ children }: { children: string }) => (

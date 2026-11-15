@@ -123,6 +123,7 @@ export function useSubtitleCompare({
   const sheet =
     open?.kind === "row"
       ? {
+          id: `row:${open.row.key}`,
           mode: "candidate" as const,
           video: { path: open.row.video, name: open.row.filename },
           candidates: open.row.candidates,
@@ -131,6 +132,7 @@ export function useSubtitleCompare({
         }
       : open?.kind === "item"
         ? {
+            id: `item:${open.item.video_path}|${open.item.language}`,
             mode: "candidate" as const,
             video: { path: open.video.path, name: open.video.filename },
             candidates: open.candidates,
@@ -139,6 +141,7 @@ export function useSubtitleCompare({
           }
         : open?.kind === "existing"
           ? {
+              id: `existing:${open.video.path}|${open.file.path}`,
               mode: "existing" as const,
               video: open.video,
               candidates: [] as Candidate[],

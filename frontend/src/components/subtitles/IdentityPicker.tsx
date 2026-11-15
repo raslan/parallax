@@ -152,11 +152,12 @@ export function IdentityPicker({
                 >
                   <span className="relative flex aspect-2/3 items-center justify-center bg-muted">
                     <Clapperboard className="h-6 w-6 text-muted-foreground/40" />
-                    {t.poster_url && (
+                    {t.poster_url?.startsWith("https://") && (
                       <img
                         src={t.poster_url}
                         alt=""
                         loading="lazy"
+                        referrerPolicy="no-referrer"
                         className="absolute inset-0 h-full w-full object-cover"
                       />
                     )}

@@ -165,6 +165,11 @@ export function FolderStrip({
           );
         })}
         {ytsReason && <span className="text-3xs text-muted-foreground">{ytsReason}</span>}
+        {SOURCES.every((s) => !sources.includes(s.id) || (s.id === "yts" && ytsReason)) && (
+          <span role="status" className="text-3xs text-amber-500">
+            Turn on at least one source to search
+          </span>
+        )}
       </div>
 
       <Dialog open={picking} onOpenChange={setPicking}>

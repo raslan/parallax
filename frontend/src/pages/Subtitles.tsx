@@ -468,7 +468,7 @@ export function Subtitles() {
       )}
       {compare.sheet && (
         <CompareSheet
-          key={`${compare.sheet.video.path}|${compare.sheet.existing?.path ?? ""}`}
+          sheetId={compare.sheet.id}
           video={compare.sheet.video}
           mode={compare.sheet.mode}
           candidates={compare.sheet.candidates}
@@ -510,7 +510,7 @@ export function Subtitles() {
               : manage.renameStray(renaming.file.path, name)
         }
         onOpenChange={(o) => !o && setRenaming(null)}
-      />{" "}
+      />
       {playing && (
         <VideoPlayerModal
           file={{ id: 0, filename: playing.filename, path: playing.path }}

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { BASE } from "@/lib/api/client";
 import type { StreamPrepareStatus } from "@/types/stream";
 
+const MAX_POLL_FAILURES = 5;
+
 export type VideoSourceStatus = "checking" | "running" | "ready" | "error";
 
 /**
@@ -70,10 +72,12 @@ export function useVideoSource({
 
         setStatus("running");
         setProgress(s.progress);
+        let failures = 0;
         pollRef.current = setInterval(async () => {
           try {
             const poll = await statusFn(path);
             if (cancelled) return;
+            failures = 0;
             setProgress(poll.progress);
             if (poll.status === "ready") {
               stopPoll();
@@ -83,8 +87,15 @@ export function useVideoSource({
               setStatus("error");
               setError(poll.error);
             }
-          } catch {
-            /* keep polling: a transient fetch failure isn't fatal */
+          } catch (e) {
+            if (cancelled) return;
+            // A transient failure is retried; a steady one must not poll forever.
+            failures += 1;
+            if (failures >= MAX_POLL_FAILURES) {
+              stopPoll();
+              setStatus("error");
+              setError(e instanceof Error ? e.message : "Could not check the stream");
+            }
           }
         }, 1500);
       })

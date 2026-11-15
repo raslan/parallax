@@ -23,6 +23,16 @@ describe("FolderStrip", () => {
     expect(screen.queryByRole("button", { name: "Add a wanted language" })).toBeNull();
   });
 
+  it("says so when no source is on, and stays quiet otherwise", () => {
+    const { rerender } = render(<FolderStrip {...props} wanted={["en"]} sources={[]} />);
+    expect(screen.getByText("Turn on at least one source to search")).toBeTruthy();
+    rerender(<FolderStrip {...props} wanted={["en"]} sources={["subf2m"]} />);
+    expect(screen.queryByText("Turn on at least one source to search")).toBeNull();
+    // YTS left on but unavailable for TV counts as off
+    rerender(<FolderStrip {...props} wanted={["en"]} sources={["yts"]} ytsReason="Films only" />);
+    expect(screen.getByText("Turn on at least one source to search")).toBeTruthy();
+  });
+
   it("shows the wanted languages once known", () => {
     render(<FolderStrip {...props} wanted={["en", "ar"]} />);
     expect(screen.getByText("English")).toBeTruthy();
