@@ -85,6 +85,9 @@ export function FileGridCard({
 
           {selectable && (
             <button
+              type="button"
+              aria-label={`Select ${file.filename}`}
+              aria-pressed={selected}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggle();

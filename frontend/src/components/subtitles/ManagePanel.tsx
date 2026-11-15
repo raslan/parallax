@@ -321,7 +321,7 @@ export function ManagePanel({
         </Section>
 
         {unmatched.length > 0 && (
-          <Section label={`Found in subfolders, not named for this video · ${unmatched.length}`}>
+          <Section label={`Subtitle files not named for any video here ·${unmatched.length}`}>
             <ul className="space-y-1.5">
               {unmatched.map((u) => (
                 <li

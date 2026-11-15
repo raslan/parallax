@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,21 +39,26 @@ export function SubtitleRenameDialog({
   onSubmit: (newName: string) => Promise<void>;
   onOpenChange: (open: boolean) => void;
 }) {
-  return (
-    <Dialog open={open && file !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" onClose={() => onOpenChange(false)}>
-        {/* The form lives inside the content, so it starts fresh on every open. */}
-        {file && (
-          <RenameForm
-            file={file}
-            videoName={videoName}
-            taken={taken}
-            onSubmit={onSubmit}
-            onClose={() => onOpenChange(false)}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+  // Portalled to the end of the page in a layer above the side sheets (z-50, also portalled):
+  // opened from the Manage sheet, an inline dialog would sit underneath it.
+  return createPortal(
+    <div data-rename-layer className="relative z-[60]">
+      <Dialog open={open && file !== null} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg" onClose={() => onOpenChange(false)}>
+          {/* The form lives inside the content, so it starts fresh on every open. */}
+          {file && (
+            <RenameForm
+              file={file}
+              videoName={videoName}
+              taken={taken}
+              onSubmit={onSubmit}
+              onClose={() => onOpenChange(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>,
+    document.body,
   );
 }
 

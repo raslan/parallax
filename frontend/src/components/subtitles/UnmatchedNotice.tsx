@@ -16,7 +16,7 @@ export function UnmatchedNotice({ files }: { files: UnmatchedSubtitle[] }) {
     <details className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
       <summary className="flex cursor-pointer items-center gap-2 text-muted-foreground">
         <FileQuestion className="h-4 w-4 shrink-0" />
-        Found in subfolders, not named for this video · {files.length}{" "}
+        Subtitle files not named for any video here ·{files.length}{" "}
         {files.length === 1 ? "file" : "files"}
       </summary>
       <ul className="mt-2 space-y-0.5 font-mono text-xs text-muted-foreground">

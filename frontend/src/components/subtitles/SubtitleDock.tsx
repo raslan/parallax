@@ -5,11 +5,17 @@ import { SelectionBar } from "@/components/SelectionBar";
 
 const SETTINGS_LINK = "/settings?tab=subtitles";
 
+/** An action's label: shown from `sm` up, icon only below it (the button keeps its name). */
+const Label = ({ children }: { children: string }) => (
+  <span className="hidden sm:inline">{children}</span>
+);
+
 /**
  * The Subtitles page's action dock for the selected titles or files: Find subtitles,
  * Translate, Generate and Sync. What the selected files already have never disables an
  * action; Translate and Generate are greyed only when they cannot work at all (no language
  * pack, no speech model), and then the reason shows as a link to Settings → Subtitles.
+ * Below `sm` the buttons are icons only, so the dock stays one short row on a phone.
  * Props-in/callbacks-out.
  */
 export function SubtitleDock({
@@ -39,6 +45,7 @@ export function SubtitleDock({
   onClear: () => void;
 }) {
   const reasons = [blocked.translate, blocked.generate].filter((r): r is string => r !== null);
+  const icon = "h-3.5 w-3.5 sm:mr-1.5";
   return (
     <SelectionBar
       count={count}
@@ -49,17 +56,29 @@ export function SubtitleDock({
         </span>
       }
     >
-      <Button size="sm" onClick={onFind}>
-        <Search className="mr-1.5 h-3.5 w-3.5" />
-        Find subtitles…
+      <Button size="sm" onClick={onFind} aria-label="Find subtitles…">
+        <Search className={icon} />
+        <Label>Find subtitles…</Label>
       </Button>
-      <Button size="sm" variant="outline" onClick={onTranslate} disabled={!!blocked.translate}>
-        <Languages className="mr-1.5 h-3.5 w-3.5" />
-        Translate…
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onTranslate}
+        disabled={!!blocked.translate}
+        aria-label="Translate…"
+      >
+        <Languages className={icon} />
+        <Label>Translate…</Label>
       </Button>
-      <Button size="sm" variant="outline" onClick={onGenerate} disabled={!!blocked.generate}>
-        <Mic className="mr-1.5 h-3.5 w-3.5" />
-        Generate…
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onGenerate}
+        disabled={!!blocked.generate}
+        aria-label="Generate…"
+      >
+        <Mic className={icon} />
+        <Label>Generate…</Label>
       </Button>
       {onManage && (
         <Button
@@ -67,19 +86,16 @@ export function SubtitleDock({
           variant="outline"
           onClick={onManage}
           disabled={files !== 1}
+          aria-label="Manage"
           title={files === 1 ? undefined : "Select one video to manage its subtitle files"}
         >
-          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
-          Manage
+          <SlidersHorizontal className={icon} />
+          <Label>Manage</Label>
         </Button>
       )}
-      <Button size="sm" variant="outline" onClick={onSync} disabled={syncing}>
-        {syncing ? (
-          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-        )}
-        Sync
+      <Button size="sm" variant="outline" onClick={onSync} disabled={syncing} aria-label="Sync">
+        {syncing ? <Loader2 className={`${icon} animate-spin`} /> : <RefreshCw className={icon} />}
+        <Label>Sync</Label>
       </Button>
       {reasons.length > 0 && (
         <span className="flex flex-col text-3xs leading-tight">

@@ -98,6 +98,25 @@ describe("PlanView", () => {
     expect(onPickTitle).toHaveBeenCalledTimes(1);
   });
 
+  it("says nothing found, not all clean, for a title with a row that found nothing", () => {
+    renderPlan(
+      [
+        row(1),
+        row(2, { title: "tv:other", key: "9|en", status: "none", candidate: undefined }),
+        row(3, { title: "tv:third", key: "8|en" }),
+      ],
+      {
+        titles: [
+          { key: "tv:show", name: "Show" },
+          { key: "tv:other", name: "Other" },
+          { key: "tv:third", name: "Third" },
+        ],
+      },
+    );
+    expect(screen.getByText("nothing found for 1")).toBeTruthy();
+    expect(screen.getAllByText("all clean")).toHaveLength(2);
+  });
+
   it("shows no identity note once every title is confirmed", () => {
     renderPlan([row(1)], { unconfirmed: new Set() });
     expect(screen.queryByText(/Identity not confirmed/)).toBeNull();

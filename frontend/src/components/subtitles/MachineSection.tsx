@@ -86,11 +86,16 @@ export function MachineSection({
   const choosing = mode === "choose" && single;
   const eligible = choosing ? files : files.filter(hasEnglish);
   const pickedModel = model ?? activeModel ?? null;
+  // The videos that will actually be translated: with a chosen source file, only once one is
+  // picked (it applies to a single video).
+  const chosen = choosing ? (source === null ? [] : files) : eligible;
   const translateBlocked =
     blocked.translate ??
-    (eligible.length === 0
-      ? "None of these videos has an English subtitle to translate from"
-      : null);
+    (files.length === 0
+      ? "Select a video"
+      : eligible.length === 0
+        ? "None of these videos has an English subtitle to translate from"
+        : null);
 
   return (
     <section className="space-y-3 rounded-lg border border-border bg-card p-4">
@@ -151,7 +156,7 @@ export function MachineSection({
                 id: "choose",
                 label: "Choose a file…",
                 disabled: !single,
-                detail: single ? undefined : "one video at a time",
+                detail: single ? undefined : "A chosen source file applies to one video",
               },
             ]}
           />
@@ -194,7 +199,7 @@ export function MachineSection({
             }
           >
             {translating && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-            Translate {videos(eligible.length)}
+            Translate {videos(chosen.length)}
           </Button>
           {blocked.translate ? (
             <Reason text={blocked.translate} />

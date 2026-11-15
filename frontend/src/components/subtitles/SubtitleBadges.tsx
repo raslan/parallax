@@ -70,10 +70,13 @@ export function SubtitleBadges({
         </span>
       ))}
       {short && (
-        <Tip label="A subtitle ends well before the video does, so it may be for another cut or be incomplete">
-          <span className="flex shrink-0 items-center gap-0.5 text-3xs text-amber-500">
+        <Tip label="Looks short for this video: a subtitle ends well before the video does, so it may be for another cut or be incomplete">
+          <span
+            className="flex shrink-0 items-center gap-0.5 text-3xs text-amber-500"
+            aria-label="Looks short for this video"
+          >
             <AlertTriangle className="h-3 w-3" />
-            looks short
+            short
           </span>
         </Tip>
       )}

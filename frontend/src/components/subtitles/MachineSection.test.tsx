@@ -123,8 +123,39 @@ describe("MachineSection", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Arabic" }));
     fireEvent.click(screen.getByRole("button", { name: /Choose a file/ }));
-    expect(button(/^Translate 1/).disabled).toBe(true);
+    // No source is chosen yet, so no video is chosen: the count says 0 and the button waits.
+    expect(button(/^Translate 0 videos/).disabled).toBe(true);
     expect(screen.getByText("Choose a source file first")).toBeTruthy();
+  });
+
+  it("counts one video once a source file is chosen", () => {
+    renderSection([video("en")], blockedReasons({ speechModelReady: true, packsInstalled: 2 }), {
+      sources: [
+        {
+          path: "/films/Movie.en.srt",
+          filename: "Movie.en.srt",
+          machine_made: false,
+          hearing_impaired: false,
+        },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Choose a file/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Movie.en.srt" }));
+    expect(button(/^Translate 1 video$/).disabled).toBe(false);
+  });
+
+  it("explains why a source file cannot be chosen for several videos", () => {
+    renderSection(
+      [video("en"), { ...video("en"), path: "/films/Two.mkv", filename: "Two.mkv" }],
+      blockedReasons({ speechModelReady: true, packsInstalled: 2 }),
+    );
+    expect(screen.getByText("A chosen source file applies to one video")).toBeTruthy();
+  });
+
+  it("says to select a video when there is none", () => {
+    renderSection([], blockedReasons({ speechModelReady: true, packsInstalled: 2 }));
+    expect(button(/^Translate 0 videos/).disabled).toBe(true);
+    expect(screen.getByText("Select a video")).toBeTruthy();
   });
 
   it("translates the main English file into the picked language", () => {

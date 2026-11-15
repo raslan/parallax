@@ -39,6 +39,17 @@ describe("SubtitleDock", () => {
     expect(screen.queryByText(GENERATE_REASON)).toBeNull();
   });
 
+  it("hides button labels below sm but keeps every action named", () => {
+    // Class-level check for the phone layout; not verified in a browser.
+    renderDock(blockedReasons({ speechModelReady: true, packsInstalled: 2 }));
+    for (const name of [/Find subtitles/, /Translate/, /Generate/, /Sync/]) {
+      const label = button(name).querySelector("span");
+      expect(label?.className).toContain("hidden");
+      expect(label?.className).toContain("sm:inline");
+      expect(button(name).getAttribute("aria-label")).toMatch(name);
+    }
+  });
+
   it("disables Generate with the reason and a Settings link only without a speech model", () => {
     renderDock(blockedReasons({ speechModelReady: false, packsInstalled: 2 }));
     expect(button(/Generate/).disabled).toBe(true);

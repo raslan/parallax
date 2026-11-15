@@ -170,7 +170,7 @@ describe("ManagePanel", () => {
         { path: "/m/Subs/2_English.srt", name: "2_English.srt", directory: "Subs", language: "en" },
       ],
     });
-    expect(screen.getByText(/Found in subfolders, not named for this video/)).toBeTruthy();
+    expect(screen.getByText(/Subtitle files not named for any video here/)).toBeTruthy();
     expect(screen.getAllByText(/Subs\/2_English\.srt/).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Identify" })).toBeTruthy();
     expect(btn(document.body, /adopt/i)).toBeNull();

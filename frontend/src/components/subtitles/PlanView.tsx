@@ -62,6 +62,8 @@ function countLine(c: ReturnType<typeof counts>): string {
 function railStatus(c: ReturnType<typeof counts>): { text: string; tone: string } {
   if (c.checking) return { text: "searching", tone: "bg-primary/60" };
   if (c.flagged) return { text: `${c.flagged} to check`, tone: "bg-amber-500" };
+  // "all clean" only when every row found something; a row with nothing is not clean.
+  if (c.none) return { text: `nothing found for ${c.none}`, tone: "bg-amber-500" };
   return { text: "all clean", tone: "bg-primary" };
 }
 

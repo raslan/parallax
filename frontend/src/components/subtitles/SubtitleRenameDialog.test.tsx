@@ -26,6 +26,14 @@ const rename = () => screen.getByRole("button", { name: "Rename" }) as HTMLButto
 const type = (v: string) => fireEvent.change(input(), { target: { value: v } });
 
 describe("SubtitleRenameDialog", () => {
+  it("sits in its own layer above a side sheet (a z-50 portal at the end of the page)", () => {
+    // Class-level check; the stacking itself was not verified in a browser.
+    setup();
+    const layer = input().closest("[data-rename-layer]") as HTMLElement;
+    expect(layer.parentElement).toBe(document.body);
+    expect(layer.className).toContain("z-[60]");
+  });
+
   it("selects the stem and leaves the extension out of the selection", () => {
     setup();
     fireEvent.focus(input());
