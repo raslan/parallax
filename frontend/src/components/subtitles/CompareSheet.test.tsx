@@ -8,6 +8,7 @@ const { api, apiProxy, touched } = vi.hoisted(() => {
   const api = {
     preview: vi.fn(),
     existingPreview: vi.fn(),
+    unmatchedPreview: vi.fn(),
     previewVttUrl: vi.fn((id: string) => `/api/subtitles/preview/${id}.vtt`),
     releaseTokens: vi.fn(),
     tracks: vi.fn(),
@@ -153,6 +154,23 @@ describe("CompareSheet", () => {
     expect(api.preview).not.toHaveBeenCalled();
   });
 
+  it("reads a subtitle found beside no video through the folder-scoped preview", async () => {
+    api.unmatchedPreview.mockResolvedValue(preview("st"));
+    renderSheet({
+      mode: "existing",
+      candidates: undefined,
+      existing: { ...existing, path: "/m/Subs/2_English.srt" },
+      unmatchedRoot: "/m",
+    });
+    await screen.findByText("Hello there");
+    expect(api.unmatchedPreview).toHaveBeenCalledWith("/m", "/m/Subs/2_English.srt", video.path);
+    expect(api.existingPreview).not.toHaveBeenCalled();
+    // Sync is physically impossible for it (no video owns it) and says why.
+    const sync = screen.getByRole("button", { name: "Sync" }) as HTMLButtonElement;
+    expect(sync.disabled).toBe(true);
+    expect(sync.title).toMatch(/named for the video/);
+  });
+
   it("sends the shown candidate with each candidate verdict", async () => {
     const { onVerdict } = renderSheet();
     await screen.findByText("Hello there");
@@ -180,6 +198,7 @@ describe("CompareSheet", () => {
     const READ_ONLY = [
       "preview",
       "existingPreview",
+      "unmatchedPreview",
       "previewVttUrl",
       "releaseTokens",
       "tracks",

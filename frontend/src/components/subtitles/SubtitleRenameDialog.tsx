@@ -32,7 +32,8 @@ export function SubtitleRenameDialog({
 }: {
   open: boolean;
   file: { path: string; name: string } | null;
-  videoName: string;
+  /** The video the file belongs to; null for a subtitle found beside no video (nothing to warn about). */
+  videoName: string | null;
   taken: ReadonlySet<string>;
   onSubmit: (newName: string) => Promise<void>;
   onOpenChange: (open: boolean) => void;
@@ -63,7 +64,7 @@ function RenameForm({
   onClose,
 }: {
   file: { path: string; name: string };
-  videoName: string;
+  videoName: string | null;
   taken: ReadonlySet<string>;
   onSubmit: (newName: string) => Promise<void>;
   onClose: () => void;
@@ -85,7 +86,11 @@ function RenameForm({
         ? "Invalid name (no slashes, can't start with a dot)"
         : "";
   const canRename = row.status === "ok" && !extChanged && !busy;
-  const outsideView = row.status === "ok" && !extChanged && !startsWithVideoName(videoName, typed);
+  const outsideView =
+    videoName !== null &&
+    row.status === "ok" &&
+    !extChanged &&
+    !startsWithVideoName(videoName, typed);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

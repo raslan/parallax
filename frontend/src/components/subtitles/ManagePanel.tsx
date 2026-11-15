@@ -322,22 +322,57 @@ export function ManagePanel({
 
         {unmatched.length > 0 && (
           <Section label={`Found in subfolders, not named for this video · ${unmatched.length}`}>
-            <ul className="space-y-0.5 font-mono text-xs text-muted-foreground">
+            <ul className="space-y-1.5">
               {unmatched.map((u) => (
-                <li key={u.path} className="flex items-center gap-2">
-                  <FileQuestion className="h-3 w-3 shrink-0" />
-                  <span className="truncate" title={u.path}>
-                    {u.directory ? `${u.directory}/` : ""}
-                    {u.name}
-                  </span>
-                  {u.language && (
-                    <span className="shrink-0 font-sans">{languageName(u.language)}</span>
-                  )}
+                <li
+                  key={u.path}
+                  aria-label={u.name}
+                  className="space-y-1.5 rounded-md border border-border bg-card px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground">
+                    <FileQuestion className="h-3 w-3 shrink-0" />
+                    <span className="truncate" title={u.path}>
+                      {u.directory ? `${u.directory}/` : ""}
+                      {u.name}
+                    </span>
+                    {u.language && (
+                      <span className="shrink-0 font-sans">{languageName(u.language)}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => onAct({ type: "stray_compare", file: u })}
+                    >
+                      <Play className="mr-1 h-3 w-3" />
+                      Play and check
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => onAct({ type: "stray_rename", file: u })}
+                    >
+                      <Pencil className="mr-1 h-3 w-3" />
+                      Rename
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                      onClick={() => onAct({ type: "stray_delete", paths: [u.path] })}
+                    >
+                      <Trash2 className="mr-1 h-3 w-3" />
+                      Delete
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              Parallax can't tell which video these belong to.{" "}
+              Parallax can't tell which video these belong to, so they are not adopted here.{" "}
               <Link to="/identify" className="underline hover:text-foreground">
                 Identify
               </Link>{" "}

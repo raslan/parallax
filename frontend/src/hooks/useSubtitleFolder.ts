@@ -92,7 +92,14 @@ export function useSubtitleFolder(activeFor: (folder: string | null) => ActiveJo
     const now = new Set(ids.split(","));
     if (prev.ids.split(",").some((id) => id !== "" && !now.has(id))) {
       forget(files.map((f) => f.path));
-      for (const queryKey of [qk.subtitleScan(folder), qk.subtitleUnmatched(folder)])
+      // The per-video lists too: a one-file sync from the Manage panel writes a new
+      // `.original` and re-times a file, and has no scan of its own to show it.
+      for (const queryKey of [
+        qk.subtitleScan(folder),
+        qk.subtitleUnmatched(folder),
+        ["subtitles", "files"],
+        ["subtitles", "tracks"],
+      ])
         void qc.invalidateQueries({ queryKey });
     }
   }, [ids, folder, qc, forget, files]);

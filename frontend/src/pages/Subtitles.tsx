@@ -44,7 +44,7 @@ import { useSubtitleManage } from "@/hooks/useSubtitleManage";
 import { useSubtitlePanelOpen } from "@/hooks/useSubtitlePanelOpen";
 import { useSubtitleWorkflow } from "@/hooks/useSubtitleWorkflow";
 import type { SyncEngine } from "@/lib/subtitleRunDock";
-import type { ScanFile, SubtitleFileInfo, SubtitleProvider } from "@/types/subtitle";
+import type { ScanFile, SubtitleProvider } from "@/types/subtitle";
 
 const parseLanguages = (raw: string | undefined) =>
   (raw || "en")
@@ -103,24 +103,26 @@ export function Subtitles() {
     setVerdict: w.plan.setVerdict,
     retry: w.retry,
     // Sync, Find another and Delete on an existing subtitle are the Manage panel's actions.
-    onExisting: (v, video, file) =>
+    onExisting: (v, video, file, stray) =>
       manage.act(
         video,
         v === "sync"
           ? { type: "sync", path: file.path, engine: syncEngine }
           : v === "delete"
-            ? { type: "delete", paths: [file.path] }
+            ? stray
+              ? { type: "stray_delete", paths: [file.path] }
+              : { type: "delete", paths: [file.path] }
             : { type: "find" },
       ),
   });
 
-  // Manage: the panel follows a single selected video while it is switched on, or the video
-  // whose Manage entry was used.
+  // Manage: while it is switched on the panel shows the single selected video. A row's
+  // Manage entry selects that video; it is not a separate way of choosing one.
   const [panelOn, setPanelOn] = useSubtitlePanelOpen();
-  const [managePath, setManagePath] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{
-    video: { path: string; name: string };
-    file: SubtitleFileInfo;
+    /** null for a subtitle found beside no video. */
+    video: { path: string; name: string } | null;
+    file: { path: string; name: string };
   } | null>(null);
   const manage = useSubtitleManage({
     folder,
@@ -129,12 +131,29 @@ export function Subtitles() {
         const v = files.find((x) => x.path === videoPath);
         if (v) compare.openExisting({ path: v.path, name: v.filename }, file);
       },
+      compareStray: (videoPath, u) => {
+        const v = files.find((x) => x.path === videoPath);
+        if (v)
+          compare.openExisting(
+            { path: v.path, name: v.filename },
+            {
+              path: u.path,
+              name: u.name,
+              language: u.language ?? "und",
+              label: null,
+              kind: "real",
+              size: 0,
+              directory: u.directory,
+            },
+            true,
+          );
+      },
       rename: (videoPath, file) => {
         const v = files.find((x) => x.path === videoPath);
         if (v) setRenaming({ video: { path: v.path, name: v.filename }, file });
       },
+      renameStray: (file) => setRenaming({ video: null, file }),
       find: (videoPath) => {
-        setManagePath(null);
         setPanelOn(false);
         w.startFind(files.filter((x) => x.path === videoPath));
       },
@@ -175,7 +194,6 @@ export function Subtitles() {
     setShown(`${folder}|${openKey}`);
     titleSel.selectNone();
     fileSel.selectNone();
-    setManagePath(null);
     setShow("all");
     setSearch("");
   }
@@ -200,8 +218,7 @@ export function Subtitles() {
   useSelectionOrder(fileSel.setOrder, visiblePaths);
 
   const selectedPaths = [...fileSel.selected];
-  const managedPath =
-    managePath ?? (panelOn && selectedPaths.length === 1 ? (selectedPaths[0] ?? null) : null);
+  const managedPath = panelOn && selectedPaths.length === 1 ? (selectedPaths[0] ?? null) : null;
   const managed = managedPath ? (files.find((x) => x.path === managedPath) ?? null) : null;
   // The scan already carries each video's files, so the panel opens with them and then reads
   // the video's own list, which a rename or delete refreshes at once.
@@ -212,13 +229,10 @@ export function Subtitles() {
     placeholderData: managed?.subtitles,
   });
   const openManage = (path: string) => {
-    setManagePath(path);
+    fileSel.selectAll([path]);
     setPanelOn(true);
   };
-  const closeManage = () => {
-    setManagePath(null);
-    setPanelOn(false);
-  };
+  const closeManage = () => setPanelOn(false);
   // Every name in a folder (videos and subtitles), so a rename to a taken one is refused here.
   const takenIn = (dir: string) => {
     const names = new Set<string>();
@@ -459,6 +473,7 @@ export function Subtitles() {
           mode={compare.sheet.mode}
           candidates={compare.sheet.candidates}
           existing={compare.sheet.existing}
+          unmatchedRoot={compare.sheet.stray && folder !== null ? folder : undefined}
           onVerdict={compare.verdict}
           onClose={compare.close}
         />
@@ -483,12 +498,16 @@ export function Subtitles() {
       <SubtitleRenameDialog
         open={renaming !== null}
         file={renaming?.file ?? null}
-        videoName={renaming?.video.name ?? ""}
+        videoName={renaming?.video?.name ?? null}
         taken={takenIn(
           renaming ? renaming.file.path.slice(0, renaming.file.path.lastIndexOf("/")) : "",
         )}
         onSubmit={(name) =>
-          renaming ? manage.rename(renaming.video, renaming.file.path, name) : Promise.resolve()
+          !renaming
+            ? Promise.resolve()
+            : renaming.video
+              ? manage.rename(renaming.video, renaming.file.path, name)
+              : manage.renameStray(renaming.file.path, name)
         }
         onOpenChange={(o) => !o && setRenaming(null)}
       />{" "}

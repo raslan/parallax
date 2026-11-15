@@ -171,8 +171,26 @@ describe("ManagePanel", () => {
       ],
     });
     expect(screen.getByText(/Found in subfolders, not named for this video/)).toBeTruthy();
-    expect(screen.getByText(/Subs\/2_English\.srt/)).toBeTruthy();
+    expect(screen.getAllByText(/Subs\/2_English\.srt/).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Identify" })).toBeTruthy();
     expect(btn(document.body, /adopt/i)).toBeNull();
+  });
+
+  it("gives each subfolder file Play and check, Rename and Delete", () => {
+    const u = {
+      path: "/m/Subs/2_English.srt",
+      name: "2_English.srt",
+      directory: "Subs",
+      language: "en",
+    };
+    const onAct = renderPanel([file("Movie.en.srt", "real")], { unmatched: [u] });
+    const r = screen.getByRole("listitem", { name: "2_English.srt" });
+    fireEvent.click(btn(r, /Play and check/)!);
+    expect(onAct).toHaveBeenLastCalledWith({ type: "stray_compare", file: u });
+    fireEvent.click(btn(r, /Rename/)!);
+    expect(onAct).toHaveBeenLastCalledWith({ type: "stray_rename", file: u });
+    fireEvent.click(btn(r, /Delete/)!);
+    expect(onAct).toHaveBeenLastCalledWith({ type: "stray_delete", paths: [u.path] });
+    expect(btn(r, /Sync|Make main|Restore/)).toBeNull();
   });
 });

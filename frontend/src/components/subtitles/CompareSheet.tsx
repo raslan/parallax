@@ -72,9 +72,12 @@ export function CompareSheet({
   mode,
   candidates = [],
   existing,
+  unmatchedRoot,
   onVerdict,
   onClose,
 }: {
+  /** Set when `existing` is a subtitle found beside no video, in this folder. */
+  unmatchedRoot?: string;
   video: { path: string; name: string };
   mode: "candidate" | "existing";
   candidates?: Candidate[];
@@ -117,9 +120,15 @@ export function CompareSheet({
   });
   // An existing subtitle is read through the same temporary preview as a candidate, so the
   // video plays that one file (not every track it has) and its lines are listed.
+  // A subtitle found beside no video is read through the folder-scoped call.
   const existingQ = useQuery({
-    queryKey: qk.subtitleExistingPreview(video.path, existing?.path ?? ""),
-    queryFn: () => subtitlesApi.existingPreview(video.path, existing?.path ?? ""),
+    queryKey: unmatchedRoot
+      ? qk.subtitleUnmatchedPreview(unmatchedRoot, existing?.path ?? "", video.path)
+      : qk.subtitleExistingPreview(video.path, existing?.path ?? ""),
+    queryFn: () =>
+      unmatchedRoot
+        ? subtitlesApi.unmatchedPreview(unmatchedRoot, existing?.path ?? "", video.path)
+        : subtitlesApi.existingPreview(video.path, existing?.path ?? ""),
     enabled: mode === "existing" && !!existing,
     staleTime: Infinity,
     retry: false,
@@ -288,7 +297,17 @@ export function CompareSheet({
                 <Button size="sm" onClick={() => onVerdict("keep")}>
                   Keep
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => onVerdict("sync")}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!!unmatchedRoot}
+                  title={
+                    unmatchedRoot
+                      ? "No video owns this file. Rename it so it is named for the video first."
+                      : undefined
+                  }
+                  onClick={() => onVerdict("sync")}
+                >
                   Sync
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => onVerdict("find_another")}>

@@ -11,6 +11,8 @@ const api = vi.hoisted(() => ({
   rename: vi.fn(async () => ({ path: "/m/x.srt", outside_view: false })),
   restoreOriginal: vi.fn(async () => ({ ok: true })),
   syncFile: vi.fn(async () => ({ job_id: 4 })),
+  unmatchedRemove: vi.fn(async () => ({ deleted: 1 })),
+  unmatchedRename: vi.fn(async () => ({ path: "/m/Subs/x.srt" })),
 }));
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/api")>()),
@@ -32,6 +34,8 @@ function setup() {
   const ui = {
     compare: vi.fn(),
     rename: vi.fn(),
+    compareStray: vi.fn(),
+    renameStray: vi.fn(),
     find: vi.fn(),
     translate: vi.fn(),
     generate: vi.fn(),
@@ -99,10 +103,55 @@ describe("useSubtitleManage", () => {
       await result.current.act(video, { type: "sync", path: "/m/M.en.srt", engine: "ffsubsync" });
     });
     await waitFor(() => expect(api.syncFile).toHaveBeenCalledTimes(1));
+    // The folder rides along, so Activity groups the job under the folder that is open.
     expect(api.syncFile).toHaveBeenCalledWith(video.path, undefined, {
       subtitle_path: "/m/M.en.srt",
       engine: "ffsubsync",
+      path: "/m",
     });
+  });
+
+  it("deletes stray subtitles with a counted confirm, nothing on cancel", async () => {
+    const { result, inv } = setup();
+    confirm.mockResolvedValueOnce(false);
+    await act(async () => {
+      await result.current.act(video, {
+        type: "stray_delete",
+        paths: ["/m/Subs/a.srt", "/m/Subs/b.srt"],
+      });
+    });
+    expect(confirm.mock.calls[0]?.[0].title).toContain("2 subtitle files");
+    expect(api.unmatchedRemove).not.toHaveBeenCalled();
+    confirm.mockResolvedValueOnce(true);
+    await act(async () => {
+      await result.current.act(video, { type: "stray_delete", paths: ["/m/Subs/a.srt"] });
+    });
+    expect(api.unmatchedRemove).toHaveBeenCalledWith("/m", ["/m/Subs/a.srt"]);
+    const keys = inv.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+    expect(keys).toContain(JSON.stringify(["subtitles", "unmatched", "/m"]));
+    expect(keys).toContain(JSON.stringify(["subtitles", "scan", "/m"]));
+  });
+
+  it("renames a stray subtitle through the folder-scoped call", async () => {
+    const { result, inv } = setup();
+    await act(async () => {
+      await result.current.renameStray("/m/Subs/a.srt", "Movie.en.srt");
+    });
+    expect(api.unmatchedRename).toHaveBeenCalledWith("/m", "/m/Subs/a.srt", "Movie.en.srt");
+    expect(inv.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey))).toContain(
+      JSON.stringify(["subtitles", "unmatched", "/m"]),
+    );
+  });
+
+  it("hands stray Play and check and Rename to the page", async () => {
+    const { result, ui } = setup();
+    const file = { path: "/m/Subs/a.srt", name: "a.srt", directory: "Subs", language: null };
+    await act(async () => {
+      await result.current.act(video, { type: "stray_compare", file });
+      await result.current.act(video, { type: "stray_rename", file });
+    });
+    expect(ui.compareStray).toHaveBeenCalledWith(video.path, file);
+    expect(ui.renameStray).toHaveBeenCalledWith(file);
   });
 
   it("makes main and restores through the API, and hands the rest to the page", async () => {

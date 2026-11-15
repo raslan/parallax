@@ -175,6 +175,28 @@ describe("Subtitles Home", () => {
     expect(subtitlesApi.files).toHaveBeenCalledWith("/m/Film/film.mkv");
   });
 
+  it("makes the panel follow the single selected file, not the file Manage was clicked on", async () => {
+    vi.mocked(subtitlesApi.scan).mockResolvedValue([
+      video("/m/Film/a.mkv", ["en"]),
+      video("/m/Film/b.mkv", ["en"]),
+    ]);
+    vi.mocked(subtitlesApi.groups).mockResolvedValue([
+      group("movie:film:", "Film", ["/m/Film/a.mkv", "/m/Film/b.mkv"], { type: "movie" }),
+    ]);
+    const files = vi.spyOn(subtitlesApi, "files").mockImplementation(async (p) => [sub(p, "en")]);
+    renderAt("?path=/m");
+    // Manage on a selects a and opens the panel.
+    fireEvent.click(await screen.findByRole("button", { name: /Manage subtitles for a.mkv/ }));
+    expect(await screen.findByText("Manage subtitles")).toBeTruthy();
+    expect(files).toHaveBeenLastCalledWith("/m/Film/a.mkv");
+    // Selecting b as well leaves two selected: no single file to follow.
+    fireEvent.click(screen.getByText("b.mkv"));
+    // Un-selecting a leaves b alone: the panel is now b's.
+    fireEvent.click(screen.getByText("a.mkv"));
+    await waitFor(() => expect(files).toHaveBeenLastCalledWith("/m/Film/b.mkv"));
+    expect(screen.getByText("Manage subtitles")).toBeTruthy();
+  });
+
   it("finds subtitles through Titles, Plan and Run, and goes back to the folder", async () => {
     vi.mocked(subtitlesApi.scan).mockResolvedValue([
       video("/tv/A/e1.mkv", ["en"]),

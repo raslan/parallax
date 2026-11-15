@@ -85,6 +85,14 @@ describe("useSubtitleCompare existing mode", () => {
     expect(result.current.sheet).toMatchObject({ mode: "existing", existing: existingFile });
   });
 
+  it("tells the page when the file is a stray one, so Delete uses the folder-scoped call", async () => {
+    const { result, onExisting } = setup();
+    act(() => result.current.openExisting(vid, existingFile, true));
+    expect(result.current.sheet).toMatchObject({ existing: existingFile, stray: true });
+    await act(async () => result.current.verdict("delete"));
+    expect(onExisting).toHaveBeenLastCalledWith("delete", vid, existingFile, true);
+  });
+
   it("Keep closes without acting", async () => {
     const { result, onExisting } = setup();
     act(() => result.current.openExisting(vid, existingFile));
@@ -97,11 +105,11 @@ describe("useSubtitleCompare existing mode", () => {
     const { result, onExisting } = setup();
     act(() => result.current.openExisting(vid, existingFile));
     await act(async () => result.current.verdict("sync"));
-    expect(onExisting).toHaveBeenLastCalledWith("sync", vid, existingFile);
+    expect(onExisting).toHaveBeenLastCalledWith("sync", vid, existingFile, false);
     expect(result.current.sheet).toBeNull();
     act(() => result.current.openExisting(vid, existingFile));
     await act(async () => result.current.verdict("find_another"));
-    expect(onExisting).toHaveBeenLastCalledWith("find_another", vid, existingFile);
+    expect(onExisting).toHaveBeenLastCalledWith("find_another", vid, existingFile, false);
     expect(result.current.sheet).toBeNull();
   });
 
@@ -110,7 +118,7 @@ describe("useSubtitleCompare existing mode", () => {
     onExisting.mockResolvedValueOnce(false);
     act(() => result.current.openExisting(vid, existingFile));
     await act(async () => result.current.verdict("delete"));
-    expect(onExisting).toHaveBeenLastCalledWith("delete", vid, existingFile);
+    expect(onExisting).toHaveBeenLastCalledWith("delete", vid, existingFile, false);
     expect(result.current.sheet).not.toBeNull();
     await act(async () => result.current.verdict("delete"));
     expect(result.current.sheet).toBeNull();

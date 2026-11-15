@@ -69,7 +69,7 @@ export const subtitlesApi = {
   syncFile: (
     file_path: string,
     language?: string,
-    opts?: { subtitle_path?: string; engine?: "alass" | "ffsubsync" },
+    opts?: { subtitle_path?: string; engine?: "alass" | "ffsubsync"; path?: string },
   ) =>
     req<{ job_id: number }>("/subtitles/sync-file", {
       method: "POST",
@@ -156,6 +156,25 @@ export const subtitlesApi = {
     req<PreviewInfo>("/subtitles/existing-preview", {
       method: "POST",
       body: JSON.stringify({ video_path, subtitle_path }),
+    }),
+
+  /** Preview a stray subtitle of `root`; `video_path` only gives the length hint a runtime. */
+  unmatchedPreview: (root: string, subtitle_path: string, video_path?: string) =>
+    req<PreviewInfo>("/subtitles/unmatched/preview", {
+      method: "POST",
+      body: JSON.stringify({ root, subtitle_path, video_path }),
+    }),
+
+  unmatchedRename: (root: string, subtitle_path: string, new_name: string) =>
+    req<{ path: string }>("/subtitles/unmatched/rename", {
+      method: "POST",
+      body: JSON.stringify({ root, subtitle_path, new_name }),
+    }),
+
+  unmatchedRemove: (root: string, subtitle_paths: string[]) =>
+    req<{ deleted: number }>("/subtitles/unmatched/delete", {
+      method: "POST",
+      body: JSON.stringify({ root, subtitle_paths }),
     }),
 
   previewVttUrl: (preview_id: string) =>

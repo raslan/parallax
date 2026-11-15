@@ -1,5 +1,5 @@
 import { splitExtension } from "@/lib/organizeRename";
-import type { SubtitleFileInfo, TidyMode } from "@/types/subtitle";
+import type { SubtitleFileInfo, TidyMode, UnmatchedSubtitle } from "@/types/subtitle";
 import type { SyncEngine } from "@/lib/subtitleRunDock";
 
 /** What the Manage panel asks the page to do. Paths are the video's own subtitle files. */
@@ -12,6 +12,10 @@ export type ManageAction =
   | { type: "rename"; file: SubtitleFileInfo }
   | { type: "delete"; paths: string[] }
   | { type: "tidy"; what: TidyMode; count: number }
+  /** Subtitles found beside no video: the folder-scoped calls, never the video's own. */
+  | { type: "stray_compare"; file: UnmatchedSubtitle }
+  | { type: "stray_rename"; file: UnmatchedSubtitle }
+  | { type: "stray_delete"; paths: string[] }
   | { type: "find" }
   | { type: "translate" }
   | { type: "generate" };

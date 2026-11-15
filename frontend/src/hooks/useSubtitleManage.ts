@@ -4,7 +4,7 @@ import { qk, subtitlesApi } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import { useConfirm } from "@/components/ConfirmProvider";
 import type { ManageAction } from "@/lib/subtitleManage";
-import type { TidyMode } from "@/types/subtitle";
+import type { TidyMode, UnmatchedSubtitle } from "@/types/subtitle";
 
 const TIDY_WORDS: Record<TidyMode, string> = {
   generated_translated: "generated or translated",
@@ -17,6 +17,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export interface ManageUi {
   compare: (videoPath: string, file: Extract<ManageAction, { type: "compare" }>["file"]) => void;
   rename: (videoPath: string, file: Extract<ManageAction, { type: "rename" }>["file"]) => void;
+  compareStray: (videoPath: string, file: UnmatchedSubtitle) => void;
+  renameStray: (file: UnmatchedSubtitle) => void;
   find: (videoPath: string) => void;
   translate: (videoPath: string) => void;
   generate: (videoPath: string) => void;
@@ -36,8 +38,11 @@ export function useSubtitleManage({ folder, ui }: { folder: string | null; ui: M
   const confirm = useConfirm();
 
   const refresh = (videoPath: string) => {
-    void qc.invalidateQueries({ queryKey: qk.subtitleFiles(videoPath) });
-    void qc.invalidateQueries({ queryKey: qk.subtitleTracks(videoPath) });
+    // A stray file that was renamed or deleted may now belong to any video: read them all again.
+    const files = videoPath ? qk.subtitleFiles(videoPath) : (["subtitles", "files"] as const);
+    const tracks = videoPath ? qk.subtitleTracks(videoPath) : (["subtitles", "tracks"] as const);
+    void qc.invalidateQueries({ queryKey: files });
+    void qc.invalidateQueries({ queryKey: tracks });
     if (folder !== null) {
       void qc.invalidateQueries({ queryKey: qk.subtitleScan(folder) });
       void qc.invalidateQueries({ queryKey: qk.subtitleUnmatched(folder) });
@@ -56,6 +61,33 @@ export function useSubtitleManage({ folder, ui }: { folder: string | null; ui: M
       case "rename":
         ui.rename(video.path, a.file);
         return true;
+      case "stray_compare":
+        ui.compareStray(video.path, a.file);
+        return true;
+      case "stray_rename":
+        ui.renameStray(a.file);
+        return true;
+      case "stray_delete": {
+        const n = a.paths.length;
+        if (
+          !(await confirm({
+            title: `Delete ${plural(n, "subtitle file", "subtitle files")}?`,
+            description:
+              "They are named for no video in this folder. They are removed from the disk and cannot be restored from here.",
+            confirmText: "Delete",
+            destructive: true,
+          }))
+        )
+          return false;
+        if (folder === null) return false;
+        try {
+          await subtitlesApi.unmatchedRemove(folder, a.paths);
+          refresh("");
+          return true;
+        } catch (e) {
+          return fail(e, "Could not delete the subtitle");
+        }
+      }
       case "find":
         ui.find(video.path);
         return true;
@@ -70,6 +102,7 @@ export function useSubtitleManage({ folder, ui }: { folder: string | null; ui: M
           await subtitlesApi.syncFile(video.path, undefined, {
             subtitle_path: a.path,
             engine: a.engine,
+            ...(folder !== null ? { path: folder } : {}),
           });
           void qc.invalidateQueries({ queryKey: qk.subtitleActive() });
           void qc.invalidateQueries({ queryKey: qk.jobs() });
@@ -156,5 +189,12 @@ export function useSubtitleManage({ folder, ui }: { folder: string | null; ui: M
       toast.info("Renamed. This page no longer lists it as a subtitle for this video.");
   };
 
-  return { act, rename };
+  /** A stray subtitle of the open folder: rejects with the server's message, like `rename`. */
+  const renameStray = async (subtitlePath: string, newName: string) => {
+    if (folder === null) throw new Error("No folder is open.");
+    await subtitlesApi.unmatchedRename(folder, subtitlePath, newName);
+    refresh("");
+  };
+
+  return { act, rename, renameStray };
 }

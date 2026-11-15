@@ -43,6 +43,22 @@ describe("SubtitleRenameDialog", () => {
     return waitFor(() => expect(onSubmit).toHaveBeenCalledWith("notes.srt"));
   });
 
+  it("does not warn about the video's name for a subtitle found beside no video", () => {
+    render(
+      <SubtitleRenameDialog
+        open
+        file={{ path: "/m/Subs/2_English.srt", name: "2_English.srt" }}
+        videoName={null}
+        taken={new Set(["2_English.srt"])}
+        onSubmit={vi.fn(async () => {})}
+        onOpenChange={vi.fn()}
+      />,
+    );
+    type("notes.srt");
+    expect(screen.queryByText(WARNING)).toBeNull();
+    expect(rename().disabled).toBe(false);
+  });
+
   it("refuses a taken name with the reason", () => {
     setup(["Movie.ar.srt"]);
     type("Movie.ar.srt");

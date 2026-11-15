@@ -124,6 +124,9 @@ export const qk = {
   /** The temporary preview of a subtitle file the video already has. */
   subtitleExistingPreview: (video: string, subtitle: string) =>
     ["subtitles", "existing-preview", video, subtitle] as const,
+  /** The temporary preview of a subtitle found beside no video, in one folder. */
+  subtitleUnmatchedPreview: (root: string, subtitle: string, video: string) =>
+    ["subtitles", "unmatched-preview", root, subtitle, video] as const,
   subtitleReleaseTokens: (release: string, videoName: string) =>
     ["subtitles", "release-tokens", release, videoName] as const,
   subtitleUnmatched: (path: string) => ["subtitles", "unmatched", path] as const,
