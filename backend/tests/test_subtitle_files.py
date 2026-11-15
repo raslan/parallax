@@ -315,11 +315,11 @@ def test_scan_directory_subtitles_add_one_walk_per_folder(tmp_path, monkeypatch)
 
     real_list = sf.list_subtitle_files
     monkeypatch.setattr(sf, "list_subtitle_files", lambda *a, **k: [])
-    scan_directory(str(tmp_path), ["en"])
+    scan_directory(str(tmp_path))
     baseline = len(walks)  # the older per-video helpers plus the scan's own walk
     walks.clear()
     monkeypatch.setattr(sf, "list_subtitle_files", real_list)
-    out = scan_directory(str(tmp_path), ["en"])
+    out = scan_directory(str(tmp_path))
     assert len(out[0]["subtitles"]) == 1
     # one distinct folder, so the new `subtitles` listing may add at most one walk, not 50
     print("walks added by subtitles:", len(walks) - baseline)
@@ -340,6 +340,5 @@ def test_scan_directory_lists_subtitles(movie):
 
     root, video = movie
     touch(os.path.join(root, "Movie.en.srt"))
-    out = scan_directory(root, ["en"])
+    out = scan_directory(root)
     assert [s["name"] for s in out[0]["subtitles"]] == ["Movie.en.srt"]
-    assert out[0]["has_subtitle"] is True

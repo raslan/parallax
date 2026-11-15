@@ -202,44 +202,6 @@ def test_subf2m_search_raises_when_every_language_drifts(monkeypatch):
         p.search(q)
 
 
-def _video(tmp_path):
-    video = tmp_path / "Movie (2020).mkv"
-    video.write_bytes(b"x")
-    return str(video)
-
-
-def test_search_file_route_unknown_provider_is_422(client, tmp_path):
-    r = client.post(
-        "/api/subtitles/search-file", json={"file_path": _video(tmp_path), "provider": "bogus"}
-    )
-    assert r.status_code == 422
-    assert "Unknown source" in r.json()["detail"]
-
-
-def test_download_one_route_unknown_provider_is_422(client, tmp_path):
-    r = client.post(
-        "/api/subtitles/download-one",
-        json={
-            "file_path": _video(tmp_path),
-            "provider": "bogus",
-            "subtitle_id": "x",
-            "language": "en",
-        },
-    )
-    assert r.status_code == 422
-    assert "Unknown source" in r.json()["detail"]
-
-
-def test_search_file_route_surfaces_provider_error(client, tmp_path, monkeypatch):
-    def boom(self, q):
-        raise sp.ProviderError("Subf2m page changed: nothing matched ul.sublist")
-
-    monkeypatch.setattr(Subf2mProvider, "search", boom)
-    r = client.post("/api/subtitles/search-file", json={"file_path": _video(tmp_path)})
-    assert r.status_code == 502
-    assert "ul.sublist" in r.json()["detail"]
-
-
 # --- download ids are confined to the provider's own site (no outbound request otherwise) ---
 
 _FOREIGN = [

@@ -374,30 +374,6 @@ def test_two_runs_same_target_do_not_corrupt(tmp_path):
     assert [n for n in os.listdir(tmp_path) if n.endswith(".tmp")] == []
 
 
-def test_old_folder_download_runs_through_the_new_run(env, monkeypatch):
-    video, fs_db, synced = env
-    (video.parent / "Done.mkv").write_bytes(b"v")
-    (video.parent / "Done.en.srt").write_bytes(srt("Have"))
-    sub = FakeProvider(
-        "subf2m",
-        results=[
-            {"provider": "subf2m", "language": "en", "subtitle_id": "a", "score": 5},
-            {"provider": "subf2m", "language": "en", "subtitle_id": "worse", "score": 1},
-        ],
-        files={"a": srt("New")},
-    )
-    use(monkeypatch, sub)
-    jid = _job(fs_db)
-    sr.run_folder_download(jid, str(video.parent), ["en"])
-    assert (video.parent / "Movie.en.srt").read_bytes() == srt("New")
-    assert (video.parent / "Done.en.srt").read_bytes() == srt("Have")
-    assert sub.searches == 1 and sub.downloads == ["a"]
-    status, _cur, _err, settings = _state(fs_db, jid)
-    assert status == JobStatus.COMPLETED
-    assert [r["status"] for r in settings["results"]] == ["saved"]
-    assert synced == []
-
-
 ASS = b"[Script Info]\nTitle: x\n\n[Events]\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Hi\n"
 
 
@@ -487,20 +463,3 @@ def test_search_cache_is_capped_and_drops_expired(monkeypatch):
     t[0] += sr.CACHE_TTL_SECONDS + 1
     sr.search_candidates(q("fresh"), ["subf2m"], clock=lambda: t[0])
     assert len(sr._CACHE) == 1
-
-
-def test_old_folder_download_reports_provider_errors(env, monkeypatch):
-    from app.models.job import JobLog
-
-    video, fs_db, _ = env
-    (video.parent / "Other.mkv").write_bytes(b"v")
-    use(monkeypatch, FakeProvider("subf2m", error=ProviderError("Subf2m did not answer in time")))
-    jid = _job(fs_db)
-    sr.run_folder_download(jid, str(video.parent), ["en"])
-    status, _c, err, _s = _state(fs_db, jid)
-    assert status == JobStatus.FAILED
-    assert "Subf2m did not answer in time" in err
-    db = fs_db()
-    logs = [row.message for row in db.query(JobLog).filter(JobLog.job_id == jid)]
-    db.close()
-    assert sum("Subf2m did not answer in time" in m for m in logs) == 1

@@ -155,20 +155,3 @@ def test_settings_no_longer_has_auto_sync(client):
     r = client.patch("/api/settings", json={"subtitle_auto_sync": True})
     assert r.status_code == 200  # unknown fields are ignored by the model
     assert "subtitle_auto_sync" not in r.json()
-
-
-def test_download_one_does_not_sync(client, movie, monkeypatch):
-    video, _ = movie
-    queued = []
-
-    async def fake_enqueue(*a):
-        queued.append(a)
-
-    monkeypatch.setattr("app.api.subtitles.enqueue", fake_enqueue, raising=False)
-    monkeypatch.setattr("app.services.subtitle_service.download_one", lambda *a: True)
-    r = client.post(
-        "/api/subtitles/download-one",
-        json={"file_path": video, "provider": "subf2m", "subtitle_id": "x", "language": "en"},
-    )
-    assert r.status_code == 200
-    assert queued == []

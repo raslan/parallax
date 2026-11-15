@@ -60,10 +60,6 @@ def test_translate_one_writes_marked_file_with_timings_and_rtl(env):
     text = open(out, encoding="utf-8").read()
     assert "00:00:01,000 --> 00:00:02,000\n‫AR:Hello there." in text
     assert "00:00:03,000 --> 00:00:04,000" in text
-    # the machine-made file is not the real subtitle: the scan still sees Arabic as missing
-    from app.services.subtitle_service import _missing_lang_codes
-
-    assert _missing_lang_codes(str(video), ["ar"]) == ["ar"]
     assert [p for p in os.listdir(video.parent) if p.startswith(".")] == []
 
 

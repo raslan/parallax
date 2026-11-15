@@ -16,40 +16,9 @@ from app.services.subtitle_providers import ProviderError
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
 
-_SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
-_SUBTITLE_LANGUAGES_DEFAULT = "en"
-
-
-def _get_lang_codes(db: Session) -> list[str]:
-    raw = get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT)
-    return [c.strip() for c in raw.split(",") if c.strip()]
-
 
 class ScanRequest(BaseModel):
     path: str
-
-
-class DownloadRequest(BaseModel):
-    path: str
-    languages: list[str] | None = None
-
-
-class SearchFileRequest(BaseModel):
-    file_path: str
-    languages: list[str] | None = None
-    query: str | None = None
-    year: int | None = None
-    media_type: str | None = None
-    season: int | None = None
-    episode: int | None = None
-    provider: str = "subf2m"
-
-
-class DownloadOneRequest(BaseModel):
-    file_path: str
-    provider: str
-    subtitle_id: str
-    language: str
 
 
 class YtsTitleRequest(BaseModel):
@@ -93,100 +62,12 @@ def identity_parse(body: ParsePastedRequest):
 
 
 @router.post("/scan")
-def scan_path(body: ScanRequest, db: Session = Depends(get_db)):
+def scan_path(body: ScanRequest):
     if not os.path.isdir(body.path):
         raise HTTPException(400, "Path is not a directory")
     from app.services.subtitle_service import scan_directory
 
-    return scan_directory(body.path, _get_lang_codes(db))
-
-
-@router.post("/download")
-async def download_subtitles(body: DownloadRequest, db: Session = Depends(get_db)):
-    if not os.path.isdir(body.path):
-        raise HTTPException(400, "Path is not a directory")
-
-    lang_codes = body.languages or _get_lang_codes(db)
-
-    from app.services.subtitle_run import run_folder_download  # compat until the new page
-
-    job = Job(
-        type=JobType.SUBTITLE_DOWNLOAD,
-        status=JobStatus.PENDING,
-        settings=json.dumps({"path": body.path, "languages": lang_codes}),
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
-    await enqueue(job.id, run_folder_download, job.id, body.path, lang_codes)
-
-    return {"job_id": job.id}
-
-
-@router.post("/search-file")
-def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
-    if not os.path.isfile(body.file_path):
-        raise HTTPException(400, "File not found")
-    lang_codes = body.languages or _get_lang_codes(db)
-    from app.services.subtitle_service import search_file as svc_search
-
-    tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip() or None
-    try:
-        return svc_search(
-            body.file_path,
-            lang_codes,
-            query=body.query,
-            year=body.year,
-            media_type=body.media_type,
-            season=body.season,
-            episode=body.episode,
-            provider=body.provider,
-            tmdb_api_key=tmdb_api_key,
-        )
-    except ValueError as exc:
-        raise HTTPException(422, str(exc))
-    except ProviderError as exc:
-        raise HTTPException(502, str(exc))
-    except Exception as exc:
-        raise HTTPException(500, str(exc))
-
-
-@router.post("/download-one")
-async def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
-    if not os.path.isfile(body.file_path):
-        raise HTTPException(400, "File not found")
-    from app.services.subtitle_service import download_one as svc_download
-
-    try:
-        ok = svc_download(body.file_path, body.provider, body.subtitle_id, body.language)
-        if not ok:
-            raise HTTPException(404, "Subtitle not found or download failed")
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        raise HTTPException(422, str(exc))
-    except ProviderError as exc:
-        raise HTTPException(502, str(exc))
-    except Exception as exc:
-        raise HTTPException(500, str(exc))
-
-    return {"ok": True}
-
-
-@router.delete("/file")
-def delete_subtitle_file(
-    file_path: str = Query(...),
-    language: str = Query(...),
-    machine: bool = Query(False, description="Delete the machine-made subtitle instead"),
-):
-    if not os.path.isfile(file_path):
-        raise HTTPException(400, "Video file not found")
-    from app.services.subtitle_service import delete_subtitle
-
-    if not delete_subtitle(file_path, language, machine=machine):
-        raise HTTPException(404, "Subtitle not found")
-    return {"ok": True}
+    return scan_directory(body.path)
 
 
 class SyncFileRequest(BaseModel):
@@ -389,36 +270,6 @@ def restore_original(body: RestoreOriginalRequest):
     from app.services.subtitle_sync import restore_original as svc_restore
 
     return {"ok": svc_restore(body.video_path, body.subtitle_path)}
-
-
-class SyncBulkRequest(BaseModel):
-    path: str
-
-
-@router.post("/sync-bulk")
-async def sync_bulk(body: SyncBulkRequest, db: Session = Depends(get_db)):
-    if not os.path.isdir(body.path):
-        raise HTTPException(400, "Path is not a directory")
-    from app.services.subtitle_sync import collect_sync_targets
-
-    targets = collect_sync_targets(body.path)
-    if not targets:
-        raise HTTPException(422, "No subtitle files found to sync")
-
-    engine = get_setting(db, "subtitle_sync_engine", "alass")
-    job = Job(
-        type=JobType.SUBTITLE_SYNC,
-        status=JobStatus.PENDING,
-        settings=json.dumps({"path": body.path}),
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
-    from app.services.subtitle_sync import run_sync_job
-
-    await enqueue(job.id, run_sync_job, job.id, targets, engine)
-    return {"job_id": job.id}
 
 
 SYNC_FILES_MAX = 500

@@ -105,16 +105,6 @@ def test_stem_match_is_exact(folder):
     assert found == ["Movie.fr.srt"]
 
 
-def test_missing_counts_only_real(folder):
-    touch(folder, "Movie.en.generated.srt", "Movie.en.original.srt")
-    assert ss._missing_lang_codes(str(folder), ["en"]) == ["en"]
-    touch(folder, "Movie.en.hi.srt")
-    assert ss._missing_lang_codes(str(folder), ["en"]) == []
-    (folder.parent / "Movie.en.hi.srt").unlink()
-    touch(folder, "Movie.en.subf2m.srt")
-    assert ss._missing_lang_codes(str(folder), ["en"]) == []
-
-
 def test_tracks_skip_originals_and_carry_kind_and_labels(folder):
     touch(
         folder,
@@ -138,19 +128,18 @@ def test_tracks_skip_originals_and_carry_kind_and_labels(folder):
     assert tracks["Movie.de.yts.srt"]["label"] == "German (yts)"
 
 
-def test_scan_reports_machine_languages(folder):
+def test_scan_lists_the_subtitle_files_beside_each_video(folder):
     touch(folder, "Movie.en.srt", "Movie.ar.translated.srt")
-    (row,) = ss.scan_directory(str(folder.parent), ["en", "ar"])
-    assert row["languages"] == {"en": True, "ar": False}
-    assert row["machine_languages"] == {"en": False, "ar": True}
+    (row,) = ss.scan_directory(str(folder.parent))
+    assert {s["name"] for s in row["subtitles"]} == {"Movie.en.srt", "Movie.ar.translated.srt"}
+    assert not {"languages", "machine_languages", "has_subtitle", "has_any_subtitle"} & set(row)
 
 
-def test_delete_removes_the_real_or_the_machine_made_files_only(folder):
+def test_remove_machine_made_leaves_the_real_file(folder):
     touch(folder, "Movie.ar.srt", "Movie.ar.generated.srt", "Movie.ar.translated.srt")
-    assert ss.delete_subtitle(str(folder), "ar", machine=True) is True
+    assert ss.remove_machine_made(str(folder), "ar") is True
     assert sorted(os.listdir(folder.parent)) == ["Movie.ar.srt", "Movie.mkv"]
-    assert ss.delete_subtitle(str(folder), "ar", machine=True) is False
-    assert ss.delete_subtitle(str(folder), "ar") is True
+    assert ss.remove_machine_made(str(folder), "ar") is False
 
 
 def test_remove_machine_made_removes_both_kinds(folder):

@@ -22,7 +22,6 @@ from app.services.srt_io import decode_srt, parse_srt
 from app.services.subtitle_preview import _LEGACY_ENCODINGS
 from app.services.subtitle_providers import (
     MAX_SUBTITLE_BYTES,
-    Identity,
     ProviderError,
     SearchQuery,
     get_provider,
@@ -344,124 +343,6 @@ def run_subtitle_job(
             fail_job(db, db.get(Job, job_id), exc)
         except Exception:
             logger.exception("Could not mark subtitle run job %d failed", job_id)
-        finally:
-            db.close()
-    finally:
-        clear_cancel(job_id)
-
-
-# ---------------------------------------------------------------- compat (until Task 16)
-
-
-def run_folder_download(job_id: int, path: str, lang_codes: list[str]) -> None:
-    """The old page's folder-wide download, rebuilt on the new run: every video under `path`
-    missing a real subtitle in a language gets the best candidate per missing language."""
-    from app.database import SessionLocal
-    from app.models.job import Job, JobStatus
-    from app.models.settings import get_setting
-
-    try:
-        db = SessionLocal()
-        try:
-            job = db.get(Job, job_id)
-            if job is None or job.status == JobStatus.CANCELLED:
-                return
-            job.status = JobStatus.RUNNING
-            job.started_at = now()
-            db.commit()
-            tmdb_key = get_setting(db, "tmdb_api_key", "").strip()
-        finally:
-            db.close()
-        arm_cancel(job_id)
-
-        videos = [
-            os.path.join(d, f)
-            for d, _, names in os.walk(path)
-            for f in sorted(names)
-            if os.path.splitext(f)[1].lower() in subtitle_service.VIDEO_EXTENSIONS
-        ]
-        items: list[dict] = []
-        errors: list[str] = []
-        for video in videos:
-            if should_cancel(job_id):
-                _update_job(
-                    job_id,
-                    status=JobStatus.CANCELLED,
-                    finished_at=now(),
-                    current_file=f"0 of {len(videos)} done before cancel",
-                )
-                return
-            missing = subtitle_service._missing_lang_codes(video, lang_codes)
-            if not missing:
-                continue
-            _update_job(job_id, current_file=os.path.basename(video))
-            info = subtitle_service._video_info(video)
-            kind = "tv" if info["is_episode"] else "movie"
-            imdb_id = None
-            providers = ["subf2m"]
-            if kind == "movie" and tmdb_key:
-                try:
-                    imdb_id = subtitle_service.resolve_imdb_id(
-                        info["title"], info["year"], kind, tmdb_key
-                    )
-                except Exception as exc:
-                    logger.warning("TMDB lookup failed for %s: %s", video, exc)
-                if imdb_id:
-                    providers.append("yts")
-            q = SearchQuery(
-                identity=Identity(info["title"], info["year"], kind, imdb_id=imdb_id),
-                languages=tuple(missing),
-                season=(info["season"] or 1) if kind == "tv" else None,
-                episode=(info["episode"] or 1) if kind == "tv" else None,
-                video_path=video,
-            )
-            found = search_candidates(q, providers)
-            for e in found["errors"]:
-                reason = f"{e['provider']}: {e['message']}"
-                if reason not in errors:  # one line per distinct failure, not one per video
-                    errors.append(reason)
-                    _log_job(job_id, f"Search failed, {reason}", "error")
-            seen: set[str] = set()
-            for c in found["candidates"]:
-                lang = c.get("language")
-                if lang in missing and lang not in seen:
-                    seen.add(lang)
-                    items.append(
-                        {
-                            "video_path": video,
-                            "language": lang,
-                            "provider": c.get("provider", "subf2m"),
-                            "subtitle_id": c["subtitle_id"],
-                            "sync": False,
-                        }
-                    )
-
-        if not items and errors:
-            _update_job(
-                job_id,
-                status=JobStatus.FAILED,
-                finished_at=now(),
-                current_file=None,
-                error=errors[0][:512],
-            )
-            return
-        if not items:
-            _update_job(
-                job_id,
-                status=JobStatus.COMPLETED,
-                progress=100.0,
-                finished_at=now(),
-                current_file="Nothing to download",
-            )
-            return
-        run_subtitle_job(job_id, items, False, False, None)
-    except Exception as exc:
-        logger.exception("Subtitle folder download %d failed", job_id)
-        db = SessionLocal()
-        try:
-            fail_job(db, db.get(Job, job_id), exc)
-        except Exception:
-            logger.exception("Could not mark subtitle job %d failed", job_id)
         finally:
             db.close()
     finally:

@@ -67,10 +67,6 @@ def test_generate_writes_a_machine_made_english_subtitle(env):
     assert "00:00:00,500 --> 00:00:02,000\nHello there." in text
     assert text.count("-->") == 2  # the empty segment is dropped
     assert "\n" in text.split("00:00:03,000 --> 00:00:05,500\n")[1].split("\n\n")[0]  # wrapped
-    # a machine-made English file is not the real one: the scan still wants a real subtitle
-    from app.services.subtitle_service import _missing_lang_codes
-
-    assert _missing_lang_codes(str(video), ["en"]) == ["en"]
     assert sorted(os.listdir(video.parent)) == ["Movie (2020).en.generated.srt", "Movie (2020).mkv"]
     assert not [
         d for d in os.listdir(os.path.dirname(video.parent)) if d.startswith("parallax-stt")

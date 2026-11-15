@@ -155,20 +155,6 @@ def sync_subtitle(video_path: str, sub_path: str, engine: str = "alass") -> bool
     return sync_alass(video_path, sub_path)
 
 
-def collect_sync_targets(path: str) -> list[tuple[str, str]]:
-    from app.services.subtitle_service import VIDEO_EXTENSIONS, find_all_subtitle_tracks
-
-    targets: list[tuple[str, str]] = []
-    for dirpath, _, filenames in os.walk(path):
-        for fname in sorted(filenames):
-            if os.path.splitext(fname)[1].lower() not in VIDEO_EXTENSIONS:
-                continue
-            video_path = os.path.join(dirpath, fname)
-            for track in find_all_subtitle_tracks(video_path):
-                targets.append((video_path, track["path"]))
-    return targets
-
-
 def run_sync_job(job_id: int, targets: list[tuple[str, str]], engine: str) -> None:
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
