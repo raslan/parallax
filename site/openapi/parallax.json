@@ -5584,6 +5584,44 @@
         }
       }
     },
+    "/api/subtitles/existing-preview": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Describe a subtitle the video already has, as a temporary preview",
+        "description": "Same answer as the candidate preview, for one of the video's own subtitle files (a\n`.original` backup included). Served through the same temporary `.vtt` route; nothing is\nwritten beside the video.",
+        "operationId": "preview_existing_api_subtitles_existing_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExistingPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subtitles/preview/{preview_id}.vtt": {
       "get": {
         "tags": ["subtitles"],
@@ -8687,6 +8725,21 @@
         "type": "object",
         "required": ["episode_number", "name", "overview"],
         "title": "Episode"
+      },
+      "ExistingPreviewRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "subtitle_path"],
+        "title": "ExistingPreviewRequest"
       },
       "FileMapping": {
         "properties": {
