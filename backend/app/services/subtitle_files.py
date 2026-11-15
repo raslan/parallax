@@ -93,20 +93,71 @@ def _owned(video_path: str, subtitle_paths: list[str]) -> list[dict]:
     _require_video(video_path)
     if not os.path.isfile(video_path):
         raise SubtitleNotFound("That video file was not found.")
-    listed = list_subtitle_files(video_path)
+    return _match(
+        list_subtitle_files(video_path), subtitle_paths, "That is not a subtitle of this video."
+    )
+
+
+def _match(listed: list[dict], paths: list[str], refusal: str) -> list[dict]:
+    """The listing entries for `paths` (by listed path first, then by real path), else a
+    refusal. The listing is derived on the server, never from what the client sent."""
     by_path = {f["path"]: f for f in listed}
     by_real = {_real(f["path"]): f for f in listed}
     found = []
-    for p in subtitle_paths:
+    for p in paths:
         if not isinstance(p, str) or "\0" in p:
-            raise SubtitleFileError("That is not a subtitle of this video.")
+            raise SubtitleFileError(refusal)
         entry = by_path.get(p) or by_real.get(_real(p))
         if entry is None:
             if not os.path.lexists(p):
                 raise SubtitleNotFound("That subtitle file was not found.")
-            raise SubtitleFileError("That is not a subtitle of this video.")
+            raise SubtitleFileError(refusal)
         found.append(entry)
     return found
+
+
+_UNMATCHED_REFUSAL = "That is not a subtitle found beside no video in this folder."
+
+
+def _unmatched_owned(root: str, subtitle_paths: list[str]) -> list[dict]:
+    """The entries of a fresh `unmatched_subtitles(root)` walk for `subtitle_paths`. A symlink is
+    refused (it could lead outside the folder), as is anything a video claims."""
+    if not isinstance(root, str) or not root or "\0" in root:
+        raise SubtitleFileError("That is not a folder.")
+    found = _match(unmatched_subtitles(root), subtitle_paths, _UNMATCHED_REFUSAL)
+    if any(os.path.islink(e["path"]) for e in found):
+        raise SubtitleFileError(_UNMATCHED_REFUSAL)
+    return found
+
+
+def rename_unmatched(root: str, subtitle_path: str, new_name: str) -> dict:
+    """Rename a stray subtitle in its own folder; extension kept, nothing is overwritten."""
+    with _WRITE_LOCK:
+        (entry,) = _unmatched_owned(root, [subtitle_path])
+        old = entry["path"]
+        _check_new_name(old, new_name)
+        new = os.path.join(os.path.dirname(old), new_name)
+        if os.path.lexists(new):
+            raise SubtitleFileError("A file with that name already exists.")
+        try:
+            os.replace(old, new)
+        except OSError as e:
+            raise SubtitleFileError(f"Could not rename the file: {e.strerror or e}") from e
+    return {"path": new}
+
+
+def delete_unmatched(root: str, subtitle_paths: list[str]) -> int:
+    """Permanently delete exactly the validated stray subtitles; all-or-nothing on validation."""
+    with _WRITE_LOCK:
+        entries = _unmatched_owned(root, subtitle_paths)
+        unique = {_real(e["path"]): e for e in entries}
+        return _remove(list(unique.values()))
+
+
+def unmatched_entry(root: str, subtitle_path: str) -> dict:
+    """One validated stray subtitle (for the temporary preview)."""
+    (entry,) = _unmatched_owned(root, [subtitle_path])
+    return entry
 
 
 def _check_new_name(old_path: str, new_name: str) -> None:

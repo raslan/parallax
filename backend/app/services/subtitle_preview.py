@@ -12,7 +12,7 @@ import time
 
 from app.config import DATA_DIR
 from app.services.srt_io import Cue, decode_srt, format_timestamp, parse_srt
-from app.services.subtitle_files import SubtitleFileError, _owned
+from app.services.subtitle_files import SubtitleFileError, _owned, unmatched_entry
 from app.services.subtitle_lengths import length_verdict
 from app.services.subtitle_providers import MAX_SUBTITLE_BYTES, ProviderError, get_provider
 from app.services.subtitle_service import SUBTITLE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -127,6 +127,17 @@ def create_existing_preview(
     """Describe a subtitle the video already has (any of its own files, a `.original` backup
     included) and write it as temporary WebVTT. Nothing is written beside the video."""
     (entry,) = _owned(video_path, [subtitle_path])
+    return _preview_entry(entry, video_duration)
+
+
+def create_unmatched_preview(
+    root: str, subtitle_path: str, video_duration: float | None = None
+) -> dict:
+    """The same for a subtitle found beside no video; `root` is the folder it was found in."""
+    return _preview_entry(unmatched_entry(root, subtitle_path), video_duration)
+
+
+def _preview_entry(entry: dict, video_duration: float | None) -> dict:
     try:
         with open(entry["path"], "rb") as f:
             data = f.read(MAX_DOWNLOAD_BYTES + 1)

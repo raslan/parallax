@@ -64,6 +64,29 @@ def unmatched(body: UnmatchedRequest):
     return svc.unmatched_subtitles(body.path)
 
 
+class UnmatchedRenameRequest(BaseModel):
+    root: str
+    subtitle_path: str
+    new_name: str
+
+
+class UnmatchedDeleteRequest(BaseModel):
+    root: str
+    subtitle_paths: list[str] = Field(max_length=500)
+
+
+@router.post("/unmatched/rename", summary="Rename a subtitle found beside no video")
+def unmatched_rename(body: UnmatchedRenameRequest):
+    """`root` is the folder the page scanned; the file must be in a fresh listing of its
+    unmatched subtitles. Same folder, extension kept, nothing overwritten."""
+    return svc.rename_unmatched(body.root, body.subtitle_path, body.new_name)
+
+
+@router.post("/unmatched/delete", summary="Delete subtitles found beside no video")
+def unmatched_delete(body: UnmatchedDeleteRequest):
+    return {"deleted": svc.delete_unmatched(body.root, body.subtitle_paths)}
+
+
 @router.post("/files", summary="List every subtitle file of a video")
 def files(body: VideoRequest):
     return svc.list_subtitle_files(body.video_path)

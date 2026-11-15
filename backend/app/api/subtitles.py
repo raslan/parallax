@@ -194,6 +194,8 @@ class SyncFileRequest(BaseModel):
     language: str | None = None
     subtitle_path: str | None = None
     engine: Literal["alass", "ffsubsync"] | None = None
+    #: The folder the work was started from, so the Subtitles page shows the job for it.
+    path: str | None = None
 
 
 class RestoreOriginalRequest(BaseModel):
@@ -347,6 +349,8 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
 async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
+    if body.path is not None and not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
     from app.services.subtitle_files import _owned
     from app.services.subtitle_service import find_all_subtitle_tracks
 
@@ -368,7 +372,7 @@ async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
     job = Job(
         type=JobType.SUBTITLE_SYNC,
         status=JobStatus.PENDING,
-        settings=json.dumps({"path": os.path.dirname(body.file_path)}),
+        settings=json.dumps({"path": body.path or os.path.dirname(body.file_path)}),
     )
     db.add(job)
     db.commit()

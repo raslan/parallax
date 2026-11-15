@@ -245,6 +245,26 @@ def preview_existing(body: ExistingPreviewRequest):
     return subtitle_preview.create_existing_preview(body.video_path, body.subtitle_path, duration)
 
 
+class UnmatchedPreviewRequest(BaseModel):
+    root: str
+    subtitle_path: str
+    video_path: str | None = None
+
+
+@router.post(
+    "/unmatched/preview",
+    summary="Describe a subtitle found beside no video, as a temporary preview",
+)
+def preview_unmatched(body: UnmatchedPreviewRequest):
+    """For a stray subtitle of the folder `root` (checked against a fresh listing on the
+    server). `video_path`, when it is an existing video, only supplies the length hint."""
+    duration = None
+    if body.video_path and os.path.isfile(body.video_path):
+        _require_video(body.video_path)
+        duration = probe_duration(body.video_path)
+    return subtitle_preview.create_unmatched_preview(body.root, body.subtitle_path, duration)
+
+
 @router.get("/preview/{preview_id}.vtt", summary="Serve a temporary preview as WebVTT")
 def get_preview(preview_id: str):
     path = subtitle_preview.preview_path(preview_id)
