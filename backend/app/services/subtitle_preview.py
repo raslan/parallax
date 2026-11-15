@@ -106,9 +106,15 @@ def create_preview(
     """Download a candidate and write it as temporary WebVTT. `video_path` is only the video's
     name for context: nothing is written beside it. The caller supplies the probed duration."""
     try:
-        data = get_provider(provider).download(subtitle_id)
+        source = get_provider(provider)
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
+    try:
+        data = source.download(subtitle_id)
+    except ValueError as exc:
+        raise ProviderError(str(exc)) from exc
+    finally:
+        source.close()
     if not data:
         raise ProviderError("The source returned no subtitle for that choice.")
     if len(data) > MAX_DOWNLOAD_BYTES:

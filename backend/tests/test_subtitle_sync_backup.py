@@ -130,7 +130,8 @@ def test_engine_defaults_to_setting_and_override_wins(client, engine, movie, mon
         "/api/subtitles/sync-file",
         json={"file_path": video, "subtitle_path": "/etc/passwd"},
     )
-    assert r.status_code in (400, 404)
+    assert r.status_code == 400
+    assert r.json()["detail"] == "That is not a subtitle of this video."
     r = client.post("/api/subtitles/sync-file", json={"file_path": video, "engine": "nope"})
     assert r.status_code == 422
 

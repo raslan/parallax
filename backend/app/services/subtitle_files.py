@@ -87,15 +87,35 @@ def list_subtitle_files(
     return out
 
 
+def _snapshot(entries: list[dict]) -> list[tuple[dict, str]]:
+    """Each validated entry with its real path as it was when the listing was made. The walks
+    that validate run OUTSIDE `_WRITE_LOCK` (they can take minutes on a big tree and would stall
+    every job thread that saves a subtitle); under the lock `_revalidate` only re-checks these
+    specific paths."""
+    return [(e, _real(e["path"])) for e in entries]
+
+
+def _revalidate(snap: list[tuple[dict, str]], refusal: str) -> None:
+    """Under the lock: every snapshotted file still exists and still resolves to the same real
+    path (a swapped-in symlink or a vanished file is refused), with no tree walk."""
+    for entry, real in snap:
+        path = entry["path"]
+        if not os.path.lexists(path):
+            raise SubtitleNotFound("That subtitle file was not found.")
+        if _real(path) != real:
+            raise SubtitleFileError(refusal)
+
+
+_OWN_REFUSAL = "That is not a subtitle of this video."
+
+
 def _owned(video_path: str, subtitle_paths: list[str]) -> list[dict]:
     """The listing entries for `subtitle_paths`, or SubtitleFileError if any is not one of the
     video's subtitle files."""
     _require_video(video_path)
     if not os.path.isfile(video_path):
         raise SubtitleNotFound("That video file was not found.")
-    return _match(
-        list_subtitle_files(video_path), subtitle_paths, "That is not a subtitle of this video."
-    )
+    return _match(list_subtitle_files(video_path), subtitle_paths, _OWN_REFUSAL)
 
 
 def _match(listed: list[dict], paths: list[str], refusal: str) -> list[dict]:
@@ -132,9 +152,12 @@ def _unmatched_owned(root: str, subtitle_paths: list[str]) -> list[dict]:
 
 def rename_unmatched(root: str, subtitle_path: str, new_name: str) -> dict:
     """Rename a stray subtitle in its own folder; extension kept, nothing is overwritten."""
+    snap = _snapshot(_unmatched_owned(root, [subtitle_path]))  # the walk, outside the lock
     with _WRITE_LOCK:
-        (entry,) = _unmatched_owned(root, [subtitle_path])
-        old = entry["path"]
+        _revalidate(snap, _UNMATCHED_REFUSAL)
+        if os.path.islink(snap[0][0]["path"]):
+            raise SubtitleFileError(_UNMATCHED_REFUSAL)
+        old = snap[0][0]["path"]
         _check_new_name(old, new_name)
         new = os.path.join(os.path.dirname(old), new_name)
         if os.path.lexists(new):
@@ -148,9 +171,12 @@ def rename_unmatched(root: str, subtitle_path: str, new_name: str) -> dict:
 
 def delete_unmatched(root: str, subtitle_paths: list[str]) -> int:
     """Permanently delete exactly the validated stray subtitles; all-or-nothing on validation."""
+    snap = _snapshot(_unmatched_owned(root, subtitle_paths))  # the walk, outside the lock
     with _WRITE_LOCK:
-        entries = _unmatched_owned(root, subtitle_paths)
-        unique = {_real(e["path"]): e for e in entries}
+        _revalidate(snap, _UNMATCHED_REFUSAL)
+        if any(os.path.islink(e["path"]) for e, _ in snap):
+            raise SubtitleFileError(_UNMATCHED_REFUSAL)
+        unique = {real: e for e, real in snap}
         return _remove(list(unique.values()))
 
 
@@ -175,9 +201,10 @@ def _check_new_name(old_path: str, new_name: str) -> None:
 
 def rename_subtitle(video_path: str, subtitle_path: str, new_name: str) -> dict:
     """Rename in the same folder, extension kept; never overwrites."""
+    snap = _snapshot(_owned(video_path, [subtitle_path]))  # the walk, outside the lock
     with _WRITE_LOCK:
-        (entry,) = _owned(video_path, [subtitle_path])
-        old = entry["path"]
+        _revalidate(snap, _OWN_REFUSAL)
+        old = snap[0][0]["path"]
         _check_new_name(old, new_name)
         new = os.path.join(os.path.dirname(old), new_name)
         if os.path.lexists(new):
@@ -193,8 +220,10 @@ def rename_subtitle(video_path: str, subtitle_path: str, new_name: str) -> dict:
 def make_main(video_path: str, subtitle_path: str) -> dict:
     """Swap a labelled real subtitle's name with the plain `<stem>.<lang>.<ext>`, so the
     player's default changes. All-or-nothing: a failed step is rolled back."""
+    snap = _snapshot(_owned(video_path, [subtitle_path]))  # the walk, outside the lock
     with _WRITE_LOCK:
-        (entry,) = _owned(video_path, [subtitle_path])
+        _revalidate(snap, _OWN_REFUSAL)
+        entry = snap[0][0]
         if entry["kind"] not in ("real", "hearing_impaired") or not entry["label"]:
             raise SubtitleFileError("Only a labelled subtitle can be made the main one.")
         sub = entry["path"]
@@ -243,9 +272,10 @@ def _remove(entries: list[dict]) -> int:
 
 
 def delete_subtitles(video_path: str, subtitle_paths: list[str]) -> int:
+    snap = _snapshot(_owned(video_path, subtitle_paths))  # the walk, outside the lock
     with _WRITE_LOCK:
-        entries = _owned(video_path, subtitle_paths)
-        unique = {_real(e["path"]): e for e in entries}
+        _revalidate(snap, _OWN_REFUSAL)
+        unique = {real: e for e, real in snap}
         return _remove(list(unique.values()))
 
 
@@ -256,28 +286,44 @@ def _tidy_targets(files: list[dict], what: str) -> list[dict]:
         ]
     if what == "originals":
         return [f for f in files if f["kind"] == "original"]
-    plain = {f["language"] for f in files if f["kind"] == "real" and not f["label"]}
+    # An "extra" is a labelled real file with a plain file of the SAME language and the same
+    # hearing-impaired flag beside it; a labelled .hi file with no plain .hi is not an extra.
+    plain = {
+        (f["language"], f["kind"] == "hearing_impaired")
+        for f in files
+        if f["kind"] in ("real", "hearing_impaired") and not f["label"]
+    }
     return [
         f
         for f in files
-        if f["kind"] in ("real", "hearing_impaired") and f["label"] and f["language"] in plain
+        if f["kind"] in ("real", "hearing_impaired")
+        and f["label"]
+        and (f["language"], f["kind"] == "hearing_impaired") in plain
     ]
 
 
 def tidy(video_paths: list[str], what: str) -> int:
-    """Delete one family of files across several videos; returns how many went."""
+    """Delete one family of files across several videos; returns how many went. Each video's
+    folder is listed (one shared walk per distinct folder) before the write lock is taken; the
+    lock only covers re-checking the chosen files and deleting them."""
     if what not in TIDY_MODES:
         raise SubtitleFileError("Unknown tidy-up choice.")
     total = 0
-    with _WRITE_LOCK:
-        for video in dict.fromkeys(video_paths):
-            _require_video(video)
-            if not os.path.isfile(video):
-                raise SubtitleNotFound("That video file was not found.")
-            targets = _tidy_targets(list_subtitle_files(video), what)
-            if targets:
-                _owned(video, [t["path"] for t in targets])
-                total += _remove(targets)
+    dirs_cache: dict[str, list[str]] = {}
+    for video in dict.fromkeys(video_paths):
+        _require_video(video)
+        if not os.path.isfile(video):
+            raise SubtitleNotFound("That video file was not found.")
+        targets = _tidy_targets(list_subtitle_files(video, dirs_cache), what)
+        if not targets:
+            continue
+        snap = _snapshot(targets)
+        with _WRITE_LOCK:
+            try:
+                _revalidate(snap, _OWN_REFUSAL)
+            except SubtitleNotFound:
+                continue  # one vanished since the listing: leave this video for the next tidy
+            total += _remove(targets)
     return total
 
 

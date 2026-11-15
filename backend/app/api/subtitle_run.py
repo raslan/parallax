@@ -29,7 +29,7 @@ class IdentityModel(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     year: int | None = Field(default=None, ge=1870, le=2200)
     type: Literal["movie", "tv"]
-    imdb_id: str | None = Field(default=None, max_length=20)
+    imdb_id: str | None = Field(default=None, pattern=r"^tt\d{6,10}$")
     tmdb_id: int | None = None
     subf2m_path: str | None = Field(default=None, max_length=300)
 

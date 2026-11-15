@@ -45,6 +45,15 @@ _COVER_YEAR_RE = re.compile(r"-(\d{4})-tt\d+")
 _IMDB_HREF_RE = re.compile(r"^/movie-imdb/(tt\d+)")
 
 
+def _https_poster(src: str | None) -> str | None:
+    """A poster address resolved against the site, or None unless it is https (the page shows
+    it in an <img>, so a scraped `http:` or odd-scheme value must never reach it)."""
+    if not src:
+        return None
+    url = urllib.parse.urljoin(_BASE_URL + "/", src)
+    return url if urllib.parse.urlparse(url).scheme == "https" else None
+
+
 def _lang_name_to_alpha2(name: str) -> str | None:
     try:
         from babelfish import Language
@@ -97,7 +106,7 @@ class YtsSubsProvider:
             if not m:
                 continue
             img = card.select_one("img.media-object")
-            poster = img.get("src") if img else None
+            poster = _https_poster(img.get("src") if img else None)
             year_m = _COVER_YEAR_RE.search(poster or "")
             heading = card.select_one("h3.media-heading")
             results.append(

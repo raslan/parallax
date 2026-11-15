@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from app.services import scanner
 from app.services.srt_io import decode_srt, parse_srt
 from app.services.subtitle_files import list_subtitle_files
+from app.services.subtitle_providers import MAX_SUBTITLE_BYTES
 from app.services.subtitle_service import VIDEO_EXTENSIONS
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,10 @@ def _duration(path: str) -> float | None:
 def _last_cue(path: str) -> float | None:
     try:
         with open(path, "rb") as f:
-            cues = parse_srt(decode_srt(f.read()))
+            data = f.read(MAX_SUBTITLE_BYTES + 1)
+        if len(data) > MAX_SUBTITLE_BYTES:  # not a subtitle file: unknown, never read whole
+            return None
+        cues = parse_srt(decode_srt(data))
     except Exception:
         return None
     return max((c.end for c in cues), default=None)

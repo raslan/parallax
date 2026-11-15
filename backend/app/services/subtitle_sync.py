@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+import uuid
 
 from app.database import DATA_DIR
 from app.services import file_props, subtitle_files, subtitle_names
@@ -42,10 +43,13 @@ def ensure_alass() -> None:
 
 
 def _sync_tmp_path(sub_path: str) -> str:
-    # keep the real extension — both tools infer output format from it and
-    # refuse to write a plain .tmp file
-    stem, ext = os.path.splitext(sub_path)
-    return f"{stem}.sync_tmp{ext}"
+    """A hidden, unique name beside the subtitle: no scan, listing or second sync can mistake it
+    for a subtitle (a leading dot is never claimed), and two runs never share one. Short and
+    fixed-length, so a long subtitle name cannot overflow NAME_MAX. The real extension is kept:
+    both tools infer the output format from it and refuse to write a plain .tmp file."""
+    folder, name = os.path.split(sub_path)
+    ext = os.path.splitext(name)[1]
+    return os.path.join(folder, f".sync-{uuid.uuid4().hex[:8]}{ext}")
 
 
 def _run_synced(cmd: list[str], label: str, tmp_out: str) -> None:
@@ -162,8 +166,8 @@ def run_sync_job(job_id: int, targets: list[tuple[str, str]], engine: str) -> No
     db = SessionLocal()
     try:
         job = db.get(Job, job_id)
-        if not job:
-            return
+        if not job or job.status == JobStatus.CANCELLED:
+            return  # cancelled while it waited for a queue slot
 
         job.status = JobStatus.RUNNING
         job.started_at = now()

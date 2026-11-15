@@ -179,9 +179,10 @@ def finish_job(db, job, outcomes: list, results: list[dict], noun: str, extra: d
 
 
 def run_translate_job(job_id: int, items: list[dict]) -> None:
-    """items: [{"video_path", "lang", "drop_hi", "source"}, ...] (`source` = the chosen English
-    subtitle file, or None). On the processor the files run one after another (the model uses
-    every core); with the NVIDIA package each runs on its own card."""
+    """items: [{"video_path", "lang", "drop_hi", "source", "keep_existing"}, ...] (`source` = the
+    chosen English subtitle file, or None; `keep_existing` writes `translated-2`, ... beside an
+    earlier `translated` file instead of replacing it). On the processor the files run one after
+    another (the model uses every core); with the NVIDIA package each runs on its own card."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
     from app.services import item_runner

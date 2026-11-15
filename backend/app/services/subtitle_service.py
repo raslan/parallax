@@ -34,30 +34,50 @@ def _subtitle_search_dirs(video_path: str) -> list[str]:
 
 
 def find_subtitle_path(video_path: str) -> str | None:
-    """Return path to the first subtitle file found for the video, or None."""
-    import glob
-
+    """The subtitle the player should show by default, or None. A `.original` sync backup is
+    never served; a plain real subtitle wins over a labelled real one, which wins over a
+    machine-made one (generated/translated). Ties go to the video's own folder, then the
+    browser-friendliest extension, then the name."""
     stem = os.path.splitext(os.path.basename(video_path))[0]
-    for d in _subtitle_search_dirs(video_path):
-        base = os.path.join(d, stem)
-        for ext in _BROWSER_SUB_EXTS:
-            if os.path.exists(base + ext):
-                return base + ext
-            matches = sorted(glob.glob(f"{glob.escape(base)}.*{ext}"))
-            if matches:
-                return matches[0]
-    return None
+    best: tuple | None = None
+    for di, d in enumerate(_subtitle_search_dirs(video_path)):
+        for ei, ext in enumerate(_BROWSER_SUB_EXTS):
+            exact = os.path.join(d, stem + ext)
+            if os.path.exists(exact):
+                key = (0, di, ei, exact)
+                best = key if best is None or key < best else best
+        for path, tag in _tagged_files(video_path, [d]):
+            if tag.original:
+                continue
+            ext = os.path.splitext(path)[1].lower()
+            rank = (
+                2 if tag.machine_made else (0 if not tag.label and not tag.hearing_impaired else 1)
+            )
+            key = (rank, di, _BROWSER_SUB_EXTS.index(ext), path)
+            best = key if best is None or key < best else best
+    return best[3] if best else None
 
 
-def find_all_subtitle_tracks(video_path: str) -> list[dict]:
-    """Return all subtitle files for the video with language metadata."""
+def find_all_subtitle_tracks(
+    video_path: str, dirs_cache: dict[str, list[str]] | None = None
+) -> list[dict]:
+    """Return all subtitle files for the video with language metadata. `dirs_cache` (folder ->
+    search dirs) lets a caller covering many videos walk each distinct folder once."""
     import glob as _glob
 
     stem = os.path.splitext(os.path.basename(video_path))[0]
     seen: set[str] = set()
     tracks = []
 
-    for d in _subtitle_search_dirs(video_path):
+    video_dir = os.path.dirname(video_path)
+    if dirs_cache is None:
+        search_dirs = _subtitle_search_dirs(video_path)
+    else:
+        if video_dir not in dirs_cache:
+            dirs_cache[video_dir] = _subtitle_search_dirs(video_path)
+        search_dirs = dirs_cache[video_dir]
+
+    for d in search_dirs:
         base = os.path.join(d, stem)
         for ext in _BROWSER_SUB_EXTS:
             exact = base + ext
@@ -145,6 +165,8 @@ def _tagged_files(
         except OSError:
             continue
         for name in names:
+            if name.startswith("."):  # hidden: our own temp files, never a subtitle
+                continue
             base, ext = os.path.splitext(name)
             if ext.lower() in SUBTITLE_EXTENSIONS and base.startswith(prefix):
                 found.append((os.path.join(d, name), subtitle_names.parse_tag(base[len(prefix) :])))

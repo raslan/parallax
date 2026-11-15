@@ -54,10 +54,14 @@ def test_preview_with_a_video_reports_its_length(client, tree, monkeypatch):
     assert r.json()["video_duration"] == 100.0
 
 
-def _refused(client, tree, tmp_path, route, extra, path):
+REFUSED = "That is not a subtitle found beside no video in this folder."
+NOT_FOUND = "That subtitle file was not found."
+
+
+def _refused(client, tree, tmp_path, route, extra, path, status=400, detail=REFUSED):
     root = tree[0]
     r = post(client, route, {"root": root, **extra(path)})
-    assert r.status_code in (400, 404), (route, path, r.text)
+    assert (r.status_code, r.json()["detail"]) == (status, detail), (route, path, r.text)
 
 
 PATH_ARG = {
@@ -74,24 +78,28 @@ def test_refuses_paths_not_in_the_unmatched_listing(client, tree, tmp_path, rout
     write(outside)
     link = os.path.join(root, "Show", "Subs", "link.srt")
     os.symlink(str(outside), link)
-    for bad in (
-        owned,  # a subtitle a video owns
-        "/etc/passwd",
-        "../x",
-        os.path.join(root, "Show", "Show.mkv"),  # a video
-        link,  # a symlink pointing out of the root
-        "a\0b.srt",
+    for bad, status, detail in (
+        (owned, 400, REFUSED),  # a subtitle a video owns
+        ("/etc/passwd", 400, REFUSED),
+        ("../x", 404, NOT_FOUND),
+        (os.path.join(root, "Show", "Show.mkv"), 400, REFUSED),  # a video
+        (link, 400, REFUSED),  # a symlink pointing out of the root
+        ("a\0b.srt", 400, REFUSED),
     ):
-        _refused(client, tree, tmp_path, route, PATH_ARG[route], bad)
+        _refused(client, tree, tmp_path, route, PATH_ARG[route], bad, status, detail)
     assert outside.exists() and os.path.exists(owned)
 
 
 @pytest.mark.parametrize("route", ["preview", "rename", "delete"])
 def test_refuses_a_root_that_is_not_a_folder(client, tree, route):
     _, _, stray, _ = tree
-    for bad_root in (stray, "/nope/nowhere", ""):
+    for bad_root, status, detail in (
+        (stray, 404, "That folder was not found."),
+        ("/nope/nowhere", 404, "That folder was not found."),
+        ("", 400, "That is not a folder."),
+    ):
         r = post(client, route, {"root": bad_root, **PATH_ARG[route](stray)})
-        assert r.status_code in (400, 404)
+        assert (r.status_code, r.json()["detail"]) == (status, detail), (route, bad_root)
     assert os.path.exists(stray)
 
 

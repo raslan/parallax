@@ -21,6 +21,9 @@ class FakeProvider:
     def download(self, subtitle_id):
         return self.data
 
+    def close(self):
+        pass
+
 
 @pytest.fixture
 def preview_dir(tmp_path, monkeypatch):
@@ -212,15 +215,26 @@ def test_existing_preview_allows_original_backup(client, tmp_path, preview_dir, 
     assert r.status_code == 200 and r.json()["cues"] == 3
 
 
-@pytest.mark.parametrize("bad", ["/etc/passwd", "../x", "OTHER", "VIDEO"])
-def test_existing_preview_refuses_foreign_paths(client, tmp_path, preview_dir, monkeypatch, bad):
+@pytest.mark.parametrize(
+    "bad, status, detail",
+    [
+        ("/etc/passwd", 400, "That is not a subtitle of this video."),
+        ("../x", 404, "That subtitle file was not found."),
+        ("OTHER", 400, "That is not a subtitle of this video."),
+        ("VIDEO", 400, "That is not a subtitle of this video."),
+    ],
+)
+def test_existing_preview_refuses_foreign_paths(
+    client, tmp_path, preview_dir, monkeypatch, bad, status, detail
+):
     folder = _existing(tmp_path)
     sub = {
         "OTHER": str(folder / "Other.en.srt"),
         "VIDEO": str(folder / "Movie.mkv"),
     }.get(bad, bad)
     r = _post(client, folder, sub, monkeypatch)
-    assert r.status_code in (400, 404)
+    assert r.status_code == status
+    assert r.json()["detail"] == detail
     assert not preview_dir.exists() or os.listdir(preview_dir) == []
 
 

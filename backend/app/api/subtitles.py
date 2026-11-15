@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.job import Job, JobStatus, JobType
 from app.models.settings import get_setting
 from app.queue import enqueue
+from app.services.subtitle_files import _require_video
 from app.services.subtitle_providers import ProviderError
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
@@ -132,6 +133,8 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
         raise HTTPException(422, "No files selected")
     if body.source is not None and len(set(body.file_paths)) != 1:
         raise HTTPException(422, "A source subtitle can only be chosen for one video")
+    for path in body.file_paths:
+        _require_video(path)  # the folder walks below must never start from a non-video path
     _refuse_while_nvidia_installs(db)
     pack = translate_packs.get_pack(body.language)
     if pack is None or pack.get("kind") == "speech":
@@ -191,6 +194,8 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
+    for path in body.file_paths:
+        _require_video(path)  # a transcript is written beside the file: only beside a video
     _refuse_while_nvidia_installs(db)
     model_id = (
         f"whisper-{body.model}"
@@ -228,6 +233,7 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
 
 @router.post("/sync-file")
 async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
+    _require_video(body.file_path)  # before any folder walk
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
     if body.path is not None and not os.path.isdir(body.path):
@@ -235,17 +241,20 @@ async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
     from app.services.subtitle_files import _owned
     from app.services.subtitle_service import find_all_subtitle_tracks
 
-    if body.subtitle_path is not None:
-        # one named subtitle, which must be one of this video's own files (never a backup)
-        (entry,) = _owned(body.file_path, [body.subtitle_path])
-        if entry["kind"] == "original":
-            raise HTTPException(422, "A backup cannot be synced")
-        targets = [(body.file_path, entry["path"])]
-    else:
+    def find_targets() -> list[tuple[str, str]]:
+        if body.subtitle_path is not None:
+            # one named subtitle, which must be one of this video's own files (never a backup)
+            (entry,) = _owned(body.file_path, [body.subtitle_path])
+            if entry["kind"] == "original":
+                raise HTTPException(422, "A backup cannot be synced")
+            return [(body.file_path, entry["path"])]
         tracks = find_all_subtitle_tracks(body.file_path)
         if body.language:
             tracks = [t for t in tracks if t["lang"] == body.language]
-        targets = [(body.file_path, t["path"]) for t in tracks]
+        return [(body.file_path, t["path"]) for t in tracks]
+
+    # the folder walk can be slow (network mount): keep it off the event loop
+    targets = await run_in_threadpool(find_targets)
     if not targets:
         raise HTTPException(422, "No subtitle files found to sync")
 
@@ -296,7 +305,13 @@ async def sync_files(body: SyncFilesRequest, db: Session = Depends(get_db)):
     for p in paths:
         if not os.path.isfile(p) or os.path.splitext(p)[1].lower() not in VIDEO_EXTENSIONS:
             raise HTTPException(400, f"Not a video file: {os.path.basename(p)}")
-    if not any(find_all_subtitle_tracks(p) for p in paths):
+    dirs_cache: dict[str, list[str]] = {}  # one tree walk per distinct folder
+
+    def any_subtitle() -> bool:
+        return any(find_all_subtitle_tracks(p, dirs_cache) for p in paths)
+
+    # up to 500 folder walks: off the event loop, each distinct folder walked once
+    if not await run_in_threadpool(any_subtitle):
         raise HTTPException(422, "No subtitle files found to sync")
 
     engine = body.engine or get_setting(db, "subtitle_sync_engine", "alass")
