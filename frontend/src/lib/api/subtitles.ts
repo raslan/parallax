@@ -8,7 +8,6 @@ import type {
   ReleaseTokens,
   RunItem,
   SearchResult,
-  SubtitleCandidate,
   ScanFile,
   SubtitleFileInfo,
   SubtitleProvider,
@@ -24,46 +23,11 @@ export const subtitlesApi = {
   scan: (path: string) =>
     req<ScanFile[]>("/subtitles/scan", { method: "POST", body: JSON.stringify({ path }) }),
 
-  download: (path: string, languages?: string[]) =>
-    req<{ job_id: number }>("/subtitles/download", {
-      method: "POST",
-      body: JSON.stringify({ path, languages }),
-    }),
-
-  searchFile: (
-    file_path: string,
-    languages?: string[],
-    opts?: {
-      query?: string;
-      year?: number;
-      media_type?: string;
-      season?: number;
-      episode?: number;
-      provider?: string;
-    },
-  ) =>
-    req<SubtitleCandidate[]>("/subtitles/search-file", {
-      method: "POST",
-      body: JSON.stringify({ file_path, languages, ...opts }),
-    }),
-
-  downloadOne: (file_path: string, provider: string, subtitle_id: string, language: string) =>
-    req<{ ok: boolean }>("/subtitles/download-one", {
-      method: "POST",
-      body: JSON.stringify({ file_path, provider, subtitle_id, language }),
-    }),
-
   streamUrl: (path: string) => `${BASE}/subtitles/stream?path=${encodeURIComponent(path)}`,
   vttUrl: (path: string) => `${BASE}/subtitles/vtt?path=${encodeURIComponent(path)}`,
   tracks: (path: string) =>
     req<SubtitleTrack[]>(`/subtitles/tracks?path=${encodeURIComponent(path)}`),
   tracksUrl: (path: string) => `${BASE}/subtitles/tracks?path=${encodeURIComponent(path)}`,
-
-  deleteSubtitle: (file_path: string, language: string, machine = false) =>
-    req<{ ok: boolean }>(
-      `/subtitles/file?file_path=${encodeURIComponent(file_path)}&language=${encodeURIComponent(language)}${machine ? "&machine=true" : ""}`,
-      { method: "DELETE" },
-    ),
 
   /** Name one subtitle with `subtitle_path` (else every track of `language`, or all). */
   syncFile: (
@@ -240,11 +204,5 @@ export const subtitlesApi = {
     req<{ job_id: number }>("/subtitles/sync-files", {
       method: "POST",
       body: JSON.stringify({ video_paths, ...opts }),
-    }),
-
-  syncBulk: (path: string) =>
-    req<{ job_id: number }>("/subtitles/sync-bulk", {
-      method: "POST",
-      body: JSON.stringify({ path }),
     }),
 };

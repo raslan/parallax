@@ -5,14 +5,13 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ScanFile, SubtitleFileInfo } from "@/types/subtitle";
 
-const { syncFiles, syncFile, syncBulk } = vi.hoisted(() => ({
+const { syncFiles, syncFile } = vi.hoisted(() => ({
   syncFiles: vi.fn(async () => ({ job_id: 9 })),
   syncFile: vi.fn(),
-  syncBulk: vi.fn(),
 }));
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/api")>()),
-  subtitlesApi: { syncFiles, syncFile, syncBulk },
+  subtitlesApi: { syncFiles, syncFile },
   api: { cancelJob: vi.fn() },
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() } }));
@@ -52,7 +51,6 @@ describe("useSubtitleActions", () => {
     await waitFor(() => expect(syncFiles).toHaveBeenCalledTimes(1));
     expect(syncFiles).toHaveBeenCalledWith(["/tv/a.mkv", "/tv/b.mkv"], { path: "/tv" });
     expect(syncFile).not.toHaveBeenCalled();
-    expect(syncBulk).not.toHaveBeenCalled();
   });
 
   it("sends nothing when no chosen video has a subtitle", async () => {

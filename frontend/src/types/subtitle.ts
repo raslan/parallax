@@ -1,20 +1,4 @@
-interface SubtitleFile {
-  path: string;
-  filename: string;
-  relative_dir: string;
-  has_subtitle: boolean;
-  has_any_subtitle: boolean;
-  languages: Record<string, boolean>;
-  /** Wanted languages for which only a machine-made (offline translation / speech-to-text) file exists. */
-  machine_languages: Record<string, boolean>;
-  title: string;
-  season: number | null;
-  episode: number | null;
-  year: number | null;
-  media_type: string;
-}
-
-export interface SubtitleCandidate {
+interface SubtitleCandidate {
   subtitle_id: string;
   provider: string;
   language: string;
@@ -48,7 +32,15 @@ export interface SubtitleFileInfo {
 }
 
 /** One video of a folder scan, with every subtitle file it has on disk. */
-export interface ScanFile extends SubtitleFile {
+export interface ScanFile {
+  path: string;
+  filename: string;
+  relative_dir: string;
+  title: string;
+  season: number | null;
+  episode: number | null;
+  year: number | null;
+  media_type: string;
   subtitles: SubtitleFileInfo[];
 }
 
