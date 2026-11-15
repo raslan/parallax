@@ -12,6 +12,7 @@ import time
 
 from app.config import DATA_DIR
 from app.services.srt_io import Cue, decode_srt, format_timestamp, parse_srt
+from app.services.subtitle_files import SubtitleFileError, _owned
 from app.services.subtitle_lengths import length_verdict
 from app.services.subtitle_providers import MAX_SUBTITLE_BYTES, ProviderError, get_provider
 from app.services.subtitle_service import SUBTITLE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -115,7 +116,31 @@ def create_preview(
     cues = parse_srt(_decode(data, language))
     if not cues:
         raise ProviderError("The download is not a readable subtitle file.")
+    return _write_preview(cues, video_duration)
 
+
+def create_existing_preview(
+    video_path: str,
+    subtitle_path: str,
+    video_duration: float | None = None,
+) -> dict:
+    """Describe a subtitle the video already has (any of its own files, a `.original` backup
+    included) and write it as temporary WebVTT. Nothing is written beside the video."""
+    (entry,) = _owned(video_path, [subtitle_path])
+    try:
+        with open(entry["path"], "rb") as f:
+            data = f.read(MAX_DOWNLOAD_BYTES + 1)
+    except OSError as e:
+        raise SubtitleFileError(f"Could not read the file: {e.strerror or e}") from e
+    if len(data) > MAX_DOWNLOAD_BYTES:
+        raise SubtitleFileError("The file is too large to be a subtitle file.")
+    cues = parse_srt(_decode(data, entry["language"] or ""))
+    if not cues:
+        raise SubtitleFileError("That file is not a readable subtitle file.")
+    return _write_preview(cues, video_duration)
+
+
+def _write_preview(cues: list[Cue], video_duration: float | None) -> dict:
     sweep_previews()
     os.makedirs(PREVIEW_DIR, exist_ok=True)
     preview_id = secrets.token_urlsafe(12)

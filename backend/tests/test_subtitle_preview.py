@@ -172,3 +172,60 @@ def test_preview_route_vtt_has_nosniff(client, preview_dir, monkeypatch):
     out = sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=None)
     r = client.get(f"/api/subtitles/preview/{out['preview_id']}.vtt")
     assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def _existing(tmp_path):
+    folder = tmp_path / "videos"
+    folder.mkdir()
+    (folder / "Movie.mkv").write_bytes(b"v")
+    (folder / "Movie.en.srt").write_text(make_srt(), encoding="utf-8")
+    (folder / "Movie.en.original.srt").write_text(make_srt(3), encoding="utf-8")
+    (folder / "Other.mkv").write_bytes(b"v")
+    (folder / "Other.en.srt").write_text(make_srt(), encoding="utf-8")
+    return folder
+
+
+def _post(client, folder, sub, monkeypatch):
+    monkeypatch.setattr("app.api.subtitle_run.probe_duration", lambda p: 100.0)
+    return client.post(
+        "/api/subtitles/existing-preview",
+        json={"video_path": str(folder / "Movie.mkv"), "subtitle_path": str(sub)},
+    )
+
+
+def test_existing_preview_returns_lines_and_serves_vtt(client, tmp_path, preview_dir, monkeypatch):
+    folder = _existing(tmp_path)
+    before = {p.name: p.read_bytes() for p in folder.iterdir()}
+    r = _post(client, folder, folder / "Movie.en.srt", monkeypatch)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["cues"] == 5 and body["video_duration"] == 100.0
+    assert body["lines"][0]["text"] == "Line 0" and body["length"] in ("ok", "short", "long")
+    v = client.get(f"/api/subtitles/preview/{body['preview_id']}.vtt")
+    assert v.status_code == 200 and v.text.startswith("WEBVTT")
+    assert {p.name: p.read_bytes() for p in folder.iterdir()} == before
+
+
+def test_existing_preview_allows_original_backup(client, tmp_path, preview_dir, monkeypatch):
+    folder = _existing(tmp_path)
+    r = _post(client, folder, folder / "Movie.en.original.srt", monkeypatch)
+    assert r.status_code == 200 and r.json()["cues"] == 3
+
+
+@pytest.mark.parametrize("bad", ["/etc/passwd", "../x", "OTHER", "VIDEO"])
+def test_existing_preview_refuses_foreign_paths(client, tmp_path, preview_dir, monkeypatch, bad):
+    folder = _existing(tmp_path)
+    sub = {
+        "OTHER": str(folder / "Other.en.srt"),
+        "VIDEO": str(folder / "Movie.mkv"),
+    }.get(bad, bad)
+    r = _post(client, folder, sub, monkeypatch)
+    assert r.status_code in (400, 404)
+    assert not preview_dir.exists() or os.listdir(preview_dir) == []
+
+
+def test_existing_preview_unreadable_is_named(client, tmp_path, preview_dir, monkeypatch):
+    folder = _existing(tmp_path)
+    (folder / "Movie.en.srt").write_bytes(b"\x00\xff\xfe not a subtitle")
+    r = _post(client, folder, folder / "Movie.en.srt", monkeypatch)
+    assert r.status_code == 400 and "not a readable subtitle" in r.json()["detail"]

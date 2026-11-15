@@ -228,6 +228,23 @@ def preview_candidate(body: PreviewRequest):
         return JSONResponse({"detail": str(exc)}, status_code=502)
 
 
+class ExistingPreviewRequest(BaseModel):
+    video_path: str
+    subtitle_path: str
+
+
+@router.post(
+    "/existing-preview", summary="Describe a subtitle the video already has, as a temporary preview"
+)
+def preview_existing(body: ExistingPreviewRequest):
+    """Same answer as the candidate preview, for one of the video's own subtitle files (a
+    `.original` backup included). Served through the same temporary `.vtt` route; nothing is
+    written beside the video."""
+    _require_video(body.video_path)
+    duration = probe_duration(body.video_path) if os.path.isfile(body.video_path) else None
+    return subtitle_preview.create_existing_preview(body.video_path, body.subtitle_path, duration)
+
+
 @router.get("/preview/{preview_id}.vtt", summary="Serve a temporary preview as WebVTT")
 def get_preview(preview_id: str):
     path = subtitle_preview.preview_path(preview_id)
