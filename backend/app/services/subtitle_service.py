@@ -219,6 +219,8 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
     """Walk directory and return video files with subtitle status, grouped by relative dir."""
     from guessit import guessit as _guessit
 
+    from app.services.subtitle_files import list_subtitle_files
+
     results = []
     for dirpath, dirnames, filenames in os.walk(root_path):
         dirnames.sort()
@@ -244,6 +246,7 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
                     "has_any_subtitle": len(find_all_subtitle_tracks(full_path)) > 0,
                     "languages": languages,
                     "machine_languages": machine_languages,
+                    "subtitles": list_subtitle_files(full_path),
                     "title": str(info.get("title", "")),
                     "season": info.get("season"),
                     "episode": info.get("episode"),

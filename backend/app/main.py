@@ -39,6 +39,8 @@ from app.api.settings import router as settings_router
 from app.api.splice import router as splice_router
 from app.api.stats import router as stats_router
 from app.api.stream import router as stream_router
+from app.api.subtitle_files import router as subtitle_files_router
+from app.api.subtitle_files import subtitle_file_error_handler
 from app.api.subtitle_packs import router as subtitle_packs_router
 from app.api.subtitle_packs import speech_router as speech_models_router
 from app.api.subtitles import router as subtitles_router
@@ -51,6 +53,7 @@ from app.services import gpu_accel
 from app.services.auth import AuthError
 from app.services.encoder import detect_encoder
 from app.services.organize_sandbox import SandboxError
+from app.services.subtitle_files import SubtitleFileError
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -450,6 +453,7 @@ install_openapi_security(app)
 # Typed service errors mapped to status + {"detail": ...} once (CODE_CONVENTIONS B3).
 app.add_exception_handler(SandboxError, sandbox_error_handler)
 app.add_exception_handler(AuthError, auth_error_handler)
+app.add_exception_handler(SubtitleFileError, subtitle_file_error_handler)
 
 app.include_router(health_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
@@ -467,6 +471,7 @@ app.include_router(image_libraries_router, prefix="/api")
 app.include_router(images_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(subtitles_router, prefix="/api")
+app.include_router(subtitle_files_router, prefix="/api")
 app.include_router(subtitle_packs_router, prefix="/api")
 app.include_router(speech_models_router, prefix="/api")
 app.include_router(hardware_router, prefix="/api")
