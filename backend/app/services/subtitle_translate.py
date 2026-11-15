@@ -23,11 +23,14 @@ class TranslateError(Exception):
 
 
 def list_sources(video_path: str) -> list[dict]:
-    """Every English .srt next to (or under) the video that can be translated: real, hearing
-    impaired and machine-made ones alike, real first. The user picks which one to translate.
-    The models translate from English only, so other languages are not offered."""
+    """Every English .srt next to (or under) the video that can be translated: real, then
+    hearing impaired, then machine-made (generated, translated) ones. The user picks which one
+    to translate. The models translate from English only, so other languages are not offered.
+    The video's plain `<stem>.en.srt` leads the real ones."""
     from app.services.subtitle_service import find_all_subtitle_tracks
 
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    plain = f"{stem}.{SOURCE_LANG}.srt"
     found = [
         {
             "path": t["path"],
@@ -38,25 +41,25 @@ def list_sources(video_path: str) -> list[dict]:
         for t in find_all_subtitle_tracks(video_path)
         if t["lang"] == SOURCE_LANG and t["path"].lower().endswith(".srt")
     ]
-    return sorted(found, key=lambda s: s["machine_made"])  # stable: real files first
+    # stable sort: real, then hearing impaired, then machine-made; the plain file first
+    return sorted(
+        found,
+        key=lambda s: (s["machine_made"], s["hearing_impaired"], s["filename"] != plain),
+    )
 
 
 def find_source_subtitle(video_path: str) -> str | None:
-    """The English .srt used when the caller did not pick one: a real one is preferred, else a
-    machine-made one."""
+    """The English .srt used when the caller did not pick one: the video's main English file
+    (`<stem>.en.srt`), else the first real one, else a machine-made one."""
     sources = list_sources(video_path)
     return sources[0]["path"] if sources else None
 
 
-def first_problem(
-    video_paths: list[str], lang: str, pack_name: str, source: str | None = None
-) -> str | None:
-    """Why the first of these videos cannot be translated into `lang`, or None when all can.
-    Same folder search as the Subtitles scan, so a real subtitle in `Subs/` counts too. A chosen
+def first_problem(video_paths: list[str], source: str | None = None) -> str | None:
+    """Why the first of these videos cannot be translated, or None when all can. A chosen
     `source` must be one of the video's own English subtitle files (a path from the client is
-    never read otherwise)."""
-    from app.services.subtitle_service import _missing_lang_codes
-
+    never read otherwise). An existing subtitle in the target language is not a problem: the
+    output is always a machine-made file beside it."""
     for path in video_paths:
         name = os.path.basename(path)
         if source is not None:
@@ -64,8 +67,6 @@ def first_problem(
                 return f"{os.path.basename(source)} is not an English subtitle of {name}"
         elif find_source_subtitle(path) is None:
             return f"{name} has no English subtitle to translate"
-        if lang not in _missing_lang_codes(path, [lang]):
-            return f"{name} already has a {pack_name} subtitle"
     return None
 
 

@@ -219,6 +219,7 @@ class TranslateRequest(BaseModel):
     file_paths: list[str]
     language: str
     source: str | None = None
+    keep_existing: bool = False
     path: str | None = None
 
 
@@ -237,9 +238,11 @@ async def translate_sources(path: str = Query(..., description="Absolute path to
 async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_db)):
     """Queue a job that translates a video's English subtitle into `language` with an installed
     language pack. `source` is the subtitle file to translate, one of the video's English files
-    from `GET /subtitles/translate-sources` (one video only); without it a real English file is
-    used. The result is a machine-made `<name>.<lang>.translated.srt` next to the video; the real
-    subtitle for that language is never replaced."""
+    from `GET /subtitles/translate-sources` (one video only); without it the video's main English
+    file is used (`<name>.en.srt`, else the first real one, else a generated one). Any installed
+    language works, even one the video already has a real subtitle in. The result is a
+    machine-made `<name>.<lang>.translated.srt` next to the video (`translated-2`, ... with
+    `keep_existing`); a real subtitle is never replaced."""
     from app.services import subtitle_translate, translate_packs
 
     if not body.file_paths:
@@ -259,14 +262,18 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
         if not os.path.isfile(path):
             raise HTTPException(400, f"File not found: {os.path.basename(path)}")
     # The folder walks can be slow on a network mount: keep them off the event loop.
-    problem = await run_in_threadpool(
-        subtitle_translate.first_problem, paths, body.language, pack["name"], body.source
-    )
+    problem = await run_in_threadpool(subtitle_translate.first_problem, paths, body.source)
     if problem:
         raise HTTPException(422, problem)
     drop_hi = get_setting(db, "subtitle_translate_drop_hi", "false") == "true"
     items = [
-        {"video_path": p, "lang": body.language, "drop_hi": drop_hi, "source": body.source}
+        {
+            "video_path": p,
+            "lang": body.language,
+            "drop_hi": drop_hi,
+            "source": body.source,
+            "keep_existing": body.keep_existing,
+        }
         for p in paths
     ]
 
@@ -286,6 +293,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
 class GenerateRequest(BaseModel):
     file_paths: list[str]
     model: str | None = None
+    keep_existing: bool = False
     path: str | None = None
 
 
@@ -293,10 +301,10 @@ class GenerateRequest(BaseModel):
 async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db)):
     """Queue a job that transcribes each video's English speech with an installed Whisper model:
     `model` (`small` or `medium`) when given, else the one chosen in Settings → Subtitles. The
-    result is a machine-made `<name>.en.generated.srt` next to the video, a stopgap until a real
-    subtitle exists. Translating it is a separate request (`POST /subtitles/translate`)."""
+    result is a machine-made `<name>.en.generated.srt` next to the video (`generated-2`, ... with
+    `keep_existing`), also when a real English subtitle exists; a real subtitle is never replaced.
+    Translating it is a separate request (`POST /subtitles/translate`)."""
     from app.services import subtitle_generate, translate_packs
-    from app.services.subtitle_service import _missing_lang_codes
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
@@ -318,20 +326,10 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
     for path in paths:
         if not os.path.isfile(path):
             raise HTTPException(400, f"File not found: {os.path.basename(path)}")
-    already = await run_in_threadpool(
-        lambda: next(
-            (
-                os.path.basename(p)
-                for p in paths
-                if subtitle_generate.LANGUAGE
-                not in _missing_lang_codes(p, [subtitle_generate.LANGUAGE])
-            ),
-            None,
-        )
-    )
-    if already:
-        raise HTTPException(422, f"{already} already has an English subtitle")
-    items = [{"video_path": p, "model": model["lang"]} for p in paths]
+    items = [
+        {"video_path": p, "model": model["lang"], "keep_existing": body.keep_existing}
+        for p in paths
+    ]
     job = Job(
         type=JobType.SUBTITLE_GENERATE,
         status=JobStatus.PENDING,

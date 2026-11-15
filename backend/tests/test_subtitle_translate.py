@@ -84,9 +84,37 @@ def test_a_machine_made_english_file_is_a_valid_source(env):
     video, _ = env
     os.rename(video.parent / "Movie (2020).en.srt", video.parent / "Movie (2020).en.generated.srt")
     assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.generated.srt")
-    assert st.first_problem([str(video)], "ar", "Arabic") is None
+    assert st.first_problem([str(video)]) is None
     out = st.translate_one(str(video), "ar", lambda: False)
     assert out.endswith("Movie (2020).ar.translated.srt")
+
+
+def test_translate_keep_existing_writes_translated_2(env):
+    video, _ = env
+    real = video.parent / "Movie (2020).ar.srt"
+    real.write_text("real", encoding="utf-8")
+    first = st.translate_one(str(video), "ar", lambda: False)
+    second = st.translate_one(str(video), "ar", lambda: False, keep_existing=True)
+    assert first.endswith("Movie (2020).ar.translated.srt")
+    assert second.endswith("Movie (2020).ar.translated-2.srt")
+    assert real.read_text() == "real"
+    # without the flag the earlier machine-made file is overwritten, not duplicated
+    assert st.translate_one(str(video), "ar", lambda: False) == first
+
+
+def test_translate_default_source_prefers_plain_real_english(env):
+    video, _ = env
+    d = video.parent
+    (d / "Movie (2020).en.generated.srt").write_text(SRT, encoding="utf-8")
+    (d / "Movie (2020).en.hi.srt").write_text(SRT, encoding="utf-8")
+    (d / "Movie (2020).en.subf2m.srt").write_text(SRT, encoding="utf-8")
+    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.srt")
+    os.remove(d / "Movie (2020).en.srt")
+    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.subf2m.srt")
+    os.remove(d / "Movie (2020).en.subf2m.srt")
+    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.hi.srt")
+    os.remove(d / "Movie (2020).en.hi.srt")
+    assert st.find_source_subtitle(str(video)).endswith("Movie (2020).en.generated.srt")
 
 
 def test_the_picked_source_is_the_one_translated(env):

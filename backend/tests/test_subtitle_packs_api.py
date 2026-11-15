@@ -102,15 +102,77 @@ def test_translate_validates_files_and_queues(client, packs_dir, tmp_path, enque
     # no English subtitle yet
     assert client.post("/api/subtitles/translate", json=body).status_code == 422
     (tmp_path / "M.en.srt").write_text(SRT)
-    (tmp_path / "M.ar.srt").write_text(SRT)  # a real Arabic subtitle exists: nothing to do
-    assert client.post("/api/subtitles/translate", json=body).status_code == 422
-    (tmp_path / "M.ar.srt").unlink()
     r = client.post("/api/subtitles/translate", json=body)
     assert r.status_code == 200
     assert enqueued[-1][1] == "run_translate_job"
     assert enqueued[-1][2][1] == [
-        {"video_path": str(v), "lang": "ar", "drop_hi": False, "source": None}
+        {
+            "video_path": str(v),
+            "lang": "ar",
+            "drop_hi": False,
+            "source": None,
+            "keep_existing": False,
+        }
     ]
+
+
+def test_translate_allowed_when_real_target_exists(
+    client, packs_dir, tmp_path, enqueued, monkeypatch
+):
+    monkeypatch.setattr(tp, "is_installed", lambda pack: True)
+    v = tmp_path / "Movie.mkv"
+    v.write_bytes(b"v")
+    (tmp_path / "Movie.en.srt").write_text(SRT)
+    real = tmp_path / "Movie.ar.srt"
+    real.write_text(SRT)
+    r = client.post("/api/subtitles/translate", json={"file_paths": [str(v)], "language": "ar"})
+    assert r.status_code == 200
+    assert enqueued[-1][2][1][0]["lang"] == "ar"
+    # the output can only be a machine-made name, never the real file
+    from app.services import subtitle_names
+
+    out = subtitle_names.variant_path(str(v), "ar", subtitle_names.TRANSLATED, keep=False)
+    assert out == str(tmp_path / "Movie.ar.translated.srt") and out != str(real)
+    assert real.read_text() == SRT
+
+
+def test_translate_keep_existing_is_threaded_into_the_job_items(
+    client, packs_dir, tmp_path, enqueued, monkeypatch
+):
+    monkeypatch.setattr(tp, "is_installed", lambda pack: True)
+    v = tmp_path / "Movie.mkv"
+    v.write_bytes(b"v")
+    (tmp_path / "Movie.en.srt").write_text(SRT)
+    body = {"file_paths": [str(v)], "language": "ar", "keep_existing": True, "path": str(tmp_path)}
+    assert client.post("/api/subtitles/translate", json=body).status_code == 200
+    assert enqueued[-1][2][1][0]["keep_existing"] is True
+
+
+def test_generate_allowed_when_real_english_exists(
+    client, packs_dir, tmp_path, enqueued, monkeypatch
+):
+    monkeypatch.setattr(tp, "is_installed", lambda pack: True)
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    real = tmp_path / "M.en.srt"
+    real.write_text(SRT)
+    r = client.post("/api/subtitles/generate", json={"file_paths": [str(v)], "keep_existing": True})
+    assert r.status_code == 200
+    assert enqueued[-1][2][1] == [
+        {"video_path": str(v), "model": "whisper-small", "keep_existing": True}
+    ]
+    assert real.read_text() == SRT
+
+
+def test_still_409_without_pack_or_model(client, packs_dir, tmp_path, enqueued):
+    v = tmp_path / "M.mkv"
+    v.write_bytes(b"v")
+    (tmp_path / "M.en.srt").write_text(SRT)
+    r = client.post("/api/subtitles/translate", json={"file_paths": [str(v)], "language": "ar"})
+    assert r.status_code == 409 and "Settings → Subtitles" in r.json()["detail"]
+    r = client.post("/api/subtitles/generate", json={"file_paths": [str(v)]})
+    assert r.status_code == 409 and "Settings → Subtitles" in r.json()["detail"]
+    assert not enqueued
 
 
 def test_speech_models_list_and_do_not_mix_with_language_packs(client, packs_dir):
@@ -144,14 +206,13 @@ def test_generate_needs_the_model_and_an_audio_file(
     assert (
         client.post("/api/subtitles/generate", json={**body, "file_paths": []}).status_code == 422
     )
-    (tmp_path / "M.en.srt").write_text(SRT)  # a real English subtitle exists: nothing to do
-    assert client.post("/api/subtitles/generate", json=body).status_code == 422
-    (tmp_path / "M.en.srt").unlink()
     (tmp_path / "M.en.generated.srt").write_text(SRT)  # a machine-made one does not block a new run
     r = client.post("/api/subtitles/generate", json=body)
     assert r.status_code == 200
     assert enqueued[-1][1] == "run_generate_job"
-    assert enqueued[-1][2][1] == [{"video_path": str(v), "model": "whisper-small"}]
+    assert enqueued[-1][2][1] == [
+        {"video_path": str(v), "model": "whisper-small", "keep_existing": False}
+    ]
     assert len(enqueued[-1][2]) == 2  # no hidden translation step
 
 
@@ -253,7 +314,9 @@ def test_the_speech_model_is_a_global_setting_chosen_like_nudenet(
     v = tmp_path / "M.mkv"
     v.write_bytes(b"v")
     assert client.post("/api/subtitles/generate", json={"file_paths": [str(v)]}).status_code == 200
-    assert enqueued[-1][2][1] == [{"video_path": str(v), "model": "whisper-medium"}]
+    assert enqueued[-1][2][1] == [
+        {"video_path": str(v), "model": "whisper-medium", "keep_existing": False}
+    ]
     # a model named in the request still wins, for API callers
     client.post("/api/subtitles/generate", json={"file_paths": [str(v)], "model": "small"})
     assert enqueued[-1][2][1][0]["model"] == "whisper-small"

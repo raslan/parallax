@@ -77,6 +77,17 @@ def test_generate_writes_a_machine_made_english_subtitle(env):
     ]
 
 
+def test_generate_overwrites_generated_by_default_keeps_with_flag(env):
+    video, _ = env
+    real = video.parent / "Movie (2020).en.srt"
+    real.write_text("real", encoding="utf-8")
+    first = sg.generate_one(str(video), MODEL, "en", lambda: False)
+    assert sg.generate_one(str(video), MODEL, "en", lambda: False) == first
+    second = sg.generate_one(str(video), MODEL, "en", lambda: False, keep_existing=True)
+    assert second.endswith("Movie (2020).en.generated-2.srt")
+    assert real.read_text() == "real"
+
+
 def test_cancel_leaves_no_file_and_no_temp_audio(env, monkeypatch):
     video, _ = env
 
