@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.job import Job, JobStatus, JobType
 from app.models.settings import get_setting
 from app.queue import enqueue
+from app.services.subtitle_providers import ProviderError
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
 
@@ -104,6 +105,8 @@ def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
         )
     except ValueError as exc:
         raise HTTPException(422, str(exc))
+    except ProviderError as exc:
+        raise HTTPException(502, str(exc))
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
@@ -120,6 +123,10 @@ async def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
             raise HTTPException(404, "Subtitle not found or download failed")
     except HTTPException:
         raise
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except ProviderError as exc:
+        raise HTTPException(502, str(exc))
     except Exception as exc:
         raise HTTPException(500, str(exc))
 

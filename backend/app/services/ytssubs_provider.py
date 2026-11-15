@@ -119,6 +119,10 @@ class YtsSubsProvider:
 
         soup = BeautifulSoup(text, "html.parser")
         if soup.select_one("table.other-subs") is None:
+            # A film page with no subtitles keeps its title block but has no table;
+            # a page with neither is a layout we do not know.
+            if soup.select_one("h2.movie-main-title") is not None:
+                return []
             raise ProviderError("YTS Subs page changed: nothing matched table.other-subs")
         wanted = set(q.languages)
         results: list[dict] = []

@@ -141,3 +141,94 @@ def test_selector_drift_names_the_selector(monkeypatch):
     monkeypatch.setattr(sub, "_search_movie", lambda *_a, **_k: ["/subtitles/obsession-2025"])
     with pytest.raises(sp.ProviderError, match=r"ul\.sublist"):
         sub.search(_query(identity=sp.Identity("Obsession", 2025, "movie"), languages=("en",)))
+
+
+def test_yts_search_empty_page_is_not_drift(monkeypatch):
+    p = YtsSubsProvider()
+    monkeypatch.setattr(p, "_get_text", lambda url, **_k: _page("yts_search_empty.html"))
+    assert p.search_titles("zzqxqzzqxq") == []
+
+
+def test_yts_unknown_film_404_page_is_empty(monkeypatch):
+    # The site answers 404 for an unknown IMDB id; _get_text turns that into "".
+    p = YtsSubsProvider()
+    monkeypatch.setattr(p, "_get_text", lambda url, **_k: "")
+    assert p.search(_query(identity=sp.Identity("X", None, "movie", imdb_id="tt0000001"))) == []
+
+
+def test_yts_film_page_without_subtitle_table_is_empty_not_drift(monkeypatch):
+    # No saved page of a film with zero subtitles exists (none could be found), so
+    # this is the real film page with only its subtitle table cut out.
+    html = _page("yts_movie.html")
+    start = html.index('<table class="table other-subs">')
+    html = html[:start] + html[html.index("</table>", start) + len("</table>") :]
+    p = YtsSubsProvider()
+    monkeypatch.setattr(p, "_get_text", lambda url, **_k: html)
+    assert p.search(_query()) == []
+
+
+def test_subf2m_language_page_with_no_subtitles_is_empty(monkeypatch):
+    p = Subf2mProvider()
+    monkeypatch.setattr(p, "_get_text", lambda url, **_k: _page("subf2m_movie_empty.html"))
+    assert p._find_movie_subtitles("/subtitles/obsession-2025", "ja") == []
+
+
+def test_subf2m_search_keeps_results_when_one_language_drifts(monkeypatch):
+    p = Subf2mProvider()
+    monkeypatch.setattr(p, "_search_movie", lambda *_a, **_k: ["/subtitles/obsession-2025"])
+    good = _page("subf2m_movie.html")
+
+    def fake(url, **_k):
+        return "<html></html>" if url.endswith("/arabic") else good
+
+    monkeypatch.setattr(p, "_get_text", fake)
+    q = _query(identity=sp.Identity("Obsession", 2025, "movie"), languages=("en", "ar"))
+    results = p.search(q)
+    assert results and {r["language"] for r in results} == {"en"}
+
+
+def test_subf2m_search_raises_when_every_language_drifts(monkeypatch):
+    p = Subf2mProvider()
+    monkeypatch.setattr(p, "_search_movie", lambda *_a, **_k: ["/subtitles/obsession-2025"])
+    monkeypatch.setattr(p, "_get_text", lambda url, **_k: "<html></html>")
+    q = _query(identity=sp.Identity("Obsession", 2025, "movie"), languages=("en", "ar"))
+    with pytest.raises(sp.ProviderError, match=r"ul\.sublist"):
+        p.search(q)
+
+
+def _video(tmp_path):
+    video = tmp_path / "Movie (2020).mkv"
+    video.write_bytes(b"x")
+    return str(video)
+
+
+def test_search_file_route_unknown_provider_is_422(client, tmp_path):
+    r = client.post(
+        "/api/subtitles/search-file", json={"file_path": _video(tmp_path), "provider": "bogus"}
+    )
+    assert r.status_code == 422
+    assert "Unknown source" in r.json()["detail"]
+
+
+def test_download_one_route_unknown_provider_is_422(client, tmp_path):
+    r = client.post(
+        "/api/subtitles/download-one",
+        json={
+            "file_path": _video(tmp_path),
+            "provider": "bogus",
+            "subtitle_id": "x",
+            "language": "en",
+        },
+    )
+    assert r.status_code == 422
+    assert "Unknown source" in r.json()["detail"]
+
+
+def test_search_file_route_surfaces_provider_error(client, tmp_path, monkeypatch):
+    def boom(self, q):
+        raise sp.ProviderError("Subf2m page changed: nothing matched ul.sublist")
+
+    monkeypatch.setattr(Subf2mProvider, "search", boom)
+    r = client.post("/api/subtitles/search-file", json={"file_path": _video(tmp_path)})
+    assert r.status_code == 502
+    assert "ul.sublist" in r.json()["detail"]

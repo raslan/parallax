@@ -4,7 +4,7 @@ import re
 from datetime import UTC, datetime
 
 from app.services import subtitle_names
-from app.services.subtitle_providers import Identity, SearchQuery, get_provider
+from app.services.subtitle_providers import Identity, ProviderError, SearchQuery, get_provider
 
 logger = logging.getLogger(__name__)
 
@@ -345,6 +345,8 @@ def search_file(
             len(results),
             os.path.basename(file_path),
         )
+    except ProviderError:
+        raise  # carries a user-facing message; the route reports it
     except Exception as exc:
         logger.warning("search_file %s error: %s: %s", provider, type(exc).__name__, exc)
         results = []

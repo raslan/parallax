@@ -338,14 +338,21 @@ class Subf2mProvider:
             return []
 
         results: list[dict] = []
+        errors: list[ProviderError] = []
+        tried = 0
         for path in paths:
             for lang in q.languages:
                 if lang not in _LANG_TO_PATH:
                     continue
-                if is_episode:
-                    subs = self._find_episode_subtitles(path, season, episode, lang)
-                else:
-                    subs = self._find_movie_subtitles(path, lang)
+                tried += 1
+                try:
+                    if is_episode:
+                        subs = self._find_episode_subtitles(path, season, episode, lang)
+                    else:
+                        subs = self._find_movie_subtitles(path, lang)
+                except ProviderError as exc:
+                    errors.append(exc)
+                    continue
 
                 for sub in subs:
                     results.append(
@@ -362,6 +369,8 @@ class Subf2mProvider:
             if results:
                 break  # stop at first path that yields results
 
+        if errors and len(errors) == tried:
+            raise errors[0]  # every page failed: say why instead of "no results"
         return results
 
     def download(self, subtitle_id: str) -> bytes | None:
