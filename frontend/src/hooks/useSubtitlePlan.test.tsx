@@ -237,6 +237,30 @@ describe("useSubtitlePlan", () => {
     expect(row?.lengthResult).toEqual({ error: "Not checked" });
   });
 
+  it("keeps the length Compare already measured for the picked candidate", async () => {
+    preview.mockResolvedValue({
+      preview_id: "p",
+      cues: 10,
+      first: 1,
+      last: 2900,
+      video_duration: 3000,
+      length: "ok",
+      lines: [],
+    });
+    const { result } = setup([file(1)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await act(async () =>
+      searches[0]?.d.resolve({ candidates: [cand("a"), cand("b")], errors: [] }),
+    );
+    await waitFor(() => expect(result.current.rows[0]?.lengthResult).toBeDefined());
+    const length = { length: "short", last: 100, videoDuration: 3000 } as const;
+    act(() =>
+      result.current.chooseCandidate(result.current.rows[0]?.key ?? "", cand("b"), "use", length),
+    );
+    expect(result.current.rows[0]?.lengthResult).toEqual(length);
+    expect(result.current.rows[0]?.status).toBe("flagged");
+  });
+
   it("retries only rows whose search failed", async () => {
     const { result } = setup([file(1), file(2)]);
     await waitFor(() => expect(search).toHaveBeenCalledTimes(2));

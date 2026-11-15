@@ -26,6 +26,7 @@ export function WorkflowView({
   onCancel,
   onCompareRow,
   onCompareItem,
+  comparingItem,
 }: {
   w: SubtitleWorkflow;
   hasTmdbKey: boolean;
@@ -39,6 +40,8 @@ export function WorkflowView({
   onCancel: (jobId: number) => void;
   onCompareRow: (row: PlanRowState) => void;
   onCompareItem: (item: RunItem) => void;
+  /** The failed item whose "Pick another" search is running. */
+  comparingItem: RunItem | null;
 }) {
   const { wf } = w;
   if (!wf) return null;
@@ -124,6 +127,7 @@ export function WorkflowView({
           onCancel={() => w.runJob.id != null && onCancel(w.runJob.id)}
           onRetry={w.retry}
           onCompare={onCompareItem}
+          comparing={comparingItem}
         />
       ) : (
         <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">

@@ -36,10 +36,13 @@ export function RunView({
   error,
   cancelling,
   retrying,
+  comparing,
   onCancel,
   onRetry,
   onCompare,
 }: {
+  /** The item whose "Pick another" search is running: its button waits. */
+  comparing: RunItem | null;
   /** A retry is being submitted: Retry waits so a double click cannot queue two jobs. */
   retrying: boolean;
   entries: RunEntry[];
@@ -139,6 +142,9 @@ export function RunView({
           <ul className="space-y-1.5">
             {failed.map((e) => {
               const label = `${baseName(e.item.video_path)} ${languageName(e.item.language)}`;
+              const searching =
+                comparing?.video_path === e.item.video_path &&
+                comparing.language === e.item.language;
               return (
                 <li
                   key={`${e.item.video_path}:${e.item.language}`}
@@ -167,11 +173,16 @@ export function RunView({
                     size="sm"
                     variant="ghost"
                     className="h-7"
-                    disabled={active}
+                    disabled={active || searching}
+                    aria-busy={searching || undefined}
                     aria-label={`Pick another for ${label}`}
                     onClick={() => onCompare(e.item)}
                   >
-                    <Search className="mr-1 h-3 w-3" />
+                    {searching ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Search className="mr-1 h-3 w-3" />
+                    )}
                     Pick another
                   </Button>
                 </li>

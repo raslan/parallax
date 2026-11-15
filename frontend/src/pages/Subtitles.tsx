@@ -93,6 +93,7 @@ export function Subtitles() {
   const compare = useSubtitleCompare({
     files,
     chooseCandidate: w.plan.chooseCandidate,
+    setVerdict: w.plan.setVerdict,
     retry: w.retry,
   });
   const titleOf = useMemo(() => {
@@ -342,6 +343,7 @@ export function Subtitles() {
           onCancel={actions.cancel}
           onCompareRow={compare.openRow}
           onCompareItem={compare.openItem}
+          comparingItem={compare.searchingItem}
         />
       ) : (
         <>

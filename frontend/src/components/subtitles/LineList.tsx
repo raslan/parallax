@@ -1,44 +1,95 @@
+import { memo, useEffect, useRef, type RefObject } from "react";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/** After the user scrolled the list by hand, the highlight stops pulling it back for this long. */
+const USER_SCROLL_QUIET_MS = 3000;
+
+interface Line {
+  start: number;
+  text: string;
+}
+
+/** Index of the last line that has started at `time`; -1 before the first. */
+export function currentLineIndex(lines: Line[], time: number): number {
+  let current = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if ((lines[i]?.start ?? Infinity) <= time) current = i;
+    else break;
+  }
+  return current;
+}
+
+const LineRow = memo(function LineRow({
+  line,
+  active,
+  onSeek,
+  userScrolledAt,
+}: {
+  line: Line;
+  active: boolean;
+  onSeek: (time: number) => void;
+  userScrolledAt: RefObject<number>;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!active || Date.now() - userScrolledAt.current < USER_SCROLL_QUIET_MS) return;
+    ref.current?.scrollIntoView({ block: "nearest" });
+  }, [active, userScrolledAt]);
+  return (
+    <li>
+      <button
+        ref={ref}
+        type="button"
+        aria-current={active ? "true" : undefined}
+        onClick={() => onSeek(line.start)}
+        className={cn(
+          "flex w-full items-baseline gap-3 px-2 py-1 text-left text-xs hover:bg-muted/50",
+          active && "bg-primary/15",
+        )}
+      >
+        <span className="w-14 shrink-0 font-mono tabular-nums text-muted-foreground">
+          {formatDuration(line.start)}
+        </span>
+        <span className="min-w-0 break-words">{line.text}</span>
+      </button>
+    </li>
+  );
+});
+
 /**
- * The lines of a subtitle: time and text, the one the player is on highlighted, a click seeks
- * the video there. Text comes from a provider, so it is only ever rendered as text.
+ * The lines of a subtitle: time and text, the current one (`current`, an index) highlighted and
+ * kept in view while the video plays, a click seeks the video there. Text comes from a
+ * provider, so it is only ever rendered as text. The list scrolls on its own so the caller's
+ * verdict buttons never end up below it.
  */
 export function LineList({
   lines,
-  currentTime,
+  current,
   onSeek,
 }: {
-  lines: { start: number; text: string }[];
-  currentTime: number;
+  lines: Line[];
+  current: number;
   onSeek: (time: number) => void;
 }) {
-  // The last line that has started; none before the first.
-  let current = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if ((lines[i]?.start ?? Infinity) <= currentTime) current = i;
-    else break;
-  }
+  const userScrolledAt = useRef(0);
+  const noteUserScroll = () => {
+    userScrolledAt.current = Date.now();
+  };
   return (
-    <ul className="divide-y divide-border/50 rounded-md border">
+    <ul
+      className="max-h-48 divide-y divide-border/50 overflow-y-auto rounded-md border md:max-h-72"
+      onWheel={noteUserScroll}
+      onTouchMove={noteUserScroll}
+    >
       {lines.map((l, i) => (
-        <li key={i}>
-          <button
-            type="button"
-            aria-current={i === current ? "true" : undefined}
-            onClick={() => onSeek(l.start)}
-            className={cn(
-              "flex w-full items-baseline gap-3 px-2 py-1 text-left text-xs hover:bg-muted/50",
-              i === current && "bg-primary/15",
-            )}
-          >
-            <span className="w-14 shrink-0 font-mono tabular-nums text-muted-foreground">
-              {formatDuration(l.start)}
-            </span>
-            <span className="min-w-0 break-words">{l.text}</span>
-          </button>
-        </li>
+        <LineRow
+          key={i}
+          line={l}
+          active={i === current}
+          onSeek={onSeek}
+          userScrolledAt={userScrolledAt}
+        />
       ))}
     </ul>
   );

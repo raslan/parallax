@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { qk, subtitlesApi } from "@/lib/api";
@@ -10,9 +10,15 @@ import { cn } from "@/lib/utils";
 import { PanelSheetContent } from "@/components/PanelSheetContent";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import type { Candidate, PreviewInfo, ReleaseToken, SubtitleFileInfo } from "@/types/subtitle";
+import type {
+  Candidate,
+  LengthResult,
+  PreviewInfo,
+  ReleaseToken,
+  SubtitleFileInfo,
+} from "@/types/subtitle";
 import { ComparePlayer } from "./ComparePlayer";
-import { LineList } from "./LineList";
+import { currentLineIndex, LineList } from "./LineList";
 
 export type CompareVerdict =
   "use" | "use_and_sync" | "skip" | "keep" | "sync" | "find_another" | "delete";
@@ -72,11 +78,14 @@ export function CompareSheet({
   mode: "candidate" | "existing";
   candidates?: Candidate[];
   existing?: SubtitleFileInfo;
-  onVerdict: (v: CompareVerdict, candidate?: Candidate) => void;
+  /** `length` is the shown candidate's length result, when its preview has loaded. */
+  onVerdict: (v: CompareVerdict, candidate?: Candidate, length?: LengthResult) => void;
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(0);
-  const [time, setTime] = useState(0);
+  // Only the index of the line the player is on: it changes a few times a minute, the player's
+  // time ~4 times a second.
+  const [current, setCurrent] = useState(-1);
   const [seek, setSeek] = useState<{ time: number; nonce: number }>();
   const candidate = mode === "candidate" ? candidates[index] : undefined;
 
@@ -127,10 +136,22 @@ export function CompareSheet({
     [preview, candidate],
   );
 
+  const onTime = useCallback(
+    (t: number) => setCurrent(currentLineIndex(preview?.lines ?? [], t)),
+    [preview],
+  );
+  const onSeek = useCallback(
+    (t: number) => setSeek((s) => ({ time: t, nonce: (s?.nonce ?? 0) + 1 })),
+    [],
+  );
+  const lengthOf: LengthResult | undefined = preview
+    ? { length: preview.length, last: preview.last, videoDuration: preview.video_duration }
+    : undefined;
+
   const pick = (i: number) => {
     setIndex(i);
     setSeek(undefined);
-    setTime(0);
+    setCurrent(-1);
   };
 
   return (
@@ -153,7 +174,7 @@ export function CompareSheet({
           tracks={mode === "existing" ? tracksQ.data : undefined}
           extraTracks={mode === "candidate" ? extraTracks : undefined}
           seekRequest={seek}
-          onTime={setTime}
+          onTime={onTime}
         />
 
         {mode === "candidate" && (
@@ -209,12 +230,11 @@ export function CompareSheet({
             {preview && (
               <>
                 <LengthNote info={preview} />
-                <LineList
-                  lines={preview.lines}
-                  currentTime={time}
-                  onSeek={(t) => setSeek((s) => ({ time: t, nonce: (s?.nonce ?? 0) + 1 }))}
-                />
+                <LineList lines={preview.lines} current={current} onSeek={onSeek} />
               </>
+            )}
+            {candidates.length === 0 && (
+              <p className="text-xs text-muted-foreground">No other subtitles found</p>
             )}
           </>
         )}
@@ -224,44 +244,54 @@ export function CompareSheet({
           </p>
         )}
 
-        <div role="group" aria-label="Verdict" className="flex flex-wrap gap-2">
-          {mode === "candidate" ? (
-            <>
-              <Button size="sm" onClick={() => candidate && onVerdict("use", candidate)}>
-                Use this
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => candidate && onVerdict("use_and_sync", candidate)}
-              >
-                Matches, needs sync
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => candidate && onVerdict("skip", candidate)}
-              >
-                Not this one
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button size="sm" onClick={() => onVerdict("keep")}>
-                Keep
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onVerdict("sync")}>
-                Sync
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onVerdict("find_another")}>
-                Find another
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => onVerdict("delete")}>
-                Delete
-              </Button>
-            </>
-          )}
-        </div>
+        {/* Pinned to the bottom of the scrolling sheet so a verdict is always in reach. */}
+        {(mode === "existing" || candidate) && (
+          <div
+            role="group"
+            aria-label="Verdict"
+            className="sticky bottom-0 -mx-4 -mb-4 mt-auto flex flex-wrap gap-2 border-t bg-px-elevated px-4 py-3"
+          >
+            {mode === "candidate" ? (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => candidate && onVerdict("use", candidate, lengthOf)}
+                >
+                  Use this
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => candidate && onVerdict("use_and_sync", candidate, lengthOf)}
+                >
+                  Matches, needs sync
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => candidate && onVerdict("skip", candidate, lengthOf)}
+                >
+                  Not this one
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="sm" onClick={() => onVerdict("keep")}>
+                  Keep
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onVerdict("sync")}>
+                  Sync
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onVerdict("find_another")}>
+                  Find another
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => onVerdict("delete")}>
+                  Delete
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </PanelSheetContent>
     </Sheet>
   );

@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import type { RunEntry } from "@/types/subtitle";
+import type { RunEntry, RunItem } from "@/types/subtitle";
 import { RunView } from "./RunView";
 
 afterEach(cleanup);
@@ -22,9 +22,15 @@ const entry = (n: number, state: RunEntry["state"], error?: string): RunEntry =>
       : { video_path: `/tv/Show/S01E0${n}.mkv`, language: "en", status: state, error },
 });
 
-function renderRun(entries: RunEntry[], status = "completed", retrying = false) {
+function renderRun(
+  entries: RunEntry[],
+  status = "completed",
+  retrying = false,
+  comparing: RunItem | null = null,
+) {
   const props = {
     retrying,
+    comparing,
     entries,
     titleOf: () => ({ key: "tv:show", name: "Show (2016)" }),
     status,
@@ -54,6 +60,15 @@ describe("RunView", () => {
     expect(p.onRetry).toHaveBeenCalledWith(p.entries[1]?.item);
     fireEvent.click(screen.getByRole("button", { name: /Pick another/ }));
     expect(p.onCompare).toHaveBeenCalledWith(p.entries[1]?.item);
+  });
+
+  it("disables Pick another only for the item whose search is running", () => {
+    const entries = [entry(1, "failed", "x"), entry(2, "failed", "y")];
+    renderRun(entries, "completed", false, entries[0]?.item);
+    const [first, second] = screen.getAllByRole("button", { name: /Pick another/ });
+    expect((first as HTMLButtonElement).disabled).toBe(true);
+    expect(first?.getAttribute("aria-busy")).toBe("true");
+    expect((second as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("disables Retry while a retry is being submitted", () => {

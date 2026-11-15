@@ -6,6 +6,7 @@ import { HlsVideo } from "@videojs/react/media/hls-video";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { MEDIA_THEME_STYLE, focusPlayer } from "./videoJsShared";
 import { VolumePersistence } from "./VolumePersistence";
+import { cn } from "@/lib/utils";
 import { PlayerSeek, type SeekRequest } from "./PlayerSeek";
 import { PlayerTime } from "./PlayerTime";
 
@@ -23,6 +24,7 @@ export default function VideoJsPlayer({
   extraTracks,
   seekRequest,
   onTime,
+  compact,
 }: {
   streamUrl: string;
   /** Live HLS playlist for files whose audio the browser can't decode; replaces `streamUrl`. */
@@ -35,6 +37,8 @@ export default function VideoJsPlayer({
   seekRequest?: SeekRequest;
   /** Called with the current playback time (seconds) as it changes. */
   onTime?: (seconds: number) => void;
+  /** For a small panel: the video is capped at a third of the screen instead of nearly all of it. */
+  compact?: boolean;
 }) {
   const all = extraTracks?.length ? [...tracks, ...extraTracks] : tracks;
   const shown = extraTracks?.length ? tracks.length : defaultTrackIndex(tracks);
@@ -55,7 +59,10 @@ export default function VideoJsPlayer({
             box taller than the screen. Cap the video itself (not the skin, which would clip it)
             and object-fit: contain letterboxes it inside. */}
         <NeutralVideoSkin
-          className="bg-black [&_video]:max-h-[calc(100vh-8rem)]"
+          className={cn(
+            "bg-black",
+            compact ? "[&_video]:max-h-[35dvh]" : "[&_video]:max-h-[calc(100vh-8rem)]",
+          )}
           style={MEDIA_THEME_STYLE}
         >
           <VolumePersistence />

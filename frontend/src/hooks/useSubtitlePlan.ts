@@ -340,10 +340,11 @@ export function useSubtitlePlan({
   );
   /**
    * A candidate picked in Compare becomes the row's candidate (listed first) with the verdict
-   * the user gave it. Its length was not checked by the plan, so the row says so.
+   * the user gave it. Its length is the one Compare measured (`length`); without one, and when
+   * it is not the candidate the plan checked, the row says it was not checked.
    */
   const chooseCandidate = useCallback(
-    (key: string, candidate: Candidate, verdict: PlanVerdict) => {
+    (key: string, candidate: Candidate, verdict: PlanVerdict, length?: LengthResult) => {
       const r = rows.find((x) => x.key === key);
       if (!r) return;
       const same = (c: Candidate) =>
@@ -354,7 +355,7 @@ export function useSubtitlePlan({
           candidates: [candidate, ...r.candidates.filter((c) => !same(c))],
           errors: r.errors,
         },
-        ...(top && same(top) ? {} : { length: { error: "Not checked" } }),
+        ...(length ? { length } : top && same(top) ? {} : { length: { error: "Not checked" } }),
         verdict,
       });
     },

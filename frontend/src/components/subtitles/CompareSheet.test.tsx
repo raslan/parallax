@@ -4,16 +4,28 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Candidate, PreviewInfo, SubtitleFileInfo } from "@/types/subtitle";
 
-const api = vi.hoisted(() => ({
-  preview: vi.fn(),
-  previewVttUrl: vi.fn((id: string) => `/api/subtitles/preview/${id}.vtt`),
-  releaseTokens: vi.fn(),
-  tracks: vi.fn(),
-  streamUrl: vi.fn((p: string) => `/api/subtitles/stream?path=${p}`),
-}));
+const { api, apiProxy, touched } = vi.hoisted(() => {
+  const api = {
+    preview: vi.fn(),
+    previewVttUrl: vi.fn((id: string) => `/api/subtitles/preview/${id}.vtt`),
+    releaseTokens: vi.fn(),
+    tracks: vi.fn(),
+    streamUrl: vi.fn((p: string) => `/api/subtitles/stream?path=${p}`),
+  };
+  // Every member of `subtitlesApi` the sheet reaches for is recorded; any name outside the
+  // read-only allowlist (a write, say) fails the "writes nothing" test.
+  const touched = new Set<string>();
+  const apiProxy = new Proxy(api as Record<string, unknown>, {
+    get(target, key) {
+      if (typeof key === "string") touched.add(key);
+      return target[key as string];
+    },
+  });
+  return { api, apiProxy, touched };
+});
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/api")>()),
-  subtitlesApi: api,
+  subtitlesApi: apiProxy,
   streamApi: { prepare: vi.fn(), status: vi.fn() },
 }));
 vi.mock("@/hooks/useVideoSource", () => ({
@@ -69,6 +81,8 @@ const existing: SubtitleFileInfo = {
 };
 
 beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+  touched.clear();
   mobile.value = false;
   player.props = null;
   api.preview.mockImplementation(async (b: { subtitle_id: string }) => preview(b.subtitle_id));
@@ -83,6 +97,8 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
+
+const OK_LENGTH = { length: "ok", last: 3000, videoDuration: 3070 };
 
 const video = { path: "/m/Movie.2020.1080p.WEB.mkv", name: "Movie.2020.1080p.WEB.mkv" };
 
@@ -128,11 +144,11 @@ describe("CompareSheet", () => {
     const { onVerdict } = renderSheet();
     await screen.findByText("Hello there");
     fireEvent.click(screen.getByRole("button", { name: "Matches, needs sync" }));
-    expect(onVerdict).toHaveBeenLastCalledWith("use_and_sync", cand("1"));
+    expect(onVerdict).toHaveBeenLastCalledWith("use_and_sync", cand("1"), OK_LENGTH);
     fireEvent.click(screen.getByRole("button", { name: "Use this" }));
-    expect(onVerdict).toHaveBeenLastCalledWith("use", cand("1"));
+    expect(onVerdict).toHaveBeenLastCalledWith("use", cand("1"), OK_LENGTH);
     fireEvent.click(screen.getByRole("button", { name: "Not this one" }));
-    expect(onVerdict).toHaveBeenLastCalledWith("skip", cand("1"));
+    expect(onVerdict).toHaveBeenLastCalledWith("skip", cand("1"), OK_LENGTH);
   });
 
   it("sends existing verdicts without a candidate", async () => {
@@ -147,7 +163,10 @@ describe("CompareSheet", () => {
     await waitFor(() => expect(player.props?.extraTracks).toBeTruthy());
     const tracks = player.props?.extraTracks as { url: string }[];
     expect(tracks[0]?.url).toBe("/api/subtitles/preview/pv-1.vtt");
-    // The mocked api holds only read calls: any write call would throw as "not a function".
+    // Only reads may be reached for: preview, its vtt url, release tokens and the stream.
+    const READ_ONLY = ["preview", "previewVttUrl", "releaseTokens", "tracks", "streamUrl"];
+    expect([...touched].filter((k) => !READ_ONLY.includes(k))).toEqual([]);
+    expect(touched.has("preview")).toBe(true);
     expect(api.preview).toHaveBeenCalledTimes(1);
     expect(api.preview).toHaveBeenCalledWith({
       video_path: video.path,
@@ -182,7 +201,11 @@ describe("CompareSheet", () => {
     const { onVerdict } = renderSheet();
     await screen.findByText(/ends at/);
     fireEvent.click(screen.getByRole("button", { name: "Use this" }));
-    expect(onVerdict).toHaveBeenCalledWith("use", cand("1"));
+    expect(onVerdict).toHaveBeenCalledWith(
+      "use",
+      cand("1"),
+      expect.objectContaining({ length: "short" }),
+    );
   });
 
   it("loads another candidate's preview when it is selected", async () => {
@@ -215,6 +238,23 @@ describe("CompareSheet", () => {
     await screen.findByText("Download failed: 404");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByText("Hello there");
+  });
+
+  it("keeps the verdict buttons in reach and the line list in its own scroll area", async () => {
+    renderSheet();
+    await screen.findByText("Hello there");
+    const group = screen.getByRole("group", { name: "Verdict" });
+    expect(group.className).toContain("sticky");
+    expect(group.className).toContain("bottom-0");
+    expect(screen.getByRole("list").className).toMatch(/max-h-/);
+    expect(screen.getByRole("list").className).toContain("overflow-y-auto");
+  });
+
+  it("says so, with no verdict buttons, when there is nothing to compare", () => {
+    renderSheet({ candidates: [] });
+    expect(screen.getByText("No other subtitles found")).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Verdict" })).toBeNull();
+    expect(api.preview).not.toHaveBeenCalled();
   });
 
   it("is a right-hand panel on desktop and a bottom sheet below md", async () => {

@@ -53,6 +53,7 @@ export function ComparePlayer({
         extraTracks={extraTracks}
         seekRequest={seekRequest}
         onTime={onTime}
+        compact
       />
     </Suspense>
   );
