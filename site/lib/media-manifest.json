@@ -294,7 +294,7 @@
     "src": "tools/subtitles/scan.webp",
     "width": 1184,
     "height": 640,
-    "bytes": 68062,
+    "bytes": 74256,
     "quality": 90
   },
   "tools/organize/folders": {
@@ -2716,7 +2716,7 @@
     "src": "app/settings/subtitles.webp",
     "width": 1184,
     "height": 820,
-    "bytes": 116974,
+    "bytes": 123484,
     "quality": 90
   },
   "app/settings/hardware": {
