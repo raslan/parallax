@@ -93,3 +93,17 @@ def test_search_rejects_a_foreign_or_odd_pasted_path():
     ):
         with pytest.raises(ProviderError, match="Not a Subf2m page"):
             p.search(_query(bad))
+
+
+def test_a_row_with_several_release_names_keeps_only_the_first(monkeypatch):
+    p = Subf2mProvider()
+    blob = "Movie.2025.1080p.BluRay-AAA\nMovie.2025.WEB-BBB\nfollow my channel for more"
+    monkeypatch.setattr(
+        p,
+        "_find_movie_subtitles",
+        lambda path, lang: [
+            {"page_link": "https://subf2m.co/x", "release_info": blob, "score": 50}
+        ],
+    )
+    (hit,) = p.search(_query("/subtitles/movie-2025"))
+    assert hit["release"] == "Movie.2025.1080p.BluRay-AAA"

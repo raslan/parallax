@@ -379,7 +379,9 @@ class Subf2mProvider:
                             "subtitle_id": sub["page_link"],
                             "provider": self.name,
                             "language": lang,
-                            "release": sub["release_info"],
+                            # One row can list many release names (plus the uploader's comment):
+                            # the first is the name; the rest would read as one run-on blob.
+                            "release": sub["release_info"].split("\n", 1)[0],
                             "score": sub["score"],
                             "hearing_impaired": False,
                         }
