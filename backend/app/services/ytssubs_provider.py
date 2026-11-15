@@ -1,20 +1,28 @@
-"""yts-subs.com subtitle scraper (mirror of the dead yifysubtitles.com).
+"""yts-subs.com subtitle scraper (mirror of the dead yifysubtitles.com), films only.
 
-Unlike subf2m, this site has no title-search endpoint — subtitles are only
-reachable via a movie's IMDB ID (`/movie-imdb/{imdb_id}`), so callers must
-resolve that first (this repo does it via TMDB). No auth, no rate limiting,
-no Cloudflare challenge observed.
+Subtitles live under a film's IMDB id (`/movie-imdb/{imdb_id}`). The site also
+has its own title search (`/search/<query>`, film cards with IMDB id and
+poster), so a film can be identified here with no TMDB key. No auth, no
+Cloudflare challenge observed.
 """
 
 from __future__ import annotations
 
 import base64
 import logging
+import re
+import urllib.parse
 
 import requests
 from bs4 import BeautifulSoup
 
 from app.services.subf2m_provider import _extract_from_archive
+from app.services.subtitle_providers import (
+    PROVIDERS,
+    Politeness,
+    ProviderError,
+    SearchQuery,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +39,9 @@ _DEFAULT_HEADERS = {
     ),
 }
 
+_COVER_YEAR_RE = re.compile(r"-(\d{4})-tt\d+")
+_IMDB_HREF_RE = re.compile(r"^/movie-imdb/(tt\d+)")
+
 
 def _lang_name_to_alpha2(name: str) -> str | None:
     try:
@@ -42,28 +53,64 @@ def _lang_name_to_alpha2(name: str) -> str | None:
 
 
 class YtsSubsProvider:
+    name = "yts"
+    media_types = frozenset({"movie"})
+
     def __init__(self) -> None:
         self._session = requests.Session()
         self._session.headers.update(_DEFAULT_HEADERS)
+        self._politeness = Politeness.for_provider(self.name)
 
     def close(self) -> None:
         self._session.close()
 
     def _get_text(self, url: str, timeout: int = 20) -> str:
+        """The page text, "" for a 404; ProviderError for anything else that goes wrong."""
         try:
-            resp = self._session.get(url, timeout=timeout)
+            with self._politeness.acquire():
+                resp = self._session.get(url, timeout=timeout)
             if resp.status_code == 404:
                 return ""
             resp.raise_for_status()
             return resp.text
+        except requests.Timeout as exc:
+            raise ProviderError("YTS Subs did not answer in time") from exc
         except requests.RequestException as exc:
-            logger.debug("ytssubs request failed for %s: %s", url, exc)
-            return ""
+            logger.debug("yts request failed for %s: %s", url, exc)
+            raise ProviderError(f"YTS Subs request failed: {exc}") from exc
 
-    def search(self, imdb_id: str, lang_codes: list[str]) -> list[dict]:
-        """Return list of subtitle candidate dicts for subtitle_service.
+    def search_titles(self, query: str) -> list[dict]:
+        """Film cards from the site's own title search."""
+        text = self._get_text(f"{_BASE_URL}/search/{urllib.parse.quote(query)}")
+        if not text:
+            return []
+        soup = BeautifulSoup(text, "html.parser")
+        if soup.select_one("ul.media-list") is None:
+            raise ProviderError("YTS Subs page changed: nothing matched ul.media-list")
 
-        Movie-only (yts-subs has no per-episode listing structure)."""
+        results: list[dict] = []
+        for card in soup.select("ul.media-list li.media-movie-clickable"):
+            link = card.select_one("a[href^='/movie-imdb/']")
+            m = _IMDB_HREF_RE.match(link["href"]) if link else None
+            if not m:
+                continue
+            img = card.select_one("img.media-object")
+            poster = img.get("src") if img else None
+            year_m = _COVER_YEAR_RE.search(poster or "")
+            heading = card.select_one("h3.media-heading")
+            results.append(
+                {
+                    "title": heading.get_text(strip=True) if heading else "",
+                    "year": int(year_m.group(1)) if year_m else None,
+                    "imdb_id": m.group(1),
+                    "poster_url": poster or None,
+                }
+            )
+        return results
+
+    def search(self, q: SearchQuery) -> list[dict]:
+        """Subtitle candidates for a film, by IMDB id (empty when the identity has none)."""
+        imdb_id = q.identity.imdb_id
         if not imdb_id:
             return []
         text = self._get_text(f"{_BASE_URL}/movie-imdb/{imdb_id}")
@@ -71,7 +118,9 @@ class YtsSubsProvider:
             return []
 
         soup = BeautifulSoup(text, "html.parser")
-        wanted = set(lang_codes)
+        if soup.select_one("table.other-subs") is None:
+            raise ProviderError("YTS Subs page changed: nothing matched table.other-subs")
+        wanted = set(q.languages)
         results: list[dict] = []
 
         for row in soup.select("table.other-subs tbody tr"):
@@ -96,7 +145,7 @@ class YtsSubsProvider:
             results.append(
                 {
                     "subtitle_id": link_el["href"],
-                    "provider": "ytssubs",
+                    "provider": self.name,
                     "language": lang,
                     "release": release,
                     "score": max(0, rating) * 20,
@@ -106,10 +155,9 @@ class YtsSubsProvider:
 
         return results
 
-    def download(self, page_path: str) -> bytes | None:
-        """Fetch subtitle detail page, decode the base64 download link, return
-        SRT bytes or None."""
-        text = self._get_text(f"{_BASE_URL}{page_path}")
+    def download(self, subtitle_id: str) -> bytes | None:
+        """Fetch the subtitle detail page, decode the base64 link, return SRT bytes or None."""
+        text = self._get_text(f"{_BASE_URL}{subtitle_id}")
         if not text:
             return None
 
@@ -117,15 +165,24 @@ class YtsSubsProvider:
         btn = soup.select_one("a#btn-download-subtitle")
         encoded = btn.get("data-link") if btn else None
         if not encoded:
-            logger.warning("ytssubs: no download link on %s", page_path)
+            logger.warning("yts: no download link on %s", subtitle_id)
             return None
 
         try:
             download_url = base64.b64decode(encoded).decode()
         except Exception:
-            logger.warning("ytssubs: undecodable data-link on %s", page_path)
+            logger.warning("yts: undecodable data-link on %s", subtitle_id)
             return None
 
-        resp = self._session.get(download_url, timeout=30)
-        resp.raise_for_status()
+        try:
+            with self._politeness.acquire():
+                resp = self._session.get(download_url, timeout=30)
+            resp.raise_for_status()
+        except requests.Timeout as exc:
+            raise ProviderError("YTS Subs did not answer in time") from exc
+        except requests.RequestException as exc:
+            raise ProviderError(f"YTS Subs download failed: {exc}") from exc
         return _extract_from_archive(resp.content)
+
+
+PROVIDERS["yts"] = YtsSubsProvider

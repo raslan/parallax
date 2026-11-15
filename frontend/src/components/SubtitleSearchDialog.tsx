@@ -69,7 +69,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
   );
   const [dialogLangs, setDialogLangs] = useState<string[]>(languages);
   const [tmdbAvailable, setTmdbAvailable] = useState<boolean | null>(null);
-  const [searchProvider, setSearchProvider] = useState<"subf2m" | "ytssubs">("subf2m");
+  const [searchProvider, setSearchProvider] = useState<"subf2m" | "yts">("subf2m");
 
   const toggleLang = (code: string) => {
     setDialogLangs((prev) =>
@@ -126,7 +126,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
   const runSearch = () => {
     const title = query.trim();
     if (!title) return;
-    if (searchProvider === "ytssubs" && !tmdbAvailable) return;
+    if (searchProvider === "yts" && !tmdbAvailable) return;
     const manualYearNum = manualYear.trim() ? parseInt(manualYear, 10) : undefined;
     setSearching(true);
     setError("");
@@ -231,7 +231,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
                 disabled={
                   searching ||
                   !query.trim() ||
-                  (searchProvider === "ytssubs" && tmdbAvailable === false)
+                  (searchProvider === "yts" && tmdbAvailable === false)
                 }
               >
                 {searching ? (
@@ -261,7 +261,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
             <div className="flex rounded-md border border-border overflow-hidden w-fit">
               {[
                 { id: "subf2m" as const, label: "Subf2m" },
-                { id: "ytssubs" as const, label: "YTS-Subs" },
+                { id: "yts" as const, label: "YTS-Subs" },
               ].map(({ id, label }) => (
                 <button
                   key={id}
@@ -282,7 +282,7 @@ export function SubtitleSearchDialog({ file, languages, onClose, onDownloaded }:
                 </button>
               ))}
             </div>
-            {searchProvider === "ytssubs" && tmdbAvailable === false && (
+            {searchProvider === "yts" && tmdbAvailable === false && (
               <Link
                 to="/settings?tab=credentials"
                 className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
