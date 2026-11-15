@@ -38,8 +38,6 @@ _SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
 _SUBTITLE_LANGUAGES_DEFAULT = "en"
 _SUBTITLE_SYNC_ENGINE_KEY = "subtitle_sync_engine"
 _SUBTITLE_SYNC_ENGINE_DEFAULT = "alass"
-_SUBTITLE_AUTO_SYNC_KEY = "subtitle_auto_sync"
-_SUBTITLE_AUTO_SYNC_DEFAULT = "true"
 _SUBTITLE_TRANSLATE_DROP_HI_KEY = "subtitle_translate_drop_hi"
 _SUBTITLE_TRANSLATE_DROP_HI_DEFAULT = "false"
 _DOWNLOAD_DIR_KEY = "download_dir"
@@ -86,7 +84,6 @@ class SettingsRead(BaseModel):
     scan_prefetch: int
     subtitle_languages: str
     subtitle_sync_engine: str
-    subtitle_auto_sync: bool
     subtitle_translate_drop_hi: bool
     gpu_accel_enabled: bool
     gpu_accel_count: int
@@ -112,7 +109,6 @@ class SettingsUpdate(BaseModel):
     scan_prefetch: int | None = Field(default=None, ge=1, le=20)
     subtitle_languages: str | None = Field(default=None, max_length=64)
     subtitle_sync_engine: str | None = Field(default=None, pattern="^(alass|ffsubsync)$")
-    subtitle_auto_sync: bool | None = None
     subtitle_translate_drop_hi: bool | None = None
     gpu_accel_enabled: bool | None = None
     gpu_accel_count: int | None = Field(default=None, ge=0, le=64)
@@ -142,8 +138,6 @@ def _read_settings(db: Session) -> SettingsRead:
         subtitle_sync_engine=get_setting(
             db, _SUBTITLE_SYNC_ENGINE_KEY, _SUBTITLE_SYNC_ENGINE_DEFAULT
         ),
-        subtitle_auto_sync=get_setting(db, _SUBTITLE_AUTO_SYNC_KEY, _SUBTITLE_AUTO_SYNC_DEFAULT)
-        == "true",
         subtitle_translate_drop_hi=get_setting(
             db, _SUBTITLE_TRANSLATE_DROP_HI_KEY, _SUBTITLE_TRANSLATE_DROP_HI_DEFAULT
         )
@@ -212,9 +206,6 @@ def update_settings(body: SettingsUpdate, db: Session = Depends(get_db)):
 
     if body.subtitle_sync_engine is not None:
         set_setting(db, _SUBTITLE_SYNC_ENGINE_KEY, body.subtitle_sync_engine)
-
-    if body.subtitle_auto_sync is not None:
-        set_setting(db, _SUBTITLE_AUTO_SYNC_KEY, "true" if body.subtitle_auto_sync else "false")
 
     if body.subtitle_translate_drop_hi is not None:
         set_setting(

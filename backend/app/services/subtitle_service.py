@@ -420,24 +420,11 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
         from app.models.settings import get_setting
 
         tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip()
-        auto_sync = get_setting(db, "subtitle_auto_sync", "true") == "true"
-        sync_engine = get_setting(db, "subtitle_sync_engine", "alass")
 
         found = skipped = failed = 0
         was_cancelled = False
         subf2m = get_provider("subf2m")
         yts = get_provider("yts") if tmdb_api_key else None
-
-        def _maybe_sync(video_path: str, sub_path: str, lang: str) -> None:
-            if not auto_sync:
-                return
-            from app.services.subtitle_sync import sync_subtitle
-
-            try:
-                sync_subtitle(video_path, sub_path, sync_engine)
-                _log(db, job_id, f"  Synced [{lang}]: {os.path.basename(sub_path)}")
-            except Exception as sync_err:
-                _log(db, job_id, f"  Sync failed [{lang}]: {sync_err}", level="warning")
 
         try:
             for i, video_path in enumerate(video_paths):
@@ -491,7 +478,6 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                 _log(db, job_id, f"Downloaded via subf2m [{lang}]: {fname}")
                                 if remove_machine_made(video_path, lang):
                                     _log(db, job_id, f"  replaced the machine-made [{lang}] file")
-                                _maybe_sync(video_path, out_path, lang)
                     except Exception as sf_err:
                         _log(
                             db,
@@ -545,7 +531,6 @@ def run_download_job(job_id: int, path: str, lang_codes: list[str]) -> None:
                                         _log(
                                             db, job_id, f"  replaced the machine-made [{lang}] file"
                                         )
-                                    _maybe_sync(video_path, out_path, lang)
                         except Exception as yts_err:
                             _log(
                                 db,

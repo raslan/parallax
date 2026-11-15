@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
@@ -170,14 +171,6 @@ async def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
     except Exception as exc:
         raise HTTPException(500, str(exc))
 
-    if get_setting(db, "subtitle_auto_sync", "true") == "true":
-        from app.services.subtitle_sync import sync_subtitle
-
-        base = os.path.splitext(body.file_path)[0]
-        sub_path = f"{base}.{body.language}.srt"
-        engine = get_setting(db, "subtitle_sync_engine", "alass")
-        await enqueue(None, sync_subtitle, body.file_path, sub_path, engine)
-
     return {"ok": True}
 
 
@@ -199,6 +192,13 @@ def delete_subtitle_file(
 class SyncFileRequest(BaseModel):
     file_path: str
     language: str | None = None
+    subtitle_path: str | None = None
+    engine: Literal["alass", "ffsubsync"] | None = None
+
+
+class RestoreOriginalRequest(BaseModel):
+    video_path: str
+    subtitle_path: str
 
 
 def _refuse_while_nvidia_installs(db: Session) -> None:
@@ -347,25 +347,44 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
 async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
+    from app.services.subtitle_files import _owned
     from app.services.subtitle_service import find_all_subtitle_tracks
 
-    tracks = find_all_subtitle_tracks(body.file_path)
-    if body.language:
-        tracks = [t for t in tracks if t["lang"] == body.language]
-    if not tracks:
+    if body.subtitle_path is not None:
+        # one named subtitle, which must be one of this video's own files (never a backup)
+        (entry,) = _owned(body.file_path, [body.subtitle_path])
+        if entry["kind"] == "original":
+            raise HTTPException(422, "A backup cannot be synced")
+        targets = [(body.file_path, entry["path"])]
+    else:
+        tracks = find_all_subtitle_tracks(body.file_path)
+        if body.language:
+            tracks = [t for t in tracks if t["lang"] == body.language]
+        targets = [(body.file_path, t["path"]) for t in tracks]
+    if not targets:
         raise HTTPException(422, "No subtitle files found to sync")
 
-    engine = get_setting(db, "subtitle_sync_engine", "alass")
-    job = Job(type=JobType.SUBTITLE_SYNC, status=JobStatus.PENDING)
+    engine = body.engine or get_setting(db, "subtitle_sync_engine", "alass")
+    job = Job(
+        type=JobType.SUBTITLE_SYNC,
+        status=JobStatus.PENDING,
+        settings=json.dumps({"path": os.path.dirname(body.file_path)}),
+    )
     db.add(job)
     db.commit()
     db.refresh(job)
 
     from app.services.subtitle_sync import run_sync_job
 
-    targets = [(body.file_path, t["path"]) for t in tracks]
     await enqueue(job.id, run_sync_job, job.id, targets, engine)
     return {"job_id": job.id}
+
+
+@router.post("/restore-original", summary="Put a subtitle's pre-sync backup back")
+def restore_original(body: RestoreOriginalRequest):
+    from app.services.subtitle_sync import restore_original as svc_restore
+
+    return {"ok": svc_restore(body.video_path, body.subtitle_path)}
 
 
 class SyncBulkRequest(BaseModel):
