@@ -132,6 +132,66 @@ async def run_subtitles(body: RunRequest, db: Session = Depends(get_db)):
     return {"job_id": job.id}
 
 
+_ACTIVE_TYPES = (
+    JobType.SUBTITLE_DOWNLOAD,
+    JobType.SUBTITLE_SYNC,
+    JobType.SUBTITLE_TRANSLATE,
+    JobType.SUBTITLE_GENERATE,
+)
+
+
+@router.get("/active", summary="List running and waiting subtitle work by folder")
+def active_work():
+    """Every pending or running subtitle job (download, sync, translate, speech-to-text),
+    grouped by the folder it was started from. `queue_position` is the job's place among all
+    waiting jobs, only while every job slot is busy; otherwise null."""
+    from app.database import SessionLocal
+    from app.models.settings import get_setting
+
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(Job)
+            .filter(
+                Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+            )
+            .order_by(Job.id)
+            .all()
+        )
+        try:
+            limit = int(get_setting(db, "max_concurrent_jobs", "1"))
+        except ValueError:
+            limit = 1
+        running = sum(1 for j in rows if j.status == JobStatus.RUNNING)
+        position: dict[int, int] = {}
+        if running >= limit:
+            pending = [j.id for j in rows if j.status == JobStatus.PENDING]
+            position = {jid: n for n, jid in enumerate(pending, 1)}
+        groups: dict[str, list[dict]] = {}
+        for j in rows:
+            if j.type not in _ACTIVE_TYPES:
+                continue
+            try:
+                folder = json.loads(j.settings or "").get("path")
+            except (ValueError, AttributeError):
+                continue
+            if not isinstance(folder, str) or not folder:
+                continue
+            groups.setdefault(folder, []).append(
+                {
+                    "id": j.id,
+                    "type": j.type,
+                    "status": j.status,
+                    "progress": float(j.progress or 0.0),
+                    "current_file": j.current_file,
+                    "queue_position": position.get(j.id),
+                }
+            )
+        return [{"path": p, "jobs": js} for p, js in groups.items()]
+    finally:
+        db.close()
+
+
 def probe_duration(video_path: str) -> float | None:
     meta = scanner.probe_metadata(video_path)
     return meta.get("duration")

@@ -219,6 +219,7 @@ class TranslateRequest(BaseModel):
     file_paths: list[str]
     language: str
     source: str | None = None
+    path: str | None = None
 
 
 @router.get("/translate-sources", summary="List the English subtitles that can be translated")
@@ -273,7 +274,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
         type=JobType.SUBTITLE_TRANSLATE,
         status=JobStatus.PENDING,
         total_files=len(items),
-        settings=json.dumps({"items": items}),
+        settings=json.dumps({"items": items, **({"path": body.path} if body.path else {})}),
     )
     db.add(job)
     db.commit()
@@ -285,6 +286,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
 class GenerateRequest(BaseModel):
     file_paths: list[str]
     model: str | None = None
+    path: str | None = None
 
 
 @router.post("/generate", summary="Generate an English subtitle from the audio")
@@ -334,7 +336,7 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
         type=JobType.SUBTITLE_GENERATE,
         status=JobStatus.PENDING,
         total_files=len(items),
-        settings=json.dumps({"items": items}),
+        settings=json.dumps({"items": items, **({"path": body.path} if body.path else {})}),
     )
     db.add(job)
     db.commit()
