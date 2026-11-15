@@ -117,6 +117,10 @@ export const qk = {
       : (["subtitles", "scan", libraryId, params] as const),
   subtitleTracks: (path: string) => ["subtitles", "tracks", path] as const,
   translateSources: (path: string) => ["subtitles", "translate-sources", path] as const,
+  subtitleGroups: (path: string) => ["subtitles", "groups", path] as const,
+  subtitleFiles: (videoPath: string) => ["subtitles", "files", videoPath] as const,
+  subtitleActive: () => ["subtitles", "active"] as const,
+  subtitleUnmatched: (path: string) => ["subtitles", "unmatched", path] as const,
 
   identifyFiles: (libraryId: number) => ["identify", "files", libraryId] as const,
   identifyEpisodes: (tmdbId: number) => ["identify", "episodes", tmdbId] as const,

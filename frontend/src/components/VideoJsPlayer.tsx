@@ -6,6 +6,7 @@ import { HlsVideo } from "@videojs/react/media/hls-video";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { MEDIA_THEME_STYLE, focusPlayer } from "./videoJsShared";
 import { VolumePersistence } from "./VolumePersistence";
+import { PlayerSeek, type SeekRequest } from "./PlayerSeek";
 
 /** Index of the track to show on load: the browser's language if a track matches, else the first. */
 function defaultTrackIndex(tracks: SubtitleTrack[]): number {
@@ -18,14 +19,22 @@ export default function VideoJsPlayer({
   streamUrl,
   hlsUrl,
   tracks,
+  extraTracks,
+  seekRequest,
 }: {
   streamUrl: string;
   /** Live HLS playlist for files whose audio the browser can't decode; replaces `streamUrl`. */
   hlsUrl?: string | null;
   tracks: SubtitleTrack[];
+  /** Temporary tracks (e.g. a candidate preview) listed after `tracks`; when present the first
+   * one is shown. */
+  extraTracks?: SubtitleTrack[];
+  /** Seek to `time` whenever `nonce` changes. */
+  seekRequest?: SeekRequest;
 }) {
-  const shown = defaultTrackIndex(tracks);
-  const trackEls = tracks.map((t, i) => (
+  const all = extraTracks?.length ? [...tracks, ...extraTracks] : tracks;
+  const shown = extraTracks?.length ? tracks.length : defaultTrackIndex(tracks);
+  const trackEls = all.map((t, i) => (
     <track
       key={t.url}
       kind="subtitles"
@@ -46,6 +55,7 @@ export default function VideoJsPlayer({
           style={MEDIA_THEME_STYLE}
         >
           <VolumePersistence />
+          <PlayerSeek request={seekRequest} />
           {hlsUrl ? (
             <HlsVideo src={hlsUrl} autoPlay playsInline>
               {trackEls}
