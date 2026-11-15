@@ -49,6 +49,8 @@ class Identity:
     type: Literal["movie", "tv"]
     imdb_id: str | None = None
     tmdb_id: int | None = None
+    # A pasted Subf2m page (`/subtitles/<slug>`): that exact page is searched, not a title.
+    subf2m_path: str | None = None
 
 
 @dataclass(frozen=True)

@@ -43,7 +43,7 @@ _CACHE_LOCK = threading.Lock()
 
 def _cache_key(provider: str, q: SearchQuery) -> tuple:
     ident = q.identity.imdb_id or (q.identity.title.strip().lower(), q.identity.year)
-    return (provider, ident, tuple(q.languages), q.season, q.episode)
+    return (provider, ident, q.identity.subf2m_path, tuple(q.languages), q.season, q.episode)
 
 
 def _cache_put(key: tuple, found: list[dict], at: float) -> None:

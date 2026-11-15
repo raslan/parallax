@@ -31,6 +31,7 @@ class IdentityModel(BaseModel):
     type: Literal["movie", "tv"]
     imdb_id: str | None = Field(default=None, max_length=20)
     tmdb_id: int | None = None
+    subf2m_path: str | None = Field(default=None, max_length=300)
 
 
 class SearchRequest(BaseModel):
@@ -80,7 +81,9 @@ def search_subtitles(body: SearchRequest):
     _require_existing_video(body.video_path)
     ident = body.identity
     q = SearchQuery(
-        identity=Identity(ident.title, ident.year, ident.type, ident.imdb_id, ident.tmdb_id),
+        identity=Identity(
+            ident.title, ident.year, ident.type, ident.imdb_id, ident.tmdb_id, ident.subf2m_path
+        ),
         languages=tuple(body.languages),
         season=body.season,
         episode=body.episode,

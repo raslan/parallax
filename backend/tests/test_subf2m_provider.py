@@ -1,6 +1,8 @@
+import pytest
 import requests
 
 from app.services.subf2m_provider import Subf2mProvider, _season_slug_path
+from app.services.subtitle_providers import Identity, ProviderError, SearchQuery
 
 
 def test_season_slug_path_uses_ordinal_word():
@@ -51,3 +53,43 @@ def test_tv_search_prefers_real_results_over_slug(monkeypatch):
     assert p._search_tv_show_season("Stranger Things", 1) == [
         "/subtitles/stranger-things-first-season-2016"
     ]
+
+
+def _query(path, kind="movie"):
+    return SearchQuery(
+        identity=Identity("Guess", None, kind, subf2m_path=path),
+        languages=("en",),
+        season=1,
+        episode=1,
+        video_path=None,
+    )
+
+
+def test_search_uses_the_pasted_page_and_does_not_title_search(monkeypatch):
+    p = Subf2mProvider()
+
+    def no_search(*_a, **_k):
+        raise AssertionError("title search must not run")
+
+    monkeypatch.setattr(p, "_gen_results", no_search)
+    seen = []
+
+    def page(path, lang):
+        seen.append(path)
+        return []
+
+    monkeypatch.setattr(p, "_find_movie_subtitles", page)
+    assert p.search(_query("/subtitles/obsession-2025")) == []
+    assert seen == ["/subtitles/obsession-2025"]
+
+
+def test_search_rejects_a_foreign_or_odd_pasted_path():
+    p = Subf2mProvider()
+    for bad in (
+        "https://evil.com/subtitles/x",
+        "//evil.com/subtitles/x",
+        "/other/x",
+        "/subtitles/..",
+    ):
+        with pytest.raises(ProviderError, match="Not a Subf2m page"):
+            p.search(_query(bad))

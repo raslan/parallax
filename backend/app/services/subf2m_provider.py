@@ -32,6 +32,21 @@ from app.services.subtitle_providers import (
 logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://subf2m.co"
+_PAGE_PATH_RE = re.compile(r"^/subtitles/[\w.-]+$")
+
+
+def _pasted_page(path: str) -> str:
+    """A user-pasted page as a `/subtitles/<slug>` path on this site, else ProviderError."""
+    refusal = ProviderError("Not a Subf2m page")
+    try:
+        url = own_url(path, _BASE_URL)
+    except ProviderError:
+        raise refusal from None
+    page = url.removeprefix(_BASE_URL)
+    if not _PAGE_PATH_RE.match(page) or not page.removeprefix("/subtitles/").strip("."):
+        raise refusal
+    return page
+
 
 _SEASONS = (
     "First",
@@ -330,7 +345,9 @@ class Subf2mProvider:
         is_episode = q.identity.type == "tv"
         title, year = q.identity.title, q.identity.year
         season, episode = q.season or 1, q.episode or 1
-        if is_episode:
+        if q.identity.subf2m_path:
+            paths = [_pasted_page(q.identity.subf2m_path)]
+        elif is_episode:
             paths = self._search_tv_show_season(title, season, year)
         else:
             paths = self._search_movie(title, year)

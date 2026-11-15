@@ -115,6 +115,20 @@ def test_search_cache_reused_within_ttl(monkeypatch):
     assert sr.CACHE_TTL_SECONDS == 600
 
 
+def test_cache_key_differs_by_subf2m_path():
+    def q(path):
+        return SearchQuery(
+            identity=Identity("Movie", 2020, "movie", subf2m_path=path),
+            languages=("en",),
+            season=None,
+            episode=None,
+            video_path=None,
+        )
+
+    assert sr._cache_key("subf2m", q("/subtitles/a")) != sr._cache_key("subf2m", q("/subtitles/b"))
+    assert sr._cache_key("subf2m", q("/subtitles/a")) != sr._cache_key("subf2m", q(None))
+
+
 # ---------------------------------------------------------------- run
 
 
