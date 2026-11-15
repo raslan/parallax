@@ -41,7 +41,7 @@ export default [
     id: "app/settings/subtitles",
     kind: "still",
     route: "/settings?tab=subtitles",
-    alt: "Settings, Subtitles tab: default languages, sync engine, the language packs with an Install button, and the speech-to-text models.",
+    alt: "Settings, Subtitles tab: the starting languages, sync engine, the language packs with an Install button, and the speech-to-text models.",
     waitFor: [/Language packs/],
     crop: { rect: { x: 240, y: 80, width: 1184, height: 900 } },
   },

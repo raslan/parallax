@@ -1,85 +1,192 @@
 ---
 title: Subtitles
-description: Find which videos are missing subtitles, download them in bulk, and fix subtitles that are out of time.
+description: See which videos have subtitles, find and check new ones before anything is saved, translate or generate them offline, and manage every subtitle file.
 ---
 
-Subtitles looks through a folder of videos, shows you which ones are missing subtitles, and downloads them for you. It does not need an account or an API key, and there is no daily limit.
+Subtitles looks through a folder of videos, shows you which languages each one has, and helps you get the rest. You can listen to and read a subtitle against the video before it is saved. It does not need an account or an API key, and there is no daily limit.
+
+Parallax suggests and you decide. Nothing is written next to your videos until you approve it, and no button is hidden or locked because of what a folder already contains.
 
 <Shot id="tools/subtitles/scan" />
 
-## Scanning a folder
+## Opening a folder
 
 1. Open **Tools → Subtitles**.
-2. Type a folder path, or click the folder button to browse. Press Enter, or click the scan button.
-3. Pick the languages you want. English is selected to start with, and you can choose as many as you like.
+2. Type a folder path, or click **Browse**. Press Enter, or click **Open**.
 
-Parallax lists every video in the folder, grouped by the folder it is in, with a small badge for each language you picked. A green badge means that language is there. A grey one means it is missing. It also looks in a folder called `Subs` or `Subtitles` next to the video, which is where many releases keep theirs.
+The strip at the top has three rows:
 
-Subtitle files that sit next to a video and share its name are matched up automatically. `movie.srt`, `movie.en.srt` and `movie.ar.srt` are all picked up, in the common subtitle formats.
+- **Folder** is the folder you are looking at. **Rescan** reads it again.
+- **Wanted** is the languages you care about. English is there to start with, and you can add or remove chips. The chips are not saved: each visit starts from **Settings → Subtitles → Languages the Subtitles page starts with**, which only sets the chips you begin with.
+- **Sources** is where Parallax may look for new subtitles: **Subf2m** and **YTS**. YTS only has films, so it is greyed out with the reason for TV shows.
 
-At the top you see how many videos you have, how many have subtitles, and how many are missing.
+Below that, a summary shows how many titles and files there are, how many videos have a real subtitle in each wanted language, and how many generated or translated subtitles exist. Those two kinds are counted separately on purpose (see [Naming](#how-subtitle-files-are-named)).
 
-## Downloading in bulk
+Videos are grouped into **title cards**, one per film or show. Each card has a bar per wanted language with the number of videos that have a real subtitle, and an amber note when some of them are only generated or translated. A card says **Layout looks right** when the folders and files are named the way [Identify](/docs/tools/identify) names them (`Show/Season 01/Show - S01E01 - Title.mkv`, `Movie (2010)/Movie (2010).mkv`). If Parallax cannot tell which film or show a group is, the card says **Pick which one**, and you choose it yourself when you start a search. Running Identify first is the tidiest way to get there, but it is not required.
 
-The big button, which reads something like **Download 11 missing**, gets one subtitle for each missing language, for every video that needs one. A video is only skipped when every language you picked is already there.
+Click a card to see its files. A **Show** filter narrows them to the ones missing a wanted language, the ones that only have generated or translated subtitles, the ones with a sync backup, and the ones whose subtitle **Looks short** for the video (more under [Checking lengths](#checking-lengths)).
 
-Parallax picks the best match for each video based on its name. The progress shows next to the button, and the work also appears on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page. New files are saved next to the video with the language in the name, like `movie.en.srt`.
+Parallax also looks in a folder called `Subs` or `Subtitles` next to the video, which is where many releases keep theirs. Subtitle files that no video in the folder claims are listed under **Subtitle files not named for any video here**, with a link to Identify, which is the tool that renames them to match. You can play, rename or delete them from there, but Subtitles never adopts them for you.
 
-## Searching by hand
+Nothing about a folder is remembered. Everything on the page is read from the files on disk every time, so it is always current, including after you change files outside Parallax.
 
-When the automatic pick is wrong, or nothing was found, hover over a video and click the **search** icon on its row. A window opens with the title and year filled in, which you can change. Pick the right subtitle from the list. There are two places it can look, shown as tabs under **Source**: **Subf2m**, which covers most things, and **YTS-Subs**, which is for movies only and needs your TMDB key (add it under **Settings → Keys & Accounts**; until then the tab is greyed out).
+## Activity
 
-## Removing a subtitle
+If a subtitle job is running or waiting for this folder, an **Activity** section appears above the cards with live progress. This includes work you started from another browser or another device. A job that is waiting says **Waiting for another job, position N** and links to the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. Reload the page and the section is still there. A running download can be reopened from it with **Show the run**.
 
-Hover over a green language badge and click the **×** to delete that subtitle file.
+## Find subtitles
 
-## Subtitles that are out of time
+Select some titles or videos and click **Find subtitles…** in the bar at the bottom, or use **Find subtitles for this folder** at the top. The page shows a slim **Titles › Plan › Run** bar with a way back.
 
-Sometimes a subtitle is fine but appears too early or too late, or slowly drifts away from the speech. Sync fixes this. Parallax listens to the sound of the video and lines the subtitle up with it. It works in any language, because it matches when people are speaking, not what they say.
+### Titles
 
-- The **sync** icon on a row fixes one video.
-- **Sync** at the top fixes every video in the folder that has a subtitle, including ones you got somewhere else.
-- Subtitles can also be synced automatically as soon as they are downloaded. You can turn that on or off with **Auto-sync downloaded subtitles** under **Settings → Subtitles**.
+Each title shows the film or show Parallax will search for. This matters, because two films can share a name (a 2024 film and a 2025 film, say) and a wrong guess finds the wrong subtitles. Click **Change…** to pick it yourself:
 
-Two tools can do the syncing, and you pick between them with **Subtitle sync engine** in the same place. **alass** is the default and also copes with extra or missing sections, like a break for adverts. **ffsubsync** is simpler and only fixes a constant offset or a small drift.
+- **YTS** searches films by title and shows posters. Films only.
+- **Subf2m** searches by text, and it is the only source for TV.
+- **Paste a link** takes an IMDB id or link (`tt1234567`), or the link of a page on Subf2m.
+- **TMDB** is added when you have a key in **Settings → Keys & Accounts**. It gives posters and the exact year. Everything else works without a key.
 
-## Translating a subtitle
+For each title you can **Skip** it, and choose whether to search **Only files missing a language** or **Everything selected**. Then click **Search subtitles for N titles**.
 
-Sometimes a video has an English subtitle but not one in the language you want. Parallax can translate it for you, on your own computer. Nothing is sent anywhere, and you do not need an account or a key.
+### Plan
+
+The plan is a table. On the left is a rail of titles (a menu on a phone), each with a dot that tells you whether it is clean, has rows to look at, or found nothing. For the open title there is a row per video and a column per wanted language. Each cell shows one of:
+
+- **Searching…**, then the best candidate with its source, its release name, and how its length compares with the video.
+- **Has a real subtitle**, with **Find another** if you want a different one anyway.
+- **None found**, with the reason each source gave (a source that failed or does not cover this title says so by name).
+
+TV shows have a summary row per season so a long show stays readable. If the title's identity was not confirmed, a note says **Identity not confirmed** and asks you to pick which film or show it is before you trust the rows.
+
+Nothing is ticked for you. **Approve all clean rows** ticks every row that looks fine, across all titles, and leaves anything flagged for you. You can also tick a row's **Download** box yourself, or open **Compare** on it first.
+
+#### Checking lengths
+
+After searching, Parallax downloads each top candidate briefly (nothing is saved) and compares the last line of the subtitle with the length of the video. This is a hint, never a verdict: credits and recaps make the end of a subtitle land earlier than the end of a film. A candidate under about 88 percent of the video's length is marked as short, and over about 105 percent as long. **Pause** holds the searches and checks, and **Skip checks** skips the rest of them. The rows stay usable either way, just marked as not checked.
+
+The same check runs, read only, when you open a folder, for the subtitles already on disk. That is where the **Looks short** note comes from.
+
+#### The two tickboxes
+
+At the bottom of the plan are two tickboxes. Both are off every time and Parallax does not remember them.
+
+- **Keep existing subtitles** works like **Keep originals** elsewhere in the app. Off means a download replaces the plain file (`Movie.en.srt`) and, for a real download, also removes the generated and translated files of that language. The row says so, for example "Replaces the generated English file". On means the new subtitle is saved beside the old one and labelled with its source, for example `Movie.en.subf2m.srt`.
+- **Sync after download** lines each new subtitle up with the video's audio as soon as it is saved. Pick **alass** or **ffsubsync** next to it. They start on the engine chosen in **Settings → Subtitles → Subtitle sync engine**. See [Sync](#syncing-and-the-original-backup).
+
+Click **Download N subtitles** to start the job.
+
+### Run
+
+The run shows progress per title, with saved, failed and skipped counts. It is one job on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, so it can be cancelled there or here, and reloading the page does not lose it. A failed item shows its reason, with **Retry** and **Pick another**.
+
+Two honest limits: there is no way to skip one item while a run is going (only cancel the whole run), and **Retry** and **Pick another** become available once the run has finished, not during it.
+
+If one download fails, the others carry on. The run only counts as failed when every item failed.
+
+## Compare
+
+**Compare** opens a sheet with the video and the candidate together. The subtitle is shown raw and is never pre-synced, because syncing takes time and can make a wrong subtitle look right. Play the video and read along, or click any line in the list to jump the video to it. Parallax also shows whether the release name of the subtitle matches your file's name (source, resolution, group) and how the length compares.
+
+Then choose:
+
+- **Use this** ticks the row for download.
+- **Matches, needs sync** ticks it too, and marks only that row to be synced after it is saved.
+- **Not this one** drops the candidate and does not tick the row.
+
+For a subtitle that is already on disk, the choices are **Keep**, **Sync**, **Find another** and **Delete**.
+
+Nothing is written until you approve the run. A candidate you open is held in a temporary folder inside Parallax's data folder and is cleared away automatically.
+
+## Translating and generating
+
+Open the **Generated and translated** section from the **Translate…** or **Generate…** buttons at the bottom. These are for when no real subtitle can be found, or you want something to watch with now. They are never refused because a real subtitle already exists. They only write generated or translated files, so a real subtitle is never touched.
+
+If you tick **Keep existing subtitles**, a repeat run writes `generated-2` or `translated-2` instead of overwriting the earlier file. That lets you compare two speech models. **Sync after download** only applies to downloads, not to these.
+
+### Translating a subtitle
+
+Parallax can translate an English subtitle into another language on your own computer. Nothing is sent anywhere, and you do not need an account or a key.
 
 1. Open **Settings → Subtitles** and, under **Language packs**, click **Install** next to the language you want. Arabic, German, Spanish, French, Italian, Portuguese, Russian and Chinese are available. Each is a one-time download of about 140 to 460 MB (Arabic is the largest).
-2. Make sure that language is one of your **Default subtitle languages** in the same tab.
-3. On the Subtitles page, hover over a video that is missing that language. A **translate** icon appears on its row. Click it.
-4. A window lists every English subtitle file next to the video, real, hearing-impaired and machine-made ones alike. Pick the file you want to translate, pick the language, and click **Translate**. Nothing is translated until you do.
+2. In **Translate from English**, pick the languages to translate into. Every installed pack is offered.
+3. Choose the source. **Main English file** uses each video's own English subtitle. For one video you can instead use **Choose a file…** and pick any English file next to it, real, hearing impaired, generated or translated. A chosen source file applies to one video. Videos with no English subtitle are left out.
 
-The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. A cancelled or failed translation leaves nothing behind. A feature film takes a couple of minutes on a normal processor.
+The job shows on the Jobs page and can be cancelled. A cancelled or failed translation leaves nothing behind. A feature film takes a couple of minutes on a normal processor.
 
-The result is saved next to the video as a machine-made subtitle, for example `movie.ar.machine.srt`. The `machine` in the name marks it as machine-made, so Parallax still counts that language as missing and a real subtitle can still be downloaded later. On the page, the language shows an amber **machine-made** badge instead of a green one, with an **×** to delete it, and in the player's captions menu it reads, for example, "Arabic (machine-made)". When a real subtitle for that language is downloaded, it replaces the machine-made file. Only English subtitles in `.srt` format can be translated, because the language packs translate from English. Any English file next to the video can be the source, including a machine-made one such as a subtitle you generated from the audio. You pick which one in the window. A real subtitle in the target language is never replaced.
-
-Subtitle names can carry two tags after the language, in any order: `hi` for subtitles for the hard of hearing (`movie.ar.hi.srt`) and `machine` for machine-made. A hearing-impaired subtitle is a real subtitle, so it counts as present, and the player labels it "(hearing impaired)". Older versions of Parallax wrote `mt` instead of `machine`. Those files are still recognised as machine-made, but new ones always use `machine`, because `mt` is also the language code for Maltese and some media players would read it as a language.
+The result is saved as `Movie.ar.translated.srt`. Because of the word `translated`, Parallax still counts that language as missing, and a real subtitle can be downloaded later. Only English `.srt` files can be translated, because the language packs translate from English.
 
 Sound notes such as `[DISTANT EXPLOSION]`, speaker names, and song lines marked with `♪` are kept: the notes and names are translated, and the `♪` marks are put back around the translated words. You can leave the notes and names out with **Leave out sound notes and speaker names when translating** under **Settings → Subtitles**.
 
 How good a translation is depends on the language. Arabic was checked against real human subtitles for seven films. The other languages were checked against the human subtitles of the short film Sintel and read sensibly: Spanish, Italian and French came closest to the human version, German and Portuguese a little further, and Russian is the loosest, partly because the human Russian subtitles take liberties. Chinese was only checked by reading it. Portuguese leans towards European Portuguese ("comboio" rather than "trem"), and Italian output writes an apostrophe where a native subtitle has an accent ("andra'" for "andrà").
 
-A translation by a machine is good enough to follow the story but it is not perfect. Names and jokes are where it slips most.
+A machine translation is good enough to follow the story but it is not perfect. Names and jokes are where it slips most.
 
 <Shot id="app/settings/subtitles" />
 
-## Generating a subtitle from the audio
+### Generating a subtitle from the audio
 
 A brand-new release often has no subtitle anywhere yet. Parallax can listen to the English speech and write a rough subtitle, on your own computer, to use until a real one appears. Nothing is sent anywhere.
 
-1. Open **Settings → Subtitles** and, under **Speech-to-text models**, click **Install** next to **Whisper small** (about 460 MB, a one-time download). **Whisper medium** is bigger and slower but gets names right more often. If you install both, click **Use** next to the one you want. That choice applies to every video, and the row you picked reads **In use**.
-2. Make sure English is one of your **Default subtitle languages** in the same tab.
-3. On the Subtitles page, hover over a video that has no real English subtitle. A **microphone** icon appears on its row. Click it. If the video already has a machine-made English file, the icon stays, so you can generate it again.
+1. Open **Settings → Subtitles** and, under **Speech-to-text models**, click **Install** next to **Whisper small** (about 460 MB, a one-time download). **Whisper medium** is bigger and slower but gets names right more often. If you install both, click **Use** next to the one you want, and the row you picked reads **In use**.
+2. In **Generate English from the audio**, pick the speech model (it starts on the one in use) and click Generate. Generate is available whenever a speech model is installed, even if the video already has an English subtitle.
 
-The job shows on the [Jobs](/docs/getting-started/how-parallax-works#jobs) page and can be cancelled. A cancelled or failed run leaves nothing behind. On a normal processor, Whisper small works through an hour of audio in about six minutes.
+The job shows on the Jobs page and can be cancelled. A cancelled or failed run leaves nothing behind. On a normal processor, Whisper small works through an hour of audio in about six minutes.
 
-The result is saved as a machine-made subtitle, `movie.en.machine.srt`, so it is marked like a [translation](#translating-a-subtitle): the page shows the amber **machine-made** badge, and the real English subtitle is still downloaded when you ask for it and replaces this one. Generating only writes the English file. To translate it, use the **translate** icon and pick it as the source.
+The result is saved as `Movie.en.generated.srt`. Generating only writes the English file. To get another language, translate it and choose it as the source.
 
 Expect mistakes. Whisper small hears words well but often writes names wrongly (for example "I would start" for "Howard Stark"). It only understands English speech for now.
 
+## Manage
+
+Select one video and click **Manage** in the bar at the bottom (or the Manage button on its row) to open a panel with every subtitle file the video has, read from disk. Per file:
+
+- **Play and check** plays the video with that subtitle over it, with the same line list as Compare.
+- **Sync** re-times the file to the video's audio. Choose **alass** or **ffsubsync** with **Sync with**.
+- **Make main** swaps a labelled file's name with the plain one (`Movie.en.subf2m.srt` and `Movie.en.srt`), so the player's default changes. Nothing is lost: the two just trade names.
+- **Rename** changes the name in the same folder and keeps the extension. A name that is taken is refused. If the new name no longer starts with the video's name, Parallax warns you that the player will stop finding it, but lets you go ahead.
+- **Delete** removes the file for good.
+
+A sync backup shows only **Restore** and **Delete**.
+
+The panel also has **Add**, which starts Find subtitles, Translate or Generate for that video, and **Tidy up**, which removes a whole family of files at once for the selected video: **Delete generated and translated**, **Delete extra versions** (labelled copies of a language that has a plain file) or **Delete sync backups**. Each shows how many files it will remove.
+
+## How subtitle files are named
+
+A subtitle sits next to its video with the same name, then the language, then optional words:
+
+| Name                      | What it is                                                               |
+| ------------------------- | ------------------------------------------------------------------------ |
+| `Movie.en.srt`            | The main subtitle in English.                                            |
+| `Movie.en.hi.srt`         | For the hard of hearing. Still a real subtitle.                          |
+| `Movie.en.subf2m.srt`     | A real extra copy, labelled with where it came from (`subf2m` or `yts`). |
+| `Movie.en.generated.srt`  | Written from the audio.                                                  |
+| `Movie.ar.translated.srt` | Translated offline.                                                      |
+| `Movie.en.original.srt`   | The backup a sync leaves.                                                |
+
+A repeat gets a number: `Movie.en.subf2m-2.srt`, `Movie.en.generated-2.srt`. Generated and translated subtitles never count as the real subtitle for a language, so the page keeps saying that language is missing until a real one is there. They show amber on the page, and in the player's captions menu they read, for example, "Arabic (translated)". Backups are left out of every list.
+
+The words are spelled out, not shortened, on purpose: a short word after the language, such as `mt` or `hi`, can be read by a TV or player as another language (`mt` is Maltese, `hi` is Hindi).
+
+## Syncing and the original backup
+
+Sometimes a subtitle is fine but appears too early or too late, or slowly drifts away from the speech. Sync fixes this. Parallax listens to the sound of the video and lines the subtitle up with it. It works in any language, because it matches when people are speaking, not what they say.
+
+Sync never runs by itself. You choose it: tick **Sync after download** for a run, use **Matches, needs sync** on a single row, or use **Sync** in the bottom bar or in Manage. The bottom bar's **Sync** fixes every subtitle of the videos you selected. It works on any subtitle, including generated and translated ones, and shows as a job on the Jobs page.
+
+Two tools can do the syncing. **alass** is the default and also copes with extra or missing sections, like a break for adverts. **ffsubsync** is simpler and only fixes a constant offset or a small drift. Change the default with **Subtitle sync engine** under **Settings → Subtitles**.
+
+Before the first sync changes a file, Parallax keeps the old one as `Movie.en.original.srt`. Only the first sync makes the backup, so it is always the true original, however many times you sync after that. **Restore** in Manage puts it back. Nothing else leaves a backup unless you ticked **Keep existing subtitles** for that run, and **Delete sync backups** in Tidy up clears them out.
+
 ## Watching with subtitles
 
-Click the **play** icon on a row to preview the video with its subtitles. It is there whenever the video has any subtitle file, machine-made ones included. Anywhere you play a video in Parallax, a captions button appears when it has subtitle files, and you can choose which language to show.
+Anywhere you play a video in Parallax, a captions button appears when it has subtitle files, and you can choose which language to show. Subtitle tracks are labelled in the menu: "Arabic (translated)", "English (generated)", "(hearing impaired)", and the source for labelled extras.
+
+## Advanced
+
+- **Sources.** Both are web pages Parallax reads the way a browser would, with a small pause between requests. A search is cached for ten minutes, so going back to a plan is quick. If a site changes its layout, the row for it says so by name instead of failing quietly.
+- **Encoding.** A downloaded subtitle is saved as it came, except that UTF-16 files are converted to UTF-8, because many TVs cannot read them. A download over 5 MB, or one that is not a subtitle file, is refused.
+- **Safety.** A subtitle is only ever written next to its own video. File actions only accept files that really belong to the video you are managing, so a path pointing somewhere else is refused. Two actions on the same file at once cannot leave a half-written file.
+- **Name matching.** A file belongs to a video when its name starts with the video's name followed by a dot. `Movie.mkv` and `Movie 2.mkv` do not claim each other's subtitles.
+- **Large folders.** Searching asks at most two things at a time and waits between requests. A run of more than 5000 items is refused, so split it.
+- **Jobs.** Downloads, syncs, translations and generations all run through the same queue as everything else. How many run at once is **Concurrent jobs** under **Settings → General**.

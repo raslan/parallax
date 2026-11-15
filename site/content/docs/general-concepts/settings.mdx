@@ -24,16 +24,15 @@ The text on this tab also tells you which graphics cards Parallax found. See [Ha
 
 ## Subtitles
 
-- **Default subtitle languages** are the languages the [Subtitles](/docs/tools/subtitles) page looks for and downloads. English is selected to start with.
-- **Subtitle sync engine** chooses between **alass** and **ffsubsync** for fixing subtitles that are out of time. alass is the default.
-- **Auto-sync downloaded subtitles** runs the sync automatically after each subtitle is downloaded.
-- **Leave out sound notes and speaker names when translating** is off by default. Subtitles for the hard of hearing carry lines like `[DISTANT EXPLOSION]` and names like `FURY:`. Parallax translates them and keeps them. Tick this box to drop them from translated subtitles.
+- **Languages the Subtitles page starts with** are the language chips the [Subtitles](/docs/tools/subtitles) page begins with each visit. It only sets the chips you begin with; you can change them on the page, and the page does not save them. English is selected to start with.
+- **Subtitle sync engine** chooses between **alass** and **ffsubsync** for fixing subtitles that are out of time. alass is the default. Syncing only happens when you ask for it, with **Sync after download** on a run or a Sync button; there is no automatic setting.
+- **Leave out sound notes and speaker names when translating** is off by default. Subtitles for the hard of hearing carry lines like `[DISTANT EXPLOSION]` and names like `FURY:`. Parallax translates them and keeps them. Tick this box to drop them from translated subtitles (saved as `.translated.srt` files).
 - **Language packs** lists the languages Parallax can translate into without leaving your computer. Arabic, German, Spanish, French, Italian, Portuguese, Russian and Chinese are listed. **Install** downloads one (about 140 to 460 MB, Arabic is the largest) and checks it, and the bin button removes it again. Each row names the model it comes from and its licence. See [Translating a subtitle](/docs/tools/subtitles#translating-a-subtitle).
-- **Speech-to-text models** lists the two models that can write a subtitle from a video's audio: **Whisper small** (about 460 MB, the one to start with) and **Whisper medium** (about 1.5 GB, slower, and better with names). **Install** downloads and checks one, **Use** makes it the model used everywhere (the one in use is marked **In use**), and the bin button removes it. See [Generating a subtitle from the audio](/docs/tools/subtitles#generating-a-subtitle-from-the-audio).
+- **Speech-to-text models** lists the two models that can write a subtitle from a video's audio: **Whisper small** (about 460 MB, the one to start with) and **Whisper medium** (about 1.5 GB, slower, and better with names). Their output is saved as `.generated.srt` files. **Install** downloads and checks one, **Use** makes it the model used everywhere (the one in use is marked **In use**), and the bin button removes it. See [Generating a subtitle from the audio](/docs/tools/subtitles#generating-a-subtitle-from-the-audio).
 
 ## Keys & Accounts
 
-- **TMDB API key** is needed to match TV shows and movies in [Identify](/docs/tools/identify), and for the movie source in Subtitles search. A free key from the TMDB website is all it takes.
+- **TMDB API key** is needed to match TV shows and movies in [Identify](/docs/tools/identify), and as an optional extra way to pick a film or show in Subtitles (posters and the exact year). Subtitles works without it. A free key from the TMDB website is all it takes.
 
 ## AI Models
 

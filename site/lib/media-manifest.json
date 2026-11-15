@@ -289,7 +289,7 @@
   "tools/subtitles/scan": {
     "id": "tools/subtitles/scan",
     "kind": "still",
-    "alt": "The Subtitles page after scanning a folder: language buttons, a count of files with and without subtitles, buttons to sync or download the missing ones, and each video with a badge for every language.",
+    "alt": "The Subtitles page with a folder open: the Folder, Wanted and Sources rows, a summary of titles and files, and a card for each title with a coverage bar per wanted language.",
     "route": "/subtitles",
     "src": "tools/subtitles/scan.webp",
     "width": 1184,
@@ -2711,7 +2711,7 @@
   "app/settings/subtitles": {
     "id": "app/settings/subtitles",
     "kind": "still",
-    "alt": "Settings, Subtitles tab: default languages, sync engine, the language packs with an Install button, and the speech-to-text models.",
+    "alt": "Settings, Subtitles tab: the starting languages, sync engine, the language packs with an Install button, and the speech-to-text models.",
     "route": "/settings?tab=subtitles",
     "src": "app/settings/subtitles.webp",
     "width": 1184,
