@@ -14,6 +14,9 @@ import type {
   SubtitleProvider,
 } from "@/types/subtitle";
 
+/** What the server says when a source does not apply to the title (not a failure). */
+const NOT_APPLICABLE = new Set(["Films only", "TV only"]);
+
 /** Requests to the subtitle sites at once; the server adds its own delay between them. */
 const MAX_IN_FLIGHT = 2;
 
@@ -158,6 +161,7 @@ function toRow(b: Base, ov: Overlay = {}): PlanRowState {
     verdict: ov.verdict,
     lengthResult: ov.length,
     machineKind: b.machineKind,
+    hasReal: b.hasReal,
     errors: ov.found?.errors ?? [],
   };
 }
@@ -242,10 +246,15 @@ export function useSubtitlePlan({
           subtitle_id: task.candidate.subtitle_id,
           language: b.language,
         });
-        if (current())
-          patch(b.key, {
-            length: { length: p.length, last: p.last, videoDuration: p.video_duration },
-          });
+        if (current()) {
+          const length: LengthResult = {
+            length: p.length,
+            last: p.last,
+            videoDuration: p.video_duration,
+          };
+          // A row flagged after it was approved must be approved again, by the user.
+          patch(b.key, flaggedLength(length) ? { length, verdict: undefined } : { length });
+        }
       } catch (e) {
         if (current())
           patch(b.key, {
@@ -275,17 +284,21 @@ export function useSubtitlePlan({
   const checked = withCandidate.filter((r) => r.lengthResult).length;
   const checks = { done: checked, total: checksSkipped ? checked : withCandidate.length };
 
-  const errors = useMemo(() => {
-    const counts = new Map<string, { provider: string; message: string; count: number }>();
+  // Failures (a source broke) and notes (a source does not apply, e.g. films only) are
+  // counted apart: only failures keep the red banner and the Retry up.
+  const { errors, notes } = useMemo(() => {
+    const failed = new Map<string, { provider: string; message: string; count: number }>();
+    const applies = new Map<string, { provider: string; message: string; count: number }>();
     for (const r of rows) {
       for (const e of r.errors) {
+        const into = NOT_APPLICABLE.has(e.message) ? applies : failed;
         const k = `${e.provider}\u0000${e.message}`;
-        const c = counts.get(k) ?? { ...e, count: 0 };
+        const c = into.get(k) ?? { ...e, count: 0 };
         c.count++;
-        counts.set(k, c);
+        into.set(k, c);
       }
     }
-    return [...counts.values()];
+    return { errors: [...failed.values()], notes: [...applies.values()] };
   }, [rows]);
 
   const pause = useCallback(() => {
@@ -311,10 +324,10 @@ export function useSubtitlePlan({
     [patch, queue],
   );
 
-  /** Searches again every row whose search failed or reported a source's error. */
+  /** Searches again every row whose search failed or a source broke on (not "films only"). */
   const retry = useCallback(() => {
     for (const r of rows) {
-      if (r.status !== "none" || r.errors.length === 0) continue;
+      if (r.status !== "none" || !r.errors.some((e) => !NOT_APPLICABLE.has(e.message))) continue;
       patch(r.key, { found: undefined, failed: false });
       queue.push({ kind: "search", key: r.key });
     }
@@ -338,14 +351,16 @@ export function useSubtitlePlan({
     setOverlay((o) => {
       const next = { ...o };
       for (const r of rows) {
-        if (isClean(r) && !r.verdict) next[r.key] = { ...next[r.key], verdict: "use" };
+        if (isClean(r, checksSkipped) && !r.verdict)
+          next[r.key] = { ...next[r.key], verdict: "use" };
       }
       return next;
     });
-  }, [rows]);
+  }, [rows, checksSkipped]);
 
   return {
     rows,
+    notes,
     progress,
     checks,
     paused,

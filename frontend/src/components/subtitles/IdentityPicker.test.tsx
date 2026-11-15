@@ -89,6 +89,31 @@ describe("IdentityPicker", () => {
     expect(onPick).toHaveBeenCalledWith({ title: "Doctor Who", year: 2005, type: "tv" });
   });
 
+  it("keeps the exact page of a pasted Subf2m link, with the guessed title to edit", async () => {
+    parsePasted.mockResolvedValue({ subf2m_path: "/subtitles/obsession-2025" });
+    const onPick = vi.fn();
+    wrap(
+      <IdentityPicker
+        initial={{ title: "Obsession", year: 2025, type: "movie" }}
+        onPick={onPick}
+        hasTmdbKey={false}
+        type="movie"
+      />,
+    );
+    fireEvent.mouseDown(screen.getByRole("tab", { name: /Paste/ }), { button: 0 });
+    fireEvent.change(await screen.findByLabelText("IMDB id or link"), {
+      target: { value: "https://subf2m.co/subtitles/obsession-2025" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Use" }));
+    await waitFor(() => expect(onPick).toHaveBeenCalled());
+    expect(onPick).toHaveBeenCalledWith({
+      title: "Obsession",
+      year: 2025,
+      type: "movie",
+      subf2m_path: "/subtitles/obsession-2025",
+    });
+  });
+
   it("shows the TMDB tab only with a key", () => {
     wrap(
       <IdentityPicker

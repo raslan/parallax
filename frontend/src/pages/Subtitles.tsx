@@ -316,10 +316,14 @@ export function Subtitles() {
         onSourcesChange={setSources}
         ytsReason={ytsReason}
       />
+      {(w.wf?.stage === "titles" || w.wf?.stage === "plan") && (
+        <p className="-mt-3 text-3xs text-muted-foreground">
+          Changes to Wanted and Sources apply to the next search.
+        </p>
+      )}
       {w.wf ? (
         <WorkflowView
           w={w}
-          wanted={wanted}
           hasTmdbKey={!!settingsQ.data?.tmdb_api_key}
           settingsEngine={settingsQ.data?.subtitle_sync_engine ?? "alass"}
           packs={packsQ.isSuccess ? packsQ.data : null}

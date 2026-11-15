@@ -24,9 +24,16 @@ export function defaultRunOptions(settingsEngine: string): RunOptions {
   };
 }
 
-/** A row "Approve all clean rows" takes: a candidate nothing flagged. */
-export function isClean(row: PlanRowState): boolean {
-  return (row.status === "ready" || row.status === "replaces_machine") && !!row.candidate;
+/**
+ * A row "Approve all clean rows" takes: a candidate nothing flagged, whose length check has
+ * settled (a result, an error, or checks skipped), so a row about to be flagged is never
+ * approved by a click that came a moment too early.
+ */
+export function isClean(row: PlanRowState, checksSkipped = false): boolean {
+  const settled = !!row.lengthResult || checksSkipped;
+  return (
+    (row.status === "ready" || row.status === "replaces_machine") && !!row.candidate && settled
+  );
 }
 
 /** The approved rows as run items, in plan order. */

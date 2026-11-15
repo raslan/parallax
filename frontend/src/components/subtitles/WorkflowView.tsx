@@ -15,7 +15,6 @@ import type { SubtitlePack } from "@/types/subtitlePack";
  */
 export function WorkflowView({
   w,
-  wanted,
   hasTmdbKey,
   settingsEngine,
   packs,
@@ -29,7 +28,6 @@ export function WorkflowView({
   onCompareItem,
 }: {
   w: SubtitleWorkflow;
-  wanted: string[];
   hasTmdbKey: boolean;
   settingsEngine: string;
   packs: SubtitlePack[] | null;
@@ -84,12 +82,13 @@ export function WorkflowView({
               name: c.identity.year ? `${c.identity.title} (${c.identity.year})` : c.identity.title,
             }))}
           rows={w.plan.rows}
-          wanted={wanted}
+          wanted={w.planWanted}
           progress={w.plan.progress}
           checks={w.plan.checks}
           paused={w.plan.paused}
           checksSkipped={w.plan.checksSkipped}
           errors={w.plan.errors}
+          notes={w.plan.notes}
           onPause={w.plan.pause}
           onResume={w.plan.resume}
           onSkipChecks={w.plan.skipChecks}
@@ -121,6 +120,7 @@ export function WorkflowView({
           queuePosition={queuePosition}
           error={w.runJob.error}
           cancelling={cancelling}
+          retrying={w.downloading}
           onCancel={() => w.runJob.id != null && onCancel(w.runJob.id)}
           onRetry={w.retry}
           onCompare={onCompareItem}

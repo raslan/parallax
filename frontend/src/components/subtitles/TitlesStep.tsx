@@ -20,6 +20,7 @@ function describe(id: Identity): string {
   ];
   if (id.imdb_id) parts.push(id.imdb_id);
   if (id.tmdb_id) parts.push(`TMDB ${id.tmdb_id}`);
+  if (id.subf2m_path) parts.push(`Subf2m page ${id.subf2m_path.replace("/subtitles/", "")}`);
   return parts.join(" · ");
 }
 

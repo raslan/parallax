@@ -155,6 +155,93 @@ describe("useSubtitlePlan", () => {
     expect(result.current.rows[0]?.lengthResult).toBeUndefined();
   });
 
+  it("does not approve a row whose length check has not come back yet", async () => {
+    preview.mockImplementation(() => new Promise<PreviewInfo>(() => undefined));
+    const { result } = setup([file(1)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await act(async () => searches[0]?.d.resolve({ candidates: [cand("a")], errors: [] }));
+    await waitFor(() => expect(preview).toHaveBeenCalled());
+    act(() => result.current.approveAllClean());
+    expect(result.current.rows[0]?.verdict).toBeUndefined();
+  });
+
+  it("approves a checked clean row", async () => {
+    preview.mockResolvedValue({
+      preview_id: "p",
+      cues: 10,
+      first: 1,
+      last: 2900,
+      video_duration: 3000,
+      length: "ok",
+      lines: [],
+    });
+    const { result } = setup([file(1)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await act(async () => searches[0]?.d.resolve({ candidates: [cand("a")], errors: [] }));
+    await waitFor(() => expect(result.current.rows[0]?.lengthResult).toBeDefined());
+    act(() => result.current.approveAllClean());
+    expect(result.current.rows[0]?.verdict).toBe("use");
+  });
+
+  it("drops a verdict when the row is flagged afterwards", async () => {
+    let finish: (p: PreviewInfo) => void = () => undefined;
+    preview.mockImplementation(
+      () =>
+        new Promise<PreviewInfo>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { result } = setup([file(1)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await act(async () => searches[0]?.d.resolve({ candidates: [cand("a")], errors: [] }));
+    await waitFor(() => expect(preview).toHaveBeenCalled());
+    act(() => result.current.toggleUse(result.current.rows[0]?.key ?? ""));
+    expect(result.current.rows[0]?.verdict).toBe("use");
+    await act(async () =>
+      finish({
+        preview_id: "p",
+        cues: 10,
+        first: 1,
+        last: 600,
+        video_duration: 3000,
+        length: "short",
+        lines: [],
+      }),
+    );
+    await waitFor(() => expect(result.current.rows[0]?.status).toBe("flagged"));
+    expect(result.current.rows[0]?.verdict).toBeUndefined();
+  });
+
+  it("retries only rows whose search failed", async () => {
+    const { result } = setup([file(1), file(2)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      searches[0]?.d.reject(new Error("boom"));
+      searches[1]?.d.resolve(empty);
+    });
+    await waitFor(() => expect(result.current.rows[0]?.status).toBe("none"));
+    search.mockClear();
+    act(() => result.current.retry());
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    expect(searches[2]?.body.video_path).toBe("/tv/Show/S01E01.mkv");
+  });
+
+  it("does not count a source that does not apply as a failure", async () => {
+    const { result } = setup([file(1)]);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await act(async () =>
+      searches[0]?.d.resolve({
+        candidates: [],
+        errors: [{ provider: "yts", message: "Films only" }],
+      }),
+    );
+    await waitFor(() => expect(result.current.rows[0]?.status).toBe("none"));
+    expect(result.current.errors).toEqual([]);
+    expect(result.current.notes).toEqual([{ provider: "yts", message: "Films only", count: 1 }]);
+    act(() => result.current.retry());
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a source's error on a row with nothing found", async () => {
     const { result } = setup([file(1)]);
     await waitFor(() => expect(search).toHaveBeenCalledTimes(1));

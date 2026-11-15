@@ -27,7 +27,9 @@ const row = (n: number, extra: Partial<PlanRowState> = {}): PlanRowState => ({
   candidate: cand(String(n)),
   candidates: [cand(String(n))],
   machineKind: null,
+  hasReal: false,
   errors: [],
+  lengthResult: { length: "ok", last: 2900, videoDuration: 3000 },
   ...extra,
 });
 
@@ -73,6 +75,32 @@ describe("PlanView", () => {
     ]);
     fireEvent.click(screen.getByRole("button", { name: /Approve all clean rows \(2\)/ }));
     expect(p.onApproveAllClean).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not count a row still waiting for its length check as clean", () => {
+    renderPlan([row(1), row(2, { lengthResult: undefined })]);
+    expect(screen.getByRole("button", { name: /Approve all clean rows \(1\)/ })).toBeTruthy();
+  });
+
+  it("counts an unchecked row once checks were skipped", () => {
+    renderPlan([row(1, { lengthResult: undefined })], { checksSkipped: true });
+    expect(screen.getByRole("button", { name: /Approve all clean rows \(1\)/ })).toBeTruthy();
+  });
+
+  it("says a download replaces the existing subtitle only while Keep existing is off", () => {
+    renderPlan([row(1, { hasReal: true })]);
+    expect(screen.getByText("Replaces the existing subtitle")).toBeTruthy();
+    fireEvent.click(box("Keep existing subtitles"));
+    expect(screen.queryByText("Replaces the existing subtitle")).toBeNull();
+  });
+
+  it("keeps a source that does not apply out of the red failure banner", () => {
+    renderPlan([row(1, { status: "none", candidate: undefined, candidates: [] })], {
+      errors: [],
+      notes: [{ provider: "yts", message: "Films only", count: 1 }],
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText(/Films only/)).toBeTruthy();
   });
 
   it("says a download replaces the generated file only while Keep existing is off", () => {

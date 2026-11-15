@@ -198,9 +198,12 @@ export function MachineSection({
           </Button>
           {blocked.translate ? (
             <Reason text={blocked.translate} />
+          ) : translateBlocked ? (
+            <span className="text-3xs text-muted-foreground">{translateBlocked}</span>
           ) : (
-            translateBlocked && (
-              <span className="text-3xs text-muted-foreground">{translateBlocked}</span>
+            choosing &&
+            source === null && (
+              <span className="text-3xs text-muted-foreground">Choose a source file first</span>
             )
           )}
         </div>

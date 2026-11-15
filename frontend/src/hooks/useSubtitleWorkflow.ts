@@ -22,7 +22,14 @@ interface Choice extends TitleChoice {
 }
 
 type Workflow =
-  | { stage: "titles" | "plan"; choices: Choice[]; scope: PlanScope }
+  | {
+      stage: "titles" | "plan";
+      choices: Choice[];
+      scope: PlanScope;
+      /** Wanted and Sources as they were when Find subtitles started: a later change applies to the next search. */
+      wanted: string[];
+      sources: SubtitleProvider[];
+    }
   | { stage: "run"; earlier: RunEntry[] }
   | { stage: "machine"; files: ScanFile[]; keepExisting: boolean };
 
@@ -80,7 +87,14 @@ export function useSubtitleWorkflow({
         : NO_GROUPS,
     [planning, choices],
   );
-  const plan = useSubtitlePlan({ groups, wanted, providers: sources, scope });
+  const planWanted = wf && (wf.stage === "titles" || wf.stage === "plan") ? wf.wanted : wanted;
+  const planSources = wf && (wf.stage === "titles" || wf.stage === "plan") ? wf.sources : sources;
+  const plan = useSubtitlePlan({
+    groups,
+    wanted: planWanted,
+    providers: planSources,
+    scope,
+  });
 
   /** Starts Find subtitles on these videos, grouped by their titles. */
   const startFind = (files: ScanFile[]) => {
@@ -100,7 +114,7 @@ export function useSubtitleWorkflow({
         },
       ];
     });
-    setWf({ stage: "titles", choices: picked, scope: "missing" });
+    setWf({ stage: "titles", choices: picked, scope: "missing", wanted, sources });
   };
 
   const editChoices = (fn: (c: Choice) => Choice) =>
@@ -224,6 +238,7 @@ export function useSubtitleWorkflow({
     toPlan,
     toTitles,
     plan,
+    planWanted,
     // run
     download,
     downloading: run.isPending,

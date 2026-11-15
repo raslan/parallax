@@ -31,6 +31,7 @@ const row = (extra: Partial<PlanRowState> = {}): PlanRowState => ({
   candidate: cand("x"),
   candidates: [cand("x")],
   machineKind: null,
+  hasReal: false,
   errors: [],
   ...extra,
 });
@@ -68,11 +69,18 @@ describe("defaultRunOptions", () => {
 
 describe("isClean", () => {
   it("takes ready and replaces-machine rows with a candidate, never flagged ones", () => {
-    expect(isClean(row())).toBe(true);
-    expect(isClean(row({ status: "replaces_machine" }))).toBe(true);
-    expect(isClean(row({ status: "flagged" }))).toBe(false);
-    expect(isClean(row({ status: "has_real" }))).toBe(false);
-    expect(isClean(row({ status: "ready", candidate: undefined }))).toBe(false);
+    const ok = { lengthResult: { length: "ok" as const, last: 1, videoDuration: 1 } };
+    expect(isClean(row(ok))).toBe(true);
+    expect(isClean(row({ ...ok, status: "replaces_machine" }))).toBe(true);
+    expect(isClean(row({ ...ok, status: "flagged" }))).toBe(false);
+    expect(isClean(row({ ...ok, status: "has_real" }))).toBe(false);
+    expect(isClean(row({ ...ok, status: "ready", candidate: undefined }))).toBe(false);
+  });
+
+  it("is not clean until its length check settled (result, error or skipped checks)", () => {
+    expect(isClean(row())).toBe(false);
+    expect(isClean(row({ lengthResult: { error: "no" } }))).toBe(true);
+    expect(isClean(row(), true)).toBe(true);
   });
 });
 

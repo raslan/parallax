@@ -79,7 +79,12 @@ export function IdentityPicker({
       const base: Identity = { title: title.trim(), year: parseYear(year), type: mediaType };
       if (p.imdb_id) onPick({ ...base, title: base.title || p.imdb_id, imdb_id: p.imdb_id });
       else if (p.subf2m_path)
-        onPick({ ...base, title: titleFromPath(p.subf2m_path) || base.title });
+        // The exact page is searched; the title is only what it is called here (editable).
+        onPick({
+          ...base,
+          title: base.title || titleFromPath(p.subf2m_path),
+          subf2m_path: p.subf2m_path,
+        });
     },
   });
 

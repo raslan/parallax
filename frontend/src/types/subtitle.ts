@@ -30,6 +30,8 @@ export interface Identity {
   type: "movie" | "tv";
   imdb_id?: string;
   tmdb_id?: number;
+  /** A pasted Subf2m page (`/subtitles/<slug>`): searched directly, not by title. */
+  subf2m_path?: string;
 }
 
 export type SubtitleKind = "real" | "hearing_impaired" | "generated" | "translated" | "original";
@@ -159,6 +161,8 @@ export interface PlanRowState {
   lengthResult?: LengthResult;
   /** A machine-made file of this language the download would replace (Keep existing off). */
   machineKind: "generated" | "translated" | null;
+  /** The video already has a real subtitle in this language (a download would replace it with Keep existing off). */
+  hasReal: boolean;
   /** Sources that failed or do not apply, for this row. */
   errors: { provider: string; message: string }[];
 }

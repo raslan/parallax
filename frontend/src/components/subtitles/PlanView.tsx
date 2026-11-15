@@ -128,6 +128,7 @@ export function PlanView({
   paused,
   checksSkipped,
   errors,
+  notes = [],
   onPause,
   onResume,
   onSkipChecks,
@@ -149,6 +150,8 @@ export function PlanView({
   paused: boolean;
   checksSkipped: boolean;
   errors: { provider: string; message: string; count?: number }[];
+  /** Sources that do not apply (films only): shown plainly, never as a failure. */
+  notes?: { provider: string; message: string; count?: number }[];
   onPause: () => void;
   onResume: () => void;
   onSkipChecks: () => void;
@@ -187,7 +190,7 @@ export function PlanView({
   const seasons = useMemo(() => seasonsOf(activeRows, wanted), [activeRows, wanted]);
 
   const all = counts(rows);
-  const clean = rows.filter((r) => isClean(r) && !r.verdict).length;
+  const clean = rows.filter((r) => isClean(r, checksSkipped) && !r.verdict).length;
   const items = runItems(rows);
   const searching = progress.done < progress.total;
   const checking = !checksSkipped && checks.done < checks.total;
@@ -241,6 +244,17 @@ export function PlanView({
             </Button>
           )}
         </div>
+      )}
+
+      {notes.length > 0 && (
+        <ul className="space-y-0.5 text-xs text-muted-foreground">
+          {notes.map((n) => (
+            <li key={`${n.provider}:${n.message}`}>
+              {sourceName(n.provider)}: {n.message}
+              {n.count ? ` (${n.count} ${n.count === 1 ? "search" : "searches"} skipped)` : ""}
+            </li>
+          ))}
+        </ul>
       )}
 
       {errors.length > 0 && (

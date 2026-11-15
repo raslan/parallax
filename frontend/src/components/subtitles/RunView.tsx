@@ -35,10 +35,13 @@ export function RunView({
   queuePosition,
   error,
   cancelling,
+  retrying,
   onCancel,
   onRetry,
   onCompare,
 }: {
+  /** A retry is being submitted: Retry waits so a double click cannot queue two jobs. */
+  retrying: boolean;
   entries: RunEntry[];
   titleOf: (videoPath: string) => { key: string; name: string };
   status: string;
@@ -153,7 +156,7 @@ export function RunView({
                     size="sm"
                     variant="outline"
                     className="h-7"
-                    disabled={active}
+                    disabled={active || retrying}
                     aria-label={`Retry ${label}`}
                     onClick={() => onRetry(e.item)}
                   >

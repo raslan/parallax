@@ -110,6 +110,23 @@ describe("MachineSection", () => {
     expect(targets.textContent).not.toContain("German");
   });
 
+  it("says why Translate waits when Choose a file has no file picked", () => {
+    renderSection([video("en")], blockedReasons({ speechModelReady: true, packsInstalled: 2 }), {
+      sources: [
+        {
+          path: "/films/Movie.en.srt",
+          filename: "Movie.en.srt",
+          machine_made: false,
+          hearing_impaired: false,
+        },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Arabic" }));
+    fireEvent.click(screen.getByRole("button", { name: /Choose a file/ }));
+    expect(button(/^Translate 1/).disabled).toBe(true);
+    expect(screen.getByText("Choose a source file first")).toBeTruthy();
+  });
+
   it("translates the main English file into the picked language", () => {
     const p = renderSection(
       [video("en")],

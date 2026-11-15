@@ -115,6 +115,9 @@ function PlanCell({
             <span className="text-muted-foreground"> · then sync</span>
           )}
         </p>
+        {row.hasReal && !keepExisting && (
+          <p className="text-3xs text-amber-500">Replaces the existing subtitle</p>
+        )}
         {row.machineKind && !keepExisting && (
           <p className="text-3xs text-amber-500">
             Replaces the {row.machineKind} {languageName(row.language)} file

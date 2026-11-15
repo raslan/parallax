@@ -22,8 +22,9 @@ const entry = (n: number, state: RunEntry["state"], error?: string): RunEntry =>
       : { video_path: `/tv/Show/S01E0${n}.mkv`, language: "en", status: state, error },
 });
 
-function renderRun(entries: RunEntry[], status = "completed") {
+function renderRun(entries: RunEntry[], status = "completed", retrying = false) {
   const props = {
+    retrying,
     entries,
     titleOf: () => ({ key: "tv:show", name: "Show (2016)" }),
     status,
@@ -53,6 +54,13 @@ describe("RunView", () => {
     expect(p.onRetry).toHaveBeenCalledWith(p.entries[1]?.item);
     fireEvent.click(screen.getByRole("button", { name: /Pick another/ }));
     expect(p.onCompare).toHaveBeenCalledWith(p.entries[1]?.item);
+  });
+
+  it("disables Retry while a retry is being submitted", () => {
+    renderRun([entry(1, "failed", "x")], "completed", true);
+    expect((screen.getByRole("button", { name: /Retry/ }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
   });
 
   it("can cancel while the run is going", () => {
