@@ -119,6 +119,8 @@ export const qk = {
   subtitleFiles: (videoPath: string) => ["subtitles", "files", videoPath] as const,
   subtitleActive: () => ["subtitles", "active"] as const,
   subtitleUnmatched: (path: string) => ["subtitles", "unmatched", path] as const,
+  /** Film cards from the YTS title search for one query. */
+  subtitleYts: (query: string) => ["subtitles", "yts", query] as const,
 
   identifyFiles: (libraryId: number) => ["identify", "files", libraryId] as const,
   identifyEpisodes: (tmdbId: number) => ["identify", "episodes", tmdbId] as const,

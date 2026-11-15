@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { ScanFile, SubtitleFileInfo, TitleGroup } from "@/types/subtitle";
@@ -23,6 +23,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
       unmatched: vi.fn(async () => []),
       active: vi.fn(async () => []),
       checkLengths: vi.fn(async () => ({})),
+      search: vi.fn(),
+      preview: vi.fn(),
+      run: vi.fn(),
     },
   };
 });
@@ -50,7 +53,7 @@ vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 // jsdom has no element scrolling; opening a title scrolls the page to the top.
 Element.prototype.scrollTo = vi.fn() as unknown as Element["scrollTo"];
 
-import { subtitlesApi } from "@/lib/api";
+import { api, subtitlesApi } from "@/lib/api";
 import { Subtitles } from "./Subtitles";
 
 afterEach(() => {
@@ -154,6 +157,79 @@ describe("Subtitles Home", () => {
     expect(await screen.findByText("film.mkv")).toBeTruthy();
     // Nothing to go back to: the lone title is the folder.
     expect(screen.queryByRole("button", { name: /All titles/ })).toBeNull();
+  });
+
+  it("finds subtitles through Titles, Plan and Run, and goes back to the folder", async () => {
+    vi.mocked(subtitlesApi.scan).mockResolvedValue([
+      video("/tv/A/e1.mkv", ["en"]),
+      video("/tv/B/e1.mkv"),
+    ]);
+    vi.mocked(subtitlesApi.groups).mockResolvedValue([
+      group("tv:a:", "Alpha", ["/tv/A/e1.mkv"]),
+      group("tv:b:", "Beta", ["/tv/B/e1.mkv"]),
+    ]);
+    vi.mocked(subtitlesApi.search).mockResolvedValue({
+      candidates: [
+        {
+          subtitle_id: "s1",
+          provider: "subf2m",
+          language: "en",
+          release: "Beta.S01E01.WEB",
+          score: 1,
+          hearing_impaired: false,
+        },
+      ],
+      errors: [],
+    });
+    vi.mocked(subtitlesApi.preview).mockRejectedValue(new Error("offline"));
+    vi.mocked(subtitlesApi.run).mockResolvedValue({ job_id: 9 });
+    vi.spyOn(api, "getJob").mockResolvedValue({
+      id: 9,
+      type: "subtitle_download",
+      status: "running",
+      library_id: null,
+      progress: 0,
+      total_files: 1,
+      processed_files: 0,
+      current_file: null,
+      error: null,
+      settings: JSON.stringify({
+        path: "/tv",
+        items: [
+          {
+            video_path: "/tv/B/e1.mkv",
+            language: "en",
+            provider: "subf2m",
+            subtitle_id: "s1",
+            sync: false,
+          },
+        ],
+        results: [],
+      }),
+      created_at: "",
+      started_at: null,
+      finished_at: null,
+    });
+    renderAt("?path=/tv");
+    fireEvent.click(await screen.findByRole("button", { name: "Find subtitles for this folder" }));
+    expect(screen.getByText("Titles")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Search subtitles for 2 titles" }));
+
+    // Plan (wanted en, ar; scope "missing"): Alpha already has English, so three searches
+    // (Alpha ar, Beta en, Beta ar), and nothing is written yet.
+    fireEvent.click(await screen.findByRole("button", { name: /Approve all clean rows \(3\)/ }));
+    expect(subtitlesApi.search).toHaveBeenCalledTimes(3);
+    expect(subtitlesApi.run).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Download 3 subtitles" }));
+    await waitFor(() =>
+      expect(subtitlesApi.run).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "/tv", keep_existing: false, sync_after: false }),
+      ),
+    );
+
+    expect(await screen.findByText(/1 to go/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Back to folder" }));
+    expect(await screen.findByText("Titles · 2")).toBeTruthy();
   });
 
   it("says so when the folder has no videos", async () => {

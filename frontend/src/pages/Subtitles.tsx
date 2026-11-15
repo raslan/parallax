@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Captions, FolderSearch } from "lucide-react";
+import { Captions, FolderSearch, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api, qk, speechModelsApi, subtitlePacksApi, subtitlesApi } from "@/lib/api";
 import { attention, blockedReasons, coverage } from "@/lib/subtitleCoverage";
@@ -27,6 +27,7 @@ import { SummaryStrip } from "@/components/subtitles/SummaryStrip";
 import { TitleCard } from "@/components/subtitles/TitleCard";
 import { TitleFiles, type AttentionFilter } from "@/components/subtitles/TitleFiles";
 import { UnmatchedNotice } from "@/components/subtitles/UnmatchedNotice";
+import { WorkflowView } from "@/components/subtitles/WorkflowView";
 import { useGridSize } from "@/hooks/useGridSize";
 import { useScrollParent } from "@/hooks/useScrollParent";
 import { useScrollTopOnChange } from "@/hooks/useScrollTopOnChange";
@@ -35,6 +36,7 @@ import { useSort } from "@/hooks/useSort";
 import { useSubtitleActions } from "@/hooks/useSubtitleActions";
 import { useSubtitleActivity } from "@/hooks/useSubtitleActivity";
 import { useSubtitleFolder } from "@/hooks/useSubtitleFolder";
+import { useSubtitleWorkflow } from "@/hooks/useSubtitleWorkflow";
 import type { ScanFile, SubtitleProvider } from "@/types/subtitle";
 
 const parseLanguages = (raw: string | undefined) =>
@@ -83,6 +85,18 @@ export function Subtitles() {
     speechModelReady: modelsQ.isSuccess ? modelsQ.data.some((m) => m.active && m.installed) : null,
     packsInstalled: packsQ.isSuccess ? packsQ.data.filter((p) => p.installed).length : null,
   });
+
+  // Find subtitles (Titles → Plan → Run) and Generated and translated, over the Home view.
+  const w = useSubtitleWorkflow({ folder, titles, wanted, sources });
+  const titleOf = useMemo(() => {
+    const byVideo = new Map<string, { key: string; name: string }>();
+    for (const t of titles) {
+      const name = t.group.year ? `${t.group.title} (${t.group.year})` : t.group.title;
+      for (const x of t.files) byVideo.set(x.path, { key: t.group.key, name });
+    }
+    return (video: string) => byVideo.get(video) ?? { key: "other-files", name: "Other files" };
+  }, [titles]);
+  const runQueuePosition = f.folderJobs.find((j) => j.id === w.runJob.id)?.queue_position ?? null;
 
   // A lone title opens straight into itself.
   const openKey = f.titleKey ?? (titles.length === 1 ? (titles[0]?.group.key ?? null) : null);
@@ -246,7 +260,7 @@ export function Subtitles() {
           </>
         ) : (
           <section className="space-y-3">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <SectionHeader>Titles · {titles.length}</SectionHeader>
               <Button
                 size="sm"
@@ -255,6 +269,15 @@ export function Subtitles() {
                 onClick={() => titleSel.selectAll(titles.map((t) => t.group.key))}
               >
                 Select all
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto h-7 text-xs"
+                onClick={() => w.startFind(files)}
+              >
+                <Search className="mr-1.5 h-3.5 w-3.5" />
+                Find subtitles for this folder
               </Button>
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
@@ -293,23 +316,48 @@ export function Subtitles() {
         onSourcesChange={setSources}
         ytsReason={ytsReason}
       />
-      <ActivityBar jobs={f.folderJobs} cancelling={actions.cancelling} onCancel={actions.cancel} />
-      {body()}
-      <SubtitleDock
-        count={selectedCount}
-        files={actionFiles.length}
-        blocked={blocked}
-        syncing={actions.syncing}
-        // Find subtitles, Translate and Generate open the plan's sections (next task).
-        onFind={() => undefined}
-        onTranslate={() => undefined}
-        onGenerate={() => undefined}
-        onSync={() => actions.sync(actionFiles)}
-        onClear={() => {
-          titleSel.selectNone();
-          fileSel.selectNone();
-        }}
-      />
+      {w.wf ? (
+        <WorkflowView
+          w={w}
+          wanted={wanted}
+          hasTmdbKey={!!settingsQ.data?.tmdb_api_key}
+          settingsEngine={settingsQ.data?.subtitle_sync_engine ?? "alass"}
+          packs={packsQ.isSuccess ? packsQ.data : null}
+          models={modelsQ.isSuccess ? modelsQ.data : null}
+          blocked={blocked}
+          titleOf={titleOf}
+          queuePosition={runQueuePosition}
+          cancelling={w.runJob.id != null && actions.cancelling.has(w.runJob.id)}
+          onCancel={actions.cancel}
+          // TODO(Task 14): open the Compare sheet for this plan row / failed run item.
+          onCompareRow={() => undefined}
+          onCompareItem={() => undefined}
+        />
+      ) : (
+        <>
+          <ActivityBar
+            jobs={f.folderJobs}
+            cancelling={actions.cancelling}
+            onCancel={actions.cancel}
+            onOpenRun={w.openRun}
+          />
+          {body()}
+          <SubtitleDock
+            count={selectedCount}
+            files={actionFiles.length}
+            blocked={blocked}
+            syncing={actions.syncing}
+            onFind={() => w.startFind(actionFiles)}
+            onTranslate={() => w.openMachine(actionFiles)}
+            onGenerate={() => w.openMachine(actionFiles)}
+            onSync={() => actions.sync(actionFiles)}
+            onClear={() => {
+              titleSel.selectNone();
+              fileSel.selectNone();
+            }}
+          />
+        </>
+      )}
       {playing && (
         <VideoPlayerModal
           file={{ id: 0, filename: playing.filename, path: playing.path }}

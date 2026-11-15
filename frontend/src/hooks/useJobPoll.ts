@@ -77,6 +77,8 @@ export function useJobPoll(options: UseJobPollOptions = {}) {
 
   return {
     jobId,
+    /** The job as last read (its `settings` carry what a runner stores there). */
+    job: jobId != null && job?.id === jobId ? job : null,
     status: job?.status ?? (jobId != null ? "pending" : null),
     progress: job?.progress ?? 0,
     currentFile: job?.current_file ?? null,

@@ -15,7 +15,10 @@ interface MediaSearchDialogProps {
   initialQuery: string;
   selectedId: number | null;
   onPick: (result: SearchResult) => void;
-  onUseCustom: () => void;
+  /** Identify's way out to a custom show; without it the "nothing found" note has no link. */
+  onUseCustom?: () => void;
+  /** Shows a year box (seeded with this) whose value is sent with every search; omit for none. */
+  initialYear?: number | null;
 }
 
 export function MediaSearchDialog({
@@ -27,8 +30,12 @@ export function MediaSearchDialog({
   selectedId,
   onPick,
   onUseCustom,
+  initialYear,
 }: MediaSearchDialogProps) {
   const [query, setQuery] = useState(initialQuery);
+  const withYear = initialYear !== undefined;
+  const [year, setYear] = useState(initialYear ? String(initialYear) : "");
+  const yearNumber = /^\d{4}$/.test(year.trim()) ? Number(year.trim()) : undefined;
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +62,13 @@ export function MediaSearchDialog({
     setError("");
     setSearchedFor(trimmed);
     try {
-      setResults(await api.identifySearch({ query: trimmed, type }));
+      setResults(
+        await api.identifySearch({
+          query: trimmed,
+          type,
+          ...(withYear && yearNumber ? { year: yearNumber } : {}),
+        }),
+      );
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Search failed");
       setResults([]);
@@ -99,6 +112,18 @@ export function MediaSearchDialog({
             placeholder="Breaking Bad…"
             className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-hidden focus:ring-1 focus:ring-primary"
           />
+          {withYear && (
+            <input
+              type="text"
+              inputMode="numeric"
+              value={year}
+              aria-label="Year"
+              onChange={(e) => setYear(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doSearch(query, mediaType)}
+              placeholder="Year"
+              className="w-20 rounded-md border border-input bg-background px-3 py-2 text-sm tabular-nums focus:outline-hidden focus:ring-1 focus:ring-primary"
+            />
+          )}
           <Button
             type="button"
             size="sm"
@@ -175,14 +200,18 @@ export function MediaSearchDialog({
               <div className="py-8 text-center">
                 <p className="text-sm text-muted-foreground">
                   Nothing found for “{searchedFor}”. Try a different spelling or media type
-                  {" — "}or{" "}
-                  <button
-                    type="button"
-                    onClick={onUseCustom}
-                    className="font-medium text-primary underline-offset-2 hover:underline"
-                  >
-                    build it as a custom show
-                  </button>
+                  {onUseCustom ? (
+                    <>
+                      {" — "}or{" "}
+                      <button
+                        type="button"
+                        onClick={onUseCustom}
+                        className="font-medium text-primary underline-offset-2 hover:underline"
+                      >
+                        build it as a custom show
+                      </button>
+                    </>
+                  ) : null}
                   .
                 </p>
               </div>

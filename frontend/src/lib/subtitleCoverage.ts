@@ -18,7 +18,7 @@ const sameLanguage = (s: SubtitleFileInfo, lang: string) =>
   s.language.toLowerCase() === lang.toLowerCase();
 
 /** The kinds of subtitle a file has for one language (`.original` backups never count). */
-function kindsFor(file: ScanFile, lang: string) {
+export function kindsFor(file: ScanFile, lang: string) {
   let real = false;
   let generated = false;
   let translated = false;

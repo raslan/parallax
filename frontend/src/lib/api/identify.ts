@@ -21,7 +21,8 @@ export const identifyApi = {
       file_guesses: { file_path: string; season: number | null; episode: number | null }[];
       mtimes: Record<string, number>;
     }>(`/identify/files?path=${encodeURIComponent(path)}`),
-  identifySearch: (body: { query: string; type: "movie" | "tv" }) =>
+  /** `year` narrows the TMDB search to that year (a remake and its original share a title). */
+  identifySearch: (body: { query: string; type: "movie" | "tv"; year?: number }) =>
     req<SearchResult[]>("/identify/search", { method: "POST", body: JSON.stringify(body) }),
   identifyGetAllEpisodes: (tmdb_id: number) => req<Episode[]>(`/identify/tv/${tmdb_id}/episodes`),
   identifyFileDates: (path: string) =>

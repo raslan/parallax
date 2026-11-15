@@ -84,7 +84,6 @@ export interface ParsedPaste {
 
 export type SubtitleProvider = "subf2m" | "yts";
 
-/** @public consumed by the new Subtitles page (Tasks 12-15); drop the tag then */
 export interface Candidate extends SubtitleCandidate {
   provider: SubtitleProvider;
 }
@@ -95,8 +94,7 @@ export interface SearchResult {
   errors: { provider: string; message: string }[];
 }
 
-/** @public consumed by the new Subtitles page (Tasks 12-15); drop the tag then */
-export type LengthVerdict = "ok" | "short" | "long" | "unknown";
+type LengthVerdict = "ok" | "short" | "long" | "unknown";
 
 export interface PreviewInfo {
   preview_id: string;
@@ -114,6 +112,73 @@ export interface RunItem {
   provider: SubtitleProvider;
   subtitle_id: string;
   sync: boolean;
+}
+
+/** A title group in the Titles step of Find subtitles: the identity to search as, or skipped. */
+export interface TitleChoice {
+  key: string;
+  group: TitleGroup;
+  files: number;
+  identity: Identity;
+  skipped: boolean;
+}
+
+/** Which files a plan searches: only languages with no real subtitle yet, or every selected one. */
+export type PlanScope = "missing" | "all";
+
+/** One title of a plan: the identity the user confirmed, and the videos to search for. */
+export interface PlanGroup {
+  key: string;
+  identity: Identity;
+  files: ScanFile[];
+}
+
+type PlanStatus = "ready" | "has_real" | "replaces_machine" | "none" | "checking" | "flagged";
+
+/** `use_and_sync` downloads the row and syncs only that file. */
+export type PlanVerdict = "use" | "use_and_sync" | "skip";
+
+/** The length check of a row's top candidate, or why it could not be read. */
+export type LengthResult =
+  { length: LengthVerdict; last: number; videoDuration: number | null } | { error: string };
+
+/** One cell of the plan: a video and one wanted language. */
+export interface PlanRowState {
+  key: string;
+  video: string;
+  filename: string;
+  /** The title group's key. */
+  title: string;
+  season: number | null;
+  episode: number | null;
+  language: string;
+  status: PlanStatus;
+  candidate?: Candidate;
+  candidates: Candidate[];
+  verdict?: PlanVerdict;
+  lengthResult?: LengthResult;
+  /** A machine-made file of this language the download would replace (Keep existing off). */
+  machineKind: "generated" | "translated" | null;
+  /** Sources that failed or do not apply, for this row. */
+  errors: { provider: string; message: string }[];
+}
+
+/** One item's outcome, as the run job stores it in `job.settings.results`. */
+export interface RunResult {
+  video_path: string;
+  language: string;
+  status: "saved" | "failed" | "skipped";
+  path?: string;
+  error?: string;
+  sync_error?: string;
+  cleanup_error?: string;
+}
+
+/** An item of a run with where it is: not reached yet, or its result. */
+export interface RunEntry {
+  item: RunItem;
+  state: "waiting" | RunResult["status"];
+  result: RunResult | null;
 }
 
 /** A pending or running subtitle job; `queue_position` is set only while it waits for a slot. */
@@ -145,7 +210,7 @@ export interface LengthInfo {
 }
 
 /** One token of a release name compared with the video's file name; `match` is null when either side lacks it. */
-/** @public consumed by the new Subtitles page (Tasks 12-15); drop the tag then */
+/** @public consumed by the Compare sheet (Task 14); drop the tag then */
 export interface ReleaseToken {
   value: string | null;
   match: boolean | null;
