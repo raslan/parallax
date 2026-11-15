@@ -1,6 +1,7 @@
 """`POST /subtitles/sync-files`: many videos, one sync job."""
 
 import json
+import os
 
 import pytest
 
@@ -132,6 +133,54 @@ def test_sync_files_cancel_and_isolated_failure(tmp_path, fs_db, monkeypatch):
     assert status == JobStatus.CANCELLED
     assert current == "1 of 2 done before cancel"
     assert [r["status"] for r in settings["results"]] == ["synced", "skipped"]
+
+
+def _logs(fs_db, jid):
+    from app.models.job import JobLog
+
+    db = fs_db()
+    rows = [
+        (r.level, r.message) for r in db.query(JobLog).filter_by(job_id=jid).order_by(JobLog.id)
+    ]
+    db.close()
+    return rows
+
+
+def test_sync_files_logs_each_subtitle_and_keeps_every_error(tmp_path, fs_db, monkeypatch):
+    a = make(tmp_path, "A", subs=("en", "ar", "fr"))
+
+    def half(video_path, sub_path, engine="alass"):
+        if sub_path.endswith(".en.srt"):
+            return True
+        raise RuntimeError(f"no speech found for {os.path.basename(sub_path)}")
+
+    monkeypatch.setattr(ss, "sync_subtitle", half)
+    jid = _job(fs_db, {"path": str(tmp_path)})
+    ss.run_sync_files_job(jid, [a], "alass")
+    logs = _logs(fs_db, jid)
+    assert ("info", "Synced: A.en.srt") in logs
+    assert ("error", "Sync failed: A.ar.srt — no speech found for A.ar.srt") in logs
+    assert ("error", "Sync failed: A.fr.srt — no speech found for A.fr.srt") in logs
+    result = _state(fs_db, jid)[3]["results"][0]
+    assert result["synced"] == 1 and result["failed"] == 2
+    assert result["errors"] == [
+        "A.ar.srt: no speech found for A.ar.srt",
+        "A.fr.srt: no speech found for A.fr.srt",
+    ]
+
+
+def test_sync_files_video_without_subtitles_is_skipped(tmp_path, fs_db, monkeypatch):
+    a = make(tmp_path, "A")
+    bare = make(tmp_path, "Bare", subs=())
+    monkeypatch.setattr(ss, "sync_subtitle", lambda v, s, engine="alass": True)
+    jid = _job(fs_db, {"path": str(tmp_path)})
+    ss.run_sync_files_job(jid, [a, bare], "alass")
+    status, current, _err, settings = _state(fs_db, jid)
+    assert status == JobStatus.COMPLETED
+    assert [r["status"] for r in settings["results"]] == ["synced", "skipped"]
+    assert settings["results"][1]["reason"] == "no subtitle"
+    assert current == "1 synced, 1 skipped"
+    assert ("info", "Skipped: Bare.mkv — no subtitle") in _logs(fs_db, jid)
 
 
 def test_sync_files_every_video_failing_fails_the_job(tmp_path, fs_db, monkeypatch):

@@ -249,24 +249,51 @@ def _update_job(job_id: int, **fields) -> None:
         db.close()
 
 
-def _sync_video(video_path: str, engine: str) -> dict:
+def _log_job(job_id: int, message: str, level: str = "info") -> None:
+    """A job log line in its own short-lived session, like `_update_job`."""
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        log(db, job_id, message, level)
+    finally:
+        db.close()
+
+
+def _sync_video(job_id: int, video_path: str, engine: str) -> dict:
     """Every subtitle of one video (real, generated and translated; never a `.original`
-    backup), the same set the folder sync covers. A failing subtitle costs only itself."""
+    backup), the same set the folder sync covers. A failing subtitle costs only itself.
+    Every subtitle gets a job log line ("Synced: …" / "Sync failed: … — reason", the old
+    runner's wording); the result keeps every failure in `errors` and the first bare reason
+    in `error`. A video with no subtitle at all is `skipped`."""
     from app.services.subtitle_service import find_all_subtitle_tracks
 
+    tracks = find_all_subtitle_tracks(video_path)
+    if not tracks:
+        _log_job(job_id, f"Skipped: {os.path.basename(video_path)} — no subtitle")
+        return {"video_path": video_path, "status": "skipped", "reason": "no subtitle"}
+
     synced = 0
+    reasons: list[str] = []
     errors: list[str] = []
-    for track in find_all_subtitle_tracks(video_path):
+    for track in tracks:
+        name = os.path.basename(track["path"])
         try:
-            if sync_subtitle(video_path, track["path"], engine):
-                synced += 1
-            else:
-                errors.append(f"{os.path.basename(track['path'])}: the sync engine gave up")
+            ok = sync_subtitle(video_path, track["path"], engine)
+            reason = None if ok else "the sync engine gave up"
         except Exception as exc:
-            errors.append(str(exc) or type(exc).__name__)
+            reason = str(exc) or type(exc).__name__
+        if reason is None:
+            synced += 1
+            _log_job(job_id, f"Synced: {name}")
+        else:
+            reasons.append(reason)
+            errors.append(f"{name}: {reason}")
+            _log_job(job_id, f"Sync failed: {name} — {reason}", level="error")
     result: dict = {"video_path": video_path, "synced": synced, "failed": len(errors)}
     if errors:
-        result["error"] = errors[0]
+        result["error"] = reasons[0]
+        result["errors"] = errors
     result["status"] = "failed" if errors and not synced else "synced"
     return result
 
@@ -311,7 +338,7 @@ def run_sync_files_job(job_id: int, video_paths: list[str], engine: str) -> None
                 processed_files=i,
                 progress=i / total * 99,
             )
-            results.append(_sync_video(video_path, engine))
+            results.append(_sync_video(job_id, video_path, engine))
             _update_job(
                 job_id,
                 processed_files=i + 1,
@@ -320,10 +347,14 @@ def run_sync_files_job(job_id: int, video_paths: list[str], engine: str) -> None
 
         synced = sum(r["status"] == "synced" for r in results)
         failed = sum(r["status"] == "failed" for r in results)
+        skipped = sum(r["status"] == "skipped" for r in results)
         done = len(results)
         fields: dict = {"finished_at": now(), "processed_files": done}
         if cancelled:
-            results += [{"video_path": p, "status": "skipped"} for p in video_paths[done:]]
+            results += [
+                {"video_path": p, "status": "skipped", "reason": "cancelled"}
+                for p in video_paths[done:]
+            ]
             fields.update(
                 status=JobStatus.CANCELLED, current_file=f"{done} of {total} done before cancel"
             )
@@ -331,11 +362,12 @@ def run_sync_files_job(job_id: int, video_paths: list[str], engine: str) -> None
             first = next(r["error"] for r in results if r.get("error"))
             fields.update(status=JobStatus.FAILED, error=first[:512], current_file=None)
         else:
-            fields.update(
-                status=JobStatus.COMPLETED,
-                progress=100.0,
-                current_file=f"{synced} synced, {failed} failed" if failed else f"{synced} synced",
-            )
+            parts = [f"{synced} synced"]
+            if failed:
+                parts.append(f"{failed} failed")
+            if skipped:
+                parts.append(f"{skipped} skipped")
+            fields.update(status=JobStatus.COMPLETED, progress=100.0, current_file=", ".join(parts))
         fields["settings"] = json.dumps({**stored, "results": results})
         _update_job(job_id, **fields)
     except Exception as exc:
