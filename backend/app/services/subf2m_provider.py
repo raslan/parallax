@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import functools
+import html
 import io
 import logging
 import re
@@ -381,7 +382,8 @@ class Subf2mProvider:
                             "language": lang,
                             # One row can list many release names (plus the uploader's comment):
                             # the first is the name; the rest would read as one run-on blob.
-                            "release": sub["release_info"].split("\n", 1)[0],
+                            # The page double-escapes some names ("&amp;amp;"): unescape once more.
+                            "release": html.unescape(sub["release_info"].split("\n", 1)[0]),
                             "score": sub["score"],
                             "hearing_impaired": False,
                         }

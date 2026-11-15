@@ -9,6 +9,7 @@ Cloudflare challenge observed.
 from __future__ import annotations
 
 import base64
+import html
 import logging
 import re
 import urllib.parse
@@ -145,7 +146,7 @@ class YtsSubsProvider:
                 rating = 0
 
             release_el = row.select_one("td:nth-of-type(3)")
-            release = release_el.text.strip() if release_el else ""
+            release = html.unescape(release_el.text.strip()) if release_el else ""
 
             results.append(
                 {

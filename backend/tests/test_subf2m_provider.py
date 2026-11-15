@@ -107,3 +107,20 @@ def test_a_row_with_several_release_names_keeps_only_the_first(monkeypatch):
     )
     (hit,) = p.search(_query("/subtitles/movie-2025"))
     assert hit["release"] == "Movie.2025.1080p.BluRay-AAA"
+
+
+def test_release_names_have_their_html_entities_unescaped(monkeypatch):
+    p = Subf2mProvider()
+    monkeypatch.setattr(
+        p,
+        "_find_movie_subtitles",
+        lambda path, lang: [
+            {
+                "page_link": "https://subf2m.co/x",
+                "release_info": "Movie.2025.1080p &amp; 720p.BluRay-AAA",
+                "score": 50,
+            }
+        ],
+    )
+    (hit,) = p.search(_query("/subtitles/movie-2025"))
+    assert hit["release"] == "Movie.2025.1080p & 720p.BluRay-AAA"
