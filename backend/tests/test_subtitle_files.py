@@ -250,6 +250,73 @@ def test_routes_map_errors(client, movie):
     assert r.status_code == 400
 
 
+def test_non_video_path_is_refused_and_nothing_walked(tmp_path, monkeypatch):
+    sub = touch(tmp_path / "x.en.srt")
+    txt = touch(tmp_path / "x.txt", "t")
+    walks = []
+    real = os.walk
+    monkeypatch.setattr(os, "walk", lambda *a, **k: walks.append(a) or real(*a, **k))
+    calls = [
+        lambda: sf.list_subtitle_files(txt),
+        lambda: sf.rename_subtitle(txt, sub, "x.en.better.srt"),
+        lambda: sf.make_main(txt, sub),
+        lambda: sf.delete_subtitles(txt, [sub]),
+        lambda: sf.tidy([txt], "originals"),
+    ]
+    for call in calls:
+        with pytest.raises(SubtitleFileError):
+            call()
+    assert walks == []
+    assert os.path.exists(sub)
+
+
+def test_routes_refuse_non_video_path(client, tmp_path):
+    sub = touch(tmp_path / "x.en.srt")
+    txt = touch(tmp_path / "x.txt", "t")
+    bodies = {
+        "files": {"video_path": txt},
+        "rename": {"video_path": txt, "subtitle_path": sub, "new_name": "x.en.b.srt"},
+        "make-main": {"video_path": txt, "subtitle_path": sub},
+        "delete": {"video_path": txt, "subtitle_paths": [sub]},
+        "tidy": {"video_paths": [txt], "what": "originals"},
+    }
+    for route, body in bodies.items():
+        assert client.post(f"/api/subtitles/{route}", json=body).status_code == 400, route
+    assert os.path.exists(sub)
+
+
+def test_scan_directory_subtitles_add_one_walk_per_folder(tmp_path, monkeypatch):
+    from app.services.subtitle_service import scan_directory
+
+    for i in range(50):
+        touch(tmp_path / f"V{i}.mkv", "v")
+        touch(tmp_path / f"V{i}.en.srt")
+    walks = []
+    real = os.walk
+    monkeypatch.setattr(os, "walk", lambda *a, **k: walks.append(a) or real(*a, **k))
+
+    real_list = sf.list_subtitle_files
+    monkeypatch.setattr(sf, "list_subtitle_files", lambda *a, **k: [])
+    scan_directory(str(tmp_path), ["en"])
+    baseline = len(walks)  # the older per-video helpers plus the scan's own walk
+    walks.clear()
+    monkeypatch.setattr(sf, "list_subtitle_files", real_list)
+    out = scan_directory(str(tmp_path), ["en"])
+    assert len(out[0]["subtitles"]) == 1
+    # one distinct folder, so the new `subtitles` listing may add at most one walk, not 50
+    print("walks added by subtitles:", len(walks) - baseline)
+    assert len(walks) - baseline <= 1
+
+
+def test_listed_path_wins_over_realpath_collision(tmp_path):
+    video = touch(tmp_path / "M.mkv", "v")
+    a = touch(tmp_path / "M.en.srt")
+    b = str(tmp_path / "M.en.yts.srt")
+    os.symlink(a, b)
+    assert sf.delete_subtitles(video, [b]) == 1
+    assert os.path.exists(a) and not os.path.lexists(b)
+
+
 def test_scan_directory_lists_subtitles(movie):
     from app.services.subtitle_service import scan_directory
 

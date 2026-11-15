@@ -150,14 +150,16 @@ def find_and_serve_vtt(video_path: str) -> str | None:
     return subtitle_to_vtt(sub) if sub else None
 
 
-def _tagged_files(video_path: str) -> list[tuple[str, subtitle_names.SubTag]]:
+def _tagged_files(
+    video_path: str, search_dirs: list[str] | None = None
+) -> list[tuple[str, subtitle_names.SubTag]]:
     """Every subtitle file of this video that carries a language tag, with its parsed tag:
     `<stem>.<lang>[.hi][.<token>].<ext>` in the video's folder or any folder below it. The stem
     must match exactly (`stem + "."`), never as a prefix of another video's name."""
     stem = os.path.splitext(os.path.basename(video_path))[0]
     prefix = stem + "."
     found = []
-    for d in _subtitle_search_dirs(video_path):
+    for d in search_dirs if search_dirs is not None else _subtitle_search_dirs(video_path):
         try:
             names = os.listdir(d)
         except OSError:
@@ -222,6 +224,7 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
     from app.services.subtitle_files import list_subtitle_files
 
     results = []
+    dirs_cache: dict[str, list[str]] = {}  # one tree walk per distinct video folder
     for dirpath, dirnames, filenames in os.walk(root_path):
         dirnames.sort()
         for fname in sorted(filenames):
@@ -246,7 +249,7 @@ def scan_directory(root_path: str, lang_codes: list[str]) -> list[dict]:
                     "has_any_subtitle": len(find_all_subtitle_tracks(full_path)) > 0,
                     "languages": languages,
                     "machine_languages": machine_languages,
-                    "subtitles": list_subtitle_files(full_path),
+                    "subtitles": list_subtitle_files(full_path, dirs_cache),
                     "title": str(info.get("title", "")),
                     "season": info.get("season"),
                     "episode": info.get("episode"),

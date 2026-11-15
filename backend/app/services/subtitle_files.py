@@ -12,7 +12,12 @@ import threading
 import uuid
 
 from app.services import subtitle_names
-from app.services.subtitle_service import SUBTITLE_EXTENSIONS, VIDEO_EXTENSIONS, _tagged_files
+from app.services.subtitle_service import (
+    SUBTITLE_EXTENSIONS,
+    VIDEO_EXTENSIONS,
+    _subtitle_search_dirs,
+    _tagged_files,
+)
 
 TIDY_MODES = ("generated_translated", "extra_versions", "originals")
 
@@ -33,12 +38,33 @@ def _real(path: str) -> str:
     return os.path.realpath(path)
 
 
-def list_subtitle_files(video_path: str) -> list[dict]:
+def _require_video(video_path: str) -> None:
+    """Refuse anything that is not a video file name: the search walks the video's whole
+    folder, so `/x.txt` must never start a walk of `/`."""
+    if (
+        not isinstance(video_path, str)
+        or not video_path
+        or "\0" in video_path
+        or os.path.splitext(video_path)[1].lower() not in VIDEO_EXTENSIONS
+    ):
+        raise SubtitleFileError("That is not a video file.")
+
+
+def list_subtitle_files(
+    video_path: str, dirs_cache: dict[str, list[str]] | None = None
+) -> list[dict]:
     """Every subtitle file of the video (the scan's own search dirs, exact `stem + "."`
-    match), including `original` backups."""
+    match), including `original` backups. `dirs_cache` (folder -> search dirs) lets a caller
+    listing many videos walk each distinct folder once."""
+    _require_video(video_path)
     video_dir = os.path.dirname(video_path)
+    search_dirs = None
+    if dirs_cache is not None:
+        if video_dir not in dirs_cache:
+            dirs_cache[video_dir] = _subtitle_search_dirs(video_path)
+        search_dirs = dirs_cache[video_dir]
     out = []
-    for path, tag in _tagged_files(video_path):
+    for path, tag in _tagged_files(video_path, search_dirs):
         try:
             size = os.stat(path).st_size
         except OSError:
@@ -62,14 +88,17 @@ def list_subtitle_files(video_path: str) -> list[dict]:
 def _owned(video_path: str, subtitle_paths: list[str]) -> list[dict]:
     """The listing entries for `subtitle_paths`, or SubtitleFileError if any is not one of the
     video's subtitle files."""
-    if not video_path or "\0" in video_path or not os.path.isfile(video_path):
+    _require_video(video_path)
+    if not os.path.isfile(video_path):
         raise SubtitleNotFound("That video file was not found.")
-    by_real = {_real(f["path"]): f for f in list_subtitle_files(video_path)}
+    listed = list_subtitle_files(video_path)
+    by_path = {f["path"]: f for f in listed}
+    by_real = {_real(f["path"]): f for f in listed}
     found = []
     for p in subtitle_paths:
         if not isinstance(p, str) or "\0" in p:
             raise SubtitleFileError("That is not a subtitle of this video.")
-        entry = by_real.get(_real(p))
+        entry = by_path.get(p) or by_real.get(_real(p))
         if entry is None:
             if not os.path.lexists(p):
                 raise SubtitleNotFound("That subtitle file was not found.")
@@ -189,6 +218,7 @@ def tidy(video_paths: list[str], what: str) -> int:
     total = 0
     with _WRITE_LOCK:
         for video in dict.fromkeys(video_paths):
+            _require_video(video)
             if not os.path.isfile(video):
                 raise SubtitleNotFound("That video file was not found.")
             targets = _tidy_targets(list_subtitle_files(video), what)
