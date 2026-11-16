@@ -43,6 +43,13 @@ describe("FileGridCard", () => {
     expect(screen.queryByText("hevc")).toBeNull();
   });
 
+  it("gives the select mark an accessible name from the file", () => {
+    const onToggle = vi.fn();
+    render(<FileGridCard file={file} selected={false} onToggle={onToggle} onPlay={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Select a.mkv" }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
   it("hides the preview button when not playable", () => {
     render(
       <FileGridCard

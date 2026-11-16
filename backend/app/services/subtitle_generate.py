@@ -1,10 +1,10 @@
 """Generate an English subtitle from a video's audio with Whisper, offline (RAS-125).
 
 A stopgap for a release that has no subtitle yet. The result is a machine-made
-`<name>.en.machine.srt` (see `machine_subs`), so the scan still wants a real subtitle and replaces
-this one when it appears. `generate_one` does one file (no DB, cancel-aware); `run_generate_job`
-is the queue job: progress, cancel with "N/M done before cancel", and an optional chain that
-translates the result into other installed languages.
+`<name>.en.generated.srt` (see `subtitle_names`), so the scan still wants a real subtitle and
+replaces this one when it appears. `generate_one` does one file (no DB, cancel-aware);
+`run_generate_job` is the queue job: progress, cancel with "N/M done before cancel", and an
+optional chain that translates the result into other installed languages.
 """
 
 import logging
@@ -18,9 +18,9 @@ from collections.abc import Callable
 from app.config import SCRATCH_DIR
 from app.database import DATA_DIR
 from app.services import (
-    machine_subs,
     speech,
     srt_io,
+    subtitle_names,
     subtitle_translate,
     translate_packs,
 )
@@ -47,15 +47,19 @@ def generate_one(
     on_progress: Callable[[float], None] | None = None,
     device: str = "cpu",
     device_index: int = 0,
+    keep_existing: bool = False,
 ) -> str:
-    """Write `<stem>.en.machine.srt` next to the video and return its path. The audio goes to a
+    """Write `<stem>.en.generated.srt` next to the video (`generated-2`, ... with `keep_existing`,
+    otherwise an earlier one is overwritten) and return its path. The audio goes to a
     temporary folder and the subtitle to a hidden temp name renamed on success, so a cancel or a
     failure leaves nothing behind."""
     if not translate_packs.is_installed(model):
         raise subtitle_translate.TranslateError(f"The {model['name']} model is not installed.")
     work_root = SCRATCH_DIR if os.path.isdir(SCRATCH_DIR) else DATA_DIR
     work = tempfile.mkdtemp(prefix="parallax-stt-", dir=work_root)
-    final = machine_subs.machine_sub_path(video_path, LANGUAGE)
+    final = subtitle_names.variant_path(
+        video_path, LANGUAGE, subtitle_names.GENERATED, keep=keep_existing
+    )
     tmp = os.path.join(
         os.path.dirname(final), f".generating-{os.getpid()}-{threading.get_ident()}.srt"
     )
@@ -129,6 +133,7 @@ def run_generate_job(job_id: int, items: list[dict]) -> None:
                     ctx.progress,
                     device=ctx.device,
                     device_index=ctx.device_index,
+                    keep_existing=bool(item.get("keep_existing")),
                 )
                 result["output"] = out
                 ctx.log(f"Generated {name} → {os.path.basename(out)}")

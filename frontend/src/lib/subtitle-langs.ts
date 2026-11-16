@@ -18,3 +18,8 @@ export const COMMON_LANGS = [
   { code: "sv", label: "Swedish" },
   { code: "tr", label: "Turkish" },
 ];
+
+/** The English name of a language code, else the code itself in upper case. */
+export function languageName(code: string): string {
+  return COMMON_LANGS.find((l) => l.code === code.toLowerCase())?.label ?? code.toUpperCase();
+}

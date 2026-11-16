@@ -3184,7 +3184,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchRequest"
+                "$ref": "#/components/schemas/app__api__identify__SearchRequest"
               }
             }
           },
@@ -3324,7 +3324,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PreviewRequest"
+                "$ref": "#/components/schemas/app__api__identify__PreviewRequest"
               }
             }
           },
@@ -4486,11 +4486,11 @@
         }
       }
     },
-    "/api/subtitles/scan": {
+    "/api/subtitles/groups": {
       "post": {
         "tags": ["subtitles"],
-        "summary": "Scan Path",
-        "operationId": "scan_path_api_subtitles_scan_post",
+        "summary": "Suggest title groups for the videos in a folder",
+        "operationId": "suggest_title_groups_api_subtitles_groups_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4523,16 +4523,16 @@
         }
       }
     },
-    "/api/subtitles/download": {
+    "/api/subtitles/identity/yts": {
       "post": {
         "tags": ["subtitles"],
-        "summary": "Download Subtitles",
-        "operationId": "download_subtitles_api_subtitles_download_post",
+        "summary": "Search films by title on the YTS subtitle site",
+        "operationId": "identity_yts_api_subtitles_identity_yts_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__api__subtitles__DownloadRequest"
+                "$ref": "#/components/schemas/YtsTitleRequest"
               }
             }
           },
@@ -4560,16 +4560,16 @@
         }
       }
     },
-    "/api/subtitles/search-file": {
+    "/api/subtitles/identity/parse": {
       "post": {
         "tags": ["subtitles"],
-        "summary": "Search File",
-        "operationId": "search_file_api_subtitles_search_file_post",
+        "summary": "Read a pasted IMDB id or subtitle-site link",
+        "operationId": "identity_parse_api_subtitles_identity_parse_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SearchFileRequest"
+                "$ref": "#/components/schemas/ParsePastedRequest"
               }
             }
           },
@@ -4597,80 +4597,21 @@
         }
       }
     },
-    "/api/subtitles/download-one": {
+    "/api/subtitles/scan": {
       "post": {
         "tags": ["subtitles"],
-        "summary": "Download One",
-        "operationId": "download_one_api_subtitles_download_one_post",
+        "summary": "Scan Path",
+        "operationId": "scan_path_api_subtitles_scan_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DownloadOneRequest"
+                "$ref": "#/components/schemas/ScanRequest"
               }
             }
           },
           "required": true
         },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/subtitles/file": {
-      "delete": {
-        "tags": ["subtitles"],
-        "summary": "Delete Subtitle File",
-        "operationId": "delete_subtitle_file_api_subtitles_file_delete",
-        "parameters": [
-          {
-            "name": "file_path",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "File Path"
-            }
-          },
-          {
-            "name": "language",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Language"
-            }
-          },
-          {
-            "name": "machine",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Delete the machine-made subtitle instead",
-              "default": false,
-              "title": "Machine"
-            },
-            "description": "Delete the machine-made subtitle instead"
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4738,7 +4679,7 @@
       "post": {
         "tags": ["subtitles"],
         "summary": "Translate English subtitles offline",
-        "description": "Queue a job that translates a video's English subtitle into `language` with an installed\nlanguage pack. `source` is the subtitle file to translate, one of the video's English files\nfrom `GET /subtitles/translate-sources` (one video only); without it a real English file is\nused. The result is a machine-made `<name>.<lang>.machine.srt` next to the video; the real\nsubtitle for that language is never replaced.",
+        "description": "Queue a job that translates a video's English subtitle into `language` with an installed\nlanguage pack. `source` is the subtitle file to translate, one of the video's English files\nfrom `GET /subtitles/translate-sources` (one video only); without it the video's main English\nfile is used (`<name>.en.srt`, else the first real one, else a generated one). Any installed\nlanguage works, even one the video already has a real subtitle in. The result is a\nmachine-made `<name>.<lang>.translated.srt` next to the video (`translated-2`, ... with\n`keep_existing`); a real subtitle is never replaced.",
         "operationId": "translate_subtitles_api_subtitles_translate_post",
         "requestBody": {
           "content": {
@@ -4776,7 +4717,7 @@
       "post": {
         "tags": ["subtitles"],
         "summary": "Generate an English subtitle from the audio",
-        "description": "Queue a job that transcribes each video's English speech with an installed Whisper model:\n`model` (`small` or `medium`) when given, else the one chosen in Settings \u2192 Subtitles. The\nresult is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real\nsubtitle exists. Translating it is a separate request (`POST /subtitles/translate`).",
+        "description": "Queue a job that transcribes each video's English speech with an installed Whisper model:\n`model` (`small` or `medium`) when given, else the one chosen in Settings \u2192 Subtitles. The\nresult is a machine-made `<name>.en.generated.srt` next to the video (`generated-2`, ... with\n`keep_existing`), also when a real English subtitle exists; a real subtitle is never replaced.\nTranslating it is a separate request (`POST /subtitles/translate`).",
         "operationId": "generate_subtitles_api_subtitles_generate_post",
         "requestBody": {
           "content": {
@@ -4847,16 +4788,54 @@
         }
       }
     },
-    "/api/subtitles/sync-bulk": {
+    "/api/subtitles/restore-original": {
       "post": {
         "tags": ["subtitles"],
-        "summary": "Sync Bulk",
-        "operationId": "sync_bulk_api_subtitles_sync_bulk_post",
+        "summary": "Put a subtitle's pre-sync backup back",
+        "operationId": "restore_original_api_subtitles_restore_original_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SyncBulkRequest"
+                "$ref": "#/components/schemas/RestoreOriginalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/sync-files": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Sync the subtitles of several videos in one job",
+        "description": "Every subtitle of each video (not `.original` backups) is re-timed to its audio, one\nvideo after another, in one job. `path` is the folder the work was started from, so the\nSubtitles page can show the job for it. The engine defaults to the Settings engine.",
+        "operationId": "sync_files_api_subtitles_sync_files_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncFilesRequest"
               }
             }
           },
@@ -4985,6 +4964,623 @@
             "description": "Absolute path to video file"
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/check-lengths": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Compare each video's subtitle files with the video's runtime",
+        "operationId": "check_lengths_api_subtitles_check_lengths_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckLengthsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/unmatched": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "List subtitle files in a folder that match no video",
+        "operationId": "unmatched_api_subtitles_unmatched_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnmatchedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/unmatched/rename": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Rename a subtitle found beside no video",
+        "description": "`root` is the folder the page scanned; the file must be in a fresh listing of its\nunmatched subtitles. Same folder, extension kept, nothing overwritten.",
+        "operationId": "unmatched_rename_api_subtitles_unmatched_rename_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnmatchedRenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/unmatched/delete": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Delete subtitles found beside no video",
+        "operationId": "unmatched_delete_api_subtitles_unmatched_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnmatchedDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/files": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "List every subtitle file of a video",
+        "operationId": "files_api_subtitles_files_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/rename": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Rename a subtitle file in its folder",
+        "operationId": "rename_api_subtitles_rename_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/make-main": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Swap a labelled subtitle with the plain main file",
+        "operationId": "make_main_api_subtitles_make_main_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MakeMainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/delete": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Delete subtitle files of a video",
+        "operationId": "delete_api_subtitles_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/tidy": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Delete one family of subtitle files across videos",
+        "operationId": "tidy_api_subtitles_tidy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TidyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/search": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Search the chosen sources for one video's subtitles",
+        "description": "Read-only: asks each source in `providers` for candidates in `languages` and returns them\nbest first. A source that failed or does not apply to the title (YTS is films only) is an\nentry in `errors` naming it and why; the other sources' candidates are still returned.\nResults are cached for ten minutes.",
+        "operationId": "search_subtitles_api_subtitles_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__subtitle_run__SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/run": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Download the approved subtitles in a background job",
+        "description": "Queues one job for the approved items. Each is downloaded and saved beside its video:\nas the plain `<name>.<lang>.srt` (replacing one, and removing that language's generated and\ntranslated files), or with `keep_existing` beside the existing one, labelled with its\nsource. `sync_after` (or an item's own `sync`) syncs the saved file afterwards with `engine`\n(default: the Settings engine). Per-item results are stored on the job as it runs.",
+        "operationId": "run_subtitles_api_subtitles_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/active": {
+      "get": {
+        "tags": ["subtitles"],
+        "summary": "List running and waiting subtitle work by folder",
+        "description": "Every pending or running subtitle job (download, sync, translate, speech-to-text),\ngrouped by the folder it was started from. `queue_position` is the job's place among all\nwaiting jobs, only while every job slot is busy; otherwise null.",
+        "operationId": "active_work_api_subtitles_active_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/preview": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Download a subtitle candidate temporarily and describe it",
+        "description": "Fetches the candidate into a temporary location (never beside the video) and returns its\ncue statistics, a sample of lines and a length hint against the video's runtime.",
+        "operationId": "preview_candidate_api_subtitles_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__api__subtitle_run__PreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/existing-preview": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Describe a subtitle the video already has, as a temporary preview",
+        "description": "Same answer as the candidate preview, for one of the video's own subtitle files (a\n`.original` backup included). Served through the same temporary `.vtt` route; nothing is\nwritten beside the video.",
+        "operationId": "preview_existing_api_subtitles_existing_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExistingPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/unmatched/preview": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Describe a subtitle found beside no video, as a temporary preview",
+        "description": "For a stray subtitle of the folder `root` (checked against a fresh listing on the\nserver). `video_path`, when it is an existing video, only supplies the length hint.",
+        "operationId": "preview_unmatched_api_subtitles_unmatched_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnmatchedPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/preview/{preview_id}.vtt": {
+      "get": {
+        "tags": ["subtitles"],
+        "summary": "Serve a temporary preview as WebVTT",
+        "operationId": "get_preview_api_subtitles_preview__preview_id__vtt_get",
+        "parameters": [
+          {
+            "name": "preview_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Preview Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/release-tokens": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Compare a release name with a video's file name",
+        "operationId": "release_tokens_api_subtitles_release_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseTokensRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5585,7 +6181,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__api__downloads__DownloadRequest"
+                "$ref": "#/components/schemas/DownloadRequest"
               }
             }
           },
@@ -7695,6 +8291,20 @@
         "required": ["ids"],
         "title": "BulkQuarantineRequest"
       },
+      "CheckLengthsRequest": {
+        "properties": {
+          "video_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Video Paths"
+          }
+        },
+        "type": "object",
+        "required": ["video_paths"],
+        "title": "CheckLengthsRequest"
+      },
       "CheckResult": {
         "properties": {
           "ok": {
@@ -7820,6 +8430,25 @@
         "required": ["file_ids"],
         "title": "DeleteDuplicatesRequest"
       },
+      "DeleteRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "subtitle_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Subtitle Paths"
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "subtitle_paths"],
+        "title": "DeleteRequest"
+      },
       "DetectedGpu": {
         "properties": {
           "vendor": {
@@ -7835,28 +8464,118 @@
         "required": ["vendor", "label"],
         "title": "DetectedGpu"
       },
-      "DownloadOneRequest": {
+      "DownloadRequest": {
         "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Urls"
           },
-          "provider": {
-            "type": "string",
-            "title": "Provider"
+          "output_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Dir"
           },
-          "subtitle_id": {
-            "type": "string",
-            "title": "Subtitle Id"
+          "audio_only": {
+            "type": "boolean",
+            "title": "Audio Only",
+            "default": false
           },
-          "language": {
+          "quality": {
             "type": "string",
-            "title": "Language"
+            "title": "Quality",
+            "default": "best"
+          },
+          "codec": {
+            "type": "string",
+            "title": "Codec",
+            "default": "auto"
+          },
+          "trim_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trim Start"
+          },
+          "trim_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trim End"
+          },
+          "download_subs": {
+            "type": "boolean",
+            "title": "Download Subs",
+            "default": false
+          },
+          "sub_langs": {
+            "type": "string",
+            "title": "Sub Langs",
+            "default": "en"
+          },
+          "extra_args": {
+            "type": "string",
+            "title": "Extra Args",
+            "default": ""
+          },
+          "impersonate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impersonate"
+          },
+          "concurrent_fragments": {
+            "type": "integer",
+            "title": "Concurrent Fragments",
+            "default": 4
+          },
+          "referer": {
+            "type": "string",
+            "title": "Referer",
+            "default": ""
+          },
+          "throttled_rate": {
+            "type": "string",
+            "title": "Throttled Rate",
+            "default": ""
+          },
+          "cookies": {
+            "type": "string",
+            "title": "Cookies",
+            "default": ""
+          },
+          "group_by_uploader": {
+            "type": "boolean",
+            "title": "Group By Uploader",
+            "default": false
           }
         },
         "type": "object",
-        "required": ["file_path", "provider", "subtitle_id", "language"],
-        "title": "DownloadOneRequest"
+        "required": ["urls"],
+        "title": "DownloadRequest"
       },
       "DuplicateCriteriaRequest": {
         "properties": {
@@ -8002,6 +8721,21 @@
         "type": "object",
         "required": ["episode_number", "name", "overview"],
         "title": "Episode"
+      },
+      "ExistingPreviewRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "subtitle_path"],
+        "title": "ExistingPreviewRequest"
       },
       "FileMapping": {
         "properties": {
@@ -8584,6 +9318,22 @@
               }
             ],
             "title": "Model"
+          },
+          "keep_existing": {
+            "type": "boolean",
+            "title": "Keep Existing",
+            "default": false
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           }
         },
         "type": "object",
@@ -8619,6 +9369,72 @@
         "type": "object",
         "required": ["gpus", "nvidia"],
         "title": "HardwareInfo"
+      },
+      "IdentityModel": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2200.0,
+                "minimum": 1870.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["movie", "tv"],
+            "title": "Type"
+          },
+          "imdb_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^tt\\d{6,10}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imdb Id"
+          },
+          "tmdb_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tmdb Id"
+          },
+          "subf2m_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subf2M Path"
+          }
+        },
+        "type": "object",
+        "required": ["title", "type"],
+        "title": "IdentityModel"
       },
       "ImageDetectionRead": {
         "properties": {
@@ -9116,6 +9932,21 @@
         "type": "object",
         "required": ["username", "password"],
         "title": "LoginRequest"
+      },
+      "MakeMainRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "subtitle_path"],
+        "title": "MakeMainRequest"
       },
       "ModelInfo": {
         "properties": {
@@ -10224,6 +11055,17 @@
         ],
         "title": "PackInfo"
       },
+      "ParsePastedRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": ["text"],
+        "title": "ParsePastedRequest"
+      },
       "PrepareRequest": {
         "properties": {
           "path": {
@@ -10234,71 +11076,6 @@
         "type": "object",
         "required": ["path"],
         "title": "PrepareRequest"
-      },
-      "PreviewRequest": {
-        "properties": {
-          "folder_path": {
-            "type": "string",
-            "title": "Folder Path"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["movie", "tv"],
-            "title": "Type"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Year"
-          },
-          "tmdb_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tmdb Id"
-          },
-          "mappings": {
-            "items": {
-              "$ref": "#/components/schemas/FileMapping"
-            },
-            "type": "array",
-            "title": "Mappings"
-          },
-          "target_dir": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Dir"
-          },
-          "write_nfo": {
-            "type": "boolean",
-            "title": "Write Nfo",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": ["folder_path", "type", "title", "mappings"],
-        "title": "PreviewRequest"
       },
       "PreviewResponse": {
         "properties": {
@@ -10347,6 +11124,23 @@
         "required": ["file_ops", "folder_ops"],
         "title": "PreviewResponse"
       },
+      "ReleaseTokensRequest": {
+        "properties": {
+          "release": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Release"
+          },
+          "video_name": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Video Name"
+          }
+        },
+        "type": "object",
+        "required": ["release", "video_name"],
+        "title": "ReleaseTokensRequest"
+      },
       "RenameOp": {
         "properties": {
           "old_path": {
@@ -10362,6 +11156,115 @@
         "required": ["old_path", "new_path"],
         "title": "RenameOp"
       },
+      "RenameRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          },
+          "new_name": {
+            "type": "string",
+            "title": "New Name"
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "subtitle_path", "new_name"],
+        "title": "RenameRequest"
+      },
+      "RestoreOriginalRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "subtitle_path"],
+        "title": "RestoreOriginalRequest"
+      },
+      "RunItem": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$",
+            "title": "Language"
+          },
+          "provider": {
+            "type": "string",
+            "pattern": "^[a-z0-9]{1,32}$",
+            "title": "Provider"
+          },
+          "subtitle_id": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Subtitle Id"
+          },
+          "sync": {
+            "type": "boolean",
+            "title": "Sync",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "language", "provider", "subtitle_id"],
+        "title": "RunItem"
+      },
+      "RunRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 4096,
+            "title": "Path"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunItem"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Items"
+          },
+          "keep_existing": {
+            "type": "boolean",
+            "title": "Keep Existing",
+            "default": false
+          },
+          "sync_after": {
+            "type": "boolean",
+            "title": "Sync After",
+            "default": false
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["alass", "ffsubsync"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          }
+        },
+        "type": "object",
+        "required": ["path", "items"],
+        "title": "RunRequest"
+      },
       "ScanRequest": {
         "properties": {
           "path": {
@@ -10372,107 +11275,6 @@
         "type": "object",
         "required": ["path"],
         "title": "ScanRequest"
-      },
-      "SearchFileRequest": {
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
-          },
-          "languages": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Languages"
-          },
-          "query": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Query"
-          },
-          "year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Year"
-          },
-          "media_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media Type"
-          },
-          "season": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Season"
-          },
-          "episode": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Episode"
-          },
-          "provider": {
-            "type": "string",
-            "title": "Provider",
-            "default": "subf2m"
-          }
-        },
-        "type": "object",
-        "required": ["file_path"],
-        "title": "SearchFileRequest"
-      },
-      "SearchRequest": {
-        "properties": {
-          "query": {
-            "type": "string",
-            "title": "Query"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["movie", "tv"],
-            "title": "Type"
-          }
-        },
-        "type": "object",
-        "required": ["query", "type"],
-        "title": "SearchRequest"
       },
       "SearchResult": {
         "properties": {
@@ -10572,10 +11374,6 @@
             "type": "string",
             "title": "Subtitle Sync Engine"
           },
-          "subtitle_auto_sync": {
-            "type": "boolean",
-            "title": "Subtitle Auto Sync"
-          },
           "subtitle_translate_drop_hi": {
             "type": "boolean",
             "title": "Subtitle Translate Drop Hi"
@@ -10639,7 +11437,6 @@
           "scan_prefetch",
           "subtitle_languages",
           "subtitle_sync_engine",
-          "subtitle_auto_sync",
           "subtitle_translate_drop_hi",
           "gpu_accel_enabled",
           "gpu_accel_count",
@@ -10778,17 +11575,6 @@
               }
             ],
             "title": "Subtitle Sync Engine"
-          },
-          "subtitle_auto_sync": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subtitle Auto Sync"
           },
           "subtitle_translate_drop_hi": {
             "anyOf": [
@@ -11088,17 +11874,6 @@
         ],
         "title": "StatsSummary"
       },
-      "SyncBulkRequest": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path"
-          }
-        },
-        "type": "object",
-        "required": ["path"],
-        "title": "SyncBulkRequest"
-      },
       "SyncFileRequest": {
         "properties": {
           "file_path": {
@@ -11115,11 +11890,102 @@
               }
             ],
             "title": "Language"
+          },
+          "subtitle_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle Path"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["alass", "ffsubsync"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           }
         },
         "type": "object",
         "required": ["file_path"],
         "title": "SyncFileRequest"
+      },
+      "SyncFilesRequest": {
+        "properties": {
+          "video_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Video Paths"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["alass", "ffsubsync"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          }
+        },
+        "type": "object",
+        "required": ["video_paths"],
+        "title": "SyncFilesRequest"
+      },
+      "TidyRequest": {
+        "properties": {
+          "video_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "title": "Video Paths"
+          },
+          "what": {
+            "type": "string",
+            "title": "What"
+          }
+        },
+        "type": "object",
+        "required": ["video_paths", "what"],
+        "title": "TidyRequest"
       },
       "TimeseriesPoint": {
         "properties": {
@@ -11239,11 +12105,102 @@
               }
             ],
             "title": "Source"
+          },
+          "keep_existing": {
+            "type": "boolean",
+            "title": "Keep Existing",
+            "default": false
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           }
         },
         "type": "object",
         "required": ["file_paths", "language"],
         "title": "TranslateRequest"
+      },
+      "UnmatchedDeleteRequest": {
+        "properties": {
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "subtitle_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Subtitle Paths"
+          }
+        },
+        "type": "object",
+        "required": ["root", "subtitle_paths"],
+        "title": "UnmatchedDeleteRequest"
+      },
+      "UnmatchedPreviewRequest": {
+        "properties": {
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          },
+          "video_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Path"
+          }
+        },
+        "type": "object",
+        "required": ["root", "subtitle_path"],
+        "title": "UnmatchedPreviewRequest"
+      },
+      "UnmatchedRenameRequest": {
+        "properties": {
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "subtitle_path": {
+            "type": "string",
+            "title": "Subtitle Path"
+          },
+          "new_name": {
+            "type": "string",
+            "title": "New Name"
+          }
+        },
+        "type": "object",
+        "required": ["root", "subtitle_path", "new_name"],
+        "title": "UnmatchedRenameRequest"
+      },
+      "UnmatchedRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": ["path"],
+        "title": "UnmatchedRequest"
       },
       "UpscaleSkipped": {
         "properties": {
@@ -11428,143 +12385,203 @@
         "required": ["loc", "msg", "type"],
         "title": "ValidationError"
       },
-      "app__api__downloads__DownloadRequest": {
+      "VideoRequest": {
         "properties": {
-          "urls": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          }
+        },
+        "type": "object",
+        "required": ["video_path"],
+        "title": "VideoRequest"
+      },
+      "YtsTitleRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          }
+        },
+        "type": "object",
+        "required": ["query"],
+        "title": "YtsTitleRequest"
+      },
+      "app__api__identify__PreviewRequest": {
+        "properties": {
+          "folder_path": {
+            "type": "string",
+            "title": "Folder Path"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["movie", "tv"],
+            "title": "Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "tmdb_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tmdb Id"
+          },
+          "mappings": {
+            "items": {
+              "$ref": "#/components/schemas/FileMapping"
+            },
+            "type": "array",
+            "title": "Mappings"
+          },
+          "target_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Dir"
+          },
+          "write_nfo": {
+            "type": "boolean",
+            "title": "Write Nfo",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": ["folder_path", "type", "title", "mappings"],
+        "title": "PreviewRequest"
+      },
+      "app__api__identify__SearchRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["movie", "tv"],
+            "title": "Type"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "type": "object",
+        "required": ["query", "type"],
+        "title": "SearchRequest"
+      },
+      "app__api__subtitle_run__PreviewRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Provider"
+          },
+          "subtitle_id": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Subtitle Id"
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 16,
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": ["video_path", "provider", "subtitle_id", "language"],
+        "title": "PreviewRequest"
+      },
+      "app__api__subtitle_run__SearchRequest": {
+        "properties": {
+          "video_path": {
+            "type": "string",
+            "title": "Video Path"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/IdentityModel"
+          },
+          "languages": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Urls"
-          },
-          "output_dir": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Dir"
-          },
-          "audio_only": {
-            "type": "boolean",
-            "title": "Audio Only",
-            "default": false
-          },
-          "quality": {
-            "type": "string",
-            "title": "Quality",
-            "default": "best"
-          },
-          "codec": {
-            "type": "string",
-            "title": "Codec",
-            "default": "auto"
-          },
-          "trim_start": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trim Start"
-          },
-          "trim_end": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trim End"
-          },
-          "download_subs": {
-            "type": "boolean",
-            "title": "Download Subs",
-            "default": false
-          },
-          "sub_langs": {
-            "type": "string",
-            "title": "Sub Langs",
-            "default": "en"
-          },
-          "extra_args": {
-            "type": "string",
-            "title": "Extra Args",
-            "default": ""
-          },
-          "impersonate": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Impersonate"
-          },
-          "concurrent_fragments": {
-            "type": "integer",
-            "title": "Concurrent Fragments",
-            "default": 4
-          },
-          "referer": {
-            "type": "string",
-            "title": "Referer",
-            "default": ""
-          },
-          "throttled_rate": {
-            "type": "string",
-            "title": "Throttled Rate",
-            "default": ""
-          },
-          "cookies": {
-            "type": "string",
-            "title": "Cookies",
-            "default": ""
-          },
-          "group_by_uploader": {
-            "type": "boolean",
-            "title": "Group By Uploader",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": ["urls"],
-        "title": "DownloadRequest"
-      },
-      "app__api__subtitles__DownloadRequest": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "languages": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "maxItems": 20,
+            "minItems": 1,
             "title": "Languages"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Providers"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
           }
         },
         "type": "object",
-        "required": ["path"],
-        "title": "DownloadRequest"
+        "required": ["video_path", "identity", "languages", "providers"],
+        "title": "SearchRequest"
       }
     },
     "securitySchemes": {

@@ -6,13 +6,17 @@ import requests
 TMDB_BASE = "https://api.themoviedb.org/3"
 
 
-def search(query: str, media_type: Literal["movie", "tv"], api_key: str) -> list[dict]:
+def search(
+    query: str,
+    media_type: Literal["movie", "tv"],
+    api_key: str,
+    year: int | None = None,
+) -> list[dict]:
     endpoint = "movie" if media_type == "movie" else "tv"
-    r = requests.get(
-        f"{TMDB_BASE}/search/{endpoint}",
-        params={"query": query, "api_key": api_key, "language": "en-US", "page": 1},
-        timeout=10,
-    )
+    params: dict = {"query": query, "api_key": api_key, "language": "en-US", "page": 1}
+    if year is not None:
+        params["year" if media_type == "movie" else "first_air_date_year"] = year
+    r = requests.get(f"{TMDB_BASE}/search/{endpoint}", params=params, timeout=10)
     r.raise_for_status()
     out = []
     for item in r.json().get("results", [])[:10]:

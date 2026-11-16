@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { streamApi } from "@/lib/api";
-import { BASE, notifyUnauthorized } from "@/lib/api/client";
+import { notifyUnauthorized } from "@/lib/api/client";
+import { useVideoSource } from "@/hooks/useVideoSource";
 import type { StreamPrepareStatus } from "@/types/stream";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { formatSize, formatDuration, formatBitrate } from "@/lib/format";
@@ -47,13 +48,19 @@ export function VideoPlayerModal({
   // browser can't decode natively — video plays, audio is silent. The backend
   // converts those to a live HLS stream (video copied, audio to AAC) that is
   // playable within seconds; this checks/starts it before the player opens.
-  const [prepStatus, setPrepStatus] = useState<"checking" | "ready" | "running" | "error">(
-    "checking",
-  );
-  const [hlsUrl, setHlsUrl] = useState<string | null>(null);
-  const [prepProgress, setPrepProgress] = useState(0);
-  const [prepError, setPrepError] = useState<string | null>(null);
-  const prepPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Audio files never get a converted stream; they play as-is (`skip`).
+  const {
+    status: prepStatus,
+    hlsUrl,
+    progress: prepProgress,
+    error: prepError,
+  } = useVideoSource({
+    path: file.path,
+    streamUrl,
+    prepareFn,
+    statusFn,
+    skip: !!isAudio,
+  });
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -62,78 +69,6 @@ export function VideoPlayerModal({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const stopPrepPoll = () => {
-      if (prepPollRef.current) {
-        clearInterval(prepPollRef.current);
-        prepPollRef.current = null;
-      }
-    };
-
-    // Initialize prep state at effect start
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPrepStatus("checking");
-    setPrepProgress(0);
-    setPrepError(null);
-    setHlsUrl(null);
-
-    // Audio files never get a converted stream; play them as-is.
-    if (isAudio) {
-      setPrepStatus("ready");
-      return;
-    }
-
-    const play = (s: StreamPrepareStatus) => {
-      setHlsUrl(s.mode === "hls" && s.url ? `${window.location.origin}${BASE}${s.url}` : null);
-      setPrepStatus("ready");
-    };
-
-    prepareFn(file.path)
-      .then((s) => {
-        if (cancelled) return;
-        if (s.status === "ready") {
-          play(s);
-          return;
-        }
-        if (s.status === "error") {
-          setPrepStatus("error");
-          setPrepError(s.error);
-          return;
-        }
-
-        setPrepStatus("running");
-        setPrepProgress(s.progress);
-        prepPollRef.current = setInterval(async () => {
-          try {
-            const poll = await statusFn(file.path);
-            if (cancelled) return;
-            setPrepProgress(poll.progress);
-            if (poll.status === "ready") {
-              stopPrepPoll();
-              play(poll);
-            } else if (poll.status === "error") {
-              stopPrepPoll();
-              setPrepStatus("error");
-              setPrepError(poll.error);
-            }
-          } catch {
-            /* keep polling — a transient fetch failure isn't fatal */
-          }
-        }, 1500);
-      })
-      .catch(() => {
-        if (!cancelled) setPrepStatus("ready");
-      }); // fail open — don't block playback on a broken check
-
-    return () => {
-      cancelled = true;
-      stopPrepPoll();
-    };
-    // The prepare/status fns are stable (module-level) for every caller.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file.path, isAudio]);
 
   // Fetch subtitle tracks before mounting the player so its <track> children
   // are in the DOM from the first render.

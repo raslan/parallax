@@ -67,7 +67,36 @@ def wait_healthy() -> None:
     sys.exit(f"{URL} never became healthy — is the demo container up?")
 
 
+# Small hand-made subtitle files so the Subtitles shots show every state (real, generated,
+# translated, .original backup). Written into library/ (never pristine/); skipped if present.
+SUBTITLE_FIXTURES = [
+    "Movies/Big Buck Bunny (2008).en.srt",
+    "Movies/Big Buck Bunny (2008).ar.srt",
+    "Movies/Tears of Steel (2012).en.srt",
+    "Movies/Tears of Steel (2012).fr.generated.srt",
+    "Movies/Sintel (2010).ar.translated.srt",
+    "Movies/Sintel (2010).en.original.srt",
+    "Movies/Elephants Dream (2006).en.srt",
+]
+SRT_BODY = (
+    "1\n00:00:01,000 --> 00:00:04,000\nHello there.\n\n"
+    "2\n00:00:05,000 --> 00:00:08,000\nThis is a demo subtitle.\n"
+)
+
+
+def seed_subtitle_files() -> None:
+    root = HERE / "library" / "videos"
+    if not root.exists():
+        return
+    for rel in SUBTITLE_FIXTURES:
+        path = root / rel
+        if path.parent.exists() and not path.exists():
+            path.write_text(SRT_BODY, encoding="utf-8")
+    print("subtitle fixtures written")
+
+
 def main() -> None:
+    seed_subtitle_files()
     key = read_key()
     wait_healthy()
     # nudenet 640m: the model copied into docs/demo/data/models (default is 320n).

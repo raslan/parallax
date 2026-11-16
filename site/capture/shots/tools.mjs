@@ -68,15 +68,16 @@ export default [
     id: "tools/subtitles/scan",
     kind: "still",
     route: "/subtitles",
-    alt: "The Subtitles page after scanning a folder: language buttons, a count of files with and without subtitles, buttons to sync or download the missing ones, and each video with a badge for every language.",
-    waitFor: [/Download and match subtitle files/],
+    alt: "The Subtitles page with a folder open: the Folder, Wanted and Sources rows, a summary of titles and files, and a card for each title with a coverage bar per wanted language.",
+    waitFor: [/Subtitles/],
     setup: async (page) => {
-      await page.getByPlaceholder("/media/shows/Breaking Bad").fill("/media/videos");
+      await page.getByPlaceholder("/media/Shows").fill("/media/videos");
       await page.keyboard.press("Enter");
       await page
-        .getByText(/have subtitles/)
+        .getByText(/Generated · translated/)
         .first()
         .waitFor({ timeout: 30000 });
+      await page.waitForTimeout(1500);
     },
     crop: { rect: { x: 240, y: 80, width: 1184, height: 640 } },
   },

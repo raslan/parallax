@@ -111,12 +111,27 @@ export const qk = {
   splicePreflight: (ids: number[], referenceId: number | null, name: string, codec: string) =>
     ["splice", "preflight", ids.join(","), referenceId, name, codec] as const,
 
-  subtitleScan: (libraryId: number, params?: unknown) =>
-    params === undefined
-      ? (["subtitles", "scan", libraryId] as const)
-      : (["subtitles", "scan", libraryId, params] as const),
+  /** A folder's videos with the subtitle files each has on disk. */
+  subtitleScan: (path: string) => ["subtitles", "scan", path] as const,
   subtitleTracks: (path: string) => ["subtitles", "tracks", path] as const,
   translateSources: (path: string) => ["subtitles", "translate-sources", path] as const,
+  subtitleGroups: (path: string) => ["subtitles", "groups", path] as const,
+  subtitleFiles: (videoPath: string) => ["subtitles", "files", videoPath] as const,
+  subtitleActive: () => ["subtitles", "active"] as const,
+  /** A candidate's temporary preview, for one video. */
+  subtitlePreview: (video: string, provider: string, subtitleId: string, language: string) =>
+    ["subtitles", "preview", video, provider, subtitleId, language] as const,
+  /** The temporary preview of a subtitle file the video already has. */
+  subtitleExistingPreview: (video: string, subtitle: string) =>
+    ["subtitles", "existing-preview", video, subtitle] as const,
+  /** The temporary preview of a subtitle found beside no video, in one folder. */
+  subtitleUnmatchedPreview: (root: string, subtitle: string, video: string) =>
+    ["subtitles", "unmatched-preview", root, subtitle, video] as const,
+  subtitleReleaseTokens: (release: string, videoName: string) =>
+    ["subtitles", "release-tokens", release, videoName] as const,
+  subtitleUnmatched: (path: string) => ["subtitles", "unmatched", path] as const,
+  /** Film cards from the YTS title search for one query. */
+  subtitleYts: (query: string) => ["subtitles", "yts", query] as const,
 
   identifyFiles: (libraryId: number) => ["identify", "files", libraryId] as const,
   identifyEpisodes: (tmdbId: number) => ["identify", "episodes", tmdbId] as const,

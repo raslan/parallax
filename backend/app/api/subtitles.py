@@ -1,157 +1,88 @@
 import json
 import os
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.job import Job, JobStatus, JobType
 from app.models.settings import get_setting
 from app.queue import enqueue
+from app.services.subtitle_files import _require_video
+from app.services.subtitle_providers import ProviderError
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
-
-_SUBTITLE_LANGUAGES_KEY = "subtitle_languages"
-_SUBTITLE_LANGUAGES_DEFAULT = "en"
-
-
-def _get_lang_codes(db: Session) -> list[str]:
-    raw = get_setting(db, _SUBTITLE_LANGUAGES_KEY, _SUBTITLE_LANGUAGES_DEFAULT)
-    return [c.strip() for c in raw.split(",") if c.strip()]
 
 
 class ScanRequest(BaseModel):
     path: str
 
 
-class DownloadRequest(BaseModel):
-    path: str
-    languages: list[str] | None = None
+class YtsTitleRequest(BaseModel):
+    query: str
 
 
-class SearchFileRequest(BaseModel):
-    file_path: str
-    languages: list[str] | None = None
-    query: str | None = None
-    year: int | None = None
-    media_type: str | None = None
-    season: int | None = None
-    episode: int | None = None
-    provider: str = "subf2m"
+class ParsePastedRequest(BaseModel):
+    text: str
 
 
-class DownloadOneRequest(BaseModel):
-    file_path: str
-    provider: str
-    subtitle_id: str
-    language: str
+@router.post("/groups", summary="Suggest title groups for the videos in a folder")
+def suggest_title_groups(body: ScanRequest):
+    if not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
+    from app.services import renamer, subtitle_identity
+
+    return subtitle_identity.suggest_groups(body.path, renamer.list_video_files(body.path))
+
+
+@router.post("/identity/yts", summary="Search films by title on the YTS subtitle site")
+def identity_yts(body: YtsTitleRequest):
+    from app.services.ytssubs_provider import YtsSubsProvider
+
+    provider = YtsSubsProvider()
+    try:
+        return provider.search_titles(body.query.strip())
+    except ProviderError as exc:
+        raise HTTPException(502, str(exc))
+    finally:
+        provider.close()
+
+
+@router.post("/identity/parse", summary="Read a pasted IMDB id or subtitle-site link")
+def identity_parse(body: ParsePastedRequest):
+    from app.services import subtitle_identity
+
+    try:
+        return subtitle_identity.parse_pasted(body.text)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
 
 
 @router.post("/scan")
-def scan_path(body: ScanRequest, db: Session = Depends(get_db)):
+def scan_path(body: ScanRequest):
     if not os.path.isdir(body.path):
         raise HTTPException(400, "Path is not a directory")
     from app.services.subtitle_service import scan_directory
 
-    return scan_directory(body.path, _get_lang_codes(db))
-
-
-@router.post("/download")
-async def download_subtitles(body: DownloadRequest, db: Session = Depends(get_db)):
-    if not os.path.isdir(body.path):
-        raise HTTPException(400, "Path is not a directory")
-
-    lang_codes = body.languages or _get_lang_codes(db)
-
-    from app.services.subtitle_service import run_download_job
-
-    job = Job(
-        type=JobType.SUBTITLE_DOWNLOAD,
-        status=JobStatus.PENDING,
-        settings=json.dumps({"path": body.path, "languages": lang_codes}),
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
-    await enqueue(job.id, run_download_job, job.id, body.path, lang_codes)
-
-    return {"job_id": job.id}
-
-
-@router.post("/search-file")
-def search_file(body: SearchFileRequest, db: Session = Depends(get_db)):
-    if not os.path.isfile(body.file_path):
-        raise HTTPException(400, "File not found")
-    lang_codes = body.languages or _get_lang_codes(db)
-    from app.services.subtitle_service import search_file as svc_search
-
-    tmdb_api_key = get_setting(db, "tmdb_api_key", "").strip() or None
-    try:
-        return svc_search(
-            body.file_path,
-            lang_codes,
-            query=body.query,
-            year=body.year,
-            media_type=body.media_type,
-            season=body.season,
-            episode=body.episode,
-            provider=body.provider,
-            tmdb_api_key=tmdb_api_key,
-        )
-    except ValueError as exc:
-        raise HTTPException(422, str(exc))
-    except Exception as exc:
-        raise HTTPException(500, str(exc))
-
-
-@router.post("/download-one")
-async def download_one(body: DownloadOneRequest, db: Session = Depends(get_db)):
-    if not os.path.isfile(body.file_path):
-        raise HTTPException(400, "File not found")
-    from app.services.subtitle_service import download_one as svc_download
-
-    try:
-        ok = svc_download(body.file_path, body.provider, body.subtitle_id, body.language)
-        if not ok:
-            raise HTTPException(404, "Subtitle not found or download failed")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(500, str(exc))
-
-    if get_setting(db, "subtitle_auto_sync", "true") == "true":
-        from app.services.subtitle_sync import sync_subtitle
-
-        base = os.path.splitext(body.file_path)[0]
-        sub_path = f"{base}.{body.language}.srt"
-        engine = get_setting(db, "subtitle_sync_engine", "alass")
-        await enqueue(None, sync_subtitle, body.file_path, sub_path, engine)
-
-    return {"ok": True}
-
-
-@router.delete("/file")
-def delete_subtitle_file(
-    file_path: str = Query(...),
-    language: str = Query(...),
-    machine: bool = Query(False, description="Delete the machine-made subtitle instead"),
-):
-    if not os.path.isfile(file_path):
-        raise HTTPException(400, "Video file not found")
-    from app.services.subtitle_service import delete_subtitle
-
-    if not delete_subtitle(file_path, language, machine=machine):
-        raise HTTPException(404, "Subtitle not found")
-    return {"ok": True}
+    return scan_directory(body.path)
 
 
 class SyncFileRequest(BaseModel):
     file_path: str
     language: str | None = None
+    subtitle_path: str | None = None
+    engine: Literal["alass", "ffsubsync"] | None = None
+    #: The folder the work was started from, so the Subtitles page shows the job for it.
+    path: str | None = None
+
+
+class RestoreOriginalRequest(BaseModel):
+    video_path: str
+    subtitle_path: str
 
 
 def _refuse_while_nvidia_installs(db: Session) -> None:
@@ -172,6 +103,8 @@ class TranslateRequest(BaseModel):
     file_paths: list[str]
     language: str
     source: str | None = None
+    keep_existing: bool = False
+    path: str | None = None
 
 
 @router.get("/translate-sources", summary="List the English subtitles that can be translated")
@@ -189,15 +122,19 @@ async def translate_sources(path: str = Query(..., description="Absolute path to
 async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_db)):
     """Queue a job that translates a video's English subtitle into `language` with an installed
     language pack. `source` is the subtitle file to translate, one of the video's English files
-    from `GET /subtitles/translate-sources` (one video only); without it a real English file is
-    used. The result is a machine-made `<name>.<lang>.machine.srt` next to the video; the real
-    subtitle for that language is never replaced."""
-    from app.services import machine_subs, subtitle_translate, translate_packs
+    from `GET /subtitles/translate-sources` (one video only); without it the video's main English
+    file is used (`<name>.en.srt`, else the first real one, else a generated one). Any installed
+    language works, even one the video already has a real subtitle in. The result is a
+    machine-made `<name>.<lang>.translated.srt` next to the video (`translated-2`, ... with
+    `keep_existing`); a real subtitle is never replaced."""
+    from app.services import subtitle_translate, translate_packs
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
     if body.source is not None and len(set(body.file_paths)) != 1:
         raise HTTPException(422, "A source subtitle can only be chosen for one video")
+    for path in body.file_paths:
+        _require_video(path)  # the folder walks below must never start from a non-video path
     _refuse_while_nvidia_installs(db)
     pack = translate_packs.get_pack(body.language)
     if pack is None or pack.get("kind") == "speech":
@@ -211,14 +148,18 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
         if not os.path.isfile(path):
             raise HTTPException(400, f"File not found: {os.path.basename(path)}")
     # The folder walks can be slow on a network mount: keep them off the event loop.
-    problem = await run_in_threadpool(
-        subtitle_translate.first_problem, paths, body.language, pack["name"], body.source
-    )
+    problem = await run_in_threadpool(subtitle_translate.first_problem, paths, body.source)
     if problem:
         raise HTTPException(422, problem)
     drop_hi = get_setting(db, "subtitle_translate_drop_hi", "false") == "true"
     items = [
-        {"video_path": p, "lang": body.language, "drop_hi": drop_hi, "source": body.source}
+        {
+            "video_path": p,
+            "lang": body.language,
+            "drop_hi": drop_hi,
+            "source": body.source,
+            "keep_existing": body.keep_existing,
+        }
         for p in paths
     ]
 
@@ -226,7 +167,7 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
         type=JobType.SUBTITLE_TRANSLATE,
         status=JobStatus.PENDING,
         total_files=len(items),
-        settings=json.dumps({"items": items, "marker": machine_subs.MARKER}),
+        settings=json.dumps({"items": items, **({"path": body.path} if body.path else {})}),
     )
     db.add(job)
     db.commit()
@@ -238,19 +179,23 @@ async def translate_subtitles(body: TranslateRequest, db: Session = Depends(get_
 class GenerateRequest(BaseModel):
     file_paths: list[str]
     model: str | None = None
+    keep_existing: bool = False
+    path: str | None = None
 
 
 @router.post("/generate", summary="Generate an English subtitle from the audio")
 async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db)):
     """Queue a job that transcribes each video's English speech with an installed Whisper model:
     `model` (`small` or `medium`) when given, else the one chosen in Settings → Subtitles. The
-    result is a machine-made `<name>.en.machine.srt` next to the video, a stopgap until a real
-    subtitle exists. Translating it is a separate request (`POST /subtitles/translate`)."""
+    result is a machine-made `<name>.en.generated.srt` next to the video (`generated-2`, ... with
+    `keep_existing`), also when a real English subtitle exists; a real subtitle is never replaced.
+    Translating it is a separate request (`POST /subtitles/translate`)."""
     from app.services import subtitle_generate, translate_packs
-    from app.services.subtitle_service import _missing_lang_codes
 
     if not body.file_paths:
         raise HTTPException(422, "No files selected")
+    for path in body.file_paths:
+        _require_video(path)  # a transcript is written beside the file: only beside a video
     _refuse_while_nvidia_installs(db)
     model_id = (
         f"whisper-{body.model}"
@@ -269,25 +214,15 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
     for path in paths:
         if not os.path.isfile(path):
             raise HTTPException(400, f"File not found: {os.path.basename(path)}")
-    already = await run_in_threadpool(
-        lambda: next(
-            (
-                os.path.basename(p)
-                for p in paths
-                if subtitle_generate.LANGUAGE
-                not in _missing_lang_codes(p, [subtitle_generate.LANGUAGE])
-            ),
-            None,
-        )
-    )
-    if already:
-        raise HTTPException(422, f"{already} already has an English subtitle")
-    items = [{"video_path": p, "model": model["lang"]} for p in paths]
+    items = [
+        {"video_path": p, "model": model["lang"], "keep_existing": body.keep_existing}
+        for p in paths
+    ]
     job = Job(
         type=JobType.SUBTITLE_GENERATE,
         status=JobStatus.PENDING,
         total_files=len(items),
-        settings=json.dumps({"items": items}),
+        settings=json.dumps({"items": items, **({"path": body.path} if body.path else {})}),
     )
     db.add(job)
     db.commit()
@@ -298,48 +233,36 @@ async def generate_subtitles(body: GenerateRequest, db: Session = Depends(get_db
 
 @router.post("/sync-file")
 async def sync_file(body: SyncFileRequest, db: Session = Depends(get_db)):
+    _require_video(body.file_path)  # before any folder walk
     if not os.path.isfile(body.file_path):
         raise HTTPException(400, "File not found")
+    if body.path is not None and not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
+    from app.services.subtitle_files import _owned
     from app.services.subtitle_service import find_all_subtitle_tracks
 
-    tracks = find_all_subtitle_tracks(body.file_path)
-    if body.language:
-        tracks = [t for t in tracks if t["lang"] == body.language]
-    if not tracks:
-        raise HTTPException(422, "No subtitle files found to sync")
+    def find_targets() -> list[tuple[str, str]]:
+        if body.subtitle_path is not None:
+            # one named subtitle, which must be one of this video's own files (never a backup)
+            (entry,) = _owned(body.file_path, [body.subtitle_path])
+            if entry["kind"] == "original":
+                raise HTTPException(422, "A backup cannot be synced")
+            return [(body.file_path, entry["path"])]
+        tracks = find_all_subtitle_tracks(body.file_path)
+        if body.language:
+            tracks = [t for t in tracks if t["lang"] == body.language]
+        return [(body.file_path, t["path"]) for t in tracks]
 
-    engine = get_setting(db, "subtitle_sync_engine", "alass")
-    job = Job(type=JobType.SUBTITLE_SYNC, status=JobStatus.PENDING)
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
-    from app.services.subtitle_sync import run_sync_job
-
-    targets = [(body.file_path, t["path"]) for t in tracks]
-    await enqueue(job.id, run_sync_job, job.id, targets, engine)
-    return {"job_id": job.id}
-
-
-class SyncBulkRequest(BaseModel):
-    path: str
-
-
-@router.post("/sync-bulk")
-async def sync_bulk(body: SyncBulkRequest, db: Session = Depends(get_db)):
-    if not os.path.isdir(body.path):
-        raise HTTPException(400, "Path is not a directory")
-    from app.services.subtitle_sync import collect_sync_targets
-
-    targets = collect_sync_targets(body.path)
+    # the folder walk can be slow (network mount): keep it off the event loop
+    targets = await run_in_threadpool(find_targets)
     if not targets:
         raise HTTPException(422, "No subtitle files found to sync")
 
-    engine = get_setting(db, "subtitle_sync_engine", "alass")
+    engine = body.engine or get_setting(db, "subtitle_sync_engine", "alass")
     job = Job(
         type=JobType.SUBTITLE_SYNC,
         status=JobStatus.PENDING,
-        settings=json.dumps({"path": body.path}),
+        settings=json.dumps({"path": body.path or os.path.dirname(body.file_path)}),
     )
     db.add(job)
     db.commit()
@@ -348,6 +271,62 @@ async def sync_bulk(body: SyncBulkRequest, db: Session = Depends(get_db)):
     from app.services.subtitle_sync import run_sync_job
 
     await enqueue(job.id, run_sync_job, job.id, targets, engine)
+    return {"job_id": job.id}
+
+
+@router.post("/restore-original", summary="Put a subtitle's pre-sync backup back")
+def restore_original(body: RestoreOriginalRequest):
+    from app.services.subtitle_sync import restore_original as svc_restore
+
+    return {"ok": svc_restore(body.video_path, body.subtitle_path)}
+
+
+SYNC_FILES_MAX = 500
+
+
+class SyncFilesRequest(BaseModel):
+    video_paths: list[str] = Field(min_length=1)
+    path: str | None = None
+    engine: Literal["alass", "ffsubsync"] | None = None
+
+
+@router.post("/sync-files", summary="Sync the subtitles of several videos in one job")
+async def sync_files(body: SyncFilesRequest, db: Session = Depends(get_db)):
+    """Every subtitle of each video (not `.original` backups) is re-timed to its audio, one
+    video after another, in one job. `path` is the folder the work was started from, so the
+    Subtitles page can show the job for it. The engine defaults to the Settings engine."""
+    from app.services.subtitle_service import VIDEO_EXTENSIONS, find_all_subtitle_tracks
+
+    paths = list(dict.fromkeys(body.video_paths))
+    if len(paths) > SYNC_FILES_MAX:
+        raise HTTPException(400, f"At most {SYNC_FILES_MAX} videos per sync")
+    if body.path is not None and not os.path.isdir(body.path):
+        raise HTTPException(400, "Path is not a directory")
+    for p in paths:
+        if not os.path.isfile(p) or os.path.splitext(p)[1].lower() not in VIDEO_EXTENSIONS:
+            raise HTTPException(400, f"Not a video file: {os.path.basename(p)}")
+    dirs_cache: dict[str, list[str]] = {}  # one tree walk per distinct folder
+
+    def any_subtitle() -> bool:
+        return any(find_all_subtitle_tracks(p, dirs_cache) for p in paths)
+
+    # up to 500 folder walks: off the event loop, each distinct folder walked once
+    if not await run_in_threadpool(any_subtitle):
+        raise HTTPException(422, "No subtitle files found to sync")
+
+    engine = body.engine or get_setting(db, "subtitle_sync_engine", "alass")
+    job = Job(
+        type=JobType.SUBTITLE_SYNC,
+        status=JobStatus.PENDING,
+        settings=json.dumps({"path": body.path, "video_paths": paths, "engine": engine}),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.services.subtitle_sync import run_sync_files_job
+
+    await enqueue(job.id, run_sync_files_job, job.id, paths, engine)
     return {"job_id": job.id}
 
 

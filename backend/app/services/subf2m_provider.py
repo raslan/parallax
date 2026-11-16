@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import functools
+import html
 import io
 import logging
 import re
@@ -20,9 +21,33 @@ import requests
 from bs4 import BeautifulSoup
 from guessit import guessit
 
+from app.services.subtitle_providers import (
+    MAX_SUBTITLE_BYTES,
+    PROVIDERS,
+    Politeness,
+    ProviderError,
+    SearchQuery,
+    own_url,
+)
+
 logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://subf2m.co"
+_PAGE_PATH_RE = re.compile(r"^/subtitles/[\w.-]+$")
+
+
+def _pasted_page(path: str) -> str:
+    """A user-pasted page as a `/subtitles/<slug>` path on this site, else ProviderError."""
+    refusal = ProviderError("Not a Subf2m page")
+    try:
+        url = own_url(path, _BASE_URL)
+    except ProviderError:
+        raise refusal from None
+    page = url.removeprefix(_BASE_URL)
+    if not _PAGE_PATH_RE.match(page) or not page.removeprefix("/subtitles/").strip("."):
+        raise refusal
+    return page
+
 
 _SEASONS = (
     "First",
@@ -128,9 +153,13 @@ def _season_slug_path(title: str, season: int) -> str | None:
 
 
 class Subf2mProvider:
+    name = "subf2m"
+    media_types = frozenset({"movie", "tv"})
+
     def __init__(self) -> None:
         self._session = requests.Session()
         self._session.headers.update(_DEFAULT_HEADERS)
+        self._politeness = Politeness.for_provider(self.name)
 
     def close(self) -> None:
         self._session.close()
@@ -140,17 +169,33 @@ class Subf2mProvider:
     # ------------------------------------------------------------------
 
     def _get_text(self, url: str, retry: int = 3) -> str:
+        """The page text; "" when the page does not exist (404 after retries).
+
+        A refusal (403), an overloaded site (503 after retries), a timeout or any
+        other HTTP failure raises ProviderError with a user-facing message.
+        """
+        status = 0
         for attempt in range(retry):
-            resp = self._session.get(url, stream=True, timeout=20)
-            if resp.status_code == 403:
-                logger.debug("subf2m 403: %s", url)
-                return ""
-            if resp.status_code in (404, 503):
-                logger.debug("subf2m %d attempt %d: %s", resp.status_code, attempt + 1, url)
-                time.sleep(3)
-                continue
-            resp.raise_for_status()
-            return "\n".join(line for line in resp.iter_lines(decode_unicode=True) if line)
+            try:
+                with self._politeness.acquire():
+                    resp = self._session.get(url, stream=True, timeout=20)
+                    status = resp.status_code
+                    if status == 403:
+                        raise ProviderError("Subf2m refused the request (403)")
+                    if status in (404, 503):
+                        logger.debug("subf2m %d attempt %d: %s", status, attempt + 1, url)
+                    else:
+                        resp.raise_for_status()
+                        return "\n".join(
+                            line for line in resp.iter_lines(decode_unicode=True) if line
+                        )
+            except requests.Timeout as exc:
+                raise ProviderError("Subf2m did not answer in time") from exc
+            except requests.RequestException as exc:
+                raise ProviderError(f"Subf2m request failed: {exc}") from exc
+            time.sleep(3)
+        if status == 503:
+            raise ProviderError("Subf2m is overloaded (503), try again later")
         return ""
 
     # ------------------------------------------------------------------
@@ -207,7 +252,7 @@ class Subf2mProvider:
         results = []
         try:
             candidates = list(self._gen_results(title))
-        except requests.RequestException as exc:
+        except (requests.RequestException, ProviderError) as exc:
             # subf2m's search endpoint has been seen returning 500 for every query
             # while the show pages themselves still load fine.
             logger.warning("subf2m: title search failed (%s) — trying direct season URL", exc)
@@ -251,9 +296,16 @@ class Subf2mProvider:
         text = self._get_text(f"{_BASE_URL}{path}/{lang_path}")
         return BeautifulSoup(text, "html.parser")
 
+    @staticmethod
+    def _require_sublist(soup: BeautifulSoup) -> None:
+        """A fetched page ("" means no such page) must have the subtitle list."""
+        if soup.find() is not None and soup.select_one("ul.sublist") is None:
+            raise ProviderError("Subf2m page changed: nothing matched ul.sublist")
+
     def _find_movie_subtitles(self, path: str, lang_alpha2: str) -> list[dict]:
         soup = self._get_subtitle_page_soup(path, lang_alpha2)
         subs = []
+        self._require_sublist(soup)
         for item in soup.select("li.item"):
             sub = _subtitle_from_item(item, lang_alpha2)
             if sub:
@@ -265,6 +317,7 @@ class Subf2mProvider:
     ) -> list[dict]:
         soup = self._get_subtitle_page_soup(path, lang_alpha2)
         subs = []
+        self._require_sublist(soup)
         for item in soup.select("li.item"):
             clean_text = " ".join(item.text.split())
             if not clean_text:
@@ -288,18 +341,14 @@ class Subf2mProvider:
     # Public API
     # ------------------------------------------------------------------
 
-    def search(
-        self,
-        video_path: str,
-        lang_codes: list[str],
-        is_episode: bool,
-        title: str,
-        year: int | None,
-        season: int = 0,
-        episode: int = 0,
-    ) -> list[dict]:
-        """Return list of subtitle candidate dicts for subtitle_service."""
-        if is_episode:
+    def search(self, q: SearchQuery) -> list[dict]:
+        """Return list of subtitle candidate dicts."""
+        is_episode = q.identity.type == "tv"
+        title, year = q.identity.title, q.identity.year
+        season, episode = q.season or 1, q.episode or 1
+        if q.identity.subf2m_path:
+            paths = [_pasted_page(q.identity.subf2m_path)]
+        elif is_episode:
             paths = self._search_tv_show_season(title, season, year)
         else:
             paths = self._search_movie(title, year)
@@ -309,22 +358,32 @@ class Subf2mProvider:
             return []
 
         results: list[dict] = []
+        errors: list[ProviderError] = []
+        tried = 0
         for path in paths:
-            for lang in lang_codes:
+            for lang in q.languages:
                 if lang not in _LANG_TO_PATH:
                     continue
-                if is_episode:
-                    subs = self._find_episode_subtitles(path, season, episode, lang)
-                else:
-                    subs = self._find_movie_subtitles(path, lang)
+                tried += 1
+                try:
+                    if is_episode:
+                        subs = self._find_episode_subtitles(path, season, episode, lang)
+                    else:
+                        subs = self._find_movie_subtitles(path, lang)
+                except ProviderError as exc:
+                    errors.append(exc)
+                    continue
 
                 for sub in subs:
                     results.append(
                         {
                             "subtitle_id": sub["page_link"],
-                            "provider": "subf2m",
+                            "provider": self.name,
                             "language": lang,
-                            "release": sub["release_info"],
+                            # One row can list many release names (plus the uploader's comment):
+                            # the first is the name; the rest would read as one run-on blob.
+                            # The page double-escapes some names ("&amp;amp;"): unescape once more.
+                            "release": html.unescape(sub["release_info"].split("\n", 1)[0]),
                             "score": sub["score"],
                             "hearing_impaired": False,
                         }
@@ -333,10 +392,13 @@ class Subf2mProvider:
             if results:
                 break  # stop at first path that yields results
 
+        if errors and len(errors) == tried:
+            raise errors[0]  # every page failed: say why instead of "no results"
         return results
 
-    def download(self, page_link: str) -> bytes | None:
+    def download(self, subtitle_id: str) -> bytes | None:
         """Fetch subtitle page, find download link, return SRT/ASS bytes or None."""
+        page_link = own_url(subtitle_id, _BASE_URL)
         text = self._get_text(page_link)
         soup = BeautifulSoup(text, "html.parser")
         btn = soup.select_one("a[id='downloadButton']")
@@ -345,16 +407,28 @@ class Subf2mProvider:
             return None
 
         download_url = _BASE_URL + btn["href"]
-        resp = self._session.get(download_url, allow_redirects=True, timeout=30)
-        resp.raise_for_status()
+        try:
+            with self._politeness.acquire():
+                resp = self._session.get(download_url, allow_redirects=True, timeout=30)
+            resp.raise_for_status()
+        except requests.Timeout as exc:
+            raise ProviderError("Subf2m did not answer in time") from exc
+        except requests.RequestException as exc:
+            raise ProviderError(f"Subf2m download failed: {exc}") from exc
         return _extract_from_archive(resp.content)
 
+
+PROVIDERS["subf2m"] = Subf2mProvider
 
 # ------------------------------------------------------------------
 # Archive extraction
 # ------------------------------------------------------------------
 
 _SUBTITLE_EXTS = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
+
+
+def _too_large() -> ProviderError:
+    return ProviderError("The subtitle in the download is too large to be a subtitle file.")
 
 
 def _extract_from_archive(data: bytes) -> bytes | None:
@@ -370,7 +444,14 @@ def _extract_from_archive(data: bytes) -> bytes | None:
                     best = next(
                         (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
                     )
-                    return zf.read(best)
+                    if zf.getinfo(best).file_size > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    # declared sizes can lie: never read more than the cap + 1
+                    with zf.open(best) as member:
+                        body = member.read(MAX_SUBTITLE_BYTES + 1)
+                    if len(body) > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    return body
         except zipfile.BadZipFile:
             pass
 
@@ -385,7 +466,15 @@ def _extract_from_archive(data: bytes) -> bytes | None:
                     best = next(
                         (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
                     )
-                    return rf.read(best)
+                    if rf.getinfo(best).file_size > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    with rf.open(best) as member:
+                        body = member.read(MAX_SUBTITLE_BYTES + 1)
+                    if len(body) > MAX_SUBTITLE_BYTES:
+                        raise _too_large()
+                    return body
+        except ProviderError:
+            raise
         except Exception:
             pass
 

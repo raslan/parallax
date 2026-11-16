@@ -23,6 +23,7 @@ _thumb_cache: dict[str, bytes] = {}
 class SearchRequest(BaseModel):
     query: str
     type: Literal["movie", "tv"]
+    year: int | None = None
 
 
 class SearchResult(BaseModel):
@@ -190,7 +191,7 @@ def file_dates(path: str = Query(...)):
 def search(body: SearchRequest, db: Session = Depends(get_db)):
     key = _api_key(db)
     try:
-        return tmdb_service.search(body.query, body.type, key)
+        return tmdb_service.search(body.query, body.type, key, year=body.year)
     except Exception as e:
         raise HTTPException(502, f"TMDB error: {e}")
 

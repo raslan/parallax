@@ -19,7 +19,6 @@ export function SubtitlesTab() {
   const { form, isLoading, save } = useSettingsForm(subtitlesSchema, seedSubtitles, (v) => ({
     subtitle_languages: v.subtitleLangs.join(","),
     subtitle_sync_engine: v.subtitleSyncEngine,
-    subtitle_auto_sync: v.subtitleAutoSync,
     subtitle_translate_drop_hi: v.translateDropHi,
   }));
 
@@ -48,7 +47,10 @@ export function SubtitlesTab() {
             <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Default subtitle languages
+                  Languages the Subtitles page starts with
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  It only sets the chips you begin with.
                 </p>
                 <Controller
                   control={form.control}
@@ -110,24 +112,6 @@ export function SubtitlesTab() {
                   ))}
                 </div>
               </div>
-              <label className="flex items-start gap-3 cursor-pointer select-none group">
-                <Checkbox
-                  checked={form.watch("subtitleAutoSync")}
-                  onCheckedChange={(c) =>
-                    form.setValue("subtitleAutoSync", c === true, { shouldDirty: true })
-                  }
-                  className="mt-0.5"
-                />
-                <div>
-                  <p className="text-sm text-foreground group-hover:text-foreground/90 transition-colors">
-                    Auto-sync downloaded subtitles
-                  </p>
-                  <p className="text-xs text-muted-foreground/70">
-                    Runs automatically after a subtitle finishes downloading (bulk or single
-                    search).
-                  </p>
-                </div>
-              </label>
             </CardContent>
           </Card>
 
@@ -165,7 +149,7 @@ export function SubtitlesTab() {
             <p className="text-xs text-muted-foreground mt-0.5">
               Translate an English subtitle into another language without leaving your computer.
               Install a pack once, then use Translate on the Subtitles page. Nothing is sent
-              anywhere. The result is saved as a machine-made subtitle next to the video.
+              anywhere. The result is saved as a translated subtitle next to the video.
             </p>
           </div>
           {packsLoading ? (
