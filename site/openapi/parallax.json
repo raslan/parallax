@@ -9400,7 +9400,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 20
+                "pattern": "^tt\\d{6,10}$"
               },
               {
                 "type": "null"
