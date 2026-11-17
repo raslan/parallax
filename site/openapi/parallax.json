@@ -5358,6 +5358,44 @@
         }
       }
     },
+    "/api/subtitles/searches": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Search a whole folder for subtitles in a background job",
+        "description": "Queues the subtitle search job for a folder: every row (a video and a wanted language) is\nsearched in the chosen sources, one at a time, with a retry after a dead connection. With\n`check_lengths` the best candidate of each row is compared with the video's runtime. With\n`save` the sure matches (a confirmed title, the exact episode, a fitting length) are also\nsaved beside their videos; with it off, nothing is written. The results are kept on the job\nso the page can leave and come back. One search per folder at a time (409).",
+        "operationId": "start_search_api_subtitles_searches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subtitles/run": {
       "post": {
         "tags": ["subtitles"],
@@ -5400,7 +5438,7 @@
       "get": {
         "tags": ["subtitles"],
         "summary": "List running and waiting subtitle work by folder",
-        "description": "Every pending or running subtitle job (download, sync, translate, speech-to-text),\ngrouped by the folder it was started from. `queue_position` is the job's place among all\nwaiting jobs, only while every job slot is busy; otherwise null.",
+        "description": "Every pending or running subtitle job (search, download, sync, translate, speech-to-text),\ngrouped by the folder it was started from. `queue_position` is the job's place among all\nwaiting jobs, only while every job slot is busy; otherwise null.",
         "operationId": "active_work_api_subtitles_active_get",
         "responses": {
           "200": {
@@ -11291,6 +11329,34 @@
         "required": ["path", "items"],
         "title": "RunRequest"
       },
+      "SaveOptionsModel": {
+        "properties": {
+          "keep_existing": {
+            "type": "boolean",
+            "title": "Keep Existing",
+            "default": false
+          },
+          "sync_after": {
+            "type": "boolean",
+            "title": "Sync After",
+            "default": false
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["alass", "ffsubsync"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          }
+        },
+        "type": "object",
+        "title": "SaveOptionsModel"
+      },
       "ScanRequest": {
         "properties": {
           "path": {
@@ -11357,6 +11423,151 @@
         "type": "object",
         "required": ["tmdb_id", "title", "overview", "type"],
         "title": "SearchResult"
+      },
+      "SearchRowModel": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 4200,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "title_key": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title Key"
+          },
+          "video_path": {
+            "type": "string",
+            "maxLength": 4096,
+            "title": "Video Path"
+          },
+          "language": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$",
+            "title": "Language"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          }
+        },
+        "type": "object",
+        "required": ["key", "title_key", "video_path", "language"],
+        "title": "SearchRowModel",
+        "description": "One video plus one wanted language. `key` is opaque: the page and the job use it only to\nfind the row again."
+      },
+      "SearchTitleModel": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/IdentityModel"
+          },
+          "certain": {
+            "type": "boolean",
+            "title": "Certain"
+          }
+        },
+        "type": "object",
+        "required": ["key", "identity", "certain"],
+        "title": "SearchTitleModel"
+      },
+      "SearchesRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Providers"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Languages"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["missing", "all"],
+            "title": "Scope"
+          },
+          "check_lengths": {
+            "type": "boolean",
+            "title": "Check Lengths",
+            "default": true
+          },
+          "save": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SaveOptionsModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/SearchTitleModel"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Titles"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/SearchRowModel"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": ["path", "providers", "languages", "scope", "titles", "rows"],
+        "title": "SearchesRequest"
       },
       "SettingsRead": {
         "properties": {
