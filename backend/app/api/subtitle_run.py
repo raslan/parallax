@@ -49,6 +49,10 @@ class RunItem(BaseModel):
     provider: str = Field(pattern=_PROVIDER_PATTERN)
     subtitle_id: str = Field(min_length=1, max_length=2000)
     sync: bool = False
+    # The video's own season and episode: when the choice is a season pack, only this
+    # episode's file is taken out of it.
+    season: int | None = Field(default=None, ge=0, le=1000)
+    episode: int | None = Field(default=None, ge=0, le=10000)
 
     @field_validator("provider")
     @classmethod
@@ -205,6 +209,8 @@ class PreviewRequest(BaseModel):
     provider: str = Field(max_length=32)
     subtitle_id: str = Field(max_length=2000)
     language: str = Field(max_length=16)
+    season: int | None = Field(default=None, ge=0, le=1000)
+    episode: int | None = Field(default=None, ge=0, le=10000)
 
 
 class ReleaseTokensRequest(BaseModel):
@@ -222,7 +228,13 @@ def preview_candidate(body: PreviewRequest):
     duration = probe_duration(body.video_path)
     try:
         return subtitle_preview.create_preview(
-            body.video_path, body.provider, body.subtitle_id, body.language, duration
+            body.video_path,
+            body.provider,
+            body.subtitle_id,
+            body.language,
+            duration,
+            season=body.season,
+            episode=body.episode,
         )
     except ProviderError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=502)

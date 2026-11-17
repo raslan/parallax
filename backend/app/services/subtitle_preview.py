@@ -102,15 +102,18 @@ def create_preview(
     subtitle_id: str,
     language: str,
     video_duration: float | None = None,
+    season: int | None = None,
+    episode: int | None = None,
 ) -> dict:
     """Download a candidate and write it as temporary WebVTT. `video_path` is only the video's
-    name for context: nothing is written beside it. The caller supplies the probed duration."""
+    name for context: nothing is written beside it. The caller supplies the probed duration.
+    For a season pack, `season` and `episode` pick the one file of that episode."""
     try:
         source = get_provider(provider)
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     try:
-        data = source.download(subtitle_id)
+        data = source.download(subtitle_id, season=season, episode=episode)
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     finally:

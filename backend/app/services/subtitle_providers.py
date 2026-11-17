@@ -42,6 +42,10 @@ def request_failure(exc: requests.RequestException, message: str) -> ProviderErr
 # The most a downloaded subtitle may be, in bytes. One constant for the archive reader and the
 # preview, so a zip bomb is stopped before it is held in memory.
 MAX_SUBTITLE_BYTES = 5 * 1024 * 1024
+# The most a downloaded archive may be, and how many files it may list (the season packs seen
+# were 0.1 to 0.7 MB). Nothing is extracted to disk; one member is read, with the cap above.
+MAX_ARCHIVE_BYTES = 20 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 2000
 
 
 def own_url(subtitle_id: str, base: str) -> str:
@@ -87,9 +91,52 @@ class Provider(Protocol):
 
     def search(self, q: SearchQuery) -> list[dict]: ...
 
-    def download(self, subtitle_id: str) -> bytes | None: ...
+    def fetch(self, subtitle_id: str) -> bytes:
+        """The raw bytes as downloaded (an archive or a subtitle), capped. Raises ProviderError
+        when there is no download or the body is empty or a web page."""
+        ...
+
+    def extract(
+        self, raw: bytes, *, season: int | None = None, episode: int | None = None
+    ) -> bytes | None:
+        """The one subtitle inside `raw`; for a season pack, the file of that episode."""
+        ...
+
+    def download(
+        self, subtitle_id: str, *, season: int | None = None, episode: int | None = None
+    ) -> bytes | None:
+        """`extract(fetch(subtitle_id))`."""
+        ...
 
     def close(self) -> None: ...
+
+
+def read_capped(resp, limit: int = MAX_ARCHIVE_BYTES) -> bytes:
+    """The body of a streamed response, read in chunks and abandoned the moment it passes
+    `limit`, so a hostile or broken download is never held in memory whole. Closes `resp`."""
+    try:
+        declared = resp.headers.get("Content-Length")
+        if declared and declared.isdigit() and int(declared) > limit:
+            raise ProviderError("The download is too large to be a subtitle file.")
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in resp.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > limit:
+                raise ProviderError("The download is too large to be a subtitle file.")
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        resp.close()
+
+
+def require_subtitle_body(body: bytes) -> bytes:
+    """An empty body, or a web page where a file was promised, is not a subtitle."""
+    if not body.strip() or body.lstrip()[:1] == b"<":
+        raise ProviderError("The source returned no subtitle for that choice.")
+    return body
 
 
 SUBF2M_GAP = 1.0

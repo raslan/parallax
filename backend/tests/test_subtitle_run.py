@@ -33,8 +33,9 @@ class FakeProvider:
             raise self.error
         return [dict(r) for r in self.results]
 
-    def download(self, subtitle_id):
+    def download(self, subtitle_id, season=None, episode=None):
         self.downloads.append(subtitle_id)
+        self.asked_for = (season, episode)
         value = self.files[subtitle_id]
         if isinstance(value, Exception):
             raise value
@@ -311,6 +312,18 @@ def test_run_keep_existing_writes_source_label(env, monkeypatch):
     assert (video.parent / "Movie.en.subf2m.srt").read_bytes() == srt("New")
 
 
+def test_run_item_passes_season_and_episode_to_the_download(env, monkeypatch):
+    video, fs_db, _ = env
+    provider = FakeProvider("subf2m", files={"a": srt("A")})
+    use(monkeypatch, provider)
+    sr.run_subtitle_job(
+        _job(fs_db), [{**item(video, "a"), "season": 1, "episode": 7}], False, False, None
+    )
+    assert provider.asked_for == (1, 7)
+    sr.run_subtitle_job(_job(fs_db), [item(video, "a")], False, False, None)
+    assert provider.asked_for == (None, None)  # a film: nothing to pick out of a pack
+
+
 def test_run_sync_after_and_row_sync_flag(env, monkeypatch):
     video, fs_db, synced = env
     other = video.parent / "Other.mkv"
@@ -413,7 +426,8 @@ def test_run_requires_items_and_existing_videos(client, tmp_path, monkeypatch):
     assert r.status_code == 200
     job_id = r.json()["job_id"]
     assert len(queued) == 1 and queued[0][0] == job_id
-    assert queued[0][2:] == (job_id, [item(video)], False, True, None)
+    expected = [{**item(video), "season": None, "episode": None}]
+    assert queued[0][2:] == (job_id, expected, False, True, None)
 
 
 def test_search_route_returns_entries(client, tmp_path, monkeypatch):

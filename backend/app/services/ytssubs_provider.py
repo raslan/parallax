@@ -17,14 +17,16 @@ import urllib.parse
 import requests
 from bs4 import BeautifulSoup
 
-from app.services.subf2m_provider import _extract_from_archive
+from app.services.subf2m_provider import extract_from_archive
 from app.services.subtitle_providers import (
     PROVIDERS,
     Politeness,
     ProviderError,
     SearchQuery,
     own_url,
+    read_capped,
     request_failure,
+    require_subtitle_body,
 )
 
 logger = logging.getLogger(__name__)
@@ -171,34 +173,48 @@ class YtsSubsProvider:
 
         return results
 
-    def download(self, subtitle_id: str) -> bytes | None:
-        """Fetch the subtitle detail page, decode the base64 link, return SRT bytes or None."""
+    def fetch(self, subtitle_id: str) -> bytes:
+        """The raw download: the subtitle detail page, its base64 link, then the file, streamed
+        and capped. Raises ProviderError when there is no download or the body is no subtitle."""
+        no_download = ProviderError("The source has no download for that choice.")
         text = self._get_text(own_url(subtitle_id, _BASE_URL))
         if not text:
-            return None
+            raise no_download
 
         soup = BeautifulSoup(text, "html.parser")
         btn = soup.select_one("a#btn-download-subtitle")
         encoded = btn.get("data-link") if btn else None
         if not encoded:
             logger.warning("yts: no download link on %s", subtitle_id)
-            return None
+            raise no_download
 
         try:
-            download_url = base64.b64decode(encoded).decode()
+            download_url = base64.b64decode(encoded, validate=True).decode()
         except Exception:
             logger.warning("yts: undecodable data-link on %s", subtitle_id)
-            return None
+            raise no_download from None
 
         try:
             with self._politeness.acquire(timeout=30):
-                resp = self._session.get(download_url, timeout=30)
-            resp.raise_for_status()
+                resp = self._session.get(download_url, timeout=30, stream=True)
+                resp.raise_for_status()
+                body = read_capped(resp)
         except requests.Timeout as exc:
             raise request_failure(exc, "YTS Subs did not answer in time") from exc
         except requests.RequestException as exc:
             raise request_failure(exc, f"YTS Subs download failed: {exc}") from exc
-        return _extract_from_archive(resp.content)
+        return require_subtitle_body(body)
+
+    def extract(
+        self, raw: bytes, *, season: int | None = None, episode: int | None = None
+    ) -> bytes | None:
+        """Films only: one release per page, so the season and episode are not needed."""
+        return extract_from_archive(raw)
+
+    def download(
+        self, subtitle_id: str, *, season: int | None = None, episode: int | None = None
+    ) -> bytes | None:
+        return self.extract(self.fetch(subtitle_id), season=season, episode=episode)
 
 
 PROVIDERS["yts"] = YtsSubsProvider

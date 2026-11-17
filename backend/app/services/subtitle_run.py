@@ -206,14 +206,21 @@ def _payload(data: bytes, language: str) -> tuple[bytes, str]:
     raise ProviderError("The download is not a readable subtitle file.")
 
 
-def _download(provider: str, subtitle_id: str, language: str) -> tuple[bytes, str]:
-    """The subtitle's bytes and its extension; ProviderError with the reason otherwise."""
+def _download(
+    provider: str,
+    subtitle_id: str,
+    language: str,
+    season: int | None = None,
+    episode: int | None = None,
+) -> tuple[bytes, str]:
+    """The subtitle's bytes and its extension; ProviderError with the reason otherwise. For a
+    season pack, `season` and `episode` pick the one file of that episode out of it."""
     try:
         p = get_provider(provider)
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     try:
-        data = p.download(subtitle_id)
+        data = p.download(subtitle_id, season=season, episode=episode)
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     finally:
@@ -231,7 +238,13 @@ def _run_item(item: dict, keep_existing: bool, sync_after: bool, engine: str) ->
     try:
         if not os.path.isfile(video):
             raise ProviderError("That video no longer exists.")
-        data, ext = _download(item["provider"], item["subtitle_id"], item["language"])
+        data, ext = _download(
+            item["provider"],
+            item["subtitle_id"],
+            item["language"],
+            item.get("season"),
+            item.get("episode"),
+        )
         path, cleanup_error = save_subtitle(
             video, item["language"], item["provider"], data, ext, keep_existing
         )

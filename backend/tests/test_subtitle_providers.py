@@ -233,7 +233,8 @@ def test_subf2m_download_accepts_own_ids(monkeypatch, ok):
     p = _sf.Subf2mProvider()
     seen = []
     monkeypatch.setattr(p, "_get_text", lambda url, *a, **k: seen.append(url) or "")
-    assert p.download(ok) is None
+    with _pytest.raises(_PE, match="The source has no download for that choice."):
+        p.download(ok)
     assert seen == ["https://subf2m.co/subtitles/a/b/c"]
 
 
@@ -262,7 +263,8 @@ def test_yts_download_accepts_own_id(monkeypatch):
     p = _yts.YtsSubsProvider()
     seen = []
     monkeypatch.setattr(p, "_get_text", lambda url, *a, **k: seen.append(url) or "")
-    assert p.download("/subtitles/foo-en-1") is None
+    with _pytest.raises(_PE, match="The source has no download for that choice."):
+        p.download("/subtitles/foo-en-1")
     assert seen == ["https://yts-subs.com/subtitles/foo-en-1"]
 
 
@@ -272,14 +274,14 @@ def test_archive_member_over_cap_is_refused_honest_bomb():
         zf.writestr("a.srt", b"\0" * (8 * 1024 * 1024))
     assert len(buf.getvalue()) < 100_000
     with _pytest.raises(_PE, match="too large"):
-        _sf._extract_from_archive(buf.getvalue())
+        _sf.extract_from_archive(buf.getvalue())
 
 
 def test_archive_small_member_still_extracted():
     buf = _io.BytesIO()
     with _zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("a.srt", b"1\n00:00:01,000 --> 00:00:02,000\nHi\n")
-    assert b"Hi" in _sf._extract_from_archive(buf.getvalue())
+    assert b"Hi" in _sf.extract_from_archive(buf.getvalue())
 
 
 # ---- network failures and bounded waits ------------------------------------------------------
@@ -384,3 +386,181 @@ def test_subf2m_gap_is_one_second_and_others_stay_short(monkeypatch):
     monkeypatch.setattr(sp.Politeness, "_instances", {})
     assert sp.Politeness.for_provider("subf2m")._min_gap == 1.0
     assert sp.Politeness.for_provider("yts")._min_gap == 0.25
+
+
+# ---- season packs and archive safety ---------------------------------------------------------
+
+SRT = b"1\n00:00:01,000 --> 00:00:02,000\nHi\n"
+
+
+def _zip(members: dict[str, bytes]) -> bytes:
+    buf = _io.BytesIO()
+    with _zipfile.ZipFile(buf, "w") as zf:
+        for name, body in members.items():
+            zf.writestr(name, body)
+    return buf.getvalue()
+
+
+STRANGER_PACK = {
+    "Stranger Things S01E08 Chapter Eight - The Upside Down ara.srt": b"e8",
+    "Stranger Things S01E07 Chapter Seven - The Bathtub ara.srt": b"e7",
+    "Stranger Things S01E02 Chapter Two - The Weirdo on Maple Street ara.srt": b"e2",
+    "Stranger Things S01E01 Chapter One - The Vanishing of Will Byers ara.srt": b"e1",
+}
+
+
+def test_pack_zip_returns_the_members_own_episode():
+    assert _sf.extract_from_archive(_zip(STRANGER_PACK), 1, 1) == b"e1"
+    assert _sf.extract_from_archive(_zip(STRANGER_PACK), 1, 7) == b"e7"
+
+
+def test_pack_without_that_episode_refuses():
+    with pytest.raises(_PE, match="This pack has no file for S01E09"):
+        _sf.extract_from_archive(_zip(STRANGER_PACK), 1, 9)
+
+
+def test_ass_pack_member_is_refused_with_the_format():
+    pack = {"Show S01E01.ass": b"[Script Info]", "Show S01E02.ass": b"[Script Info]"}
+    with pytest.raises(_PE, match=r"This pack's files are \.ass, which this page cannot read yet"):
+        _sf.extract_from_archive(_zip(pack), 1, 2)
+
+
+def test_two_srt_same_marker_in_a_pack_refuses():
+    pack = {"a S01E02 one.srt": b"1", "b S01E02 two.srt": b"2", "c S01E03.srt": b"3"}
+    with pytest.raises(_PE, match="This pack has more than one file for S01E02"):
+        _sf.extract_from_archive(_zip(pack), 1, 2)
+
+
+def test_single_release_zip_keeps_the_old_rule():
+    # One release in two formats, and a release with a forced-subtitle companion: no pack rule.
+    both = {"subs.ass": b"[Script Info]", "subs.srt": SRT}
+    assert _sf.extract_from_archive(_zip(both), 1, 1) == SRT
+    forced = {"ara.srt": b"main", "ara.forced.srt": b"forced"}
+    assert _sf.extract_from_archive(_zip(forced), 1, 1) == b"main"
+
+
+def test_movie_keeps_first_srt_rule():
+    pack = {"b.ass": b"x", "a.srt": b"first", "c.srt": b"second"}
+    assert _sf.extract_from_archive(_zip(pack)) == b"first"
+
+
+def test_zip_with_too_many_members_is_refused():
+    members = {f"f{i}.srt": b"" for i in range(2001)}
+    with pytest.raises(_PE, match="The archive has too many files."):
+        _sf.extract_from_archive(_zip(members), 1, 1)
+
+
+def test_declared_size_lie_is_capped(monkeypatch):
+    """A member that says it is small but is not: the read stops at the cap plus one."""
+    reads = []
+
+    class _Member:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n=-1):
+            reads.append(n)
+            return b"x" * n
+
+    class _Info:
+        file_size = 10
+
+    class _FakeZip:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def infolist(self):
+            return [object()]
+
+        def namelist(self):
+            return ["a.srt"]
+
+        def getinfo(self, name):
+            return _Info()
+
+        def open(self, name):
+            return _Member()
+
+    monkeypatch.setattr(_sf.zipfile, "ZipFile", _FakeZip)
+    with pytest.raises(_PE, match="too large"):
+        _sf.extract_from_archive(b"PK\x03\x04 fake")
+    assert reads == [sp.MAX_SUBTITLE_BYTES + 1]
+
+
+class _StreamResp:
+    """A streamed download that hands out `chunks` lazily and counts what was consumed."""
+
+    def __init__(self, chunks):
+        self.status_code = 200
+        self.headers = {}
+        self._chunks = chunks
+        self.consumed = 0
+        self.closed = False
+
+    def raise_for_status(self):
+        pass
+
+    def iter_content(self, chunk_size=1):
+        for c in self._chunks:
+            self.consumed += len(c)
+            yield c
+
+    def close(self):
+        self.closed = True
+
+
+def _subf2m_with(resp):
+    p = _quiet(Subf2mProvider(), _Session(resp))
+    p._get_text = lambda url, **k: '<a id="downloadButton" href="/dl/1">x</a>'
+    return p
+
+
+def test_fetch_refuses_a_body_over_the_cap():
+    mib = b"\0" * (1024 * 1024)
+    resp = _StreamResp(mib for _ in range(100))
+    p = _subf2m_with(resp)
+    with pytest.raises(_PE, match="The download is too large to be a subtitle file."):
+        p.fetch("/subtitles/x/y/1")
+    assert resp.consumed <= sp.MAX_ARCHIVE_BYTES + 2 * 1024 * 1024  # stopped soon after the cap
+    assert resp.closed
+
+
+@pytest.mark.parametrize("body", [b"", b"  \n<html><body>Not found</body></html>"])
+def test_empty_and_html_bodies_are_not_subtitles(body):
+    p = _subf2m_with(_StreamResp([body]))
+    with pytest.raises(_PE, match="The source returned no subtitle for that choice."):
+        p.fetch("/subtitles/x/y/1")
+    q = _quiet(YtsSubsProvider(), _Session(_StreamResp([body])))
+    import base64
+
+    q._get_text = lambda url, **k: (
+        f'<a id="btn-download-subtitle" data-link="{base64.b64encode(b"https://y.test/f").decode()}">'
+        "x</a>"
+    )
+    with pytest.raises(_PE, match="The source returned no subtitle for that choice."):
+        q.fetch("/subtitles/x-en-1")
+
+
+def test_missing_download_button_or_bad_link_is_named():
+    p = _quiet(Subf2mProvider(), _Session(_StreamResp([SRT])))
+    p._get_text = lambda url, **k: "<html>no button</html>"
+    with pytest.raises(_PE, match="The source has no download for that choice."):
+        p.fetch("/subtitles/x/y/1")
+    q = _quiet(YtsSubsProvider(), _Session(_StreamResp([SRT])))
+    q._get_text = lambda url, **k: '<a id="btn-download-subtitle" data-link="!!!notbase64">x</a>'
+    with pytest.raises(_PE, match="The source has no download for that choice."):
+        q.fetch("/subtitles/x-en-1")
+
+
+def test_download_is_extract_of_fetch(monkeypatch):
+    p = _subf2m_with(_StreamResp([_zip(STRANGER_PACK)]))
+    assert p.download("/subtitles/x/y/1", season=1, episode=2) == b"e2"

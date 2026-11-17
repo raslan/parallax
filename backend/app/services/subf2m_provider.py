@@ -10,6 +10,7 @@ import functools
 import html
 import io
 import logging
+import os
 import re
 import threading
 import time
@@ -22,15 +23,23 @@ import requests
 from bs4 import BeautifulSoup
 from guessit import guessit
 
-from app.services.subtitle_candidates import parse_release_episodes
+from app.services.subtitle_candidates import (
+    parse_member_marker,
+    parse_release_episodes,
+    pick_member,
+    unsupported_format_reason,
+)
 from app.services.subtitle_providers import (
+    MAX_ARCHIVE_MEMBERS,
     MAX_SUBTITLE_BYTES,
     PROVIDERS,
     Politeness,
     ProviderError,
     SearchQuery,
     own_url,
+    read_capped,
     request_failure,
+    require_subtitle_body,
 )
 
 logger = logging.getLogger(__name__)
@@ -441,26 +450,41 @@ class Subf2mProvider:
             raise errors[0]  # every page failed: say why instead of "no results"
         return results
 
-    def download(self, subtitle_id: str) -> bytes | None:
-        """Fetch subtitle page, find download link, return SRT/ASS bytes or None."""
+    def fetch(self, subtitle_id: str) -> bytes:
+        """The raw download for a subtitle page: the page lookup, then the file, streamed and
+        capped. Raises ProviderError when there is no download button or the body is empty or
+        a web page."""
         page_link = own_url(subtitle_id, _BASE_URL)
         text = self._get_text(page_link)
         soup = BeautifulSoup(text, "html.parser")
         btn = soup.select_one("a[id='downloadButton']")
         if not btn or not btn.get("href"):
             logger.warning("subf2m: no downloadButton on %s", page_link)
-            return None
+            raise ProviderError("The source has no download for that choice.")
 
         download_url = _BASE_URL + btn["href"]
         try:
             with self._politeness.acquire(timeout=ACQUIRE_TIMEOUT):
-                resp = self._session.get(download_url, allow_redirects=True, timeout=30)
-            resp.raise_for_status()
+                resp = self._session.get(
+                    download_url, allow_redirects=True, timeout=30, stream=True
+                )
+                resp.raise_for_status()
+                body = read_capped(resp)
         except requests.Timeout as exc:
             raise request_failure(exc, "Subf2m did not answer in time") from exc
         except requests.RequestException as exc:
             raise request_failure(exc, f"Subf2m download failed: {exc}") from exc
-        return _extract_from_archive(resp.content)
+        return require_subtitle_body(body)
+
+    def extract(
+        self, raw: bytes, *, season: int | None = None, episode: int | None = None
+    ) -> bytes | None:
+        return extract_from_archive(raw, season, episode)
+
+    def download(
+        self, subtitle_id: str, *, season: int | None = None, episode: int | None = None
+    ) -> bytes | None:
+        return self.extract(self.fetch(subtitle_id), season=season, episode=episode)
 
 
 PROVIDERS["subf2m"] = Subf2mProvider
@@ -476,26 +500,55 @@ def _too_large() -> ProviderError:
     return ProviderError("The subtitle in the download is too large to be a subtitle file.")
 
 
-def _extract_from_archive(data: bytes) -> bytes | None:
+def _choose_member(names: list[str], season: int | None, episode: int | None) -> str | None:
+    """Which subtitle file of an archive to use.
+
+    A real season pack (its files carry two or more different season-and-episode markers) gives
+    the one file of this episode, or a named refusal: never "the first file". Anything else (one
+    release as `.srt` plus `.ass`, or `ara.srt` plus `ara.forced.srt`, or no episode asked for)
+    keeps the plain rule: the first `.srt`, else the first subtitle file."""
+    subs = [n for n in names if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)]
+    if not subs:
+        return None
+    markers = {m for m in (parse_member_marker(n) for n in subs) if m}
+    if season is not None and episode is not None and len(markers) >= 2:
+        member, reason = pick_member(subs, season, episode)
+        if member is None:
+            raise ProviderError(reason)
+        ext = os.path.splitext(member)[1].lower()
+        if ext != ".srt":
+            raise ProviderError(unsupported_format_reason(ext))
+        return member
+    return next((c for c in subs if c.lower().endswith(".srt")), subs[0])
+
+
+def _read_chosen(archive, season: int | None, episode: int | None) -> bytes | None:
+    """The chosen member's bytes from a zip or rar. At most `MAX_ARCHIVE_MEMBERS` files are
+    listed, one member is read, and a declared size can lie, so the read itself is capped."""
+    if len(archive.infolist()) > MAX_ARCHIVE_MEMBERS:
+        raise ProviderError("The archive has too many files.")
+    best = _choose_member(archive.namelist(), season, episode)
+    if best is None:
+        return None
+    if archive.getinfo(best).file_size > MAX_SUBTITLE_BYTES:
+        raise _too_large()
+    with archive.open(best) as member:
+        body = member.read(MAX_SUBTITLE_BYTES + 1)
+    if len(body) > MAX_SUBTITLE_BYTES:
+        raise _too_large()
+    return body
+
+
+def extract_from_archive(
+    data: bytes, season: int | None = None, episode: int | None = None
+) -> bytes | None:
+    """The subtitle inside a zip or rar download (or the download itself if it is one)."""
     # Try zip first
     if data[:2] == b"PK":
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                candidates = [
-                    n for n in zf.namelist() if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)
-                ]
-                if candidates:
-                    # prefer .srt; else first match
-                    best = next(
-                        (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
-                    )
-                    if zf.getinfo(best).file_size > MAX_SUBTITLE_BYTES:
-                        raise _too_large()
-                    # declared sizes can lie: never read more than the cap + 1
-                    with zf.open(best) as member:
-                        body = member.read(MAX_SUBTITLE_BYTES + 1)
-                    if len(body) > MAX_SUBTITLE_BYTES:
-                        raise _too_large()
+                body = _read_chosen(zf, season, episode)
+                if body is not None:
                     return body
         except zipfile.BadZipFile:
             pass
@@ -504,19 +557,8 @@ def _extract_from_archive(data: bytes) -> bytes | None:
     if data[:4] in (b"Rar!", b"\x52\x61\x72\x21"):
         try:
             with rarfile.RarFile(io.BytesIO(data)) as rf:
-                candidates = [
-                    n for n in rf.namelist() if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)
-                ]
-                if candidates:
-                    best = next(
-                        (c for c in candidates if c.lower().endswith(".srt")), candidates[0]
-                    )
-                    if rf.getinfo(best).file_size > MAX_SUBTITLE_BYTES:
-                        raise _too_large()
-                    with rf.open(best) as member:
-                        body = member.read(MAX_SUBTITLE_BYTES + 1)
-                    if len(body) > MAX_SUBTITLE_BYTES:
-                        raise _too_large()
+                body = _read_chosen(rf, season, episode)
+                if body is not None:
                     return body
         except ProviderError:
             raise

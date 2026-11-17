@@ -18,7 +18,8 @@ class FakeProvider:
     def __init__(self, data):
         self.data = data
 
-    def download(self, subtitle_id):
+    def download(self, subtitle_id, season=None, episode=None):
+        self.asked_for = (season, episode)
         return self.data
 
     def close(self):
@@ -123,6 +124,24 @@ def test_preview_download_failures_are_named(preview_dir, monkeypatch):
     with pytest.raises(ProviderError):
         sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=None)
     assert not preview_dir.exists() or os.listdir(preview_dir) == []
+
+
+def test_single_ass_release_is_not_readable(preview_dir, monkeypatch):
+    """Pins today's behaviour: a lone .ass release cannot be previewed (Linear RAS-154)."""
+    ass = (
+        b"[Script Info]\nTitle: x\n\n[Events]\n"
+        b"Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Hi\n"
+    )
+    use(monkeypatch, ass)
+    with pytest.raises(ProviderError, match="not a readable subtitle file"):
+        sp.create_preview("/v/M.mkv", "subf2m", "x", "en", video_duration=None)
+
+
+def test_preview_passes_season_and_episode_to_the_download(preview_dir, monkeypatch):
+    provider = FakeProvider(make_srt().encode())
+    monkeypatch.setattr(sp, "get_provider", lambda name: provider)
+    sp.create_preview("/v/M.mkv", "subf2m", "x", "en", None, season=1, episode=4)
+    assert provider.asked_for == (1, 4)
 
 
 def test_preview_post_route(client, tmp_path, preview_dir, monkeypatch):
