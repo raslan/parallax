@@ -11,6 +11,7 @@ import html
 import io
 import logging
 import re
+import threading
 import time
 import urllib.parse
 import zipfile
@@ -47,6 +48,16 @@ def _pasted_page(path: str) -> str:
     if not _PAGE_PATH_RE.match(page) or not page.removeprefix("/subtitles/").strip("."):
         raise refusal
     return page
+
+
+# Pages fetched for a search, shared by every search in the process. A whole show asks for the
+# same title search and the same season page once per episode and language; without this each
+# of those went to subf2m again. Only pages that came back with content are kept.
+_PAGE_TTL_SECONDS = 600
+_PAGE_CACHE_MAX = 256
+_page_cache: dict[str, tuple[float, str]] = {}
+_page_locks: dict[str, threading.Lock] = {}
+_page_guard = threading.Lock()
 
 
 _SEASONS = (
@@ -198,6 +209,28 @@ class Subf2mProvider:
             raise ProviderError("Subf2m is overloaded (503), try again later")
         return ""
 
+    def _get_page(self, url: str) -> str:
+        """`_get_text` through a short-lived shared cache. Two searches that want the same page
+        at once share one fetch (the second waits on the first's lock, then reads the cache)."""
+        with _page_guard:
+            lock = _page_locks.setdefault(url, threading.Lock())
+        with lock:
+            now = time.monotonic()
+            hit = _page_cache.get(url)
+            if hit is not None and now - hit[0] < _PAGE_TTL_SECONDS:
+                return hit[1]
+            text = self._get_text(url)
+            if text:
+                with _page_guard:
+                    for k in [
+                        k for k, (t, _) in _page_cache.items() if now - t >= _PAGE_TTL_SECONDS
+                    ]:
+                        del _page_cache[k]
+                    while len(_page_cache) >= _PAGE_CACHE_MAX:
+                        del _page_cache[next(iter(_page_cache))]
+                    _page_cache[url] = (now, text)
+            return text
+
     # ------------------------------------------------------------------
     # Search helpers
     # ------------------------------------------------------------------
@@ -205,7 +238,7 @@ class Subf2mProvider:
     def _gen_results(self, query: str):
         encoded = urllib.parse.quote(query)
         url = f"{_BASE_URL}/subtitles/searchbytitle?query={encoded}&l="
-        text = self._get_text(url)
+        text = self._get_page(url)
         soup = BeautifulSoup(text, "html.parser")
         yield from soup.select("li div[class='title'] a")
 
@@ -293,7 +326,7 @@ class Subf2mProvider:
 
     def _get_subtitle_page_soup(self, path: str, lang_alpha2: str) -> BeautifulSoup:
         lang_path = _LANG_TO_PATH.get(lang_alpha2, "english")
-        text = self._get_text(f"{_BASE_URL}{path}/{lang_path}")
+        text = self._get_page(f"{_BASE_URL}{path}/{lang_path}")
         return BeautifulSoup(text, "html.parser")
 
     @staticmethod
