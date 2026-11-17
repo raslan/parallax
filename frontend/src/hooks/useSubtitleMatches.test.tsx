@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { Candidate, PlanGroup, PreviewInfo, ScanFile, SearchResult } from "@/types/subtitle";
+import type { Candidate, MatchGroup, PreviewInfo, ScanFile, SearchResult } from "@/types/subtitle";
 
 type Deferred<T> = { resolve: (v: T) => void; reject: (e: unknown) => void };
 const searches: { body: { video_path: string; languages: string[] }; d: Deferred<SearchResult> }[] =
@@ -21,7 +21,7 @@ vi.mock("@/lib/api", async (orig) => ({
   },
 }));
 
-import { useSubtitlePlan } from "./useSubtitlePlan";
+import { useSubtitleMatches } from "./useSubtitleMatches";
 
 afterEach(() => {
   cleanup();
@@ -53,7 +53,7 @@ const file = (n: number, realEn = false): ScanFile => ({
     : [],
 });
 
-const group = (files: ScanFile[]): PlanGroup => ({
+const group = (files: ScanFile[]): MatchGroup => ({
   key: "tv:show",
   identity: { title: "Show", year: 2016, type: "tv" },
   files,
@@ -74,10 +74,10 @@ function setup(files: ScanFile[], scope: "missing" | "all" = "missing") {
   const groups = [group(files)];
   const wanted = ["en"];
   const providers = ["subf2m" as const];
-  return renderHook(() => useSubtitlePlan({ groups, wanted, providers, scope }));
+  return renderHook(() => useSubtitleMatches({ groups, wanted, providers, scope }));
 }
 
-describe("useSubtitlePlan", () => {
+describe("useSubtitleMatches", () => {
   it("keeps at most two searches in flight, in order", async () => {
     setup([file(1), file(2), file(3), file(4), file(5)]);
     await waitFor(() => expect(search).toHaveBeenCalledTimes(2));

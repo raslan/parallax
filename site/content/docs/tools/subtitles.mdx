@@ -36,7 +36,7 @@ If a subtitle job is running or waiting for this folder, an **Activity** section
 
 ## Find subtitles
 
-Select some titles or videos and click **Find subtitles…** in the bar at the bottom, or use **Find subtitles for this folder** at the top. The page shows a slim **Titles › Plan › Run** bar with a way back.
+Select some titles or videos and click **Find subtitles…** in the bar at the bottom, or use **Find subtitles for this folder** at the top. The page shows a slim **Titles › Matches › Run** bar with a way back.
 
 ### Titles
 
@@ -49,9 +49,9 @@ Each title shows the film or show Parallax will search for. This matters, becaus
 
 For each title you can **Skip** it, and choose whether to search **Only files missing a language** or **Everything selected**. Then click **Search subtitles for N titles**.
 
-### Plan
+### Matches
 
-The plan is a table. On the left is a rail of titles (a menu on a phone), each with a dot that tells you whether it is clean, has rows to look at, or found nothing. For the open title there is a row per video and a column per wanted language. Each cell shows one of:
+The matches are a table. On the left is a rail of titles (a menu on a phone), each with a dot that tells you whether it is clean, has rows to look at, or found nothing. For the open title there is a row per video and a column per wanted language. Each cell shows one of:
 
 - **Searching…**, then the best candidate with its source, its release name, and how its length compares with the video.
 - **Has a real subtitle**, with **Find another** if you want a different one anyway.
@@ -69,7 +69,7 @@ The same check runs, read only, when you open a folder, for the subtitles alread
 
 #### The two tickboxes
 
-At the bottom of the plan are two tickboxes. Both are off every time and Parallax does not remember them.
+At the bottom of the matches are two tickboxes. Both are off every time and Parallax does not remember them.
 
 - **Keep existing subtitles** works like **Keep originals** elsewhere in the app. Off means a download replaces the plain file (`Movie.en.srt`) and, for a real download, also removes the generated and translated files of that language. The row says so, for example "Replaces the generated English file". On means the new subtitle is saved beside the old one and labelled with its source, for example `Movie.en.subf2m.srt`.
 - **Sync after download** lines each new subtitle up with the video's audio as soon as it is saved. Pick **alass** or **ffsubsync** next to it. They start on the engine chosen in **Settings → Subtitles → Subtitle sync engine**. See [Sync](#syncing-and-the-original-backup).
@@ -184,7 +184,7 @@ Anywhere you play a video in Parallax, a captions button appears when it has sub
 
 ## Advanced
 
-- **Sources.** Both are web pages Parallax reads the way a browser would, with a small pause between requests. A search is cached for ten minutes, so going back to a plan is quick. If a site changes its layout, the row for it says so by name instead of failing quietly.
+- **Sources.** Both are web pages Parallax reads the way a browser would, with a small pause between requests. A search is cached for ten minutes, so going back to the matches is quick. If a site changes its layout, the row for it says so by name instead of failing quietly.
 - **Encoding.** A downloaded subtitle is saved as it came, except that UTF-16 files are converted to UTF-8, because many TVs cannot read them. A download over 5 MB, or one that is not a subtitle file, is refused.
 - **Safety.** A subtitle is only ever written next to its own video. File actions only accept files that really belong to the video you are managing, so a path pointing somewhere else is refused. Two actions on the same file at once cannot leave a half-written file.
 - **Name matching.** A file belongs to a video when its name starts with the video's name followed by a dot. `Movie.mkv` and `Movie 2.mkv` do not claim each other's subtitles.

@@ -119,27 +119,27 @@ export interface TitleChoice {
   confirmed?: boolean;
 }
 
-/** Which files a plan searches: only languages with no real subtitle yet, or every selected one. */
-export type PlanScope = "missing" | "all";
+/** Which files a search covers: only languages with no real subtitle yet, or every selected one. */
+export type MatchScope = "missing" | "all";
 
-/** One title of a plan: the identity the user confirmed, and the videos to search for. */
-export interface PlanGroup {
+/** One title of a search: the identity the user confirmed, and the videos to search for. */
+export interface MatchGroup {
   key: string;
   identity: Identity;
   files: ScanFile[];
 }
 
-type PlanStatus = "ready" | "has_real" | "replaces_machine" | "none" | "checking" | "flagged";
+type MatchStatus = "ready" | "has_real" | "replaces_machine" | "none" | "checking" | "flagged";
 
 /** `use_and_sync` downloads the row and syncs only that file. */
-export type PlanVerdict = "use" | "use_and_sync" | "skip";
+export type MatchVerdict = "use" | "use_and_sync" | "skip";
 
 /** The length check of a row's top candidate, or why it could not be read. */
 export type LengthResult =
   { length: LengthVerdict; last: number; videoDuration: number | null } | { error: string };
 
-/** One cell of the plan: a video and one wanted language. */
-export interface PlanRowState {
+/** One cell of the matches: a video and one wanted language. */
+export interface MatchRowState {
   key: string;
   video: string;
   filename: string;
@@ -148,10 +148,10 @@ export interface PlanRowState {
   season: number | null;
   episode: number | null;
   language: string;
-  status: PlanStatus;
+  status: MatchStatus;
   candidate?: Candidate;
   candidates: Candidate[];
-  verdict?: PlanVerdict;
+  verdict?: MatchVerdict;
   lengthResult?: LengthResult;
   /** A generated or translated file of this language the download would replace (Keep existing off). */
   machineKind: "generated" | "translated" | null;

@@ -7,8 +7,8 @@ import type { CompareVerdict } from "@/components/subtitles/CompareSheet";
 import type {
   Candidate,
   LengthResult,
-  PlanRowState,
-  PlanVerdict,
+  MatchRowState,
+  MatchVerdict,
   RunItem,
   ScanFile,
   SubtitleFileInfo,
@@ -22,12 +22,12 @@ type Open =
       /** Found beside no video: read and deleted through the folder-scoped calls. */
       stray: boolean;
     }
-  | { kind: "row"; row: PlanRowState }
+  | { kind: "row"; row: MatchRowState }
   | { kind: "item"; item: RunItem; video: ScanFile; candidates: Candidate[] };
 
 /**
- * The Compare sheet's page state: which plan row or failed run item it is open for, and what
- * a verdict does. A plan row's verdict goes back into the plan; "Pick another" on a failed run
+ * The Compare sheet's page state: which match row or failed run item it is open for, and what
+ * a verdict does. A match row's verdict goes back into the matches; "Pick another" on a failed run
  * item searches that one video again (read-only) and a verdict queues it as a new run. Nothing
  * is written by opening or closing the sheet. A failed search is toasted with the server's
  * message; while one runs (`searchingItem`) another cannot start.
@@ -50,10 +50,10 @@ export function useSubtitleCompare({
   chooseCandidate: (
     key: string,
     candidate: Candidate,
-    verdict: PlanVerdict,
+    verdict: MatchVerdict,
     length?: LengthResult,
   ) => void;
-  setVerdict: (key: string, verdict: PlanVerdict) => void;
+  setVerdict: (key: string, verdict: MatchVerdict) => void;
   retry: (item: RunItem) => void;
 }) {
   const [open, setOpen] = useState<Open | null>(null);
@@ -155,7 +155,7 @@ export function useSubtitleCompare({
     /** Compare a subtitle file the video already has (Keep, Sync, Find another, Delete). */
     openExisting: (video: { path: string; name: string }, file: SubtitleFileInfo, stray = false) =>
       setOpen({ kind: "existing", video, file, stray }),
-    openRow: (row: PlanRowState) => setOpen({ kind: "row", row }),
+    openRow: (row: MatchRowState) => setOpen({ kind: "row", row }),
     openItem: (item: RunItem) => {
       const same =
         find.variables?.video_path === item.video_path && find.variables.language === item.language;

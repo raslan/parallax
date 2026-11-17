@@ -63,20 +63,20 @@ function setup(withTitles: TitleWithFiles[] = titles) {
 }
 
 describe("useSubtitleWorkflow", () => {
-  it("keeps the plan on the Wanted and Sources it started with when they change", async () => {
+  it("keeps the matches on the Wanted and Sources it started with when they change", async () => {
     const { result, rerender } = setup();
     act(() => result.current.startFind([file]));
-    act(() => result.current.toPlan());
+    act(() => result.current.toMatches());
     await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(result.current.plan.rows[0]?.status).toBe("none"));
-    act(() => result.current.plan.toggleUse(result.current.plan.rows[0]?.key ?? ""));
+    await waitFor(() => expect(result.current.matches.rows[0]?.status).toBe("none"));
+    act(() => result.current.matches.toggleUse(result.current.matches.rows[0]?.key ?? ""));
 
     rerender({ wanted: ["en", "ar"], sources: ["subf2m", "yts"] });
 
     expect(search).toHaveBeenCalledTimes(1);
-    expect(result.current.plan.rows.map((r) => r.language)).toEqual(["en"]);
-    expect(result.current.planWanted).toEqual(["en"]);
-    expect(result.current.plan.rows[0]?.verdict).toBe("use");
+    expect(result.current.matches.rows.map((r) => r.language)).toEqual(["en"]);
+    expect(result.current.matchesWanted).toEqual(["en"]);
+    expect(result.current.matches.rows[0]?.verdict).toBe("use");
   });
 
   it("flags a 'Pick which one' title as unconfirmed until the user picks an identity", () => {
@@ -98,8 +98,8 @@ describe("useSubtitleWorkflow", () => {
     rerender({ wanted: ["en", "ar"], sources: ["subf2m"] });
     act(() => result.current.close());
     act(() => result.current.startFind([file]));
-    act(() => result.current.toPlan());
+    act(() => result.current.toMatches());
     await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
-    expect(result.current.planWanted).toEqual(["en", "ar"]);
+    expect(result.current.matchesWanted).toEqual(["en", "ar"]);
   });
 });

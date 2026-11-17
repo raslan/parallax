@@ -5,11 +5,11 @@ import { qk, subtitlesApi } from "@/lib/api";
 import { mergeEntries, parseRunJob, runEntries, type SyncEngine } from "@/lib/subtitleRunDock";
 import type { TitleWithFiles } from "@/lib/subtitleGroups";
 import { useJobPoll } from "@/hooks/useJobPoll";
-import { useSubtitlePlan } from "@/hooks/useSubtitlePlan";
+import { useSubtitleMatches } from "@/hooks/useSubtitleMatches";
 import type {
   Identity,
-  PlanGroup,
-  PlanScope,
+  MatchGroup,
+  MatchScope,
   RunEntry,
   RunItem,
   ScanFile,
@@ -23,9 +23,9 @@ interface Choice extends TitleChoice {
 
 type Workflow =
   | {
-      stage: "titles" | "plan";
+      stage: "titles" | "matches";
       choices: Choice[];
-      scope: PlanScope;
+      scope: MatchScope;
       /** Wanted and Sources as they were when Find subtitles started: a later change applies to the next search. */
       wanted: string[];
       sources: SubtitleProvider[];
@@ -33,7 +33,7 @@ type Workflow =
   | { stage: "run"; earlier: RunEntry[] }
   | { stage: "machine"; files: ScanFile[]; keepExisting: boolean };
 
-const NO_GROUPS: PlanGroup[] = [];
+const NO_GROUPS: MatchGroup[] = [];
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 const videos = (n: number) => `${n} ${n === 1 ? "video" : "videos"}`;
 
@@ -41,10 +41,10 @@ export type SubtitleWorkflow = ReturnType<typeof useSubtitleWorkflow>;
 
 /**
  * The temporary workflows of the Subtitles page, over the Home view: Find subtitles
- * (Titles → Plan → Run) and the Generated and translated section opened from the dock.
+ * (Titles → Matches → Run) and the Generated and translated section opened from the dock.
  * Nothing here is remembered: leaving, or opening another folder, ends it. A run lives on
  * the server, so after a reload it is opened again from Activity (`openRun`), rebuilt
- * from the job's stored plan and results. Write errors go through the shared toast.
+ * from the job's stored items and results. Write errors go through the shared toast.
  */
 export function useSubtitleWorkflow({
   folder,
@@ -73,26 +73,28 @@ export function useSubtitleWorkflow({
     void qc.invalidateQueries({ queryKey: qk.jobs() });
   };
 
-  // ---- Titles and Plan ----
+  // ---- Titles and Matches ----
 
-  const choices = wf && (wf.stage === "titles" || wf.stage === "plan") ? wf.choices : null;
-  const scope = wf && (wf.stage === "titles" || wf.stage === "plan") ? wf.scope : "missing";
-  const planning = wf?.stage === "plan";
+  const choices = wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.choices : null;
+  const scope = wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.scope : "missing";
+  const searching = wf?.stage === "matches";
   const groups = useMemo(
     () =>
-      planning && choices
+      searching && choices
         ? choices
             .filter((c) => !c.skipped)
             .map((c) => ({ key: c.key, identity: c.identity, files: c.videos }))
         : NO_GROUPS,
-    [planning, choices],
+    [searching, choices],
   );
-  const planWanted = wf && (wf.stage === "titles" || wf.stage === "plan") ? wf.wanted : wanted;
-  const planSources = wf && (wf.stage === "titles" || wf.stage === "plan") ? wf.sources : sources;
-  const plan = useSubtitlePlan({
+  const matchesWanted =
+    wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.wanted : wanted;
+  const matchesSources =
+    wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.sources : sources;
+  const matches = useSubtitleMatches({
     groups,
-    wanted: planWanted,
-    providers: planSources,
+    wanted: matchesWanted,
+    providers: matchesSources,
     scope,
   });
 
@@ -127,10 +129,11 @@ export function useSubtitleWorkflow({
   );
   const toggleSkip = (key: string) =>
     editChoices((c) => (c.key === key ? { ...c, skipped: !c.skipped } : c));
-  const setScope = (s: PlanScope) =>
+  const setScope = (s: MatchScope) =>
     setWf((w) => (w && w.stage === "titles" ? { ...w, scope: s } : w));
-  const toPlan = () => setWf((w) => (w && w.stage === "titles" ? { ...w, stage: "plan" } : w));
-  const toTitles = () => setWf((w) => (w && w.stage === "plan" ? { ...w, stage: "titles" } : w));
+  const toMatches = () =>
+    setWf((w) => (w && w.stage === "titles" ? { ...w, stage: "matches" } : w));
+  const toTitles = () => setWf((w) => (w && w.stage === "matches" ? { ...w, stage: "titles" } : w));
 
   // ---- Run ----
 
@@ -232,7 +235,7 @@ export function useSubtitleWorkflow({
   return {
     wf,
     close: () => setWf(null),
-    // titles and plan
+    // titles and matches
     choices: choices ?? [],
     unconfirmed,
     scope,
@@ -240,10 +243,10 @@ export function useSubtitleWorkflow({
     setIdentity,
     toggleSkip,
     setScope,
-    toPlan,
+    toMatches,
     toTitles,
-    plan,
-    planWanted,
+    matches,
+    matchesWanted,
     // run
     download,
     downloading: run.isPending,

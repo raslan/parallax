@@ -193,7 +193,7 @@ describe("Subtitles Home", () => {
     expect(screen.getByText("Manage subtitles")).toBeTruthy();
   });
 
-  it("finds subtitles through Titles, Plan and Run, and goes back to the folder", async () => {
+  it("finds subtitles through Titles, Matches and Run, and goes back to the folder", async () => {
     vi.mocked(subtitlesApi.scan).mockResolvedValue([
       video("/tv/A/e1.mkv", ["en"]),
       video("/tv/B/e1.mkv"),
@@ -249,7 +249,7 @@ describe("Subtitles Home", () => {
     expect(screen.getByText("Titles")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Search subtitles for 2 titles" }));
 
-    // Plan (wanted en, ar; scope "missing"): Alpha already has English, so three searches
+    // Matches (wanted en, ar; scope "missing"): Alpha already has English, so three searches
     // (Alpha ar, Beta en, Beta ar), and nothing is written yet.
     fireEvent.click(await screen.findByRole("button", { name: /Approve all clean rows \(3\)/ }));
     expect(subtitlesApi.search).toHaveBeenCalledTimes(3);

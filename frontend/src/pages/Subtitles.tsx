@@ -93,14 +93,14 @@ export function Subtitles() {
     packsInstalled: packsQ.isSuccess ? packsQ.data.filter((p) => p.installed).length : null,
   });
 
-  // Find subtitles (Titles → Plan → Run) and Generated and translated, over the Home view.
+  // Find subtitles (Titles → Matches → Run) and Generated and translated, over the Home view.
   const w = useSubtitleWorkflow({ folder, titles, wanted, sources });
   const syncEngine: SyncEngine =
     settingsQ.data?.subtitle_sync_engine === "ffsubsync" ? "ffsubsync" : "alass";
   const compare = useSubtitleCompare({
     files,
-    chooseCandidate: w.plan.chooseCandidate,
-    setVerdict: w.plan.setVerdict,
+    chooseCandidate: w.matches.chooseCandidate,
+    setVerdict: w.matches.setVerdict,
     retry: w.retry,
     // Sync, Find another and Delete on an existing subtitle are the Manage panel's actions.
     onExisting: (v, video, file, stray) =>
@@ -444,7 +444,7 @@ export function Subtitles() {
         ytsReason={ytsReason}
         runningFolders={[...new Set(activity.work.map((x) => x.path))]}
       />
-      {(w.wf?.stage === "titles" || w.wf?.stage === "plan") && (
+      {(w.wf?.stage === "titles" || w.wf?.stage === "matches") && (
         <p className="-mt-3 text-3xs text-muted-foreground">
           Changes to Wanted and Sources apply to the next search.
         </p>

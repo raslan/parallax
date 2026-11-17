@@ -2,18 +2,18 @@ import { ArrowLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type WorkflowStage = "titles" | "plan" | "run" | "machine";
+export type WorkflowStage = "titles" | "matches" | "run" | "machine";
 
 const STEPS: { id: Exclude<WorkflowStage, "machine">; label: string }[] = [
   { id: "titles", label: "Titles" },
-  { id: "plan", label: "Plan" },
+  { id: "matches", label: "Matches" },
   { id: "run", label: "Run" },
 ];
 
 /**
- * The slim bar over a temporary Subtitles workflow (Find subtitles: Titles, Plan, Run; or
+ * The slim bar over a temporary Subtitles workflow (Find subtitles: Titles, Matches, Run; or
  * the Generated and translated section on its own): where it is, a way back to Titles from
- * the plan, and Back to folder. The page stays the folder; this is not a wizard.
+ * the matches, and Back to folder. The page stays the folder; this is not a wizard.
  * Props-in/callbacks-out.
  */
 export function WorkflowBar({
@@ -22,7 +22,7 @@ export function WorkflowBar({
   onBack,
 }: {
   stage: WorkflowStage;
-  /** Returns from the plan to the titles; omitted where that makes no sense. */
+  /** Returns from the matches to the titles; omitted where that makes no sense. */
   onTitles?: () => void;
   onBack: () => void;
 }) {
@@ -34,7 +34,7 @@ export function WorkflowBar({
         <ol className="flex items-center gap-1" aria-label="Find subtitles">
           {STEPS.map((s, i) => {
             const current = s.id === stage;
-            const back = s.id === "titles" && stage === "plan" && onTitles;
+            const back = s.id === "titles" && stage === "matches" && onTitles;
             return (
               <li key={s.id} className="flex items-center gap-1">
                 {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}

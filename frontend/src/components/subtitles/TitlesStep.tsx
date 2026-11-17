@@ -6,9 +6,9 @@ import { RadioToggle } from "@/components/RadioToggle";
 import { IdentityPicker } from "@/components/subtitles/IdentityPicker";
 import { titleStatus } from "@/lib/subtitleGroups";
 import { cn } from "@/lib/utils";
-import type { Identity, PlanScope, TitleChoice } from "@/types/subtitle";
+import type { Identity, MatchScope, TitleChoice } from "@/types/subtitle";
 
-const SCOPES: { id: PlanScope; label: string }[] = [
+const SCOPES: { id: MatchScope; label: string }[] = [
   { id: "missing", label: "Only files missing a language" },
   { id: "all", label: "Everything selected" },
 ];
@@ -41,8 +41,8 @@ export function TitlesStep({
   onSearch,
 }: {
   titles: TitleChoice[];
-  scope: PlanScope;
-  onScopeChange: (s: PlanScope) => void;
+  scope: MatchScope;
+  onScopeChange: (s: MatchScope) => void;
   hasTmdbKey: boolean;
   onIdentity: (key: string, identity: Identity) => void;
   onToggleSkip: (key: string) => void;

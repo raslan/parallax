@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Candidate, PlanRowState, RunItem, ScanFile, SearchResult } from "@/types/subtitle";
+import type { Candidate, MatchRowState, RunItem, ScanFile, SearchResult } from "@/types/subtitle";
 
 const search = vi.fn<(body: unknown) => Promise<SearchResult>>();
 vi.mock("@/lib/api", async (orig) => ({
@@ -49,7 +49,7 @@ const row = {
   video: video.path,
   filename: video.filename,
   candidates: [cand("a"), cand("b")],
-} as PlanRowState;
+} as MatchRowState;
 
 function setup() {
   const chooseCandidate = vi.fn();
@@ -179,7 +179,7 @@ describe("useSubtitleCompare", () => {
     expect(result.current.sheet?.candidates).toEqual([]);
   });
 
-  it("'Not this one' on a plan row only sets the skip verdict", () => {
+  it("'Not this one' on a match row only sets the skip verdict", () => {
     const { result, chooseCandidate, setVerdict } = setup();
     act(() => result.current.openRow(row));
     act(() => result.current.verdict("skip", cand("b")));
@@ -188,7 +188,7 @@ describe("useSubtitleCompare", () => {
     expect(result.current.sheet).toBeNull();
   });
 
-  it("passes the length the sheet already measured to the plan row", () => {
+  it("passes the length the sheet already measured to the match row", () => {
     const { result, chooseCandidate } = setup();
     const length = { length: "ok", last: 100, videoDuration: 120 } as const;
     act(() => result.current.openRow(row));

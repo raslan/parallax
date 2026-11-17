@@ -1,15 +1,15 @@
 import { Loader2 } from "lucide-react";
 import { MachineSection } from "@/components/subtitles/MachineSection";
-import { PlanView } from "@/components/subtitles/PlanView";
+import { MatchesView } from "@/components/subtitles/MatchesView";
 import { RunView } from "@/components/subtitles/RunView";
 import { TitlesStep } from "@/components/subtitles/TitlesStep";
 import { WorkflowBar } from "@/components/subtitles/WorkflowBar";
 import type { SubtitleWorkflow } from "@/hooks/useSubtitleWorkflow";
-import type { PlanRowState, RunItem } from "@/types/subtitle";
+import type { MatchRowState, RunItem } from "@/types/subtitle";
 import type { SubtitlePack } from "@/types/subtitlePack";
 
 /**
- * The open temporary workflow of the Subtitles page (Titles, Plan, Run, or the Generated
+ * The open temporary workflow of the Subtitles page (Titles, Matches, Run, or the Generated
  * and translated section), under its slim bar. Composition only: the state is the page's
  * `useSubtitleWorkflow`, handed in whole like Organize's tag edits. Props-in/callbacks-out.
  */
@@ -38,7 +38,7 @@ export function WorkflowView({
   queuePosition: number | null;
   cancelling: boolean;
   onCancel: (jobId: number) => void;
-  onCompareRow: (row: PlanRowState) => void;
+  onCompareRow: (row: MatchRowState) => void;
   onCompareItem: (item: RunItem) => void;
   /** The failed item whose "Pick another" search is running. */
   comparingItem: RunItem | null;
@@ -72,35 +72,35 @@ export function WorkflowView({
           hasTmdbKey={hasTmdbKey}
           onIdentity={w.setIdentity}
           onToggleSkip={w.toggleSkip}
-          onSearch={w.toPlan}
+          onSearch={w.toMatches}
         />
       );
-    if (wf.stage === "plan")
+    if (wf.stage === "matches")
       return (
-        <PlanView
+        <MatchesView
           titles={w.choices
             .filter((c) => !c.skipped)
             .map((c) => ({
               key: c.key,
               name: c.identity.year ? `${c.identity.title} (${c.identity.year})` : c.identity.title,
             }))}
-          rows={w.plan.rows}
-          wanted={w.planWanted}
-          progress={w.plan.progress}
-          checks={w.plan.checks}
-          paused={w.plan.paused}
-          checksSkipped={w.plan.checksSkipped}
-          errors={w.plan.errors}
-          notes={w.plan.notes}
-          onPause={w.plan.pause}
-          onResume={w.plan.resume}
-          onSkipChecks={w.plan.skipChecks}
-          onRetrySearch={w.plan.retry}
-          onToggleUse={w.plan.toggleUse}
-          onApproveAllClean={w.plan.approveAllClean}
+          rows={w.matches.rows}
+          wanted={w.matchesWanted}
+          progress={w.matches.progress}
+          checks={w.matches.checks}
+          paused={w.matches.paused}
+          checksSkipped={w.matches.checksSkipped}
+          errors={w.matches.errors}
+          notes={w.matches.notes}
+          onPause={w.matches.pause}
+          onResume={w.matches.resume}
+          onSkipChecks={w.matches.skipChecks}
+          onRetrySearch={w.matches.retry}
+          onToggleUse={w.matches.toggleUse}
+          onApproveAllClean={w.matches.approveAllClean}
           unconfirmed={w.unconfirmed}
           onPickTitle={w.toTitles}
-          onFindAnother={w.plan.findAnother}
+          onFindAnother={w.matches.findAnother}
           onCompare={onCompareRow}
           settingsEngine={settingsEngine}
           downloading={w.downloading}
@@ -144,7 +144,7 @@ export function WorkflowView({
     <div className="space-y-4">
       <WorkflowBar
         stage={wf.stage}
-        onTitles={wf.stage === "plan" ? w.toTitles : undefined}
+        onTitles={wf.stage === "matches" ? w.toTitles : undefined}
         onBack={w.close}
       />
       {body()}

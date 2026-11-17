@@ -4,17 +4,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { formatDuration } from "@/lib/format";
 import { languageName } from "@/lib/subtitle-langs";
 import { sourceName } from "@/lib/subtitleRunDock";
-import type { PlanRowState } from "@/types/subtitle";
+import type { MatchRowState } from "@/types/subtitle";
 
 /** The S01E03 label of a row, else the file name. */
-function episodeLabel(r: Pick<PlanRowState, "season" | "episode" | "filename">): string {
+function episodeLabel(r: Pick<MatchRowState, "season" | "episode" | "filename">): string {
   if (r.season != null && r.episode != null)
     return `S${String(r.season).padStart(2, "0")}E${String(r.episode).padStart(2, "0")}`;
   return r.filename;
 }
 
 /** What the length check said about a row's top candidate, as a short line. */
-function LengthLine({ row, checksSkipped }: { row: PlanRowState; checksSkipped: boolean }) {
+function LengthLine({ row, checksSkipped }: { row: MatchRowState; checksSkipped: boolean }) {
   const l = row.lengthResult;
   if (!l)
     return (
@@ -41,7 +41,7 @@ function LengthLine({ row, checksSkipped }: { row: PlanRowState; checksSkipped: 
 }
 
 /** One cell: a video in one wanted language. */
-function PlanCell({
+function MatchCell({
   row,
   keepExisting,
   checksSkipped,
@@ -49,12 +49,12 @@ function PlanCell({
   onFindAnother,
   onCompare,
 }: {
-  row: PlanRowState;
+  row: MatchRowState;
   keepExisting: boolean;
   checksSkipped: boolean;
   onToggleUse: (key: string) => void;
   onFindAnother: (key: string) => void;
-  onCompare: (row: PlanRowState) => void;
+  onCompare: (row: MatchRowState) => void;
 }) {
   const label = `${episodeLabel(row)} ${languageName(row.language)}`;
   if (row.status === "checking")
@@ -138,13 +138,13 @@ function PlanCell({
 }
 
 /**
- * One video of the plan: its episode label, then a cell per wanted language with the chosen
+ * One video of the matches: its episode label, then a cell per wanted language with the chosen
  * candidate (source, release, length check, a tickbox to download it, Compare), "Has a
  * real subtitle" with Find another, or "None found" with each source's reason. When Keep
  * existing is off and a generated or translated file of that language exists, the cell
  * says the download replaces it. Props-in/callbacks-out.
  */
-export function PlanRow({
+export function MatchRow({
   cells,
   wanted,
   keepExisting,
@@ -154,13 +154,13 @@ export function PlanRow({
   onCompare,
 }: {
   /** The row's cells in `wanted` order (a missing language has none). */
-  cells: (PlanRowState | undefined)[];
+  cells: (MatchRowState | undefined)[];
   wanted: string[];
   keepExisting: boolean;
   checksSkipped: boolean;
   onToggleUse: (key: string) => void;
   onFindAnother: (key: string) => void;
-  onCompare: (row: PlanRowState) => void;
+  onCompare: (row: MatchRowState) => void;
 }) {
   const first = cells.find((c) => c);
   if (!first) return null;
@@ -174,7 +174,7 @@ export function PlanRow({
       </span>
       {cells.map((row, i) =>
         row ? (
-          <PlanCell
+          <MatchCell
             key={row.key}
             row={row}
             keepExisting={keepExisting}

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { Candidate, PlanRowState } from "@/types/subtitle";
-import { PlanView } from "./PlanView";
+import type { Candidate, MatchRowState } from "@/types/subtitle";
+import { MatchesView } from "./MatchesView";
 
 afterEach(cleanup);
 
@@ -15,7 +15,7 @@ const cand = (id: string): Candidate => ({
   hearing_impaired: false,
 });
 
-const row = (n: number, extra: Partial<PlanRowState> = {}): PlanRowState => ({
+const row = (n: number, extra: Partial<MatchRowState> = {}): MatchRowState => ({
   key: `${n}|en`,
   video: `/tv/Show/S01E0${n}.mkv`,
   filename: `S01E0${n}.mkv`,
@@ -33,7 +33,10 @@ const row = (n: number, extra: Partial<PlanRowState> = {}): PlanRowState => ({
   ...extra,
 });
 
-function renderPlan(rows: PlanRowState[], overrides: Partial<Parameters<typeof PlanView>[0]> = {}) {
+function renderMatches(
+  rows: MatchRowState[],
+  overrides: Partial<Parameters<typeof MatchesView>[0]> = {},
+) {
   const props = {
     titles: [{ key: "tv:show", name: "Show (2016)" }],
     rows,
@@ -56,16 +59,16 @@ function renderPlan(rows: PlanRowState[], overrides: Partial<Parameters<typeof P
     onDownload: vi.fn(),
     ...overrides,
   };
-  render(<PlanView {...props} />);
+  render(<MatchesView {...props} />);
   return props;
 }
 
 const box = (name: string) => screen.getByRole("checkbox", { name }) as HTMLElement;
 const checked = (name: string) => box(name).getAttribute("aria-checked") === "true";
 
-describe("PlanView", () => {
+describe("MatchesView", () => {
   it("counts only clean rows for Approve all, leaving flagged ones", () => {
-    const p = renderPlan([
+    const p = renderMatches([
       row(1),
       row(2, { status: "replaces_machine", machineKind: "generated" }),
       row(3, {
@@ -79,7 +82,7 @@ describe("PlanView", () => {
 
   it("keeps rows of an unconfirmed title out of Approve all and says why", () => {
     const onPickTitle = vi.fn();
-    const p = renderPlan([row(1), row(2, { title: "tv:other", key: "9|en" })], {
+    const p = renderMatches([row(1), row(2, { title: "tv:other", key: "9|en" })], {
       titles: [
         { key: "tv:show", name: "Show" },
         { key: "tv:other", name: "Other" },
@@ -99,7 +102,7 @@ describe("PlanView", () => {
   });
 
   it("says nothing found, not all clean, for a title with a row that found nothing", () => {
-    renderPlan(
+    renderMatches(
       [
         row(1),
         row(2, { title: "tv:other", key: "9|en", status: "none", candidate: undefined }),
@@ -118,29 +121,29 @@ describe("PlanView", () => {
   });
 
   it("shows no identity note once every title is confirmed", () => {
-    renderPlan([row(1)], { unconfirmed: new Set() });
+    renderMatches([row(1)], { unconfirmed: new Set() });
     expect(screen.queryByText(/Identity not confirmed/)).toBeNull();
   });
 
   it("does not count a row still waiting for its length check as clean", () => {
-    renderPlan([row(1), row(2, { lengthResult: undefined })]);
+    renderMatches([row(1), row(2, { lengthResult: undefined })]);
     expect(screen.getByRole("button", { name: /Approve all clean rows \(1\)/ })).toBeTruthy();
   });
 
   it("counts an unchecked row once checks were skipped", () => {
-    renderPlan([row(1, { lengthResult: undefined })], { checksSkipped: true });
+    renderMatches([row(1, { lengthResult: undefined })], { checksSkipped: true });
     expect(screen.getByRole("button", { name: /Approve all clean rows \(1\)/ })).toBeTruthy();
   });
 
   it("says a download replaces the existing subtitle only while Keep existing is off", () => {
-    renderPlan([row(1, { hasReal: true })]);
+    renderMatches([row(1, { hasReal: true })]);
     expect(screen.getByText("Replaces the existing subtitle")).toBeTruthy();
     fireEvent.click(box("Keep existing subtitles"));
     expect(screen.queryByText("Replaces the existing subtitle")).toBeNull();
   });
 
   it("keeps a source that does not apply out of the red failure banner", () => {
-    renderPlan([row(1, { status: "none", candidate: undefined, candidates: [] })], {
+    renderMatches([row(1, { status: "none", candidate: undefined, candidates: [] })], {
       errors: [],
       notes: [{ provider: "yts", message: "Films only", count: 1 }],
     });
@@ -149,25 +152,29 @@ describe("PlanView", () => {
   });
 
   it("says a download replaces the generated file only while Keep existing is off", () => {
-    renderPlan([row(1, { status: "replaces_machine", machineKind: "generated" })]);
+    renderMatches([row(1, { status: "replaces_machine", machineKind: "generated" })]);
     expect(screen.getByText("Replaces the generated English file")).toBeTruthy();
     fireEvent.click(box("Keep existing subtitles"));
     expect(screen.queryByText("Replaces the generated English file")).toBeNull();
   });
 
   it("starts both tickboxes off on every mount", () => {
-    renderPlan([row(1)]);
+    renderMatches([row(1)]);
     fireEvent.click(box("Keep existing subtitles"));
     fireEvent.click(box("Sync after download"));
     expect(checked("Keep existing subtitles")).toBe(true);
     cleanup();
-    renderPlan([row(1)]);
+    renderMatches([row(1)]);
     expect(checked("Keep existing subtitles")).toBe(false);
     expect(checked("Sync after download")).toBe(false);
   });
 
   it("downloads the approved rows with the run options", () => {
-    const p = renderPlan([row(1, { verdict: "use" }), row(2), row(3, { verdict: "use_and_sync" })]);
+    const p = renderMatches([
+      row(1, { verdict: "use" }),
+      row(2),
+      row(3, { verdict: "use_and_sync" }),
+    ]);
     fireEvent.click(box("Keep existing subtitles"));
     fireEvent.click(box("Sync after download"));
     fireEvent.click(screen.getByRole("button", { name: "ffsubsync" }));
@@ -196,7 +203,7 @@ describe("PlanView", () => {
   });
 
   it("offers Find another on a row with a real subtitle, and Compare on a candidate", () => {
-    const p = renderPlan([
+    const p = renderMatches([
       row(1, { status: "has_real", candidate: undefined, candidates: [] }),
       row(2),
     ]);
@@ -207,7 +214,7 @@ describe("PlanView", () => {
   });
 
   it("shows the length-check progress with Pause and Skip checks", () => {
-    const p = renderPlan([row(1)], { checks: { done: 3, total: 10 } });
+    const p = renderMatches([row(1)], { checks: { done: 3, total: 10 } });
     expect(screen.getByText(/3 of 10/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     fireEvent.click(screen.getByRole("button", { name: "Skip checks" }));

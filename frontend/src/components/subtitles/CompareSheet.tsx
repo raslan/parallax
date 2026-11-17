@@ -80,7 +80,7 @@ type CompareSheetProps = {
 };
 
 /**
- * Names what the sheet is open for (a plan row, a run item, an existing file). The sheet is
+ * Names what the sheet is open for (a match row, a run item, an existing file). The sheet is
  * non-modal, so it can be re-opened for another row of the same video while it is open; a new
  * id starts it afresh (first candidate, no stale line or seek).
  */

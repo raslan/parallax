@@ -7,10 +7,10 @@ import type {
   Candidate,
   Identity,
   LengthResult,
-  PlanGroup,
-  PlanRowState,
-  PlanScope,
-  PlanVerdict,
+  MatchGroup,
+  MatchRowState,
+  MatchScope,
+  MatchVerdict,
   SubtitleProvider,
 } from "@/types/subtitle";
 
@@ -20,7 +20,7 @@ const NOT_APPLICABLE = new Set(["Films only", "TV only"]);
 /** Requests to the subtitle sites at once; the server adds its own delay between them. */
 const MAX_IN_FLIGHT = 2;
 
-/** What a row is before anything was searched: from the plan's inputs and the disk. */
+/** What a row is before anything was searched: from the search's inputs and the disk. */
 interface Base {
   key: string;
   video: string;
@@ -41,7 +41,7 @@ interface Overlay {
   found?: { candidates: Candidate[]; errors: { provider: string; message: string }[] };
   failed?: boolean;
   forced?: boolean;
-  verdict?: PlanVerdict;
+  verdict?: MatchVerdict;
   length?: LengthResult;
 }
 
@@ -50,9 +50,9 @@ type Task =
 
 /**
  * A small ordered queue with a cap on requests in flight. `reset` starts a new generation:
- * answers to an older one are ignored, so a changed plan never mixes with the last one.
+ * answers to an older one are ignored, so a changed search never mixes with the last one.
  */
-class PlanQueue {
+class MatchQueue {
   private queue: Task[] = [];
   private inFlight = 0;
   private gen = 0;
@@ -109,7 +109,7 @@ class PlanQueue {
 
 const rowKey = (video: string, language: string) => `${video}\u0000${language}`;
 
-function buildBases(groups: PlanGroup[], wanted: string[], scope: PlanScope): Base[] {
+function buildBases(groups: MatchGroup[], wanted: string[], scope: MatchScope): Base[] {
   const out: Base[] = [];
   for (const g of groups) {
     for (const f of g.files) {
@@ -137,10 +137,10 @@ function buildBases(groups: PlanGroup[], wanted: string[], scope: PlanScope): Ba
 const flaggedLength = (l: LengthResult | undefined) =>
   !!l && "length" in l && (l.length === "short" || l.length === "long");
 
-function toRow(b: Base, ov: Overlay = {}): PlanRowState {
+function toRow(b: Base, ov: Overlay = {}): MatchRowState {
   const candidates = ov.found?.candidates ?? [];
   const candidate = candidates[0];
-  let status: PlanRowState["status"];
+  let status: MatchRowState["status"];
   if (!b.searched && !ov.forced) status = "has_real";
   else if (!ov.found) status = "checking";
   else if (!candidate) status = "none";
@@ -167,38 +167,38 @@ function toRow(b: Base, ov: Overlay = {}): PlanRowState {
 }
 
 /**
- * The plan's search, driven from the browser: one read-only `POST /subtitles/search` per
+ * The search, driven from the browser: one read-only `POST /subtitles/search` per
  * video and language it needs (scope `missing` skips a language that already has a real
- * subtitle; `all` searches every selected video), at most two in flight, in plan order,
+ * subtitle; `all` searches every selected video), at most two in flight, in row order,
  * pausable. Then the length check of each row's top candidate (`POST /subtitles/preview`,
  * nothing written beside the video), after the searches, with the same cap; Skip checks
  * stops further checks and leaves those rows unchecked. A row is `flagged` when its top
  * candidate looks short or long. Nothing here is saved: a changed input starts over.
  */
-export function useSubtitlePlan({
+export function useSubtitleMatches({
   groups,
   wanted,
   providers,
   scope,
 }: {
-  groups: PlanGroup[];
+  groups: MatchGroup[];
   wanted: string[];
   providers: SubtitleProvider[];
-  scope: PlanScope;
+  scope: MatchScope;
 }) {
   const input = useMemo(
     () => ({ bases: buildBases(groups, wanted, scope), providers }),
     [groups, wanted, scope, providers],
   );
-  const [queue] = useState(() => new PlanQueue());
+  const [queue] = useState(() => new MatchQueue());
   const [overlay, setOverlay] = useState<Record<string, Overlay>>({});
   const [paused, setPaused] = useState(false);
   const [checksSkipped, setChecksSkipped] = useState(false);
 
-  // A new plan starts from nothing (adjusted while rendering, not in an effect).
-  const [planned, setPlanned] = useState(input);
-  if (planned !== input) {
-    setPlanned(input);
+  // A new search starts from nothing (adjusted while rendering, not in an effect).
+  const [started, setStarted] = useState(input);
+  if (started !== input) {
+    setStarted(input);
     setOverlay({});
     setPaused(false);
     setChecksSkipped(false);
@@ -210,7 +210,7 @@ export function useSubtitlePlan({
   );
 
   useEffect(() => {
-    // Drives an external system (the subtitle sites) from the plan's inputs.
+    // Drives an external system (the subtitle sites) from the search's inputs.
     const byKey = new Map(input.bases.map((b) => [b.key, b]));
     const run = async (task: Task, current: () => boolean) => {
       const b = byKey.get(task.key);
@@ -335,16 +335,16 @@ export function useSubtitlePlan({
   }, [rows, patch, queue]);
 
   const setVerdict = useCallback(
-    (key: string, verdict: PlanVerdict | undefined) => patch(key, { verdict }),
+    (key: string, verdict: MatchVerdict | undefined) => patch(key, { verdict }),
     [patch],
   );
   /**
    * A candidate picked in Compare becomes the row's candidate (listed first) with the verdict
    * the user gave it. Its length is the one Compare measured (`length`); without one, and when
-   * it is not the candidate the plan checked, the row says it was not checked.
+   * it is not the candidate the search checked, the row says it was not checked.
    */
   const chooseCandidate = useCallback(
-    (key: string, candidate: Candidate, verdict: PlanVerdict, length?: LengthResult) => {
+    (key: string, candidate: Candidate, verdict: MatchVerdict, length?: LengthResult) => {
       const r = rows.find((x) => x.key === key);
       if (!r) return;
       const same = (c: Candidate) =>

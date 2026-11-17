@@ -7,7 +7,7 @@ import {
   runEntries,
   runItems,
 } from "./subtitleRunDock";
-import type { Candidate, PlanRowState } from "@/types/subtitle";
+import type { Candidate, MatchRowState } from "@/types/subtitle";
 import type { Job } from "@/types/job";
 
 const cand = (id: string): Candidate => ({
@@ -19,7 +19,7 @@ const cand = (id: string): Candidate => ({
   hearing_impaired: false,
 });
 
-const row = (extra: Partial<PlanRowState> = {}): PlanRowState => ({
+const row = (extra: Partial<MatchRowState> = {}): MatchRowState => ({
   key: "a|en",
   video: "/tv/a.mkv",
   filename: "a.mkv",
@@ -111,7 +111,7 @@ describe("run entries", () => {
     { video_path: "/tv/2.mkv", language: "en", provider: "subf2m", subtitle_id: "b", sync: false },
   ];
 
-  it("reads the plan and the results stored on the job", () => {
+  it("reads the items and the results stored on the job", () => {
     const parsed = parseRunJob(
       job({
         path: "/tv",
@@ -134,7 +134,7 @@ describe("run entries", () => {
     expect(runEntries(parsed, true).map((e) => e.state)).toEqual(["skipped", "skipped"]);
   });
 
-  it("returns null for a job without a readable plan", () => {
+  it("returns null for a job without a readable run", () => {
     expect(parseRunJob(undefined)).toBeNull();
     expect(parseRunJob({ ...job({}), settings: "nope" })).toBeNull();
   });

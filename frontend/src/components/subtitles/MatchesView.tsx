@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProgressBar } from "@/components/ProgressBar";
-import { PlanRow } from "@/components/subtitles/PlanRow";
+import { MatchRow } from "@/components/subtitles/MatchRow";
 import { languageName } from "@/lib/subtitle-langs";
 import {
   defaultRunOptions,
@@ -30,13 +30,13 @@ import {
   type SyncEngine,
 } from "@/lib/subtitleRunDock";
 import { cn } from "@/lib/utils";
-import type { PlanRowState, RunItem } from "@/types/subtitle";
+import type { MatchRowState, RunItem } from "@/types/subtitle";
 
 const ENGINES: SyncEngine[] = ["alass", "ffsubsync"];
 const NONE: ReadonlySet<string> = new Set();
 
-/** What a title (or the whole plan) has: ready to download, to check, nothing found. */
-function counts(rows: PlanRowState[]) {
+/** What a title (or the whole view) has: ready to download, to check, nothing found. */
+function counts(rows: MatchRowState[]) {
   let ready = 0;
   let flagged = 0;
   let none = 0;
@@ -70,15 +70,15 @@ function railStatus(c: ReturnType<typeof counts>): { text: string; tone: string 
 interface Season {
   key: string;
   label: string;
-  videos: { video: string; cells: (PlanRowState | undefined)[] }[];
-  rows: PlanRowState[];
+  videos: { video: string; cells: (MatchRowState | undefined)[] }[];
+  rows: MatchRowState[];
 }
 
 /** A title's rows as seasons of videos, each video with a cell per wanted language. */
-function seasonsOf(rows: PlanRowState[], wanted: string[]): Season[] {
-  const byVideo = new Map<string, Map<string, PlanRowState>>();
+function seasonsOf(rows: MatchRowState[], wanted: string[]): Season[] {
+  const byVideo = new Map<string, Map<string, MatchRowState>>();
   for (const r of rows) {
-    const m = byVideo.get(r.video) ?? new Map<string, PlanRowState>();
+    const m = byVideo.get(r.video) ?? new Map<string, MatchRowState>();
     m.set(r.language, r);
     byVideo.set(r.video, m);
   }
@@ -114,7 +114,7 @@ function seasonSummary(s: Season, lang: string): string {
 }
 
 /**
- * The plan of a "Find subtitles" run: a rail of titles (a select on a phone), "Approve all
+ * The matches of a "Find subtitles" run: a rail of titles (a select on a phone), "Approve all
  * clean rows" across every title (never a flagged row), the search and length-check
  * progress with Pause and Skip checks, and the open title's videos with a column per
  * wanted language; a season where nothing needs a decision shows as one summary line.
@@ -123,7 +123,7 @@ function seasonSummary(s: Season, lang: string): string {
  * puts the Generated and translated section below, with the same Keep existing choice.
  * Props-in/callbacks-out; the tickboxes, the open title and the open seasons are view state.
  */
-export function PlanView({
+export function MatchesView({
   titles,
   rows,
   wanted,
@@ -149,7 +149,7 @@ export function PlanView({
   renderMachine,
 }: {
   titles: { key: string; name: string }[];
-  rows: PlanRowState[];
+  rows: MatchRowState[];
   wanted: string[];
   progress: { done: number; total: number };
   checks: { done: number; total: number };
@@ -171,7 +171,7 @@ export function PlanView({
   /** Back to the Titles step to pick which show or film a title is. */
   onPickTitle?: () => void;
   /** Opens the Compare sheet for a row (Task 14). */
-  onCompare: (row: PlanRowState) => void;
+  onCompare: (row: MatchRowState) => void;
   settingsEngine: string;
   downloading: boolean;
   onDownload: (run: {
@@ -189,7 +189,7 @@ export function PlanView({
   const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
 
   const byTitle = useMemo(() => {
-    const m = new Map<string, PlanRowState[]>();
+    const m = new Map<string, MatchRowState[]>();
     for (const r of rows) m.set(r.title, [...(m.get(r.title) ?? []), r]);
     return m;
   }, [rows]);
@@ -421,7 +421,7 @@ export function PlanView({
                     ) : null}
                     {open &&
                       s.videos.map((v) => (
-                        <PlanRow
+                        <MatchRow
                           key={v.video}
                           cells={v.cells}
                           wanted={wanted}

@@ -1,4 +1,4 @@
-import type { PlanRowState, RunEntry, RunItem, RunResult } from "@/types/subtitle";
+import type { MatchRowState, RunEntry, RunItem, RunResult } from "@/types/subtitle";
 import type { Job } from "@/types/job";
 
 export type SyncEngine = "alass" | "ffsubsync";
@@ -29,15 +29,15 @@ export function defaultRunOptions(settingsEngine: string): RunOptions {
  * settled (a result, an error, or checks skipped), so a row about to be flagged is never
  * approved by a click that came a moment too early.
  */
-export function isClean(row: PlanRowState, checksSkipped = false): boolean {
+export function isClean(row: MatchRowState, checksSkipped = false): boolean {
   const settled = !!row.lengthResult || checksSkipped;
   return (
     (row.status === "ready" || row.status === "replaces_machine") && !!row.candidate && settled
   );
 }
 
-/** The approved rows as run items, in plan order. */
-export function runItems(rows: PlanRowState[]): RunItem[] {
+/** The approved rows as run items, in row order. */
+export function runItems(rows: MatchRowState[]): RunItem[] {
   return rows.flatMap((r) =>
     r.candidate && (r.verdict === "use" || r.verdict === "use_and_sync")
       ? [
@@ -53,7 +53,7 @@ export function runItems(rows: PlanRowState[]): RunItem[] {
   );
 }
 
-/** What a run job stores in its settings: its plan, its choices and the results so far. */
+/** What a run job stores in its settings: its items, its choices and the results so far. */
 export interface ParsedRun {
   path: string | null;
   items: RunItem[];
@@ -63,7 +63,7 @@ export interface ParsedRun {
   engine: SyncEngine | null;
 }
 
-/** Reads a run job's stored plan; null for a job without one (or not loaded yet). */
+/** Reads a run job's stored items; null for a job without one (or not loaded yet). */
 export function parseRunJob(job: Job | undefined | null): ParsedRun | null {
   if (!job?.settings) return null;
   let raw: unknown;
