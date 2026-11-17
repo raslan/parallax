@@ -8,6 +8,7 @@ const TYPE_LABEL: Record<string, string> = {
   phash_scan: "pHash scan",
   transcode: "Transcode",
   duplicates: "Duplicate scan",
+  subtitle_search: "Subtitle search",
   subtitle_download: "Subtitle download",
   subtitle_sync: "Subtitle sync",
   model_download: "Model download",

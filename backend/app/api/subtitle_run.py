@@ -141,6 +141,7 @@ async def run_subtitles(body: RunRequest, db: Session = Depends(get_db)):
 
 _ACTIVE_TYPES = (
     JobType.SUBTITLE_DOWNLOAD,
+    JobType.SUBTITLE_SEARCH,
     JobType.SUBTITLE_SYNC,
     JobType.SUBTITLE_TRANSLATE,
     JobType.SUBTITLE_GENERATE,
@@ -149,7 +150,7 @@ _ACTIVE_TYPES = (
 
 @router.get("/active", summary="List running and waiting subtitle work by folder")
 def active_work():
-    """Every pending or running subtitle job (download, sync, translate, speech-to-text),
+    """Every pending or running subtitle job (search, download, sync, translate, speech-to-text),
     grouped by the folder it was started from. `queue_position` is the job's place among all
     waiting jobs, only while every job slot is busy; otherwise null."""
     from app.database import SessionLocal

@@ -15,6 +15,7 @@ class JobType:
     IMAGE_CONTENT_SCAN = "image_content_scan"
     MODEL_DOWNLOAD = "model_download"
     SUBTITLE_DOWNLOAD = "subtitle_download"
+    SUBTITLE_SEARCH = "subtitle_search"
     COMPRESS = "compress"
     PHASH_SCAN = "phash_scan"
     TOOLBOX_FIX = "toolbox_fix"

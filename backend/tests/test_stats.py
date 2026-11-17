@@ -144,3 +144,16 @@ def test_removal_counts_as_savings_and_restore_without_current_file_undoes_it(db
     assert stats_service.summary(db)["jobs"] == 1
     stats_service.record_restore("video", 300, None)
     assert stats_service.summary(db)["bytes_saved"] == 600
+
+
+def test_a_finished_subtitle_search_records_no_stat_event(fs_db):
+    from app.models.job import Job, JobStatus, JobType
+
+    db = fs_db()
+    job = Job(type=JobType.SUBTITLE_SEARCH, status=JobStatus.COMPLETED, total_files=3)
+    db.add(job)
+    db.commit()
+    job_id = job.id
+    stats_service.record_finished_job(job_id)
+    assert db.query(StatEvent).count() == 0
+    db.close()

@@ -66,3 +66,9 @@ describe("newlyCompleted", () => {
     expect(newlyCompleted(prev, [job({ id: 1, type: "thumbnail_warm" })])).toEqual([]);
   });
 });
+
+describe("jobLabel for the subtitle search job", () => {
+  it("is called Subtitle search", () => {
+    expect(jobLabel("subtitle_search")).toBe("Subtitle search");
+  });
+});

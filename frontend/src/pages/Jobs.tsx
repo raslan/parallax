@@ -41,7 +41,7 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
 };
 
 // Job types whose `current_file` is shown bare (a scan's file is just a name).
-const BARE_FILE_TYPES = new Set(["scan", "audio_scan", "image_scan"]);
+const BARE_FILE_TYPES = new Set(["scan", "audio_scan", "image_scan", "subtitle_search"]);
 
 // Verb shown before `current_file`; anything unlisted reads "Processing".
 const FILE_VERB: Record<string, string> = {

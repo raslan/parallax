@@ -110,3 +110,12 @@ def test_translate_and_generate_store_path(client, tmp_path, monkeypatch):
 
 def test_active_requires_auth(anon_client):
     assert anon_client.get("/api/subtitles/active").status_code == 401
+
+
+def test_active_lists_a_search_job_by_its_stored_folder(client, jobs):
+    s = jobs(JobType.SUBTITLE_SEARCH, JobStatus.PENDING, path="/m/a")
+    r = client.get("/api/subtitles/active")
+    groups = {g["path"]: g["jobs"] for g in r.json()}
+    assert [(j["id"], j["type"], j["status"]) for j in groups["/m/a"]] == [
+        (s, "subtitle_search", "pending")
+    ]
