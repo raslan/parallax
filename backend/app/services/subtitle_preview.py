@@ -97,18 +97,15 @@ def _sample(cues: list[Cue]) -> list[dict]:
     ]
 
 
-def create_preview(
-    video_path: str,
+def _cues_for(
     provider: str,
     subtitle_id: str,
     language: str,
-    video_duration: float | None = None,
-    season: int | None = None,
-    episode: int | None = None,
-) -> dict:
-    """Download a candidate and write it as temporary WebVTT. `video_path` is only the video's
-    name for context: nothing is written beside it. The caller supplies the probed duration.
-    For a season pack, `season` and `episode` pick the one file of that episode."""
+    season: int | None,
+    episode: int | None,
+) -> list[Cue]:
+    """A candidate's cues: its download (from the cache when it was fetched lately), the one
+    file of an archive, decoded and parsed. ProviderError says why when any step fails."""
     try:
         source = get_provider(provider)
     except ValueError as exc:
@@ -127,7 +124,48 @@ def create_preview(
     cues = parse_srt(_decode(data, language))
     if not cues:
         raise ProviderError("The download is not a readable subtitle file.")
-    return _write_preview(cues, video_duration)
+    return cues
+
+
+def create_preview(
+    video_path: str,
+    provider: str,
+    subtitle_id: str,
+    language: str,
+    video_duration: float | None = None,
+    season: int | None = None,
+    episode: int | None = None,
+) -> dict:
+    """Download a candidate and write it as temporary WebVTT. `video_path` is only the video's
+    name for context: nothing is written beside it. The caller supplies the probed duration.
+    For a season pack, `season` and `episode` pick the one file of that episode."""
+    return _write_preview(
+        _cues_for(provider, subtitle_id, language, season, episode), video_duration
+    )
+
+
+def check_candidate_length(
+    video_path: str,
+    provider: str,
+    subtitle_id: str,
+    language: str,
+    *,
+    season: int | None = None,
+    episode: int | None = None,
+    video_duration: float | None = None,
+) -> dict:
+    """The length check of a candidate without a preview file: how many cues, when the first and
+    last start and end, and whether that fits the video. It never probes the video: the caller
+    passes `video_duration` (the search job probes it under a deadline). Writes nothing."""
+    cues = _cues_for(provider, subtitle_id, language, season, episode)
+    last = max(c.end for c in cues)
+    return {
+        "cues": len(cues),
+        "first": min(c.start for c in cues),
+        "last": last,
+        "length": length_verdict(last, video_duration),
+        "video_duration": video_duration,
+    }
 
 
 def create_existing_preview(

@@ -292,3 +292,51 @@ def test_preview_caches_what_it_fetched(preview_dir, monkeypatch):
     sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=60)
     assert provider.fetches == 1
     assert subtitle_downloads.get("yts", "x") == make_srt().encode()
+
+
+def test_check_length_matches_the_preview_and_writes_no_file(preview_dir, monkeypatch):
+    use(monkeypatch, make_srt(500).encode())
+    previewed = sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=5100)
+    before = sorted(os.listdir(preview_dir))
+    checked = sp.check_candidate_length("/v/M.mkv", "yts", "x", "en", video_duration=5100)
+    assert checked == {
+        "cues": previewed["cues"],
+        "first": previewed["first"],
+        "last": previewed["last"],
+        "length": previewed["length"],
+        "video_duration": 5100,
+    }
+    assert sorted(os.listdir(preview_dir)) == before  # no new .vtt
+
+
+def test_check_length_never_probes_the_video_and_says_unknown_without_a_runtime(
+    preview_dir, monkeypatch
+):
+    use(monkeypatch, make_srt().encode())
+    out = sp.check_candidate_length("/does/not/exist.mkv", "yts", "x", "en")
+    assert out["length"] == "unknown" and out["video_duration"] is None
+    assert not preview_dir.exists() or os.listdir(preview_dir) == []
+
+
+def test_check_length_passes_season_and_episode(preview_dir, monkeypatch):
+    provider = FakeProvider(make_srt().encode())
+    monkeypatch.setattr(sp, "get_provider", lambda name: provider)
+    sp.check_candidate_length("/v/M.mkv", "subf2m", "x", "en", season=1, episode=4)
+    assert provider.asked_for == (1, 4)
+
+
+def test_check_length_names_an_unreadable_subtitle(preview_dir, monkeypatch):
+    use(monkeypatch, b"not a subtitle at all")
+    with pytest.raises(ProviderError, match="The download is not a readable subtitle file."):
+        sp.check_candidate_length("/v/M.mkv", "yts", "x", "en")
+
+
+def test_check_length_on_a_lone_ass_release_is_unreadable(preview_dir, monkeypatch):
+    """RAS-154: a single .ass release cannot be length-checked, so it is never a sure match."""
+    ass = (
+        b"[Script Info]\nTitle: x\n\n[Events]\n"
+        b"Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Hi\n"
+    )
+    use(monkeypatch, ass)
+    with pytest.raises(ProviderError, match="The download is not a readable subtitle file."):
+        sp.check_candidate_length("/v/M.mkv", "yts", "x", "en")
