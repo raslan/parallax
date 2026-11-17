@@ -33,15 +33,18 @@ class FakeProvider:
             raise self.error
         return [dict(r) for r in self.results]
 
-    def download(self, subtitle_id, season=None, episode=None):
+    def fetch(self, subtitle_id):
         self.downloads.append(subtitle_id)
-        self.asked_for = (season, episode)
         value = self.files[subtitle_id]
         if isinstance(value, Exception):
             raise value
         if callable(value):
             return value()
         return value
+
+    def extract(self, raw, season=None, episode=None):
+        self.asked_for = (season, episode)
+        return raw
 
     def close(self):
         pass
@@ -567,3 +570,64 @@ def test_search_cache_is_capped_and_drops_expired(monkeypatch):
     t[0] += sr.CACHE_TTL_SECONDS + 1
     sr.search_candidates(q("fresh"), ["subf2m"], clock=lambda: t[0])
     assert len(sr._CACHE) == 1
+
+
+# ---------------------------------------------------------------- the download cache
+
+
+class PackProvider(FakeProvider):
+    """One archive for a whole season: extract takes the asked-for episode's file out of it."""
+
+    def extract(self, raw, season=None, episode=None):
+        self.asked_for = (season, episode)
+        return {1: srt("Episode one"), 2: srt("Episode two")}[episode]
+
+
+def test_two_episodes_of_one_season_pack_fetch_it_once(env, monkeypatch):
+    from app.services import subtitle_downloads
+
+    video, fs_db, _ = env
+    other = video.parent / "Other.mkv"
+    other.write_bytes(b"v")
+    provider = PackProvider("subf2m", files={"pack": b"PK raw archive bytes"})
+    use(monkeypatch, provider)
+    items = [
+        {**item(video, "pack"), "season": 1, "episode": 1},
+        {**item(other, "pack"), "season": 1, "episode": 2},
+    ]
+    sr.run_subtitle_job(_job(fs_db), items, False, False, None)
+    assert provider.downloads == ["pack"]  # fetched once for both episodes
+    assert (video.parent / "Movie.en.srt").read_bytes() == srt("Episode one")
+    assert (video.parent / "Other.en.srt").read_bytes() == srt("Episode two")
+    # The cache holds the raw bytes exactly as fetched, not the extracted file.
+    assert subtitle_downloads.get("subf2m", "pack") == b"PK raw archive bytes"
+
+
+def test_a_cached_download_is_never_fetched_again(env, monkeypatch):
+    from app.services import subtitle_downloads
+
+    video, fs_db, _ = env
+    subtitle_downloads.put("subf2m", "a", srt("From the cache"))
+    provider = FakeProvider("subf2m", files={})  # a fetch would raise KeyError
+    use(monkeypatch, provider)
+    sr.run_subtitle_job(_job(fs_db), [item(video, "a")], False, False, None)
+    assert provider.downloads == []
+    assert (video.parent / "Movie.en.srt").read_bytes() == srt("From the cache")
+
+
+def test_a_fresh_download_is_cached_for_the_next_one(env, monkeypatch):
+    from app.services import subtitle_downloads
+
+    video, fs_db, _ = env
+    use(monkeypatch, FakeProvider("subf2m", files={"a": srt("A")}))
+    sr.run_subtitle_job(_job(fs_db), [item(video, "a")], False, False, None)
+    assert subtitle_downloads.get("subf2m", "a") == srt("A")
+
+
+def test_a_failed_fetch_caches_nothing(env, monkeypatch):
+    from app.services import subtitle_downloads
+
+    video, fs_db, _ = env
+    use(monkeypatch, FakeProvider("subf2m", files={"a": ProviderError("The source is down")}))
+    sr.run_subtitle_job(_job(fs_db), [item(video, "a")], False, False, None)
+    assert subtitle_downloads.get("subf2m", "a") is None

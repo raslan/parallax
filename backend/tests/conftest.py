@@ -57,6 +57,16 @@ def _empty_subf2m_page_cache():
     subf2m_provider._page_cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _private_subtitle_download_cache(tmp_path_factory, monkeypatch):
+    """Raw subtitle downloads are cached by source and id; one test's must not answer another's."""
+    from app.services import subtitle_downloads
+
+    monkeypatch.setattr(
+        subtitle_downloads, "DOWNLOADS_DIR", str(tmp_path_factory.mktemp("subtitle-downloads"))
+    )
+
+
 @pytest.fixture
 def anon_client(engine, monkeypatch):
     """The app with no account and no cookie: for tests about being signed out."""

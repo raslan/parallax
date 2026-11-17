@@ -18,9 +18,13 @@ class FakeProvider:
     def __init__(self, data):
         self.data = data
 
-    def download(self, subtitle_id, season=None, episode=None):
-        self.asked_for = (season, episode)
+    def fetch(self, subtitle_id):
+        self.fetches = getattr(self, "fetches", 0) + 1
         return self.data
+
+    def extract(self, raw, season=None, episode=None):
+        self.asked_for = (season, episode)
+        return raw
 
     def close(self):
         pass
@@ -165,7 +169,11 @@ def test_preview_post_route(client, tmp_path, preview_dir, monkeypatch):
         == 404
     )
     use(monkeypatch, None)
-    assert client.post("/api/subtitles/preview", json=body).status_code == 502
+    # another candidate: the first one's download is cached, a second call would reuse it
+    assert (
+        client.post("/api/subtitles/preview", json={**body, "subtitle_id": "other"}).status_code
+        == 502
+    )
 
 
 def test_preview_route_foreign_id_makes_no_request(client, tmp_path, preview_dir, monkeypatch):
@@ -262,3 +270,25 @@ def test_existing_preview_unreadable_is_named(client, tmp_path, preview_dir, mon
     (folder / "Movie.en.srt").write_bytes(b"\x00\xff\xfe not a subtitle")
     r = _post(client, folder, folder / "Movie.en.srt", monkeypatch)
     assert r.status_code == 400 and "not a readable subtitle" in r.json()["detail"]
+
+
+def test_preview_reads_the_download_cache_first(preview_dir, monkeypatch):
+    from app.services import subtitle_downloads
+
+    subtitle_downloads.put("yts", "x", make_srt().encode())
+    provider = FakeProvider(b"never used")
+    monkeypatch.setattr(sp, "get_provider", lambda name: provider)
+    out = sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=60)
+    assert out["cues"] == 5
+    assert getattr(provider, "fetches", 0) == 0
+
+
+def test_preview_caches_what_it_fetched(preview_dir, monkeypatch):
+    from app.services import subtitle_downloads
+
+    provider = FakeProvider(make_srt().encode())
+    monkeypatch.setattr(sp, "get_provider", lambda name: provider)
+    sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=60)
+    sp.create_preview("/v/M.mkv", "yts", "x", "en", video_duration=60)
+    assert provider.fetches == 1
+    assert subtitle_downloads.get("yts", "x") == make_srt().encode()

@@ -289,8 +289,11 @@ def test_create_preview_closes_its_provider(tmp_path, monkeypatch):
         def __init__(self, data):
             self.data = data
 
-        def download(self, i):
+        def fetch(self, i):
             return self.data
+
+        def extract(self, raw, season=None, episode=None):
+            return raw
 
         def close(self):
             closed.append(1)
@@ -299,8 +302,8 @@ def test_create_preview_closes_its_provider(tmp_path, monkeypatch):
     sp.create_preview("/v/M.mkv", "yts", "x", "en")
     assert closed == [1]
     monkeypatch.setattr(sp, "get_provider", lambda n: P(None))
-    with pytest.raises(ProviderError):
-        sp.create_preview("/v/M.mkv", "yts", "x", "en")
+    with pytest.raises(ProviderError):  # another candidate: the first one is cached
+        sp.create_preview("/v/M.mkv", "yts", "y", "en")
     assert closed == [1, 1]
 
 

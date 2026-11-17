@@ -11,6 +11,7 @@ import secrets
 import time
 
 from app.config import DATA_DIR
+from app.services import subtitle_downloads
 from app.services.srt_io import Cue, decode_srt, format_timestamp, parse_srt
 from app.services.subtitle_files import SubtitleFileError, _owned, unmatched_entry
 from app.services.subtitle_lengths import length_verdict
@@ -113,7 +114,8 @@ def create_preview(
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     try:
-        data = source.download(subtitle_id, season=season, episode=episode)
+        raw = subtitle_downloads.fetch_cached(source, provider, subtitle_id)
+        data = source.extract(raw, season=season, episode=episode)
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     finally:

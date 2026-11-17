@@ -290,6 +290,9 @@ async def lifespan(app: FastAPI):
     from app.services.subtitle_preview import sweep_previews
 
     sweep_previews()  # temporary candidate previews never outlive an hour
+    from app.services.subtitle_downloads import sweep as sweep_downloads
+
+    sweep_downloads()  # nor do the cached raw downloads
     detect_encoder()
     # Load saved concurrency setting before starting the worker
     from app.database import SessionLocal

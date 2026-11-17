@@ -16,7 +16,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from app.services import subtitle_files, subtitle_names, subtitle_service
+from app.services import subtitle_downloads, subtitle_files, subtitle_names, subtitle_service
 from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 from app.services.srt_io import decode_srt, parse_srt
 from app.services.subtitle_candidates import rank_candidates, release_kind
@@ -220,7 +220,8 @@ def _download(
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     try:
-        data = p.download(subtitle_id, season=season, episode=episode)
+        raw = subtitle_downloads.fetch_cached(p, provider, subtitle_id)
+        data = p.extract(raw, season=season, episode=episode)
     except ValueError as exc:
         raise ProviderError(str(exc)) from exc
     finally:
