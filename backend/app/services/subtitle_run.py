@@ -1,8 +1,8 @@
-"""Plan and run subtitle downloads.
+"""Search for and run subtitle downloads.
 
-`search_candidates` is the read-only plan step: it asks each chosen source for candidates and
+`search_candidates` is the read-only search: it asks each chosen source for candidates and
 reports a source that failed or does not apply as a named entry instead of raising. Results are
-cached in memory for a few minutes so a reload re-plans cheaply. The sources pace their own
+cached in memory for a few minutes so a repeat search is cheap. The sources pace their own
 requests (`Politeness`).
 
 `run_subtitle_job` is the approved-items job: one item at a time, each a download, a write beside
@@ -19,10 +19,12 @@ from collections.abc import Callable
 from app.services import subtitle_files, subtitle_names, subtitle_service
 from app.services.common import arm_cancel, clear_cancel, fail_job, log, now, should_cancel
 from app.services.srt_io import decode_srt, parse_srt
+from app.services.subtitle_candidates import rank_candidates, release_kind
 from app.services.subtitle_preview import _LEGACY_ENCODINGS
 from app.services.subtitle_providers import (
     MAX_SUBTITLE_BYTES,
     ProviderError,
+    ProviderNetworkError,
     SearchQuery,
     get_provider,
 )
@@ -37,7 +39,7 @@ _CACHE: dict[tuple, tuple[float, list[dict]]] = {}
 _CACHE_LOCK = threading.Lock()
 
 
-# ---------------------------------------------------------------- plan search
+# ---------------------------------------------------------------- search
 
 
 def _cache_key(provider: str, q: SearchQuery) -> tuple:
@@ -61,17 +63,23 @@ def _not_applicable(media_types: frozenset[str]) -> str:
 
 
 def search_candidates(
-    q: SearchQuery, providers: list[str], clock: Callable[[], float] = time.monotonic
+    q: SearchQuery,
+    providers: list[str],
+    clock: Callable[[], float] = time.monotonic,
+    force: bool = False,
 ) -> dict:
-    """`{"candidates": [...best first...], "errors": [{"provider", "message"}]}`. Never raises
-    for a source's own failure: each becomes an error entry and the other sources still count."""
+    """`{"candidates": [...best first...], "errors": [{"provider", "message", "network"?}]}`.
+    Never raises for a source's own failure: each becomes an error entry (`network: true` when
+    it was a connection-level failure, the only kind worth retrying) and the other sources
+    still count. TV candidates carry a `release_kind` and are ranked exact episode first;
+    films keep the community score order. `force` skips the cache read (it still writes)."""
     candidates: list[dict] = []
     errors: list[dict] = []
     for name in dict.fromkeys(providers):
         key = _cache_key(name, q)
         with _CACHE_LOCK:
             hit = _CACHE.get(key)
-        if hit is not None and clock() - hit[0] < CACHE_TTL_SECONDS:
+        if not force and hit is not None and clock() - hit[0] < CACHE_TTL_SECONDS:
             candidates.extend(dict(c) for c in hit[1])
             continue
         try:
@@ -85,7 +93,10 @@ def search_candidates(
                 continue
             found = p.search(q)
         except ProviderError as exc:
-            errors.append({"provider": name, "message": str(exc)})
+            entry = {"provider": name, "message": str(exc)}
+            if isinstance(exc, ProviderNetworkError):
+                entry["network"] = True
+            errors.append(entry)
             continue
         except Exception as exc:  # a parser or network surprise: still a named entry
             logger.warning("subtitle search %s failed: %s: %s", name, type(exc).__name__, exc)
@@ -97,7 +108,13 @@ def search_candidates(
             p.close()
         _cache_put(key, found, clock())
         candidates.extend(found)
-    candidates.sort(key=lambda c: c.get("score", 0), reverse=True)
+    if q.identity.type == "tv":
+        # Copies: the cached lists are shared, and the kind is derived, not stored.
+        video_name = os.path.basename(q.video_path) if q.video_path else None
+        tagged = [{**c, "release_kind": release_kind(c.get("release") or "")} for c in candidates]
+        candidates = rank_candidates(tagged, video_name)
+    else:
+        candidates.sort(key=lambda c: c.get("score", 0), reverse=True)
     return {"candidates": candidates, "errors": errors}
 
 

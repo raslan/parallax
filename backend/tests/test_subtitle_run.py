@@ -129,6 +129,96 @@ def test_cache_key_differs_by_subf2m_path():
     assert sr._cache_key("subf2m", q("/subtitles/a")) != sr._cache_key("subf2m", q(None))
 
 
+def test_tv_candidates_get_release_kind_and_episode_first(monkeypatch):
+    sub = FakeProvider(
+        "subf2m",
+        results=[
+            {"score": 80, "subtitle_id": "pack", "release": "Show S01-S02-S03-S04 Web-dl"},
+            {"score": 50, "subtitle_id": "ep", "release": "Show.S01E01.720p.WEB"},
+        ],
+    )
+    use(monkeypatch, sub)
+    out = sr.search_candidates(query("tv"), ["subf2m"])
+    assert [(c["subtitle_id"], c["release_kind"]) for c in out["candidates"]] == [
+        ("ep", "episode"),
+        ("pack", "season_pack"),
+    ]
+
+
+def test_movie_candidates_have_no_release_kind_and_keep_score_order(monkeypatch):
+    sub = FakeProvider(
+        "subf2m",
+        results=[
+            {"score": 20, "subtitle_id": "low", "release": "Movie.2020.S01E01"},
+            {"score": 80, "subtitle_id": "high", "release": "Movie.2020.720p"},
+        ],
+    )
+    use(monkeypatch, sub)
+    out = sr.search_candidates(query("movie", imdb="tt1"), ["subf2m"])
+    assert [c["subtitle_id"] for c in out["candidates"]] == ["high", "low"]
+    assert all("release_kind" not in c for c in out["candidates"])
+
+
+def test_ranking_uses_video_name_from_query(monkeypatch):
+    sub = FakeProvider(
+        "subf2m",
+        results=[
+            {"score": 80, "subtitle_id": "other", "release": "Show.S01E01.720p.WEB.x264-XYZ"},
+            {"score": 20, "subtitle_id": "same", "release": "Show.S01E01.1080p.BluRay.x264-GRP"},
+        ],
+    )
+    use(monkeypatch, sub)
+    q = query("tv")
+    q = SearchQuery(
+        identity=q.identity,
+        languages=q.languages,
+        season=1,
+        episode=1,
+        video_path="/v/Show.S01E01.1080p.BluRay.x264-GRP.mkv",
+    )
+    out = sr.search_candidates(q, ["subf2m"])
+    assert out["candidates"][0]["subtitle_id"] == "same"
+    no_path = SearchQuery(
+        identity=q.identity, languages=q.languages, season=1, episode=1, video_path=None
+    )
+    sr._CACHE.clear()
+    out = sr.search_candidates(no_path, ["subf2m"])
+    assert out["candidates"][0]["subtitle_id"] == "other"  # nothing to match: score decides
+
+
+def test_cached_results_are_not_changed_by_ranking(monkeypatch):
+    sub = FakeProvider("subf2m", results=[{"score": 1, "subtitle_id": "a", "release": "S01E01"}])
+    use(monkeypatch, sub)
+    sr.search_candidates(query("tv"), ["subf2m"])
+    ((_, cached),) = sr._CACHE.values()
+    assert "release_kind" not in cached[0]
+
+
+def test_network_error_is_flagged(monkeypatch):
+    from app.services.subtitle_providers import ProviderNetworkError
+
+    down = FakeProvider("yts", media_types=("movie",), error=ProviderNetworkError("no route"))
+    rude = FakeProvider("subf2m", error=ProviderError("Subf2m refused the request (403)"))
+    use(monkeypatch, down, rude)
+    out = sr.search_candidates(query("movie", imdb="tt1"), ["yts", "subf2m"])
+    assert out["errors"] == [
+        {"provider": "yts", "message": "no route", "network": True},
+        {"provider": "subf2m", "message": "Subf2m refused the request (403)"},
+    ]
+
+
+def test_force_bypasses_the_cache_read(monkeypatch):
+    sub = FakeProvider("subf2m", results=[{"score": 1, "subtitle_id": "a"}])
+    use(monkeypatch, sub)
+    sr.search_candidates(query(), ["subf2m"])
+    sr.search_candidates(query(), ["subf2m"])
+    assert sub.searches == 1
+    sr.search_candidates(query(), ["subf2m"], force=True)
+    assert sub.searches == 2
+    sr.search_candidates(query(), ["subf2m"])  # the forced search still wrote the cache
+    assert sub.searches == 2
+
+
 # ---------------------------------------------------------------- run
 
 

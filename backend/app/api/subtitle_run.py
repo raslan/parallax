@@ -1,4 +1,4 @@
-"""Plan search, candidate preview, release-token comparison and the approved-items run job for
+"""Subtitle search, candidate preview, release-token comparison and the approved-items run job for
 the Subtitles page."""
 
 import json
