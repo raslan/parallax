@@ -15,9 +15,28 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 from urllib.parse import urlparse
 
+import requests
+
 
 class ProviderError(Exception):
     """A source failed in a way worth telling the user (message is user-facing)."""
+
+
+class ProviderNetworkError(ProviderError):
+    """No route, DNS failure, connection reset or timeout. The only failure that is retried:
+    a source that answered badly (403, no matches, a changed layout) will answer the same."""
+
+
+def request_failure(exc: requests.RequestException, message: str) -> ProviderError:
+    """`message` as a ProviderNetworkError for a connection-level failure, else a ProviderError."""
+    connection_level = (
+        requests.ConnectionError,
+        requests.Timeout,
+        requests.exceptions.ChunkedEncodingError,
+    )
+    if isinstance(exc, connection_level):
+        return ProviderNetworkError(message)
+    return ProviderError(message)
 
 
 # The most a downloaded subtitle may be, in bytes. One constant for the archive reader and the
@@ -73,6 +92,10 @@ class Provider(Protocol):
     def close(self) -> None: ...
 
 
+SUBF2M_GAP = 1.0
+DEFAULT_GAP = 0.25
+
+
 class Politeness:
     """At most ``max_concurrent`` requests in flight and ``min_gap`` seconds between starts."""
 
@@ -95,12 +118,19 @@ class Politeness:
 
     @classmethod
     def for_provider(cls, name: str) -> Politeness:
+        """subf2m is asked politely: 1 s between request starts. Other sources 0.25 s."""
         with cls._instances_lock:
-            return cls._instances.setdefault(name, cls())
+            gap = SUBF2M_GAP if name == "subf2m" else DEFAULT_GAP
+            return cls._instances.setdefault(name, cls(min_gap=gap))
 
     @contextmanager
-    def acquire(self):
-        self._slots.acquire()
+    def acquire(self, timeout: float | None = None):
+        """Wait for a request slot (and the gap). With `timeout`, give up with a ProviderError
+        instead of waiting forever; a slot that was not taken is never leaked."""
+        if timeout is None:
+            self._slots.acquire()
+        elif not self._slots.acquire(timeout=timeout):
+            raise ProviderError("The source is busy, try again")
         try:
             with self._lock:
                 start = max(self._clock(), self._next_start)

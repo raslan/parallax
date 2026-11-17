@@ -280,3 +280,107 @@ def test_archive_small_member_still_extracted():
     with _zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("a.srt", b"1\n00:00:01,000 --> 00:00:02,000\nHi\n")
     assert b"Hi" in _sf._extract_from_archive(buf.getvalue())
+
+
+# ---- network failures and bounded waits ------------------------------------------------------
+
+
+class _Resp:
+    def __init__(self, status=200, text="ok"):
+        self.status_code = status
+        self.text = text
+        self.content = text.encode()
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+
+            raise requests.HTTPError(f"{self.status_code}")
+
+    def iter_lines(self, decode_unicode=True):
+        return iter(self.text.splitlines())
+
+
+class _Session:
+    def __init__(self, outcome):
+        self.outcome = outcome
+        self.calls = 0
+
+    def get(self, *a, **k):
+        self.calls += 1
+        if isinstance(self.outcome, Exception):
+            raise self.outcome
+        return self.outcome
+
+    def close(self):
+        pass
+
+
+def _quiet(provider, session):
+    provider._session = session
+    provider._politeness = sp.Politeness(min_gap=0)
+    return provider
+
+
+@pytest.mark.parametrize("make", [Subf2mProvider, YtsSubsProvider])
+@pytest.mark.parametrize("exc_name", ["ConnectionError", "Timeout"])
+def test_connection_level_failures_are_network_errors(make, exc_name):
+    import requests
+
+    p = _quiet(make(), _Session(getattr(requests, exc_name)("boom")))
+    with pytest.raises(sp.ProviderNetworkError):
+        p._get_text("https://example.test/x")
+
+
+def test_a_refusal_is_not_a_network_error(monkeypatch):
+    p = _quiet(Subf2mProvider(), _Session(_Resp(403)))
+    with pytest.raises(_PE) as caught:
+        p._get_text("https://example.test/x")
+    assert not isinstance(caught.value, sp.ProviderNetworkError)
+    q = _quiet(YtsSubsProvider(), _Session(_Resp(500)))
+    with pytest.raises(_PE) as caught:
+        q._get_text("https://example.test/x")
+    assert not isinstance(caught.value, sp.ProviderNetworkError)
+
+
+def test_acquire_times_out_without_leaking_a_slot():
+    pol = sp.Politeness(max_concurrent=1, min_gap=0)
+    holder = pol.acquire()
+    holder.__enter__()
+    with pytest.raises(_PE, match="The source is busy, try again"):
+        with pol.acquire(timeout=0.05):
+            pass
+    holder.__exit__(None, None, None)
+    with pol.acquire(timeout=0.5):  # the failed acquire did not eat the freed slot
+        pass
+
+
+def test_get_text_stops_retrying_when_the_overall_deadline_is_spent(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(_sf.time, "sleep", sleeps.append)
+    monkeypatch.setattr(_sf, "GET_TEXT_DEADLINE", 1.0)
+    session = _Session(_Resp(503))
+    p = _quiet(Subf2mProvider(), session)
+    with pytest.raises(_PE, match="The source took too long to answer"):
+        p._get_text("https://example.test/x")
+    assert session.calls == 1 and sleeps == []
+
+
+def test_page_cache_lock_held_elsewhere_times_out(monkeypatch):
+    monkeypatch.setattr(_sf, "PAGE_LOCK_TIMEOUT", 0.05)
+    url = "https://example.test/locked"
+    with _sf._page_guard:
+        lock = _sf._page_locks.setdefault(url, threading.Lock())
+    lock.acquire()
+    try:
+        p = _quiet(Subf2mProvider(), _Session(_Resp(200)))
+        with pytest.raises(_PE, match="The source is busy, try again"):
+            p._get_page(url)
+    finally:
+        lock.release()
+
+
+def test_subf2m_gap_is_one_second_and_others_stay_short(monkeypatch):
+    monkeypatch.setattr(sp.Politeness, "_instances", {})
+    assert sp.Politeness.for_provider("subf2m")._min_gap == 1.0
+    assert sp.Politeness.for_provider("yts")._min_gap == 0.25

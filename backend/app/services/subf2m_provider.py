@@ -30,6 +30,7 @@ from app.services.subtitle_providers import (
     ProviderError,
     SearchQuery,
     own_url,
+    request_failure,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,12 @@ def _pasted_page(path: str) -> str:
 # Pages fetched for a search, shared by every search in the process. A whole show asks for the
 # same title search and the same season page once per episode and language; without this each
 # of those went to subf2m again. Only pages that came back with content are kept.
+PAGE_LOCK_TIMEOUT = 30.0
+# One `_get_text` (its retries and pauses included) gives up after this long, so an abandoned
+# worker thread frees its request slot within a bounded time.
+GET_TEXT_DEADLINE = 45.0
+ACQUIRE_TIMEOUT = 30.0
+RETRY_PAUSE = 3.0
 _PAGE_TTL_SECONDS = 600
 _PAGE_CACHE_MAX = 256
 _page_cache: dict[str, tuple[float, str]] = {}
@@ -183,9 +190,10 @@ class Subf2mProvider:
         other HTTP failure raises ProviderError with a user-facing message.
         """
         status = 0
+        deadline = time.monotonic() + GET_TEXT_DEADLINE
         for attempt in range(retry):
             try:
-                with self._politeness.acquire():
+                with self._politeness.acquire(timeout=ACQUIRE_TIMEOUT):
                     resp = self._session.get(url, stream=True, timeout=20)
                     status = resp.status_code
                     if status == 403:
@@ -198,10 +206,12 @@ class Subf2mProvider:
                             line for line in resp.iter_lines(decode_unicode=True) if line
                         )
             except requests.Timeout as exc:
-                raise ProviderError("Subf2m did not answer in time") from exc
+                raise request_failure(exc, "Subf2m did not answer in time") from exc
             except requests.RequestException as exc:
-                raise ProviderError(f"Subf2m request failed: {exc}") from exc
-            time.sleep(3)
+                raise request_failure(exc, f"Subf2m request failed: {exc}") from exc
+            if time.monotonic() + RETRY_PAUSE >= deadline:
+                raise ProviderError("The source took too long to answer")
+            time.sleep(RETRY_PAUSE)
         if status == 503:
             raise ProviderError("Subf2m is overloaded (503), try again later")
         return ""
@@ -211,7 +221,10 @@ class Subf2mProvider:
         at once share one fetch (the second waits on the first's lock, then reads the cache)."""
         with _page_guard:
             lock = _page_locks.setdefault(url, threading.Lock())
-        with lock:
+        # A bounded wait: a fetch abandoned by a deadline must not hold everyone behind it.
+        if not lock.acquire(timeout=PAGE_LOCK_TIMEOUT):
+            raise ProviderError("The source is busy, try again")
+        try:
             now = time.monotonic()
             hit = _page_cache.get(url)
             if hit is not None and now - hit[0] < _PAGE_TTL_SECONDS:
@@ -227,6 +240,8 @@ class Subf2mProvider:
                         del _page_cache[next(iter(_page_cache))]
                     _page_cache[url] = (now, text)
             return text
+        finally:
+            lock.release()
 
     # ------------------------------------------------------------------
     # Search helpers
@@ -438,13 +453,13 @@ class Subf2mProvider:
 
         download_url = _BASE_URL + btn["href"]
         try:
-            with self._politeness.acquire():
+            with self._politeness.acquire(timeout=ACQUIRE_TIMEOUT):
                 resp = self._session.get(download_url, allow_redirects=True, timeout=30)
             resp.raise_for_status()
         except requests.Timeout as exc:
-            raise ProviderError("Subf2m did not answer in time") from exc
+            raise request_failure(exc, "Subf2m did not answer in time") from exc
         except requests.RequestException as exc:
-            raise ProviderError(f"Subf2m download failed: {exc}") from exc
+            raise request_failure(exc, f"Subf2m download failed: {exc}") from exc
         return _extract_from_archive(resp.content)
 
 

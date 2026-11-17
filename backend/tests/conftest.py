@@ -47,6 +47,16 @@ def _fresh_login_throttle():
     auth_svc.THROTTLE.reset()
 
 
+@pytest.fixture(autouse=True)
+def _empty_subf2m_page_cache():
+    """subf2m pages are cached per process; a page one test fetched must not answer the next."""
+    from app.services import subf2m_provider
+
+    subf2m_provider._page_cache.clear()
+    yield
+    subf2m_provider._page_cache.clear()
+
+
 @pytest.fixture
 def anon_client(engine, monkeypatch):
     """The app with no account and no cookie: for tests about being signed out."""

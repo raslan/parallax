@@ -24,6 +24,7 @@ from app.services.subtitle_providers import (
     ProviderError,
     SearchQuery,
     own_url,
+    request_failure,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,17 +79,17 @@ class YtsSubsProvider:
     def _get_text(self, url: str, timeout: int = 20) -> str:
         """The page text, "" for a 404; ProviderError for anything else that goes wrong."""
         try:
-            with self._politeness.acquire():
+            with self._politeness.acquire(timeout=30):
                 resp = self._session.get(url, timeout=timeout)
             if resp.status_code == 404:
                 return ""
             resp.raise_for_status()
             return resp.text
         except requests.Timeout as exc:
-            raise ProviderError("YTS Subs did not answer in time") from exc
+            raise request_failure(exc, "YTS Subs did not answer in time") from exc
         except requests.RequestException as exc:
             logger.debug("yts request failed for %s: %s", url, exc)
-            raise ProviderError(f"YTS Subs request failed: {exc}") from exc
+            raise request_failure(exc, f"YTS Subs request failed: {exc}") from exc
 
     def search_titles(self, query: str) -> list[dict]:
         """Film cards from the site's own title search."""
@@ -190,13 +191,13 @@ class YtsSubsProvider:
             return None
 
         try:
-            with self._politeness.acquire():
+            with self._politeness.acquire(timeout=30):
                 resp = self._session.get(download_url, timeout=30)
             resp.raise_for_status()
         except requests.Timeout as exc:
-            raise ProviderError("YTS Subs did not answer in time") from exc
+            raise request_failure(exc, "YTS Subs did not answer in time") from exc
         except requests.RequestException as exc:
-            raise ProviderError(f"YTS Subs download failed: {exc}") from exc
+            raise request_failure(exc, f"YTS Subs download failed: {exc}") from exc
         return _extract_from_archive(resp.content)
 
 
