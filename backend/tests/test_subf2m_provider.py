@@ -124,3 +124,13 @@ def test_release_names_have_their_html_entities_unescaped(monkeypatch):
     )
     (hit,) = p.search(_query("/subtitles/movie-2025"))
     assert hit["release"] == "Movie.2025.1080p & 720p.BluRay-AAA"
+
+
+def test_episode_filter_reads_the_shared_marker_parser():
+    from app.services.subf2m_provider import _episode_from_release
+
+    assert _episode_from_release("Show.S01E02.720p") == {"season": [1], "episode": [2]}
+    assert _episode_from_release("Show.S01E01-E03.720p") == {"season": [1], "episode": [1, 2, 3]}
+    # A pack of several seasons carries no episode, so the season filter can keep it.
+    assert _episode_from_release("Stranger Things S01-S02-S03-S04 Web-dl") is None
+    assert _episode_from_release("Show.1920x1080") is None

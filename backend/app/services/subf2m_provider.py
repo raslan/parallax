@@ -22,6 +22,7 @@ import requests
 from bs4 import BeautifulSoup
 from guessit import guessit
 
+from app.services.subtitle_candidates import parse_release_episodes
 from app.services.subtitle_providers import (
     MAX_SUBTITLE_BYTES,
     PROVIDERS,
@@ -143,10 +144,6 @@ _DEFAULT_HEADERS = {
 _MOVIE_TITLE_RE = re.compile(r"^(.+?)(\s+\((\d{4})\))?$")
 _TV_SHOW_TITLE_RE = re.compile(r"^(.+?)\s+[-\(]\s?(.*?)\s+(season|series)\)?(\s+\((\d{4})\))?$")
 _TV_SHOW_TITLE_ALT_RE = re.compile(r"(.+)\s(\d{1,2})(?:\s|$)")
-_EPISODE_SPECIAL_RE = re.compile(
-    r"(season|s)\s*?(?P<x>\d{,2})\s?[-−]\s?(?P<y>\d{,2})",
-    flags=re.IGNORECASE,
-)
 
 
 def _season_slug_path(title: str, season: int) -> str | None:
@@ -537,14 +534,13 @@ def _memoized_episode_guess(content: str) -> dict:
 
 
 def _episode_from_release(release: str) -> dict | None:
-    m = _EPISODE_SPECIAL_RE.search(release)
-    if not m:
+    """The season-and-episode marker of a release name, read by the one shared parser (so the
+    kind a candidate gets and this filter never disagree). None when there is no marker."""
+    found = parse_release_episodes(release)
+    if not found:
         return None
-    try:
-        season, episode = int(m.group("x")), int(m.group("y"))
-        return {"season": [season], "episode": [episode]}
-    except (IndexError, ValueError):
-        return None
+    season, episodes = found
+    return {"season": [season], "episode": episodes}
 
 
 # ------------------------------------------------------------------
