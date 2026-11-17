@@ -3,6 +3,7 @@ import "@videojs/react/audio/neutral-skin.css";
 import { Audio, AudioPlayer, NeutralAudioSkin } from "@videojs/react/audio";
 import { MEDIA_THEME_STYLE, focusPlayer } from "./videoJsShared";
 import { VolumePersistence } from "./VolumePersistence";
+import { PlayOnLoad } from "./PlayOnLoad";
 
 export default function VideoJsAudioPlayer({ streamUrl }: { streamUrl: string }) {
   return (
@@ -10,7 +11,8 @@ export default function VideoJsAudioPlayer({ streamUrl }: { streamUrl: string })
       <AudioPlayer>
         <NeutralAudioSkin style={MEDIA_THEME_STYLE}>
           <VolumePersistence />
-          <Audio src={streamUrl} autoPlay preload="metadata" />
+          <PlayOnLoad />
+          <Audio src={streamUrl} preload="metadata" />
         </NeutralAudioSkin>
       </AudioPlayer>
     </div>

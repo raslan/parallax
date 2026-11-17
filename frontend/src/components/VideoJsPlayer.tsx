@@ -7,6 +7,7 @@ import { HlsVideo } from "@videojs/react/media/hls-video";
 import type { SubtitleTrack } from "@/types/subtitle";
 import { MEDIA_THEME_STYLE, focusPlayer } from "./videoJsShared";
 import { VolumePersistence } from "./VolumePersistence";
+import { PlayOnLoad } from "./PlayOnLoad";
 import { cn } from "@/lib/utils";
 import { PlayerSeek, type SeekRequest } from "./PlayerSeek";
 import { PlayerTime } from "./PlayerTime";
@@ -85,14 +86,15 @@ export default function VideoJsPlayer({
           style={MEDIA_THEME_STYLE}
         >
           <VolumePersistence />
+          <PlayOnLoad />
           <PlayerSeek request={seekRequest} />
           {onTime && <PlayerTime onTime={onTime} />}
           {hlsUrl ? (
-            <HlsVideo src={hlsUrl} autoPlay playsInline>
+            <HlsVideo src={hlsUrl} playsInline>
               {trackEls}
             </HlsVideo>
           ) : (
-            <Video src={streamUrl} autoPlay playsInline>
+            <Video src={streamUrl} playsInline>
               {trackEls}
             </Video>
           )}
