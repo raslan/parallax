@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.
 
+## [4.2.1](https://github.com/raslan/parallax/compare/v4.2.0...v4.2.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **player:** start playback on the attached element, not with autoplay ([e7edb92](https://github.com/raslan/parallax/commit/e7edb92fe19bbb29fd1c4a1683d0745367ff8e6b))
+
 ## [4.2.0](https://github.com/raslan/parallax/compare/v4.1.0...v4.2.0) (2026-11-17)
 
 
