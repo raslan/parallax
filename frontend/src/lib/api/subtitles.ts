@@ -6,11 +6,13 @@ import type {
   ParsedPaste,
   PreviewInfo,
   ReleaseTokens,
+  RemoveCounts,
   RunItem,
   SearchRequest,
   SearchResult,
   ScanFile,
   SubtitleFileInfo,
+  SubtitleKind,
   SubtitleProvider,
   SubtitleTrack,
   TidyMode,
@@ -199,6 +201,20 @@ export const subtitlesApi = {
     req<{ deleted: number }>("/subtitles/tidy", {
       method: "POST",
       body: JSON.stringify({ video_paths, what }),
+    }),
+
+  /** Subtitle files of the videos by language and kind (for Remove subtitles). Only reads. */
+  removeCounts: (video_paths: string[]) =>
+    req<RemoveCounts>("/subtitles/remove-counts", {
+      method: "POST",
+      body: JSON.stringify({ video_paths }),
+    }),
+
+  /** Delete the chosen language and kind of subtitle files from the videos. Permanent. */
+  removeByKind: (video_paths: string[], items: { language: string; kind: SubtitleKind }[]) =>
+    req<{ removed: number }>("/subtitles/remove", {
+      method: "POST",
+      body: JSON.stringify({ video_paths, items }),
     }),
 
   restoreOriginal: (video_path: string, subtitle_path: string) =>

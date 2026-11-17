@@ -25,6 +25,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
       checkLengths: vi.fn(async () => ({})),
       search: vi.fn(),
       startSearch: vi.fn(),
+      removeCounts: vi.fn(),
+      removeByKind: vi.fn(),
       preview: vi.fn(),
       run: vi.fn(),
     },
@@ -411,6 +413,37 @@ describe("Subtitles Home", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cancel search" })).toBeTruthy();
+  });
+
+  it("removes subtitles of the selected titles by language and kind", async () => {
+    vi.mocked(subtitlesApi.scan).mockResolvedValue([
+      video("/tv/A/e1.mkv", ["ar"]),
+      video("/tv/B/e1.mkv", ["ar"]),
+    ]);
+    vi.mocked(subtitlesApi.groups).mockResolvedValue([
+      group("tv:a:", "Alpha", ["/tv/A/e1.mkv"]),
+      group("tv:b:", "Beta", ["/tv/B/e1.mkv"]),
+    ]);
+    vi.mocked(subtitlesApi.removeCounts).mockResolvedValue({ ar: { real: 1 } });
+    vi.mocked(subtitlesApi.removeByKind).mockResolvedValue({ removed: 1 });
+    renderAt("?path=/tv");
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Select Alpha" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove subtitles…" }));
+    expect(await screen.findByRole("table")).toBeTruthy();
+    // Only the selected title's videos are counted.
+    expect(subtitlesApi.removeCounts).toHaveBeenCalledWith(["/tv/A/e1.mkv"]);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Arabic real" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove 1 file" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete files" }));
+    await waitFor(() =>
+      expect(subtitlesApi.removeByKind).toHaveBeenCalledWith(
+        ["/tv/A/e1.mkv"],
+        [{ language: "ar", kind: "real" }],
+      ),
+    );
+    // The dialog closes and the folder is read again (the scan is invalidated).
+    await waitFor(() => expect(screen.queryByRole("table")).toBeNull());
+    await waitFor(() => expect(vi.mocked(subtitlesApi.scan).mock.calls.length).toBeGreaterThan(1));
   });
 
   it("says so when the folder has no videos", async () => {

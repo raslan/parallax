@@ -1,5 +1,13 @@
 import { Link } from "react-router";
-import { Languages, Loader2, Mic, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
+import {
+  Languages,
+  Loader2,
+  Mic,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectionBar } from "@/components/SelectionBar";
 import { SETTINGS_LINK } from "@/lib/subtitleCoverage";
@@ -27,6 +35,7 @@ export function SubtitleDock({
   onGenerate,
   onSync,
   onManage,
+  onRemove,
   onClear,
 }: {
   /** Selected titles or files. */
@@ -41,6 +50,8 @@ export function SubtitleDock({
   onSync: () => void;
   /** Opens the Manage panel; enabled for exactly one selected video. */
   onManage?: () => void;
+  /** Opens Remove subtitles for the selected videos. */
+  onRemove?: () => void;
   onClear: () => void;
 }) {
   const reasons = [blocked.translate, blocked.generate].filter((r): r is string => r !== null);
@@ -96,6 +107,12 @@ export function SubtitleDock({
         {syncing ? <Loader2 className={`${icon} animate-spin`} /> : <RefreshCw className={icon} />}
         <Label>Sync</Label>
       </Button>
+      {onRemove && (
+        <Button size="sm" variant="outline" onClick={onRemove} aria-label="Remove subtitles…">
+          <Trash2 className={icon} />
+          <Label>Remove subtitles…</Label>
+        </Button>
+      )}
       {reasons.length > 0 && (
         <span className="flex flex-col text-3xs leading-tight">
           {reasons.map((r) => (

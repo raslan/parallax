@@ -117,6 +117,9 @@ export const qk = {
   translateSources: (path: string) => ["subtitles", "translate-sources", path] as const,
   subtitleGroups: (path: string) => ["subtitles", "groups", path] as const,
   subtitleFiles: (videoPath: string) => ["subtitles", "files", videoPath] as const,
+  /** The subtitle files of several videos by language and kind (Remove subtitles). */
+  subtitleRemoveCounts: (videoPaths: string[]) =>
+    ["subtitles", "remove-counts", videoPaths] as const,
   subtitleActive: () => ["subtitles", "active"] as const,
   /** A candidate's temporary preview, for one video. */
   subtitlePreview: (

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Captions, FolderSearch, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api, qk, speechModelsApi, subtitlePacksApi, subtitlesApi } from "@/lib/api";
 import { attention, blockedReasons, coverage } from "@/lib/subtitleCoverage";
 import {
@@ -25,6 +26,7 @@ import { CompareSheet } from "@/components/subtitles/CompareSheet";
 import { FolderStrip } from "@/components/subtitles/FolderStrip";
 import { LastSearch } from "@/components/subtitles/LastSearch";
 import { ManagePanel } from "@/components/subtitles/ManagePanel";
+import { RemoveSubtitlesDialog } from "@/components/subtitles/RemoveSubtitlesDialog";
 import { SubtitleRenameDialog } from "@/components/subtitles/SubtitleRenameDialog";
 import { SubtitleDock } from "@/components/subtitles/SubtitleDock";
 import { SummaryStrip } from "@/components/subtitles/SummaryStrip";
@@ -202,6 +204,7 @@ export function Subtitles() {
   const [show, setShow] = useState<AttentionFilter>("all");
   const [season, setSeason] = useState<number | "all">("all");
   const [playing, setPlaying] = useState<ScanFile | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const titleSel = useSelection<string>();
   const fileSel = useSelection<string>();
@@ -503,6 +506,7 @@ export function Subtitles() {
             onGenerate={() => w.openMachine(actionFiles)}
             onSync={() => actions.sync(actionFiles)}
             onManage={() => actionFiles[0] && openManage(actionFiles[0].path)}
+            onRemove={() => setRemoving(true)}
             onClear={() => {
               titleSel.selectNone();
               fileSel.selectNone();
@@ -522,6 +526,16 @@ export function Subtitles() {
           onClose={compare.close}
         />
       )}
+      <RemoveSubtitlesDialog
+        open={removing && !w.wf}
+        folder={folder}
+        videoPaths={actionFiles.map((x) => x.path)}
+        onClose={() => setRemoving(false)}
+        onRemoved={(n) => {
+          setRemoving(false);
+          toast.success(`Removed ${n} subtitle ${n === 1 ? "file" : "files"}.`);
+        }}
+      />
       {managed && !compare.sheet && !w.wf && (
         <ManagePanel
           key={managed.path}

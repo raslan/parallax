@@ -189,6 +189,14 @@ A sync backup shows only **Restore** and **Delete**.
 
 The panel also has **Add**, which starts Find subtitles, Translate or Generate for that video, and **Tidy up**, which removes a whole family of files at once for the selected video: **Delete generated and translated**, **Delete extra versions** (labelled copies of a language that has a plain file) or **Delete sync backups**. Each shows how many files it will remove.
 
+## Remove subtitles
+
+To take a wrong batch away, select titles or videos and click **Remove subtitles…** in the bar at the bottom. A table shows how many subtitle files the selected videos have, by language (down) and kind (across): **Real**, **Hearing impaired**, **Generated**, **Translated** and **Sync backups**. Nothing is ticked at first. Tick the cells you want gone, for example Arabic and Real to remove every real Arabic subtitle, then click **Remove**.
+
+**Real** does not include hearing impaired files: they have their own column. A cell with no files has no tickbox. Parallax asks once more, with the number of files, before it deletes anything. It is a permanent delete, like **Delete** in Manage, so there is no undo. Only subtitle files that belong to the selected videos are touched, up to 500 videos at a time.
+
+Afterwards the folder is read again, and a language you removed counts as missing, so a new search will look for it.
+
 ## How subtitle files are named
 
 A subtitle sits next to its video with the same name, then the language, then optional words:

@@ -306,3 +306,6 @@ export interface SubtitleTrack {
   machine_made?: boolean;
   url: string;
 }
+
+/** How many subtitle files the videos have, `{language: {kind: count}}`. */
+export type RemoveCounts = Record<string, Partial<Record<SubtitleKind, number>>>;
