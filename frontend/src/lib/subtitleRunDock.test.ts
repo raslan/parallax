@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  LEFT_REASON_TEXT,
   defaultRunOptions,
   identityCertain,
   isClean,
@@ -213,5 +214,27 @@ describe("identityCertain", () => {
   it("is false for a guess from file names alone, even a clear one", () => {
     expect(identityCertain(choice({}))).toBe(false);
     expect(identityCertain(choice({ needs_choice: true }))).toBe(false);
+  });
+});
+
+describe("LEFT_REASON_TEXT", () => {
+  it("has plain words for every reason automatic save leaves a row for", () => {
+    expect(LEFT_REASON_TEXT).toEqual({
+      identity_unconfirmed: "Title not confirmed",
+      only_season_pack: "Only a season pack was found",
+      length_short: "Looks too short for the video",
+      length_long: "Looks too long for the video",
+      length_unchecked: "Length could not be checked",
+      none_found: "Nothing found",
+      failed: "Failed",
+    });
+  });
+});
+
+describe("isClean after an automatic save", () => {
+  it("is false for a row that was already saved, so it is never approved again", () => {
+    expect(isClean(row({ outcome: "saved" }), true)).toBe(false);
+    expect(isClean(row({ outcome: null }), true)).toBe(true);
+    expect(isClean(row({ outcome: "left", reason: "length_unchecked" }), true)).toBe(true);
   });
 });

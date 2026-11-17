@@ -342,3 +342,89 @@ describe("MatchesView", () => {
     expect(screen.getAllByText(/1 nothing found/).length).toBeGreaterThan(0);
   });
 });
+
+describe("MatchesView after an automatic save", () => {
+  const savedRow = (n: number) => row(n, { outcome: "saved" });
+  const leftRow = (n: number, reason: NonNullable<MatchRowState["reason"]>) =>
+    row(n, { outcome: "left", reason });
+
+  it("marks each row with what automatic save did", () => {
+    renderMatches([
+      savedRow(1),
+      leftRow(2, "only_season_pack"),
+      row(3, { outcome: "failed", detail: "Could not save: Permission denied" }),
+    ]);
+    expect(screen.getAllByText("Saved")).toHaveLength(1);
+    expect(screen.getAllByText("Left for you: Only a season pack was found")).toHaveLength(1);
+    expect(screen.getAllByText("Save failed: Could not save: Permission denied")).toHaveLength(1);
+  });
+
+  it("does not offer to download a row that was already saved", () => {
+    renderMatches([savedRow(1), leftRow(2, "length_short")]);
+    expect(screen.queryByRole("checkbox", { name: /Download S01E01 English/ })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: /Download S01E02 English/ })).toBeTruthy();
+  });
+
+  it("summarises what was left, per reason, with a Review button", () => {
+    renderMatches([
+      savedRow(1),
+      leftRow(2, "only_season_pack"),
+      leftRow(3, "length_short"),
+      row(4, { outcome: "left", reason: "length_short" }),
+    ]);
+    const summary = screen.getByRole("region", { name: "Left for you" });
+    expect(summary.textContent).toMatch(/Left for you · 3/);
+    expect(summary.textContent).toMatch(/1 Only a season pack was found/);
+    expect(summary.textContent).toMatch(/2 Looks too short for the video/);
+    expect(summary.querySelector("button")?.textContent).toBe("Review");
+  });
+
+  it("has no summary when nothing was left", () => {
+    renderMatches([savedRow(1), row(2)]);
+    expect(screen.queryByRole("region", { name: "Left for you" })).toBeNull();
+  });
+
+  it("has no summary for a search that saved nothing automatically", () => {
+    renderMatches([row(1), row(2)]);
+    expect(screen.queryByText(/Left for you/)).toBeNull();
+  });
+
+  it("Review shows only the left rows, and Show all rows brings the others back", () => {
+    renderMatches([savedRow(1), leftRow(2, "length_long"), row(3)]);
+    expect(screen.getByText("S01E01")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    expect(screen.queryByText("S01E01")).toBeNull();
+    expect(screen.queryByText("S01E03")).toBeNull();
+    expect(screen.getByText("S01E02")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Show all rows" }));
+    expect(screen.getByText("S01E01")).toBeTruthy();
+    expect(screen.getByText("S01E03")).toBeTruthy();
+  });
+
+  it("includes a row whose save failed in Review, and says how many failed", () => {
+    renderMatches([
+      leftRow(1, "length_short"),
+      row(2, { outcome: "failed", detail: "Could not save: disk full" }),
+      savedRow(3),
+    ]);
+    const summary = screen.getByRole("region", { name: "Left for you" });
+    expect(summary.textContent).toMatch(/1 failed to save/);
+    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    expect(screen.getByText("S01E01")).toBeTruthy();
+    expect(screen.getByText("S01E02")).toBeTruthy();
+    expect(screen.queryByText("S01E03")).toBeNull();
+  });
+
+  it("approving rows after Review goes through the normal download", () => {
+    // The page keeps the ticks: here the user has already ticked the left row.
+    const p = renderMatches([savedRow(1), { ...leftRow(2, "length_short"), verdict: "use" }]);
+    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    expect(screen.getByRole("checkbox", { name: /Download S01E02 English/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Download 1 subtitle" }));
+    expect(p.onDownload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [expect.objectContaining({ video_path: "/tv/Show/S01E02.mkv", subtitle_id: "2" })],
+      }),
+    );
+  });
+});

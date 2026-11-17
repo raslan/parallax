@@ -131,7 +131,7 @@ export type MatchStatus =
   "ready" | "has_real" | "replaces_machine" | "none" | "checking" | "flagged" | "failed";
 
 /** Why automatic save left a row for the user. */
-type LeftReason =
+export type LeftReason =
   | "identity_unconfirmed"
   | "only_season_pack"
   | "length_short"

@@ -32,7 +32,9 @@ Nothing about a folder is remembered. Everything on the page is read from the fi
 
 ## Activity
 
-If a subtitle job is running or waiting for this folder, an **Activity** section appears above the cards with live progress. This includes work you started from another browser or another device. A job that is waiting says **Waiting for another job, position N** and links to the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. Reload the page and the section is still there. A running download can be reopened from it with **Show the run**.
+If a subtitle job is running or waiting for this folder, an **Activity** section appears above the cards with live progress. This includes work you started from another browser or another device. A job that is waiting says **Waiting for another job, position N** and links to the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. Reload the page and the section is still there. A running download can be reopened from it with **Show the run**, and a running search with **Show the matches**.
+
+When a search has ended, a **Last search** line appears above the titles with the time it ended, how it went (for example "42 of 48 found") and **Show the matches**. It shows the newest search of the open folder, and it goes away when the search leaves the Jobs history.
 
 ## Find subtitles
 
@@ -47,15 +49,33 @@ Each title shows the film or show Parallax will search for. This matters, becaus
 - **Paste a link** takes an IMDB id or link (`tt1234567`), or the link of a page on Subf2m.
 - **TMDB** is added when you have a key in **Settings → Keys & Accounts**. It gives posters and the exact year. Everything else works without a key.
 
-For each title you can **Skip** it, and choose whether to search **Only files missing a language** or **Everything selected**. Then click **Search subtitles for N titles**.
+For each title you can **Skip** it, and choose whether to search **Only files missing a language** or **Everything selected**.
+
+Two more choices sit below that. Both go back to their starting values every time you click **Find subtitles…**; Parallax does not remember them.
+
+- **Check lengths** (on by default) compares each best match with the length of your video once the searching is done. See [Checking lengths](#checking-lengths).
+- **After searching** is **Review each match** (the default) or **Save the sure matches automatically**. With the first, the search writes nothing and you decide on the next step. With the second, you are approving the saving before the search instead of after it, and Parallax tells you afterwards exactly what it did. Choosing it turns **Check lengths** on and keeps it on, because saving needs it. The two tickboxes from the end of the matches, **Keep existing subtitles** and **Sync after download**, appear here too and apply to the automatic save.
+
+A match is **sure** only when all of these are true:
+
+- the title is confirmed: Identify's folder layout was recognised, or you picked or confirmed the film or show here. A guess from file names alone is not enough, however clear it looks;
+- it is the release for your exact episode (for a film, any release). A [season pack](#matches) is never saved automatically;
+- its length was checked and fits your video.
+
+Everything else is **left for you**, with the reason. Then click **Search subtitles for N titles** (or **Search and save for N titles**).
+
+The search runs on the server, one video at a time, not in your browser. You can close the tab, come back later and open it from **Last search** or from Activity. If your connection to a source drops, a row waits five seconds and tries once more; if it fails again it says so and the search carries on with the next row. One search can run per folder at a time: starting a second one shows the one that is already running.
 
 ### Matches
 
 The matches are a table. On the left is a rail of titles (a menu on a phone), each with a dot that tells you whether it is clean, has rows to look at, or found nothing. For the open title there is a row per video and a column per wanted language. Each cell shows one of:
 
-- **Searching…**, then the best candidate with its source, its release name, and how its length compares with the video.
+- **Searching…** while the server has not got to it yet, then the best candidate with its source, its release name, and how its length compares with the video.
 - **Has a real subtitle**, with **Find another** if you want a different one anyway.
 - **None found**, with the reason each source gave (a source that failed or does not cover this title says so by name).
+- **Search failed**, with the reason (for example that a source took too long to answer) and **Find another** to try that one row again.
+
+While the search runs, a bar shows how far it is and has **Cancel**. Cancel is the only control: there is no pause. A cancelled search keeps everything it found, and the matches show it as it stands.
 
 For a TV show, the release that matches your exact episode is listed before a release that covers a whole season. Among those, a release named like your file (same resolution, source and group) comes first.
 
@@ -67,13 +87,27 @@ Nothing is ticked for you. **Approve all clean rows** ticks every row that looks
 
 #### Checking lengths
 
-After searching, Parallax downloads each top candidate briefly (nothing is saved) and compares the last line of the subtitle with the length of the video. This is a hint, never a verdict: credits and recaps make the end of a subtitle land earlier than the end of a film. A candidate under about 88 percent of the video's length is marked as short, and over about 105 percent as long. **Pause** holds the searches and checks, and **Skip checks** skips the rest of them. The rows stay usable either way, just marked as not checked.
+When **Check lengths** is on, Parallax downloads each top candidate briefly after the searching (nothing is saved beside your video) and compares the last line of the subtitle with the length of the video. This is a hint, never a verdict: credits and recaps make the end of a subtitle land earlier than the end of a film. A candidate under about 88 percent of the video's length is marked as short, and over about 105 percent as long. A row whose check could not be made (the video could not be read, or the file was not a subtitle this page can read) stays usable and says **length not checked**.
 
 The same check runs, read only, when you open a folder, for the subtitles already on disk. That is where the **Looks short** note comes from.
 
+#### Left for you
+
+After an automatic save, the matches show what happened to each row: **Saved**, **Left for you: the reason**, or **Save failed**, with the error. A **Left for you** summary at the top counts the rows per reason, and **Review** narrows the view to just those rows (and to any save that failed). **Show all rows** brings the rest back. The reasons are:
+
+- **Title not confirmed**: Parallax was not certain which film or show this is. Pick it on the Titles step and search again, or approve the row yourself.
+- **Only a season pack was found**: only a pack was available. Open **Compare** and pick it by hand if you want it.
+- **Looks too short for the video** or **Looks too long for the video**: the length check was not happy.
+- **Length could not be checked**: the check failed, or the best match is in a format this page cannot read yet.
+- **Nothing found** and **Failed**: there was nothing to save.
+
+Approving the rows you want after **Review** goes through the normal download below. Nothing that was left is saved without you.
+
+To fix one saved subtitle later, use **Manage** or **Find another** on that video. To undo a wrong batch, use **Remove subtitles…**.
+
 #### The two tickboxes
 
-At the bottom of the matches are two tickboxes. Both are off every time and Parallax does not remember them.
+At the bottom of the matches are two tickboxes (the same two you could set on the Titles step for an automatic save). Both are off every time and Parallax does not remember them.
 
 - **Keep existing subtitles** works like **Keep originals** elsewhere in the app. Off means a download replaces the plain file (`Movie.en.srt`) and, for a real download, also removes the generated and translated files of that language. The row says so, for example "Replaces the generated English file". On means the new subtitle is saved beside the old one and labelled with its source, for example `Movie.en.subf2m.srt`.
 - **Sync after download** lines each new subtitle up with the video's audio as soon as it is saved. Pick **alass** or **ffsubsync** next to it. They start on the engine chosen in **Settings → Subtitles → Subtitle sync engine**. See [Sync](#syncing-and-the-original-backup).
@@ -188,9 +222,10 @@ Anywhere you play a video in Parallax, a captions button appears when it has sub
 
 ## Advanced
 
-- **Sources.** Both are web pages Parallax reads the way a browser would, with a small pause between requests. A search is cached for ten minutes, so going back to the matches is quick. If a site changes its layout, the row for it says so by name instead of failing quietly.
+- **Sources.** Both are web pages Parallax reads the way a browser would. It starts at most one request a second to Subf2m (a quarter of a second to the other source) and never more than two at once, and a page or an archive it has just fetched is not fetched again. A search is cached for ten minutes, and a downloaded file for an hour, so a whole season pack is downloaded once. If a site changes its layout, the row for it says so by name instead of failing quietly.
+- **The search job.** Searching a folder is a job called **Subtitle search** on the Jobs page, so it takes a place in the queue like any other. Each row has two minutes to search and two minutes to check; a row that goes over fails with a message and the job moves on. A cancelled, failed or interrupted search keeps what it found.
 - **Encoding.** A downloaded subtitle is saved as it came, except that UTF-16 files are converted to UTF-8, because many TVs cannot read them. A download over 5 MB, or one that is not a subtitle file, is refused.
 - **Safety.** A subtitle is only ever written next to its own video. File actions only accept files that really belong to the video you are managing, so a path pointing somewhere else is refused. Two actions on the same file at once cannot leave a half-written file.
 - **Name matching.** A file belongs to a video when its name starts with the video's name followed by a dot. `Movie.mkv` and `Movie 2.mkv` do not claim each other's subtitles.
-- **Large folders.** Searching asks at most two things at a time and waits between requests. A run of more than 5000 items is refused, so split it.
+- **Large folders.** Searching asks at most two things at a time and waits between requests. A search or a run of more than 5000 items is refused, so split it.
 - **Jobs.** Downloads, syncs, translations and generations all run through the same queue as everything else. How many run at once is **Concurrent jobs** under **Settings → General**.

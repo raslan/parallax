@@ -3,7 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, qk, subtitlesApi } from "@/lib/api";
 import { errorDetail, httpStatus } from "@/lib/api/client";
-import { mergeEntries, parseRunJob, runEntries, type SyncEngine } from "@/lib/subtitleRunDock";
+import {
+  defaultRunOptions,
+  mergeEntries,
+  parseRunJob,
+  runEntries,
+  type RunOptions,
+  type SyncEngine,
+} from "@/lib/subtitleRunDock";
 import { buildSearchRequest } from "@/lib/subtitleSearchJob";
 import type { TitleWithFiles } from "@/lib/subtitleGroups";
 import { useJobPoll } from "@/hooks/useJobPoll";
@@ -32,9 +39,18 @@ type Workflow =
       sources: SubtitleProvider[];
       /** The search job this page started or opened (it keeps running on the server). */
       jobId: number | null;
+      /** Compare each best match with the video's length (forced on by `autoSave`). */
+      checkLengths: boolean;
+      /** Save the sure matches as the search goes. Off at every start, never remembered. */
+      autoSave: boolean;
+      /** The run options an automatic save uses: only what the user changed. */
+      saveTouched: Partial<RunOptions>;
     }
   | { stage: "run"; earlier: RunEntry[] }
   | { stage: "machine"; files: ScanFile[]; keepExisting: boolean };
+
+/** The Titles and Matches stages: the ones that start and follow a search. */
+type StartedWorkflow = Extract<Workflow, { stage: "titles" | "matches" }>;
 
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 const videos = (n: number) => `${n} ${n === 1 ? "video" : "videos"}`;
@@ -53,11 +69,14 @@ export function useSubtitleWorkflow({
   titles,
   wanted,
   sources,
+  settingsEngine = "alass",
 }: {
   folder: string | null;
   titles: TitleWithFiles[];
   wanted: string[];
   sources: SubtitleProvider[];
+  /** The sync engine Settings names: the run options start from it. */
+  settingsEngine?: string;
 }) {
   const qc = useQueryClient();
   const [wf, setWf] = useState<Workflow | null>(null);
@@ -108,7 +127,17 @@ export function useSubtitleWorkflow({
         },
       ];
     });
-    setWf({ stage: "titles", choices: picked, scope: "missing", wanted, sources, jobId: null });
+    setWf({
+      stage: "titles",
+      choices: picked,
+      scope: "missing",
+      wanted,
+      sources,
+      jobId: null,
+      checkLengths: true,
+      autoSave: false,
+      saveTouched: {},
+    });
   };
 
   const editChoices = (fn: (c: Choice) => Choice) =>
@@ -134,9 +163,33 @@ export function useSubtitleWorkflow({
     setWf((w) => (w && w.stage === "titles" ? { ...w, scope: s } : w));
   const toTitles = () => setWf((w) => (w && w.stage === "matches" ? { ...w, stage: "titles" } : w));
 
+  const editTitles = (fn: (w: StartedWorkflow) => StartedWorkflow) =>
+    setWf((w) => (w && w.stage === "titles" ? fn(w) : w));
+  const setCheckLengths = (v: boolean) => editTitles((w) => ({ ...w, checkLengths: v }));
+  /** Choosing to save automatically turns the length check on: saving needs it. */
+  const setAutoSave = (v: boolean) =>
+    editTitles((w) => ({ ...w, autoSave: v, checkLengths: v ? true : w.checkLengths }));
+  const setSaveOptions = (change: Partial<RunOptions>) =>
+    editTitles((w) => ({ ...w, saveTouched: { ...w.saveTouched, ...change } }));
+  const startOptions = wf && (wf.stage === "titles" || wf.stage === "matches") ? wf : null;
+  const saveOptions: RunOptions = {
+    ...defaultRunOptions(settingsEngine),
+    ...(startOptions?.saveTouched ?? {}),
+  };
+
   /** Shows a search that already runs (or ran) on the server, from Activity or Last search. */
   const openMatches = (jobId: number) =>
-    setWf({ stage: "matches", choices: [], scope: "missing", wanted, sources, jobId });
+    setWf({
+      stage: "matches",
+      choices: [],
+      scope: "missing",
+      wanted,
+      sources,
+      jobId,
+      checkLengths: true,
+      autoSave: false,
+      saveTouched: {},
+    });
 
   const startSearch = useMutation({
     mutationFn: async (r: {
@@ -190,8 +243,15 @@ export function useSubtitleWorkflow({
       wanted: wf.wanted,
       sources: wf.sources,
       scope: wf.scope,
-      checkLengths: true,
-      save: null,
+      checkLengths: wf.checkLengths || wf.autoSave,
+      // The engine is only sent when the user chose one: otherwise the server uses Settings'.
+      save: wf.autoSave
+        ? {
+            keep_existing: wf.saveTouched.keepExisting ?? false,
+            sync_after: wf.saveTouched.syncAfter ?? false,
+            engine: wf.saveTouched.engine ?? null,
+          }
+        : null,
     });
     if (body.rows.length === 0) {
       toast.info(
@@ -317,6 +377,12 @@ export function useSubtitleWorkflow({
     setIdentity,
     toggleSkip,
     setScope,
+    checkLengths: startOptions?.checkLengths ?? true,
+    autoSave: startOptions?.autoSave ?? false,
+    saveOptions,
+    setCheckLengths,
+    setAutoSave,
+    setSaveOptions,
     toMatches,
     starting: startSearch.isPending,
     toTitles,

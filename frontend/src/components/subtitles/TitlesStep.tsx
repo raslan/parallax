@@ -3,6 +3,9 @@ import { Loader2, Pencil, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioToggle } from "@/components/RadioToggle";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RunOptionsControls } from "@/components/subtitles/RunOptionsControls";
+import type { RunOptions } from "@/lib/subtitleRunDock";
 import { IdentityPicker } from "@/components/subtitles/IdentityPicker";
 import { titleStatus } from "@/lib/subtitleGroups";
 import { cn } from "@/lib/utils";
@@ -40,6 +43,12 @@ export function TitlesStep({
   onToggleSkip,
   onSearch,
   busy = false,
+  checkLengths,
+  onCheckLengthsChange,
+  autoSave,
+  onAutoSaveChange,
+  saveOptions,
+  onSaveOptionsChange,
 }: {
   titles: TitleChoice[];
   scope: MatchScope;
@@ -50,6 +59,15 @@ export function TitlesStep({
   onSearch: () => void;
   /** The search is being started on the server: the button waits. */
   busy?: boolean;
+  /** Compare each best match's last line with the video's length. Forced on by `autoSave`. */
+  checkLengths: boolean;
+  onCheckLengthsChange: (v: boolean) => void;
+  /** Save the sure matches as the search finds them (off: review each match). */
+  autoSave: boolean;
+  onAutoSaveChange: (v: boolean) => void;
+  /** The run options an automatic save uses (Keep existing, Sync after, the engine). */
+  saveOptions: RunOptions;
+  onSaveOptionsChange: (change: Partial<RunOptions>) => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const edited = titles.find((t) => t.key === editing) ?? null;
@@ -107,6 +125,46 @@ export function TitlesStep({
         <RadioToggle value={scope} onChange={onScopeChange} options={SCOPES} />
       </div>
 
+      <label
+        className="flex w-fit items-center gap-2 text-sm"
+        title={autoSave ? "Needed to save automatically" : undefined}
+      >
+        <Checkbox
+          checked={checkLengths || autoSave}
+          disabled={autoSave}
+          onCheckedChange={(v) => onCheckLengthsChange(v === true)}
+          aria-label="Check lengths"
+        />
+        Check lengths
+        <span className="text-xs text-muted-foreground">
+          Compares each best match with the video's length.
+        </span>
+      </label>
+
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">After searching</p>
+        <RadioToggle
+          value={autoSave ? "auto" : "review"}
+          onChange={(v) => onAutoSaveChange(v === "auto")}
+          options={[
+            { id: "review", label: "Review each match" },
+            { id: "auto", label: "Save the sure matches automatically" },
+          ]}
+        />
+        {autoSave && (
+          <div className="space-y-2 rounded-lg border border-border bg-card px-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              A match is saved only when the title is confirmed, it is the exact episode (a season
+              pack is never saved this way) and its length fits the video. Everything else is left
+              for you to review.
+            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <RunOptionsControls options={saveOptions} onChange={onSaveOptionsChange} />
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <Button size="sm" onClick={onSearch} disabled={included.length === 0 || busy}>
           {busy ? (
@@ -114,10 +172,13 @@ export function TitlesStep({
           ) : (
             <Search className="mr-1.5 h-3.5 w-3.5" />
           )}
-          Search subtitles for {included.length} {included.length === 1 ? "title" : "titles"}
+          {autoSave ? "Search and save for" : "Search subtitles for"} {included.length}{" "}
+          {included.length === 1 ? "title" : "titles"}
         </Button>
         <span className="text-xs text-muted-foreground">
-          Searching only reads the subtitle sites. Nothing is saved until you download.
+          {autoSave
+            ? "The sure matches are saved beside their videos as the search goes."
+            : "Searching only reads the subtitle sites. Nothing is saved until you download."}
         </span>
       </div>
 

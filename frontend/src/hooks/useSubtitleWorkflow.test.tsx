@@ -327,3 +327,81 @@ describe("useSubtitleWorkflow Find subtitles", () => {
     expect([...result.current.matchesUnconfirmed]).toEqual(["movie:movie:2020"]);
   });
 });
+
+describe("useSubtitleWorkflow automatic save", () => {
+  it("starts with Check lengths on and the review way, and no run options chosen", () => {
+    const { result } = setup();
+    act(() => result.current.startFind([file]));
+    expect(result.current.checkLengths).toBe(true);
+    expect(result.current.autoSave).toBe(false);
+    expect(result.current.saveOptions).toEqual({
+      keepExisting: false,
+      syncAfter: false,
+      engine: "alass",
+    });
+  });
+
+  it("sends check_lengths false when the tickbox is off, and never saves in review mode", async () => {
+    mockStart(5);
+    const { result } = setup();
+    act(() => result.current.startFind([file]));
+    act(() => result.current.setCheckLengths(false));
+    act(() => result.current.toMatches());
+    await waitFor(() => expect(startSearch).toHaveBeenCalledTimes(1));
+    expect(startSearch.mock.calls[0]?.[0]).toMatchObject({ check_lengths: false, save: null });
+  });
+
+  it("with automatic save sends the run options and forces the length check on", async () => {
+    mockStart(5);
+    const { result } = setup();
+    act(() => result.current.startFind([file]));
+    act(() => result.current.setCheckLengths(false));
+    act(() => result.current.setAutoSave(true));
+    expect(result.current.checkLengths).toBe(true); // choosing it turns the check on
+    act(() => result.current.setSaveOptions({ keepExisting: true, engine: "ffsubsync" }));
+    act(() => result.current.toMatches());
+    await waitFor(() => expect(startSearch).toHaveBeenCalledTimes(1));
+    expect(startSearch.mock.calls[0]?.[0]).toMatchObject({
+      check_lengths: true,
+      save: { keep_existing: true, sync_after: false, engine: "ffsubsync" },
+    });
+  });
+
+  it("sends no engine of its own when the user did not choose one, so Settings decides", async () => {
+    mockStart(5);
+    const { result } = setup();
+    act(() => result.current.startFind([file]));
+    act(() => result.current.setAutoSave(true));
+    act(() => result.current.toMatches());
+    await waitFor(() => expect(startSearch).toHaveBeenCalledTimes(1));
+    expect(startSearch.mock.calls[0]?.[0].save).toEqual({
+      keep_existing: false,
+      sync_after: false,
+      engine: null,
+    });
+  });
+
+  it("is off again, with nothing remembered, on every new Find subtitles", () => {
+    const { result } = setup();
+    act(() => result.current.startFind([file]));
+    act(() => result.current.setAutoSave(true));
+    act(() => result.current.setSaveOptions({ keepExisting: true, syncAfter: true }));
+    act(() => result.current.close());
+    act(() => result.current.startFind([file]));
+    expect(result.current.autoSave).toBe(false);
+    expect(result.current.checkLengths).toBe(true);
+    expect(result.current.saveOptions).toEqual({
+      keepExisting: false,
+      syncAfter: false,
+      engine: "alass",
+    });
+  });
+
+  it("switching automatic save off leaves Check lengths on", () => {
+    const { result } = setup();
+    act(() => result.current.startFind([file]));
+    act(() => result.current.setAutoSave(true));
+    act(() => result.current.setAutoSave(false));
+    expect(result.current.checkLengths).toBe(true);
+  });
+});

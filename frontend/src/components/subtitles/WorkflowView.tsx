@@ -77,6 +77,12 @@ export function WorkflowView({
           onToggleSkip={w.toggleSkip}
           onSearch={w.toMatches}
           busy={w.starting}
+          checkLengths={w.checkLengths}
+          onCheckLengthsChange={w.setCheckLengths}
+          autoSave={w.autoSave}
+          onAutoSaveChange={w.setAutoSave}
+          saveOptions={w.saveOptions}
+          onSaveOptionsChange={w.setSaveOptions}
         />
       );
     if (wf.stage === "matches")

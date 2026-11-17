@@ -1,9 +1,9 @@
-import { Loader2, Search } from "lucide-react";
+import { Check, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDuration } from "@/lib/format";
 import { languageName } from "@/lib/subtitle-langs";
-import { sourceName } from "@/lib/subtitleRunDock";
+import { LEFT_REASON_TEXT, sourceName } from "@/lib/subtitleRunDock";
 import { SeasonPackTag } from "@/components/subtitles/SeasonPackTag";
 import type { MatchRowState } from "@/types/subtitle";
 
@@ -113,14 +113,22 @@ function MatchCell({
     );
   const c = row.candidate;
   const using = row.verdict === "use" || row.verdict === "use_and_sync";
+  const saved = row.outcome === "saved";
   return (
     <div className="flex items-start gap-2 text-xs">
-      <Checkbox
-        checked={using}
-        onCheckedChange={() => onToggleUse(row.key)}
-        aria-label={`Download ${label}`}
-        className="mt-0.5 shrink-0"
-      />
+      {saved ? (
+        <span className="mt-0.5 flex shrink-0 items-center gap-1 text-primary">
+          <Check className="h-3.5 w-3.5" />
+          <span>Saved</span>
+        </span>
+      ) : (
+        <Checkbox
+          checked={using}
+          onCheckedChange={() => onToggleUse(row.key)}
+          aria-label={`Download ${label}`}
+          className="mt-0.5 shrink-0"
+        />
+      )}
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="flex min-w-0 items-center gap-1.5">
           <span className="shrink-0 rounded-sm border border-border px-1 text-3xs font-medium">
@@ -137,7 +145,14 @@ function MatchCell({
             <span className="text-muted-foreground"> · then sync</span>
           )}
         </p>
-        {row.hasReal && !keepExisting && (
+        {row.outcome === "left" && row.reason && (
+          <p className="text-3xs text-amber-500">Left for you: {LEFT_REASON_TEXT[row.reason]}</p>
+        )}
+        {row.outcome === "failed" && (
+          <p className="text-3xs text-destructive">Save failed: {row.detail ?? "Unknown error"}</p>
+        )}
+        {saved && row.detail && <p className="text-3xs text-amber-500">{row.detail}</p>}
+        {row.hasReal && !keepExisting && !saved && (
           <p className="text-3xs text-amber-500">Replaces the existing subtitle</p>
         )}
         {row.machineKind && !keepExisting && (

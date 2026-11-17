@@ -9,7 +9,6 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -19,8 +18,10 @@ import {
 } from "@/components/ui/select";
 import { ProgressBar } from "@/components/ProgressBar";
 import { MatchRow } from "@/components/subtitles/MatchRow";
+import { RunOptionsControls } from "@/components/subtitles/RunOptionsControls";
 import { languageName } from "@/lib/subtitle-langs";
 import {
+  LEFT_REASON_TEXT,
   defaultRunOptions,
   isClean,
   runItems,
@@ -29,9 +30,8 @@ import {
   type SyncEngine,
 } from "@/lib/subtitleRunDock";
 import { cn } from "@/lib/utils";
-import type { MatchRowState, RunItem } from "@/types/subtitle";
+import type { LeftReason, MatchRowState, RunItem } from "@/types/subtitle";
 
-const ENGINES: SyncEngine[] = ["alass", "ffsubsync"];
 const NONE: ReadonlySet<string> = new Set();
 
 /** What a title (or the whole view) has: ready to download, to check, nothing found. */
@@ -101,6 +101,18 @@ function seasonsOf(rows: MatchRowState[], wanted: string[]): Season[] {
     seasons.set(key, season);
   }
   return [...seasons.values()];
+}
+
+/** What an automatic save left for the user: counts per reason, and saves that failed. */
+function summariseLeft(rows: MatchRowState[]) {
+  const byReason = new Map<LeftReason, number>();
+  let failed = 0;
+  for (const r of rows) {
+    if (r.outcome === "left" && r.reason) byReason.set(r.reason, (byReason.get(r.reason) ?? 0) + 1);
+    else if (r.outcome === "failed") failed++;
+  }
+  const left = [...byReason.values()].reduce((a, b) => a + b, 0);
+  return { byReason, failed, left, total: left + failed };
 }
 
 /** A season with nothing to decide: every cell has a real subtitle or found nothing. */
@@ -196,11 +208,20 @@ export function MatchesView({
   const [picked, setPicked] = useState<string | null>(null);
   const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
 
+  // What automatic save did: the rows it left for the user and the saves that failed. Review
+  // narrows the view to them; the Run step is the same as ever.
+  const [reviewing, setReviewing] = useState(false);
+  const leftOver = useMemo(() => summariseLeft(rows), [rows]);
+  const shown = useMemo(
+    () => (reviewing ? rows.filter((r) => r.outcome === "left" || r.outcome === "failed") : rows),
+    [reviewing, rows],
+  );
+
   const byTitle = useMemo(() => {
     const m = new Map<string, MatchRowState[]>();
-    for (const r of rows) m.set(r.title, [...(m.get(r.title) ?? []), r]);
+    for (const r of shown) m.set(r.title, [...(m.get(r.title) ?? []), r]);
     return m;
-  }, [rows]);
+  }, [shown]);
   const active = titles.find((t) => t.key === picked) ?? titles[0];
   const activeRows = useMemo(
     () => (active ? (byTitle.get(active.key) ?? []) : []),
@@ -221,6 +242,32 @@ export function MatchesView({
 
   return (
     <div className="space-y-4 pb-24">
+      {leftOver.total > 0 && (
+        <section
+          aria-label="Left for you"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs"
+        >
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="font-medium text-amber-500">Left for you · {leftOver.total}</p>
+            <p className="text-muted-foreground tabular-nums">
+              {[
+                ...[...leftOver.byReason].map(([reason, n]) => `${n} ${LEFT_REASON_TEXT[reason]}`),
+                ...(leftOver.failed ? [`${leftOver.failed} failed to save`] : []),
+              ].join(" · ")}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7"
+            onClick={() => setReviewing((v) => !v)}
+          >
+            {reviewing ? "Show all rows" : "Review"}
+          </Button>
+        </section>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <Button
           size="sm"
@@ -475,42 +522,10 @@ export function MatchesView({
         className="fixed inset-x-4 bottom-20 z-30 flex animate-slide-up-fade flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-4 py-2.5 shadow-xl md:inset-x-auto md:bottom-6 md:left-1/2 md:w-max md:max-w-[calc(100vw-2rem)] md:-translate-x-1/2"
       >
         <span className="text-xs text-muted-foreground tabular-nums">{countLine(all)}</span>
-        <label className="flex items-center gap-1.5 text-xs">
-          <Checkbox
-            checked={options.keepExisting}
-            onCheckedChange={(v) => setTouched((t) => ({ ...t, keepExisting: v === true }))}
-            aria-label="Keep existing subtitles"
-          />
-          Keep existing subtitles
-        </label>
-        <span className="flex items-center gap-1.5 text-xs">
-          <label className="flex items-center gap-1.5">
-            <Checkbox
-              checked={options.syncAfter}
-              onCheckedChange={(v) => setTouched((t) => ({ ...t, syncAfter: v === true }))}
-              aria-label="Sync after download"
-            />
-            Sync after download
-          </label>
-          <span className="flex overflow-hidden rounded-md border border-border">
-            {ENGINES.map((e) => (
-              <button
-                key={e}
-                type="button"
-                aria-pressed={options.engine === e}
-                onClick={() => setTouched((t) => ({ ...t, engine: e }))}
-                className={cn(
-                  "px-2 py-0.5 font-mono text-3xs transition-colors",
-                  options.engine === e
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {e}
-              </button>
-            ))}
-          </span>
-        </span>
+        <RunOptionsControls
+          options={options}
+          onChange={(change) => setTouched((t) => ({ ...t, ...change }))}
+        />
         <Button
           size="sm"
           disabled={items.length === 0 || downloading}

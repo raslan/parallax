@@ -1,4 +1,11 @@
-import type { MatchRowState, RunEntry, RunItem, RunResult, TitleChoice } from "@/types/subtitle";
+import type {
+  LeftReason,
+  MatchRowState,
+  RunEntry,
+  RunItem,
+  RunResult,
+  TitleChoice,
+} from "@/types/subtitle";
 import type { Job } from "@/types/job";
 
 export type SyncEngine = "alass" | "ffsubsync";
@@ -32,9 +39,23 @@ export function defaultRunOptions(settingsEngine: string): RunOptions {
 export function isClean(row: MatchRowState, checksSkipped = false): boolean {
   const settled = !!row.lengthResult || checksSkipped;
   return (
-    (row.status === "ready" || row.status === "replaces_machine") && !!row.candidate && settled
+    (row.status === "ready" || row.status === "replaces_machine") &&
+    !!row.candidate &&
+    settled &&
+    row.outcome !== "saved" // automatic save already saved it
   );
 }
+
+/** Why automatic save left a row for the user, in plain words. */
+export const LEFT_REASON_TEXT: Record<LeftReason, string> = {
+  identity_unconfirmed: "Title not confirmed",
+  only_season_pack: "Only a season pack was found",
+  length_short: "Looks too short for the video",
+  length_long: "Looks too long for the video",
+  length_unchecked: "Length could not be checked",
+  none_found: "Nothing found",
+  failed: "Failed",
+};
 
 /**
  * Whether a title's identity is certain: Identify's folder layout was recognised, or the user

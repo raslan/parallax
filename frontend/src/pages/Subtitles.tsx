@@ -96,7 +96,13 @@ export function Subtitles() {
   });
 
   // Find subtitles (Titles → Matches → Run) and Generated and translated, over the Home view.
-  const w = useSubtitleWorkflow({ folder, titles, wanted, sources });
+  const w = useSubtitleWorkflow({
+    folder,
+    titles,
+    wanted,
+    sources,
+    settingsEngine: settingsQ.data?.subtitle_sync_engine,
+  });
   const syncEngine: SyncEngine =
     settingsQ.data?.subtitle_sync_engine === "ffsubsync" ? "ffsubsync" : "alass";
   const compare = useSubtitleCompare({
