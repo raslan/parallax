@@ -472,3 +472,238 @@ def test_start_and_summary_lines_and_the_settings_size_are_logged(env):
     size_lines = [m for m in lines if m.startswith("Stored results:")]
     assert len(size_lines) == 1
     print("settings size for 600 rows:", size_lines[0])  # the one-off measurement (Task 11)
+
+
+# ---------------------------------------------------------------- automatic save
+
+
+def checked_row(**extra):
+    row = {
+        "state": "checked",
+        "candidates": [cand(1)],
+        "errors": [],
+        "length": {"last": 2900.0, "video_duration": 3000.0, "verdict": "ok"},
+    }
+    row.update(extra)
+    return row
+
+
+def test_judge_a_certain_tv_row_with_the_exact_episode_and_a_fitting_length_is_sure():
+    assert ss.judge_row(checked_row(), True, False) == (True, None, None)
+
+
+def test_judge_a_certain_film_needs_no_release_kind():
+    film = checked_row(candidates=[{**cand(1), "release_kind": None}])
+    del film["candidates"][0]["release_kind"]
+    assert ss.judge_row(film, True, True) == (True, None, None)
+
+
+@pytest.mark.parametrize(
+    "row,certain,expected",
+    [
+        (checked_row(), False, "identity_unconfirmed"),
+        (checked_row(candidates=[cand(1, "season_pack")]), True, "only_season_pack"),
+        (
+            checked_row(length={"last": 1000.0, "video_duration": 3000.0, "verdict": "short"}),
+            True,
+            "length_short",
+        ),
+        (
+            checked_row(length={"last": 4000.0, "video_duration": 3000.0, "verdict": "long"}),
+            True,
+            "length_long",
+        ),
+        (
+            checked_row(length={"last": 2900.0, "video_duration": None, "verdict": "unknown"}),
+            True,
+            "length_unchecked",
+        ),
+        (
+            checked_row(length={"error": "The download is not a readable subtitle file."}),
+            True,
+            "length_unchecked",
+        ),
+        (checked_row(length=None), True, "length_unchecked"),
+        (checked_row(state="searched", length=None), True, "length_unchecked"),
+        (checked_row(candidates=[], length=None, state="searched"), True, "none_found"),
+    ],
+)
+def test_judge_each_reason_comes_from_exactly_its_case(row, certain, expected):
+    sure, reason, detail = ss.judge_row(row, certain, False)
+    assert (sure, reason) == (False, expected) and detail is None
+
+
+def test_judge_a_failed_row_says_why():
+    failed = {
+        "state": "failed",
+        "candidates": [],
+        "errors": [{"provider": "search", "message": "The source took too long to answer"}],
+        "length": None,
+    }
+    assert ss.judge_row(failed, True, False) == (
+        False,
+        "failed",
+        "The source took too long to answer",
+    )
+
+
+def save_options(**kw):
+    return {"keep_existing": False, "sync_after": False, "engine": None, **kw}
+
+
+@pytest.fixture
+def saves(env, monkeypatch):
+    calls = []
+
+    def fake_run_item(item, keep_existing, sync_after, engine):
+        calls.append((item, keep_existing, sync_after, engine))
+        outcome = env.save_outcomes.get(item["video_path"].rsplit("/", 1)[-1])
+        if outcome:
+            return outcome(item) if callable(outcome) else outcome
+        return {
+            "video_path": item["video_path"],
+            "language": item["language"],
+            "status": "saved",
+            "path": item["video_path"].replace(".mkv", f".{item['language']}.srt"),
+        }
+
+    env.save_outcomes = {}
+    monkeypatch.setattr(ss, "_run_item", fake_run_item)
+    return calls
+
+
+def test_save_mode_saves_only_sure_rows(env, saves):
+    env.search_outcomes["b.mkv"] = {"candidates": [cand(2, "season_pack")], "errors": []}
+    env.search_outcomes["c.mkv"] = {"candidates": [], "errors": []}
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv", "c.mkv"], save=save_options()))
+    ss.run_subtitle_search_job(jid)
+    st = env.load(jid)
+    rows = rows_of(st)
+    a, b, c = (rows[row_key(n)] for n in ("a.mkv", "b.mkv", "c.mkv"))
+    assert [call[0]["video_path"] for call in saves] == ["/v/a.mkv"]
+    assert (a["outcome"], a["saved"]["subtitle_id"]) == ("saved", "id1")
+    assert a["saved"]["file"] == "/v/a.en.srt"
+    assert (b["outcome"], b["reason"]) == ("left", "only_season_pack")
+    assert (c["outcome"], c["reason"]) == ("left", "none_found")
+    assert st["status"] == JobStatus.COMPLETED
+    assert st["current_file"] == "1 saved, 2 left for you, 0 failed"
+
+
+def test_the_saved_item_carries_the_row_and_the_top_candidate(env, saves):
+    jid = env.new_job(make_settings(["a.mkv"], save=save_options()))
+    ss.run_subtitle_search_job(jid)
+    item = saves[0][0]
+    assert item == {
+        "video_path": "/v/a.mkv",
+        "language": "en",
+        "provider": "subf2m",
+        "subtitle_id": "id1",
+        "sync": False,
+        "season": 1,
+        "episode": 1,
+    }
+
+
+def test_save_progress_has_three_phases(env, saves, monkeypatch):
+    seen = {}
+
+    def fake(item, keep_existing, sync_after, engine):
+        seen.setdefault("mid", env.load(jid))
+        return {"video_path": item["video_path"], "language": "en", "status": "saved", "path": "/x"}
+
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv"], save=save_options()))
+    monkeypatch.setattr(ss, "_run_item", fake)
+    ss.run_subtitle_search_job(jid)
+    mid = seen["mid"]
+    assert mid["current_file"] == "Saving a.mkv"
+    assert mid["total"] == 2 and mid["processed"] == 0
+    assert 69 <= mid["progress"] <= 70  # 40 for the search and 30 for the checks are done
+
+
+def test_a_failed_save_is_outcome_failed_with_the_error(env, saves):
+    env.save_outcomes["a.mkv"] = {
+        "video_path": "/v/a.mkv",
+        "language": "en",
+        "status": "failed",
+        "error": "Could not save: Permission denied",
+    }
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv"], save=save_options()))
+    ss.run_subtitle_search_job(jid)
+    st = env.load(jid)
+    a, b = rows_of(st)[row_key("a.mkv")], rows_of(st)[row_key("b.mkv")]
+    assert (a["outcome"], a["detail"]) == ("failed", "Could not save: Permission denied")
+    assert b["outcome"] == "saved"
+    assert st["current_file"] == "1 saved, 0 left for you, 1 failed"
+
+
+def test_review_mode_saves_nothing(env, saves):
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv"], save=None))
+    ss.run_subtitle_search_job(jid)
+    assert saves == []
+    assert {r["outcome"] for r in rows_of(env.load(jid)).values()} == {None}
+
+
+def test_cancel_before_save_saves_nothing(env, saves, monkeypatch):
+    def last_check_cancels(*a, **k):
+        request_cancel(jid)
+        return {"cues": 5, "first": 1.0, "last": 2900.0, "length": "ok", "video_duration": 3000.0}
+
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv"], save=save_options()))
+    monkeypatch.setattr(ss, "check_candidate_length", last_check_cancels)
+    ss.run_subtitle_search_job(jid)
+    assert saves == []
+    assert env.load(jid)["status"] == JobStatus.CANCELLED
+
+
+def test_cancel_mid_save_stops_after_the_current_item(env, saves):
+    def first_save_cancels(item):
+        request_cancel(jid)
+        return {"video_path": item["video_path"], "language": "en", "status": "saved", "path": "/x"}
+
+    env.save_outcomes["a.mkv"] = first_save_cancels
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv", "c.mkv"], save=save_options()))
+    ss.run_subtitle_search_job(jid)
+    st = env.load(jid)
+    assert len(saves) == 1  # nothing more is saved after a cancel
+    assert st["status"] == JobStatus.CANCELLED
+    assert st["current_file"] == "1 of 3 done before cancel"
+    assert [r["outcome"] for r in rows_of(st).values()] == ["saved", None, None]
+
+
+def test_run_options_are_passed_through(env, saves):
+    opts = save_options(keep_existing=True, sync_after=True, engine="ffsubsync")
+    jid = env.new_job(make_settings(["a.mkv"], save=opts))
+    ss.run_subtitle_search_job(jid)
+    item, keep_existing, sync_after, engine = saves[0]
+    assert (keep_existing, sync_after, engine) == (True, True, "ffsubsync")
+    assert item["sync"] is True
+
+
+def test_without_an_engine_the_settings_default_is_used(env, saves):
+    jid = env.new_job(make_settings(["a.mkv"], save=save_options()))
+    ss.run_subtitle_search_job(jid)
+    assert saves[0][3] == "alass"
+
+
+def test_save_requires_checked_lengths(env, saves):
+    """Saving forces the length check on, even for a request that says otherwise."""
+    jid = env.new_job(make_settings(["a.mkv"], check_lengths=False, save=save_options()))
+    ss.run_subtitle_search_job(jid)
+    assert [k for k, _ in env.events if k == "check"] == ["check"]
+    assert len(saves) == 1
+
+
+def test_a_row_whose_check_failed_is_never_saved(env, saves):
+    env.check_outcomes["a.mkv"] = ProviderError("The download is not a readable subtitle file.")
+    jid = env.new_job(make_settings(["a.mkv"], save=save_options()))
+    ss.run_subtitle_search_job(jid)
+    row = rows_of(env.load(jid))[row_key("a.mkv")]
+    assert saves == []
+    assert (row["outcome"], row["reason"]) == ("left", "length_unchecked")
+
+
+def test_an_unconfirmed_title_is_skipped_and_reported(env, saves):
+    jid = env.new_job(make_settings(["a.mkv"], save=save_options(), certain=False))
+    ss.run_subtitle_search_job(jid)
+    row = rows_of(env.load(jid))[row_key("a.mkv")]
+    assert saves == [] and (row["outcome"], row["reason"]) == ("left", "identity_unconfirmed")

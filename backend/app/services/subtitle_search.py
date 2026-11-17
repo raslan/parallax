@@ -28,7 +28,7 @@ from app.services.subtitle_providers import (
     ProviderNetworkError,
     SearchQuery,
 )
-from app.services.subtitle_run import _log_job, _update_job, search_candidates
+from app.services.subtitle_run import _log_job, _run_item, _update_job, search_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,7 @@ class _Run:
         self.results: dict[str, dict] = stored.pop("results", {})
         self.stored = stored
         self.providers: list[str] = stored.get("providers", [])
+        self.engine = "alass"  # the sync engine for a save with sync after, set when it starts
         self.titles = {t["key"]: t for t in stored.get("titles", [])}
         self.phases: list[str] = ["search"]
         self.phase_index = 0
@@ -302,6 +303,37 @@ def _check_row(run: _Run, row: dict, durations: dict[str, tuple[str, object]]) -
     return False
 
 
+def judge_row(
+    row: dict, title_certain: bool, is_movie: bool
+) -> tuple[bool, str | None, str | None]:
+    """Whether automatic save may save this row: `(sure, reason, detail)`.
+
+    Sure needs all of: a certain identity; a top candidate that is the exact episode (a film
+    has no release kind); a completed length check with the verdict `ok`. Otherwise the row is
+    left for the user, with the first reason that applies: nothing to save (`failed`,
+    `none_found`), then `identity_unconfirmed`, `only_season_pack`, and the length (`length_short`,
+    `length_long`, `length_unchecked`: not checked, unreadable, or a runtime we do not know; a
+    single `.ass` release cannot be checked, so it ends here)."""
+    if row["state"] == "failed":
+        errors = row.get("errors") or []
+        return False, "failed", errors[0]["message"] if errors else None
+    if not row["candidates"]:
+        return False, "none_found", None
+    if not title_certain:
+        return False, "identity_unconfirmed", None
+    if not is_movie and row["candidates"][0].get("release_kind") != "episode":
+        return False, "only_season_pack", None
+    length = row.get("length")
+    verdict = length.get("verdict") if isinstance(length, dict) else None
+    if verdict == "short":
+        return False, "length_short", None
+    if verdict == "long":
+        return False, "length_long", None
+    if verdict != "ok":
+        return False, "length_unchecked", None
+    return True, None, None
+
+
 def _found(results: dict[str, dict]) -> int:
     return sum(1 for r in results.values() if r["state"] != "failed" and r["candidates"])
 
@@ -310,6 +342,7 @@ def run_subtitle_search_job(job_id: int) -> None:
     """Everything the job needs is in `job.settings` (see the design spec); nothing is passed."""
     from app.database import SessionLocal
     from app.models.job import Job, JobStatus
+    from app.models.settings import get_setting
 
     try:
         db = SessionLocal()
@@ -321,18 +354,27 @@ def run_subtitle_search_job(job_id: int) -> None:
             job.started_at = _now()
             db.commit()
             stored = json.loads(job.settings or "{}")
+            engine = (stored.get("save") or {}).get("engine") or get_setting(
+                db, "subtitle_sync_engine", "alass"
+            )
         finally:
             db.close()
         arm_cancel(job_id)
 
         run = _Run(job_id, stored)
+        run.engine = engine
         rows = list(run.results.values())
-        check_lengths = bool(run.stored.get("check_lengths"))
+        save = run.stored.get("save")
+        # Saving only ever happens after a completed length check.
+        check_lengths = bool(run.stored.get("check_lengths")) or bool(save)
         if check_lengths:
             run.phases.append("check")
+        if save:
+            run.phases.append("save")
+        mode = "saving the sure matches" if save else "review each match"
         run.log(
             f"Searching {len(rows)} rows in {', '.join(run.providers)} "
-            f"({'with' if check_lengths else 'without'} length checks)"
+            f"({'with' if check_lengths else 'without'} length checks, {mode})"
         )
 
         cancelled = _search_phase(run, rows)
@@ -340,6 +382,8 @@ def run_subtitle_search_job(job_id: int) -> None:
             run.log(f"Searched {len(rows)}, {_found(run.results)} found")
             if check_lengths:
                 cancelled = _check_phase(run, rows)
+        if not cancelled and save:
+            cancelled = _save_phase(run, rows, save)
         _finish(run, rows, cancelled)
     except Exception as exc:
         logger.exception("Subtitle search job %d failed", job_id)
@@ -391,6 +435,59 @@ def _check_phase(run: _Run, rows: list[dict]) -> bool:
     return False
 
 
+def _save_phase(run: _Run, rows: list[dict], save: dict) -> bool:
+    """Save the sure rows, one at a time, through the run job's per-item code; every other row
+    is marked left for the user with its reason. True if the job was cancelled: a cancel is
+    re-read right before each item, so nothing is saved after it."""
+    sure = []
+    for row in rows:
+        title = run.titles[row["title_key"]]
+        ok, reason, detail = judge_row(
+            row, bool(title.get("certain")), title["identity"]["type"] == "movie"
+        )
+        if ok:
+            sure.append(row)
+        else:
+            row.update(outcome="left", reason=reason, detail=detail)
+    run.log(f"Saving {len(sure)} sure matches, {len(rows) - len(sure)} left for you")
+    run.begin_phase(2, len(sure))
+    for i, row in enumerate(sure):
+        if should_cancel(run.job_id):
+            return True
+        name = _name(row)
+        run.begin_row(f"Saving {name}", first=i == 0)
+        top = row["candidates"][0]
+        item = {
+            "video_path": row["video_path"],
+            "language": row["language"],
+            "provider": top["provider"],
+            "subtitle_id": top["subtitle_id"],
+            "sync": bool(save.get("sync_after")),
+            "season": row.get("season"),
+            "episode": row.get("episode"),
+        }
+        result = _run_item(
+            item, bool(save.get("keep_existing")), bool(save.get("sync_after")), run.engine
+        )
+        if result["status"] == "saved":
+            row.update(
+                outcome="saved",
+                saved={
+                    "provider": top["provider"],
+                    "subtitle_id": top["subtitle_id"],
+                    "file": result.get("path"),
+                },
+            )
+            if result.get("sync_error"):
+                row["detail"] = f"Saved, but syncing failed: {result['sync_error']}"
+        else:
+            row.update(outcome="failed", detail=result.get("error"))
+            run.note_row_failure(name, result.get("error") or "The save failed")
+        run.end_row()
+    run.flush(force=True)
+    return False
+
+
 def _finish(run: _Run, rows: list[dict], cancelled: bool) -> None:
     from app.models.job import JobStatus
 
@@ -413,12 +510,22 @@ def _finish(run: _Run, rows: list[dict], cancelled: bool) -> None:
             current_file=None,
         )
     else:
+        if run.stored.get("save"):
+            count = {
+                o: sum(1 for r in rows if r.get("outcome") == o)
+                for o in ("saved", "left", "failed")
+            }
+            summary = (
+                f"{count['saved']} saved, {count['left']} left for you, {count['failed']} failed"
+            )
+        else:
+            summary = f"{_found(run.results)} of {total} found"
         fields.update(
             status=JobStatus.COMPLETED,
             progress=100.0,
             processed_files=run.processed,
             total_files=run.total,
-            current_file=f"{_found(run.results)} of {total} found",
+            current_file=summary,
         )
     run.log(f"Stored results: {len(fields['settings'])} characters for {total} rows")
     _update_job(run.job_id, **fields)
