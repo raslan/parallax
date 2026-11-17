@@ -1,5 +1,7 @@
 """Manage the subtitle files beside a video: list, rename, make main, delete, tidy up."""
 
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -44,6 +46,20 @@ class DeleteRequest(BaseModel):
 class TidyRequest(BaseModel):
     video_paths: list[str] = Field(max_length=5000)
     what: str
+
+
+class RemoveCountsRequest(BaseModel):
+    video_paths: list[str] = Field(min_length=1, max_length=500)
+
+
+class RemoveChoice(BaseModel):
+    language: str = Field(pattern=r"^[A-Za-z0-9-]{1,16}$")
+    kind: Literal["real", "hearing_impaired", "generated", "translated", "original"]
+
+
+class RemoveRequest(BaseModel):
+    video_paths: list[str] = Field(min_length=1, max_length=500)
+    items: list[RemoveChoice] = Field(min_length=1, max_length=200)
 
 
 class CheckLengthsRequest(BaseModel):
@@ -110,3 +126,20 @@ def delete(body: DeleteRequest):
 @router.post("/tidy", summary="Delete one family of subtitle files across videos")
 def tidy(body: TidyRequest):
     return {"deleted": svc.tidy(body.video_paths, body.what)}
+
+
+@router.post(
+    "/remove-counts", summary="Count the subtitle files of several videos by language and kind"
+)
+def remove_counts(body: RemoveCountsRequest):
+    """For the Remove subtitles dialog: `{language: {kind: count}}` over the videos, with the kinds
+    real, hearing_impaired, generated, translated and original (sync backups). Only reads."""
+    return svc.count_by_kind(body.video_paths)
+
+
+@router.post("/remove", summary="Delete subtitle files of several videos by language and kind")
+def remove(body: RemoveRequest):
+    """Deletes, for every chosen language and kind, those subtitle files of the videos. Real does
+    not include hearing-impaired files (their own kind). A permanent delete; at most 500 videos."""
+    pairs = [(c.language, c.kind) for c in body.items]
+    return {"removed": svc.remove_by_kind(body.video_paths, pairs)}

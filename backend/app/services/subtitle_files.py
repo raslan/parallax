@@ -327,6 +327,51 @@ def tidy(video_paths: list[str], what: str) -> int:
     return total
 
 
+REMOVE_KINDS = ("real", "hearing_impaired", "generated", "translated", "original")
+
+
+def count_by_kind(video_paths: list[str]) -> dict[str, dict[str, int]]:
+    """How many subtitle files the videos have, `{language: {kind: count}}`, kinds as in
+    `REMOVE_KINDS` (a kind with none is left out). The count behind Remove subtitles: a labelled
+    real file counts as `real`, a `.hi` file as `hearing_impaired`, a sync backup as `original`.
+    One shared walk per distinct folder; nothing is written."""
+    counts: dict[str, dict[str, int]] = {}
+    dirs_cache: dict[str, list[str]] = {}
+    for video in dict.fromkeys(video_paths):
+        for f in list_subtitle_files(video, dirs_cache):
+            by_kind = counts.setdefault(f["language"], {})
+            by_kind[f["kind"]] = by_kind.get(f["kind"], 0) + 1
+    return counts
+
+
+def remove_by_kind(video_paths: list[str], pairs: list[tuple[str, str]]) -> int:
+    """Delete, across several videos, every subtitle file whose language and kind is in `pairs`
+    (`("ar", "real")`: the plain and labelled real Arabic files, not the hearing-impaired,
+    generated or translated ones, nor the sync backups). A hard delete, like Manage's Delete.
+    Each video's folder is listed before the write lock is taken (one shared walk per distinct
+    folder); the lock only covers re-checking the chosen files and deleting them. A file that
+    vanished since the listing leaves that video for the next time. Returns how many went."""
+    wanted = set(pairs)
+    total = 0
+    dirs_cache: dict[str, list[str]] = {}
+    for video in dict.fromkeys(video_paths):
+        targets = [
+            f
+            for f in list_subtitle_files(video, dirs_cache)
+            if (f["language"], f["kind"]) in wanted
+        ]
+        if not targets:
+            continue
+        snap = _snapshot(targets)
+        with _WRITE_LOCK:
+            try:
+                _revalidate(snap, _OWN_REFUSAL)
+            except SubtitleNotFound:
+                continue
+            total += _remove(targets)
+    return total
+
+
 _SPLIT = re.compile(r"[\s._\-]+")
 
 

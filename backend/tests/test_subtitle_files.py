@@ -342,3 +342,181 @@ def test_scan_directory_lists_subtitles(movie):
     touch(os.path.join(root, "Movie.en.srt"))
     out = scan_directory(root)
     assert [s["name"] for s in out[0]["subtitles"]] == ["Movie.en.srt"]
+
+
+# ---------------------------------------------------------------- bulk remove by language and kind
+
+
+@pytest.fixture
+def two_videos(tmp_path):
+    a = touch(tmp_path / "A.mkv", "v")
+    b = touch(tmp_path / "B.mkv", "v")
+    for n in (
+        "A.ar.srt",
+        "A.ar.subf2m.srt",
+        "A.ar.hi.srt",
+        "A.ar.generated.srt",
+        "A.ar.translated.srt",
+        "A.ar.original.srt",
+        "A.en.srt",
+        "B.ar.srt",
+        "B.ar.yts.srt",
+        "B.en.generated.srt",
+        "B.en.original.srt",
+    ):
+        touch(tmp_path / n)
+    return tmp_path, a, b
+
+
+def left(tmp_path):
+    return sorted(n for n in os.listdir(tmp_path) if n.endswith(".srt"))
+
+
+def test_count_by_kind_across_two_videos(two_videos):
+    _, a, b = two_videos
+    assert sf.count_by_kind([a, b]) == {
+        "ar": {
+            "real": 4,  # A: plain + labelled, B: plain + labelled
+            "hearing_impaired": 1,
+            "generated": 1,
+            "translated": 1,
+            "original": 1,
+        },
+        "en": {"real": 1, "generated": 1, "original": 1},
+    }
+
+
+def test_count_by_kind_counts_each_video_once_even_if_listed_twice(two_videos):
+    _, a, _ = two_videos
+    assert sf.count_by_kind([a, a])["en"] == {"real": 1}
+
+
+def test_removing_real_arabic_takes_plain_and_labelled_real_files_only(two_videos):
+    tmp, a, b = two_videos
+    assert sf.remove_by_kind([a, b], [("ar", "real")]) == 4
+    assert left(tmp) == [
+        "A.ar.generated.srt",
+        "A.ar.hi.srt",
+        "A.ar.original.srt",
+        "A.ar.translated.srt",
+        "A.en.srt",
+        "B.en.generated.srt",
+        "B.en.original.srt",
+    ]
+
+
+def test_removing_hearing_impaired_arabic_takes_only_the_hi_file(two_videos):
+    tmp, a, b = two_videos
+    assert sf.remove_by_kind([a, b], [("ar", "hearing_impaired")]) == 1
+    assert "A.ar.hi.srt" not in left(tmp) and "A.ar.srt" in left(tmp)
+
+
+def test_removing_sync_backups_takes_only_the_originals_of_that_language(two_videos):
+    tmp, a, b = two_videos
+    assert sf.remove_by_kind([a, b], [("ar", "original")]) == 1
+    assert "A.ar.original.srt" not in left(tmp)
+    assert "B.en.original.srt" in left(tmp)  # another language
+
+
+def test_several_choices_are_removed_together(two_videos):
+    tmp, a, b = two_videos
+    assert sf.remove_by_kind([a, b], [("ar", "generated"), ("en", "generated")]) == 2
+    assert "A.ar.generated.srt" not in left(tmp) and "B.en.generated.srt" not in left(tmp)
+
+
+def test_generated_and_translated_are_their_own_kinds(two_videos):
+    tmp, a, b = two_videos
+    assert sf.remove_by_kind([a, b], [("ar", "translated")]) == 1
+    assert "A.ar.generated.srt" in left(tmp)
+
+
+def test_nothing_chosen_removes_nothing(two_videos):
+    tmp, a, b = two_videos
+    before = left(tmp)
+    assert sf.remove_by_kind([a, b], []) == 0
+    assert left(tmp) == before
+
+
+def test_only_the_listed_videos_own_files_are_touched(tmp_path):
+    a = touch(tmp_path / "Movie.mkv", "v")
+    touch(tmp_path / "Movie 2.mkv", "v")
+    touch(tmp_path / "Movie.ar.srt")
+    touch(tmp_path / "Movie 2.ar.srt")  # another video's file: the name rule keeps it out
+    touch(tmp_path / "Other.ar.srt")  # no video at all
+    assert sf.remove_by_kind([a], [("ar", "real")]) == 1
+    assert left(tmp_path) == ["Movie 2.ar.srt", "Other.ar.srt"]
+
+
+def test_a_file_that_vanished_since_the_listing_is_skipped_not_an_error(two_videos, monkeypatch):
+    tmp, a, b = two_videos
+
+    def gone(snap, refusal):
+        raise sf.SubtitleNotFound("That subtitle file was not found.")
+
+    monkeypatch.setattr(sf, "_revalidate", gone)
+    assert sf.remove_by_kind([a], [("ar", "real")]) == 0
+    assert "A.ar.srt" in left(tmp)
+
+
+def test_a_non_video_path_is_refused_by_both_calls(tmp_path):
+    txt = touch(tmp_path / "x.txt", "t")
+    with pytest.raises(SubtitleFileError):
+        sf.count_by_kind([txt])
+    with pytest.raises(SubtitleFileError):
+        sf.remove_by_kind([txt], [("en", "real")])
+
+
+def test_a_missing_video_is_refused(tmp_path):
+    with pytest.raises(sf.SubtitleNotFound):
+        sf.count_by_kind([str(tmp_path / "Gone.mkv")])
+
+
+def test_remove_routes(client, two_videos):
+    tmp, a, b = two_videos
+    r = client.post("/api/subtitles/remove-counts", json={"video_paths": [a, b]})
+    assert r.status_code == 200 and r.json()["ar"]["real"] == 4
+    r = client.post(
+        "/api/subtitles/remove",
+        json={"video_paths": [a, b], "items": [{"language": "ar", "kind": "real"}]},
+    )
+    assert r.status_code == 200 and r.json() == {"removed": 4}
+    assert "A.ar.srt" not in left(tmp)
+
+
+def test_remove_routes_refuse_a_bad_kind_a_non_video_and_too_many(client, two_videos):
+    tmp, a, b = two_videos
+    bad_kind = {"video_paths": [a], "items": [{"language": "ar", "kind": "everything"}]}
+    assert client.post("/api/subtitles/remove", json=bad_kind).status_code == 422
+    bad_lang = {"video_paths": [a], "items": [{"language": "../x", "kind": "real"}]}
+    assert client.post("/api/subtitles/remove", json=bad_lang).status_code == 422
+    txt = touch(tmp / "x.txt", "t")
+    assert (
+        client.post(
+            "/api/subtitles/remove",
+            json={"video_paths": [txt], "items": [{"language": "ar", "kind": "real"}]},
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post("/api/subtitles/remove-counts", json={"video_paths": [txt]}).status_code == 400
+    )
+    many = [a] * 501
+    assert (
+        client.post("/api/subtitles/remove-counts", json={"video_paths": many}).status_code == 422
+    )
+    assert (
+        client.post(
+            "/api/subtitles/remove",
+            json={"video_paths": many, "items": [{"language": "ar", "kind": "real"}]},
+        ).status_code
+        == 422
+    )
+    assert "A.ar.srt" in left(tmp)  # nothing was removed by any of these
+
+
+def test_remove_routes_need_a_signed_in_user(anon_client, two_videos):
+    _, a, _ = two_videos
+    assert (
+        anon_client.post("/api/subtitles/remove-counts", json={"video_paths": [a]}).status_code
+        == 401
+    )
