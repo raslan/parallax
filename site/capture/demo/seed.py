@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -96,16 +98,21 @@ def seed_subtitle_files() -> None:
     print("subtitle fixtures written")
 
 
-# Tiny generated videos (a solid colour, 1 frame a second, a few KB per minute) in Identify's
-# folder layout, for the Subtitles shots that search a whole show: they only need the right names
-# and runtimes (a real episode is 20 to 50 minutes, so a subtitle's length fits). Written into
-# library/shows (never pristine/); skipped if present. Needs ffmpeg on the host.
-# (folder, file name stem, season, episodes, seconds)
+# Tiny generated videos (one still a second, a few KB per minute) in Identify's folder layout,
+# for the Subtitles shots that search a whole show: they only need the right names and runtimes
+# (a real episode is 20 to 50 minutes, so a subtitle's length fits). Each shows a frame cut from
+# one of the demo's own open films, so thumbnails and the player are not blank boxes. Written
+# into library/shows (never pristine/); skipped if present. Needs ffmpeg on the host.
+# (folder, file name stem, episodes, seconds, source video under library/videos)
 SHOW_FIXTURES = [
-    ("Stranger Things (2016)/Season 01", "Stranger Things (2016) - S01E{n:02d} - Chapter {n}", 4, 2900),
-    ("Stranger Things (2016)/Season 02", "Stranger Things (2016) - S02E{n:02d} - Chapter {n}", 3, 2900),
-    ("Friends (1994)/Season 01", "Friends (1994) - S01E{n:02d} - Episode {n}", 6, 1330),
-    ("Unsorted", "Some.Show.S01E{n:02d}.720p.WEB.x264-GRP", 3, 1500),
+    # Only openly licensed titles (Creative Commons shows and films), never someone's catalogue.
+    ("Pioneer One (2010)/Season 01", "Pioneer One (2010) - S01E{n:02d} - Episode {n}", 4, 2020,
+     "Movies/Elephants Dream (2006).mkv"),
+    ("Pioneer One (2010)/Season 02", "Pioneer One (2010) - S02E{n:02d} - Episode {n}", 3, 2020,
+     "Movies/Elephants Dream (2006).mkv"),
+    ("Sintel (2010)", "Sintel (2010)", 1, 888, "Movies/Sintel (2010).mkv"),
+    ("Unsorted", "Some.Show.S01E{n:02d}.720p.WEB.x264-GRP", 3, 1500,
+     "Movies/Big Buck Bunny (2008).mp4"),
 ]
 
 
@@ -114,23 +121,32 @@ def seed_show_fixtures() -> None:
     if not (HERE / "library").exists():
         return
     made = 0
-    for folder, pattern, episodes, seconds in SHOW_FIXTURES:
+    frames = Path(tempfile.mkdtemp(prefix="demo-frames-"))
+    for folder, pattern, episodes, seconds, source in SHOW_FIXTURES:
         for n in range(1, episodes + 1):
             path = root / folder / f"{pattern.format(n=n)}.mkv"
             if path.exists():
                 continue
             path.parent.mkdir(parents=True, exist_ok=True)
+            # A different frame of the source for each episode.
+            frame = frames / f"{abs(hash((source, n)))}.png"
             subprocess.run(
-                ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
-                 f"color=c=0x202030:s=160x90:r=1:d={seconds}", "-f", "lavfi", "-i",
-                 "anullsrc=r=8000:cl=mono", "-shortest", "-t", str(seconds), "-c:v", "libx264",
-                 "-preset", "ultrafast", "-crf", "40", "-g", "120", "-pix_fmt", "yuv420p",
-                 "-c:a", "aac", "-b:a", "8k", str(path)],
+                ["ffmpeg", "-v", "error", "-y", "-ss", str(8 + n * 7), "-i",
+                 str(HERE / "library" / "videos" / source), "-frames:v", "1",
+                 "-vf", "scale=480:-2", str(frame)],
+                check=True,
+            )
+            subprocess.run(
+                ["ffmpeg", "-v", "error", "-y", "-loop", "1", "-framerate", "1", "-i", str(frame),
+                 "-f", "lavfi", "-i", "anullsrc=r=8000:cl=mono", "-shortest", "-t", str(seconds),
+                 "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-g", "120",
+                 "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "8k", str(path)],
                 check=True,
             )
             made += 1
+    shutil.rmtree(frames, ignore_errors=True)
     # One real Arabic subtitle already on Season 2, so a Season 1 pick can be shown to leave it alone.
-    old = root / "Stranger Things (2016)/Season 02/Stranger Things (2016) - S02E01 - Chapter 1.ar.srt"
+    old = root / "Pioneer One (2010)/Season 02/Pioneer One (2010) - S02E01 - Episode 1.ar.srt"
     if old.parent.exists() and not old.exists():
         old.write_text(SRT_BODY, encoding="utf-8")
     print(f"show fixtures: {made} video(s) written")

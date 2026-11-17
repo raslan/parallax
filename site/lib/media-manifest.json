@@ -294,7 +294,7 @@
     "src": "tools/subtitles/scan.webp",
     "width": 1184,
     "height": 640,
-    "bytes": 38470,
+    "bytes": 75572,
     "quality": 90
   },
   "tools/organize/folders": {
@@ -2734,66 +2734,66 @@
     "id": "tools/subtitles/season-filter",
     "kind": "still",
     "alt": "A show's files on the Subtitles page with the Season menu open, listing Season 1 and Season 2, and Select all and Select none beside it.",
-    "route": "/subtitles?path=%2Fmedia%2Fshows%2FStranger%20Things%20(2016)",
+    "route": "/subtitles?path=%2Fmedia%2Fshows%2FPioneer%20One%20(2010)",
     "src": "tools/subtitles/season-filter.webp",
     "width": 1184,
-    "height": 300,
-    "bytes": 20278,
+    "height": 400,
+    "bytes": 89352,
     "quality": 90
   },
   "tools/subtitles/titles-step": {
     "id": "tools/subtitles/titles-step",
     "kind": "still",
     "alt": "The Titles step of Find subtitles: the title Parallax will search for, the Check lengths tickbox, the choice between reviewing each match and saving the sure matches automatically, the run options that choice adds, and the search button.",
-    "route": "/subtitles?path=%2Fmedia%2Fshows%2FFriends%20(1994)",
+    "route": "/subtitles?path=%2Fmedia%2Fshows%2FSintel%20(2010)",
     "src": "tools/subtitles/titles-step.webp",
     "width": 1184,
     "height": 760,
-    "bytes": 106330,
+    "bytes": 102186,
     "quality": 90
   },
   "tools/subtitles/matches-searching": {
     "id": "tools/subtitles/matches-searching",
     "kind": "still",
     "alt": "The Matches step while the server is still searching: a bar shows the searches done so far with a Cancel button and a note that the search runs on the server and the page can be left, above the rows found so far.",
-    "route": "/subtitles?path=%2Fmedia%2Fshows%2FStranger%20Things%20(2016)",
+    "route": "/subtitles?path=%2Fmedia%2Fshows%2FPioneer%20One%20(2010)",
     "src": "tools/subtitles/matches-searching.webp",
     "width": 1184,
     "height": 730,
-    "bytes": 81628,
+    "bytes": 80570,
     "quality": 90
   },
   "tools/subtitles/matches": {
     "id": "tools/subtitles/matches",
     "kind": "still",
     "alt": "The Matches step after the search: a row per episode and a column per wanted language, each cell with the best release, its source and how its length fits the video, and a tickbox to download it.",
-    "route": "/subtitles?path=%2Fmedia%2Fshows%2FStranger%20Things%20(2016)",
+    "route": "/subtitles?path=%2Fmedia%2Fshows%2FPioneer%20One%20(2010)",
     "src": "tools/subtitles/matches.webp",
     "width": 1184,
     "height": 760,
-    "bytes": 133602,
+    "bytes": 112594,
     "quality": 90
   },
   "tools/subtitles/compare": {
     "id": "tools/subtitles/compare",
     "kind": "still",
-    "alt": "The Compare sheet beside the video: the candidate list, where a release that is a whole season carries a season pack tag, with the verdict buttons below.",
-    "route": "/subtitles?path=%2Fmedia%2Fshows%2FStranger%20Things%20(2016)",
+    "alt": "The Compare sheet beside the matches: the video, the list of candidate releases, and the subtitle's lines with the verdict buttons below; in the matches a release that covers a whole season carries a season pack tag.",
+    "route": "/subtitles?path=%2Fmedia%2Fshows%2FPioneer%20One%20(2010)",
     "src": "tools/subtitles/compare.webp",
     "width": 1440,
     "height": 844,
-    "bytes": 153534,
-    "quality": 65
+    "bytes": 150476,
+    "quality": 70
   },
   "tools/subtitles/last-search": {
     "id": "tools/subtitles/last-search",
     "kind": "still",
     "alt": "The Subtitles page for a show with a Last search line above it: when the search ended, how it went, and Show the matches.",
-    "route": "/subtitles?path=%2Fmedia%2Fshows%2FStranger%20Things%20(2016)",
+    "route": "/subtitles?path=%2Fmedia%2Fshows%2FPioneer%20One%20(2010)",
     "src": "tools/subtitles/last-search.webp",
     "width": 1208,
     "height": 106,
-    "bytes": 7856,
+    "bytes": 7658,
     "quality": 90
   },
   "tools/subtitles/activity": {
@@ -2815,7 +2815,7 @@
     "src": "tools/subtitles/left-for-you.webp",
     "width": 1184,
     "height": 690,
-    "bytes": 112776,
+    "bytes": 103926,
     "quality": 90
   },
   "tools/subtitles/remove": {
@@ -2826,7 +2826,7 @@
     "src": "tools/subtitles/remove.webp",
     "width": 822,
     "height": 416,
-    "bytes": 43868,
+    "bytes": 40664,
     "quality": 90
   }
 }

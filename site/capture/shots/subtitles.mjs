@@ -8,8 +8,8 @@
 
 const SHOWS = "/media/shows";
 const route = (folder) => `/subtitles?path=${encodeURIComponent(folder)}`;
-const ST = `${SHOWS}/Stranger Things (2016)`;
-const FRIENDS = `${SHOWS}/Friends (1994)`;
+const ST = `${SHOWS}/Pioneer One (2010)`;
+const FILM = `${SHOWS}/Sintel (2010)`;
 const UNSORTED = `${SHOWS}/Unsorted`;
 
 /** Only English and Arabic: fewer rows, a quicker search. */
@@ -56,15 +56,24 @@ export default [
     waitFor: [/Wanted/],
     setup: async (page) => {
       await openTitle(page);
+      // Thumbnails are made when first asked for: wait until the cards show a picture.
+      await page.waitForFunction(
+        () => {
+          const imgs = [...document.querySelectorAll("main img")];
+          return imgs.length >= 4 && imgs.every((i) => i.complete && i.naturalWidth > 0);
+        },
+        undefined,
+        { timeout: 60000 },
+      );
       await page.getByRole("combobox", { name: "Season" }).click();
       await page.getByRole("option", { name: "Season 2" }).waitFor({ timeout: 10000 });
     },
-    crop: { rect: { x: 240, y: 500, width: 1184, height: 300 } },
+    crop: { rect: { x: 240, y: 500, width: 1184, height: 400 } },
   },
   {
     id: "tools/subtitles/titles-step",
     kind: "still",
-    route: route(FRIENDS),
+    route: route(FILM),
     alt: "The Titles step of Find subtitles: the title Parallax will search for, the Check lengths tickbox, the choice between reviewing each match and saving the sure matches automatically, the run options that choice adds, and the search button.",
     waitFor: [/Wanted/],
     setup: async (page) => {
