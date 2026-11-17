@@ -5320,6 +5320,82 @@
         }
       }
     },
+    "/api/subtitles/remove-counts": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Count the subtitle files of several videos by language and kind",
+        "description": "For the Remove subtitles dialog: `{language: {kind: count}}` over the videos, with the kinds\nreal, hearing_impaired, generated, translated and original (sync backups). Only reads.",
+        "operationId": "remove_counts_api_subtitles_remove_counts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveCountsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subtitles/remove": {
+      "post": {
+        "tags": ["subtitles"],
+        "summary": "Delete subtitle files of several videos by language and kind",
+        "description": "Deletes, for every chosen language and kind, those subtitle files of the videos. Real does\nnot include hearing-impaired files (their own kind). A permanent delete; at most 500 videos.",
+        "operationId": "remove_api_subtitles_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/subtitles/search": {
       "post": {
         "tags": ["subtitles"],
@@ -11178,6 +11254,64 @@
         "type": "object",
         "required": ["release", "video_name"],
         "title": "ReleaseTokensRequest"
+      },
+      "RemoveChoice": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9-]{1,16}$",
+            "title": "Language"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["real", "hearing_impaired", "generated", "translated", "original"],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": ["language", "kind"],
+        "title": "RemoveChoice"
+      },
+      "RemoveCountsRequest": {
+        "properties": {
+          "video_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Video Paths"
+          }
+        },
+        "type": "object",
+        "required": ["video_paths"],
+        "title": "RemoveCountsRequest"
+      },
+      "RemoveRequest": {
+        "properties": {
+          "video_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Video Paths"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RemoveChoice"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": ["video_paths", "items"],
+        "title": "RemoveRequest"
       },
       "RenameOp": {
         "properties": {
