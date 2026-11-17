@@ -162,18 +162,67 @@ _TV_SHOW_TITLE_RE = re.compile(r"^(.+?)\s+[-\(]\s?(.*?)\s+(season|series)\)?(\s+
 _TV_SHOW_TITLE_ALT_RE = re.compile(r"(.+)\s(\d{1,2})(?:\s|$)")
 
 
-def _season_slug_path(title: str, season: int) -> str | None:
-    """Guess subf2m's season page path, e.g. ``/subtitles/stranger-things-first-season``.
+def _season_slug_paths(title: str, season: int) -> list[str]:
+    """Guess subf2m's season page paths, e.g. ``/subtitles/stranger-things-first-season``.
 
-    Used when the title search is down or finds nothing. A wrong guess just yields
-    an empty (404) page, which the episode lookup treats as "no subtitles".
+    Used when the title search is down or finds nothing. Some pages have a double hyphen
+    (``/subtitles/friends--first-season``), so both forms are tried, single first. A wrong guess
+    just yields an empty (404) page, which the episode lookup treats as "no subtitles".
     """
     if not 1 <= season <= len(_SEASONS):
-        return None
+        return []
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower().replace("'", "")).strip("-")
     if not slug:
-        return None
-    return f"/subtitles/{slug}-{_SEASONS[season - 1].lower()}-season"
+        return []
+    word = _SEASONS[season - 1].lower()
+    return [f"/subtitles/{slug}-{word}-season", f"/subtitles/{slug}--{word}-season"]
+
+
+def _season_queries(title: str, season: int, year: int | None) -> list[str]:
+    """The title searches to try, most specific first."""
+    base = title.strip().lower()
+    queries = []
+    if 1 <= season <= len(_SEASONS):
+        queries.append(f"{base} {_SEASONS[season - 1].lower()} season")
+    if year:
+        queries.append(f"{base} {year}")
+    queries.append(base)
+    return queries
+
+
+def _season_hits(
+    candidates: list,
+    title: str,
+    season: int,
+    season_strs: tuple[str, ...],
+    year: int | None,
+    return_len: int,
+) -> list[str]:
+    """The result links of `candidates` that are a page for this season, best match first."""
+    results = []
+    for result in candidates:
+        text = result.text.strip().lower()
+        m = _TV_SHOW_TITLE_RE.match(text) or _TV_SHOW_TITLE_ALT_RE.match(text)
+        if m:
+            match_title = m.group(1).strip()
+            match_season = m.group(2).strip().lower()
+        elif season == 1:
+            # subf2m lists single-season/mini-series without a season suffix at all
+            title_m = _MOVIE_TITLE_RE.match(text)
+            match_title = title_m.group(1) if title_m else text
+            match_season = "1"
+        else:
+            continue
+        if match_season in season_strs or "complete" in match_season:
+            plus = 0.1 if year and str(year) in text else 0
+            results.append(
+                {
+                    "href": result.get("href"),
+                    "similarity": SequenceMatcher(None, title.lower(), match_title).ratio() + plus,
+                }
+            )
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    return list(dict.fromkeys(r["href"] for r in results[:return_len]))
 
 
 class Subf2mProvider:
@@ -298,48 +347,31 @@ class Subf2mProvider:
     def _search_tv_show_season(
         self, title: str, season: int, year: int | None = None, return_len: int = 3
     ) -> list[str]:
+        """The season's page paths, best first.
+
+        subf2m's title search returns at most ten results, so for a common word ("Friends") the
+        real page is not among them. The most specific query is asked first (`<title> <season
+        word> season`, then `<title> <year>`, then the plain title) and the first query that
+        yields a matching season page wins; only when none does, the page address is guessed
+        (both hyphen forms). An unknown show therefore costs up to three title searches and two
+        guessed addresses; every request goes through the page cache."""
         try:
             season_strs = (_SEASONS[season - 1].lower(), str(season))
         except IndexError:
             logger.debug("subf2m: season %d not in lookup table", season)
             return []
-        results = []
-        try:
-            candidates = list(self._gen_results(title))
-        except (requests.RequestException, ProviderError) as exc:
-            # subf2m's search endpoint has been seen returning 500 for every query
-            # while the show pages themselves still load fine.
-            logger.warning("subf2m: title search failed (%s) — trying direct season URL", exc)
-            candidates = []
-        for result in candidates:
-            text = result.text.strip().lower()
-            m = _TV_SHOW_TITLE_RE.match(text) or _TV_SHOW_TITLE_ALT_RE.match(text)
-            if m:
-                match_title = m.group(1).strip()
-                match_season = m.group(2).strip().lower()
-            elif season == 1:
-                # subf2m lists single-season/mini-series without a season suffix at all
-                title_m = _MOVIE_TITLE_RE.match(text)
-                match_title = title_m.group(1) if title_m else text
-                match_season = "1"
-            else:
+        for query in _season_queries(title, season, year):
+            try:
+                candidates = list(self._gen_results(query))
+            except (requests.RequestException, ProviderError) as exc:
+                # subf2m's search endpoint has been seen returning 500 for every query
+                # while the show pages themselves still load fine.
+                logger.warning("subf2m: title search failed (%s) — trying the next query", exc)
                 continue
-            if match_season in season_strs or "complete" in match_season:
-                plus = 0.1 if year and str(year) in text else 0
-                results.append(
-                    {
-                        "href": result.get("href"),
-                        "similarity": SequenceMatcher(None, title.lower(), match_title).ratio()
-                        + plus,
-                    }
-                )
-        results.sort(key=lambda x: x["similarity"], reverse=True)
-        hrefs = list(dict.fromkeys(r["href"] for r in results[:return_len]))
-        if not hrefs:
-            slug_path = _season_slug_path(title, season)
-            if slug_path:
-                hrefs = [slug_path]
-        return hrefs
+            hrefs = _season_hits(candidates, title, season, season_strs, year, return_len)
+            if hrefs:
+                return hrefs
+        return _season_slug_paths(title, season)
 
     # ------------------------------------------------------------------
     # Subtitle listing helpers
