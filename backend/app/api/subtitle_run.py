@@ -1,16 +1,17 @@
 """Subtitle search, candidate preview, release-token comparison and the approved-items run job for
 the Subtitles page."""
 
-import asyncio
 import json
 import os
 import re
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -170,7 +171,7 @@ def search_subtitles(body: SearchRequest):
     return subtitle_run.search_candidates(q, body.providers)
 
 
-_SEARCH_LOCK = asyncio.Lock()
+_SEARCH_LOCK = threading.Lock()
 
 
 @router.post(
@@ -191,6 +192,14 @@ async def start_search(body: SearchesRequest, db: Session = Depends(get_db)):
             _require_existing_video(video_path)
 
     await run_in_threadpool(check)  # a stat on a network mount must not block the event loop
+    # Reading the other searches' settings, building this one's and committing all run off the
+    # event loop (a big search is megabytes of JSON, and a commit can wait on SQLite's write lock).
+    job_id = await run_in_threadpool(_create_search_job, db, body)
+    await enqueue(job_id, subtitle_search.run_subtitle_search_job, job_id)
+    return {"job_id": job_id}
+
+
+def _create_search_job(db: Session, body: SearchesRequest) -> int:
     rows = {
         r.key: {
             "title_key": r.title_key,
@@ -221,9 +230,9 @@ async def start_search(body: SearchesRequest, db: Session = Depends(get_db)):
             "results": rows,
         }
     )
-    # The check and the insert have no await between them, and sit under one lock besides, so
-    # two quick requests for one folder make one job and one 409.
-    async with _SEARCH_LOCK:
+    # The check and the insert sit under one lock, so two quick requests for one folder make
+    # one job and one 409.
+    with _SEARCH_LOCK:
         if _search_running_for(db, body.path):
             raise HTTPException(409, "A search is already running for this folder")
         job = Job(
@@ -235,29 +244,29 @@ async def start_search(body: SearchesRequest, db: Session = Depends(get_db)):
         db.add(job)
         db.commit()
         db.refresh(job)
-    await enqueue(job.id, subtitle_search.run_subtitle_search_job, job.id)
-    return {"job_id": job.id}
+        return job.id
 
 
 def _search_running_for(db: Session, folder: str) -> bool:
+    # Only each active search's id and folder, read inside SQLite: a search's settings hold every
+    # row's results (megabytes), and none of that should be loaded and parsed here.
     active = (
-        db.query(Job)
+        db.query(Job.id, func.json_extract(Job.settings, "$.path"))
         .filter(
             Job.type == JobType.SUBTITLE_SEARCH,
             Job.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
         )
         .all()
     )
-    for j in active:
-        if should_cancel(j.id):
+    # The same folder written two ways (`/m/show` and `/m/show/`, from two devices) is one folder.
+    wanted = os.path.normpath(folder)
+    for job_id, stored in active:
+        if should_cancel(job_id):
             # A cancel only asks the job to stop at its next checkpoint, so it stays RUNNING for
             # a while; it must not block the user from starting over.
             continue
-        try:
-            if json.loads(j.settings or "{}").get("path") == folder:
-                return True
-        except (ValueError, AttributeError):
-            continue
+        if isinstance(stored, str) and os.path.normpath(stored) == wanted:
+            return True
     return False
 
 

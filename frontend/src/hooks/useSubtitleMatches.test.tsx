@@ -330,6 +330,35 @@ describe("useSubtitleMatches", () => {
   });
 });
 
+describe("useSubtitleMatches while the length checks are still to come", () => {
+  it("counts a searched row as done searching, though its status is still checking", async () => {
+    const searchedOnly = [
+      result(1, { state: "searched", length: null }),
+      result(2, { state: "searched", length: null }),
+      result(3, { state: "pending", candidates: [], length: null }),
+    ];
+    getJob.mockResolvedValue(job(settings(searchedOnly), "running", { progress: 20 }));
+    const { result: r } = setup([file(1), file(2), file(3)]);
+    await waitFor(() => expect(r.current.rows).toHaveLength(3));
+    expect(r.current.rows.map((x) => x.status)).toEqual(["checking", "checking", "checking"]);
+    expect(r.current.progress).toEqual({ done: 2, total: 3 });
+  });
+});
+
+describe("useSubtitleMatches polling through a failed read", () => {
+  it("keeps following the job after one read fails, instead of freezing on Searching", async () => {
+    const running = job(settings([result(1, { state: "searched", length: null })]), "running");
+    getJob
+      .mockResolvedValueOnce(running)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(job(settings([result(1)])));
+    const { result: r } = setup(files, 7, 10);
+    await waitFor(() => expect(r.current.running).toBe(true));
+    await waitFor(() => expect(r.current.running).toBe(false), { timeout: 3000 });
+    expect(r.current.rows[0]?.status).toBe("ready");
+  });
+});
+
 describe("useSubtitleMatches searchFor", () => {
   it("says what Compare searches for: the title's identity and the job's sources", async () => {
     getJob.mockResolvedValue(job(settings([result(1)], { providers: ["subf2m", "yts"] })));

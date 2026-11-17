@@ -162,11 +162,25 @@ describe("matchRowsFromResults", () => {
     expect(rows[1]?.lengthResult).toEqual({ length: "short", last: 900, videoDuration: 3000 });
   });
 
-  it("is ready with no length yet while the check is still to come", () => {
+  it("is checking, not ready, while its length check is still to come", () => {
     const s = settings([[1, "en", { state: "searched", length: null }]]);
     const [r] = matchRowsFromResults(s, files, false);
-    expect(r?.status).toBe("ready");
+    expect(r?.status).toBe("checking");
     expect(r?.lengthResult).toBeUndefined();
+    expect(r?.candidate).toBeDefined(); // it has been searched: it only awaits the check
+  });
+
+  it("is ready with no length when the search was started without the check", () => {
+    const s = {
+      ...settings([[1, "en", { state: "searched", length: null }]]),
+      check_lengths: false,
+    };
+    expect(matchRowsFromResults(s, files, false)[0]?.status).toBe("ready");
+  });
+
+  it("is ready with no length once the job has ended (a cancelled search never checked it)", () => {
+    const s = settings([[1, "en", { state: "searched", length: null }]]);
+    expect(matchRowsFromResults(s, files, true)[0]?.status).toBe("ready");
   });
 
   it("shows a length error or an unknown length as 'not checked', still ready", () => {

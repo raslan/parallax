@@ -260,9 +260,16 @@ class Subf2mProvider:
                         logger.debug("subf2m %d attempt %d: %s", status, attempt + 1, url)
                     else:
                         resp.raise_for_status()
-                        return "\n".join(
-                            line for line in resp.iter_lines(decode_unicode=True) if line
-                        )
+                        lines = []
+                        for line in resp.iter_lines(decode_unicode=True):
+                            # Each read may arrive within the socket timeout, so a response that
+                            # drips forever is only ended by the overall deadline.
+                            if time.monotonic() > deadline:
+                                resp.close()
+                                raise ProviderError("The source took too long to answer")
+                            if line:
+                                lines.append(line)
+                        return "\n".join(lines)
             except requests.Timeout as exc:
                 raise request_failure(exc, "Subf2m did not answer in time") from exc
             except requests.RequestException as exc:
@@ -562,6 +569,16 @@ def _choose_member(names: list[str], season: int | None, episode: int | None) ->
     return next((c for c in subs if c.lower().endswith(".srt")), subs[0])
 
 
+def _declared_zip_members(data: bytes) -> int | None:
+    """The member count a zip says it has, read from its end record without parsing the whole
+    directory (a 20 MiB zip can declare ~400,000 entries); None when it cannot be read."""
+    at = data.rfind(b"PK\x05\x06", max(0, len(data) - 65_557))
+    if at < 0 or at + 12 > len(data):
+        return None
+    count = int.from_bytes(data[at + 10 : at + 12], "little")
+    return None if count == 0xFFFF else count  # 0xFFFF: zip64, counted by the parser
+
+
 def _read_chosen(archive, season: int | None, episode: int | None) -> bytes | None:
     """The chosen member's bytes from a zip or rar. At most `MAX_ARCHIVE_MEMBERS` files are
     listed, one member is read, and a declared size can lie, so the read itself is capped."""
@@ -585,6 +602,9 @@ def extract_from_archive(
     """The subtitle inside a zip or rar download (or the download itself if it is one)."""
     # Try zip first
     if data[:2] == b"PK":
+        declared = _declared_zip_members(data)
+        if declared is not None and declared > MAX_ARCHIVE_MEMBERS:
+            raise ProviderError("The archive has too many files.")
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 body = _read_chosen(zf, season, episode)

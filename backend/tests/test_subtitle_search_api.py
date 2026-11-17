@@ -122,6 +122,13 @@ def test_a_second_search_for_the_same_folder_is_refused_and_creates_nothing(
     assert len(jobs()) == 1 and len(queued) == 1
 
 
+def test_a_trailing_slash_is_the_same_folder(client, queued, jobs, folder, videos):
+    assert client.post("/api/subtitles/searches", json=body(folder, videos)).status_code == 202
+    again = body(folder, videos, path=str(folder) + "/")
+    assert client.post("/api/subtitles/searches", json=again).status_code == 409
+    assert len(jobs()) == 1
+
+
 def test_a_search_that_is_being_cancelled_does_not_block_a_new_one(
     client, queued, jobs, folder, videos
 ):

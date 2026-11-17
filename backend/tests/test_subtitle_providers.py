@@ -368,6 +368,26 @@ def test_get_text_stops_retrying_when_the_overall_deadline_is_spent(monkeypatch)
     assert session.calls == 1 and sleeps == []
 
 
+def test_get_text_gives_up_on_a_response_that_drips_forever(monkeypatch):
+    # Each read arrives within the socket timeout, so only the overall deadline can end it.
+    monkeypatch.setattr(_sf, "GET_TEXT_DEADLINE", 0.3)
+
+    class Drip(_Resp):
+        def close(self):
+            pass
+
+        def iter_lines(self, decode_unicode=False):
+            while True:
+                time.sleep(0.05)
+                yield "x"
+
+    p = _quiet(Subf2mProvider(), _Session(Drip(200)))
+    t0 = time.monotonic()
+    with pytest.raises(_PE, match="The source took too long to answer"):
+        p._get_text("https://example.test/x")
+    assert time.monotonic() - t0 < 2
+
+
 def test_page_cache_lock_held_elsewhere_times_out(monkeypatch):
     monkeypatch.setattr(_sf, "PAGE_LOCK_TIMEOUT", 0.05)
     url = "https://example.test/locked"
@@ -429,6 +449,17 @@ def test_two_srt_same_marker_in_a_pack_refuses():
     pack = {"a S01E02 one.srt": b"1", "b S01E02 two.srt": b"2", "c S01E03.srt": b"3"}
     with pytest.raises(_PE, match="This pack has more than one file for S01E02"):
         _sf.extract_from_archive(_zip(pack), 1, 2)
+
+
+def test_too_many_members_is_refused_before_the_archive_is_parsed(monkeypatch):
+    many = _zip({f"f{i}.srt": b"x" for i in range(sp.MAX_ARCHIVE_MEMBERS + 1)})
+
+    def boom(*a, **k):
+        raise AssertionError("the central directory was parsed")
+
+    monkeypatch.setattr(_sf.zipfile, "ZipFile", boom)
+    with pytest.raises(_PE, match="too many files"):
+        _sf.extract_from_archive(many, 1, 1)
 
 
 def test_mac_zip_resource_twins_are_not_a_second_file():

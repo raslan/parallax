@@ -6,6 +6,7 @@ queue then calls `record_finished_job()` once the job function returns, which fo
 those bytes into the job's event. Recording never raises into the job path.
 """
 
+import json
 import logging
 import threading
 from collections import defaultdict
@@ -76,6 +77,15 @@ def _pop_noted(job_id: int) -> dict[str, float] | None:
         return _noted.pop(job_id, None)
 
 
+def _saved_by_search(settings: str | None) -> int:
+    """How many subtitles a subtitle search's automatic save wrote (0 when unreadable)."""
+    try:
+        results = json.loads(settings or "{}").get("results", {})
+        return sum(1 for r in results.values() if r.get("outcome") == "saved")
+    except (ValueError, AttributeError, TypeError):
+        return 0
+
+
 def record_finished_job(job_id: int | None) -> None:
     """Write the stat event for a job that just ended. Safe to call for any job id."""
     if job_id is None:
@@ -84,18 +94,27 @@ def record_finished_job(job_id: int | None) -> None:
     db = SessionLocal()
     try:
         job = db.get(Job, job_id)
-        if job is None or job.type in _SKIPPED_TYPES or job.status not in _TERMINAL:
+        if job is None or job.status not in _TERMINAL:
+            return
+        kind, files = job.type, job.processed_files or 0
+        if job.type == JobType.SUBTITLE_SEARCH:
+            # A search itself is no work worth a stat, but the subtitles its automatic save
+            # wrote count like the same saves made through a manual run.
+            kind, files = JobType.SUBTITLE_DOWNLOAD, _saved_by_search(job.settings)
+            if files == 0:
+                return
+        elif job.type in _SKIPPED_TYPES:
             return
         duration = 0.0
         if job.started_at and job.finished_at:
             duration = max(0.0, (job.finished_at - job.started_at).total_seconds())
         db.add(
             StatEvent(
-                kind=job.type,
-                media=MEDIA_BY_JOB_TYPE.get(job.type, "other"),
+                kind=kind,
+                media=MEDIA_BY_JOB_TYPE.get(kind, "other"),
                 status=job.status,
                 duration_s=duration,
-                files=job.processed_files or 0,
+                files=files,
                 bytes_in=int(noted["in"]) if noted else None,
                 bytes_out=int(noted["out"]) if noted else None,
                 media_seconds=noted["seconds"] if noted and noted["seconds"] else None,

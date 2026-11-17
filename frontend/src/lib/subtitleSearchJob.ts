@@ -119,11 +119,14 @@ export function statusFor(
   length: LengthResult | undefined,
   machineKind: "generated" | "translated" | null,
   ended = false,
+  /** Searched with candidates and its length check is still to come. */
+  awaitingLength = false,
 ): MatchStatus {
   if (state === "has_real") return "has_real";
   if (state === "pending") return ended ? "failed" : "checking";
   if (state === "failed") return "failed";
   if (candidates.length === 0) return "none";
+  if (awaitingLength) return "checking";
   if (flagged(length)) return "flagged";
   return machineKind ? "replaces_machine" : "ready";
 }
@@ -169,7 +172,14 @@ export function matchRowsFromResults(
       season: r.season,
       episode: r.episode,
       language: r.language,
-      status: statusFor(r.state, r.candidates, length, machineKind, ended),
+      status: statusFor(
+        r.state,
+        r.candidates,
+        length,
+        machineKind,
+        ended,
+        settings.check_lengths && !ended && r.state === "searched" && !length,
+      ),
       candidate: r.candidates[0],
       candidates: r.candidates,
       lengthResult: length,

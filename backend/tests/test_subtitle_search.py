@@ -2,6 +2,7 @@
 
 import json
 import threading
+import time
 
 import pytest
 
@@ -254,6 +255,23 @@ def test_all_network_errors_retry_once_after_five_seconds(env):
     assert row["state"] == "searched" and len(row["candidates"]) == 1
 
 
+def test_a_source_that_does_not_apply_does_not_block_the_network_retry(env):
+    # A mixed folder searched with subf2m and YTS: each TV row carries YTS's "Films only" note,
+    # which is no failure, so a dead subf2m connection is still retried.
+    dead = {
+        "candidates": [],
+        "errors": [
+            {"provider": "subf2m", "message": "no route", "network": True},
+            {"provider": "yts", "message": "Films only"},
+        ],
+    }
+    env.search_outcomes["a.mkv"] = [dead, {"candidates": [cand(1)], "errors": []}]
+    s = make_settings(["a.mkv"], check_lengths=False)
+    s["providers"] = ["subf2m", "yts"]
+    ss.run_subtitle_search_job(env.new_job(s))
+    assert sum(env.sleeps) == 5.0 and len(env.search_calls) == 2
+
+
 def test_second_network_failure_fails_only_that_row(env):
     env.search_outcomes["a.mkv"] = [net("no route"), net("still no route")]
     jid = env.new_job(make_settings(["a.mkv", "b.mkv"], check_lengths=False))
@@ -372,6 +390,46 @@ def test_hung_video_probe_fails_that_row_and_continues(env, monkeypatch):
     assert st["status"] == JobStatus.COMPLETED
 
 
+def test_a_dead_folder_stops_costing_a_deadline_per_video(env, monkeypatch):
+    # One hung video costs only itself (above); two in a row from one folder look like a dead
+    # mount, so the rest of that folder is failed at once instead of waiting 120 s each.
+    release = threading.Event()
+    monkeypatch.setattr(ss, "ROW_DEADLINE_SECONDS", 0.2)
+    probed = []
+
+    def probe(path):
+        probed.append(path.rsplit("/", 1)[-1])
+        release.wait(5)
+        return {"duration": 3000.0, "probe_ok": True}
+
+    monkeypatch.setattr(ss, "probe_metadata", probe)
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv", "c.mkv", "d.mkv"]))
+    try:
+        ss.run_subtitle_search_job(jid)
+    finally:
+        release.set()
+    rows = rows_of(env.load(jid))
+    assert probed == ["a.mkv", "b.mkv"]
+    for n in ("c.mkv", "d.mkv"):
+        assert rows[row_key(n)]["length"] == {"error": f"Could not read the video: {n}"}
+
+
+def test_cancel_ends_a_hung_search_at_once_without_marking_the_row(env, monkeypatch):
+    release = threading.Event()
+    env.search_outcomes["a.mkv"] = lambda: release.wait(10) or {"candidates": [], "errors": []}
+    jid = env.new_job(make_settings(["a.mkv", "b.mkv"], check_lengths=False))
+    threading.Timer(0.3, lambda: request_cancel(jid)).start()
+    t0 = time.monotonic()
+    try:
+        ss.run_subtitle_search_job(jid)
+    finally:
+        release.set()
+    st = env.load(jid)
+    assert time.monotonic() - t0 < 3  # not the 120 s deadline
+    assert st["status"] == JobStatus.CANCELLED
+    assert rows_of(st)[row_key("a.mkv")]["state"] == "pending"  # not shown as failed
+
+
 def test_hung_search_fails_that_row_after_the_deadline(env, monkeypatch):
     release = threading.Event()
     monkeypatch.setattr(ss, "ROW_DEADLINE_SECONDS", 0.2)
@@ -402,6 +460,24 @@ def test_cancel_during_retry_sleep_is_immediate(env, monkeypatch):
     assert sleeps == [1.0]  # stopped after the first second of the five
     assert st["status"] == JobStatus.CANCELLED
     assert len(env.search_calls) == 1  # no retry, no second row
+
+
+def test_a_cancel_that_lands_while_the_job_starts_is_not_overwritten(env, monkeypatch):
+    # The worker read PENDING, then the user's cancel committed CANCELLED, then the worker
+    # committed RUNNING over it and the search ran (and could auto-save). The start is atomic now.
+    jid = env.new_job(make_settings(["a.mkv"]))
+    real_now = ss._now
+
+    def now_after_a_cancel():
+        s = env.db()
+        s.get(Job, jid).status = JobStatus.CANCELLED
+        s.commit()
+        s.close()
+        return real_now()
+
+    monkeypatch.setattr(ss, "_now", now_after_a_cancel)
+    ss.run_subtitle_search_job(jid)
+    assert env.search_calls == [] and env.load(jid)["status"] == JobStatus.CANCELLED
 
 
 def test_cancelled_while_queued_never_starts(env):

@@ -28,7 +28,13 @@ from app.services.subtitle_providers import (
     ProviderNetworkError,
     SearchQuery,
 )
-from app.services.subtitle_run import _log_job, _run_item, _update_job, search_candidates
+from app.services.subtitle_run import (
+    _log_job,
+    _run_item,
+    _update_job,
+    is_not_applicable,
+    search_candidates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +56,23 @@ class DeadlineExceeded(ProviderError):
     """A row's search or check did not finish in time."""
 
 
+class WaitCancelled(Exception):
+    """The job was cancelled while a row's call was still running (it is abandoned)."""
+
+
+# Two probes in a row from one folder that run out of time look like a dead mount: the rest of
+# that folder is failed at once instead of costing a deadline each.
+DEAD_FOLDER_TIMEOUTS = 2
+
+
 def run_with_deadline(
-    fn: Callable[[], T], seconds: float, message: str = SEARCH_TIMEOUT_MESSAGE
+    fn: Callable[[], T],
+    seconds: float,
+    message: str = SEARCH_TIMEOUT_MESSAGE,
+    is_cancelled: Callable[[], bool] | None = None,
 ) -> T:
-    """`fn()`'s result, or DeadlineExceeded(message) when it takes longer than `seconds`.
+    """`fn()`'s result, or DeadlineExceeded(message) when it takes longer than `seconds`, or
+    WaitCancelled as soon as `is_cancelled()` says so (checked every quarter second).
 
     It runs in a daemon thread: a call stuck on a dead network or mount is abandoned, not
     killed (it ends when the OS gives up), and the caller moves on."""
@@ -67,9 +86,14 @@ def run_with_deadline(
 
     worker = threading.Thread(target=target, daemon=True)
     worker.start()
-    worker.join(seconds)
-    if worker.is_alive():
-        raise DeadlineExceeded(message)
+    end = time.monotonic() + seconds
+    while worker.is_alive():
+        remaining = end - time.monotonic()
+        if remaining <= 0:
+            raise DeadlineExceeded(message)
+        worker.join(min(0.25, remaining))
+        if worker.is_alive() and is_cancelled is not None and is_cancelled():
+            raise WaitCancelled()
     if "error" in box:
         raise box["error"]
     return box["value"]
@@ -98,6 +122,7 @@ class _Run:
         self.logged_sources: set[tuple[str, str]] = set()
         self.failure_logs = 0
         self.more_failures = 0
+        self.folder_timeouts: dict[str, int] = {}  # folder -> probes in a row that timed out
 
     def settings_json(self) -> str:
         return json.dumps({**self.stored, "results": self.results})
@@ -165,7 +190,10 @@ def _all_network_failed(out: dict, providers: list[str]) -> bool:
         return False
     if not set(providers) <= {e.get("provider") for e in errors}:
         return False
-    return all(e.get("network") for e in errors)
+    # A source that does not apply ("Films only" on a TV row) is no failure and never blocks
+    # the retry of a source that was really down.
+    failures = [e for e in errors if not is_not_applicable(e)]
+    return bool(failures) and all(e.get("network") for e in failures)
 
 
 def _wait_to_retry(job_id: int) -> bool:
@@ -210,7 +238,9 @@ def _search_row(run: _Run, row: dict) -> bool:
 
         def ask(force: bool) -> dict:
             return run_with_deadline(
-                lambda: search_candidates(q, run.providers, force=force), ROW_DEADLINE_SECONDS
+                lambda: search_candidates(q, run.providers, force=force),
+                ROW_DEADLINE_SECONDS,
+                is_cancelled=lambda: should_cancel(run.job_id),
             )
 
         out = ask(False)
@@ -230,6 +260,8 @@ def _search_row(run: _Run, row: dict) -> bool:
             candidates=out["candidates"][:STORED_CANDIDATES],
             errors=out["errors"],
         )
+    except WaitCancelled:
+        return True  # the row stays as it was (pending), not shown as failed
     except ProviderError as exc:
         _fail_row(run, row, str(exc))
     except Exception as exc:  # a surprise in one row must not end the job
@@ -249,15 +281,30 @@ def _check_row(run: _Run, row: dict, durations: dict[str, tuple[str, object]]) -
     """Check the top candidate's length. True if the job was cancelled while waiting to retry."""
     name = _name(row)
     path = row["video_path"]
+    folder = os.path.dirname(path)
     if path not in durations:
         unreadable = f"Could not read the video: {name}"
-        try:
-            value = run_with_deadline(
-                lambda: _probe_duration(path, name), ROW_DEADLINE_SECONDS, unreadable
-            )
-            durations[path] = ("ok", value)
-        except Exception as exc:
-            durations[path] = ("error", str(exc) if isinstance(exc, ProviderError) else unreadable)
+        if run.folder_timeouts.get(folder, 0) >= DEAD_FOLDER_TIMEOUTS:
+            durations[path] = ("error", unreadable)
+        else:
+            try:
+                value = run_with_deadline(
+                    lambda: _probe_duration(path, name),
+                    ROW_DEADLINE_SECONDS,
+                    unreadable,
+                    is_cancelled=lambda: should_cancel(run.job_id),
+                )
+                durations[path] = ("ok", value)
+                run.folder_timeouts[folder] = 0
+            except WaitCancelled:
+                return True
+            except Exception as exc:
+                if isinstance(exc, DeadlineExceeded):
+                    run.folder_timeouts[folder] = run.folder_timeouts.get(folder, 0) + 1
+                durations[path] = (
+                    "error",
+                    str(exc) if isinstance(exc, ProviderError) else unreadable,
+                )
     kind, value = durations[path]
     row["state"] = "checked"
     if kind == "error":
@@ -268,7 +315,8 @@ def _check_row(run: _Run, row: dict, durations: dict[str, tuple[str, object]]) -
 
     def check() -> dict:
         return run_with_deadline(
-            lambda: check_candidate_length(
+            is_cancelled=lambda: should_cancel(run.job_id),
+            fn=lambda: check_candidate_length(
                 path,
                 top["provider"],
                 top["subtitle_id"],
@@ -277,7 +325,7 @@ def _check_row(run: _Run, row: dict, durations: dict[str, tuple[str, object]]) -
                 episode=row.get("episode"),
                 video_duration=value,
             ),
-            ROW_DEADLINE_SECONDS,
+            seconds=ROW_DEADLINE_SECONDS,
         )
 
     try:
@@ -293,6 +341,9 @@ def _check_row(run: _Run, row: dict, durations: dict[str, tuple[str, object]]) -
             "video_duration": res["video_duration"],
             "verdict": res["length"],
         }
+    except WaitCancelled:
+        row["state"] = "searched"
+        return True
     except ProviderError as exc:
         row["length"] = {"error": str(exc)}
         run.note_row_failure(name, str(exc))
@@ -355,9 +406,19 @@ def run_subtitle_search_job(job_id: int) -> None:
             job = db.get(Job, job_id)
             if job is None or job.status == JobStatus.CANCELLED:
                 return  # cancelled while it waited for a queue slot
-            job.status = JobStatus.RUNNING
-            job.started_at = _now()
+            # One conditional UPDATE, so a cancel that committed since the read above (the user's
+            # cancel of a still-PENDING job) is never overwritten with RUNNING.
+            started = (
+                db.query(Job)
+                .filter(Job.id == job_id, Job.status == JobStatus.PENDING)
+                .update(
+                    {"status": JobStatus.RUNNING, "started_at": _now()},
+                    synchronize_session=False,
+                )
+            )
             db.commit()
+            if started == 0:
+                return
             stored = json.loads(job.settings or "{}")
             engine = (stored.get("save") or {}).get("engine") or get_setting(
                 db, "subtitle_sync_engine", "alass"

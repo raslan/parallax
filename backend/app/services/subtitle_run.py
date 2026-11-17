@@ -62,6 +62,11 @@ def _not_applicable(media_types: frozenset[str]) -> str:
     return "Films only" if media_types == frozenset({"movie"}) else "TV only"
 
 
+def is_not_applicable(error: dict) -> bool:
+    """A source's error entry that is no failure: it simply does not carry this kind of title."""
+    return error.get("message") in ("Films only", "TV only")
+
+
 def search_candidates(
     q: SearchQuery,
     providers: list[str],

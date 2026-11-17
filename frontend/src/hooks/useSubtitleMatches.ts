@@ -16,6 +16,8 @@ import type {
 const NOT_APPLICABLE = new Set(["Films only", "TV only"]);
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 const POLL_MS = 2000;
+/** Failed reads of the job in a row after which the view stops asking. */
+const MAX_POLL_FAILURES = 6;
 
 /** What the user did on this page since: their choices, and rows searched again by hand. */
 interface Overlay {
@@ -53,9 +55,14 @@ export function useSubtitleMatches({
     queryFn: () => api.getJob(jobId as number),
     enabled: jobId != null,
     refetchInterval: (query) => {
-      if (query.state.status === "error") return false;
       const status = query.state.data?.status;
-      return status && TERMINAL.has(status) ? false : pollMs;
+      if (status && TERMINAL.has(status)) return false;
+      if (query.state.status === "error") {
+        // A failed read (a restarting container, a dropped connection) must not freeze the
+        // view on "Searching": try again, more slowly, and give up only after several in a row.
+        return query.state.errorUpdateCount < MAX_POLL_FAILURES ? pollMs * 5 : false;
+      }
+      return pollMs;
     },
   });
   const job = jobId != null && jobQ.data?.id === jobId ? jobQ.data : null;
@@ -118,7 +125,8 @@ export function useSubtitleMatches({
 
   const searchRows = rows.filter((r) => r.status !== "has_real");
   const progress = {
-    done: searchRows.filter((r) => r.status !== "checking").length,
+    // A row waiting only for its length check has been searched (it has its candidates).
+    done: searchRows.filter((r) => r.status !== "checking" || r.candidate).length,
     total: searchRows.length,
   };
   const checksSkipped = settings ? !settings.check_lengths : false;

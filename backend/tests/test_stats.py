@@ -157,3 +157,32 @@ def test_a_finished_subtitle_search_records_no_stat_event(fs_db):
     stats_service.record_finished_job(job_id)
     assert db.query(StatEvent).count() == 0
     db.close()
+
+
+def test_automatic_saves_count_as_subtitle_downloads(db, monkeypatch):
+    # The same saves made through a manual run are counted; a search that saved nothing is not.
+    import json
+
+    from app.models.job import Job, JobStatus, JobType
+
+    monkeypatch.setattr(stats_service, "SessionLocal", lambda: _Keep(db))
+    saved = {
+        "results": {"a": {"outcome": "saved"}, "b": {"outcome": "left"}, "c": {"outcome": "saved"}}
+    }
+    one = Job(type=JobType.SUBTITLE_SEARCH, status=JobStatus.COMPLETED, settings=json.dumps(saved))
+    none = Job(
+        type=JobType.SUBTITLE_SEARCH,
+        status=JobStatus.COMPLETED,
+        settings=json.dumps({"results": {"a": {"outcome": "left"}}}),
+    )
+    db.add_all([one, none])
+    db.commit()
+    ids = [one.id, none.id]
+    for i in ids:
+        stats_service.record_finished_job(i)
+    [event] = db.query(StatEvent).all()
+    assert (event.kind, event.files, event.status) == (
+        JobType.SUBTITLE_DOWNLOAD,
+        2,
+        JobStatus.COMPLETED,
+    )
