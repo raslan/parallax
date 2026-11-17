@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { formatDuration } from "@/lib/format";
 import { languageName } from "@/lib/subtitle-langs";
 import { sourceName } from "@/lib/subtitleRunDock";
+import { SeasonPackTag } from "@/components/subtitles/SeasonPackTag";
 import type { MatchRowState } from "@/types/subtitle";
 
 /** The S01E03 label of a row, else the file name. */
@@ -105,6 +106,7 @@ function MatchCell({
           <span className="shrink-0 rounded-sm border border-border px-1 text-3xs font-medium">
             {sourceName(c.provider)}
           </span>
+          <SeasonPackTag candidate={c} />
           <span className="truncate font-mono text-2xs" title={c.release}>
             {c.release}
           </span>

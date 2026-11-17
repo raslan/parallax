@@ -57,6 +57,10 @@ The matches are a table. On the left is a rail of titles (a menu on a phone), ea
 - **Has a real subtitle**, with **Find another** if you want a different one anyway.
 - **None found**, with the reason each source gave (a source that failed or does not cover this title says so by name).
 
+For a TV show, the release that matches your exact episode is listed before a release that covers a whole season. Among those, a release named like your file (same resolution, source and group) comes first.
+
+A candidate tagged **season pack** is an archive that covers a season or more. Parallax takes only your episode's file out of it and ignores the rest, so choosing a pack for Season 1 never touches the subtitles of Season 2. If the pack has no file for your episode, or more than one, the row fails with a message that says which, and nothing is saved. A pack whose files are in a format this page cannot read yet (`.ass`) is refused by name too.
+
 TV shows have a summary row per season so a long show stays readable. If the title's identity was not confirmed, a note says **Identity not confirmed** and asks you to pick which film or show it is before you trust the rows.
 
 Nothing is ticked for you. **Approve all clean rows** ticks every row that looks fine, across all titles, and leaves anything flagged for you. It skips any title whose identity you have not confirmed, because a wrong guess would fetch the wrong show's subtitles; you can still tick those rows one by one. You can also tick a row's **Download** box yourself, or open **Compare** on it first.

@@ -179,6 +179,21 @@ describe("useSubtitleCompare", () => {
     expect(result.current.sheet?.candidates).toEqual([]);
   });
 
+  it("hands the sheet the video's season and episode for a row and for an item", async () => {
+    search.mockResolvedValue({ candidates: [cand("a")], errors: [] });
+    const { result } = setup();
+    act(() => result.current.openRow({ ...row, season: 2, episode: 5 }));
+    expect(result.current.sheet?.video).toEqual({
+      path: video.path,
+      name: video.filename,
+      season: 2,
+      episode: 5,
+    });
+    act(() => result.current.openItem(item));
+    await waitFor(() => expect(result.current.sheet?.id).toMatch(/^item:/));
+    expect(result.current.sheet?.video).toMatchObject({ season: 1, episode: 1 });
+  });
+
   it("'Not this one' on a match row only sets the skip verdict", () => {
     const { result, chooseCandidate, setVerdict } = setup();
     act(() => result.current.openRow(row));

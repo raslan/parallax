@@ -80,6 +80,8 @@ export type SubtitleProvider = "subf2m" | "yts";
 
 export interface Candidate extends SubtitleCandidate {
   provider: SubtitleProvider;
+  /** TV only: `season_pack` when the release is a season or more, not one episode. */
+  release_kind?: "episode" | "season_pack";
 }
 
 export interface SearchResult {
@@ -106,6 +108,9 @@ export interface RunItem {
   provider: SubtitleProvider;
   subtitle_id: string;
   sync: boolean;
+  /** The video's own season and episode: a season pack gives only this episode's file. */
+  season?: number | null;
+  episode?: number | null;
 }
 
 /** A title group in the Titles step of Find subtitles: the identity to search as, or skipped. */

@@ -99,8 +99,29 @@ describe("runItems", () => {
         provider: "subf2m",
         subtitle_id: "x",
         sync: false,
+        season: 1,
+        episode: 1,
       },
-      { video_path: "/tv/2.mkv", language: "en", provider: "subf2m", subtitle_id: "x", sync: true },
+      {
+        video_path: "/tv/2.mkv",
+        language: "en",
+        provider: "subf2m",
+        subtitle_id: "x",
+        sync: true,
+        season: 1,
+        episode: 1,
+      },
+    ]);
+  });
+
+  it("carries each row's own season and episode, so a season pack gives that episode's file", () => {
+    const items = runItems([
+      row({ key: "1", verdict: "use", season: 2, episode: 7 }),
+      row({ key: "2", verdict: "use", season: null, episode: null }),
+    ]);
+    expect(items.map((i) => [i.season, i.episode])).toEqual([
+      [2, 7],
+      [null, null],
     ]);
   });
 });

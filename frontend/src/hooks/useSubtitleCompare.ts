@@ -125,7 +125,12 @@ export function useSubtitleCompare({
       ? {
           id: `row:${open.row.key}`,
           mode: "candidate" as const,
-          video: { path: open.row.video, name: open.row.filename },
+          video: {
+            path: open.row.video,
+            name: open.row.filename,
+            season: open.row.season,
+            episode: open.row.episode,
+          },
           candidates: open.row.candidates,
           existing: undefined,
           stray: false,
@@ -134,7 +139,12 @@ export function useSubtitleCompare({
         ? {
             id: `item:${open.item.video_path}|${open.item.language}`,
             mode: "candidate" as const,
-            video: { path: open.video.path, name: open.video.filename },
+            video: {
+              path: open.video.path,
+              name: open.video.filename,
+              season: open.video.season,
+              episode: open.video.episode,
+            },
             candidates: open.candidates,
             existing: undefined,
             stray: false,

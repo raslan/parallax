@@ -18,6 +18,7 @@ import type {
   SubtitleFileInfo,
 } from "@/types/subtitle";
 import { ComparePlayer } from "./ComparePlayer";
+import { SeasonPackTag } from "./SeasonPackTag";
 import { currentLineIndex } from "@/lib/subtitleLines";
 import { LineList } from "./LineList";
 
@@ -70,7 +71,8 @@ function LengthNote({ info }: { info: PreviewInfo }) {
 type CompareSheetProps = {
   /** Set when `existing` is a subtitle found beside no video, in this folder. */
   unmatchedRoot?: string;
-  video: { path: string; name: string };
+  /** `season` and `episode` let a season pack give only this episode's file. */
+  video: { path: string; name: string; season?: number | null; episode?: number | null };
   mode: "candidate" | "existing";
   candidates?: Candidate[];
   existing?: SubtitleFileInfo;
@@ -110,6 +112,8 @@ function CompareSheetBody({
       candidate?.provider ?? "",
       candidate?.subtitle_id ?? "",
       candidate?.language ?? "",
+      video.season,
+      video.episode,
     ),
     queryFn: () =>
       subtitlesApi.preview({
@@ -117,6 +121,8 @@ function CompareSheetBody({
         provider: candidate?.provider ?? "subf2m",
         subtitle_id: candidate?.subtitle_id ?? "",
         language: candidate?.language ?? "",
+        ...(video.season != null ? { season: video.season } : {}),
+        ...(video.episode != null ? { episode: video.episode } : {}),
       }),
     enabled: !!candidate,
     staleTime: Infinity,
@@ -228,6 +234,7 @@ function CompareSheetBody({
                     </span>
                     <span className="flex flex-wrap items-center gap-1 text-muted-foreground">
                       <span>{sourceName(c.provider)}</span>
+                      <SeasonPackTag candidate={c} />
                       {c.hearing_impaired && <span>hearing impaired</span>}
                       {tokens && (
                         <>

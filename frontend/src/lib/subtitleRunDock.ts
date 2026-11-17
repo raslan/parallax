@@ -47,6 +47,8 @@ export function runItems(rows: MatchRowState[]): RunItem[] {
             provider: r.candidate.provider,
             subtitle_id: r.candidate.subtitle_id,
             sync: r.verdict === "use_and_sync",
+            season: r.season,
+            episode: r.episode,
           },
         ]
       : [],

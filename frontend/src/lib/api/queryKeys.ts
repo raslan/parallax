@@ -119,8 +119,14 @@ export const qk = {
   subtitleFiles: (videoPath: string) => ["subtitles", "files", videoPath] as const,
   subtitleActive: () => ["subtitles", "active"] as const,
   /** A candidate's temporary preview, for one video. */
-  subtitlePreview: (video: string, provider: string, subtitleId: string, language: string) =>
-    ["subtitles", "preview", video, provider, subtitleId, language] as const,
+  subtitlePreview: (
+    video: string,
+    provider: string,
+    subtitleId: string,
+    language: string,
+    season?: number | null,
+    episode?: number | null,
+  ) => ["subtitles", "preview", video, provider, subtitleId, language, season, episode] as const,
   /** The temporary preview of a subtitle file the video already has. */
   subtitleExistingPreview: (video: string, subtitle: string) =>
     ["subtitles", "existing-preview", video, subtitle] as const,

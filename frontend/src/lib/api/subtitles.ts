@@ -113,6 +113,9 @@ export const subtitlesApi = {
     provider: SubtitleProvider;
     subtitle_id: string;
     language: string;
+    /** Set for a TV video: a season pack gives only this episode's file. */
+    season?: number;
+    episode?: number;
   }) => req<PreviewInfo>("/subtitles/preview", { method: "POST", body: JSON.stringify(body) }),
 
   /** Describe one of the video's own subtitle files (a `.original` backup too), as a temporary preview. */

@@ -240,6 +240,32 @@ describe("CompareSheet", () => {
     });
   });
 
+  it("sends the video's season and episode with the preview, for a season pack", async () => {
+    renderSheet({ video: { ...video, season: 1, episode: 4 } });
+    await screen.findByText("Hello there");
+    expect(api.preview).toHaveBeenCalledWith({
+      video_path: video.path,
+      provider: "subf2m",
+      subtitle_id: "1",
+      language: "en",
+      season: 1,
+      episode: 4,
+    });
+  });
+
+  it("tags a season pack in the candidate list", async () => {
+    renderSheet({
+      candidates: [
+        { ...cand("1"), release_kind: "season_pack" },
+        { ...cand("2"), release_kind: "episode" },
+      ],
+    });
+    await screen.findByText("Hello there");
+    const radios = screen.getAllByRole("radio");
+    expect(within(radios[0]!).getByText("season pack")).toBeTruthy();
+    expect(within(radios[1]!).queryByText("season pack")).toBeNull();
+  });
+
   it("seeks the player to a clicked line's start, again on a repeat click", async () => {
     renderSheet();
     fireEvent.click(await screen.findByRole("button", { name: /Goodbye/ }));

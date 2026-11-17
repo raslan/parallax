@@ -120,6 +120,19 @@ describe("MatchesView", () => {
     expect(screen.getAllByText("all clean")).toHaveLength(2);
   });
 
+  it("tags a season pack candidate, and only that", () => {
+    const pack = { ...cand("1"), release_kind: "season_pack" as const };
+    const episode = { ...cand("2"), release_kind: "episode" as const };
+    renderMatches([
+      row(1, { candidate: pack, candidates: [pack] }),
+      row(2, { candidate: episode, candidates: [episode] }),
+      row(3),
+    ]);
+    const tags = screen.getAllByText("season pack");
+    expect(tags).toHaveLength(1);
+    expect(tags[0]?.getAttribute("title")).toBe("A season pack: only this episode's file is used");
+  });
+
   it("shows no identity note once every title is confirmed", () => {
     renderMatches([row(1)], { unconfirmed: new Set() });
     expect(screen.queryByText(/Identity not confirmed/)).toBeNull();
@@ -190,6 +203,8 @@ describe("MatchesView", () => {
           provider: "subf2m",
           subtitle_id: "1",
           sync: false,
+          season: 1,
+          episode: 1,
         },
         {
           video_path: "/tv/Show/S01E03.mkv",
@@ -197,6 +212,8 @@ describe("MatchesView", () => {
           provider: "subf2m",
           subtitle_id: "3",
           sync: true,
+          season: 1,
+          episode: 3,
         },
       ],
     });
