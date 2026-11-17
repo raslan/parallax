@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { Tip } from "@/components/Tip";
 import { FileGridCard, FileListRow } from "@/components/FileSelectGrid";
 import { ToolbarSearch, type ViewMode } from "@/components/DataToolbar";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { VirtualizedGrid } from "@/components/VirtualizedGrid";
 import {
@@ -18,8 +19,11 @@ import { cn } from "@/lib/utils";
 import type { TitleWithFiles } from "@/lib/subtitleGroups";
 import type { LengthInfo, ScanFile } from "@/types/subtitle";
 
-/** Same chrome as the shared card / row, so the virtual rows match (see Organize's FileBrowser). */
-const CARD_CHROME = 48;
+/**
+ * Chrome of a card under its thumbnail. Taller than Organize's 48: the footer holds the badge
+ * row and the Manage button, and a row height shorter than the card leaves no gap between rows.
+ */
+const CARD_CHROME = 56;
 const ROW_HEIGHT = 50;
 
 export type AttentionFilter = "all" | "missing" | "machineOnly" | "looksShort" | "hasBackup";
@@ -79,6 +83,11 @@ export function TitleFiles({
   onSearch,
   show,
   onShow,
+  seasons,
+  season,
+  onSeason,
+  onSelectAll,
+  onSelectNone,
   counts,
   selected,
   onToggleSelect,
@@ -101,6 +110,13 @@ export function TitleFiles({
   onSearch: (v: string) => void;
   show: AttentionFilter;
   onShow: (v: AttentionFilter) => void;
+  /** The seasons the open title has (the filter shows from two up). */
+  seasons: number[];
+  season: number | "all";
+  onSeason: (v: number | "all") => void;
+  /** Selects every file shown now (after search and filters). */
+  onSelectAll: () => void;
+  onSelectNone: () => void;
   counts: Record<AttentionFilter, number>;
   selected: ReadonlySet<string>;
   onToggleSelect: (path: string) => void;
@@ -204,6 +220,24 @@ export function TitleFiles({
             {open ? name(open) : ""}
           </h2>
           <ToolbarSearch value={search} onChange={onSearch} />
+          {seasons.length > 1 && (
+            <Select
+              value={String(season)}
+              onValueChange={(v) => onSeason(v === "all" ? "all" : Number(v))}
+            >
+              <SelectTrigger aria-label="Season" className="h-8 w-36 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All seasons</SelectItem>
+                {seasons.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    Season {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={show} onValueChange={(v) => onShow(v as AttentionFilter)}>
             <SelectTrigger aria-label="Show" className="h-8 w-56 text-xs">
               <SelectValue />
@@ -217,6 +251,23 @@ export function TitleFiles({
             </SelectContent>
           </Select>
         </div>
+
+        {files.length > 0 && (
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onSelectAll}>
+              Select all{files.length !== totalFiles ? ` shown (${files.length})` : ""}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={onSelectNone}
+              disabled={!files.some((f) => selected.has(f.path))}
+            >
+              Select none
+            </Button>
+          </div>
+        )}
 
         {files.length === 0 ? (
           <EmptyState

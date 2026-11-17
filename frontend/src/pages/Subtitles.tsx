@@ -184,6 +184,7 @@ export function Subtitles() {
   const sort = useSort<TitleFileSort>("episode");
   const [search, setSearch] = useState("");
   const [show, setShow] = useState<AttentionFilter>("all");
+  const [season, setSeason] = useState<number | "all">("all");
   const [playing, setPlaying] = useState<ScanFile | null>(null);
 
   const titleSel = useSelection<string>();
@@ -195,6 +196,7 @@ export function Subtitles() {
     titleSel.selectNone();
     fileSel.selectNone();
     setShow("all");
+    setSeason("all");
     setSearch("");
   }
   useScrollTopOnChange(scroller, `${folder}|${openKey}`);
@@ -211,9 +213,17 @@ export function Subtitles() {
   const visibleFiles = useMemo(() => {
     if (!open) return [];
     const all = open.files;
-    const filtered = show === "all" ? all : all.filter((x) => flags[show].has(x.path));
+    const byShow = show === "all" ? all : all.filter((x) => flags[show].has(x.path));
+    const filtered = season === "all" ? byShow : byShow.filter((x) => x.season === season);
     return sortTitleFiles(filterByFilename(filtered, search), sort.sortKey, sort.sortDir);
-  }, [open, show, flags, search, sort.sortKey, sort.sortDir]);
+  }, [open, show, season, flags, search, sort.sortKey, sort.sortDir]);
+  const seasons = useMemo(
+    () =>
+      [...new Set((open?.files ?? []).flatMap((x) => (x.season == null ? [] : [x.season])))].sort(
+        (a, b) => a - b,
+      ),
+    [open],
+  );
   const visiblePaths = useMemo(() => visibleFiles.map((x) => x.path), [visibleFiles]);
   useSelectionOrder(fileSel.setOrder, visiblePaths);
 
@@ -344,6 +354,11 @@ export function Subtitles() {
               onSearch={setSearch}
               show={show}
               onShow={setShow}
+              seasons={seasons}
+              season={season}
+              onSeason={setSeason}
+              onSelectAll={() => fileSel.selectAll(visiblePaths)}
+              onSelectNone={fileSel.selectNone}
               counts={{
                 all: open.files.length,
                 missing: flags.missing.size,
@@ -372,6 +387,15 @@ export function Subtitles() {
                 onClick={() => titleSel.selectAll(titles.map((t) => t.group.key))}
               >
                 Select all
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={titleSel.selectNone}
+                disabled={titleSel.selected.size === 0}
+              >
+                Select none
               </Button>
               <Button
                 size="sm"
@@ -418,6 +442,7 @@ export function Subtitles() {
         sources={sources}
         onSourcesChange={setSources}
         ytsReason={ytsReason}
+        runningFolders={[...new Set(activity.work.map((x) => x.path))]}
       />
       {(w.wf?.stage === "titles" || w.wf?.stage === "plan") && (
         <p className="-mt-3 text-3xs text-muted-foreground">

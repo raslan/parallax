@@ -41,6 +41,7 @@ export function FolderStrip({
   sources,
   onSourcesChange,
   ytsReason,
+  runningFolders = [],
 }: {
   folder: string | null;
   scanning: boolean;
@@ -53,6 +54,8 @@ export function FolderStrip({
   onSourcesChange: (next: SubtitleProvider[]) => void;
   /** Why YTS cannot be used for this folder, else null. */
   ytsReason: string | null;
+  /** Folders with subtitle work running or waiting (from any device), offered as shortcuts. */
+  runningFolders?: string[];
 }) {
   const [draft, setDraft] = useState(folder ?? "");
   const [picking, setPicking] = useState(false);
@@ -89,6 +92,26 @@ export function FolderStrip({
           {draft.trim() && draft.trim() !== folder ? "Open" : "Rescan"}
         </Button>
       </div>
+
+      {runningFolders.some((p) => p !== folder) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">Running</span>
+          {runningFolders
+            .filter((p) => p !== folder)
+            .map((p) => (
+              <button
+                key={p}
+                type="button"
+                title={p}
+                onClick={() => onOpen(p)}
+                className={cn(chip(false), "max-w-full font-mono")}
+              >
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" />
+                <span className="truncate">{p}</span>
+              </button>
+            ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="w-16 shrink-0 text-xs font-medium text-muted-foreground">Wanted</span>
