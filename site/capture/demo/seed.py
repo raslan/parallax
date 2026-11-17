@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -95,8 +96,49 @@ def seed_subtitle_files() -> None:
     print("subtitle fixtures written")
 
 
+# Tiny generated videos (a solid colour, 1 frame a second, a few KB per minute) in Identify's
+# folder layout, for the Subtitles shots that search a whole show: they only need the right names
+# and runtimes (a real episode is 20 to 50 minutes, so a subtitle's length fits). Written into
+# library/shows (never pristine/); skipped if present. Needs ffmpeg on the host.
+# (folder, file name stem, season, episodes, seconds)
+SHOW_FIXTURES = [
+    ("Stranger Things (2016)/Season 01", "Stranger Things (2016) - S01E{n:02d} - Chapter {n}", 4, 2900),
+    ("Stranger Things (2016)/Season 02", "Stranger Things (2016) - S02E{n:02d} - Chapter {n}", 3, 2900),
+    ("Friends (1994)/Season 01", "Friends (1994) - S01E{n:02d} - Episode {n}", 6, 1330),
+    ("Unsorted", "Some.Show.S01E{n:02d}.720p.WEB.x264-GRP", 3, 1500),
+]
+
+
+def seed_show_fixtures() -> None:
+    root = HERE / "library" / "shows"
+    if not (HERE / "library").exists():
+        return
+    made = 0
+    for folder, pattern, episodes, seconds in SHOW_FIXTURES:
+        for n in range(1, episodes + 1):
+            path = root / folder / f"{pattern.format(n=n)}.mkv"
+            if path.exists():
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(
+                ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+                 f"color=c=0x202030:s=160x90:r=1:d={seconds}", "-f", "lavfi", "-i",
+                 "anullsrc=r=8000:cl=mono", "-shortest", "-t", str(seconds), "-c:v", "libx264",
+                 "-preset", "ultrafast", "-crf", "40", "-g", "120", "-pix_fmt", "yuv420p",
+                 "-c:a", "aac", "-b:a", "8k", str(path)],
+                check=True,
+            )
+            made += 1
+    # One real Arabic subtitle already on Season 2, so a Season 1 pick can be shown to leave it alone.
+    old = root / "Stranger Things (2016)/Season 02/Stranger Things (2016) - S02E01 - Chapter 1.ar.srt"
+    if old.parent.exists() and not old.exists():
+        old.write_text(SRT_BODY, encoding="utf-8")
+    print(f"show fixtures: {made} video(s) written")
+
+
 def main() -> None:
     seed_subtitle_files()
+    seed_show_fixtures()
     key = read_key()
     wait_healthy()
     # nudenet 640m: the model copied into docs/demo/data/models (default is 320n).

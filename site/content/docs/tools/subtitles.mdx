@@ -26,6 +26,8 @@ Videos are grouped into **title cards**, one per film or show. Each card has a b
 
 Click a card to see its files. A **Show** filter narrows them to the ones missing a wanted language, the ones that only have generated or translated subtitles, the ones with a sync backup, and the ones whose subtitle **Looks short** for the video (more under [Checking lengths](#checking-lengths)). For a show with several seasons, a **Season** menu shows one season at a time. **Select all** and **Select none** act on the files you can see, and on the title cards on the home view.
 
+<Shot id="tools/subtitles/season-filter" />
+
 Parallax also looks in a folder called `Subs` or `Subtitles` next to the video, which is where many releases keep theirs. Subtitle files that no video in the folder claims are listed under **Subtitle files not named for any video here**, with a link to Identify, which is the tool that renames them to match. You can play, rename or delete them from there, but Subtitles never adopts them for you.
 
 Nothing about a folder is remembered. Everything on the page is read from the files on disk every time, so it is always current, including after you change files outside Parallax.
@@ -34,7 +36,11 @@ Nothing about a folder is remembered. Everything on the page is read from the fi
 
 If a subtitle job is running or waiting for this folder, an **Activity** section appears above the cards with live progress. This includes work you started from another browser or another device. A job that is waiting says **Waiting for another job, position N** and links to the [Jobs](/docs/getting-started/how-parallax-works#jobs) page, where you can also cancel it. Reload the page and the section is still there. A running download can be reopened from it with **Show the run**, and a running search with **Show the matches**.
 
+<Shot id="tools/subtitles/activity" />
+
 When a search has ended, a **Last search** line appears above the titles with the time it ended, how it went (for example "42 of 48 found") and **Show the matches**. It shows the newest search of the open folder, and it goes away when the search leaves the Jobs history.
+
+<Shot id="tools/subtitles/last-search" />
 
 ## Find subtitles
 
@@ -64,6 +70,8 @@ A match is **sure** only when all of these are true:
 
 Everything else is **left for you**, with the reason. Then click **Search subtitles for N titles** (or **Search and save for N titles**).
 
+<Shot id="tools/subtitles/titles-step" />
+
 The search runs on the server, one video at a time, not in your browser. You can close the tab, come back later and open it from **Last search** or from Activity. If your connection to a source drops, a row waits five seconds and tries once more; if it fails again it says so and the search carries on with the next row. One search can run per folder at a time: starting a second one shows the one that is already running.
 
 ### Matches
@@ -76,6 +84,10 @@ The matches are a table. On the left is a rail of titles (a menu on a phone), ea
 - **Search failed**, with the reason (for example that a source took too long to answer) and **Find another** to try that one row again.
 
 While the search runs, a bar shows how far it is and has **Cancel**. Cancel is the only control: there is no pause. A cancelled search keeps everything it found, and the matches show it as it stands.
+
+<Shot id="tools/subtitles/matches-searching" />
+
+<Shot id="tools/subtitles/matches" />
 
 For a TV show, the release that matches your exact episode is listed before a release that covers a whole season. Among those, a release named like your file (same resolution, source and group) comes first.
 
@@ -101,6 +113,8 @@ After an automatic save, the matches show what happened to each row: **Saved**, 
 - **Length could not be checked**: the check failed, or the best match is in a format this page cannot read yet.
 - **Nothing found** and **Failed**: there was nothing to save.
 
+<Shot id="tools/subtitles/left-for-you" />
+
 Approving the rows you want after **Review** goes through the normal download below. Nothing that was left is saved without you.
 
 To fix one saved subtitle later, use **Manage** or **Find another** on that video. To undo a wrong batch, use **Remove subtitles…**.
@@ -125,6 +139,8 @@ If one download fails, the others carry on. The run only counts as failed when e
 ## Compare
 
 **Compare** opens a sheet with the video and the candidate together. A search keeps each row's best five matches; Compare shows those first and then asks the sources for the rest of the list, so a season pack or an odd release further down is still one click away. The subtitle is shown raw and is never pre-synced, because syncing takes time and can make a wrong subtitle look right. Play the video and read along, or click any line in the list to jump the video to it. Parallax also shows whether the release name of the subtitle matches your file's name (source, resolution, group) and how the length compares.
+
+<Shot id="tools/subtitles/compare" />
 
 Then choose:
 
@@ -192,6 +208,8 @@ The panel also has **Add**, which starts Find subtitles, Translate or Generate f
 ## Remove subtitles
 
 To take a wrong batch away, select titles or videos and click **Remove subtitles…** in the bar at the bottom. A table shows how many subtitle files the selected videos have, by language (down) and kind (across): **Real**, **Hearing impaired**, **Generated**, **Translated** and **Sync backups**. Nothing is ticked at first. Tick the cells you want gone, for example Arabic and Real to remove every real Arabic subtitle, then click **Remove**.
+
+<Shot id="tools/subtitles/remove" />
 
 **Real** does not include hearing impaired files: they have their own column. A cell with no files has no tickbox. Parallax asks once more, with the number of files, before it deletes anything. It is a permanent delete, like **Delete** in Manage, so there is no undo. Only subtitle files that belong to the selected videos are touched, up to 500 videos at a time.
 
