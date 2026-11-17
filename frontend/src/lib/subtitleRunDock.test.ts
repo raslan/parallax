@@ -221,6 +221,7 @@ describe("LEFT_REASON_TEXT", () => {
   it("has plain words for every reason automatic save leaves a row for", () => {
     expect(LEFT_REASON_TEXT).toEqual({
       identity_unconfirmed: "Title not confirmed",
+      episode_unknown: "Season or episode not read from the name",
       only_season_pack: "Only a season pack was found",
       length_short: "Looks too short for the video",
       length_long: "Looks too long for the video",

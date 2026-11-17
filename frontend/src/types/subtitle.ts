@@ -133,6 +133,7 @@ export type MatchStatus =
 /** Why automatic save left a row for the user. */
 export type LeftReason =
   | "identity_unconfirmed"
+  | "episode_unknown"
   | "only_season_pack"
   | "length_short"
   | "length_long"

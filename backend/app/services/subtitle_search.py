@@ -311,7 +311,9 @@ def judge_row(
     Sure needs all of: a certain identity; a top candidate that is the exact episode (a film
     has no release kind); a completed length check with the verdict `ok`. Otherwise the row is
     left for the user, with the first reason that applies: nothing to save (`failed`,
-    `none_found`), then `identity_unconfirmed`, `only_season_pack`, and the length (`length_short`,
+    `none_found`), then `identity_unconfirmed`, `episode_unknown` (a TV file whose season or
+    episode could not be read, or a special: the search would have guessed), `only_season_pack`,
+    and the length (`length_short`,
     `length_long`, `length_unchecked`: not checked, unreadable, or a runtime we do not know; a
     single `.ass` release cannot be checked, so it ends here)."""
     if row["state"] == "failed":
@@ -321,6 +323,9 @@ def judge_row(
         return False, "none_found", None
     if not title_certain:
         return False, "identity_unconfirmed", None
+    if not is_movie and (row.get("season") in (None, 0) or row.get("episode") is None):
+        # The search fell back to episode 1 of season 1, so whatever matched is not this file's.
+        return False, "episode_unknown", None
     if not is_movie and row["candidates"][0].get("release_kind") != "episode":
         return False, "only_season_pack", None
     length = row.get("length")

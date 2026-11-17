@@ -235,6 +235,21 @@ describe("useSubtitleCompare", () => {
     });
   });
 
+  it("searches again when the same row is opened for a different identity", async () => {
+    search.mockResolvedValue({ candidates: [cand("a")], errors: [] });
+    const { result, searchFor } = setup();
+    act(() => result.current.openRow({ ...row, language: "en" }));
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    act(() => result.current.close());
+    searchFor.mockImplementation((r: MatchRowState) => ({
+      identity: { title: "Other Show", year: 2020, type: "tv" as const },
+      providers: ["subf2m" as const],
+      language: r.language,
+    }));
+    act(() => result.current.openRow({ ...row, language: "en" }));
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+  });
+
   it("keeps the row's own order first (a pick made earlier stays on top)", async () => {
     search.mockResolvedValue({ candidates: [cand("x"), cand("a"), cand("c")], errors: [] });
     const { result } = setup();

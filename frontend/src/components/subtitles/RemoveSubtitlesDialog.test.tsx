@@ -161,6 +161,23 @@ describe("RemoveSubtitlesDialog", () => {
     expect(await screen.findByRole("table")).toBeTruthy();
   });
 
+  it("splits a big selection into requests of 500 videos and adds the counts up", async () => {
+    const many = Array.from({ length: 1200 }, (_, i) => `/tv/v${i}.mkv`);
+    removeCounts.mockResolvedValue({ ar: { real: 2 } });
+    removeByKind.mockResolvedValue({ removed: 3 });
+    const p = renderDialog({ videoPaths: many });
+    await screen.findByRole("table");
+    expect(removeCounts.mock.calls.map((c) => (c[0] as string[]).length)).toEqual([500, 500, 200]);
+    expect(within(screen.getByRole("row", { name: /Arabic/ })).getByText("6")).toBeTruthy();
+    fireEvent.click(cell("Arabic", "real"));
+    fireEvent.click(removeButton());
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete files" }),
+    );
+    await waitFor(() => expect(p.onRemoved).toHaveBeenCalledWith(9));
+    expect(removeByKind.mock.calls.map((c) => (c[0] as string[]).length)).toEqual([500, 500, 200]);
+  });
+
   it("reads nothing while it is closed", () => {
     renderDialog({ open: false });
     expect(removeCounts).not.toHaveBeenCalled();

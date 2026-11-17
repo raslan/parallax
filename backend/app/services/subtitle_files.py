@@ -338,7 +338,11 @@ def count_by_kind(video_paths: list[str]) -> dict[str, dict[str, int]]:
     counts: dict[str, dict[str, int]] = {}
     dirs_cache: dict[str, list[str]] = {}
     for video in dict.fromkeys(video_paths):
-        for f in list_subtitle_files(video, dirs_cache):
+        try:
+            found = list_subtitle_files(video, dirs_cache)
+        except SubtitleNotFound:
+            continue  # deleted since the scan: it has nothing to count, the rest still do
+        for f in found:
             by_kind = counts.setdefault(f["language"], {})
             by_kind[f["kind"]] = by_kind.get(f["kind"], 0) + 1
     return counts
@@ -355,11 +359,11 @@ def remove_by_kind(video_paths: list[str], pairs: list[tuple[str, str]]) -> int:
     total = 0
     dirs_cache: dict[str, list[str]] = {}
     for video in dict.fromkeys(video_paths):
-        targets = [
-            f
-            for f in list_subtitle_files(video, dirs_cache)
-            if (f["language"], f["kind"]) in wanted
-        ]
+        try:
+            found = list_subtitle_files(video, dirs_cache)
+        except SubtitleNotFound:
+            continue  # deleted since the scan
+        targets = [f for f in found if (f["language"], f["kind"]) in wanted]
         if not targets:
             continue
         snap = _snapshot(targets)

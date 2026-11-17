@@ -480,6 +480,8 @@ def test_start_and_summary_lines_and_the_settings_size_are_logged(env):
 def checked_row(**extra):
     row = {
         "state": "checked",
+        "season": 1,
+        "episode": 1,
         "candidates": [cand(1)],
         "errors": [],
         "length": {"last": 2900.0, "video_duration": 3000.0, "verdict": "ok"},
@@ -502,6 +504,9 @@ def test_judge_a_certain_film_needs_no_release_kind():
     "row,certain,expected",
     [
         (checked_row(), False, "identity_unconfirmed"),
+        (checked_row(season=None), True, "episode_unknown"),
+        (checked_row(episode=None), True, "episode_unknown"),
+        (checked_row(season=0), True, "episode_unknown"),
         (checked_row(candidates=[cand(1, "season_pack")]), True, "only_season_pack"),
         (
             checked_row(length={"last": 1000.0, "video_duration": 3000.0, "verdict": "short"}),
@@ -531,6 +536,12 @@ def test_judge_a_certain_film_needs_no_release_kind():
 def test_judge_each_reason_comes_from_exactly_its_case(row, certain, expected):
     sure, reason, detail = ss.judge_row(row, certain, False)
     assert (sure, reason) == (False, expected) and detail is None
+
+
+def test_judge_a_film_has_no_season_or_episode_and_is_still_sure():
+    film = checked_row(season=None, episode=None, candidates=[{**cand(1)}])
+    del film["candidates"][0]["release_kind"]
+    assert ss.judge_row(film, True, True) == (True, None, None)
 
 
 def test_judge_a_failed_row_says_why():

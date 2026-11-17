@@ -118,8 +118,14 @@ export const qk = {
   subtitleGroups: (path: string) => ["subtitles", "groups", path] as const,
   subtitleFiles: (videoPath: string) => ["subtitles", "files", videoPath] as const,
   /** The whole candidate list of one search row, for Compare. */
-  subtitleRowSearch: (video: string, language: string, providers: string[]) =>
-    ["subtitles", "row-search", video, language, providers] as const,
+  subtitleRowSearch: (
+    video: string,
+    language: string,
+    providers: string[],
+    identity: unknown,
+    season: number | null | undefined,
+    episode: number | null | undefined,
+  ) => ["subtitles", "row-search", video, language, providers, identity, season, episode] as const,
   /** The subtitle files of several videos by language and kind (Remove subtitles). */
   subtitleRemoveCounts: (videoPaths: string[]) =>
     ["subtitles", "remove-counts", videoPaths] as const,

@@ -431,7 +431,8 @@ class Subf2mProvider:
         """Return list of subtitle candidate dicts."""
         is_episode = q.identity.type == "tv"
         title, year = q.identity.title, q.identity.year
-        season, episode = q.season or 1, q.episode or 1
+        season = q.season if q.season is not None else 1
+        episode = q.episode if q.episode is not None else 1
         if q.identity.subf2m_path:
             paths = [_pasted_page(q.identity.subf2m_path)]
         elif is_episode:
@@ -539,7 +540,14 @@ def _choose_member(names: list[str], season: int | None, episode: int | None) ->
     the one file of this episode, or a named refusal: never "the first file". Anything else (one
     release as `.srt` plus `.ass`, or `ara.srt` plus `ara.forced.srt`, or no episode asked for)
     keeps the plain rule: the first `.srt`, else the first subtitle file."""
-    subs = [n for n in names if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)]
+    # Zips made on a Mac carry `__MACOSX/._<name>` resource copies of every file: not subtitles.
+    subs = [
+        n
+        for n in names
+        if any(n.lower().endswith(e) for e in _SUBTITLE_EXTS)
+        and not n.startswith("__MACOSX/")
+        and not os.path.basename(n).startswith("._")
+    ]
     if not subs:
         return None
     markers = {m for m in (parse_member_marker(n) for n in subs) if m}

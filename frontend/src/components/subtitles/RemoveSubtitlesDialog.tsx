@@ -25,6 +25,14 @@ const KINDS: { kind: SubtitleKind; label: string }[] = [
   { kind: "original", label: "Sync backups" },
 ];
 
+/** The server takes at most this many videos in one request. */
+const MAX_VIDEOS = 500;
+const chunks = (paths: string[]): string[][] => {
+  const out: string[][] = [];
+  for (let i = 0; i < paths.length; i += MAX_VIDEOS) out.push(paths.slice(i, i + MAX_VIDEOS));
+  return out;
+};
+
 const files = (n: number) => `${n} subtitle ${n === 1 ? "file" : "files"}`;
 const keyOf = (language: string, kind: SubtitleKind) => `${language}\u0000${kind}`;
 
@@ -83,7 +91,19 @@ function RemoveBody({
   const confirm = useConfirm();
   const countsQ = useQuery({
     queryKey: qk.subtitleRemoveCounts(videoPaths),
-    queryFn: () => subtitlesApi.removeCounts(videoPaths),
+    queryFn: async () => {
+      // The server takes at most 500 videos a request; add the counts of the pieces up.
+      const total: RemoveCounts = {};
+      for (const part of chunks(videoPaths)) {
+        for (const [language, kinds] of Object.entries(await subtitlesApi.removeCounts(part))) {
+          const into = (total[language] ??= {});
+          for (const [kind, n] of Object.entries(kinds) as [SubtitleKind, number][]) {
+            into[kind] = (into[kind] ?? 0) + n;
+          }
+        }
+      }
+      return total;
+    },
     // What is on disk now, not what the last open saw.
     staleTime: 0,
     gcTime: 0,
@@ -103,7 +123,13 @@ function RemoveBody({
   const total = chosen.reduce((n, c) => n + (counts[c.language]?.[c.kind] ?? 0), 0);
 
   const remove = useMutation({
-    mutationFn: () => subtitlesApi.removeByKind(videoPaths, chosen),
+    mutationFn: async () => {
+      let removed = 0;
+      for (const part of chunks(videoPaths)) {
+        removed += (await subtitlesApi.removeByKind(part, chosen)).removed;
+      }
+      return { removed };
+    },
     onSuccess: ({ removed }) => {
       void qc.invalidateQueries({ queryKey: ["subtitles", "files"] });
       void qc.invalidateQueries({ queryKey: ["subtitles", "tracks"] });

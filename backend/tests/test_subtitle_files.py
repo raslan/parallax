@@ -466,9 +466,12 @@ def test_a_non_video_path_is_refused_by_both_calls(tmp_path):
         sf.remove_by_kind([txt], [("en", "real")])
 
 
-def test_a_missing_video_is_refused(tmp_path):
-    with pytest.raises(sf.SubtitleNotFound):
-        sf.count_by_kind([str(tmp_path / "Gone.mkv")])
+def test_a_video_deleted_since_the_scan_is_skipped_by_both_calls(two_videos):
+    # One vanished video must not fail the whole selection (a big selection is likely to have one).
+    tmp, a, b = two_videos
+    gone = str(tmp / "Gone.mkv")
+    assert sf.count_by_kind([gone, a])["ar"]["real"] == 2
+    assert sf.remove_by_kind([gone, a], [("ar", "real")]) == 2
 
 
 def test_remove_routes(client, two_videos):

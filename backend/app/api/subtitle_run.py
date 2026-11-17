@@ -17,6 +17,7 @@ from app.database import get_db
 from app.models.job import Job, JobStatus, JobType
 from app.queue import enqueue
 from app.services import scanner, subtitle_preview, subtitle_run, subtitle_search
+from app.services.common import should_cancel
 from app.services.subtitle_files import SubtitleFileError, SubtitleNotFound, _require_video
 from app.services.subtitle_providers import Identity, ProviderError, SearchQuery, known_providers
 
@@ -248,6 +249,10 @@ def _search_running_for(db: Session, folder: str) -> bool:
         .all()
     )
     for j in active:
+        if should_cancel(j.id):
+            # A cancel only asks the job to stop at its next checkpoint, so it stays RUNNING for
+            # a while; it must not block the user from starting over.
+            continue
         try:
             if json.loads(j.settings or "{}").get("path") == folder:
                 return True

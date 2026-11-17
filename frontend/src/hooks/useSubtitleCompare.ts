@@ -135,6 +135,9 @@ export function useSubtitleCompare({
       openRow?.video ?? "",
       openRow?.language ?? "",
       rowSearch?.providers ?? [],
+      rowSearch?.identity ?? null,
+      openRow?.season,
+      openRow?.episode,
     ),
     queryFn: () =>
       subtitlesApi.search({

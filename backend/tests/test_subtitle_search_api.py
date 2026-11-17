@@ -122,6 +122,21 @@ def test_a_second_search_for_the_same_folder_is_refused_and_creates_nothing(
     assert len(jobs()) == 1 and len(queued) == 1
 
 
+def test_a_search_that_is_being_cancelled_does_not_block_a_new_one(
+    client, queued, jobs, folder, videos
+):
+    # Cancelling a running search only asks it to stop at its next checkpoint, so its row stays
+    # RUNNING for a while; the user starting over from the Titles step must not get a 409.
+    from app.services.common import clear_cancel, request_cancel
+
+    first = client.post("/api/subtitles/searches", json=body(folder, videos)).json()["job_id"]
+    request_cancel(first)
+    try:
+        assert client.post("/api/subtitles/searches", json=body(folder, videos)).status_code == 202
+    finally:
+        clear_cancel(first)
+
+
 def test_a_finished_search_does_not_block_a_new_one(client, queued, jobs, folder, videos, engine):
     r = client.post("/api/subtitles/searches", json=body(folder, videos))
     S = sessionmaker(bind=engine)

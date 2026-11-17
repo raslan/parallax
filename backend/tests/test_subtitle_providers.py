@@ -431,6 +431,15 @@ def test_two_srt_same_marker_in_a_pack_refuses():
         _sf.extract_from_archive(_zip(pack), 1, 2)
 
 
+def test_mac_zip_resource_twins_are_not_a_second_file():
+    # A zip made on a Mac carries `__MACOSX/._<name>` copies; they must not make every episode
+    # "more than one file".
+    pack = {**STRANGER_PACK}
+    for name in list(STRANGER_PACK):
+        pack[f"__MACOSX/._{name}"] = b"junk"
+    assert _sf.extract_from_archive(_zip(pack), 1, 1) == b"e1"
+
+
 def test_single_release_zip_keeps_the_old_rule():
     # One release in two formats, and a release with a forced-subtitle companion: no pack rule.
     both = {"subs.ass": b"[Script Info]", "subs.srt": SRT}
