@@ -7,6 +7,7 @@ import type {
   PreviewInfo,
   ReleaseTokens,
   RunItem,
+  SearchRequest,
   SearchResult,
   ScanFile,
   SubtitleFileInfo,
@@ -106,6 +107,10 @@ export const subtitlesApi = {
     season?: number;
     episode?: number;
   }) => req<SearchResult>("/subtitles/search", { method: "POST", body: JSON.stringify(body) }),
+
+  /** Start the subtitle search job for a folder: every row searched on the server. */
+  startSearch: (body: SearchRequest) =>
+    req<{ job_id: number }>("/subtitles/searches", { method: "POST", body: JSON.stringify(body) }),
 
   /** Download a candidate to a temporary place and describe it. Nothing is written beside the video. */
   preview: (body: {

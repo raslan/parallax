@@ -23,6 +23,7 @@ export function WorkflowView({
   titleOf,
   queuePosition,
   cancelling,
+  cancellingSearch,
   onCancel,
   onCompareRow,
   onCompareItem,
@@ -37,6 +38,8 @@ export function WorkflowView({
   titleOf: (videoPath: string) => { key: string; name: string };
   queuePosition: number | null;
   cancelling: boolean;
+  /** Jobs whose Cancel is being sent (a search's, here). */
+  cancellingSearch: ReadonlySet<number>;
   onCancel: (jobId: number) => void;
   onCompareRow: (row: MatchRowState) => void;
   onCompareItem: (item: RunItem) => void;
@@ -73,33 +76,34 @@ export function WorkflowView({
           onIdentity={w.setIdentity}
           onToggleSkip={w.toggleSkip}
           onSearch={w.toMatches}
+          busy={w.starting}
         />
       );
     if (wf.stage === "matches")
-      return (
+      return !w.matches.loaded ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Reading the search…
+        </p>
+      ) : (
         <MatchesView
-          titles={w.choices
-            .filter((c) => !c.skipped)
-            .map((c) => ({
-              key: c.key,
-              name: c.identity.year ? `${c.identity.title} (${c.identity.year})` : c.identity.title,
-            }))}
+          titles={w.matches.titles}
           rows={w.matches.rows}
           wanted={w.matchesWanted}
           progress={w.matches.progress}
           checks={w.matches.checks}
-          paused={w.matches.paused}
+          running={w.matches.running}
+          jobStatus={w.matches.jobStatus}
+          jobError={w.matches.jobError}
+          cancelling={w.matches.jobId != null && cancellingSearch.has(w.matches.jobId)}
+          onCancel={() => w.matches.jobId != null && onCancel(w.matches.jobId)}
           checksSkipped={w.matches.checksSkipped}
           errors={w.matches.errors}
           notes={w.matches.notes}
-          onPause={w.matches.pause}
-          onResume={w.matches.resume}
-          onSkipChecks={w.matches.skipChecks}
-          onRetrySearch={w.matches.retry}
           onToggleUse={w.matches.toggleUse}
           onApproveAllClean={w.matches.approveAllClean}
-          unconfirmed={w.unconfirmed}
-          onPickTitle={w.toTitles}
+          unconfirmed={w.matchesUnconfirmed}
+          onPickTitle={w.choices.length > 0 ? w.toTitles : undefined}
           onFindAnother={w.matches.findAnother}
           onCompare={onCompareRow}
           settingsEngine={settingsEngine}

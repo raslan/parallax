@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultRunOptions,
+  identityCertain,
   isClean,
   mergeEntries,
   parseRunJob,
   runEntries,
   runItems,
 } from "./subtitleRunDock";
-import type { Candidate, MatchRowState } from "@/types/subtitle";
+import type { Candidate, MatchRowState, TitleChoice, TitleGroup } from "@/types/subtitle";
 import type { Job } from "@/types/job";
 
 const cand = (id: string): Candidate => ({
@@ -178,5 +179,39 @@ describe("run entries", () => {
       "/tv/1.mkv:waiting",
       "/tv/2.mkv:saved",
     ]);
+  });
+});
+
+describe("identityCertain", () => {
+  const choice = (group: Partial<TitleGroup>, confirmed?: boolean): TitleChoice => ({
+    key: "k",
+    group: {
+      key: "k",
+      title: "Show",
+      year: null,
+      type: "tv",
+      files: [],
+      layout_clean: false,
+      needs_choice: false,
+      ...group,
+    },
+    files: 1,
+    identity: { title: "Show", year: null, type: "tv" },
+    skipped: false,
+    confirmed,
+  });
+
+  it("is true when Identify's folder layout is recognised", () => {
+    expect(identityCertain(choice({ layout_clean: true }))).toBe(true);
+  });
+
+  it("is true once the user chose or confirmed the identity", () => {
+    expect(identityCertain(choice({ needs_choice: true }, true))).toBe(true);
+    expect(identityCertain(choice({}, true))).toBe(true);
+  });
+
+  it("is false for a guess from file names alone, even a clear one", () => {
+    expect(identityCertain(choice({}))).toBe(false);
+    expect(identityCertain(choice({ needs_choice: true }))).toBe(false);
   });
 });

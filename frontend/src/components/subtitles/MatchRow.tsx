@@ -80,6 +80,26 @@ function MatchCell({
         </button>
       </div>
     );
+  if (row.status === "failed")
+    return (
+      <div className="space-y-0.5 text-xs">
+        <p className="text-amber-500">Search failed</p>
+        {row.errors.map((e) => (
+          <p key={`${e.provider}:${e.message}`} className="text-3xs text-muted-foreground">
+            {e.provider === "search" ? e.message : `${sourceName(e.provider)}: ${e.message}`}
+          </p>
+        ))}
+        <button
+          type="button"
+          onClick={() => onFindAnother(row.key)}
+          aria-label={`Find another for ${label}`}
+          className="flex items-center gap-1 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          <Search className="h-3 w-3" />
+          Find another…
+        </button>
+      </div>
+    );
   if (row.status === "none" || !row.candidate)
     return (
       <div className="space-y-0.5 text-xs">

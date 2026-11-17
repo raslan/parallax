@@ -23,6 +23,7 @@ import { BrowseControls } from "@/components/organize/BrowseControls";
 import { ActivityBar } from "@/components/subtitles/ActivityBar";
 import { CompareSheet } from "@/components/subtitles/CompareSheet";
 import { FolderStrip } from "@/components/subtitles/FolderStrip";
+import { LastSearch } from "@/components/subtitles/LastSearch";
 import { ManagePanel } from "@/components/subtitles/ManagePanel";
 import { SubtitleRenameDialog } from "@/components/subtitles/SubtitleRenameDialog";
 import { SubtitleDock } from "@/components/subtitles/SubtitleDock";
@@ -43,6 +44,7 @@ import { useSubtitleFolder } from "@/hooks/useSubtitleFolder";
 import { useSubtitleManage } from "@/hooks/useSubtitleManage";
 import { useSubtitlePanelOpen } from "@/hooks/useSubtitlePanelOpen";
 import { useSubtitleWorkflow } from "@/hooks/useSubtitleWorkflow";
+import { lastSearchFor } from "@/lib/subtitleSearchJob";
 import type { SyncEngine } from "@/lib/subtitleRunDock";
 import type { ScanFile, SubtitleProvider } from "@/types/subtitle";
 
@@ -170,6 +172,14 @@ export function Subtitles() {
     return (video: string) => byVideo.get(video) ?? { key: "other-files", name: "Other files" };
   }, [titles]);
   const runQueuePosition = f.folderJobs.find((j) => j.id === w.runJob.id)?.queue_position ?? null;
+  // The newest search of this folder, once it has ended (a running one is in Activity).
+  const lastSearch = useMemo(
+    () =>
+      f.folderJobs.some((j) => j.type === "subtitle_search")
+        ? null
+        : lastSearchFor(activity.jobs, folder),
+    [f.folderJobs, activity.jobs, folder],
+  );
 
   // A lone title opens straight into itself.
   const openKey = f.titleKey ?? (titles.length === 1 ? (titles[0]?.group.key ?? null) : null);
@@ -460,6 +470,7 @@ export function Subtitles() {
           titleOf={titleOf}
           queuePosition={runQueuePosition}
           cancelling={w.runJob.id != null && actions.cancelling.has(w.runJob.id)}
+          cancellingSearch={actions.cancelling}
           onCancel={actions.cancel}
           onCompareRow={compare.openRow}
           onCompareItem={compare.openItem}
@@ -472,7 +483,9 @@ export function Subtitles() {
             cancelling={actions.cancelling}
             onCancel={actions.cancel}
             onOpenRun={w.openRun}
+            onOpenMatches={w.openMatches}
           />
+          <LastSearch job={lastSearch} onOpen={w.openMatches} />
           {body()}
           <SubtitleDock
             count={selectedCount}

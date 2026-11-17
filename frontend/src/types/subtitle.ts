@@ -127,14 +127,21 @@ export interface TitleChoice {
 /** Which files a search covers: only languages with no real subtitle yet, or every selected one. */
 export type MatchScope = "missing" | "all";
 
-/** One title of a search: the identity the user confirmed, and the videos to search for. */
-export interface MatchGroup {
-  key: string;
-  identity: Identity;
-  files: ScanFile[];
-}
+export type MatchStatus =
+  "ready" | "has_real" | "replaces_machine" | "none" | "checking" | "flagged" | "failed";
 
-type MatchStatus = "ready" | "has_real" | "replaces_machine" | "none" | "checking" | "flagged";
+/** Why automatic save left a row for the user. */
+type LeftReason =
+  | "identity_unconfirmed"
+  | "only_season_pack"
+  | "length_short"
+  | "length_long"
+  | "length_unchecked"
+  | "none_found"
+  | "failed";
+
+/** What automatic save did with a row (null: review mode, or not reached). */
+type SaveOutcome = "saved" | "left" | "failed";
 
 /** `use_and_sync` downloads the row and syncs only that file. */
 export type MatchVerdict = "use" | "use_and_sync" | "skip";
@@ -164,6 +171,69 @@ export interface MatchRowState {
   hasReal: boolean;
   /** Sources that failed or do not apply, for this row. */
   errors: { provider: string; message: string }[];
+  /** Automatic save only: what it did with this row, and why it left it. */
+  outcome?: SaveOutcome | null;
+  reason?: LeftReason | null;
+  detail?: string | null;
+}
+
+/** One row of a search job, as the server keeps it in `job.settings.results`. */
+export interface SearchRowResult {
+  title_key: string;
+  video_path: string;
+  language: string;
+  season: number | null;
+  episode: number | null;
+  state: "pending" | "searched" | "checked" | "failed";
+  /** At most the best five, ranked. */
+  candidates: Candidate[];
+  errors: { provider: string; message: string; network?: boolean }[];
+  length:
+    | null
+    | { last: number; video_duration: number | null; verdict: LengthVerdict }
+    | { error: string };
+  outcome: SaveOutcome | null;
+  reason: LeftReason | null;
+  detail: string | null;
+  saved: null | { provider: string; subtitle_id: string; file: string | null };
+}
+
+/** The options of automatic save, when a search was started with it. */
+export interface SaveOptions {
+  keep_existing: boolean;
+  sync_after: boolean;
+  engine: "alass" | "ffsubsync" | null;
+}
+
+/** What a search job keeps in `job.settings`: the request and every row's result. */
+export interface SearchSettings {
+  path: string;
+  providers: SubtitleProvider[];
+  languages: string[];
+  scope: MatchScope;
+  check_lengths: boolean;
+  save: SaveOptions | null;
+  titles: { key: string; identity: Identity; certain: boolean }[];
+  results: Record<string, SearchRowResult>;
+}
+
+/** The body of `POST /subtitles/searches`. */
+export interface SearchRequest {
+  path: string;
+  providers: SubtitleProvider[];
+  languages: string[];
+  scope: MatchScope;
+  check_lengths: boolean;
+  save: SaveOptions | null;
+  titles: { key: string; identity: Identity; certain: boolean }[];
+  rows: {
+    key: string;
+    title_key: string;
+    video_path: string;
+    language: string;
+    season: number | null;
+    episode: number | null;
+  }[];
 }
 
 /** One item's outcome, as the run job stores it in `job.settings.results`. */

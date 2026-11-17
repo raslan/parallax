@@ -6,8 +6,7 @@ import {
   ChevronRight,
   Download,
   Loader2,
-  Pause,
-  Play,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,20 +39,23 @@ function counts(rows: MatchRowState[]) {
   let ready = 0;
   let flagged = 0;
   let none = 0;
+  let failed = 0;
   let checking = 0;
   for (const r of rows) {
     if (r.status === "ready" || r.status === "replaces_machine") ready++;
     else if (r.status === "flagged") flagged++;
     else if (r.status === "none") none++;
+    else if (r.status === "failed") failed++;
     else if (r.status === "checking") checking++;
   }
-  return { ready, flagged, none, checking };
+  return { ready, flagged, none, failed, checking };
 }
 
 function countLine(c: ReturnType<typeof counts>): string {
   const parts = [`${c.ready} ready`];
   if (c.flagged) parts.push(`${c.flagged} to check`);
   if (c.none) parts.push(`${c.none} nothing found`);
+  if (c.failed) parts.push(`${c.failed} failed`);
   if (c.checking) parts.push(`${c.checking} searching`);
   return parts.join(" · ");
 }
@@ -61,6 +63,7 @@ function countLine(c: ReturnType<typeof counts>): string {
 /** The rail's word for a title. */
 function railStatus(c: ReturnType<typeof counts>): { text: string; tone: string } {
   if (c.checking) return { text: "searching", tone: "bg-primary/60" };
+  if (c.failed) return { text: `${c.failed} failed`, tone: "bg-amber-500" };
   if (c.flagged) return { text: `${c.flagged} to check`, tone: "bg-amber-500" };
   // "all clean" only when every row found something; a row with nothing is not clean.
   if (c.none) return { text: `nothing found for ${c.none}`, tone: "bg-amber-500" };
@@ -116,8 +119,9 @@ function seasonSummary(s: Season, lang: string): string {
 /**
  * The matches of a "Find subtitles" run: a rail of titles (a select on a phone), "Approve all
  * clean rows" across every title (never a flagged row), the search and length-check
- * progress with Pause and Skip checks, and the open title's videos with a column per
- * wanted language; a season where nothing needs a decision shows as one summary line.
+ * progress of the server's search job with its Cancel (nothing else controls a running search),
+ * and the open title's videos with a column per wanted language; a season where nothing
+ * needs a decision shows as one summary line.
  * Searching is read-only. The dock holds the two run tickboxes, off on every mount and
  * never remembered, the sync engine (Settings' by default) and Download. `renderMachine`
  * puts the Generated and translated section below, with the same Keep existing choice.
@@ -129,14 +133,14 @@ export function MatchesView({
   wanted,
   progress,
   checks,
-  paused,
+  running,
+  jobStatus,
+  jobError,
+  cancelling,
+  onCancel,
   checksSkipped,
   errors,
   notes = [],
-  onPause,
-  onResume,
-  onSkipChecks,
-  onRetrySearch,
   onToggleUse,
   onApproveAllClean,
   unconfirmed = NONE,
@@ -153,15 +157,19 @@ export function MatchesView({
   wanted: string[];
   progress: { done: number; total: number };
   checks: { done: number; total: number };
-  paused: boolean;
+  /** The search job is still working (waiting or running). */
+  running: boolean;
+  /** The job's status, null until it has been read. */
+  jobStatus: string | null;
+  jobError: string | null;
+  cancelling: boolean;
+  /** Cancels the search job; what it found so far stays. */
+  onCancel: () => void;
+  /** This search did not check lengths (so a row without a length result is settled). */
   checksSkipped: boolean;
   errors: { provider: string; message: string; count?: number }[];
   /** Sources that do not apply (films only): shown plainly, never as a failure. */
   notes?: { provider: string; message: string; count?: number }[];
-  onPause: () => void;
-  onResume: () => void;
-  onSkipChecks: () => void;
-  onRetrySearch: () => void;
   onToggleUse: (key: string) => void;
   /** `exclude`: the keys of titles whose identity is not confirmed, to leave out. */
   onApproveAllClean: (exclude: ReadonlySet<string>) => void;
@@ -207,8 +215,9 @@ export function MatchesView({
     (r) => isClean(r, checksSkipped) && !r.verdict && !unconfirmed.has(r.title),
   ).length;
   const items = runItems(rows);
-  const searching = progress.done < progress.total;
-  const checking = !checksSkipped && checks.done < checks.total;
+  // The server's search is still working: first the searches, then the length checks.
+  const searching = running && progress.done < progress.total;
+  const checking = running && !searching && !checksSkipped && checks.done < checks.total;
 
   return (
     <div className="space-y-4 pb-24">
@@ -224,45 +233,66 @@ export function MatchesView({
         <span className="text-xs text-muted-foreground">Leaves anything flagged for you.</span>
       </div>
 
-      {(searching || checking) && (
+      {running && (
         <div
-          className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-xs"
+          className="space-y-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs"
           role="status"
         >
-          <span className="font-medium">
-            {searching ? "Searching the sources" : "Checking subtitle lengths"}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-medium">
+              {checking
+                ? "Checking subtitle lengths"
+                : searching
+                  ? "Searching the sources"
+                  : "Starting the search"}
+            </span>
+            <span className="tabular-nums text-muted-foreground">
+              {checking
+                ? `${checks.done} of ${checks.total}`
+                : `${progress.done} of ${progress.total}`}
+            </span>
+            <ProgressBar
+              value={
+                checking
+                  ? (checks.done / Math.max(checks.total, 1)) * 100
+                  : (progress.done / Math.max(progress.total, 1)) * 100
+              }
+              label={checking ? "Length check progress" : "Search progress"}
+              className="min-w-24 flex-1"
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7"
+              onClick={onCancel}
+              disabled={cancelling}
+              aria-label="Cancel search"
+            >
+              <X className="mr-1 h-3.5 w-3.5" />
+              Cancel
+            </Button>
+          </div>
+          <p className="text-muted-foreground">
+            Searching and checking runs on the server. You can leave this page.
+          </p>
+        </div>
+      )}
+
+      {jobStatus === "cancelled" && (
+        <p className="text-xs text-muted-foreground" role="status">
+          This search was cancelled. What it found before that is shown below.
+        </p>
+      )}
+
+      {jobStatus === "failed" && (
+        <div
+          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs"
+          role="alert"
+        >
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+          <span className="min-w-0 flex-1">
+            The search failed{jobError ? `: ${jobError}` : "."}
           </span>
-          <span className="tabular-nums text-muted-foreground">
-            {searching
-              ? `${progress.done} of ${progress.total}`
-              : `${checks.done} of ${checks.total}`}
-            {paused && " · paused"}
-          </span>
-          <ProgressBar
-            value={
-              searching
-                ? (progress.done / Math.max(progress.total, 1)) * 100
-                : (checks.done / Math.max(checks.total, 1)) * 100
-            }
-            label={searching ? "Search progress" : "Length check progress"}
-            className="min-w-24 flex-1"
-          />
-          {paused ? (
-            <Button size="sm" variant="ghost" className="h-7" onClick={onResume}>
-              <Play className="mr-1 h-3.5 w-3.5" />
-              Resume
-            </Button>
-          ) : (
-            <Button size="sm" variant="ghost" className="h-7" onClick={onPause}>
-              <Pause className="mr-1 h-3.5 w-3.5" />
-              Pause
-            </Button>
-          )}
-          {checking && (
-            <Button size="sm" variant="ghost" className="h-7" onClick={onSkipChecks}>
-              Skip checks
-            </Button>
-          )}
         </div>
       )}
 
@@ -291,9 +321,6 @@ export function MatchesView({
               </li>
             ))}
           </ul>
-          <Button size="sm" variant="outline" className="h-7" onClick={onRetrySearch}>
-            Retry
-          </Button>
         </div>
       )}
 

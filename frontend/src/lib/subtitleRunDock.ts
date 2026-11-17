@@ -1,4 +1,4 @@
-import type { MatchRowState, RunEntry, RunItem, RunResult } from "@/types/subtitle";
+import type { MatchRowState, RunEntry, RunItem, RunResult, TitleChoice } from "@/types/subtitle";
 import type { Job } from "@/types/job";
 
 export type SyncEngine = "alass" | "ffsubsync";
@@ -34,6 +34,15 @@ export function isClean(row: MatchRowState, checksSkipped = false): boolean {
   return (
     (row.status === "ready" || row.status === "replaces_machine") && !!row.candidate && settled
   );
+}
+
+/**
+ * Whether a title's identity is certain: Identify's folder layout was recognised, or the user
+ * chose or confirmed it here. A guess from file names alone is not, however clear it looks:
+ * automatic save never saves for such a title.
+ */
+export function identityCertain(choice: TitleChoice): boolean {
+  return choice.group.layout_clean || choice.confirmed === true;
 }
 
 /** The approved rows as run items, in row order. */

@@ -57,3 +57,48 @@ describe("ActivityBar", () => {
     expect(container.textContent).toBe("");
   });
 });
+
+describe("ActivityBar for a subtitle search", () => {
+  const search: ActiveJob = {
+    id: 12,
+    type: "subtitle_search",
+    status: "running",
+    progress: 30,
+    current_file: "Searching e05.mkv",
+    queue_position: null,
+  };
+
+  it("shows Show the matches beside Cancel, and opens that search", () => {
+    const onOpenMatches = vi.fn();
+    render(
+      <MemoryRouter>
+        <ActivityBar
+          jobs={[search]}
+          cancelling={new Set()}
+          onCancel={vi.fn()}
+          onOpenMatches={onOpenMatches}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Subtitle search")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Show the matches" }));
+    expect(onOpenMatches).toHaveBeenCalledWith(12);
+    expect(screen.getByRole("button", { name: /Cancel Subtitle search/ })).toBeTruthy();
+  });
+
+  it("shows it for a waiting search too, and never on a download or sync", () => {
+    render(
+      <MemoryRouter>
+        <ActivityBar
+          jobs={[{ ...search, status: "pending", queue_position: 1 }, running, queued]}
+          cancelling={new Set()}
+          onCancel={vi.fn()}
+          onOpenMatches={vi.fn()}
+          onOpenRun={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByRole("button", { name: "Show the matches" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Show the run" })).toHaveLength(1);
+  });
+});

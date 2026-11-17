@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Search } from "lucide-react";
+import { Loader2, Pencil, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioToggle } from "@/components/RadioToggle";
@@ -39,6 +39,7 @@ export function TitlesStep({
   onIdentity,
   onToggleSkip,
   onSearch,
+  busy = false,
 }: {
   titles: TitleChoice[];
   scope: MatchScope;
@@ -47,6 +48,8 @@ export function TitlesStep({
   onIdentity: (key: string, identity: Identity) => void;
   onToggleSkip: (key: string) => void;
   onSearch: () => void;
+  /** The search is being started on the server: the button waits. */
+  busy?: boolean;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const edited = titles.find((t) => t.key === editing) ?? null;
@@ -105,8 +108,12 @@ export function TitlesStep({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" onClick={onSearch} disabled={included.length === 0}>
-          <Search className="mr-1.5 h-3.5 w-3.5" />
+        <Button size="sm" onClick={onSearch} disabled={included.length === 0 || busy}>
+          {busy ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Search className="mr-1.5 h-3.5 w-3.5" />
+          )}
           Search subtitles for {included.length} {included.length === 1 ? "title" : "titles"}
         </Button>
         <span className="text-xs text-muted-foreground">

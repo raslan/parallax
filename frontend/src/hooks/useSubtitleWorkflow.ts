@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { qk, subtitlesApi } from "@/lib/api";
+import { api, qk, subtitlesApi } from "@/lib/api";
+import { errorDetail, httpStatus } from "@/lib/api/client";
 import { mergeEntries, parseRunJob, runEntries, type SyncEngine } from "@/lib/subtitleRunDock";
+import { buildSearchRequest } from "@/lib/subtitleSearchJob";
 import type { TitleWithFiles } from "@/lib/subtitleGroups";
 import { useJobPoll } from "@/hooks/useJobPoll";
 import { useSubtitleMatches } from "@/hooks/useSubtitleMatches";
 import type {
   Identity,
-  MatchGroup,
   MatchScope,
   RunEntry,
   RunItem,
@@ -29,11 +30,12 @@ type Workflow =
       /** Wanted and Sources as they were when Find subtitles started: a later change applies to the next search. */
       wanted: string[];
       sources: SubtitleProvider[];
+      /** The search job this page started or opened (it keeps running on the server). */
+      jobId: number | null;
     }
   | { stage: "run"; earlier: RunEntry[] }
   | { stage: "machine"; files: ScanFile[]; keepExisting: boolean };
 
-const NO_GROUPS: MatchGroup[] = [];
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 const videos = (n: number) => `${n} ${n === 1 ? "video" : "videos"}`;
 
@@ -77,26 +79,16 @@ export function useSubtitleWorkflow({
 
   const choices = wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.choices : null;
   const scope = wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.scope : "missing";
-  const searching = wf?.stage === "matches";
-  const groups = useMemo(
-    () =>
-      searching && choices
-        ? choices
-            .filter((c) => !c.skipped)
-            .map((c) => ({ key: c.key, identity: c.identity, files: c.videos }))
-        : NO_GROUPS,
-    [searching, choices],
-  );
-  const matchesWanted =
-    wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.wanted : wanted;
-  const matchesSources =
-    wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.sources : sources;
-  const matches = useSubtitleMatches({
-    groups,
-    wanted: matchesWanted,
-    providers: matchesSources,
-    scope,
-  });
+  // Kept while on the Titles step too: a search started before going back is still this page's.
+  const searchJobId = wf && (wf.stage === "titles" || wf.stage === "matches") ? wf.jobId : null;
+  const allFiles = useMemo(() => titles.flatMap((t) => t.files), [titles]);
+  // The search runs on the server; the page only follows its job.
+  const matches = useSubtitleMatches({ jobId: searchJobId, files: allFiles });
+  const matchesWanted = matches.loaded
+    ? matches.wanted
+    : wf && (wf.stage === "titles" || wf.stage === "matches")
+      ? wf.wanted
+      : wanted;
 
   /** Starts Find subtitles on these videos, grouped by their titles. */
   const startFind = (files: ScanFile[]) => {
@@ -116,7 +108,7 @@ export function useSubtitleWorkflow({
         },
       ];
     });
-    setWf({ stage: "titles", choices: picked, scope: "missing", wanted, sources });
+    setWf({ stage: "titles", choices: picked, scope: "missing", wanted, sources, jobId: null });
   };
 
   const editChoices = (fn: (c: Choice) => Choice) =>
@@ -127,13 +119,90 @@ export function useSubtitleWorkflow({
   const unconfirmed = new Set(
     (choices ?? []).filter((c) => c.group.needs_choice && !c.confirmed).map((c) => c.key),
   );
+  // Matches of a search opened from the server (no Titles choices to ask): a title the
+  // search was started for without a certain identity is the one to be careful with.
+  const matchesUnconfirmed = useMemo(
+    () =>
+      choices && choices.length > 0
+        ? unconfirmed
+        : new Set(matches.titles.filter((t) => !t.certain).map((t) => t.key)),
+    [choices, unconfirmed, matches.titles],
+  );
   const toggleSkip = (key: string) =>
     editChoices((c) => (c.key === key ? { ...c, skipped: !c.skipped } : c));
   const setScope = (s: MatchScope) =>
     setWf((w) => (w && w.stage === "titles" ? { ...w, scope: s } : w));
-  const toMatches = () =>
-    setWf((w) => (w && w.stage === "titles" ? { ...w, stage: "matches" } : w));
   const toTitles = () => setWf((w) => (w && w.stage === "matches" ? { ...w, stage: "titles" } : w));
+
+  /** Shows a search that already runs (or ran) on the server, from Activity or Last search. */
+  const openMatches = (jobId: number) =>
+    setWf({ stage: "matches", choices: [], scope: "missing", wanted, sources, jobId });
+
+  const startSearch = useMutation({
+    mutationFn: async (r: {
+      body: ReturnType<typeof buildSearchRequest>;
+      cancel: number | null;
+    }) => {
+      // This page's own unfinished search is cancelled first: one search per folder.
+      if (r.cancel !== null) {
+        try {
+          await api.cancelJob(r.cancel);
+        } catch {
+          // it had ended on its own
+        }
+      }
+      return subtitlesApi.startSearch(r.body);
+    },
+    meta: { skipErrorToast: true },
+    onSuccess: ({ job_id }) => {
+      setWf((w) => (w && w.stage === "titles" ? { ...w, stage: "matches", jobId: job_id } : w));
+      refreshActivity();
+    },
+    onError: async (e) => {
+      if (httpStatus(e) !== 409) {
+        toast.error(errorDetail(e, "Could not start the search"));
+        return;
+      }
+      // Another device (or tab) already searches this folder: show that one.
+      try {
+        const work = await subtitlesApi.active();
+        const running = work
+          .find((g) => g.path === folder)
+          ?.jobs.find((j) => j.type === "subtitle_search");
+        if (running) {
+          openMatches(running.id);
+          toast.info("A search is already running for this folder. Showing it.");
+          return;
+        }
+      } catch {
+        // fall through to the plain message
+      }
+      toast.error("A search is already running for this folder.");
+    },
+  });
+
+  /** Continue from Titles: starts the search on the server (nothing is searched in this tab). */
+  const toMatches = () => {
+    if (!wf || wf.stage !== "titles" || !folder || startSearch.isPending) return;
+    const body = buildSearchRequest({
+      folder,
+      choices: wf.choices,
+      wanted: wf.wanted,
+      sources: wf.sources,
+      scope: wf.scope,
+      checkLengths: true,
+      save: null,
+    });
+    if (body.rows.length === 0) {
+      toast.info(
+        "Every selected video already has a real subtitle in the wanted languages. Choose to search everything selected to look anyway.",
+      );
+      return;
+    }
+    const own =
+      wf.jobId !== null && matches.jobId === wf.jobId && matches.running ? wf.jobId : null;
+    startSearch.mutate({ body, cancel: own });
+  };
 
   // ---- Run ----
 
@@ -189,12 +258,17 @@ export function useSubtitleWorkflow({
   const setMachineKeep = (keepExisting: boolean) =>
     setWf((w) => (w && w.stage === "machine" ? { ...w, keepExisting } : w));
 
+  // A search opened from the server has no Titles choices: its own videos stand in.
+  const matchedFiles = useMemo(() => {
+    const searched = new Set(matches.rows.map((r) => r.video));
+    return allFiles.filter((f) => searched.has(f.path));
+  }, [matches.rows, allFiles]);
   const machineFiles =
     wf?.stage === "machine"
       ? wf.files
-      : choices
+      : choices && choices.length > 0
         ? choices.filter((c) => !c.skipped).flatMap((c) => c.videos)
-        : [];
+        : matchedFiles;
   const lone = machineFiles.length === 1 ? (machineFiles[0]?.path ?? null) : null;
   const sourcesQ = useQuery({
     queryKey: qk.translateSources(lone ?? ""),
@@ -244,9 +318,12 @@ export function useSubtitleWorkflow({
     toggleSkip,
     setScope,
     toMatches,
+    starting: startSearch.isPending,
     toTitles,
+    openMatches,
     matches,
     matchesWanted,
+    matchesUnconfirmed,
     // run
     download,
     downloading: run.isPending,

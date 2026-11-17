@@ -43,13 +43,13 @@ function renderMatches(
     wanted: ["en"],
     progress: { done: rows.length, total: rows.length },
     checks: { done: 0, total: 0 },
-    paused: false,
+    running: false,
+    jobStatus: "completed",
+    jobError: null,
+    cancelling: false,
+    onCancel: vi.fn(),
     checksSkipped: false,
     errors: [],
-    onPause: vi.fn(),
-    onResume: vi.fn(),
-    onSkipChecks: vi.fn(),
-    onRetrySearch: vi.fn(),
     onToggleUse: vi.fn(),
     onApproveAllClean: vi.fn(),
     onFindAnother: vi.fn(),
@@ -230,12 +230,115 @@ describe("MatchesView", () => {
     expect(p.onCompare).toHaveBeenCalledWith(expect.objectContaining({ key: "2|en" }));
   });
 
-  it("shows the length-check progress with Pause and Skip checks", () => {
-    const p = renderMatches([row(1)], { checks: { done: 3, total: 10 } });
+  it("shows the search progress and Cancel while it runs, and that it runs on the server", () => {
+    const p = renderMatches([row(1), row(2)], {
+      running: true,
+      jobStatus: "running",
+      progress: { done: 1, total: 3 },
+    });
+    expect(screen.getByText("Searching the sources")).toBeTruthy();
+    expect(screen.getByText(/1 of 3/)).toBeTruthy();
+    expect(
+      screen.getByText("Searching and checking runs on the server. You can leave this page."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel search" }));
+    expect(p.onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the length-check progress once the searches are done", () => {
+    renderMatches([row(1)], {
+      running: true,
+      jobStatus: "running",
+      progress: { done: 3, total: 3 },
+      checks: { done: 3, total: 10 },
+    });
+    expect(screen.getByText("Checking subtitle lengths")).toBeTruthy();
     expect(screen.getByText(/3 of 10/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
-    fireEvent.click(screen.getByRole("button", { name: "Skip checks" }));
-    expect(p.onPause).toHaveBeenCalled();
-    expect(p.onSkipChecks).toHaveBeenCalled();
+  });
+
+  it("has no Pause, Resume, Skip checks or Retry: only Cancel controls a running search", () => {
+    renderMatches(
+      [
+        row(1, {
+          status: "none",
+          candidate: undefined,
+          candidates: [],
+          errors: [{ provider: "subf2m", message: "down" }],
+        }),
+      ],
+      {
+        running: true,
+        jobStatus: "running",
+        progress: { done: 0, total: 1 },
+        errors: [{ provider: "subf2m", message: "down", count: 1 }],
+      },
+    );
+    for (const name of ["Pause", "Resume", "Skip checks", "Retry"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.getByRole("button", { name: "Cancel search" })).toBeTruthy();
+  });
+
+  it("shows no progress and no Cancel once the search has ended", () => {
+    renderMatches([row(1)], {
+      progress: { done: 1, total: 3 }, // an ended search that never got to two rows
+      checks: { done: 0, total: 5 },
+    });
+    expect(screen.queryByText("Searching the sources")).toBeNull();
+    expect(screen.queryByText("Checking subtitle lengths")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel search" })).toBeNull();
+  });
+
+  it("disables Cancel while the cancel is being sent", () => {
+    renderMatches([row(1)], {
+      running: true,
+      jobStatus: "running",
+      progress: { done: 0, total: 1 },
+      cancelling: true,
+    });
+    expect(
+      (screen.getByRole("button", { name: "Cancel search" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it("says a cancelled search was cancelled, and keeps what it found on screen", () => {
+    renderMatches([row(1)], { jobStatus: "cancelled" });
+    expect(screen.getByRole("status").textContent).toMatch(/This search was cancelled/);
+    expect(screen.getByRole("checkbox", { name: /Download/ })).toBeTruthy();
+  });
+
+  it("shows why a failed search failed", () => {
+    renderMatches([row(1, { status: "failed", candidate: undefined, candidates: [] })], {
+      jobStatus: "failed",
+      jobError: "The source is down",
+    });
+    expect(screen.getByRole("alert").textContent).toMatch(/The search failed: The source is down/);
+  });
+
+  it("shows a failed row's error with Find another", () => {
+    const p = renderMatches([
+      row(1, {
+        status: "failed",
+        candidate: undefined,
+        candidates: [],
+        errors: [{ provider: "search", message: "The source took too long to answer" }],
+      }),
+    ]);
+    expect(screen.getByText(/The source took too long to answer/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Find another/ }));
+    expect(p.onFindAnother).toHaveBeenCalledWith("1|en");
+  });
+
+  it("counts a failed row apart from one that found nothing", () => {
+    renderMatches(
+      [
+        row(1),
+        row(2, { status: "failed", candidate: undefined, candidates: [] }),
+        row(3, { status: "none", candidate: undefined, candidates: [] }),
+      ],
+      {},
+    );
+    expect(screen.getAllByText(/1 failed/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/1 nothing found/).length).toBeGreaterThan(0);
   });
 });

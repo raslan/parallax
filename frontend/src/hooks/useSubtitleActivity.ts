@@ -87,5 +87,5 @@ export function useSubtitleActivity() {
     [work, live],
   );
 
-  return { work, activeFor };
+  return { work, activeFor, jobs: jobs ?? [] };
 }

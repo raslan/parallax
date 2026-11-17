@@ -19,12 +19,15 @@ export function ActivityBar({
   cancelling,
   onCancel,
   onOpenRun,
+  onOpenMatches,
 }: {
   jobs: ActiveJob[];
   cancelling: ReadonlySet<number>;
   onCancel: (id: number) => void;
   /** Opens a subtitle download's run view (its per-title progress and results). */
   onOpenRun?: (id: number) => void;
+  /** Opens a subtitle search's Matches view, as far as it has got. */
+  onOpenMatches?: (id: number) => void;
 }) {
   if (jobs.length === 0) return null;
   return (
@@ -81,6 +84,16 @@ export function ActivityBar({
                   </div>
                 )}
               </div>
+              {onOpenMatches && j.type === "subtitle_search" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onOpenMatches(j.id)}
+                  className="shrink-0 px-2"
+                >
+                  Show the matches
+                </Button>
+              )}
               {onOpenRun && j.type === "subtitle_download" && (
                 <Button
                   size="sm"
