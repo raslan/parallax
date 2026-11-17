@@ -183,6 +183,15 @@ export function useSubtitleMatches({
     [baseRows, settings, patch],
   );
 
+  /** What Compare searches for to list a row's whole candidate list. */
+  const searchFor = useCallback(
+    (row: MatchRowState) => {
+      const title = settings?.titles.find((t) => t.key === row.title);
+      return settings && title ? { identity: title.identity, providers: settings.providers } : null;
+    },
+    [settings],
+  );
+
   const setVerdict = useCallback(
     (key: string, verdict: MatchVerdict | undefined) => patch(key, { verdict }),
     [patch],
@@ -264,6 +273,7 @@ export function useSubtitleMatches({
     checksSkipped,
     errors,
     findAnother,
+    searchFor,
     setVerdict,
     chooseCandidate,
     toggleUse,

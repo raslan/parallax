@@ -1,17 +1,19 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { subtitlesApi } from "@/lib/api";
+import { qk, subtitlesApi } from "@/lib/api";
 import { getErrorMessage } from "@/lib/api/client";
 import type { CompareVerdict } from "@/components/subtitles/CompareSheet";
 import type {
   Candidate,
+  Identity,
   LengthResult,
   MatchRowState,
   MatchVerdict,
   RunItem,
   ScanFile,
   SubtitleFileInfo,
+  SubtitleProvider,
 } from "@/types/subtitle";
 
 type Open =
@@ -38,7 +40,10 @@ export function useSubtitleCompare({
   setVerdict,
   retry,
   onExisting,
+  searchFor,
 }: {
+  /** What to search for to list a row's whole candidate list; null when the page cannot say. */
+  searchFor: (row: MatchRowState) => { identity: Identity; providers: SubtitleProvider[] } | null;
   /** What an existing subtitle's Sync, Find another and Delete do; resolves true when carried out. */
   onExisting: (
     verdict: "sync" | "find_another" | "delete",
@@ -120,6 +125,39 @@ export function useSubtitleCompare({
     close();
   };
 
+  // A search job keeps only a row's best five. Compare asks the sources for the whole list
+  // (one read-only search, cached on the server for ten minutes) and shows it after the five;
+  // if that fails the five stay, quietly.
+  const openRow = open?.kind === "row" ? open.row : null;
+  const rowSearch = openRow ? searchFor(openRow) : null;
+  const fullQ = useQuery({
+    queryKey: qk.subtitleRowSearch(
+      openRow?.video ?? "",
+      openRow?.language ?? "",
+      rowSearch?.providers ?? [],
+    ),
+    queryFn: () =>
+      subtitlesApi.search({
+        video_path: openRow?.video ?? "",
+        identity: rowSearch?.identity as Identity,
+        languages: [openRow?.language ?? ""],
+        providers: rowSearch?.providers ?? [],
+        ...(openRow?.season != null ? { season: openRow.season } : {}),
+        ...(openRow?.episode != null ? { episode: openRow.episode } : {}),
+      }),
+    enabled: openRow !== null && rowSearch !== null,
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+  const rowCandidates = useMemo(() => {
+    if (!openRow) return [];
+    const own = openRow.candidates;
+    if (!fullQ.data) return own;
+    const has = (c: Candidate) =>
+      own.some((o) => o.provider === c.provider && o.subtitle_id === c.subtitle_id);
+    return [...own, ...fullQ.data.candidates.filter((c) => !has(c))];
+  }, [openRow, fullQ.data]);
+
   const sheet =
     open?.kind === "row"
       ? {
@@ -131,7 +169,7 @@ export function useSubtitleCompare({
             season: open.row.season,
             episode: open.row.episode,
           },
-          candidates: open.row.candidates,
+          candidates: rowCandidates,
           existing: undefined,
           stray: false,
         }

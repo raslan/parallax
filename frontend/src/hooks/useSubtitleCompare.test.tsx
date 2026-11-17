@@ -60,11 +60,24 @@ function setup() {
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
   const onExisting = vi.fn<(...a: unknown[]) => Promise<boolean>>(async () => true);
+  const searchFor = vi.fn((r: MatchRowState) => ({
+    identity: { title: "Show", year: 2016, type: "tv" as const },
+    providers: ["subf2m" as const],
+    language: r.language,
+  }));
   const hook = renderHook(
-    () => useSubtitleCompare({ files: [video], chooseCandidate, setVerdict, retry, onExisting }),
+    () =>
+      useSubtitleCompare({
+        files: [video],
+        chooseCandidate,
+        setVerdict,
+        retry,
+        onExisting,
+        searchFor,
+      }),
     { wrapper },
   );
-  return { ...hook, chooseCandidate, setVerdict, retry, onExisting };
+  return { ...hook, chooseCandidate, setVerdict, retry, onExisting, searchFor };
 }
 
 const existingFile = {
@@ -192,6 +205,65 @@ describe("useSubtitleCompare", () => {
     act(() => result.current.openItem(item));
     await waitFor(() => expect(result.current.sheet?.id).toMatch(/^item:/));
     expect(result.current.sheet?.video).toMatchObject({ season: 1, episode: 1 });
+  });
+
+  it("opens a row with the candidates it has, then adds the rest of the server's list", async () => {
+    search.mockResolvedValue({
+      candidates: [cand("a"), cand("b"), cand("c"), cand("d")],
+      errors: [],
+    });
+    const { result } = setup();
+    act(() => result.current.openRow({ ...row, language: "en", season: 1, episode: 1 }));
+    // Nothing waits: the sheet opens at once on the stored candidates.
+    expect(result.current.sheet?.candidates.map((c) => c.subtitle_id)).toEqual(["a", "b"]);
+    await waitFor(() =>
+      expect(result.current.sheet?.candidates.map((c) => c.subtitle_id)).toEqual([
+        "a",
+        "b",
+        "c",
+        "d",
+      ]),
+    );
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledWith({
+      video_path: video.path,
+      identity: { title: "Show", year: 2016, type: "tv" },
+      languages: ["en"],
+      providers: ["subf2m"],
+      season: 1,
+      episode: 1,
+    });
+  });
+
+  it("keeps the row's own order first (a pick made earlier stays on top)", async () => {
+    search.mockResolvedValue({ candidates: [cand("x"), cand("a"), cand("c")], errors: [] });
+    const { result } = setup();
+    act(() => result.current.openRow({ ...row, candidates: [cand("b"), cand("a")] }));
+    await waitFor(() => expect(result.current.sheet?.candidates).toHaveLength(4));
+    expect(result.current.sheet?.candidates.map((c) => c.subtitle_id)).toEqual([
+      "b",
+      "a",
+      "x",
+      "c",
+    ]);
+  });
+
+  it("keeps what it has when the full search fails, without an error toast", async () => {
+    search.mockRejectedValue(new Error("offline"));
+    const { result } = setup();
+    act(() => result.current.openRow(row));
+    await waitFor(() => expect(search).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.sheet?.candidates.map((c) => c.subtitle_id)).toEqual(["a", "b"]);
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("does not search when the page cannot say what to search for", () => {
+    const { result, searchFor } = setup();
+    searchFor.mockReturnValue(null as never);
+    act(() => result.current.openRow(row));
+    expect(search).not.toHaveBeenCalled();
+    expect(result.current.sheet?.candidates).toHaveLength(2);
   });
 
   it("'Not this one' on a match row only sets the skip verdict", () => {

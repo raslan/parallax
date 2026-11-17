@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Job } from "@/types/job";
 import type {
   Candidate,
+  MatchRowState,
   ScanFile,
   SearchResult,
   SearchRowResult,
@@ -326,5 +327,20 @@ describe("useSubtitleMatches", () => {
       { provider: "subf2m", message: "Subf2m refused the request (403)", count: 1 },
     ]);
     expect(r.current.notes).toEqual([{ provider: "yts", message: "Films only", count: 1 }]);
+  });
+});
+
+describe("useSubtitleMatches searchFor", () => {
+  it("says what Compare searches for: the title's identity and the job's sources", async () => {
+    getJob.mockResolvedValue(job(settings([result(1)], { providers: ["subf2m", "yts"] })));
+    const { result: r } = setup(files);
+    await waitFor(() => expect(r.current.rows).toHaveLength(1));
+    expect(r.current.searchFor(r.current.rows[0] as MatchRowState)).toEqual({
+      identity: { title: "Show", year: 2016, type: "tv" },
+      providers: ["subf2m", "yts"],
+    });
+    expect(
+      r.current.searchFor({ ...(r.current.rows[0] as MatchRowState), title: "gone" }),
+    ).toBeNull();
   });
 });

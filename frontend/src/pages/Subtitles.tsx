@@ -111,6 +111,7 @@ export function Subtitles() {
     files,
     chooseCandidate: w.matches.chooseCandidate,
     setVerdict: w.matches.setVerdict,
+    searchFor: w.matches.searchFor,
     retry: w.retry,
     // Sync, Find another and Delete on an existing subtitle are the Manage panel's actions.
     onExisting: (v, video, file, stray) =>
